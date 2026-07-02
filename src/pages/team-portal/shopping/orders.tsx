@@ -1,23 +1,22 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import Head from "next/head";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt, MapPin, Camera, X, ExternalLink } from "lucide-react";
+import { ShoppingCart, Loader2, Plus, Check, ListChecks, Calendar, Clock, Users as UsersIcon, Receipt, MapPin, Camera, X, ExternalLink, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { ShoppingNav } from "@/components/navigation/ShoppingNav";
-import { PortalShell, PortalHeader, PortalCard, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
+import { PortalCard, StatTile } from "@/components/portal/ui";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -86,16 +85,25 @@ const orderStatusTone: Record<string, string> = {
   ready:      EMERALD_TONE,
 };
 
-export default function ShoppingOrdersPage() {
+function ShoppingOrdersPageInner() {
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [upcomingOrders, setUpcomingOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre restructure (2026-07-02): PostgREST errors from the
+  // two primary reads were never checked (Promise.all doesn't throw on
+  // a supabase error result), so a failed load rendered the "No
+  // shopping lists yet" empty state. Failures now land here and render
+  // a rose recovery card with Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
   const [tab, setTab] = useState<"lists" | "upcoming">("lists");
 
   const [creating, setCreating] = useState(false);
@@ -142,10 +150,16 @@ export default function ShoppingOrdersPage() {
           .limit(50)
           .returns<Order[]>(),
       ]);
+      // Supabase results carry errors as values, not throws - check both
+      // primary reads explicitly so a failure never paints an empty state.
+      if (listsRes.error) throw listsRes.error;
+      if (ordersRes.error) throw ordersRes.error;
       setLists(listsRes.data || []);
       setUpcomingOrders(ordersRes.data || []);
-    } catch (e) {
-      toast({ title: "Could not load orders", variant: "destructive" });
+      setLoadError(null);
+      setLoaded(true);
+    } catch (e: any) {
+      setLoadError(e?.message || "We couldn't reach the server. Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -189,16 +203,23 @@ export default function ShoppingOrdersPage() {
   };
 
   const claimList = async (id: string) => {
-    if (!user?.id) return;
+    // Busy guard: a double tap on Claim would fire two updates.
+    if (!user?.id || claimingId) return;
+    setClaimingId(id);
     try {
-      await supabase.from("shopping_lists").update({
+      // The update result carries the error as a value - the old bare
+      // await never threw, so a failed claim still toasted "List claimed".
+      const { error } = await supabase.from("shopping_lists").update({
         shopper_id: user.id,
         status: "in_progress",
       }).eq("id", id);
+      if (error) throw error;
       toast({ title: "List claimed" });
       load();
-    } catch {
-      toast({ title: "Could not claim", variant: "destructive" });
+    } catch (e: any) {
+      toast({ title: "Could not claim", description: e?.message ?? undefined, variant: "destructive" });
+    } finally {
+      setClaimingId(null);
     }
   };
 
@@ -305,24 +326,52 @@ export default function ShoppingOrdersPage() {
 
   const fmtTime = (t?: string | null) => t ? t.slice(0, 5) : "TBC";
 
+  const chipsReady = loaded && !loadError;
+
   return (
     <>
-      <Head><title>Active shop - CateringMS</title></Head>
-      <NoIndexMeta />
-      <ShoppingNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title="Active shop"
-            subtitle="Open team shopping lists, what is still left to buy, and upcoming events that need procurement."
-            icon={ShoppingCart}
-            actions={
-              <Button onClick={openCreate} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
-                <Plus className="h-4 w-4 mr-2" />Create list
+      <ShoppingPageShell
+        pageTitle="Active shop - CateringMS"
+        heading="Active shop"
+        subheading="Open team shopping lists, what is still left to buy, and upcoming events that need procurement."
+        icon={ShoppingCart}
+        headerAction={
+          <Button variant="outline" size="sm" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />Create list
+          </Button>
+        }
+        meta={
+          chipsReady ? (
+            <>
+              <span className={SHOPPING_HERO_CHIP}>
+                <span className={`h-1.5 w-1.5 rounded-full ${stats.open > 0 ? "bg-amber-400" : "bg-emerald-400"}`} />
+                {stats.open} open list{stats.open === 1 ? "" : "s"}
+              </span>
+              <span className={SHOPPING_HERO_CHIP}>
+                <Calendar className="h-3 w-3" />
+                {stats.upcoming} upcoming event{stats.upcoming === 1 ? "" : "s"}
+              </span>
+            </>
+          ) : undefined
+        }
+      >
+          {/* Recovery card: the primary reads failed. Keep any last-good
+              lists below, but never dress a failure up as an empty page. */}
+          {loadError && (
+            <div className="mb-5 rounded-lg border border-rose-200 bg-rose-50 p-5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/40">
+              <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load your shopping lists</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+              <Button
+                size="sm"
+                onClick={() => void load()}
+                disabled={loading}
+                className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
+                Retry
               </Button>
-            }
-          />
-          <PageWorkbench />
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
             <StatTile
@@ -405,7 +454,12 @@ export default function ShoppingOrdersPage() {
               </div>
             )
           ) : tab === "lists" ? (
-            lists.length === 0 ? (
+            loadError && lists.length === 0 ? (
+              // The recovery card above owns this state; keep the body quiet.
+              <PortalCard className="py-10 px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                Your lists are unavailable right now. Use Retry above to reload them.
+              </PortalCard>
+            ) : lists.length === 0 ? (
               <PortalCard className="text-center py-16">
                 <div className="w-12 h-12 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
                   <ListChecks className="h-6 w-6 text-slate-400 dark:text-slate-500" />
@@ -439,8 +493,9 @@ export default function ShoppingOrdersPage() {
                         </div>
                         {l.notes && <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{l.notes}</p>}
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
-                          {l.estimated_total != null && <span>Est. R {Number(l.estimated_total).toFixed(2)}</span>}
-                          {l.actual_total != null && <span className="text-slate-700 dark:text-slate-200 font-medium">Actual R {Number(l.actual_total).toFixed(2)}</span>}
+                          {/* Money via the tenant formatter, never hand-rolled toFixed. */}
+                          {l.estimated_total != null && <span>Est. {tenantCurrency.format(Number(l.estimated_total))}</span>}
+                          {l.actual_total != null && <span className="text-slate-700 dark:text-slate-200 font-medium">Actual {tenantCurrency.format(Number(l.actual_total))}</span>}
                         </div>
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
@@ -460,7 +515,11 @@ export default function ShoppingOrdersPage() {
               </PortalCard>
             )
           ) : (
-            upcomingOrders.length === 0 ? (
+            loadError && upcomingOrders.length === 0 ? (
+              <PortalCard className="py-10 px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                Upcoming events are unavailable right now. Use Retry above to reload them.
+              </PortalCard>
+            ) : upcomingOrders.length === 0 ? (
               <PortalCard className="text-center py-16">
                 <div className="w-12 h-12 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
                   <Calendar className="h-6 w-6 text-slate-400 dark:text-slate-500" />
@@ -514,8 +573,7 @@ export default function ShoppingOrdersPage() {
               </div>
             )
           )}
-        </PortalShell>
-      </div>
+      </ShoppingPageShell>
 
       <Dialog open={creating} onOpenChange={(o) => !o && closeCreate()}>
         <DialogContent>

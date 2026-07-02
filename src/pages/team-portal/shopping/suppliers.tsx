@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
-import Head from "next/head";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -9,15 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Search, Plus, Loader2, Phone, Mail, MapPin, Star, Pencil } from "lucide-react";
+import { Users, Search, Plus, Loader2, Phone, Mail, MapPin, Star, Pencil, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { ShoppingNav } from "@/components/navigation/ShoppingNav";
-import {
-  PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 // admin and team-portal surfaces stop drifting. The card UI stays
 // shopper-shaped but the data plumbing is unified.
 import { supplierService } from "@/services/supplierService";
+import { UserRole } from "@/types/app";
+import { cn } from "@/lib/utils";
 
 interface Supplier {
   id: string;
@@ -59,12 +57,17 @@ const blank: Partial<Supplier> = {
   notes: "",
 };
 
-export default function ShoppingSuppliersPage() {
+function ShoppingSuppliersPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [items, setItems] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  // Command-centre restructure: a failed read used to toast and fall
+  // through to "No suppliers yet", which reads as a healthy empty book.
+  // Failures now render a rose recovery card with a Retry instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
 
@@ -79,9 +82,11 @@ export default function ShoppingSuppliersPage() {
     // on supplier changes. Previously the list was mount-only - a
     // supplier added on the admin side stayed invisible until the
     // shopper hard-refreshed. Per-tenant channel + company_id filter
-    // matches the docs/perf-and-ops.md realtime pattern.
+    // matches the docs/perf-and-ops.md realtime pattern. Unique
+    // per-mount suffix: a fixed channel name collides when the page
+    // remounts fast (recurring realtime bug class in this repo).
     const channel = supabase
-      .channel(`shopping-suppliers:${user.company_id}`)
+      .channel(`shopping-suppliers-${user.company_id}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
@@ -94,8 +99,9 @@ export default function ShoppingSuppliersPage() {
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
   const load = async () => {
@@ -104,8 +110,10 @@ export default function ShoppingSuppliersPage() {
     try {
       const data = await supplierService.listForCompany(user.company_id);
       setItems(data as unknown as Supplier[]);
-    } catch (e) {
-      toast({ title: "Could not load suppliers", variant: "destructive" });
+      setLoadError(null);
+      setLoaded(true);
+    } catch (e: any) {
+      setLoadError(e?.message || "We couldn't reach the server. Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -191,168 +199,215 @@ export default function ShoppingSuppliersPage() {
     setEditing((s) => s ? { ...s, [k]: v } : s);
   };
 
+  const showSkeleton = loading && !loaded;
+  const chipsReady = loaded && !loadError;
+
   return (
     <>
-      <Head><title>Suppliers - CateringMS</title></Head>
-      <NoIndexMeta />
-      <ShoppingNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title="Suppliers"
-            subtitle="Your suppliers, contacts, payment terms and ratings"
-            icon={Users}
-            actions={
-              <Button onClick={openNew} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
-                <Plus className="h-4 w-4 mr-2" />Add supplier
-              </Button>
-            }
-          />
-          <PageWorkbench />
-
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
-            <StatTile
-              label={<span className="flex items-center gap-1">Total suppliers <InfoTooltip content="Every supplier saved against your company, whether they're active right now or not." /></span>}
-              value={stats.total}
-            />
-            {/* Active is a positive status, so a subtle emerald value is semantic, not decoration. */}
-            <StatTile
-              label={<span className="flex items-center gap-1">Active <InfoTooltip content="Suppliers you're currently using.\n\nThese are the ones that show up when you're picking who to buy from." /></span>}
-              value={<span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>}
-            />
-            {/* Star is the rating glyph: amber is reserved for action + this semantic mark. */}
-            <StatTile
-              label={<span className="flex items-center gap-1">Avg rating <InfoTooltip content="Average rating across every supplier that has a score from 1 to 5." /></span>}
-              value={<span className="flex items-center gap-1.5">{stats.avgRating.toFixed(1)}<Star className="h-5 w-5 text-amber-500 fill-amber-500" /></span>}
-            />
+      <ShoppingPageShell
+        pageTitle="Suppliers - CateringMS"
+        heading="Suppliers"
+        subheading={
+          chipsReady
+            ? stats.total > 0
+              ? `${stats.active} active supplier${stats.active === 1 ? "" : "s"} on the books${stats.total > stats.active ? `, ${stats.total - stats.active} inactive` : ""}.`
+              : "No suppliers yet. Add the people you buy from to get started."
+            : "Your suppliers, contacts, payment terms and ratings."
+        }
+        icon={Users}
+        headerAction={
+          <Button size="sm" onClick={openNew} className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
+            <Plus className="h-4 w-4 mr-2" />Add supplier
+          </Button>
+        }
+        meta={
+          chipsReady ? (
+            <>
+              <span className={SHOPPING_HERO_CHIP}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", stats.active > 0 ? "bg-emerald-400" : "bg-slate-400")} />
+                {stats.active} active
+              </span>
+              <span className={SHOPPING_HERO_CHIP}>
+                <Users className="h-3 w-3" />
+                {stats.total} total
+              </span>
+              {stats.avgRating > 0 && (
+                <span className={SHOPPING_HERO_CHIP}>
+                  <Star className="h-3 w-3" />
+                  {stats.avgRating.toFixed(1)} avg rating
+                </span>
+              )}
+            </>
+          ) : undefined
+        }
+      >
+        {/* Recovery card: the primary read failed. Never show the "No
+            suppliers yet" empty state over a failed load. */}
+        {loadError && (
+          <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm dark:border-rose-900 dark:bg-slate-900">
+            <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load your suppliers</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+            <Button
+              size="sm"
+              onClick={() => void load()}
+              disabled={loading}
+              className="bg-brand-primary hover:opacity-90 text-white"
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin motion-reduce:animate-none")} />
+              Retry
+            </Button>
           </div>
+        )}
 
-          <PortalCard className="mb-6">
-            <PortalCardHeader title="Find a supplier" />
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
-                <Input className="pl-9" placeholder="Search by name, contact, city..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-              {/* Toggle is a selection state, not a primary action: emerald
-                  reads "active filter on", outline reads inactive. Amber stays
-                  reserved for the primary Add action. */}
-              <Button
-                variant="outline"
-                onClick={() => setShowInactive((v) => !v)}
-                aria-pressed={showInactive}
-                className={
-                  showInactive
-                    ? "rounded-lg border-brand-primary/30 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/15 dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary dark:hover:bg-brand-primary/20"
-                    : "rounded-lg"
-                }
-              >
-                {showInactive ? "Showing inactive" : "Active only"}
-              </Button>
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+          <StatTile
+            label={<span className="flex items-center gap-1">Total suppliers <InfoTooltip content="Every supplier saved against your company, whether they're active right now or not." /></span>}
+            value={stats.total}
+          />
+          {/* Active is a positive status, so a subtle emerald value is semantic, not decoration. */}
+          <StatTile
+            label={<span className="flex items-center gap-1">Active <InfoTooltip content="Suppliers you're currently using.\n\nThese are the ones that show up when you're picking who to buy from." /></span>}
+            value={<span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>}
+          />
+          {/* Star is the rating glyph: amber is reserved for action + this semantic mark. */}
+          <StatTile
+            label={<span className="flex items-center gap-1">Avg rating <InfoTooltip content="Average rating across every supplier that has a score from 1 to 5." /></span>}
+            value={<span className="flex items-center gap-1.5">{stats.avgRating.toFixed(1)}<Star className="h-5 w-5 text-amber-500 fill-amber-500" /></span>}
+          />
+        </div>
+
+        <PortalCard className="mb-6">
+          <PortalCardHeader title="Find a supplier" />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <Input className="pl-9" placeholder="Search by name, contact, city..." value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            {/* Toggle is a selection state, not a primary action: emerald
+                reads "active filter on", outline reads inactive. Amber stays
+                reserved for the primary Add action. */}
+            <Button
+              variant="outline"
+              onClick={() => setShowInactive((v) => !v)}
+              aria-pressed={showInactive}
+              className={
+                showInactive
+                  ? "rounded-lg border-brand-primary/30 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/15 dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary dark:hover:bg-brand-primary/20"
+                  : "rounded-lg"
+              }
+            >
+              {showInactive ? "Showing inactive" : "Active only"}
+            </Button>
+          </div>
+        </PortalCard>
+
+        {showSkeleton ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" aria-busy="true">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <PortalCard key={i}>
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3.5 w-1/2" />
+                  <Skeleton className="h-3.5 w-3/4" />
+                </div>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <Skeleton className="h-5 w-12 rounded-md" />
+                  <Skeleton className="h-5 w-14 rounded-md" />
+                </div>
+              </PortalCard>
+            ))}
+          </div>
+        ) : loadError && items.length === 0 ? (
+          /* The recovery card above owns this state; keep the body quiet. */
+          <PortalCard padded={false}>
+            <div className="py-10 px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+              Your suppliers are unavailable right now. Use Retry above to reload them.
             </div>
           </PortalCard>
-
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <PortalCard key={i}>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="space-y-2 flex-1">
-                      <Skeleton className="h-4 w-2/3" />
-                      <Skeleton className="h-3 w-1/3" />
-                    </div>
-                    <Skeleton className="h-8 w-8 rounded-md" />
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-3.5 w-1/2" />
-                    <Skeleton className="h-3.5 w-3/4" />
-                  </div>
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <Skeleton className="h-5 w-12 rounded-md" />
-                    <Skeleton className="h-5 w-14 rounded-md" />
-                  </div>
-                </PortalCard>
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <PortalCard padded={false}>
-              <div className="text-center py-16 px-6">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                  <Users className="h-6 w-6 text-slate-400 dark:text-slate-500" />
-                </div>
-                <p className="font-medium text-slate-900 dark:text-white">
-                  {search.trim() ? "No suppliers match your search" : "No suppliers yet"}
-                </p>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                  {search.trim()
-                    ? "Try a different name, contact or city, or clear the search to see everyone."
-                    : "Add the people you buy from so you can track contacts, payment terms and ratings in one place."}
-                </p>
-                {!search.trim() && (
-                  <Button onClick={openNew} className="mt-4 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
-                    <Plus className="h-4 w-4 mr-2" />Add your first supplier
-                  </Button>
-                )}
+        ) : filtered.length === 0 ? (
+          <PortalCard padded={false}>
+            <div className="text-center py-16 px-6">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+                <Users className="h-6 w-6 text-slate-400 dark:text-slate-500" />
               </div>
-            </PortalCard>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {filtered.map((s) => (
-                <PortalCard
-                  key={s.id}
-                  interactive
-                  onClick={() => openEdit(s)}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Edit ${s.supplier_name ?? "supplier"}`}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      openEdit(s);
-                    }
-                  }}
-                  className={"group" + (!s.is_active ? " opacity-60" : "")}
-                >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-slate-900 dark:text-white truncate">{s.supplier_name}</div>
-                      {s.contact_person && <div className="text-xs text-slate-600 dark:text-slate-400 truncate">{s.contact_person}</div>}
-                    </div>
-                    {/* Edit affordance stays quiet until the card is hovered/focused. */}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => { e.stopPropagation(); openEdit(s); }}
-                      aria-label={`Edit ${s.supplier_name ?? "supplier"}`}
-                      className="text-slate-500 dark:text-slate-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 motion-reduce:transition-none motion-reduce:opacity-100"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                    {s.phone && <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />{s.phone}</div>}
-                    {s.email && <div className="flex items-center gap-2 truncate"><Mail className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" /><span className="truncate">{s.email}</span></div>}
-                    {(s.city || s.address_line1) && <div className="flex items-center gap-2 truncate"><MapPin className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" /><span className="truncate">{[s.address_line1, s.city].filter(Boolean).join(", ")}</span></div>}
-                  </div>
-                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    {s.rating != null && (
-                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 text-xs tabular-nums flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-amber-500 text-amber-500" />{s.rating}/5
-                      </Badge>
-                    )}
-                    {s.payment_terms != null && (
-                      <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs tabular-nums">Net {s.payment_terms}</Badge>
-                    )}
-                    {!s.is_active && (
-                      <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 text-xs">Inactive</Badge>
-                    )}
-                  </div>
-                </PortalCard>
-              ))}
+              <p className="font-medium text-slate-900 dark:text-white">
+                {search.trim() ? "No suppliers match your search" : "No suppliers yet"}
+              </p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                {search.trim()
+                  ? "Try a different name, contact or city, or clear the search to see everyone."
+                  : "Add the people you buy from so you can track contacts, payment terms and ratings in one place."}
+              </p>
+              {!search.trim() && (
+                <Button onClick={openNew} className="mt-4 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg">
+                  <Plus className="h-4 w-4 mr-2" />Add your first supplier
+                </Button>
+              )}
             </div>
-          )}
-        </PortalShell>
-      </div>
+          </PortalCard>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {filtered.map((s) => (
+              <PortalCard
+                key={s.id}
+                interactive
+                onClick={() => openEdit(s)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Edit ${s.supplier_name ?? "supplier"}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openEdit(s);
+                  }
+                }}
+                className={"group" + (!s.is_active ? " opacity-60" : "")}
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold text-slate-900 dark:text-white truncate">{s.supplier_name}</div>
+                    {s.contact_person && <div className="text-xs text-slate-600 dark:text-slate-400 truncate">{s.contact_person}</div>}
+                  </div>
+                  {/* Edit affordance stays quiet until the card is hovered/focused. */}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => { e.stopPropagation(); openEdit(s); }}
+                    aria-label={`Edit ${s.supplier_name ?? "supplier"}`}
+                    className="text-slate-500 dark:text-slate-400 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 motion-reduce:transition-none motion-reduce:opacity-100"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
+                  {s.phone && <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />{s.phone}</div>}
+                  {s.email && <div className="flex items-center gap-2 truncate"><Mail className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" /><span className="truncate">{s.email}</span></div>}
+                  {(s.city || s.address_line1) && <div className="flex items-center gap-2 truncate"><MapPin className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" /><span className="truncate">{[s.address_line1, s.city].filter(Boolean).join(", ")}</span></div>}
+                </div>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  {s.rating != null && (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 text-xs tabular-nums flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-amber-500 text-amber-500" />{s.rating}/5
+                    </Badge>
+                  )}
+                  {s.payment_terms != null && (
+                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs tabular-nums">Net {s.payment_terms}</Badge>
+                  )}
+                  {!s.is_active && (
+                    <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 text-xs">Inactive</Badge>
+                  )}
+                </div>
+              </PortalCard>
+            ))}
+          </div>
+        )}
+      </ShoppingPageShell>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && close()}>
         <DialogContent className="max-w-xl">
@@ -417,5 +472,16 @@ export default function ShoppingSuppliersPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Route guard was missing on this page pre-restructure (the nav hid it
+// but the URL was open to any signed-in role). Same allow-list as the
+// shopping dashboard.
+export default function ShoppingSuppliersPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+      <ShoppingSuppliersPageInner />
+    </ProtectedRoute>
   );
 }

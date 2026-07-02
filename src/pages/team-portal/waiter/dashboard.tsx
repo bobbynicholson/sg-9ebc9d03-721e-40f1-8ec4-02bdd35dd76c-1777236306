@@ -37,12 +37,18 @@ function WaiterDashboardInner() {
         </WidgetErrorBoundary>
       </div>
 
+      {/* Clock + history share the driver widgets; boundary-wrap them so
+          a crash in either can't take the whole service page down. */}
       <div id="clock" className="mb-4 sm:mb-6 scroll-mt-24">
-        <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
+        <WidgetErrorBoundary label="Shift clock">
+          <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
+        </WidgetErrorBoundary>
       </div>
 
       <div className="mb-4 sm:mb-6">
-        <DriverShiftHistory driverId={user?.id} />
+        <WidgetErrorBoundary label="Shift history">
+          <DriverShiftHistory driverId={user?.id} />
+        </WidgetErrorBoundary>
       </div>
     </WaiterPageShell>
   );

@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
-import Head from "next/head";
 import { toLocalISO } from "@/lib/localDate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,21 +20,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download, Package, PackageX } from "lucide-react";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download, Package, PackageX, RefreshCw } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { ShoppingNav } from "@/components/navigation/ShoppingNav";
-import { Footer } from "@/components/Footer";
+import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { UserRole } from "@/types/app";
+import { cn } from "@/lib/utils";
 
-export default function ShoppingInventoryPage() {
+function ShoppingInventoryPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -46,6 +44,12 @@ export default function ShoppingInventoryPage() {
 
   const [items, setItems] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  // Command-centre restructure: a failed primary read used to toast and
+  // fall through to the "No inventory yet" empty state, which reads as a
+  // healthy warehouse with nothing in it. Failures now land here and
+  // render as a rose recovery card with a Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
   const [belowParOnly, setBelowParOnly] = useState(false);
@@ -54,6 +58,9 @@ export default function ShoppingInventoryPage() {
   const [newStock, setNewStock] = useState<string>("");
   const [adjustNotes, setAdjustNotes] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  // Draft-reorder call in flight (blocks a double click that would land
+  // two draft shopping lists).
+  const [drafting, setDrafting] = useState(false);
 
   // Phase 7 #8: per-item cycle count history. Opens a dialog
   // showing the last 30 inventory_transactions rows (already
@@ -85,6 +92,7 @@ export default function ShoppingInventoryPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     loadInventory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
   const loadInventory = async () => {
@@ -93,9 +101,11 @@ export default function ShoppingInventoryPage() {
     try {
       const data = await inventoryService.getInventory(user.company_id);
       setItems(data);
-    } catch (e) {
+      setLoadError(null);
+      setLoaded(true);
+    } catch (e: any) {
       console.error("Error loading inventory:", e);
-      toast({ title: "Could not load inventory", variant: "destructive" });
+      setLoadError(e?.message || "We couldn't reach the server. Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -172,6 +182,79 @@ export default function ShoppingInventoryPage() {
     }
   };
 
+  // Phase 13 #10: inventory CSV export. Pulls the currently filtered
+  // list (category + below-par + search all flow through filtered) so
+  // the export matches what the operator sees.
+  const exportCsv = () => {
+    if (filtered.length === 0) {
+      toast({ title: "Nothing to export", description: "Adjust filters until at least one item is visible." });
+      return;
+    }
+    const headers = [
+      "Item", "SKU", "Category", "Unit", "On hand", "Min", "Reorder qty",
+      "Cost / unit", "Stock value", "Storage location",
+    ];
+    const esc = (v: any) => {
+      if (v == null) return "";
+      const s = String(v).replace(/"/g, '""');
+      return /[",\n]/.test(s) ? `"${s}"` : s;
+    };
+    const lines = [headers.join(",")];
+    for (const i of filtered) {
+      const stockVal = Number(i.current_stock || 0) * Number(i.cost_per_unit || 0);
+      lines.push([
+        esc(i.item_name), esc(i.sku), esc(i.category),
+        esc(i.unit_of_measure),
+        esc(i.current_stock), esc(i.minimum_stock), esc((i as any).reorder_quantity),
+        esc(i.cost_per_unit), esc(stockVal.toFixed(2)),
+        esc(i.storage_location),
+      ].join(","));
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const stamp = toLocalISO(new Date());
+    a.download = `inventory_${stamp}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Phase 5 #5: one-click 'draft a reorder list' from every below-par
+  // inventory item. Lands a draft shopping_lists row the operator can
+  // edit before assigning. Hidden when there's nothing to reorder.
+  const draftReorder = async () => {
+    if (drafting) return;
+    setDrafting(true);
+    try {
+      const res = await fetch("/api/admin/inventory/draft-reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        throw new Error(j?.error || "Could not draft reorder");
+      }
+      toast({
+        title: "Reorder draft created",
+        description: `${j.item_count} item${j.item_count === 1 ? "" : "s"} on the list. Review supplier + quantity before assigning.`,
+      });
+      if (j.list_id) {
+        window.location.href = withSlug(`/team-portal/shopping/orders?listId=${j.list_id}`);
+        return; // keep the button disabled while the browser navigates
+      }
+    } catch (e: any) {
+      toast({
+        title: "Could not draft reorder",
+        description: e?.message || "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setDrafting(false);
+    }
+  };
+
   // Semantic stock-level scale (kept intentionally): rose = out,
   // amber = below par, brand = in stock. Dark variants added so the
   // signal survives dark mode without changing the meaning.
@@ -191,299 +274,268 @@ export default function ShoppingInventoryPage() {
     return "In stock";
   };
 
+  const showSkeleton = loading && !loaded;
+  const chipsReady = loaded && !loadError;
+
   return (
     <>
-      <Head>
-        <title>Inventory - CateringMS</title>
-      </Head>
-      <NoIndexMeta />
-      <ShoppingNav />
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          {/* Header matches the shared portal vocabulary: neutral icon
-              tile with an amber glyph, solid heading. Amber is reserved
-              for primary actions and selected state only. */}
-          <PortalHeader
-            title="Inventory"
-            subtitle="Live inventory levels. Click any row to adjust stock with an audit entry."
-            icon={Warehouse}
-            actions={
-              <>
-            {/* Phase 13 #10: inventory CSV export. Pulls the
-                currently filtered list (category + below-par +
-                search all flow through filtered) so the export
-                matches what the operator sees. */}
-            <Button
-              variant="outline"
-              className="rounded-lg"
-              onClick={() => {
-                if (filtered.length === 0) {
-                  toast({ title: "Nothing to export", description: "Adjust filters until at least one item is visible." });
-                  return;
-                }
-                const headers = [
-                  "Item", "SKU", "Category", "Unit", "On hand", "Min", "Reorder qty",
-                  "Cost / unit", "Stock value", "Storage location",
-                ];
-                const esc = (v: any) => {
-                  if (v == null) return "";
-                  const s = String(v).replace(/"/g, '""');
-                  return /[",\n]/.test(s) ? `"${s}"` : s;
-                };
-                const lines = [headers.join(",")];
-                for (const i of filtered) {
-                  const stockVal = Number(i.current_stock || 0) * Number(i.cost_per_unit || 0);
-                  lines.push([
-                    esc(i.item_name), esc(i.sku), esc(i.category),
-                    esc(i.unit_of_measure),
-                    esc(i.current_stock), esc(i.minimum_stock), esc((i as any).reorder_quantity),
-                    esc(i.cost_per_unit), esc(stockVal.toFixed(2)),
-                    esc(i.storage_location),
-                  ].join(","));
-                }
-                const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                const stamp = toLocalISO(new Date());
-                a.download = `inventory_${stamp}.csv`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-            >
+      <ShoppingPageShell
+        pageTitle="Inventory - CateringMS"
+        heading="Inventory"
+        subheading={
+          chipsReady
+            ? stats.below > 0
+              ? `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, ${stats.below} at or below par.`
+              : `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, everything above par.`
+            : "Live stock levels. Click any row to adjust stock with an audit entry."
+        }
+        icon={Warehouse}
+        headerAction={
+          <>
+            <Button variant="outline" size="sm" onClick={exportCsv}>
               <Download className="h-4 w-4 mr-2" />
               Export CSV
             </Button>
-            {/* Phase 5 #5: one-click 'draft a reorder list' from
-                every below-par inventory item. Lands a draft
-                shopping_lists row the operator can edit before
-                assigning. Hidden when there's nothing to reorder. */}
-            {stats.below > 0 && (
-              <Button
-                variant="default"
-                className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg self-start sm:self-auto"
-                onClick={async () => {
-                  try {
-                    const res = await fetch("/api/admin/inventory/draft-reorder", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({}),
-                    });
-                    const j = await res.json().catch(() => ({}));
-                    if (!res.ok || !j.ok) {
-                      throw new Error(j?.error || "Could not draft reorder");
-                    }
-                    toast({
-                      title: "Reorder draft created",
-                      description: `${j.item_count} item${j.item_count === 1 ? "" : "s"} on the list. Review supplier + quantity before assigning.`,
-                    });
-                    if (j.list_id) {
-                      window.location.href = withSlug(`/team-portal/shopping/orders?listId=${j.list_id}`);
-                    }
-                  } catch (e: any) {
-                    toast({
-                      title: "Could not draft reorder",
-                      description: e?.message || "Try again",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-              >
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Draft reorder ({stats.below})
+            {chipsReady && stats.below > 0 && (
+              <Button variant="outline" size="sm" onClick={() => void draftReorder()} disabled={drafting}>
+                {drafting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                )}
+                {drafting ? "Drafting..." : `Draft reorder (${stats.below})`}
               </Button>
             )}
-              </>
-            }
-          />
-          <PageWorkbench />
-
-          {/* KPI tiles use the shared StatTile: neutral slate values, a
-              slate glyph, soft shadow + hairline + rounded-2xl. The
-              semantic stock-level colour lives where it's per-row
-              actionable (the table status badges), not on the counts. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <StatTile
-              label={<span className="flex items-center gap-1">Total items <InfoTooltip content="Number of active inventory lines on the books for your company." /></span>}
-              value={stats.total}
-              icon={Package}
-            />
-            <StatTile
-              label={<span className="flex items-center gap-1">Below par <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
-              value={stats.below}
-              icon={AlertTriangle}
-            />
-            <StatTile
-              label={<span className="flex items-center gap-1">Out of stock <InfoTooltip content="Items that have run out completely.\n\nYou cannot fulfil orders that need these until they're restocked." /></span>}
-              value={stats.out}
-              icon={PackageX}
-            />
-            <StatTile
-              label={<span className="flex items-center gap-1">Stock value <InfoTooltip content="Total value of every item currently sitting in stock, based on the last known cost per unit." /></span>}
-              value={`${tenantCurrency.symbol} ${stats.valueR.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
-            />
+          </>
+        }
+        meta={
+          chipsReady ? (
+            <>
+              <span className={SHOPPING_HERO_CHIP}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", stats.below > 0 ? "bg-amber-400" : "bg-emerald-400")} />
+                {stats.below > 0 ? `${stats.below} below par` : "All above par"}
+              </span>
+              {stats.out > 0 && (
+                <span className={SHOPPING_HERO_CHIP}>
+                  <PackageX className="h-3 w-3" />
+                  {stats.out} out of stock
+                </span>
+              )}
+              <span className={SHOPPING_HERO_CHIP}>
+                <Package className="h-3 w-3" />
+                {tenantCurrency.format(stats.valueR, 0)} on hand
+              </span>
+            </>
+          ) : undefined
+        }
+      >
+        {/* Recovery card: the primary read failed. Never dress a failed
+            load up as an empty warehouse. */}
+        {loadError && (
+          <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm dark:border-rose-900 dark:bg-slate-900">
+            <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load your inventory</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+            <Button
+              size="sm"
+              onClick={() => void loadInventory()}
+              disabled={loading}
+              className="bg-brand-primary hover:opacity-90 text-white"
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin motion-reduce:animate-none")} />
+              Retry
+            </Button>
           </div>
+        )}
 
-          <PortalCard padded={false} className="mb-6 p-4 sm:p-5">
-            <PortalCardHeader title="Filter" />
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
-                <Input
-                  placeholder="Search by name, SKU, category, location..."
-                  className="pl-9"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant={belowParOnly ? "default" : "outline"}
-                onClick={() => setBelowParOnly((v) => !v)}
-                aria-pressed={belowParOnly}
-                className={belowParOnly ? "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg" : "rounded-lg"}
-              >
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                Below par only
-              </Button>
+        {/* KPI tiles use the shared StatTile: neutral slate values, a
+            slate glyph, soft shadow + hairline + rounded-2xl. The
+            semantic stock-level colour lives where it's per-row
+            actionable (the table status badges), not on the counts. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          <StatTile
+            label={<span className="flex items-center gap-1">Total items <InfoTooltip content="Number of active inventory lines on the books for your company." /></span>}
+            value={stats.total}
+            icon={Package}
+          />
+          <StatTile
+            label={<span className="flex items-center gap-1">Below par <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
+            value={stats.below}
+            icon={AlertTriangle}
+          />
+          <StatTile
+            label={<span className="flex items-center gap-1">Out of stock <InfoTooltip content="Items that have run out completely.\n\nYou cannot fulfil orders that need these until they're restocked." /></span>}
+            value={stats.out}
+            icon={PackageX}
+          />
+          <StatTile
+            label={<span className="flex items-center gap-1">Stock value <InfoTooltip content="Total value of every item currently sitting in stock, based on the last known cost per unit." /></span>}
+            value={tenantCurrency.format(stats.valueR, 0)}
+          />
+        </div>
+
+        <PortalCard padded={false} className="mb-6 p-4 sm:p-5">
+          <PortalCardHeader title="Filter" />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+              <Input
+                placeholder="Search by name, SKU, category, location..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
-          </PortalCard>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant={belowParOnly ? "default" : "outline"}
+              onClick={() => setBelowParOnly((v) => !v)}
+              aria-pressed={belowParOnly}
+              className={belowParOnly ? "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg" : "rounded-lg"}
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Below par only
+            </Button>
+          </div>
+        </PortalCard>
 
-          <PortalCard padded={false} className="overflow-hidden">
-              {loading ? (
-                /* Skeleton rows instead of a centred spinner: the layout
-                   of the real table is previewed so the swap-in is calm
-                   (product.md: skeletons for loading, not spinners). */
-                <div className="divide-y divide-slate-100 dark:divide-slate-800" aria-busy="true" aria-live="polite">
-                  <span className="sr-only">Loading inventory</span>
-                  {Array.from({ length: 6 }).map((_, idx) => (
-                    <div key={idx} className="flex items-center gap-4 px-4 py-3.5">
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="h-3.5 w-40 max-w-[60%] rounded bg-slate-200 dark:bg-slate-800 motion-safe:animate-pulse" />
-                        <div className="h-2.5 w-24 max-w-[35%] rounded bg-slate-100 dark:bg-slate-800/60 motion-safe:animate-pulse" />
-                      </div>
-                      <div className="hidden sm:block h-3 w-16 rounded bg-slate-100 dark:bg-slate-800/60 motion-safe:animate-pulse" />
-                      <div className="h-3.5 w-14 rounded bg-slate-200 dark:bg-slate-800 motion-safe:animate-pulse" />
-                      <div className="h-5 w-20 rounded-full bg-slate-100 dark:bg-slate-800/60 motion-safe:animate-pulse" />
-                      <div className="hidden md:block h-3 w-16 rounded bg-slate-100 dark:bg-slate-800/60 motion-safe:animate-pulse" />
+        <PortalCard padded={false} className="overflow-hidden">
+            {showSkeleton ? (
+              /* Skeleton rows instead of a centred spinner: the layout
+                 of the real table is previewed so the swap-in is calm
+                 (product.md: skeletons for loading, not spinners). */
+              <div className="divide-y divide-slate-100 dark:divide-slate-800" aria-busy="true" aria-live="polite">
+                <span className="sr-only">Loading inventory</span>
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <div key={idx} className="flex items-center gap-4 px-4 py-3.5">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="h-3.5 w-40 max-w-[60%] rounded bg-slate-200 dark:bg-slate-800 motion-safe:animate-pulse" />
+                      <div className="h-2.5 w-24 max-w-[35%] rounded bg-slate-100 dark:bg-slate-800/60 motion-safe:animate-pulse" />
                     </div>
+                    <div className="hidden sm:block h-3 w-16 rounded bg-slate-100 dark:bg-slate-800/60 motion-safe:animate-pulse" />
+                    <div className="h-3.5 w-14 rounded bg-slate-200 dark:bg-slate-800 motion-safe:animate-pulse" />
+                    <div className="h-5 w-20 rounded-full bg-slate-100 dark:bg-slate-800/60 motion-safe:animate-pulse" />
+                    <div className="hidden md:block h-3 w-16 rounded bg-slate-100 dark:bg-slate-800/60 motion-safe:animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            ) : loadError && items.length === 0 ? (
+              /* The recovery card above owns this state; keep the card body quiet. */
+              <div className="py-10 px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                Your inventory is unavailable right now. Use Retry above to reload it.
+              </div>
+            ) : filtered.length === 0 ? (
+              items.length === 0 ? (
+                /* True empty (no inventory at all): teach the next action. */
+                <div className="text-center py-16 px-6">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                    <Warehouse className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white">No inventory yet</p>
+                  <p className="mx-auto mt-1.5 max-w-sm text-sm text-slate-600 dark:text-slate-400">
+                    Once items are added to your catalogue they show up here with live stock levels. Each adjustment you make is logged as an audit entry.
+                  </p>
+                </div>
+              ) : (
+                /* Filtered to nothing: guide back to results. */
+                <div className="text-center py-16 px-6">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                    <Search className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white">No items match the current filter</p>
+                  <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">Try clearing the search or switching the category{belowParOnly ? ", or turn off “Below par only”" : ""}.</p>
+                </div>
+              )
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Item <InfoTooltip content="The item's name and SKU code." /></span></th>
+                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Category <InfoTooltip content="Category used to group similar items together." /></span></th>
+                        <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Stock <InfoTooltip content="How much of this item is sitting in stock right now." /></span></th>
+                        <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Min <InfoTooltip content="The minimum level for this item.\n\nOnce stock dips below this, it's time to reorder." /></span></th>
+                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Quick read on the item: out of stock, below par, or in stock." /></span></th>
+                        <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Cost / unit <InfoTooltip content="The last price you paid per unit.\n\nUsed to work out the total value of stock on hand." /></span></th>
+                        <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {filtered.map((i) => (
+                        <tr
+                          key={i.id}
+                          onClick={() => openEdit(i)}
+                          className="group cursor-pointer transition-colors duration-150 ease-standard hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-slate-900 dark:text-white">{i.item_name}</div>
+                            {i.sku && <div className="text-xs text-slate-500 dark:text-slate-400">SKU {i.sku}</div>}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{i.category ?? "--"}</td>
+                          <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900 dark:text-white">
+                            {Number(i.current_stock ?? 0)} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{i.unit_of_measure}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-600 dark:text-slate-400">{Number(i.minimum_stock ?? 0)}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
+                            {i.cost_per_unit ? tenantCurrency.format(Number(i.cost_per_unit)) : "--"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openHistory(i); }} title="View movement history" aria-label={`View movement history for ${i.item_name}`}>
+                                <History className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openEdit(i); }} aria-label={`Adjust stock for ${i.item_name}`}>
+                                <Pencil className="h-4 w-4 mr-1" /> Adjust
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile card list */}
+                <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                  {filtered.map((i) => (
+                    <button
+                      key={i.id}
+                      onClick={() => openEdit(i)}
+                      aria-label={`Adjust stock for ${i.item_name}`}
+                      className="w-full text-left p-4 flex items-start justify-between gap-3 transition-colors duration-150 ease-standard hover:bg-slate-50 dark:hover:bg-slate-800/60 active:bg-slate-100 dark:active:bg-slate-800"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{i.category ?? "--"}{i.sku ? `, SKU ${i.sku}` : ""}</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
+                          <span className="text-sm tabular-nums text-slate-900 dark:text-white">
+                            <span className="font-semibold">{Number(i.current_stock ?? 0)}</span>
+                            <span className="text-slate-500 dark:text-slate-400"> / {Number(i.minimum_stock ?? 0)} {i.unit_of_measure}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 mt-1 flex-shrink-0" />
+                    </button>
                   ))}
                 </div>
-              ) : filtered.length === 0 ? (
-                items.length === 0 ? (
-                  /* True empty (no inventory at all): teach the next action. */
-                  <div className="text-center py-16 px-6">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                      <Warehouse className="h-6 w-6 text-slate-400 dark:text-slate-500" />
-                    </div>
-                    <p className="font-semibold text-slate-900 dark:text-white">No inventory yet</p>
-                    <p className="mx-auto mt-1.5 max-w-sm text-sm text-slate-600 dark:text-slate-400">
-                      Once items are added to your catalogue they show up here with live stock levels. Each adjustment you make is logged as an audit entry.
-                    </p>
-                  </div>
-                ) : (
-                  /* Filtered to nothing: guide back to results. */
-                  <div className="text-center py-16 px-6">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                      <Search className="h-6 w-6 text-slate-500 dark:text-slate-400" />
-                    </div>
-                    <p className="font-semibold text-slate-900 dark:text-white">No items match the current filter</p>
-                    <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">Try clearing the search or switching the category{belowParOnly ? ", or turn off “Below par only”" : ""}.</p>
-                  </div>
-                )
-              ) : (
-                <>
-                  {/* Desktop table */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Item <InfoTooltip content="The item's name and SKU code." /></span></th>
-                          <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Category <InfoTooltip content="Category used to group similar items together." /></span></th>
-                          <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Stock <InfoTooltip content="How much of this item is sitting in stock right now." /></span></th>
-                          <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Min <InfoTooltip content="The minimum level for this item.\n\nOnce stock dips below this, it's time to reorder." /></span></th>
-                          <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Quick read on the item: out of stock, below par, or in stock." /></span></th>
-                          <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Cost / unit <InfoTooltip content="The last price you paid per unit.\n\nUsed to work out the total value of stock on hand." /></span></th>
-                          <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {filtered.map((i) => (
-                          <tr
-                            key={i.id}
-                            onClick={() => openEdit(i)}
-                            className="group cursor-pointer transition-colors duration-150 ease-standard hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                          >
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-slate-900 dark:text-white">{i.item_name}</div>
-                              {i.sku && <div className="text-xs text-slate-500 dark:text-slate-400">SKU {i.sku}</div>}
-                            </td>
-                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{i.category ?? "--"}</td>
-                            <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900 dark:text-white">
-                              {Number(i.current_stock ?? 0)} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{i.unit_of_measure}</span>
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-slate-600 dark:text-slate-400">{Number(i.minimum_stock ?? 0)}</td>
-                            <td className="px-4 py-3">
-                              <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300">
-                              {i.cost_per_unit ? `${tenantCurrency.symbol} ${Number(i.cost_per_unit).toFixed(2)}` : "--"}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openHistory(i); }} title="View movement history" aria-label={`View movement history for ${i.item_name}`}>
-                                  <History className="h-4 w-4" />
-                                </Button>
-                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); openEdit(i); }} aria-label={`Adjust stock for ${i.item_name}`}>
-                                  <Pencil className="h-4 w-4 mr-1" /> Adjust
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile card list */}
-                  <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-                    {filtered.map((i) => (
-                      <button
-                        key={i.id}
-                        onClick={() => openEdit(i)}
-                        aria-label={`Adjust stock for ${i.item_name}`}
-                        className="w-full text-left p-4 flex items-start justify-between gap-3 transition-colors duration-150 ease-standard hover:bg-slate-50 dark:hover:bg-slate-800/60 active:bg-slate-100 dark:active:bg-slate-800"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{i.category ?? "--"}{i.sku ? `, SKU ${i.sku}` : ""}</div>
-                          <div className="mt-2 flex items-center gap-2">
-                            <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
-                            <span className="text-sm tabular-nums text-slate-900 dark:text-white">
-                              <span className="font-semibold">{Number(i.current_stock ?? 0)}</span>
-                              <span className="text-slate-500 dark:text-slate-400"> / {Number(i.minimum_stock ?? 0)} {i.unit_of_measure}</span>
-                            </span>
-                          </div>
-                        </div>
-                        <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 mt-1 flex-shrink-0" />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-          </PortalCard>
-        </PortalShell>
-        <Footer />
-      </div>
+              </>
+            )}
+        </PortalCard>
+      </ShoppingPageShell>
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && closeEdit()}>
         <DialogContent>
@@ -588,5 +640,16 @@ export default function ShoppingInventoryPage() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Route guard was missing on this page pre-restructure (the nav hid it
+// but the URL was open to any signed-in role). Same allow-list as the
+// shopping dashboard.
+export default function ShoppingInventoryPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+      <ShoppingInventoryPageInner />
+    </ProtectedRoute>
   );
 }

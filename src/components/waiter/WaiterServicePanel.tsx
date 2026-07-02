@@ -81,6 +81,10 @@ export function WaiterServicePanel() {
   const [orders, setOrders] = useState<AssignedOrder[]>([]);
   const [attendance, setAttendance] = useState<Record<string, Attendance>>({});
   const [loading, setLoading] = useState(true);
+  // Command-centre standard: a failed load must never render as the
+  // "No events to staff" empty state - that reads as a day off when
+  // the waiter may actually have three events.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [savingPhase, setSavingPhase] = useState<{ orderId: string; phase: Phase } | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<string | null>(null);
@@ -88,6 +92,7 @@ export function WaiterServicePanel() {
   const load = useCallback(async () => {
     if (!user?.company_id || !user?.id) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const today = toLocalISO(new Date());
       const horizon = new Date();
@@ -151,6 +156,7 @@ export function WaiterServicePanel() {
       setAttendance(visibleAttendance);
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "loadWaiterAssignments", companyId: user.company_id } });
+      setLoadError(e?.message || "We couldn't load your service queue.");
     } finally {
       setLoading(false);
     }
@@ -248,12 +254,28 @@ export function WaiterServicePanel() {
     );
   }
 
+  if (loadError) {
+    return (
+      <Card className="border-0 shadow-md">
+        <CardContent className="py-6">
+          <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 text-center dark:border-rose-900 dark:bg-rose-950/30">
+            <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Couldn&apos;t load your service queue</p>
+            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{loadError}</p>
+            <Button size="sm" variant="outline" className="mt-3" onClick={() => void load()}>
+              Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (orders.length === 0) {
     return (
       <Card className="border-0 shadow-md">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <ChefHat className="w-5 h-5 text-orange-600" />
+            <ChefHat className="w-5 h-5 text-brand-primary" />
             Service today
           </CardTitle>
         </CardHeader>
@@ -272,7 +294,7 @@ export function WaiterServicePanel() {
     <Card className="border-0 shadow-md">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <ChefHat className="w-5 h-5 text-orange-600" />
+          <ChefHat className="w-5 h-5 text-brand-primary" />
           Service today
           <Badge variant="outline" className="ml-auto text-[10px]">{orders.length}</Badge>
         </CardTitle>
@@ -374,7 +396,7 @@ export function WaiterServicePanel() {
                       size="sm"
                       onClick={() => saveNote(o.id)}
                       disabled={savingNote === o.id}
-                      className="bg-orange-600 hover:bg-orange-700"
+                      className="bg-brand-primary text-white hover:bg-brand-primary/90"
                     >
                       {savingNote === o.id ? <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Saving</> : "Save notes"}
                     </Button>
@@ -434,7 +456,7 @@ function PhaseRow({ label, iconKey, stampedAt, disabled, loading, onStamp, prima
       variant={primary ? "default" : "outline"}
       onClick={onStamp}
       disabled={disabled || loading}
-      className={`w-full justify-between h-9 ${primary ? "bg-orange-600 hover:bg-orange-700" : ""}`}
+      className={`w-full justify-between h-9 ${primary ? "bg-brand-primary text-white hover:bg-brand-primary/90" : ""}`}
     >
       <span className="inline-flex items-center gap-1.5">
         <Icon className="w-3.5 h-3.5" />

@@ -1,20 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SprayCan, ClipboardCheck, AlertTriangle, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera } from "lucide-react";
+import { SprayCan, ClipboardCheck, AlertTriangle, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { captureException } from "@/lib/observability";
 import { useToast } from "@/hooks/use-toast";
-import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { CleaningPageShell, CLEANING_HERO_CHIP } from "@/components/cleaning/CleaningPageShell";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
@@ -23,8 +20,6 @@ import { EquipmentVerificationPanel } from "@/components/cleaning/EquipmentVerif
 import { DamageFlagForm } from "@/components/cleaning/DamageFlagForm";
 import { RecentDamagesStrip } from "@/components/cleaning/RecentDamagesStrip";
 import { unitsInActiveCleaning } from "@/services/cleaningJobsService";
-import { CleaningNav } from "@/components/navigation/CleaningNav";
-import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { ChatBot } from "@/components/ChatBot";
@@ -58,6 +53,16 @@ function CleaningDashboardInner() {
   const [activeTab, setActiveTab] = useState("verification");
   const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
+  // Command-centre restructure (2026-07-02): the equipment read used to
+  // console.error and quietly render an empty (all-zero) board on
+  // failure. Failures now land here and paint a rose recovery card with
+  // a Retry that re-runs the loader. `loaded` gates the hero chips so
+  // counts only show once real data has arrived; the ref mirrors it so
+  // the loader itself doesn't need `loaded` in its dependency list
+  // (which would re-create the realtime subscription).
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const hasLoadedRef = useRef(false);
   const { toast } = useToast();
 
   // CLN-B (XSC Wave B): Inspect button state. Pre-audit the Inspect
@@ -178,52 +183,59 @@ function CleaningDashboardInner() {
   // available stayed invisible to other devices.
   const loadEquipment = useCallback(async () => {
     if (!user?.company_id) return;
-    setLoadingEquipment(true);
-    const { data: equipmentData, error: equipmentErr } = await supabase
-      .from("equipment")
-      .select("id, name, condition, quantity, available_quantity")
-      .eq("company_id", user.company_id);
+    // Skeleton only before the first successful load; realtime-driven
+    // refreshes swap the data in place without blanking the board.
+    if (!hasLoadedRef.current) setLoadingEquipment(true);
+    try {
+      const { data: equipmentData, error: equipmentErr } = await supabase
+        .from("equipment")
+        .select("id, name, condition, quantity, available_quantity")
+        .eq("company_id", user.company_id);
+      if (equipmentErr) throw equipmentErr;
 
-    if (equipmentErr) {
-      console.error("Error loading equipment:", equipmentErr);
-      setEquipment([]);
+      // Wave 41 Phase 2: cleaning_jobs is now the source of truth
+      // for "what's currently being cleaned" (units, not just a
+      // boolean flag on the equipment). Falls back gracefully if
+      // the company hasn't started using cleaning_jobs yet - the
+      // map will simply be empty.
+      const cleaningUnitsMap = await unitsInActiveCleaning(supabase as any, user.company_id);
+
+      const rows: EquipmentRow[] = (equipmentData || []).map((eq: any) => {
+        const inCleaning = cleaningUnitsMap.get(eq.id) || 0;
+        // Subtract active-cleaning units from nominal availability
+        // so the operator sees what's truly available right now.
+        const trueAvailable = Math.max(0, (eq.available_quantity ?? 0) - inCleaning);
+        let status: EquipmentStatus;
+        if (eq.condition === "damaged" || eq.condition === "broken") {
+          status = "damaged";
+        } else if (inCleaning > 0) {
+          status = "cleaning";
+        } else if (trueAvailable < (eq.quantity ?? 0)) {
+          status = "in_use";
+        } else {
+          status = "available";
+        }
+        return {
+          id: eq.id,
+          name: eq.name,
+          status,
+          quantity: eq.quantity ?? 0,
+          available_quantity: trueAvailable,
+        };
+      });
+
+      setEquipment(rows);
+      setLoadError(null);
+      hasLoadedRef.current = true;
+      setLoaded(true);
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/team-portal/cleaning/dashboard", step: "loadEquipment", companyId: user.company_id } });
+      // Keep any last-good rows on screen; never dress a failed read
+      // up as an all-clear empty board.
+      setLoadError(e?.message || "We couldn't load the equipment board. Check your connection and retry.");
+    } finally {
       setLoadingEquipment(false);
-      return;
     }
-
-    // Wave 41 Phase 2: cleaning_jobs is now the source of truth
-    // for "what's currently being cleaned" (units, not just a
-    // boolean flag on the equipment). Falls back gracefully if
-    // the company hasn't started using cleaning_jobs yet - the
-    // map will simply be empty.
-    const cleaningUnitsMap = await unitsInActiveCleaning(supabase as any, user.company_id);
-
-    const rows: EquipmentRow[] = (equipmentData || []).map((eq: any) => {
-      const inCleaning = cleaningUnitsMap.get(eq.id) || 0;
-      // Subtract active-cleaning units from nominal availability
-      // so the operator sees what's truly available right now.
-      const trueAvailable = Math.max(0, (eq.available_quantity ?? 0) - inCleaning);
-      let status: EquipmentStatus;
-      if (eq.condition === "damaged" || eq.condition === "broken") {
-        status = "damaged";
-      } else if (inCleaning > 0) {
-        status = "cleaning";
-      } else if (trueAvailable < (eq.quantity ?? 0)) {
-        status = "in_use";
-      } else {
-        status = "available";
-      }
-      return {
-        id: eq.id,
-        name: eq.name,
-        status,
-        quantity: eq.quantity ?? 0,
-        available_quantity: trueAvailable,
-      };
-    });
-
-    setEquipment(rows);
-    setLoadingEquipment(false);
   }, [user?.company_id]);
 
   useEffect(() => {
@@ -256,8 +268,10 @@ function CleaningDashboardInner() {
         void loadEquipment();
       }
     };
+    // Unique per-mount suffix: a fixed channel name collides when the
+    // page remounts fast (recurring realtime bug class in this repo).
     const sub = supabase
-      .channel(`cleaning-dashboard-${user.company_id}`)
+      .channel(`cleaning-dashboard-${user.company_id}-${Math.random().toString(36).slice(2)}`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on("postgres_changes" as any, {
         event: "*", schema: "public", table: "cleaning_jobs",
@@ -272,60 +286,93 @@ function CleaningDashboardInner() {
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
-      void sub.unsubscribe();
+      // removeChannel (not bare unsubscribe) so the client also drops
+      // the channel from its registry - the recurring-bug-class rule
+      // for every non-presence realtime subscription.
+      void supabase.removeChannel(sub);
     };
   }, [user?.company_id, loadEquipment]);
 
+  // Hero chip counts. chipsReady gates them behind the first clean
+  // load so the hero never shows zeros for data that simply failed.
+  const availableCount = equipment.filter((e) => e.status === "available").length;
+  const cleaningCount = equipment.filter((e) => e.status === "cleaning").length;
+  const damagedCount = equipment.filter((e) => e.status === "damaged").length;
+  const chipsReady = loaded && !loadError;
+
   return (
     <>
-      <Head>
-        <title>Cleaning dashboard - CateringMS</title>
-      </Head>
-      <NoIndexMeta />
-
-      {/* CLN2-D (cleaning deep audit, CLN2-8): use CleaningNav like
-          every other cleaning page. The DynamicNav delegation here
-          was an inconsistency with the sibling pages (damage,
-          equipment, handovers, notifications, schedules, settings,
-          supplies, tasks, workflows) - any cleaning nav change had
-          to be made in two places. */}
-      <CleaningNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title="Cleaning desk"
-            subtitle="Returns, washing queue, priority inspections, damages, and what is ready to send out again."
-            icon={SprayCan}
-            actions={
-              /* CLN2-J (cleaning deep audit, CLN2-19): paper roster. The
-                 cleaning lead handing off to a fresh shift wants a
-                 printed checklist - equipment categories + today's
-                 cleaning jobs grouped by status. Same recipe as DRV-J /
-                 KIT2-N / SHP2-A. */
+      <CleaningPageShell
+        pageTitle="Cleaning dashboard - CateringMS"
+        heading="Cleaning desk"
+        subheading="Returns, washing queue, priority inspections, damages, and what is ready to send out again."
+        icon={SprayCan}
+        headerAction={
+          /* CLN2-J (cleaning deep audit, CLN2-19): paper roster. The
+             cleaning lead handing off to a fresh shift wants a
+             printed checklist - equipment categories + today's
+             cleaning jobs grouped by status. Same recipe as DRV-J /
+             KIT2-N / SHP2-A. */
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (equipment.length === 0) {
+                // No data to print - cheap feedback rather than
+                // a blank A4 surprise.
+                toast({
+                  title: "Equipment still loading",
+                  description: "Wait a moment, then print the roster again.",
+                  variant: "destructive",
+                });
+                return;
+              }
+              setTimeout(() => window.print(), 100);
+            }}
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            Print roster
+          </Button>
+        }
+        meta={
+          chipsReady ? (
+            <>
+              <span className={CLEANING_HERO_CHIP}>
+                <CheckCircle className="h-3 w-3" />
+                {availableCount} ready to send out
+              </span>
+              <span className={CLEANING_HERO_CHIP}>
+                <Clock className="h-3 w-3" />
+                {cleaningCount} in cleaning
+              </span>
+              {damagedCount > 0 && (
+                <span className={CLEANING_HERO_CHIP}>
+                  <AlertTriangle className="h-3 w-3" />
+                  {damagedCount} damaged
+                </span>
+              )}
+            </>
+          ) : undefined
+        }
+      >
+          {/* Recovery card: the equipment read failed. Keep any
+              last-good board below, but never dress a failure up as
+              an all-clear day. */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 p-5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/40">
+              <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load the equipment board</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
               <Button
-                variant="outline"
-                onClick={() => {
-                  if (equipment.length === 0) {
-                    // No data to print - cheap feedback rather than
-                    // a blank A4 surprise.
-                    toast({
-                      title: "Equipment still loading",
-                      description: "Wait a moment, then print the roster again.",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  setTimeout(() => window.print(), 100);
-                }}
-                className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
+                size="sm"
+                onClick={() => void loadEquipment()}
+                disabled={loadingEquipment}
+                className="bg-brand-primary hover:opacity-90 text-white"
               >
-                <Printer className="w-4 h-4" />
-                Print roster
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingEquipment ? "animate-spin motion-reduce:animate-none" : ""}`} />
+                Retry
               </Button>
-            }
-          />
-          <PageWorkbench />
+            </div>
+          )}
 
           {/* Wave 39: live duty + clock-in surface. Component existed
               but was imported and never rendered. Wave 39 also fixed
@@ -377,7 +424,9 @@ function CleaningDashboardInner() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          {/* Tile row hides on a failed first load - all-zero tiles
+              over a broken read would tell the lead a lie. */}
+          <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 ${loadError && !loaded ? "hidden" : ""}`}>
             <StatTile
               icon={CheckCircle}
               label="Available"
@@ -413,6 +462,13 @@ function CleaningDashboardInner() {
                   {[0, 1, 2].map(i => (
                     <div key={i} className="h-16 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 animate-pulse" />
                   ))}
+                </div>
+              ) : loadError && equipment.length === 0 ? (
+                // The recovery card above owns this state; keep the
+                // card body quiet instead of celebrating a false
+                // "all inspections complete".
+                <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                  Equipment is unavailable right now. Use Retry above to reload it.
                 </div>
               ) : (
                 <>
@@ -545,10 +601,7 @@ function CleaningDashboardInner() {
               </div>
             </div>
           </PortalCard>
-        </PortalShell>
-
-        <Footer />
-      </div>
+      </CleaningPageShell>
 
       <ChatBot userRole="cleaning" companyId={user?.company_id} />
 

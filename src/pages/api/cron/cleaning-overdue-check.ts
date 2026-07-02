@@ -112,7 +112,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         {
           companyId: o.company_id || agg.companyId,
           regionId: o.region_id || null,
-          targetRoles: ["cleaning_staff" as any, "company_admin" as any, "admin" as any, "owner" as any],
+          targetRoles: ["cleaning_manager" as any, "cleaning_staff" as any, "company_admin" as any, "admin" as any, "owner" as any],
           title: `⚠️ Cleaning overdue: ${orderLabel}`,
           message: `${itemLabel} from ${eventName}${venue ? ` (${venue})` : ""} ${agg.count === 1 ? "was" : "were"} due to be cleaned by ${dueLabel} and ${agg.count === 1 ? "isn't" : "aren't"} done. The order can't close until the gear's back in stock.`,
           type: TYPE_CLEANING_OVERDUE,

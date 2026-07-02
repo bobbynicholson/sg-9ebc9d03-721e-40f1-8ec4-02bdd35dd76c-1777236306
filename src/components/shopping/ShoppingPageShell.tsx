@@ -1,5 +1,5 @@
 /**
- * WaiterPageShell - the canonical outer layout for every waiter-portal
+ * ShoppingPageShell - the canonical outer layout for every shopping-portal
  * page.
  *
  * Command-centre restructure (same system as KitchenPageShell and
@@ -7,26 +7,26 @@
  * pages use - PortalShell ground (brand wash + layered gradient), a hero
  * PortalHeader painted in the tenant's own colours (icon tile, meta chip
  * row, actions band) and the PageWorkbench context strip - inside the
- * WaiterNav sidebar-offset gutter (lg:pl-72 xl:pl-80). Pages supply
+ * ShoppingNav sidebar-offset gutter (lg:pl-72 xl:pl-80). Pages supply
  * `meta` chips for live counts and `headerAction` buttons; everything else
- * is identical across the portal so no waiter page can drift
+ * is identical across the portal so no shopping page can drift
  * off-standard again.
  */
 import { ReactNode } from "react";
-import Head from "next/head";
-import { LucideIcon } from "lucide-react";
-import { WaiterNav } from "@/components/navigation/WaiterNav";
+import { ShoppingNav } from "@/components/navigation/ShoppingNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import Head from "next/head";
+import { LucideIcon } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
 
 type ShellWidth = "narrow" | "wide" | "full";
 
 /** White-glass chip recipe for the hero `meta` row. */
-export const WAITER_HERO_CHIP =
+export const SHOPPING_HERO_CHIP =
   "inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white";
 
-interface WaiterPageShellProps {
+interface ShoppingPageShellProps {
   /** Browser tab title. */
   pageTitle: string;
   /** Big H1 inside the hero band. */
@@ -44,7 +44,7 @@ interface WaiterPageShellProps {
   /** Optional actions rendered on the hero band (buttons pick dark styling automatically). */
   headerAction?: ReactNode;
   /** Optional chip row under the hero subtitle - live counts, status pills.
-   *  Use WAITER_HERO_CHIP for each chip. Only render a chip once its
+   *  Use SHOPPING_HERO_CHIP for each chip. Only render a chip once its
    *  data source has loaded without error (command-centre standard). */
   meta?: ReactNode;
   /** Optional first-screen summary band (PortalOverview). */
@@ -55,7 +55,7 @@ interface WaiterPageShellProps {
   hideFooter?: boolean;
 }
 
-export function WaiterPageShell({
+export function ShoppingPageShell({
   pageTitle,
   heading,
   subheading,
@@ -66,7 +66,7 @@ export function WaiterPageShell({
   overview,
   children,
   hideFooter = false,
-}: WaiterPageShellProps) {
+}: ShoppingPageShellProps) {
   return (
     <>
       <NoIndexMeta />
@@ -74,10 +74,10 @@ export function WaiterPageShell({
         <title>{pageTitle}</title>
       </Head>
 
-      <WaiterNav />
+      <ShoppingNav />
 
       {/* PortalShell owns the ground (layered gradient + tenant brand
-          wash) inside the WaiterNav sidebar gutter - identical to the
+          wash) inside the ShoppingNav sidebar gutter - identical to the
           company-admin + driver + kitchen page treatment. */}
       <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell width={width === "narrow" ? "narrow" : "default"}>

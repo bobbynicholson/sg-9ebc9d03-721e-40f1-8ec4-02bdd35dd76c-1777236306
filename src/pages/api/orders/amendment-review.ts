@@ -786,7 +786,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         type: "amendment_approved",
         title: "Order amended - re-check your tasks",
         message: `Order ${orderLabel} was amended (${appliedHuman}). Prep, shopping quantities, delivery and equipment for it may have changed - please re-check your assigned work.`,
-        targetRoles: ["kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
+        targetRoles: ["kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_manager", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
         priority: "high",
         link: `/admin/orders?orderId=${(request as any).order_id}`,
         relatedEntityType: "order",

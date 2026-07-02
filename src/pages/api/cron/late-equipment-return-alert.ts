@@ -88,7 +88,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const sent = await notificationService.broadcastNotification({
           companyId: handover.company_id,
           regionId: order.region_id || null,
-          targetRoles: ["company_admin" as any, "admin" as any, "owner" as any, "cleaning_staff" as any],
+          targetRoles: ["company_admin" as any, "admin" as any, "owner" as any, "cleaning_manager" as any, "cleaning_staff" as any],
           type: "equipment_return_late",
           title: `Equipment return overdue: ${label}`,
           message:

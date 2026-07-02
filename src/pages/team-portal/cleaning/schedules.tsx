@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import Head from "next/head";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -11,13 +10,10 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Plus, Loader2, Clock } from "lucide-react";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { CleaningNav } from "@/components/navigation/CleaningNav";
+import { Calendar, Plus, Loader2, Clock, RefreshCw } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PortalShell, PortalHeader, PortalCard,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { PortalCard } from "@/components/portal/ui";
+import { CleaningPageShell, CLEANING_HERO_CHIP } from "@/components/cleaning/CleaningPageShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +50,12 @@ function CleaningSchedulesPageInner() {
 
   const [items, setItems] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre restructure (2026-07-02): a failed read used to
+  // toast once and leave the page on the "no schedules yet" empty
+  // state. Failures now land here and render a rose recovery card
+  // with a Retry that re-runs the loader.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [creating, setCreating] = useState(false);
   const [areaName, setAreaName] = useState("");
   const [description, setDescription] = useState("");
@@ -69,8 +71,10 @@ function CleaningSchedulesPageInner() {
 
   useEffect(() => {
     if (!user?.company_id) return;
+    // Unique per-mount suffix: a fixed channel name collides when the
+    // page remounts fast (recurring realtime bug class in this repo).
     const channel = supabase
-      .channel(`cleaning-schedules-${user.company_id}`)
+      .channel(`cleaning-schedules-${user.company_id}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "cleaning_schedules", filter: `company_id=eq.${user.company_id}` },
@@ -83,7 +87,9 @@ function CleaningSchedulesPageInner() {
 
   const load = async () => {
     if (!user?.company_id) return;
-    setLoading(true);
+    // Skeleton only before the first successful load; realtime-driven
+    // refreshes swap the data in place without blanking the list.
+    if (!loaded) setLoading(true);
     try {
       const { data, error } = await supabase
         .from("cleaning_schedules")
@@ -95,8 +101,12 @@ function CleaningSchedulesPageInner() {
         .returns<Schedule[]>();
       if (error) throw error;
       setItems(data || []);
-    } catch (e) {
-      toast({ title: "Could not load schedules", variant: "destructive" });
+      setLoadError(null);
+      setLoaded(true);
+    } catch (e: any) {
+      // Surface the failure as a recovery card; never render the
+      // "no schedules yet" empty state over a failed load.
+      setLoadError(e?.message || "We couldn't load the schedules. Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -149,32 +159,65 @@ function CleaningSchedulesPageInner() {
     }
   };
 
+  const showSkeleton = loading && !loaded;
+  const chipsReady = loaded && !loadError;
+  const todayIso = toLocalISO(new Date());
+  const todayCount = items.filter((s) => s.scheduled_date === todayIso).length;
+
   return (
     <>
-      <Head><title>Cleaning schedules - CateringMS</title></Head>
-      <NoIndexMeta />
-      <CleaningNav />
-      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title="Cleaning schedules"
-            icon={Calendar}
-            subtitle={
-              <>
-                Dated cleaning checklists with a cadence label for each area. Open the{" "}
-                <a href={withSlug("/team-portal/cleaning/tasks")} className="text-brand-primary underline">tasks</a>{" "}
-                board for start, complete, and notes.
-              </>
-            }
-            actions={
-              <Button onClick={openCreate} className="bg-brand-primary hover:bg-brand-primary/90">
-                <Plus className="h-4 w-4 mr-2" />New schedule
+      <CleaningPageShell
+        pageTitle="Cleaning schedules - CateringMS"
+        heading="Cleaning schedules"
+        icon={Calendar}
+        subheading={
+          <>
+            Dated cleaning checklists with a cadence label for each area. Open the{" "}
+            <a href={withSlug("/team-portal/cleaning/tasks")} className="underline">tasks</a>{" "}
+            board for start, complete, and notes.
+          </>
+        }
+        headerAction={
+          <Button size="sm" variant="outline" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />New schedule
+          </Button>
+        }
+        meta={
+          chipsReady ? (
+            <>
+              <span className={CLEANING_HERO_CHIP}>
+                <Calendar className="h-3 w-3" />
+                {items.length} schedule{items.length === 1 ? "" : "s"}
+              </span>
+              {todayCount > 0 && (
+                <span className={CLEANING_HERO_CHIP}>
+                  <Clock className="h-3 w-3" />
+                  {todayCount} today
+                </span>
+              )}
+            </>
+          ) : undefined
+        }
+      >
+          {/* Recovery card: the load failed. Keep any last-good list
+              below, but never dress a failure up as an empty plan. */}
+          {loadError && (
+            <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/40">
+              <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load the schedules</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+              <Button
+                size="sm"
+                onClick={() => void load()}
+                disabled={loading}
+                className="bg-brand-primary hover:opacity-90 text-white"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
+                Retry
               </Button>
-            }
-          />
-          <PageWorkbench />
+            </div>
+          )}
 
-          {loading ? (
+          {showSkeleton ? (
             <div className="space-y-4" aria-busy="true" aria-label="Loading schedules">
               {[0, 1, 2].map((g) => (
                 <div key={g} className="space-y-2">
@@ -190,12 +233,26 @@ function CleaningSchedulesPageInner() {
                 </div>
               ))}
             </div>
+          ) : loadError && items.length === 0 ? (
+            // The recovery card above owns this state; keep the card
+            // body quiet instead of inviting a first schedule over a
+            // broken read.
+            <PortalCard padded={false}>
+              <div className="py-10 px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                The schedule plan is unavailable right now. Use Retry above to reload it.
+              </div>
+            </PortalCard>
           ) : items.length === 0 ? (
             <PortalCard padded={false}>
               <div className="text-center py-16 px-6">
                 <Calendar className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                 <p className="font-medium text-slate-900 dark:text-white">No schedules yet</p>
                 <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">Add your first cleaning checklist schedule to get started.</p>
+                <div className="mt-4 flex justify-center">
+                  <Button size="sm" variant="outline" onClick={openCreate}>
+                    <Plus className="h-4 w-4 mr-2" />New schedule
+                  </Button>
+                </div>
               </div>
             </PortalCard>
           ) : (
@@ -234,8 +291,7 @@ function CleaningSchedulesPageInner() {
               ))}
             </div>
           )}
-        </PortalShell>
-      </main>
+      </CleaningPageShell>
 
       <Dialog open={creating} onOpenChange={(o) => !o && closeCreate()}>
         <DialogContent>

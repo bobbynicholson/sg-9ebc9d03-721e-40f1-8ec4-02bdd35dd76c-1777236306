@@ -37,19 +37,14 @@ import {
 import {
   ShoppingCart, CheckCircle, Clock, Package, ListChecks, Camera,
   ArrowRight, Loader2, User, Users as UsersIcon, AlertCircle,
-  Printer,
+  Printer, RefreshCw,
 } from "lucide-react";
-import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
-import { DynamicNav } from "@/components/DynamicNav";
 import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
+import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
 import { BarcodeScanFab } from "@/components/shopping/BarcodeScanFab";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -126,6 +121,32 @@ function ShoppingDashboardInner() {
   const items = activeList.items;
   const bought = items.filter(i => i.purchased);
   const remaining = items.filter(i => !i.purchased);
+
+  // Command-centre restructure (2026-07-02): a hook load failure used to
+  // leave list=null and render the "No active shopping list" empty state
+  // over a failed read. Distinguish the two: error with no list = failed
+  // load (rose recovery card); error while a list is showing = mutation
+  // hiccup (kept as the inline notice under the list).
+  const loadFailed = !!activeList.error && !activeList.list && !activeList.loading;
+  const chipsReady = !activeList.loading && !loadFailed;
+
+  // Per-item async guard: the whole row is tappable, so a double tap
+  // could fire togglePurchased twice before the first write returns.
+  // Claim + out-of-stock share the same lane per item.
+  const [busyItems, setBusyItems] = useState<Set<string>>(new Set());
+  const withItemBusy = async (itemId: string, fn: () => Promise<void>) => {
+    if (busyItems.has(itemId)) return;
+    setBusyItems(prev => new Set(prev).add(itemId));
+    try {
+      await fn();
+    } finally {
+      setBusyItems(prev => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  };
   const trimmedSearch = searchTerm.trim().toLowerCase();
   const filteredItems = items.filter(i => {
     if (filter === "pending" && i.purchased) return false;
@@ -179,22 +200,24 @@ function ShoppingDashboardInner() {
   const yourList = activeList.list?.isYours ?? false;
 
   const handleToggle = async (itemId: string, currentValue: boolean) => {
-    const next = !currentValue;
-    const name = activeList.items.find((i) => i.id === itemId)?.name || "Item";
-    const ok = await activeList.togglePurchased(itemId, next);
-    if (!ok) {
+    await withItemBusy(itemId, async () => {
+      const next = !currentValue;
+      const name = activeList.items.find((i) => i.id === itemId)?.name || "Item";
+      const ok = await activeList.togglePurchased(itemId, next);
+      if (!ok) {
+        toast({
+          title: "Could not update",
+          description: activeList.error || "That didn't save. Try again.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
-        title: "Could not update",
-        description: activeList.error || "That didn't save. Try again.",
-        variant: "destructive",
+        title: next ? "Marked as bought" : "Back on the to-buy list",
+        description: next
+          ? `${name} ticked off${activeList.items.find((i) => i.id === itemId)?.item_id ? " and stock updated" : ""}.`
+          : `${name} moved back to to-buy.`,
       });
-      return;
-    }
-    toast({
-      title: next ? "Marked as bought" : "Back on the to-buy list",
-      description: next
-        ? `${name} ticked off${activeList.items.find((i) => i.id === itemId)?.item_id ? " and stock updated" : ""}.`
-        : `${name} moved back to to-buy.`,
     });
   };
 
@@ -225,7 +248,7 @@ function ShoppingDashboardInner() {
   ) => {
     e.stopPropagation();
     e.preventDefault();
-    await activeList.flagOutOfStock(itemId, supplierName);
+    await withItemBusy(itemId, () => activeList.flagOutOfStock(itemId, supplierName).then(() => undefined));
   };
 
   // Shopping persona 5.4: per-line claim handler. Stops propagation
@@ -237,11 +260,13 @@ function ShoppingDashboardInner() {
   ) => {
     e.stopPropagation();
     e.preventDefault();
-    await activeList.claimItem(itemId, claim);
-    const name = activeList.items.find((i) => i.id === itemId)?.name || "Item";
-    toast({
-      title: claim ? "Claimed" : "Released",
-      description: claim ? `You're buying ${name}.` : `${name} is back up for anyone to grab.`,
+    await withItemBusy(itemId, async () => {
+      await activeList.claimItem(itemId, claim);
+      const name = activeList.items.find((i) => i.id === itemId)?.name || "Item";
+      toast({
+        title: claim ? "Claimed" : "Released",
+        description: claim ? `You're buying ${name}.` : `${name} is back up for anyone to grab.`,
+      });
     });
   };
 
@@ -305,28 +330,71 @@ function ShoppingDashboardInner() {
 
   return (
     <>
-      <Head>
-        <title>Shopping dashboard - CateringMS</title>
-      </Head>
-      <NoIndexMeta />
-
-      <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
-
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title="Shopping today"
-            subtitle={
-              activeList.list
-                ? "Live run desk: tick purchases, attach receipt details, and close out today's active list."
-                : "Start from Buy list for shortfalls, or Active shop when you already know what needs buying."
-            }
-            icon={ShoppingCart}
-          />
-          <PageWorkbench />
-
-          {/* Loading + empty states */}
-          {activeList.loading ? (
+      <ShoppingPageShell
+        pageTitle="Shopping dashboard - CateringMS"
+        heading="Shopping today"
+        subheading={
+          chipsReady && activeList.list
+            ? "Live run desk: tick purchases, attach receipt details, and close out today's active list."
+            : "Start from Buy list for shortfalls, or Active shop when you already know what needs buying."
+        }
+        icon={ShoppingCart}
+        headerAction={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={activeList.refresh}
+            disabled={activeList.loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${activeList.loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
+            Refresh
+          </Button>
+        }
+        meta={
+          chipsReady ? (
+            activeList.list ? (
+              <>
+                <span className={SHOPPING_HERO_CHIP}>
+                  <Clock className="h-3 w-3" />
+                  {remaining.length} to buy
+                </span>
+                <span className={SHOPPING_HERO_CHIP}>
+                  <CheckCircle className="h-3 w-3" />
+                  {bought.length} bought
+                </span>
+                {lowStockCount > 0 && (
+                  <span className={SHOPPING_HERO_CHIP}>
+                    <AlertCircle className="h-3 w-3" />
+                    {lowStockCount} low stock
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className={SHOPPING_HERO_CHIP}>
+                <ShoppingCart className="h-3 w-3" />
+                No active list
+              </span>
+            )
+          ) : undefined
+        }
+      >
+          {/* Recovery card: the list read failed. Never dress a failed
+              load up as "no active shopping list". */}
+          {loadFailed ? (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/40">
+              <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load your shopping list</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{activeList.error}</p>
+              <Button
+                size="sm"
+                onClick={activeList.refresh}
+                disabled={activeList.loading}
+                className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          ) : activeList.loading ? (
             // Skeleton over a centre spinner: the page loads straight
             // into the task shape (hero strip + 4 metric tiles + rows)
             // so the layout doesn't jump when data arrives.
@@ -539,11 +607,6 @@ function ShoppingDashboardInner() {
                     {f === "pending" ? "Remaining" : f === "purchased" ? "Bought" : "All"}
                   </Button>
                 ))}
-                {activeList.refresh && (
-                  <Button size="sm" variant="ghost" onClick={activeList.refresh} className="ml-auto text-xs">
-                    Refresh
-                  </Button>
-                )}
               </div>
 
               {/* Shopping list - persisted */}
@@ -851,10 +914,7 @@ function ShoppingDashboardInner() {
               )}
             </>
           )}
-        </PortalShell>
-
-        <Footer />
-      </div>
+      </ShoppingPageShell>
 
       {/* Complete-list dialog */}
       <Dialog

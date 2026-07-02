@@ -24,7 +24,6 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
-import Head from "next/head";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,20 +40,18 @@ import {
   Plus,
   ArrowRight,
   CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { ShoppingNav } from "@/components/navigation/ShoppingNav";
-import { Footer } from "@/components/Footer";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
+import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 
 interface OutlookRow {
   inventory_item_id: string;
@@ -80,7 +77,7 @@ const STATUS_META: Record<string, { label: string; tone: string; icon: typeof Al
 
 type FilterKey = "all" | "shortfall" | "below_par" | "low";
 
-export default function ShoppingBuyListPage() {
+function ShoppingBuyListPageInner() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -89,6 +86,12 @@ export default function ShoppingBuyListPage() {
 
   const [rows, setRows] = useState<OutlookRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre restructure (2026-07-02): the outlook read used to
+  // ignore PostgREST errors entirely, so a failed load rendered the
+  // "No inventory configured yet" empty state. Failures land here and
+  // render a rose recovery card with Retry instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -112,20 +115,30 @@ export default function ShoppingBuyListPage() {
   // without a hard refresh.
   const loadRows = async () => {
     if (!companyId) return;
-    const sb = supabase as any;
-    const [outlookRes, inventoryRes] = await Promise.all([
-      sb.from("inventory_demand_outlook").select("*").eq("company_id", companyId),
-      sb.from("inventory_items").select("id, cost_per_unit").eq("company_id", companyId).is("deleted_at", null),
-    ]);
-    const costMap = new Map<string, number>();
-    for (const r of (inventoryRes.data || []) as Array<{ id: string; cost_per_unit: number | null }>) {
-      costMap.set(r.id, Number(r.cost_per_unit || 0));
+    try {
+      const sb = supabase as any;
+      const [outlookRes, inventoryRes] = await Promise.all([
+        sb.from("inventory_demand_outlook").select("*").eq("company_id", companyId),
+        sb.from("inventory_items").select("id, cost_per_unit").eq("company_id", companyId).is("deleted_at", null),
+      ]);
+      // The outlook view is the primary read - fail loudly if it errors.
+      // cost_per_unit is enrichment only; a failure there degrades the
+      // cost estimate to 0 rather than blocking the buy list.
+      if (outlookRes.error) throw outlookRes.error;
+      const costMap = new Map<string, number>();
+      for (const r of (inventoryRes.data || []) as Array<{ id: string; cost_per_unit: number | null }>) {
+        costMap.set(r.id, Number(r.cost_per_unit || 0));
+      }
+      const enriched = ((outlookRes.data || []) as OutlookRow[]).map(r => ({
+        ...r,
+        cost_per_unit: costMap.get(r.inventory_item_id) ?? 0,
+      }));
+      setRows(enriched);
+      setLoadError(null);
+      setLoaded(true);
+    } catch (e: any) {
+      setLoadError(e?.message || "We couldn't reach the server. Check your connection and retry.");
     }
-    const enriched = ((outlookRes.data || []) as OutlookRow[]).map(r => ({
-      ...r,
-      cost_per_unit: costMap.get(r.inventory_item_id) ?? 0,
-    }));
-    setRows(enriched);
   };
 
   useEffect(() => {
@@ -142,8 +155,10 @@ export default function ShoppingBuyListPage() {
     // has too many derived columns (shortfall_next_7_days et al.) -
     // so we just re-poll the view on any signal.
     const sb = supabase as any;
+    // Unique per-mount suffix: a fixed channel name collides when the
+    // page remounts fast (recurring realtime bug class in this repo).
     const channel = sb
-      .channel(`buy-list:${companyId}`)
+      .channel(`buy-list:${companyId}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_items" },
@@ -312,25 +327,58 @@ export default function ShoppingBuyListPage() {
       : "Team active list"
     : "No active list - a new one will start when you add an item";
 
+  const chipsReady = loaded && !loadError;
+
   return (
     <>
-      <NoIndexMeta />
-      <Head><title>Buy list - CateringMS</title></Head>
-      <ShoppingNav />
-
-      <main className="min-h-screen lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="pb-24">
-          <PortalHeader
-            icon={ListChecks}
-            title={
-              <span className="flex items-center gap-2">
-                Buy list
-                <InfoTooltip content="Everything that needs buying, pulled live from confirmed orders + par levels. Tick rows to bulk-add, or use the per-row 'Add' button. Items land on your active shopping list." />
+      <ShoppingPageShell
+        pageTitle="Buy list - CateringMS"
+        heading="Buy list"
+        subheading="What needs buying right now, pulled live from confirmed orders and par levels, ranked by urgency. Tick to add to your list."
+        icon={ListChecks}
+        meta={
+          chipsReady ? (
+            <>
+              <span className={SHOPPING_HERO_CHIP}>
+                <span className={`h-1.5 w-1.5 rounded-full ${statusCounts.toBuy > 0 ? "bg-amber-400" : "bg-emerald-400"}`} />
+                {statusCounts.toBuy > 0 ? `${statusCounts.toBuy} to buy` : "Stock looks good"}
               </span>
-            }
-            subtitle="What needs buying right now, ranked by urgency. Tick to add to your list."
-          />
-          <PageWorkbench />
+              {statusCounts.shortfall > 0 && (
+                <span className={SHOPPING_HERO_CHIP}>
+                  <AlertTriangle className="h-3 w-3" />
+                  {statusCounts.shortfall} shortfall
+                </span>
+              )}
+              {activeList.list && (
+                <span className={SHOPPING_HERO_CHIP}>
+                  <ShoppingCart className="h-3 w-3" />
+                  {activeList.items.filter(i => !i.purchased).length} on your list
+                </span>
+              )}
+            </>
+          ) : undefined
+        }
+      >
+          {/* Recovery card: the outlook read failed. Keep any last-good
+              rows below, but never dress a failure up as an empty list. */}
+          {loadError && (
+            <div className="mb-5 rounded-lg border border-rose-200 bg-rose-50 p-5 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/40">
+              <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load the buy list</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setLoading(true);
+                  void loadRows().finally(() => setLoading(false));
+                }}
+                disabled={loading}
+                className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
+                Retry
+              </Button>
+            </div>
+          )}
 
           {/* Status summary */}
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -422,6 +470,11 @@ export default function ShoppingBuyListPage() {
                     </li>
                   ))}
                 </ul>
+              ) : loadError && rows.length === 0 ? (
+                // The recovery card above owns this state; keep the card body quiet.
+                <div className="px-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+                  The buy list is unavailable right now. Use Retry above to reload it.
+                </div>
               ) : visible.length === 0 ? (
                 <div className="px-6 py-16 text-center">
                   <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
@@ -538,10 +591,14 @@ export default function ShoppingBuyListPage() {
           <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
             Buy quantity = shortfall over the next 7 days. For OK items, it's the reorder quantity or the gap to par.
           </p>
-        </PortalShell>
 
-        {/* Sticky bulk-add footer */}
-        {selected.size > 0 && (
+          {/* Clearance for the fixed bulk-add bar so it never sits over
+              the last rows or the footer while a selection is active. */}
+          {selected.size > 0 && <div className="h-24" aria-hidden="true" />}
+      </ShoppingPageShell>
+
+      {/* Sticky bulk-add footer */}
+      {selected.size > 0 && (
           <div
             className="fixed bottom-12 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 shadow-lg backdrop-blur lg:left-64 xl:left-72 dark:border-slate-800 dark:bg-slate-900/95"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
@@ -574,9 +631,16 @@ export default function ShoppingBuyListPage() {
             </div>
           </div>
         )}
-
-        <Footer />
-      </main>
     </>
+  );
+}
+
+// Defense-in-depth: every shopping page wraps in ProtectedRoute (this
+// one previously had none). Same role set as the shopping dashboard.
+export default function ShoppingBuyListPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+      <ShoppingBuyListPageInner />
+    </ProtectedRoute>
   );
 }

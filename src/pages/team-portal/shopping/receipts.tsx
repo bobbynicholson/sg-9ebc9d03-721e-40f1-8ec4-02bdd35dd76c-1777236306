@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /team-portal/shopping/receipts - shopping team's daily receipt scanner.
  *
@@ -9,76 +8,57 @@
  * Backed by the shared <ReceiptScanner/> component so behaviour stays
  * in lockstep across the two surfaces.
  */
-import Head from "next/head";
 import Link from "next/link";
-import { useMemo } from "react";
 import { Camera, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { Footer } from "@/components/Footer";
-import { DynamicNav } from "@/components/DynamicNav";
+import { ShoppingPageShell } from "@/components/shopping/ShoppingPageShell";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { ChatBot } from "@/components/ChatBot";
-import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
-import { PortalShell, PortalHeader,
-  PageWorkbench,
-} from "@/components/portal/ui";
 
 const MAX_FILES = 20;
 
-export default function ShoppingReceipts() {
+function ShoppingReceiptsInner() {
   const { user } = useAuth() as any;
+  const { withSlug } = useTenantHref();
   const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
-
-  const slugPrefix = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    const m = window.location.pathname.match(/^\/([^/]+)\/team-portal\//);
-    return m ? `/${m[1]}` : "";
-  }, []);
 
   return (
     <>
-      <Head>
-        <title>Receipts - CateringMS</title>
-      </Head>
-      <NoIndexMeta />
-
-      <DynamicNav userRole={UserRole.SHOPPING_STAFF} />
-
-      <div className="overflow-x-hidden lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-screen">
-          <div className="mb-4">
-            <Link href={`${slugPrefix}/team-portal/shopping/invoices`}>
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Spend
-              </Button>
+      <ShoppingPageShell
+        pageTitle="Receipts - CateringMS"
+        heading="Receipts"
+        subheading={`Snap up to ${MAX_FILES} supplier slips per batch (JPG, PNG or WebP, 8 MB each). We extract supplier, date, line items and cost prices so nobody retypes them.`}
+        icon={Camera}
+        headerAction={
+          <Button asChild variant="outline" size="sm">
+            <Link href={withSlug("/team-portal/shopping/invoices")}>
+              <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to spend
             </Link>
-          </div>
-
-          <PortalHeader
-            icon={Camera}
-            title={
-              <span className="flex items-center gap-2">
-                Receipts
-                <InfoTooltip content={"Photograph supplier slips as they come in. We pull the supplier, line items and totals so cost prices on inventory stay current without anyone retyping them.\n\nUp to 20 photos in one batch. JPG, PNG and WebP, 8 MB per image."} />
-              </span>
-            }
-            subtitle={`Snap up to ${MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices.`}
-          />
-          <PageWorkbench />
-
-          <ReceiptScanner
-            historyHref={`${slugPrefix}/team-portal/shopping/invoices`}
-            accent="brand"
-          />
-
-          <Footer />
-        </PortalShell>
-      </div>
+          </Button>
+        }
+      >
+        <ReceiptScanner
+          historyHref={withSlug("/team-portal/shopping/invoices")}
+          accent="brand"
+        />
+      </ShoppingPageShell>
 
       <ChatBot userRole="shopping_staff" companyId={companyId || undefined} />
     </>
+  );
+}
+
+// Route guard was missing on this page pre-restructure (the nav hid it
+// but the URL was open to any signed-in role). Same allow-list as the
+// shopping dashboard.
+export default function ShoppingReceipts() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.REGION_ADMIN]}>
+      <ShoppingReceiptsInner />
+    </ProtectedRoute>
   );
 }

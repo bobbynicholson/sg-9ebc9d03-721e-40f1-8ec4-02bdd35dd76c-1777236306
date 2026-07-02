@@ -170,7 +170,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           {
             companyId: o.company_id,
             regionId: o.region_id || null,
-            targetRoles: ["shopping_staff" as any, "kitchen_staff" as any],
+            targetRoles: ["shopping_staff" as any, "kitchen_manager" as any, "kitchen_staff" as any],
             title: `🛒 Shop for ${orderLabel}`,
             message: `${eventName}${venue ? ` at ${venue}` : ""} is ${dayLabel} and shopping isn't done (${shop.purchased}/${shop.total} bought). Get to the market so stock's in before prep.`,
             type: TYPE_SHOPPING_LEAD,
@@ -217,7 +217,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             {
               companyId: o.company_id,
               regionId: o.region_id || null,
-              targetRoles: ["kitchen_staff" as any],
+              targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
               title: `👩‍🍳 Prep for tomorrow: ${orderLabel}`,
               message: `${eventName} is tomorrow. Get prep started so it's ready in time.`,
               type: TYPE_TOMORROW_KITCHEN,
@@ -250,7 +250,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           {
             companyId: o.company_id,
             regionId: o.region_id || null,
-            targetRoles: ["kitchen_staff" as any],
+            targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
             title: `🔥 Start prep now: ${orderLabel}`,
             message: `${eventName}${venue ? ` at ${venue}` : ""} is today (in ${Math.max(0, Math.round(minsUntilEvent / 60))}h). Prep hasn't started - get it going now.`,
             type: TYPE_DAY_KITCHEN,
