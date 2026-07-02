@@ -24,9 +24,9 @@ import { PortalShell, PortalHeader,
   PageWorkbench,
   StatTile,
 } from "@/components/portal/ui";
+import { AdminSearchField } from "@/components/admin/AdminControlSurface";
 import {
   Users,
-  Search,
   Shield,
   ChefHat,
   Truck,
@@ -39,7 +39,6 @@ import {
   AlertCircle,
   RefreshCw,
   Download,
-  X,
   UserPlus,
   UserX,
   UserCheck,
@@ -1002,7 +1001,7 @@ function AdminUsersPage() {
             />
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="grid gap-5 xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
             <aside className="order-2 space-y-4 xl:order-1 xl:sticky xl:top-6 xl:self-start">
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-2">
@@ -1049,29 +1048,13 @@ function AdminUsersPage() {
                     <h2 className="text-base font-semibold text-slate-950">Team members</h2>
                     <p className="text-xs text-slate-500">{visibleUserLabel}</p>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-[560px]">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                      <Input
-                        ref={searchRef}
-                        type="text"
-                        placeholder="Search name, email, or role"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="h-10 pl-9 pr-9 text-sm"
-                      />
-                      {searchTerm && (
-                        <button
-                          type="button"
-                          onClick={() => setSearchTerm("")}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                          title="Clear search"
-                          aria-label="Clear search"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
+                  <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:max-w-[560px]">
+                    <AdminSearchField
+                      inputRef={searchRef}
+                      placeholder="Search name, email, or role"
+                      value={searchTerm}
+                      onChange={setSearchTerm}
+                    />
                     <SortMenu
                       activeKey={userSort.sortKey}
                       activeDir={userSort.sortDir}
@@ -1109,7 +1092,7 @@ function AdminUsersPage() {
                       const activity = loginActivityBucket(targetUser.last_sign_in_at);
                       return (
                         <div key={targetUser.id} className="p-4 transition-colors hover:bg-slate-50/70">
-                          <div className="grid gap-4 xl:grid-cols-[minmax(220px,1.15fr)_minmax(220px,1fr)_170px_220px] xl:items-start">
+                          <div className="grid gap-4 xl:grid-cols-[minmax(200px,1.05fr)_minmax(200px,1fr)_150px_minmax(170px,auto)] xl:items-start">
                             <div className="min-w-0">
                               <div className="flex min-w-0 items-center gap-3">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">

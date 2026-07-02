@@ -36,6 +36,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips } from "@/components/admin/AdminControlSurface";
 import { PortalShell, PortalHeader,
   PageWorkbench, StatTile,
 } from "@/components/portal/ui";
@@ -827,27 +828,15 @@ function RefundsPage() {
           : `${count} refund${count === 1 ? "" : "s"} totalling ${fmtAmount(total / 100)}`)
       : undefined;
     return (
-    <button
-      type="button"
-      onClick={() => setFilter(k)}
-      aria-pressed={filter === k}
-      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-        filter === k
-          ? "bg-slate-900 text-white border-slate-900"
-          : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
-      }`}
-      title={tooltip}
-    >
-      {label}
-      <span className={`ml-2 ${filter === k ? "text-slate-300" : "text-slate-500"}`}>
-        {count}
-      </span>
-      {total > 0 && (
-        <span className={`ml-1.5 pl-1.5 border-l ${filter === k ? "border-slate-700 text-slate-300" : "border-slate-300 text-slate-500"}`}>
-          {tenantCurrency.symbol}{fmtCompact(total / 100)}
-        </span>
-      )}
-    </button>
+      <AdminFilterChip
+        active={filter === k}
+        label={label}
+        count={count}
+        helper={total > 0 ? `${tenantCurrency.symbol}${fmtCompact(total / 100)}` : undefined}
+        tone={k === "pending" ? "amber" : k === "rejected" ? "rose" : k === "credits" ? "brand" : "slate"}
+        title={tooltip}
+        onClick={() => setFilter(k)}
+      />
     );
   };
 
@@ -1036,7 +1025,7 @@ function RefundsPage() {
               (command-centre standard) instead of two loose strips. */}
           <Card className="mb-6">
             <CardContent className="pt-4 pb-4 space-y-3">
-          <div className="flex items-center gap-2 flex-wrap" role="tablist" aria-label="Refund filters">
+          <AdminControlGroup label="Refund status" contentClassName="gap-2" role="tablist" aria-label="Refund filters">
             <FilterChip k="all" label="All" count={counts.all} total={totals.all} />
             <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} total={totals.auto} />
             <FilterChip k="credits" label="Store credits" count={counts.credits} total={totals.credits} />
@@ -1047,40 +1036,17 @@ function RefundsPage() {
                 deliver. Renamed to neutral "Pending refunds". */}
             <FilterChip k="pending" label="Pending refunds" count={counts.pending} total={totals.pending} />
             <FilterChip k="rejected" label="Rejected" count={counts.rejected} total={totals.rejected} />
-          </div>
+          </AdminControlGroup>
 
           {/* Phase 17 #2: saved-view chips. Same pattern as orders /
               quotes / invoices / contacts. */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {savedRefundViews.map((v) => (
-              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
-                <button
-                  type="button"
-                  onClick={() => applySavedRefundView(v)}
-                  className="px-2.5 py-0.5 hover:underline"
-                  title={`Apply: ${v.filter}`}
-                >
-                  {v.name}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeSavedRefundView(v.id)}
-                  className="pr-1.5 text-slate-500 hover:text-slate-800"
-                  title="Remove this view"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <button
-              type="button"
-              onClick={saveCurrentRefundView}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
-              title="Save the current filter as a named view"
-            >
-              + Save view
-            </button>
-          </div>
+          <AdminSavedViewChips
+            views={savedRefundViews}
+            onApply={applySavedRefundView}
+            onRemove={removeSavedRefundView}
+            onSave={saveCurrentRefundView}
+            getTitle={(v) => `Apply: ${v.filter}`}
+          />
             </CardContent>
           </Card>
 

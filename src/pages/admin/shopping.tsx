@@ -1371,18 +1371,18 @@ function SmartShoppingPage() {
             <button
               type="button"
               onClick={() => setScannerOpen((v) => !v)}
-              className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 rounded-t-lg"
+              className="flex w-full flex-col gap-3 rounded-t-lg px-4 py-3 text-left hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="flex items-center gap-3 text-left">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-primary to-brand-secondary">
                   <Camera className="w-5 h-5 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="font-semibold text-slate-900">Just back from the shops?</p>
                   <p className="text-xs text-slate-500">Scan the till slip. One upload tags it for tax and feeds your inventory.</p>
                 </div>
               </div>
-              {scannerOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              {scannerOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
             </button>
             {scannerOpen && (
               <CardContent className="border-t border-slate-100 pt-4 space-y-3">
@@ -1438,18 +1438,18 @@ function SmartShoppingPage() {
             </CardContent></Card>
           ) : (
             <Tabs defaultValue={initialTab} key={initialTab}>
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-3xl mb-4">
-                <TabsTrigger value="buy_now" className="gap-1.5">
+              <TabsList className="mb-4 grid h-auto w-full grid-cols-1 gap-1 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-4">
+                <TabsTrigger value="buy_now" className="min-h-10 justify-center gap-1.5 whitespace-normal px-2 text-xs sm:text-sm data-[state=active]:bg-white">
                   <Flame className="w-3.5 h-3.5" /> Buy now
                   {buyNow.length > 0 && <Badge className="ml-1 bg-rose-100 text-rose-700 text-[10px]">{buyNow.length}</Badge>}
                 </TabsTrigger>
-                <TabsTrigger value="plan" className="gap-1.5">
+                <TabsTrigger value="plan" className="min-h-10 justify-center gap-1.5 whitespace-normal px-2 text-xs sm:text-sm data-[state=active]:bg-white">
                   <Calendar className="w-3.5 h-3.5" /> Plan ahead
                 </TabsTrigger>
-                <TabsTrigger value="supplier" className="gap-1.5">
+                <TabsTrigger value="supplier" className="min-h-10 justify-center gap-1.5 whitespace-normal px-2 text-xs sm:text-sm data-[state=active]:bg-white">
                   <Building2 className="w-3.5 h-3.5" /> By supplier
                 </TabsTrigger>
-                <TabsTrigger value="receipts" className="gap-1.5">
+                <TabsTrigger value="receipts" className="min-h-10 justify-center gap-1.5 whitespace-normal px-2 text-xs sm:text-sm data-[state=active]:bg-white">
                   <Receipt className="w-3.5 h-3.5" /> Receipts
                 </TabsTrigger>
               </TabsList>
@@ -1816,7 +1816,7 @@ function SmartShoppingPage() {
                             aria-expanded={isOpen}
                           >
                             <CardHeader className="hover:bg-slate-50 transition-colors">
-                              <div className="flex items-center justify-between gap-3 flex-wrap">
+                              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                 <div className="flex items-center gap-3 min-w-0">
                                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-brand-primary/15 to-brand-secondary/15 flex items-center justify-center flex-shrink-0">
                                     <Building2 className="w-5 h-5 text-brand-primary" />
@@ -1905,7 +1905,7 @@ function SmartShoppingPage() {
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
                                   <span className="font-bold tabular-nums text-slate-900">
                                     {fmtMoney.format(g.totalCost)}
                                   </span>
@@ -1921,14 +1921,14 @@ function SmartShoppingPage() {
                                     <Button
                                       size="sm"
                                       onClick={(e) => { e.stopPropagation(); openOrderDialog(g); }}
-                                      className="gap-1.5"
+                                      className="w-full gap-1.5 sm:w-auto"
                                       title="Compose and send this supplier's order - preview before sending"
                                     >
                                       <Mail className="w-3.5 h-3.5" />
                                       Email order
                                     </Button>
                                   )}
-                                  {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                                  {isOpen ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
                                 </div>
                               </div>
                             </CardHeader>
@@ -2318,10 +2318,10 @@ function ItemTable({
 }: any) {
   return (
     <>
-      {/* SHOP-G: desktop table - hidden under sm, swapped for the
+      {/* SHOP-G: desktop table - hidden under lg, swapped for the
           card layout below so the 9-column row doesn't horizontal-
-          scroll off-screen on a phone. */}
-      <div className="hidden sm:block overflow-x-auto">
+          scroll off-screen on compact screens. */}
+      <div className="hidden overflow-x-auto lg:block">
       <table className="w-full text-sm">
         <thead className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
           <tr>
@@ -2535,9 +2535,9 @@ function ItemTable({
       </table>
       </div>
 
-      {/* SHOP-G: mobile card fallback. Same data, vertical stack
-          per row. Below sm only - desktop keeps the table. */}
-      <div className="sm:hidden divide-y divide-slate-100">
+      {/* SHOP-G: compact card fallback. Same data, vertical stack
+          per row. Below lg only - desktop keeps the table. */}
+      <div className="divide-y divide-slate-100 lg:hidden">
         {rows.map((r: any) => {
           const meta = STATUS_META[r.status] || STATUS_META.ok;
           const isOpen = expandedItem === r.inventory_item_id;

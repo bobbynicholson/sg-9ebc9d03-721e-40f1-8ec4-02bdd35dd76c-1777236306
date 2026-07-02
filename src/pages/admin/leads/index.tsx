@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Phone, Mail, Banknote, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download, X } from "lucide-react";
+import { Plus, Phone, Mail, Banknote, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download } from "lucide-react";
 import { ConvertLeadDialog } from "@/components/admin/leads/ConvertLeadDialog";
 import {
   DropdownMenu,
@@ -46,6 +46,7 @@ import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { PageWorkbench, PortalCard, PortalCardHeader, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
+import { AdminControlGroup, AdminFilterChip, AdminSearchField } from "@/components/admin/AdminControlSurface";
 
 // Per-lead provenance summary - which quotes/orders/clients have
 // been spawned from this lead. Surfaced on the row so the catering
@@ -1263,38 +1264,23 @@ function AdminLeadsInner() {
 
           {/* Toolbar: search + status chips grouped into ONE card per
               the command-centre standard (was the list card's header). */}
-          <PortalCard className="mb-6 space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <Input
-                    ref={searchRef}
-                    placeholder="Search by name, company, email, event type... (press /)"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-10"
-                  />
-                  {/* Phase 25 #1: clear-search affordance, matching
-                      the Phase 24 #7-10 sweep across orders /
-                      quotes / contacts / invoices. */}
-                  {searchTerm && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchTerm("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                      title="Clear search"
-                      aria-label="Clear search"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+          <PortalCard className="mb-6 space-y-3">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,560px)_1fr] lg:items-start">
+                <AdminSearchField
+                  inputRef={searchRef}
+                  placeholder="Search by name, company, email, event type... (press /)"
+                  value={searchTerm}
+                  onChange={setSearchTerm}
+                />
+                <p className="text-xs leading-5 text-slate-500 lg:pt-2">
+                  Showing {filteredLeads.length} of {regionFilteredLeads.length} leads in this view.
+                </p>
               </div>
               {/* Status chip strip. Active is the daily-driver default;
                   the archive chips (Won, Lost) are kept one click away
                   for win-back work and audits without polluting the
                   main pipeline view. */}
-              <div className="flex flex-wrap items-center gap-2">
+              <AdminControlGroup label="Lead status">
                 {([
                   { key: "active",    label: "Active",    count: statusCounts.active,    tone: "primary" as const },
                   { key: "new",       label: "New",       count: statusCounts.new,       tone: "default" as const },
@@ -1305,29 +1291,19 @@ function AdminLeadsInner() {
                   { key: "all",       label: "All",       count: statusCounts.all,       tone: "muted" as const },
                 ]).map((chip) => {
                   const active = statusFilter === chip.key;
-                  const base = "px-3 py-1.5 rounded-full text-sm font-medium border transition-colors";
-                  const cls = active
-                    ? chip.tone === "primary"
-                      ? "bg-brand-primary text-white border-brand-primary shadow-sm"
-                      : chip.tone === "muted"
-                        ? "bg-slate-700 text-white border-slate-700"
-                        : "bg-brand-primary text-white border-brand-primary"
-                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
+                  const tone = chip.tone === "primary" ? "brand" : "slate";
                   return (
-                    <button
+                    <AdminFilterChip
                       key={chip.key}
-                      type="button"
+                      active={active}
+                      label={chip.label}
+                      count={chip.count}
+                      tone={tone}
                       onClick={() => setStatusFilter(chip.key)}
-                      className={`${base} ${cls}`}
-                    >
-                      {chip.label}
-                      <span className={`ml-1.5 text-xs ${active ? "opacity-90" : "text-slate-500"}`}>
-                        {chip.count}
-                      </span>
-                    </button>
+                    />
                   );
                 })}
-              </div>
+              </AdminControlGroup>
           </PortalCard>
 
           <PortalCard className="mb-6">

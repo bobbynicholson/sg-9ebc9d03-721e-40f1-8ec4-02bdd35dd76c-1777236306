@@ -10,6 +10,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips, AdminSearchField } from "@/components/admin/AdminControlSurface";
 import { PortalShell, PortalHeader,
   PageWorkbench, StatTile,
 } from "@/components/portal/ui";
@@ -49,7 +50,7 @@ import { MarkPaidDialog, type MarkPaidDialogInvoice } from "@/components/billing
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { FileText, Send, Search, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
+import { FileText, Send, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
 import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -1824,73 +1825,18 @@ function InvoicesPageInner() {
 
         {/* Filters */}
         <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  ref={searchRef}
-                  placeholder="Search by invoice number or client email... (press /)"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-10"
-                />
-                {/* Phase 24 #10: clear-search affordance, matching
-                    orders, quotes and contacts. */}
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                    title="Clear search"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              {/* Quick status filters with live counts. Faster than the
-                  dropdown for the everyday chase view and surfaces the
-                  overdue count up front. The dropdown stays for draft /
-                  written-off edge cases. */}
-              <div className="flex flex-wrap items-center gap-1.5 w-full" data-print-hidden="true">
-                {([
-                  { key: "all", label: "All", count: statusCounts.all, tone: "slate" },
-                  { key: "unpaid", label: "Unpaid", count: statusCounts.unpaid, tone: "amber" },
-                  { key: "sent", label: "Sent", count: statusCounts.sent, tone: "blue" },
-                  { key: "partially_paid", label: "Part paid", count: statusCounts.partially_paid, tone: "amber" },
-                  { key: "overdue", label: "Overdue", count: statusCounts.overdue, tone: "rose" },
-                  { key: "paid", label: "Paid", count: statusCounts.paid, tone: "emerald" },
-                ] as Array<{ key: string; label: string; count: number; tone: "slate" | "blue" | "amber" | "rose" | "emerald" }>).map((c) => {
-                  const active = statusFilter === c.key;
-                  const activeTone: Record<string, string> = {
-                    slate: "bg-slate-800 text-white border-slate-800",
-                    blue: "bg-blue-600 text-white border-blue-600",
-                    amber: "bg-amber-500 text-white border-amber-500",
-                    rose: "bg-rose-600 text-white border-rose-600",
-                    emerald: "bg-brand-primary text-white border-brand-primary/80",
-                  };
-                  return (
-                    <button
-                      key={c.key}
-                      type="button"
-                      onClick={() => setStatusFilter(c.key)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                        active ? activeTone[c.tone] : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {c.label}
-                      <span className={`tabular-nums rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
-                        {c.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+          <CardContent className="space-y-3 pt-4 pb-4">
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,560px)_240px] lg:items-start">
+              <AdminSearchField
+                inputRef={searchRef}
+                placeholder="Search by invoice number or client email... (press /)"
+                value={searchTerm}
+                onChange={setSearchTerm}
+              />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border rounded-md"
+                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm"
               >
                 {/* Wave 61 - options now match the actual enum:
                     {draft|sent|paid|partially_paid|overdue|written_off}.
@@ -1908,6 +1854,32 @@ function InvoicesPageInner() {
                 <option value="voided">Voided</option>
               </select>
             </div>
+              {/* Quick status filters with live counts. Faster than the
+                  dropdown for the everyday chase view and surfaces the
+                  overdue count up front. The dropdown stays for draft /
+                  written-off edge cases. */}
+              <AdminControlGroup label="Payment status" data-print-hidden="true">
+                {([
+                  { key: "all", label: "All", count: statusCounts.all, tone: "slate" },
+                  { key: "unpaid", label: "Unpaid", count: statusCounts.unpaid, tone: "amber" },
+                  { key: "sent", label: "Sent", count: statusCounts.sent, tone: "blue" },
+                  { key: "partially_paid", label: "Part paid", count: statusCounts.partially_paid, tone: "amber" },
+                  { key: "overdue", label: "Overdue", count: statusCounts.overdue, tone: "rose" },
+                  { key: "paid", label: "Paid", count: statusCounts.paid, tone: "emerald" },
+                  ] as Array<{ key: string; label: string; count: number; tone: "slate" | "blue" | "amber" | "rose" | "emerald" }>).map((c) => {
+                  const active = statusFilter === c.key;
+                  return (
+                    <AdminFilterChip
+                      key={c.key}
+                      active={active}
+                      label={c.label}
+                      count={c.count}
+                      tone={c.tone === "emerald" ? "emerald" : c.tone}
+                      onClick={() => setStatusFilter(c.key)}
+                    />
+                  );
+                })}
+              </AdminControlGroup>
 
             {/* Wave 66.7 - written-off toggle. Hidden by default so
                 the operator's triage view is just live receivables.
@@ -1948,26 +1920,29 @@ function InvoicesPageInner() {
                 multiple invoices into a single row - matches the
                 operator's mental model: "Bobby owes R8 528.50 across
                 3 invoices". */}
-            <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-center text-xs">
-              <label className="flex flex-col gap-0.5">
+            <AdminControlGroup
+              label="Advanced filters"
+              contentClassName="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
+            >
+              <label className="flex min-w-0 flex-col gap-1 text-xs">
                 <span className="text-slate-500">Issued from</span>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="px-2 py-1 border rounded text-sm"
+                  className="h-9 min-w-0 rounded-md border border-slate-300 bg-white px-2 text-sm"
                 />
               </label>
-              <label className="flex flex-col gap-0.5">
+              <label className="flex min-w-0 flex-col gap-1 text-xs">
                 <span className="text-slate-500">Issued to</span>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="px-2 py-1 border rounded text-sm"
+                  className="h-9 min-w-0 rounded-md border border-slate-300 bg-white px-2 text-sm"
                 />
               </label>
-              <label className="flex flex-col gap-0.5">
+              <label className="flex min-w-0 flex-col gap-1 text-xs">
                 <span className="text-slate-500">Min amount</span>
                 <input
                   type="number"
@@ -1976,10 +1951,10 @@ function InvoicesPageInner() {
                   placeholder="0"
                   value={amountMin}
                   onChange={(e) => setAmountMin(e.target.value)}
-                  className="px-2 py-1 border rounded text-sm"
+                  className="h-9 min-w-0 rounded-md border border-slate-300 bg-white px-2 text-sm"
                 />
               </label>
-              <label className="flex flex-col gap-0.5">
+              <label className="flex min-w-0 flex-col gap-1 text-xs">
                 <span className="text-slate-500">Max amount</span>
                 <input
                   type="number"
@@ -1988,52 +1963,29 @@ function InvoicesPageInner() {
                   placeholder="No limit"
                   value={amountMax}
                   onChange={(e) => setAmountMax(e.target.value)}
-                  className="px-2 py-1 border rounded text-sm"
+                  className="h-9 min-w-0 rounded-md border border-slate-300 bg-white px-2 text-sm"
                 />
               </label>
-              <label className="flex items-end gap-2 cursor-pointer">
+              <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   checked={groupByClient}
                   onChange={(e) => setGroupByClient(e.target.checked)}
-                  className="h-4 w-4 accent-blue-600"
+                  className="h-4 w-4 shrink-0 accent-brand-primary"
                 />
                 <span className="text-slate-700">Group by client</span>
               </label>
-            </div>
+            </AdminControlGroup>
             {/* Phase 15 #2: saved-view chips. Bookkeepers running
                 monthly close want to flip between 'overdue', 'paid
                 this month' and 'unpaid > 30 days' fast. */}
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {savedInvoiceViews.map((v) => (
-                <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => applySavedInvoiceView(v)}
-                    className="px-2.5 py-0.5 hover:underline"
-                    title={`Apply: ${v.statusFilter}${v.searchTerm ? ` + '${v.searchTerm}'` : ""}`}
-                  >
-                    {v.name}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeSavedInvoiceView(v.id)}
-                    className="pr-1.5 text-slate-500 hover:text-slate-800"
-                    title="Remove this view"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-              <button
-                type="button"
-                onClick={saveCurrentInvoiceView}
-                className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
-                title="Save the current search + status as a named view"
-              >
-                + Save view
-              </button>
-            </div>
+            <AdminSavedViewChips
+              views={savedInvoiceViews}
+              onApply={applySavedInvoiceView}
+              onRemove={removeSavedInvoiceView}
+              onSave={saveCurrentInvoiceView}
+              getTitle={(v) => `Apply: ${v.statusFilter}${v.searchTerm ? ` + '${v.searchTerm}'` : ""}`}
+            />
           </CardContent>
         </Card>
 

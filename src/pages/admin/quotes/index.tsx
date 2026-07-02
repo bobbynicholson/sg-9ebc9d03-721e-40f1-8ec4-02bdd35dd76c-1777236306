@@ -47,6 +47,7 @@ import { PortalShell, PortalHeader,
   PageWorkbench, PortalCard, StatTile,
 } from "@/components/portal/ui";
 import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
+import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips, AdminSearchField, AdminSegmentedControl } from "@/components/admin/AdminControlSurface";
 import {
   computeFollowupState,
   loadFollowupLogsForQuotes,
@@ -1658,55 +1659,28 @@ function AdminQuotesInner() {
               sibling strips - now grouped into ONE toolbar card per
               the page standard. Behaviour unchanged. */}
           <PortalCard className="mb-6 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,560px)_auto] lg:items-start">
             {/* Smart search across client, event, ref + total. */}
             {quotes.length > 0 ? (
-              <div className="relative flex-1 min-w-[220px] max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  ref={searchRef}
-                  placeholder="Search by client, event, venue, quote ref or total... (press /)"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 pr-9"
-                />
-                {/* Phase 24 #8: clear-search affordance to match
-                    Phase 24 #7 on /admin/orders. */}
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                    title="Clear search"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+              <AdminSearchField
+                inputRef={searchRef}
+                placeholder="Search by client, event, venue, quote ref or total... (press /)"
+                value={search}
+                onChange={setSearch}
+              />
             ) : <span />}
             {/* Phase 8 #8: list / pipeline view toggle. Pipeline groups
                 every quote in scope by intelligence bucket so the sales
                 lead can see the funnel at a glance without flipping
                 through pill filters one by one. */}
-            <div className="inline-flex border rounded-lg overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${viewMode === "list" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
-              >
-                <List className="w-3.5 h-3.5" />
-                List
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("pipeline")}
-                className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${viewMode === "pipeline" ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-slate-50"}`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                Pipeline
-              </button>
-            </div>
+            <AdminSegmentedControl<"list" | "pipeline">
+              value={viewMode}
+              onChange={setViewMode}
+              options={[
+                { value: "list", label: "List", icon: List },
+                { value: "pipeline", label: "Pipeline", icon: LayoutGrid },
+              ]}
+            />
           </div>
           {quotes.length > 0 && (search.trim() || bucket !== "all") && (
             <p className="text-xs text-slate-500 -mt-1">
@@ -1719,7 +1693,7 @@ function AdminQuotesInner() {
             pill shows a live count so the team sees at a glance how
             many quotes need their attention. Click to narrow the list.
           */}
-          <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0 scrollbar-hide">
+          <AdminControlGroup label="Quote buckets">
             {([
               { id: "all",            label: "Open",          icon: Inbox,          tone: "bg-slate-100 text-slate-700 border-slate-200" },
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
@@ -1746,76 +1720,46 @@ function AdminQuotesInner() {
                 ? openRevenue
                 : ((revenueByBucket as any)[pill.id] as number | undefined);
               return (
-                <button
+                <AdminFilterChip
                   key={pill.id}
-                  type="button"
+                  active={active}
+                  icon={Icon}
+                  label={pill.label}
+                  count={count}
+                  helper={revenue && revenue > 0 ? `${C}${fmtCompact(revenue)}` : undefined}
+                  tone={
+                    pill.id === "action_needed" ? "rose"
+                    : pill.id === "stale" || pill.id === "expired" || pill.id === "won_then_cancelled" ? "amber"
+                    : pill.id === "in_play" || pill.id === "won" ? "brand"
+                    : "slate"
+                  }
                   onClick={() => setBucket(pill.id as QuoteBucket)}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition shrink-0 ${
-                    active
-                      ? `${pill.tone} ring-2 ring-offset-1 ring-slate-300`
-                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
-                  }`}
                   title={revenue && revenue > 0 ? `${count} quote${count === 1 ? "" : "s"} totalling ${C} ${revenue.toFixed(2)}` : undefined}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="font-medium">{pill.label}</span>
-                  <span className="text-xs font-semibold opacity-80">{count}</span>
-                  {revenue && revenue > 0 && (
-                    <span className="text-[10px] font-semibold opacity-70 border-l border-current/30 pl-1.5 ml-0.5">
-                      {C}{fmtCompact(revenue)}
-                    </span>
-                  )}
-                </button>
+                />
               );
             })}
-          </div>
+          </AdminControlGroup>
 
           {/* Phase 15 #1 + #4: saved views chip strip with a
               'Mine only' toggle. Saved views snap back to named
               filter snapshots; mine-only restricts to quotes the
               current user prepared. */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
+          <AdminControlGroup label="Ownership">
+            <AdminFilterChip
+              active={myQuotesOnly}
+              label="Mine only"
+              tone="brand"
               onClick={() => setMyQuotesOnly((v) => !v)}
-              className={`inline-flex items-center gap-1 rounded-full text-xs px-2.5 py-0.5 border ${
-                myQuotesOnly
-                  ? "border-brand-primary bg-brand-primary/10 text-brand-primary"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-brand-primary/30 hover:text-brand-primary"
-              }`}
               title="Restrict to quotes I prepared"
-            >
-              Mine only
-            </button>
-            {savedViews.map((v) => (
-              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
-                <button
-                  type="button"
-                  onClick={() => applySavedQuoteView(v)}
-                  className="px-2.5 py-0.5 hover:underline"
-                  title={`Apply: ${v.bucket} / ${v.viewMode}`}
-                >
-                  {v.name}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeSavedQuoteView(v.id)}
-                  className="pr-1.5 text-slate-500 hover:text-slate-800"
-                  title="Remove this view"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <button
-              type="button"
-              onClick={saveCurrentQuoteView}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
-              title="Save the current bucket + search + view as a named view"
-            >
-              + Save view
-            </button>
-          </div>
+            />
+          </AdminControlGroup>
+          <AdminSavedViewChips
+            views={savedViews}
+            onApply={applySavedQuoteView}
+            onRemove={removeSavedQuoteView}
+            onSave={saveCurrentQuoteView}
+            getTitle={(v) => `Apply: ${v.bucket} / ${v.viewMode}`}
+          />
           </PortalCard>
 
           {/*

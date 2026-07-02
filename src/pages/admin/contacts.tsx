@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, X, Package, Receipt, Banknote } from "lucide-react";
+import { Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, Package, Receipt, Banknote } from "lucide-react";
 import { usePromptDialog } from "@/components/ui/confirm-dialog";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -50,6 +50,7 @@ import { PortalShell, PortalHeader,
 } from "@/components/portal/ui";
 import { TopClientsWidget } from "@/components/admin/TopClientsWidget";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
+import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips, AdminSearchField } from "@/components/admin/AdminControlSurface";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -1435,136 +1436,91 @@ function ClientsCRM() {
           {/* Command-centre toolbar: search + saved views + tag
               filter + status chips grouped into ONE card instead of
               loose strips scattered above the table. */}
-          <PortalCard className="mb-6">
-          <div className="relative mb-3 w-full sm:max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              ref={searchRef}
+          <PortalCard className="mb-6 space-y-3">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,520px)_1fr] lg:items-start">
+            <AdminSearchField
+              inputRef={searchRef}
               placeholder="Search name, email, phone... (press /)"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-9 w-full"
+              onChange={setSearch}
             />
-            {/* Phase 24 #9: clear-search affordance, matching
-                /admin/orders + /admin/quotes. */}
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                title="Clear search"
-                aria-label="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+            <p className="text-xs leading-5 text-slate-500 lg:pt-2">
+              Showing {fuzzyVisible.length} of {contacts.length} contacts after filters.
+            </p>
           </div>
 
           {/* Phase 16 #8: saved-view chips. Snapshot status + tag
               + search under a named chip so a sales rep can snap
               back to 'VIPs', 'Active in JHB', 'Hot leads unread'
               with one click. */}
-          <div className="mb-3 flex flex-wrap items-center gap-1.5">
-            {savedContactViews.map((v) => (
-              <span key={v.id} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700 text-xs">
-                <button
-                  type="button"
-                  onClick={() => applySavedContactView(v)}
-                  className="px-2.5 py-0.5 hover:underline"
-                  title={`Apply: ${v.filter}${v.search ? ` + '${v.search}'` : ""}${v.tags.length ? ` + tags(${v.tags.join(",")})` : ""}`}
-                >
-                  {v.name}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeSavedContactView(v.id)}
-                  className="pr-1.5 text-slate-500 hover:text-slate-800"
-                  title="Remove this view"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <button
-              type="button"
-              onClick={saveCurrentContactView}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 text-slate-500 text-xs px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-700"
-              title="Save the current status + tag + search as a named view"
-            >
-              + Save view
-            </button>
-          </div>
+          <AdminSavedViewChips
+            views={savedContactViews}
+            onApply={applySavedContactView}
+            onRemove={removeSavedContactView}
+            onSave={saveCurrentContactView}
+            getTitle={(v) => `Apply: ${v.filter}${v.search ? ` + '${v.search}'` : ""}${v.tags.length ? ` + tags(${v.tags.join(",")})` : ""}`}
+          />
 
           {/* Phase 9 #4: tag filter chip strip. Only renders when
               the book has at least one tagged contact. Click a chip
               to toggle it into the active filter set; multiple
               selected = OR (contact must have at least one). */}
           {allTags.length > 0 && (
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-500 inline-flex items-center gap-1">
-                <Filter className="w-3.5 h-3.5" />
-                Tags
-              </span>
+            <AdminControlGroup label="Tags">
               {allTags.map((t) => {
                 const active = tagFilter.has(t);
                 return (
-                  <button
+                  <AdminFilterChip
                     key={t}
+                    active={active}
+                    label={t}
+                    tone="slate"
                     onClick={() => setTagFilter((prev) => {
                       const next = new Set(prev);
                       if (next.has(t)) next.delete(t);
                       else next.add(t);
                       return next;
                     })}
-                    className={`text-[11px] px-2 py-0.5 rounded-full border transition ${
-                      active
-                        ? "bg-slate-600 text-white border-slate-700"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    {t}
-                  </button>
+                  />
                 );
               })}
               {tagFilter.size > 0 && (
                 <button
                   onClick={() => setTagFilter(new Set())}
-                  className="text-[11px] text-slate-500 hover:text-slate-700 underline ml-1"
+                  className="inline-flex min-h-8 items-center rounded-full px-2.5 text-xs font-semibold text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
                 >
                   Clear ({tagFilter.size})
                 </button>
               )}
-            </div>
+            </AdminControlGroup>
           )}
 
           {/* Smart filter chips with live counts */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400" />
+          <AdminControlGroup label="Lifecycle">
             {FILTERS.map((f) => {
               const c = counts[f.id] ?? 0;
               // "all" and "clients" are scope chips, not lifecycle
               // statuses, so they have no STATUS_META entry.
               const meta = f.id !== "all" && f.id !== "clients" ? STATUS_META[f.id as ClientStatus] : null;
               const active = filter === f.id;
+              const tone =
+                f.id === "hot_lead" || f.id === "lost" ? "rose"
+                : f.id === "quiet" || f.id === "quoted" ? "amber"
+                : f.id === "active" || f.id === "won" ? "brand"
+                : "slate";
               return (
-                <button
+                <AdminFilterChip
                   key={f.id}
+                  active={active}
+                  icon={meta?.icon}
+                  label={f.label}
+                  count={c}
+                  tone={tone}
                   onClick={() => setFilter(f.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                    active
-                      ? meta ? `${meta.tone} border-current` : "bg-slate-600 text-white border-slate-700"
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {meta && <meta.icon className="w-3 h-3" />}
-                  {f.label}
-                  <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[10px] ${active ? "bg-white/30" : "bg-slate-100 text-slate-600"}`}>
-                    {c}
-                  </span>
-                </button>
+                />
               );
             })}
-          </div>
+          </AdminControlGroup>
           </PortalCard>
 
           {/* Email cap notice, ties to pricing tier */}

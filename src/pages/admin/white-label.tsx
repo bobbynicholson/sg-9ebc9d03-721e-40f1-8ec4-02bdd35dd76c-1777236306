@@ -738,9 +738,9 @@ function WhiteLabelPage() {
             </Card>
           ) : (
           <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
             <div className="space-y-6">
-              <Card>
+              <Card className="overflow-hidden">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5" />
@@ -775,14 +775,14 @@ function WhiteLabelPage() {
                           />
                         </div>
                       )}
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row">
                         <Input
                           id="logo"
                           type="file"
                           accept="image/png,image/jpeg,image/svg+xml,image/webp"
                           onChange={handleImageUpload}
                           disabled={uploading || saving}
-                          className="flex-1"
+                          className="min-w-0 flex-1"
                         />
                         <Button
                           variant="outline"
@@ -803,7 +803,7 @@ function WhiteLabelPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="overflow-hidden">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="w-5 h-5" />
@@ -920,7 +920,7 @@ function WhiteLabelPage() {
                           Apply again
                         </Button>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         {([
                           ["Primary", paletteSuggestion.primary, paletteSuggestion.contrast?.primary],
                           ["Secondary", paletteSuggestion.secondary, paletteSuggestion.contrast?.secondary],
@@ -943,7 +943,7 @@ function WhiteLabelPage() {
 
                   <div>
                     <Label htmlFor="primaryColor">Primary Color</Label>
-                    <div className="flex gap-3 mt-1.5">
+                    <div className="mt-1.5 grid grid-cols-[80px_minmax(0,1fr)] gap-3">
                       <Input
                         id="primaryColor"
                         type="color"
@@ -955,7 +955,7 @@ function WhiteLabelPage() {
                         value={primaryColor}
                         onChange={(e) => setPrimaryColor(e.target.value)}
                         placeholder="#2563eb"
-                        className="flex-1"
+                        className="min-w-0"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
@@ -965,7 +965,7 @@ function WhiteLabelPage() {
 
                   <div>
                     <Label htmlFor="secondaryColor">Secondary Color</Label>
-                    <div className="flex gap-3 mt-1.5">
+                    <div className="mt-1.5 grid grid-cols-[80px_minmax(0,1fr)] gap-3">
                       <Input
                         id="secondaryColor"
                         type="color"
@@ -977,7 +977,7 @@ function WhiteLabelPage() {
                         value={secondaryColor}
                         onChange={(e) => setSecondaryColor(e.target.value)}
                         placeholder="#7c3aed"
-                        className="flex-1"
+                        className="min-w-0"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
@@ -987,7 +987,7 @@ function WhiteLabelPage() {
 
                   <div>
                     <Label htmlFor="accentColor">Accent Color</Label>
-                    <div className="flex gap-3 mt-1.5">
+                    <div className="mt-1.5 grid grid-cols-[80px_minmax(0,1fr)] gap-3">
                       <Input
                         id="accentColor"
                         type="color"
@@ -999,7 +999,7 @@ function WhiteLabelPage() {
                         value={accentColor}
                         onChange={(e) => setAccentColor(e.target.value)}
                         placeholder="#f59e0b"
-                        className="flex-1"
+                        className="min-w-0"
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
@@ -1083,11 +1083,11 @@ function WhiteLabelPage() {
                 </CardContent>
               </Card>
 
-              <div className="flex gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Button
                   onClick={handleSave}
                   disabled={saving || loading || !companyId}
-                  className="flex-1 bg-brand-primary text-white hover:opacity-90"
+                  className="w-full bg-brand-primary text-white hover:opacity-90"
                   title="Save the current branding values"
                 >
                   <Save className="w-4 h-4 mr-2" />
@@ -1097,7 +1097,7 @@ function WhiteLabelPage() {
                   onClick={handleReset}
                   disabled={saving || loading}
                   variant="outline"
-                  className="flex-1"
+                  className="w-full"
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Reset to Default
@@ -1106,7 +1106,7 @@ function WhiteLabelPage() {
             </div>
 
             <div>
-              <Card className="sticky top-8">
+              <Card className="overflow-hidden xl:sticky xl:top-8">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Eye className="w-5 h-5" />
