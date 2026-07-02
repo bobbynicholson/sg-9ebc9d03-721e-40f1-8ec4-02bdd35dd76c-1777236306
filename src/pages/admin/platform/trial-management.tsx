@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
+import Head from "next/head";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/router";
 import { subscriptionService } from "@/services/subscriptionService";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,8 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
 } from "@/components/portal/ui";
 import { toast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface CompanyTrialStatus {
   id: string;
@@ -27,9 +28,19 @@ interface CompanyTrialStatus {
   last_notification_type: string | null;
 }
 
-export default function TrialManagementPage() {
-  const { user, profile, loading: authLoading } = useAuth() as any;
-  const router = useRouter();
+// Super-admin gate. Trial management reads and mutates
+// subscription state across every tenant, so it uses the standard
+// ProtectedRoute wrapper pattern from dashboard.tsx instead of a
+// hand-rolled role-redirect effect.
+export default function ProtectedTrialManagementPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <TrialManagementPage />
+    </ProtectedRoute>
+  );
+}
+
+function TrialManagementPage() {
   const [companies, setCompanies] = useState<CompanyTrialStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
@@ -54,23 +65,11 @@ export default function TrialManagementPage() {
   });
 
   useEffect(() => {
-    // Wait for the AuthContext to finish initialising; user/profile start
-    // null and only flip after the supabase session resolves.
-    if (authLoading) return;
-    if (!user) {
-      router.push("/auth/login");
-      return;
-    }
-    if (!profile) return;
-
-    const role = (profile as any).active_role || (profile as any).role;
-    if (role !== "super_admin") {
-      router.push("/");
-      return;
-    }
-
+    // ProtectedRoute has already verified the super_admin session by
+    // the time this mounts, so we can load straight away.
     loadTrialCompanies();
-  }, [authLoading, user, profile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadTrialCompanies = async () => {
     setLoading(true);
@@ -107,34 +106,52 @@ export default function TrialManagementPage() {
 
       const emailMap = new Map(profilesData?.map(p => [p.id, p.email]) || []);
 
-      // Calculate days remaining and get notification counts
+      // Notification history: one query for every company at once
+      // (was an N+1, one round-trip per trial company). Ordered by
+      // sent_at desc so the first row we see per company is the most
+      // recent notification.
+      const companyIds = companiesData.map((c) => c.id);
+      let notificationRows: Array<{ company_id: string; notification_type: string }> = [];
+      if (companyIds.length > 0) {
+        const { data: notificationsData } = await supabase
+          .from("trial_expiry_notifications")
+          .select("company_id, notification_type, sent_at")
+          .in("company_id", companyIds)
+          .order("sent_at", { ascending: false });
+        notificationRows = notificationsData || [];
+      }
+
+      const notificationsByCompany = new Map<string, { count: number; lastType: string | null }>();
+      for (const n of notificationRows) {
+        const existing = notificationsByCompany.get(n.company_id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          notificationsByCompany.set(n.company_id, { count: 1, lastType: n.notification_type || null });
+        }
+      }
+
+      // Calculate days remaining and attach notification counts
       const now = new Date();
-      const enrichedCompanies = await Promise.all(
-        companiesData.map(async (company) => {
-          const trialEnd = company.trial_ends_at ? new Date(company.trial_ends_at) : null;
-          const daysRemaining = trialEnd
-            ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-            : 0;
+      const enrichedCompanies = companiesData.map((company) => {
+        const trialEnd = company.trial_ends_at ? new Date(company.trial_ends_at) : null;
+        const daysRemaining = trialEnd
+          ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+          : 0;
 
-          // Get notification history
-          const { data: notifications } = await supabase
-            .from("trial_expiry_notifications")
-            .select("notification_type")
-            .eq("company_id", company.id)
-            .order("sent_at", { ascending: false });
+        const notif = notificationsByCompany.get(company.id);
 
-          return {
-            id: company.id,
-            company_name: company.company_name,
-            owner_email: emailMap.get(company.owner_id || "") || "N/A",
-            trial_ends_at: company.trial_ends_at || "",
-            subscription_status: company.subscription_status || "unknown",
-            days_remaining: daysRemaining,
-            notifications_sent: notifications?.length || 0,
-            last_notification_type: notifications?.[0]?.notification_type || null
-          };
-        })
-      );
+        return {
+          id: company.id,
+          company_name: company.company_name,
+          owner_email: emailMap.get(company.owner_id || "") || "N/A",
+          trial_ends_at: company.trial_ends_at || "",
+          subscription_status: company.subscription_status || "unknown",
+          days_remaining: daysRemaining,
+          notifications_sent: notif?.count || 0,
+          last_notification_type: notif?.lastType || null
+        };
+      });
 
       setCompanies(enrichedCompanies);
 
@@ -280,19 +297,45 @@ export default function TrialManagementPage() {
     return <Badge className={config.color}>{config.label}</Badge>;
   };
 
+  // Hero chips: live numbers from the loaded trial list. "Within 7
+  // days" is the union of the three urgency buckets so the chip and
+  // the tiles always agree.
+  const expiringWithin7 = stats.expiringIn7Days + stats.expiringIn3Days + stats.expiringIn1Day;
+
   return (
     <div className="admin-page-shell">
+      <Head>
+        <title>Trial management - CateringMS</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
       <PlatformNav />
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
-          title="Trial Management"
+          variant="hero"
+          title="Trial management"
           subtitle="Monitor and manage trial expirations across all CateringMS companies"
           icon={Calendar}
+          meta={
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {stats.totalTrials} active trial{stats.totalTrials === 1 ? "" : "s"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                {expiringWithin7} expiring within 7 days
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                {stats.expired} expired
+              </span>
+            </>
+          }
           actions={
             <>
               <Button onClick={handleCheckNotifications} disabled={checking} className="gap-2">
                 {checking ? <RefreshCw className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                {checking ? "Checking..." : "Check & Send"}
+                {checking ? "Checking..." : "Run expiry check"}
               </Button>
               <Button onClick={loadTrialCompanies} variant="outline" className="gap-2">
                 <RefreshCw className="h-4 w-4" />
@@ -313,7 +356,7 @@ export default function TrialManagementPage() {
         ) : (
           <>
             {/* Stats Overview */}
-            <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+            <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
               <StatTile
                 label="Total Trials"
                 value={stats.totalTrials}
@@ -350,40 +393,44 @@ export default function TrialManagementPage() {
                   <p>No companies currently on trial</p>
                 </div>
               ) : (
+                <div className="overflow-x-auto">
                 <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
+              <TableHeader className="text-[10px] uppercase tracking-wide">
+                <TableRow className="hover:bg-transparent dark:hover:bg-transparent border-slate-100 dark:border-slate-800">
+                  <TableHead className="text-slate-500 dark:text-slate-400">
                     <SortHeader sortKey="company" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Company</SortHeader>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="text-slate-500 dark:text-slate-400">
                     <SortHeader sortKey="owner" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Owner Email</SortHeader>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="text-slate-500 dark:text-slate-400">
                     <SortHeader sortKey="expiry" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Expiry Date</SortHeader>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="text-slate-500 dark:text-slate-400">
                     <SortHeader sortKey="days" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Days Left</SortHeader>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="text-slate-500 dark:text-slate-400">
                     <SortHeader sortKey="notifs" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Notifications</SortHeader>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="text-slate-500 dark:text-slate-400">
                     <SortHeader sortKey="last" activeKey={trialsSort.sortKey} activeDir={trialsSort.sortDir} onToggle={trialsSort.toggle}>Last Notification</SortHeader>
                   </TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right text-slate-500 dark:text-slate-400">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {trialsSort.rows.map((company) => (
-                  <TableRow key={company.id}>
-                    <TableCell className="font-medium">
+                  <TableRow
+                    key={company.id}
+                    className="border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+                  >
+                    <TableCell className="font-medium text-slate-900 dark:text-white">
                       <div>
                         <div>{company.company_name}</div>
                       </div>
                     </TableCell>
-                    <TableCell>{company.owner_email}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400">{company.owner_email}</TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-400">
                       {company.trial_ends_at
                         ? new Date(company.trial_ends_at).toLocaleDateString()
                         : "-"}
@@ -432,6 +479,7 @@ export default function TrialManagementPage() {
                 ))}
               </TableBody>
                 </Table>
+                </div>
               )}
             </PortalCard>
           </>

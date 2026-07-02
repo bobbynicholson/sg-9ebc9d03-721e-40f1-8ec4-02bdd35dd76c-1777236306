@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, RefreshCw, Eye, Ban, CheckCircle, AlertTriangle, TrendingUp, DollarSign, Users } from "lucide-react";
+import { Search, RefreshCw, Eye, Ban, CheckCircle, AlertTriangle, TrendingUp, DollarSign, Users, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -307,42 +307,66 @@ function PlatformSubscriptionManagement() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
-        <div className="text-center text-slate-500 dark:text-slate-400">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading subscription management...</p>
-          <p className="text-xs text-slate-400 mt-2">This should only take a few seconds</p>
-        </div>
+      <div className="admin-page-shell">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalCard className="flex items-center justify-center py-16">
+            <div className="text-center text-slate-500 dark:text-slate-400">
+              <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin" />
+              <p>Loading subscription management...</p>
+              <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">This should only take a few seconds</p>
+            </div>
+          </PortalCard>
+        </PortalShell>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-950">
-        <PortalCard className="max-w-md p-8 text-center">
-          <AlertTriangle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Authentication Required</h3>
-          <p className="text-slate-600 dark:text-slate-400 mb-6">Please sign in to access subscription management.</p>
-          <Button onClick={() => router.push("/auth/login")}>Sign In</Button>
-        </PortalCard>
+      <div className="admin-page-shell">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalCard className="mx-auto max-w-md p-8 text-center">
+            <AlertTriangle className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Authentication Required</h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">Please sign in to access subscription management.</p>
+            <Button onClick={() => router.push("/auth/login")}>Sign In</Button>
+          </PortalCard>
+        </PortalShell>
       </div>
     );
   }
 
   return (
     <div className="admin-page-shell">
-      <PlatformNav />
       <Head>
         <title>Subscription management - CateringMS</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
+      <PlatformNav />
+
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
+          variant="hero"
           title="Subscription Management"
-          subtitle="Monitor and manage customer subscriptions"
-          icon={DollarSign}
+          subtitle="Monitor and manage customer subscriptions across every tenant on the platform."
+          icon={CreditCard}
+          meta={
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {stats.active} active
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                {stats.trial} on trial
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                {formatCurrency(stats.totalMRR)} MRR
+              </span>
+            </>
+          }
           actions={
             <Button
               variant="outline"
@@ -358,15 +382,15 @@ function PlatformSubscriptionManagement() {
         <PageWorkbench />
 
         {error && (
-          <Alert className="mb-6 border-rose-200 bg-rose-50">
-            <AlertTriangle className="h-4 w-4 text-rose-600" />
-            <AlertDescription className="text-rose-800">
+          <Alert className="mb-6 border-rose-200 bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30">
+            <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+            <AlertDescription className="text-rose-800 dark:text-rose-200">
               <strong>Error loading subscriptions:</strong> {error}
-              <Button 
-                variant="link" 
-                size="sm" 
+              <Button
+                variant="link"
+                size="sm"
                 onClick={handleRefresh}
-                className="ml-2 text-rose-700 underline"
+                className="ml-2 text-rose-700 underline dark:text-rose-300"
               >
                 Try again
               </Button>
@@ -421,47 +445,48 @@ function PlatformSubscriptionManagement() {
           />
         </div>
 
-        <PortalCard>
+        {/* Toolbar: search + status filter grouped in one place. */}
+        <PortalCard className="mb-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <Input
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-[160px]">
+                <SelectValue placeholder="Filter status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="trial">Trial</SelectItem>
+                <SelectItem value="past_due">Past Due</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </PortalCard>
+
+        <PortalCard className="mb-6">
           <PortalCardHeader
-            className="flex-col items-start gap-4 md:flex-row md:items-center"
             title={
               <span className="flex items-center gap-2">
-                Customer Subscriptions
+                Customer Subscriptions ({filteredSubscriptions.length})
                 <InfoTooltip content="Every tenant shown as a subscription row, with plan, status, amount and next billing date.\n\nFor trials the next billing date is the trial end. For paid customers it's the renewal date." />
               </span>
-            }
-            action={
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1 md:w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search customers..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Filter status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="trial">Trial</SelectItem>
-                    <SelectItem value="past_due">Past Due</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             }
           />
             {filteredSubscriptions.length === 0 ? (
               <div className="text-center py-12">
-                <AlertTriangle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">
-                  {subscriptions.length === 0 
-                    ? "No subscriptions found in the system" 
+                <AlertTriangle className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-500 dark:text-slate-400">
+                  {subscriptions.length === 0
+                    ? "No subscriptions found in the system"
                     : "No subscriptions found matching your criteria"}
                 </p>
                 {error && (
@@ -504,29 +529,29 @@ function PlatformSubscriptionManagement() {
                   </TableHeader>
                   <TableBody>
                     {filteredSubscriptions.map((sub) => (
-                      <TableRow key={sub.id}>
+                      <TableRow key={sub.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                         <TableCell>
                           <div>
-                            <p className="font-medium text-slate-900">{sub.company_name}</p>
-                            <p className="text-sm text-slate-500">
+                            <p className="font-medium text-slate-900 dark:text-white">{sub.company_name}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
                               {sub.owner_full_name || sub.owner_email || "No owner"}
                             </p>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <p className="font-medium">{sub.plan_name}</p>
+                          <p className="font-medium text-slate-900 dark:text-white">{sub.plan_name}</p>
                         </TableCell>
                         <TableCell>{getStatusBadge(sub.status)}</TableCell>
                         <TableCell>
-                          <p className="font-medium">
-                            {sub.amount > 0 ? formatCurrency(Number(sub.amount), sub.currency) : <span className="text-slate-400">Free</span>}
+                          <p className="font-medium text-slate-900 dark:text-white">
+                            {sub.amount > 0 ? formatCurrency(Number(sub.amount), sub.currency) : <span className="font-normal text-slate-400 dark:text-slate-500">Free</span>}
                           </p>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm capitalize">{sub.billing_cycle}</span>
+                          <span className="text-sm capitalize text-slate-600 dark:text-slate-400">{sub.billing_cycle}</span>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm">{formatDate(sub.next_billing_date)}</span>
+                          <span className="text-sm text-slate-600 dark:text-slate-400">{formatDate(sub.next_billing_date)}</span>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
@@ -570,7 +595,7 @@ function PlatformSubscriptionManagement() {
             )}
         </PortalCard>
 
-        <div className="grid gap-6 md:grid-cols-2 mt-6">
+        <div className="grid gap-6 md:grid-cols-2 mb-6">
           <PortalCard className="border-yellow-200 bg-yellow-50 dark:border-yellow-900/40 dark:bg-yellow-950/20">
             <PortalCardHeader
               title={
@@ -583,18 +608,34 @@ function PlatformSubscriptionManagement() {
             />
             <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Subscriptions requiring attention</p>
               {subscriptions.filter(s => s.status === "past_due").length === 0 ? (
-                <p className="text-sm text-slate-600 text-center py-4">No at-risk subscriptions</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 text-center py-4">No at-risk subscriptions</p>
               ) : (
                 <div className="space-y-3">
                   {subscriptions.filter(s => s.status === "past_due").map((sub) => (
-                    <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                    <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border dark:bg-slate-900 dark:border-slate-700">
                       <div>
                         <p className="font-medium text-sm">{sub.company_name}</p>
-                        <p className="text-xs text-slate-500">{sub.plan_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{sub.plan_name}</p>
                       </div>
-                      <Button variant="outline" size="sm">
-                        Contact
-                      </Button>
+                      {sub.owner_email ? (
+                        <Button variant="outline" size="sm" asChild>
+                          <a
+                            href={`mailto:${sub.owner_email}?subject=${encodeURIComponent(`Your CateringMS subscription for ${sub.company_name}`)}`}
+                            title={`Email ${sub.owner_email}`}
+                          >
+                            Contact
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          title="No owner email on record for this company"
+                        >
+                          Contact
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -613,18 +654,23 @@ function PlatformSubscriptionManagement() {
             />
             <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Recently cancelled subscriptions</p>
               {subscriptions.filter(s => s.status === "cancelled").length === 0 ? (
-                <p className="text-sm text-slate-600 text-center py-4">No cancelled subscriptions</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 text-center py-4">No cancelled subscriptions</p>
               ) : (
                 <div className="space-y-3">
                   {subscriptions.filter(s => s.status === "cancelled").slice(0, 3).map((sub) => (
-                    <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                    <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border dark:bg-slate-900 dark:border-slate-700">
                       <div>
                         <p className="font-medium text-sm">{sub.company_name}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           Ended {formatDate(sub.next_billing_date)}
                         </p>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/admin/platform/company-database?company=${sub.company_id}`)}
+                        title="Open this company in the company database"
+                      >
                         Review
                       </Button>
                     </div>

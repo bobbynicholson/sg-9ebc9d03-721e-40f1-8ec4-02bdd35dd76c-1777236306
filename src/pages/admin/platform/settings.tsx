@@ -23,6 +23,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, Settings, AlertCircle, Check, RefreshCw } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 
 interface KnownKey {
   key: string;
@@ -58,7 +60,18 @@ interface ConfigRow {
   value: string;
 }
 
-export default function PlatformSettingsPage() {
+// Super-admin gate at the page level. app_config is platform-wide
+// (import caps, public origin), so tenant admins must never reach
+// this surface even if the API also enforces the role.
+export default function ProtectedPlatformSettingsPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <PlatformSettingsPage />
+    </ProtectedRoute>
+  );
+}
+
+function PlatformSettingsPage() {
   const [rows, setRows] = useState<ConfigRow[]>([]);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
@@ -141,16 +154,30 @@ export default function PlatformSettingsPage() {
 
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
-          title="Platform Settings"
+          variant="hero"
+          title="Platform settings"
           subtitle="Tunables for the SaaS itself. Changes apply immediately to every tenant."
           icon={Settings}
+          meta={
+            loading ? undefined : (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {rows.length} config key{rows.length === 1 ? "" : "s"} loaded
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {KNOWN_KEYS.length} documented tunables
+                </span>
+              </>
+            )
+          }
         />
         <PageWorkbench />
 
         {error && (
-          <Alert className="mb-6 border-rose-200 bg-rose-50">
-            <AlertCircle className="h-4 w-4 text-rose-600" />
-            <AlertDescription className="text-rose-800">{error}</AlertDescription>
+          <Alert className="mb-6 border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40">
+            <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+            <AlertDescription className="text-rose-800 dark:text-rose-200">{error}</AlertDescription>
           </Alert>
         )}
 
@@ -168,7 +195,7 @@ export default function PlatformSettingsPage() {
                 <div className="space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-end gap-3">
                     <div className="flex-1">
-                      <Label htmlFor={k.key} className="text-xs uppercase tracking-wide text-slate-500">
+                      <Label htmlFor={k.key} className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         Current value
                       </Label>
                       <div className="flex items-center gap-2 mt-1">
@@ -182,7 +209,7 @@ export default function PlatformSettingsPage() {
                           }
                           className="font-mono text-sm"
                         />
-                        {k.unit && <span className="text-sm text-slate-500">{k.unit}</span>}
+                        {k.unit && <span className="text-sm text-slate-500 dark:text-slate-400">{k.unit}</span>}
                       </div>
                     </div>
                     <Button
@@ -200,7 +227,7 @@ export default function PlatformSettingsPage() {
                       {saving === k.key ? "Saving..." : savedKey === k.key ? "Saved" : "Save"}
                     </Button>
                   </div>
-                  <p className="text-[11px] font-mono text-slate-400">
+                  <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
                     app_config.{k.key}
                   </p>
                 </div>
@@ -217,7 +244,7 @@ export default function PlatformSettingsPage() {
                   {unknownRows.map((r) => (
                     <div key={r.key} className="flex items-end gap-3">
                       <div className="flex-1">
-                        <Label htmlFor={`u-${r.key}`} className="text-xs font-mono text-slate-600">
+                        <Label htmlFor={`u-${r.key}`} className="text-xs font-mono text-slate-600 dark:text-slate-300">
                           {r.key}
                         </Label>
                         <Input

@@ -12,7 +12,6 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,7 +20,6 @@ import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +34,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ListSkeleton } from "@/components/ui/loading-skeleton";
 
 interface CompanyRow {
   id: string;
@@ -83,17 +82,14 @@ const fmtDate = (iso: string | null): string => {
 
 function TenantHealthDashboard() {
   const { user, loading: authLoading } = useAuth() as any;
-  const router = useRouter();
   const [rows, setRows] = useState<HealthRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // ProtectedRoute handles the unauthenticated redirect; we only
+  // wait for the session so the queries run with the right JWT.
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      router.push("/auth/login");
-      return;
-    }
+    if (authLoading || !user) return;
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
@@ -212,20 +208,26 @@ function TenantHealthDashboard() {
         <PortalCardHeader className="mb-0" title={label} />
         <p className="text-sm text-slate-500 dark:text-slate-400">{list.length} tenant{list.length === 1 ? "" : "s"}</p>
       </div>
-        {list.length === 0 ? (
+        {/* Don't flash the cheerful empty state while data is still
+            loading - "all clear" before the query lands is a lie. */}
+        {loading ? (
+          <div className="px-5 pb-5">
+            <ListSkeleton rows={3} withHeader={false} />
+          </div>
+        ) : list.length === 0 ? (
           <EmptyState inCard icon={Sparkles} title={emptyText} />
         ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-800">
             {list.map((r) => (
-              <li key={r.company.id} className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+              <li key={r.company.id} className="px-5 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                 <div className="min-w-0">
                   <Link
                     href={`/admin/platform/company-database?company=${r.company.id}`}
-                    className="font-medium text-slate-900 hover:underline truncate block"
+                    className="font-medium text-slate-900 dark:text-white hover:underline truncate block"
                   >
                     {r.company.company_name || r.company.slug || r.company.id.slice(0, 8)}
                   </Link>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {r.company.slug ? <span className="font-mono">{r.company.slug}</span> : null}
                     {r.company.slug && r.ordersAllTime > 0 ? " · " : null}
                     {r.ordersAllTime > 0 ? `${r.ordersAllTime} orders all-time` : null}
@@ -252,9 +254,26 @@ function TenantHealthDashboard() {
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Tenant Health"
+            variant="hero"
+            title="Tenant health"
             subtitle="Spot tenants that need a nudge before they churn quietly."
             icon={Activity}
+            meta={
+              loading ? undefined : (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {rows.length} tenants tracked
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {stuckOnboarding.length} stuck in onboarding
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {dormant.length} dormant
+                  </span>
+                </>
+              )
+            }
           />
           <PageWorkbench />
 
@@ -272,7 +291,7 @@ function TenantHealthDashboard() {
             </Alert>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTile
               icon={Clock}
               label="Stuck onboarding"

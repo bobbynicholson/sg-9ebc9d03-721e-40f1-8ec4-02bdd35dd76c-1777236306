@@ -86,6 +86,10 @@ async function main() {
     "/admin/platform/tax-rules", "/admin/platform/tech-costs", "/admin/platform/messaging-templates",
     "/admin/platform/cms-blog", "/admin/platform/cms-pages", "/admin/platform/audit-logs",
     "/admin/platform/running-todo", "/admin/platform/settings", "/admin/platform",
+    // Linked from the platform sidebar (System section) even though it
+    // lives outside /admin/platform/ - dual-audience page, super admins
+    // get the platform chrome.
+    "/admin/payment-gateways",
   ];
 
   const storageKey = `sb-${new URL(supabaseUrl).hostname.split(".")[0]}-auth-token`;

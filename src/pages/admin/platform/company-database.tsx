@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/router";
+import Head from "next/head";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlatformNav } from "@/components/admin/PlatformNav";
@@ -23,11 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Building2, Search, Users, Calendar, MapPin, Edit, Trash2, Eye, AlertCircle, CheckCircle, RefreshCw, X } from "lucide-react";
+import { Building2, Search, Users, Calendar, MapPin, Edit, Trash2, Eye, CheckCircle, RefreshCw, X } from "lucide-react";
 import { companyService } from "@/services/companyService";
-import { userManagementService } from "@/services/userManagementService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
@@ -41,12 +44,26 @@ import type { Company } from "@/components/admin/company-database/types";
 // @/components/admin/company-database/types so the dialog sub-components
 // can share the same shape without circular imports (P2-13 split).
 
-export default function CompanyDatabasePage() {
+// Super-admin gate. Standard ProtectedRoute wrapper replaces the old
+// bespoke inline role check + Access Denied card, so denial handling is
+// consistent with every other platform page.
+export default function ProtectedCompanyDatabasePage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <CompanyDatabasePage />
+    </ProtectedRoute>
+  );
+}
+
+function CompanyDatabasePage() {
   const { profile, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  // Silent-failure audit: a failed load used to toast once and then show
+  // an empty "No companies found" table. Persist the error instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [deletingCompanyId, setDeletingCompanyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -82,7 +99,9 @@ export default function CompanyDatabasePage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
-    if (profile?.active_role === "super_admin" || profile?.role === "super_admin") {
+    // ProtectedRoute already guarantees super_admin; just wait for the
+    // profile to hydrate before fetching.
+    if (profile) {
       loadCompanies();
     }
   }, [profile]);
@@ -155,16 +174,27 @@ export default function CompanyDatabasePage() {
     { key: "owner",    accessor: (c) => c.owner_name || c.email || "",                   type: "string" },
     { key: "location", accessor: (c) => `${c.country || ""} ${c.city || ""}`,            type: "string" },
     { key: "status",   accessor: (c) => (c.subscription_status || "").toLowerCase(),     type: "string" },
-    { key: "users",    accessor: (c) => Number(c.user_count || 0),                       type: "number" },
-    { key: "orders",   accessor: (c) => Number(c.order_count || 0),                      type: "number" },
+    // Rows store the enhanced counts as total_users / total_orders (see
+    // loadCompanies), so the accessors must read those keys or the
+    // Users / Orders sort is inert.
+    { key: "users",    accessor: (c) => Number(c.total_users || 0),                      type: "number" },
+    { key: "orders",   accessor: (c) => Number(c.total_orders || 0),                     type: "number" },
     { key: "created",  accessor: (c) => c.created_at,                                    type: "date"   },
   ], []);
   const sortedCompanies = useSortable<any>(fuzzyCompanies, companySortColumns, { defaultKey: "created", defaultDir: "desc" });
   const filteredCompanies = sortedCompanies.rows;
 
+  // Shared by the hero meta chips and the Active stat tile so the two
+  // surfaces can never disagree.
+  const activeCompanyCount = useMemo(
+    () => companies.filter((c) => c.subscription_status === "active").length,
+    [companies],
+  );
+
   const loadCompanies = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const { data: companiesData, error } = await supabase
         .from("companies")
         .select(`
@@ -175,42 +205,44 @@ export default function CompanyDatabasePage() {
 
       if (error) throw error;
 
-      // Enhance with stats
-      const enhanced = await Promise.all(
-        (companiesData || []).map(async (company: any) => {
-          // Get total users
-          const { count: userCount } = await supabase
-            .from("profiles")
-            .select("*", { count: "exact", head: true })
-            .eq("company_id", company.id);
+      // Enhance with per-tenant user/order counts. Two grouped queries
+      // across every company id instead of the old per-company head
+      // counts (which fired 2N requests and hammered PostgREST).
+      const companyIds = (companiesData || []).map((c: any) => c.id);
+      const userCounts = new Map<string, number>();
+      const orderCounts = new Map<string, number>();
+      if (companyIds.length > 0) {
+        const [profilesRes, ordersRes] = await Promise.all([
+          supabase.from("profiles").select("company_id").in("company_id", companyIds),
+          supabase.from("orders").select("company_id").in("company_id", companyIds),
+        ]);
+        if (profilesRes.error) throw profilesRes.error;
+        if (ordersRes.error) throw ordersRes.error;
+        (profilesRes.data || []).forEach((row: any) => {
+          if (row.company_id) userCounts.set(row.company_id, (userCounts.get(row.company_id) || 0) + 1);
+        });
+        (ordersRes.data || []).forEach((row: any) => {
+          if (row.company_id) orderCounts.set(row.company_id, (orderCounts.get(row.company_id) || 0) + 1);
+        });
+      }
 
-          // Get total orders
-          const { count: orderCount } = await supabase
-            .from("orders")
-            .select("*", { count: "exact", head: true })
-            .eq("company_id", company.id);
-
-          return {
-            ...company,
-            // companies stores the tenant slug in `slug`; the UI shape
-            // (and the add/edit form) call it company_slug. Normalise
-            // here so /{slug} chips and the edit dialog show the truth.
-            company_slug: company.company_slug || company.slug || "",
-            owner_name: company.profiles?.full_name || "Unknown",
-            total_users: userCount || 0,
-            total_orders: orderCount || 0,
-          };
-        })
-      );
+      const enhanced = (companiesData || []).map((company: any) => ({
+        ...company,
+        // companies stores the tenant slug in `slug`; the UI shape
+        // (and the add/edit form) call it company_slug. Normalise
+        // here so /{slug} chips and the edit dialog show the truth.
+        company_slug: company.company_slug || company.slug || "",
+        owner_name: company.profiles?.full_name || "Unknown",
+        total_users: userCounts.get(company.id) || 0,
+        total_orders: orderCounts.get(company.id) || 0,
+      }));
 
       setCompanies(enhanced);
     } catch (error: any) {
       console.error("Error loading companies:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load companies",
-        variant: "destructive",
-      });
+      // Persistent banner (see loadError Alert below); a toast alone
+      // vanished and left a misleading empty table behind it.
+      setLoadError(dbErrorMessage(error, { entity: "company", fallback: "Couldn't load the company database. Please try again." }));
     } finally {
       setLoading(false);
     }
@@ -448,50 +480,48 @@ export default function CompanyDatabasePage() {
     );
   }
 
-  if (profile?.active_role !== "super_admin" && profile?.role !== "super_admin") {
-    return (
-      <div className="admin-page-shell">
-        <PlatformNav />
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalCard className="p-12 text-center">
-            <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2 text-slate-900 dark:text-white">Access Denied</h2>
-            <p className="text-slate-600 dark:text-slate-400">
-              You need super admin permissions to access this page.
-            </p>
-          </PortalCard>
-        </PortalShell>
-      </div>
-    );
-  }
-
   return (
     <div className="admin-page-shell">
+      <Head>
+        <title>Company database - CateringMS</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
+
       <PlatformNav />
 
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
+          variant="hero"
           title="Company Management"
           subtitle="Add and manage catering companies on the platform"
           icon={Building2}
-          actions={
-            <AddEditCompanyDialog
-              open={isAddModalOpen}
-              onOpenChange={setIsAddModalOpen}
-              editingCompany={editingCompany}
-              formData={formData}
-              setFormData={setFormData}
-              onTriggerNew={() => { resetForm(); setEditingCompany(null); }}
-              onCancel={() => {
-                setIsAddModalOpen(false);
-                setEditingCompany(null);
-                resetForm();
-              }}
-              onSave={editingCompany ? handleUpdateCompany : handleAddCompany}
-            />
+          meta={
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                {companies.length} {companies.length === 1 ? "company" : "companies"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {activeCompanyCount} active
+              </span>
+            </>
           }
         />
         <PageWorkbench />
+
+        {/* Load-failure banner: without it a failed fetch rendered an
+            empty "No companies found" table that looked legitimate. */}
+        {loadError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+              <span>{loadError}</span>
+              <Button variant="outline" size="sm" onClick={loadCompanies}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -503,7 +533,7 @@ export default function CompanyDatabasePage() {
           />
           <StatTile
             label="Active"
-            value={<span className="text-brand-primary dark:text-brand-primary">{companies.filter((c) => c.subscription_status === "active").length}</span>}
+            value={<span className="text-brand-primary dark:text-brand-primary">{activeCompanyCount}</span>}
             hint="On a paid subscription now"
             icon={CheckCircle}
           />
@@ -521,48 +551,61 @@ export default function CompanyDatabasePage() {
           />
         </div>
 
-        {/* Filters */}
+        {/* Toolbar: search + status filter + add-company in one place. */}
         <PortalCard className="mb-6">
-          <div className="flex gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search companies..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="trial">Trial</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="past_due">Past Due</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <Input
+                placeholder="Search companies..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full md:w-48">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="trial">Trial</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="past_due">Past Due</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <AddEditCompanyDialog
+              open={isAddModalOpen}
+              onOpenChange={setIsAddModalOpen}
+              editingCompany={editingCompany}
+              formData={formData}
+              setFormData={setFormData}
+              onTriggerNew={() => { resetForm(); setEditingCompany(null); }}
+              onCancel={() => {
+                setIsAddModalOpen(false);
+                setEditingCompany(null);
+                resetForm();
+              }}
+              onSave={editingCompany ? handleUpdateCompany : handleAddCompany}
+            />
+          </div>
         </PortalCard>
 
         {/* Deep-link focus pill. Visible whenever ?company=<id> arrives
             from another platform tool (e.g. subscription-management). */}
         {focusedCompany && (
-          <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
             <span className="font-medium">
               Filtered to {focusedCompany.company_name}
             </span>
             <button
               type="button"
               onClick={clearCompanyFilter}
-              className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium hover:bg-amber-100"
+              className="ml-auto inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-900/50"
               title="Clear focus and show every company"
             >
               <X className="h-3 w-3" />
@@ -612,13 +655,13 @@ export default function CompanyDatabasePage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500 dark:text-slate-400">
                         Loading companies...
                       </TableCell>
                     </TableRow>
                   ) : filteredCompanies.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500 dark:text-slate-400">
                         No companies found
                       </TableCell>
                     </TableRow>
@@ -630,25 +673,25 @@ export default function CompanyDatabasePage() {
                         className={
                           focusedCompanyId === company.id
                             ? "ring-2 ring-amber-400 ring-offset-1 transition-shadow"
-                            : ""
+                            : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                         }
                       >
                         <TableCell>
                           <div>
-                            <p className="font-semibold text-slate-900">
+                            <p className="font-semibold text-slate-900 dark:text-white">
                               {company.company_name}
                             </p>
-                            <p className="text-sm text-slate-500">
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
                               /{company.company_slug}
                             </p>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <p className="text-sm">{company.owner_name}</p>
-                          <p className="text-xs text-slate-500">{company.email}</p>
+                          <p className="text-sm text-slate-700 dark:text-slate-300">{company.owner_name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{company.email}</p>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1 text-sm">
+                          <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
                             <MapPin className="w-3 h-3" />
                             {company.city}, {company.country}
                           </div>
@@ -657,14 +700,14 @@ export default function CompanyDatabasePage() {
                           <CompanyStatusBadge status={company.subscription_status} />
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1 text-sm">
+                          <div className="flex items-center gap-1 text-sm text-slate-700 dark:text-slate-300">
                             <Users className="w-3 h-3" />
                             {company.total_users}
                           </div>
                         </TableCell>
-                        <TableCell>{company.total_orders}</TableCell>
-                        <TableCell className="text-sm text-slate-600">
-                          {new Date(company.created_at).toLocaleDateString()}
+                        <TableCell className="text-sm text-slate-700 dark:text-slate-300">{company.total_orders}</TableCell>
+                        <TableCell className="text-sm text-slate-600 dark:text-slate-400">
+                          {new Date(company.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2 justify-end">

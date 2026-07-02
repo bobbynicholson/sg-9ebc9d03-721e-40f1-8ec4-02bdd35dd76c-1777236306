@@ -33,7 +33,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { PortalShell, PortalHeader, PortalCard, StatTile,
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
@@ -431,11 +431,16 @@ function TechCostsDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("companies")
         .select("id", { head: true, count: "exact" })
         .not("onboarding_completed_at", "is", null);
       if (cancelled) return;
+      if (error) {
+        // Non-fatal: the calculator falls back to the DEFAULTS tenant
+        // count, but never swallow the failure silently.
+        console.warn("[tech-costs] tenant count query failed, using default assumptions:", error);
+      }
       const c = count ?? 0;
       setActualTenants(c);
       // Seed the calculator with reality if there's at least one tenant.
@@ -497,6 +502,7 @@ function TechCostsDashboard() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2">
                 Tech-stack costs
@@ -505,13 +511,27 @@ function TechCostsDashboard() {
             }
             subtitle="Unit economics calculator. How much does the platform cost to run, and where does the money go?"
             icon={Calculator}
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {assumptions.tenants.toLocaleString()} tenant scenario
+                  {actualTenants !== null && actualTenants !== assumptions.tenants ? ` (actual ${actualTenants})` : ""}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  ZAR {total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })} / month
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className={`h-1.5 w-1.5 rounded-full ${margin_per_tenant_zar > 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
+                  ZAR {margin_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })} margin / tenant
+                </span>
+              </>
+            }
             actions={
-              <Link
-                href="/admin/platform/pricing-management"
-                className="inline-flex items-center gap-1 text-sm font-medium text-brand-primary hover:text-brand-primary"
-              >
-                Pricing tiers <ArrowRight className="w-4 h-4" />
-              </Link>
+              <Button asChild variant="outline" className="gap-1">
+                <Link href="/admin/platform/pricing-management">
+                  Pricing tiers <ArrowRight className="w-4 h-4" />
+                </Link>
+              </Button>
             }
           />
           <PageWorkbench />
@@ -549,35 +569,35 @@ function TechCostsDashboard() {
           {/* Total revenue + total margin row */}
           <PortalCard className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left p-4">
               <div>
-                <p className="text-[11px] uppercase font-semibold text-slate-500">Tenants</p>
+                <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">Tenants</p>
                 <p className="text-xl font-bold text-slate-900 dark:text-white">{assumptions.tenants.toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase font-semibold text-slate-500">Monthly revenue</p>
+                <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">Monthly revenue</p>
                 <p className="text-xl font-bold text-slate-900 dark:text-white">
                   ZAR {platform_revenue_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div>
-                <p className="text-[11px] uppercase font-semibold text-slate-500">Monthly costs</p>
+                <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">Monthly costs</p>
                 <p className="text-xl font-bold text-slate-900 dark:text-white">
                   ZAR {total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div>
-                <p className="text-[11px] uppercase font-semibold text-slate-500">Platform margin</p>
-                <p className={`text-xl font-bold ${platform_margin_zar > 0 ? "text-brand-primary" : "text-rose-700"}`}>
+                <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">Platform margin</p>
+                <p className={`text-xl font-bold ${platform_margin_zar > 0 ? "text-brand-primary" : "text-rose-700 dark:text-rose-400"}`}>
                   ZAR {platform_margin_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                 </p>
               </div>
           </PortalCard>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {/* Assumptions panel */}
             <PortalCard className="lg:col-span-1 space-y-5">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 mb-1">Assumptions</h2>
-                  <p className="text-xs text-slate-500">Adjust these to see how cost changes.</p>
+                  <PortalCardHeader title="Assumptions" className="mb-2" />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Adjust these to see how cost changes.</p>
                 </div>
 
                 <Section title="Scale">
@@ -613,7 +633,7 @@ function TechCostsDashboard() {
                       and panic - the real number is bounded by the
                       server-side cap, not by what's in this field. */}
                   {assumptions.receipt_scans_per_tenant > RECEIPT_SCAN_QUOTA_CAP && (
-                    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 -mt-2">
+                    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 -mt-2 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                       <strong>Above the quota cap.</strong> The server hard-caps each tenant at
                        {" "}{RECEIPT_SCAN_QUOTA_CAP} receipt scans / month
                        {" "}(src/lib/receiptScanQuota.ts). A tenant typing more than that gets a
@@ -709,8 +729,8 @@ function TechCostsDashboard() {
             {/* Cost breakdown */}
             <PortalCard className="lg:col-span-2 space-y-5">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 mb-1">Cost breakdown</h2>
-                  <p className="text-xs text-slate-500">
+                  <PortalCardHeader title="Cost breakdown" className="mb-2" />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Where each rand of monthly spend goes. Click a category for line-by-line
                     formulas.
                   </p>
@@ -723,15 +743,15 @@ function TechCostsDashboard() {
                     return (
                       <details
                         key={cat.category}
-                        className="rounded-lg border border-slate-200 bg-white"
+                        className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
                       >
-                        <summary className="cursor-pointer p-3 flex items-center gap-3 hover:bg-slate-50 rounded-lg">
+                        <summary className="cursor-pointer p-3 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-lg">
                           <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
                             <Icon className="w-5 h-5 text-brand-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-slate-900">{cat.category}</p>
-                            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white">{cat.category}</p>
+                            <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-1.5">
                               <div
                                 className="h-full bg-brand-primary"
                                 style={{ width: `${pct.toFixed(1)}%` }}
@@ -739,20 +759,20 @@ function TechCostsDashboard() {
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-bold text-slate-900">
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">
                               ZAR {(cat.subtotal_usd * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                             </p>
-                            <p className="text-[10px] text-slate-500">{pct.toFixed(0)}%</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">{pct.toFixed(0)}%</p>
                           </div>
                         </summary>
-                        <div className="px-3 pb-3 border-t border-slate-100 divide-y divide-slate-100">
+                        <div className="px-3 pb-3 border-t border-slate-100 divide-y divide-slate-100 dark:border-slate-800 dark:divide-slate-800">
                           {cat.lines.map((line, i) => (
                             <div key={i} className="py-2 flex items-start gap-3 text-xs">
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-slate-700">{line.label}</p>
-                                <p className="text-[11px] text-slate-500 mt-0.5">{line.formula}</p>
+                                <p className="font-medium text-slate-700 dark:text-slate-300">{line.label}</p>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{line.formula}</p>
                               </div>
-                              <p className="font-mono text-slate-900 font-semibold flex-shrink-0">
+                              <p className="font-mono text-slate-900 dark:text-white font-semibold flex-shrink-0">
                                 ZAR {(line.usd_per_mo * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                               </p>
                             </div>
@@ -765,9 +785,9 @@ function TechCostsDashboard() {
 
                 {/* Biggest lever */}
                 {biggestCategory && (biggestCategory.subtotal_usd / total_usd) > 0.4 && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-xs text-amber-900">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex items-start gap-2 dark:border-amber-500/30 dark:bg-amber-500/10">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-900 dark:text-amber-200">
                       <strong>{biggestCategory.category}</strong> is{" "}
                       {((biggestCategory.subtotal_usd / total_usd) * 100).toFixed(0)}%
                       {" "}of your monthly spend. That&apos;s where the lever is. Caps on free-trial
@@ -780,40 +800,44 @@ function TechCostsDashboard() {
           </div>
 
           {/* Scaling table */}
-          <PortalCard className="mt-6">
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className="w-5 h-5 text-brand-primary" />
-                <h2 className="text-base font-bold text-slate-900">Cost at scale</h2>
-                <InfoTooltip content={"Holds your per-tenant assumptions constant and varies the tenant count. Watch the per-tenant cost drop as fixed costs (Vercel + Supabase base + DB compute) get spread thinner."} />
-              </div>
+          <PortalCard className="mb-6">
+              <PortalCardHeader
+                title={
+                  <>
+                    <TrendingUp className="w-4 h-4 text-brand-primary" />
+                    Cost at scale
+                    <InfoTooltip content={"Holds your per-tenant assumptions constant and varies the tenant count. Watch the per-tenant cost drop as fixed costs (Vercel + Supabase base + DB compute) get spread thinner."} />
+                  </>
+                }
+              />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
+                    <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                       <th className="py-2">Tenants</th>
                       <th className="py-2">Monthly platform cost</th>
                       <th className="py-2">Per-tenant cost</th>
                       <th className="py-2">Per-tenant margin (at ZAR {assumptions.subscription_zar_per_tenant})</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {scaleScenarios.map((s) => {
                       const margin = assumptions.subscription_zar_per_tenant - s.per_tenant_zar;
                       return (
-                        <tr key={s.tenants}>
-                          <td className="py-2 font-semibold text-slate-900">
+                        <tr key={s.tenants} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-2 font-semibold text-slate-900 dark:text-white">
                             {s.tenants.toLocaleString()}
                             {s.tenants === assumptions.tenants && (
                               <Badge variant="outline" className="ml-2 text-[10px]">current</Badge>
                             )}
                           </td>
-                          <td className="py-2 font-mono text-slate-700">
+                          <td className="py-2 font-mono text-slate-700 dark:text-slate-300">
                             ZAR {s.monthly_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </td>
-                          <td className="py-2 font-mono text-slate-700">
+                          <td className="py-2 font-mono text-slate-700 dark:text-slate-300">
                             ZAR {s.per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </td>
-                          <td className={`py-2 font-mono font-semibold ${margin > 0 ? "text-brand-primary" : "text-rose-700"}`}>
+                          <td className={`py-2 font-mono font-semibold ${margin > 0 ? "text-brand-primary" : "text-rose-700 dark:text-rose-400"}`}>
                             ZAR {margin.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                           </td>
                         </tr>
@@ -825,11 +849,11 @@ function TechCostsDashboard() {
           </PortalCard>
 
           {/* Footnote on assumptions */}
-          <PortalCard className="mt-6 p-4 flex items-start gap-2">
-            <Info className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+          <PortalCard className="p-4 flex items-start gap-2">
+            <Info className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               All vendor pricing is captured in named constants at the top of{" "}
-              <code className="bg-slate-100 px-1 rounded">src/pages/admin/platform/tech-costs.tsx</code>.
+              <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">src/pages/admin/platform/tech-costs.tsx</code>.
               Update those when a vendor changes their card and the projection here, the recommendations,
               and the per-tenant margin all recompute on the next page load. This is a calculator, not an
               integration. It doesn&apos;t pull live billing from any vendor.
@@ -846,7 +870,7 @@ function TechCostsDashboard() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <p className="text-[10px] uppercase font-bold tracking-wide text-slate-500">{title}</p>
+      <p className="text-[10px] uppercase font-bold tracking-wide text-slate-500 dark:text-slate-400">{title}</p>
       <div className="space-y-2">{children}</div>
     </div>
   );
@@ -864,7 +888,7 @@ function NumField({
 }) {
   return (
     <div>
-      <Label className="text-xs font-medium text-slate-700 inline-flex items-center gap-1">
+      <Label className="text-xs font-medium text-slate-700 dark:text-slate-300 inline-flex items-center gap-1">
         {label}
         {tooltip && <InfoTooltip content={tooltip} />}
       </Label>

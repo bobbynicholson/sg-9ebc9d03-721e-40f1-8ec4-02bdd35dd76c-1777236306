@@ -23,7 +23,6 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,11 +36,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCard, Check, AlertCircle, Settings, Trash2, Power, Activity, Loader2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader,
+import { PlatformNav } from "@/components/admin/PlatformNav";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -65,10 +75,10 @@ function statusForCard(config: PaymentGatewayConfigDTO | undefined): {
 
 function ToneBadge({ label, tone }: { label: string; tone: "muted" | "info" | "success" | "live" }) {
   const map: Record<string, string> = {
-    muted: "bg-slate-200 text-slate-700",
-    info: "bg-blue-100 text-blue-800 border border-blue-200",
+    muted: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
+    info: "bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
     success: "bg-brand-primary/15 text-brand-primary border border-brand-primary/20",
-    live: "bg-rose-100 text-rose-800 border border-rose-200",
+    live: "bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
   };
   return <span className={`text-xs font-semibold px-2 py-1 rounded-full ${map[tone]}`}>{label}</span>;
 }
@@ -157,6 +167,9 @@ function PaymentGatewaysPage() {
   }, [activeCompanyId, isSuperAdmin]);
 
   const activeConfig = configs.find((c) => c.is_active);
+  const activeName = activeConfig
+    ? catalogue.find((p) => p.provider === activeConfig.provider)?.name || activeConfig.provider
+    : null;
 
   const openConfigure = (entry: ProviderEntry) => {
     const existing = configs.find((c) => c.provider === entry.provider);
@@ -265,17 +278,28 @@ function PaymentGatewaysPage() {
     }
   };
 
-  const handleDelete = async (gatewayId: string, providerName: string) => {
-    if (!confirm(`Remove the ${providerName} configuration? You'll need to re-enter credentials to use it again.`)) return;
+  // Delete confirm state - which gateway (id + provider name) is pending
+  // removal, plus an in-flight flag so the confirm button can't be
+  // double-clicked while the DELETE is running.
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const performDelete = async () => {
+    if (!confirmDelete) return;
+    const { id, name } = confirmDelete;
+    setDeleting(true);
     try {
-      const r = await fetch(`/api/payment-gateways/${gatewayId}${companyQuery()}`, { method: "DELETE" });
+      const r = await fetch(`/api/payment-gateways/${id}${companyQuery()}`, { method: "DELETE" });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-      setSavedToast(`${providerName} removed.`);
+      setSavedToast(`${name} removed.`);
       setTimeout(() => setSavedToast(null), 3000);
       await load();
     } catch (e: any) {
       setPageError(e?.message || "Delete failed");
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(null);
     }
   };
 
@@ -287,32 +311,66 @@ function PaymentGatewaysPage() {
         <title>Payment gateways - CateringMS</title>
       </Head>
 
-      <AdminNav />
       <div className="admin-page-shell">
+        {isSuperAdmin ? <PlatformNav /> : <AdminNav />}
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title={
-              <span className="flex items-center gap-2">
-                Payment Gateways
-                <InfoTooltip content={"Configure a South African gateway so your clients can pay invoices online.\n\nOne gateway can be active at a time. Saved credentials are encrypted at rest and never read back into the browser."} />
-              </span>
-            }
-            icon={CreditCard}
-            subtitle="Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT."
-          />
+          {isSuperAdmin ? (
+            <PortalHeader
+              variant="hero"
+              title="Payment Gateways"
+              icon={CreditCard}
+              subtitle="Online card and EFT processing per tenant. Pick a catering company, then connect a South African gateway like PayFast or Yoco so their clients can pay quotes and invoices through the public link instead of manual EFT."
+              meta={
+                activeCompanyId ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {configs.length} of {catalogue.length} configured
+                    </span>
+                    {activeConfig ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        <span className={`h-1.5 w-1.5 rounded-full ${activeConfig.is_test ? "bg-amber-400" : "bg-emerald-400"}`} />
+                        {activeName} {activeConfig.is_test ? "test" : "live"} mode
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                        No active gateway
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                    No tenant selected
+                  </span>
+                )
+              }
+            />
+          ) : (
+            <PortalHeader
+              title={
+                <span className="flex items-center gap-2">
+                  Payment Gateways
+                  <InfoTooltip content={"Configure a South African gateway so your clients can pay invoices online.\n\nOne gateway can be active at a time. Saved credentials are encrypted at rest and never read back into the browser."} />
+                </span>
+              }
+              icon={CreditCard}
+              subtitle="Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT."
+            />
+          )}
           <PageWorkbench />
 
           <div className="space-y-6">
           {/* Super_admin tenant picker. Tenant admins never see this;
               their company comes from profile.company_id. */}
           {isSuperAdmin && (
-            <Card className="border-slate-200 bg-slate-50">
-              <CardContent className="pt-4 pb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <PortalCard className="bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex-1">
-                  <Label className="text-sm font-semibold text-slate-900">
+                  <Label className="text-sm font-semibold text-slate-900 dark:text-white">
                     Managing gateways for
                   </Label>
-                  <p className="text-xs text-slate-700 mt-0.5">
+                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5">
                     You're signed in as super_admin. Pick the catering company whose payment gateways you want to configure.
                   </p>
                 </div>
@@ -331,17 +389,51 @@ function PaymentGatewaysPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </PortalCard>
           )}
 
           {isSuperAdmin && !activeCompanyId && (
-            <Alert className="border-slate-200 bg-slate-50">
+            <Alert className="border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Pick a tenant above to view and configure their payment gateways.
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* At-a-glance gateway stats. Same source of truth as the cards
+              below (configs from /api/payment-gateways), so the figures
+              always agree. */}
+          {activeCompanyId && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StatTile
+                label="Gateways configured"
+                value={loading ? "-" : `${configs.length} of ${catalogue.length}`}
+                hint="PayFast, Yoco, Stripe"
+                icon={CreditCard}
+              />
+              <StatTile
+                label="Active gateway"
+                value={loading ? "-" : activeName || <span className="text-slate-500 dark:text-slate-400">None</span>}
+                hint={activeConfig ? "Taking payments" : "Configure and make one active"}
+                icon={Power}
+              />
+              <StatTile
+                label="Mode"
+                value={
+                  loading ? "-" : activeConfig ? (
+                    activeConfig.is_test
+                      ? <span className="text-amber-600 dark:text-amber-500">Test</span>
+                      : <span className="text-rose-600 dark:text-rose-500">Live</span>
+                  ) : (
+                    <span className="text-slate-500 dark:text-slate-400">-</span>
+                  )
+                }
+                hint={activeConfig ? (activeConfig.is_test ? "Sandbox, no real money moves" : "Real payments are processing") : "No active gateway"}
+                icon={Activity}
+              />
+            </div>
           )}
 
           {/* Status banner - replaces the old "stored locally" warning. */}
@@ -351,8 +443,8 @@ function PaymentGatewaysPage() {
                 activeConfig
                   ? activeConfig.is_test
                     ? "border-brand-primary/20 bg-brand-primary/10"
-                    : "border-rose-200 bg-rose-50"
-                  : "border-slate-200 bg-slate-50"
+                    : "border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10"
+                  : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50"
               }
             >
               <AlertCircle className="h-4 w-4" />
@@ -374,9 +466,9 @@ function PaymentGatewaysPage() {
           )}
 
           {pageError && (
-            <Alert className="border-rose-200 bg-rose-50">
-              <AlertCircle className="h-4 w-4 text-rose-600" />
-              <AlertDescription className="text-rose-800">{pageError}</AlertDescription>
+            <Alert className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
+              <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+              <AlertDescription className="text-rose-800 dark:text-rose-300">{pageError}</AlertDescription>
             </Alert>
           )}
 
@@ -393,29 +485,27 @@ function PaymentGatewaysPage() {
               const config = configs.find((c) => c.provider === entry.provider);
               const status = statusForCard(config);
               return (
-                <Card key={entry.provider} className="relative overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="absolute top-4 right-4">
-                    <ToneBadge label={status.label} tone={status.tone} />
-                  </div>
-                  <CardHeader>
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <CreditCard className="h-6 w-6 text-primary" />
-                      </div>
-                      <CardTitle>{entry.name}</CardTitle>
-                    </div>
-                    <CardDescription>{entry.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
+                <PortalCard key={entry.provider} className="relative overflow-hidden hover:shadow-lg transition-shadow">
+                  <PortalCardHeader
+                    title={
+                      <span className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-brand-primary" />
+                        {entry.name}
+                      </span>
+                    }
+                    action={<ToneBadge label={status.label} tone={status.tone} />}
+                  />
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{entry.description}</p>
+                  <div className="space-y-2">
                     {config && config.credential_hints && Object.keys(config.credential_hints).length > 0 && (
-                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 space-y-1">
+                      <div className="rounded-md border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50 px-3 py-2 space-y-1">
                         {entry.fields.map((f) => {
                           const hint = config.credential_hints?.[f.key];
                           if (!hint) return null;
                           return (
                             <div key={f.key} className="flex items-center justify-between gap-2 text-xs">
-                              <span className="text-slate-500">{f.label}</span>
-                              <span className="font-mono text-slate-700 tabular-nums">{hint === "set" ? "saved" : hint}</span>
+                              <span className="text-slate-500 dark:text-slate-400">{f.label}</span>
+                              <span className="font-mono text-slate-700 dark:text-slate-300 tabular-nums">{hint === "set" ? "saved" : hint}</span>
                             </div>
                           );
                         })}
@@ -444,14 +534,14 @@ function PaymentGatewaysPage() {
                       </Button>
                     )}
                     {config && testResults[config.id] && (
-                      <p className={`text-xs ${testResults[config.id].ok ? "text-brand-primary" : "text-rose-700"}`}>
+                      <p className={`text-xs ${testResults[config.id].ok ? "text-brand-primary" : "text-rose-700 dark:text-rose-400"}`}>
                         {testResults[config.id].ok
                           ? "Credentials verified."
                           : `Test failed: ${testResults[config.id].message || "see logs"}`}
                       </p>
                     )}
                     {config?.last_verified_at && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Last verified {new Date(config.last_verified_at).toLocaleString("en-ZA")}
                       </p>
                     )}
@@ -468,28 +558,30 @@ function PaymentGatewaysPage() {
                     {config && (
                       <Button
                         variant="ghost"
-                        className="w-full text-rose-600 hover:bg-rose-50"
-                        onClick={() => handleDelete(config.id, entry.name)}
+                        className="w-full text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                        onClick={() => setConfirmDelete({ id: config.id, name: entry.name })}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Remove
                       </Button>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </PortalCard>
               );
             })}
           </div>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Before going live
-                <InfoTooltip content={"Quick checks before you accept your first real payment."} />
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <PortalCard>
+            <PortalCardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  Before going live
+                  <InfoTooltip content={"Quick checks before you accept your first real payment."} />
+                </span>
+              }
+            />
+            <div className="space-y-4">
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
@@ -519,8 +611,8 @@ function PaymentGatewaysPage() {
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </PortalCard>
           </div>
         </PortalShell>
       </div>
@@ -536,7 +628,7 @@ function PaymentGatewaysPage() {
 
           {editProvider && (
             <div className="space-y-5 py-2">
-              <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+              <div className="flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-700 px-3 py-2">
                 <div>
                   <Label className="text-sm">Test mode</Label>
                   <p className="text-xs text-muted-foreground">Use sandbox credentials. No real money moves.</p>
@@ -601,7 +693,7 @@ function PaymentGatewaysPage() {
               </div>
 
               {editError && (
-                <p className="text-sm text-rose-600">{editError}</p>
+                <p className="text-sm text-rose-600 dark:text-rose-400">{editError}</p>
               )}
             </div>
           )}
@@ -616,6 +708,37 @@ function PaymentGatewaysPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirm */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && !deleting && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {confirmDelete?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This deletes the saved configuration and credentials. You'll need to re-enter the full credential set to use {confirmDelete?.name} again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={deleting}
+              onClick={(e) => {
+                // Keep the dialog open while the DELETE is in flight; we
+                // close it ourselves in performDelete's finally block.
+                e.preventDefault();
+                performDelete();
+              }}
+            >
+              {deleting ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Removing</>
+              ) : (
+                "Remove"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

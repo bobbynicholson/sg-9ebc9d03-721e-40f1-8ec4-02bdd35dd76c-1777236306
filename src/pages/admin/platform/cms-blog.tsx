@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
   PageWorkbench,
@@ -11,11 +12,22 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Sparkles, FileText, Eye, Save, Trash2, Loader2, CheckCircle2, Wand2, Search, TrendingUp, MessageSquare, Code, Link } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Sparkles, FileText, Eye, Save, Trash2, Loader2, CheckCircle2, Wand2, Search, TrendingUp, MessageSquare, Code, Link, Newspaper } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cmsService } from "@/services/cmsService";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/router";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 
 interface BlogBrief {
@@ -30,6 +42,10 @@ interface BlogBrief {
   includeInternalLinks: boolean;
 }
 
+// Hero meta chip styling, same recipe as the platform financial dashboard.
+const HERO_CHIP =
+  "inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white";
+
 interface GeneratedContent {
   title: string;
   excerpt: string;
@@ -41,9 +57,19 @@ interface GeneratedContent {
   internalLinks: Array<{ text: string; url: string; context: string }>;
 }
 
-export default function CMSBlogPage() {
+// Super-admin gate: the previous soft client redirect could flash the
+// page (and fire cmsService reads) before pushing to login. ProtectedRoute
+// hides the page entirely below super_admin, same as cms-pages.tsx.
+export default function ProtectedCMSBlogPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <CMSBlogPage />
+    </ProtectedRoute>
+  );
+}
+
+function CMSBlogPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
   const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<"create" | "manage">("create");
@@ -69,19 +95,25 @@ export default function CMSBlogPage() {
   // Blog Management State
   const [posts, setPosts] = useState<any[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Auth check
+  // Live counts for the hero chips, derived straight from loaded posts.
+  const publishedCount = posts.filter((p) => p?.is_published).length;
+  const draftCount = posts.length - publishedCount;
+
+  // Load posts on mount so the hero chips show real counts even while
+  // the AI Writer tab is open. Switching to Manage refreshes the list.
   useEffect(() => {
-    if (!authLoading && (!user || user.active_role !== "super_admin")) {
-      router.push("/auth/login");
-    }
-  }, [user, authLoading, router]);
+    loadPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Load existing posts
   useEffect(() => {
     if (activeTab === "manage") {
       loadPosts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const loadPosts = async () => {
@@ -216,37 +248,99 @@ export default function CMSBlogPage() {
     }
   };
 
+  const handleDeletePost = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await cmsService.deleteBlogPost(deleteTarget.id);
+      setPosts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      toast({
+        title: "Post deleted",
+        description: `"${deleteTarget.title}" has been removed from the blog.`,
+      });
+      setDeleteTarget(null);
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      toast({
+        title: "Delete failed",
+        description: "Could not delete the blog post. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+      <div className="admin-page-shell">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="w-8 h-8 animate-spin text-brand-primary" />
+          </div>
+        </PortalShell>
       </div>
     );
   }
 
   return (
     <div className="admin-page-shell">
+      <Head>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Blog CMS - CateringMS</title>
+      </Head>
       <PlatformNav />
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
+          variant="hero"
           title="AI Blog Writer"
-          subtitle="Create SEO-optimized blog posts at scale with AI"
-          icon={Sparkles}
+          subtitle="Create SEO-optimised posts for the public cateringms.com blog with AI, then manage everything that is already live."
+          icon={Newspaper}
+          meta={
+            loadingPosts && posts.length === 0 ? (
+              <span className={HERO_CHIP}>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading post counts...
+              </span>
+            ) : (
+              <>
+                <span className={HERO_CHIP}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {publishedCount} published
+                </span>
+                <span className={HERO_CHIP}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  {draftCount} draft{draftCount === 1 ? "" : "s"}
+                </span>
+                <span className={HERO_CHIP}>
+                  {posts.length} post{posts.length === 1 ? "" : "s"} total
+                </span>
+              </>
+            )
+          }
         />
         <PageWorkbench />
 
-        {/* Tabs */}
+        {/* Toolbar: create/manage switcher + live blog count */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "create" | "manage")}>
-          <TabsList className="mb-6">
-            <TabsTrigger value="create" className="gap-2">
-              <Wand2 className="w-4 h-4" />
-              AI Writer
-            </TabsTrigger>
-            <TabsTrigger value="manage" className="gap-2">
-              <FileText className="w-4 h-4" />
-              Manage Posts
-            </TabsTrigger>
-          </TabsList>
+          <PortalCard className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="create" className="gap-2">
+                <Wand2 className="w-4 h-4" />
+                AI Writer
+              </TabsTrigger>
+              <TabsTrigger value="manage" className="gap-2">
+                <FileText className="w-4 h-4" />
+                Manage Posts
+              </TabsTrigger>
+            </TabsList>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {posts.length === 0
+                ? "No posts on the public blog yet"
+                : `${posts.length} post${posts.length === 1 ? "" : "s"} on the public blog`}
+            </p>
+          </PortalCard>
 
           {/* AI Writer Tab */}
           <TabsContent value="create" className="space-y-6">
@@ -260,7 +354,7 @@ export default function CMSBlogPage() {
                         <span className="flex items-center gap-2">
                           <Search className="w-5 h-5" />
                           Content Brief
-                          <InfoTooltip content="Fill in the topic, keywords and tone for the AI generator to work from.\n\nGeneration runs through the live AI drafting endpoint (the same one CMS Pages uses), then FAQ, schema and internal-link helpers are layered on top. Publishing saves the post to the blog." />
+                          <InfoTooltip content="Fill in the topic, keywords and tone for the AI generator to work from.\n\nThe article body runs through the live AI drafting endpoint (the same one CMS Pages uses). The FAQ, schema and internal-link sections are fixed starter templates, not AI output, so edit them before publishing. Publishing saves the post to the blog." />
                         </span>
                       }
                     />
@@ -364,7 +458,7 @@ export default function CMSBlogPage() {
                             onChange={(e) => setBrief({ ...brief, includeFAQ: e.target.checked })}
                             className="w-4 h-4 text-brand-primary"
                           />
-                          <span className="text-sm text-slate-700">Include FAQ Section</span>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">Include starter FAQs (template)</span>
                         </label>
 
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -374,7 +468,7 @@ export default function CMSBlogPage() {
                             onChange={(e) => setBrief({ ...brief, includeSchema: e.target.checked })}
                             className="w-4 h-4 text-brand-primary"
                           />
-                          <span className="text-sm text-slate-700">Include Schema Markup</span>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">Include schema markup (template)</span>
                         </label>
 
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -384,7 +478,7 @@ export default function CMSBlogPage() {
                             onChange={(e) => setBrief({ ...brief, includeInternalLinks: e.target.checked })}
                             className="w-4 h-4 text-brand-primary"
                           />
-                          <span className="text-sm text-slate-700">Suggest Internal Links</span>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">Include internal links (template)</span>
                         </label>
                       </div>
 
@@ -529,12 +623,15 @@ export default function CMSBlogPage() {
                     {/* FAQs */}
                     {generated.faqs.length > 0 && (
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold">FAQ Section</Label>
-                        <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
+                        <Label className="text-sm font-semibold">Starter FAQs (template)</Label>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          These are canned starter questions, not AI output. Rewrite them for this post before publishing.
+                        </p>
+                        <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
                           {generated.faqs.map((faq, idx) => (
                             <div key={idx} className="space-y-1">
-                              <p className="font-semibold text-sm text-slate-900">Q: {faq.question}</p>
-                              <p className="text-sm text-slate-600">A: {faq.answer}</p>
+                              <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">Q: {faq.question}</p>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">A: {faq.answer}</p>
                             </div>
                           ))}
                         </div>
@@ -546,7 +643,7 @@ export default function CMSBlogPage() {
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold flex items-center gap-2">
                           <Code className="w-4 h-4" />
-                          Schema.org JSON-LD
+                          Schema.org JSON-LD (starter template)
                         </Label>
                         <Textarea
                           value={generated.schema}
@@ -561,15 +658,18 @@ export default function CMSBlogPage() {
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold flex items-center gap-2">
                           <Link className="w-4 h-4" />
-                          Suggested Internal Links
+                          Starter internal links (template)
                         </Label>
-                        <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          A fixed set of common marketing-site links, not AI suggestions. Keep the ones that fit this post.
+                        </p>
+                        <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
                           {generated.internalLinks.map((link, idx) => (
                             <div key={idx} className="space-y-1">
-                              <p className="text-sm font-semibold text-slate-900">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                                 {link.text} → <code className="text-xs text-brand-primary">{link.url}</code>
                               </p>
-                              <p className="text-xs text-slate-600 italic">Context: {link.context}</p>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 italic">Context: {link.context}</p>
                             </div>
                           ))}
                         </div>
@@ -618,7 +718,7 @@ export default function CMSBlogPage() {
               <PortalCardHeader
                 title={
                   <span className="flex items-center gap-2">
-                    Published Blog Posts
+                    Blog posts
                     <InfoTooltip content="Every blog post on cateringms.com, drafts and published combined.\n\nSorted by publish date with the most recent first." />
                   </span>
                 }
@@ -639,18 +739,50 @@ export default function CMSBlogPage() {
                     {posts.map((post) => (
                       <div
                         key={post.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 hover:bg-slate-50/70 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-slate-700 dark:hover:bg-slate-800/40"
                       >
-                        <div>
-                          <h3 className="font-semibold text-slate-900">{post.title}</h3>
-                          <p className="text-sm text-slate-600">{post.excerpt}</p>
+                        <div className="min-w-[220px] flex-1">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100">{post.title}</h3>
+                            <Badge
+                              className={`border text-[10px] ${
+                                post.is_published
+                                  ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                  : "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                              }`}
+                            >
+                              {post.is_published ? "published" : "draft"}
+                            </Badge>
+                            {post.category && (
+                              <Badge variant="outline" className="text-[10px] text-slate-600 dark:text-slate-300">
+                                {post.category}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">{post.excerpt}</p>
+                          {post.published_date && (
+                            <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+                              Published {new Date(post.published_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                            </p>
+                          )}
                         </div>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
+                        <div className="flex flex-shrink-0 gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(`/blog/${post.slug}`, "_blank", "noopener,noreferrer")}
+                            title="View the public post in a new tab"
+                          >
                             <Eye className="w-4 h-4 mr-2" />
                             View
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteTarget(post)}
+                            disabled={deleting}
+                            title="Delete post"
+                          >
                             <Trash2 className="w-4 h-4 text-rose-600" />
                           </Button>
                         </div>
@@ -662,6 +794,45 @@ export default function CMSBlogPage() {
             </PortalCard>
           </TabsContent>
         </Tabs>
+
+        {/* Delete confirmation */}
+        <AlertDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => {
+            if (!open && !deleting) setDeleteTarget(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this blog post?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget
+                  ? `"${deleteTarget.title}" will be permanently removed from the blog. This cannot be undone.`
+                  : ""}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleting}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDeletePost();
+                }}
+                className="bg-rose-600 text-white hover:bg-rose-700"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete post"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </PortalShell>
     </div>
   );

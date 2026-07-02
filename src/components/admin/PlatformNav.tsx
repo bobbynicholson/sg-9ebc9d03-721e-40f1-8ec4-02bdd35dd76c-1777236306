@@ -100,6 +100,10 @@ export function PlatformNav(_: PlatformNavProps = {}) {
     title: "Platform Admin",
     mobileSubtitle: "CateringMS internal",
     brandIcon: Crown,
+    // Forced-dark command rail: the super admin area reads instantly as
+    // "platform, not tenant" even in light mode. Team/tenant portals keep
+    // the theme-following light rail.
+    appearance: "dark",
     ...BRAND_PORTAL_PALETTE,
     searchHint: "Search tenants, users, orders...",
     dashboardHref: "/admin/platform/dashboard",

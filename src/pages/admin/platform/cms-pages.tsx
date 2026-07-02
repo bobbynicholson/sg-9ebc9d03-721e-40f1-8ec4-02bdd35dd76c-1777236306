@@ -26,6 +26,7 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Pencil, Trash2, Plus, ArrowLeft, Save, X, AlertTriangle, Sparkles,
   Loader2, Eye, FileText, Wand2, Globe, ImageIcon, Upload, CheckCircle2, FileWarning, Image,
@@ -57,6 +58,10 @@ const EMPTY_FORM = {
   header_image_alt: "",
   is_published: true,
 };
+
+// Hero meta chip styling, same recipe as the platform financial dashboard.
+const HERO_CHIP =
+  "inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white";
 
 // Wave 24: super_admin gate. The header comment already notes "NOT
 // a tenant feature - this is super-admin scope" but the page had no
@@ -303,6 +308,18 @@ function CMSPageManagement() {
       .replace(/<p>(<ul>)/g, "$1");
   }, [formData.content]);
 
+  // Always-visible scope banner, rendered under the hero in both modes.
+  const scopeBanner = (
+    <Alert className="mb-6 border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
+      <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+      <AlertDescription className="text-amber-900 dark:text-amber-200">
+        <strong>cateringms.com marketing site.</strong> What you publish here appears on the public website at{" "}
+        <code className="text-xs bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded">cateringms.com/page/&lt;slug&gt;</code>.
+        It does NOT show up in any individual catering company's portal.
+      </AlertDescription>
+    </Alert>
+  );
+
   // ── Render ─────────────────────────────────────────────────────────
   return (
     <>
@@ -314,24 +331,32 @@ function CMSPageManagement() {
       <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          {/* Always-visible scope banner */}
-          <Alert className="mb-5 border-amber-200 bg-amber-50">
-            <AlertTriangle className="h-4 w-4 text-amber-700" />
-            <AlertDescription className="text-amber-900">
-              <strong>cateringms.com marketing site.</strong> What you publish here appears on the public website at{" "}
-              <code className="text-xs bg-amber-100 px-1.5 py-0.5 rounded">cateringms.com/page/&lt;slug&gt;</code>.
-              It does NOT show up in any individual catering company's portal.
-            </AlertDescription>
-          </Alert>
-
           {/* ── Editor mode ──────────────────────────────────────── */}
           {editing ? (
             <>
               {/* Header */}
               <PortalHeader
+                variant="hero"
                 title={editingPage ? "Edit page" : "New page"}
-                subtitle={editingPage ? `Editing "${editingPage.title}"` : "Marketing site content"}
+                subtitle={editingPage ? `Editing "${editingPage.title}" on the public marketing site.` : "Draft a new public page for cateringms.com."}
                 icon={FileText}
+                meta={
+                  <>
+                    <span className={HERO_CHIP}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${formData.is_published ? "bg-emerald-400" : "bg-amber-400"}`} />
+                      {formData.is_published ? "Publishes on save" : "Draft"}
+                    </span>
+                    <span className={HERO_CHIP}>
+                      <Globe className="h-3 w-3" />
+                      /page/{formData.slug || "your-slug"}
+                    </span>
+                    {editingPage?.last_updated && (
+                      <span className={HERO_CHIP}>
+                        Last updated {new Date(editingPage.last_updated).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    )}
+                  </>
+                }
                 actions={
                   <>
                     <Button variant="outline" size="sm" onClick={() => setAiOpen((v) => !v)}>
@@ -344,7 +369,7 @@ function CMSPageManagement() {
                     <Button variant="ghost" size="sm" onClick={handleCancel}>
                       <X className="mr-1.5 h-4 w-4" /> Cancel
                     </Button>
-                    <Button size="sm" onClick={handleSave} className="bg-slate-950 text-white hover:bg-slate-800">
+                    <Button size="sm" onClick={handleSave}>
                       <Save className="mr-1.5 h-4 w-4" /> Save page
                     </Button>
                   </>
@@ -352,13 +377,15 @@ function CMSPageManagement() {
               />
               <PageWorkbench />
 
+              {scopeBanner}
+
               {/* AI assist panel (collapsible) */}
               {aiOpen && (
-                <PortalCard className="mb-5 border-amber-200 bg-amber-50/70">
+                <PortalCard className="mb-6 border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30">
                   <PortalCardHeader
                     title={
                       <span className="flex items-center gap-2 text-base">
-                        <Sparkles className="w-4 h-4 text-amber-700" />
+                        <Sparkles className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                         Draft assistant
                       </span>
                     }
@@ -387,15 +414,19 @@ function CMSPageManagement() {
                       </div>
                       <div>
                         <Label className="text-xs">Tone</Label>
-                        <select
+                        <Select
                           value={draftReq.tone}
-                          onChange={(e) => setDraftReq({ ...draftReq, tone: e.target.value as any })}
-                          className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                          onValueChange={(v) => setDraftReq({ ...draftReq, tone: v as DraftRequest["tone"] })}
                         >
-                          <option value="informative">Informative</option>
-                          <option value="casual">Casual</option>
-                          <option value="promotional">Promotional</option>
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="informative">Informative</SelectItem>
+                            <SelectItem value="casual">Casual</SelectItem>
+                            <SelectItem value="promotional">Promotional</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label className="text-xs">Word target (200-2000)</Label>
@@ -423,7 +454,6 @@ function CMSPageManagement() {
                       <Button
                         onClick={runAiDraft}
                         disabled={aiBusy || !draftReq.topic.trim()}
-                        className="bg-slate-950 text-white hover:bg-slate-800"
                       >
                         {aiBusy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
                         {aiBusy ? "Drafting..." : "Generate draft"}
@@ -462,7 +492,7 @@ function CMSPageManagement() {
                     </p>
                     <div className="space-y-3">
                       {formData.header_image_url ? (
-                        <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                        <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={formData.header_image_url}
@@ -476,7 +506,7 @@ function CMSPageManagement() {
                               header_image_url: "",
                               header_image_alt: "",
                             }))}
-                            className="absolute top-2 right-2 rounded-md bg-white/95 hover:bg-white shadow text-xs font-medium px-2.5 py-1 text-slate-700 inline-flex items-center gap-1"
+                            className="absolute top-2 right-2 rounded-md bg-white/95 hover:bg-white dark:bg-slate-900/95 dark:hover:bg-slate-900 shadow text-xs font-medium px-2.5 py-1 text-slate-700 dark:text-slate-200 inline-flex items-center gap-1"
                             title="Remove image"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -486,14 +516,14 @@ function CMSPageManagement() {
                       ) : (
                         <label
                           htmlFor="header-image-input"
-                          className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/10 transition"
+                          className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-8 text-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/10 transition"
                         >
                           {imageBusy ? (
                             <Loader2 className="w-7 h-7 text-slate-400 animate-spin mb-2" />
                           ) : (
                             <Upload className="w-7 h-7 text-slate-400 mb-2" />
                           )}
-                          <p className="text-sm font-medium text-slate-700">
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                             {imageBusy ? "Uploading..." : "Click to upload header image"}
                           </p>
                           <p className="text-[11px] text-slate-500 mt-1">
@@ -658,7 +688,8 @@ function CMSPageManagement() {
                         Roughly how the post renders on the public site.
                       </p>
                       <div>
-                        <article className="prose prose-sm max-w-none border border-slate-200 rounded-lg overflow-hidden bg-white min-h-[300px]">
+                        {/* Intentionally stays white in dark mode: the article mimics the public marketing site. Only the border is dark-aware chrome. */}
+                        <article className="prose prose-sm max-w-none border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white min-h-[300px]">
                           {formData.header_image_url && (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -686,9 +717,32 @@ function CMSPageManagement() {
             /* ── List mode ────────────────────────────────────── */
             <>
               <PortalHeader
+                variant="hero"
                 title="Marketing pages"
-                subtitle="Static pages + blog posts that live on cateringms.com"
-                icon={FileText}
+                subtitle="Static pages and blog posts that live on cateringms.com. Public-site content only, never a tenant's portal."
+                icon={Globe}
+                meta={
+                  loading ? (
+                    <span className={HERO_CHIP}>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading page counts...
+                    </span>
+                  ) : (
+                    <>
+                      <span className={HERO_CHIP}>
+                        {pageSummary.total} page{pageSummary.total === 1 ? "" : "s"}
+                      </span>
+                      <span className={HERO_CHIP}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        {pageSummary.published} published
+                      </span>
+                      <span className={HERO_CHIP}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        {pageSummary.drafts} draft{pageSummary.drafts === 1 ? "" : "s"}
+                      </span>
+                    </>
+                  )
+                }
                 actions={
                   <>
                     <Link href="/admin/platform/dashboard">
@@ -697,7 +751,7 @@ function CMSPageManagement() {
                         Platform dashboard
                       </Button>
                     </Link>
-                    <Button onClick={startNew} className="bg-slate-950 text-white hover:bg-slate-800">
+                    <Button onClick={startNew}>
                       <Plus className="mr-1.5 h-4 w-4" />
                       New page
                     </Button>
@@ -706,7 +760,9 @@ function CMSPageManagement() {
               />
               <PageWorkbench />
 
-              <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {scopeBanner}
+
+              <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <StatTile label="Pages" value={pageSummary.total} hint="All public CMS records" icon={FileText} />
                 <StatTile label="Published" value={pageSummary.published} hint="Visible on cateringms.com" icon={CheckCircle2} />
                 <StatTile label="Drafts" value={pageSummary.drafts} hint="Saved but hidden" icon={FileWarning} />
@@ -735,16 +791,22 @@ function CMSPageManagement() {
                       <div className="p-4 flex flex-wrap items-center gap-3">
                         <div className="flex-1 min-w-[200px]">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="text-base font-semibold text-slate-900">{page.title}</h3>
-                            <Badge variant={page.is_published ? "default" : "secondary"} className="text-[10px]">
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{page.title}</h3>
+                            <Badge
+                              className={`border text-[10px] ${
+                                page.is_published
+                                  ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                  : "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                              }`}
+                            >
                               {page.is_published ? "published" : "draft"}
                             </Badge>
                           </div>
-                          <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                             <Globe className="w-3 h-3" />
                             cateringms.com/page/<strong>{page.slug}</strong>
                           </p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                             Last updated {new Date(page.last_updated).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                           </p>
                         </div>
@@ -754,7 +816,7 @@ function CMSPageManagement() {
                               href={`/page/${page.slug}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                               title="View live"
                             >
                               <Eye className="w-4 h-4" />

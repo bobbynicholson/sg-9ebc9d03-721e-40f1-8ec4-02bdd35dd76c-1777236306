@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
   PageWorkbench,
@@ -9,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  DollarSign,
+  Tag,
   Save,
   RefreshCw,
   TrendingUp,
@@ -22,6 +23,7 @@ import {
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { ListSkeleton } from "@/components/ui/loading-skeleton";
 
 interface PricingTier {
   slug: string;
@@ -58,16 +60,21 @@ export default function ProtectedPricingManagementPage() {
 }
 
 function PricingManagementPage() {
-  const [pricing, setPricing] = useState<PricingTier[]>(FALLBACK_TIERS);
-  const [editedPricing, setEditedPricing] = useState<PricingTier[]>(FALLBACK_TIERS);
+  // Start empty, never with fabricated numbers. Operators should see
+  // a loading placeholder, not the seeded FALLBACK_TIERS flashing as
+  // if they were the live prices.
+  const [pricing, setPricing] = useState<PricingTier[]>([]);
+  const [editedPricing, setEditedPricing] = useState<PricingTier[]>([]);
+  const [usingFallback, setUsingFallback] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Fetch live plans on mount. Falls back to seeded defaults if the
-  // API misbehaves so the UI is never blank.
+  // Fetch live plans on mount. Only if the API genuinely returns an
+  // empty plan list do we seed the editor with FALLBACK_TIERS, and in
+  // that case a visible amber notice flags them as unsaved defaults.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -91,9 +98,16 @@ function PricingManagementPage() {
           }));
           setPricing(mapped);
           setEditedPricing(mapped);
+          setUsingFallback(false);
+        } else {
+          // The table really is empty. Offer the seeded defaults as a
+          // starting point, clearly marked as not yet in the database.
+          setPricing(FALLBACK_TIERS);
+          setEditedPricing(FALLBACK_TIERS);
+          setUsingFallback(true);
         }
       } catch (e: any) {
-        setErrorMsg(e?.message || "Could not load pricing");
+        if (!cancelled) setErrorMsg(e?.message || "Could not load pricing");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -154,6 +168,7 @@ function PricingManagementPage() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || "Save failed");
       setPricing(editedPricing);
+      setUsingFallback(false);
       setSaveSuccess(true);
       setHasChanges(false);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -183,20 +198,42 @@ function PricingManagementPage() {
 
   return (
     <div className="admin-page-shell">
+      <Head>
+        <title>Package pricing - CateringMS</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
       <PlatformNav />
 
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
-          title="Package Pricing"
+          variant="hero"
+          title="Package pricing"
           subtitle="Subscription pricing across the SA, US, UK and EU markets"
-          icon={DollarSign}
+          icon={Tag}
+          meta={
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                {loading ? "Loading" : `${editedPricing.length} plan${editedPricing.length === 1 ? "" : "s"}`}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                ZAR primary currency
+              </span>
+              {(hasChanges || usingFallback) && !loading && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                  {usingFallback ? "Defaults not yet saved" : "Unsaved changes"}
+                </span>
+              )}
+            </>
+          }
           actions={
             /* Cross-link to the COGS calculator - seeing the input cost
                next to the output price avoids quietly setting a tier
                that loses money at scale. */
             <a
               href="/admin/platform/tech-costs"
-              className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-amber-300 hover:text-amber-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-amber-400"
+              className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:border-white/40 hover:bg-white/20"
             >
               See your COGS at this price
               <span aria-hidden>→</span>
@@ -247,6 +284,11 @@ function PricingManagementPage() {
                 ),
               )}
             </div>
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+              These exchange rates are fixed approximations used only for the
+              auto-conversion. The authoritative price is always the ZAR amount;
+              treat the USD, GBP and EUR figures as estimates unless you override them.
+            </p>
           </div>
         </PortalCard>
 
@@ -269,14 +311,35 @@ function PricingManagementPage() {
         )}
 
         {loading && (
-          <Alert className="mb-6 border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-            <RefreshCw className="h-4 w-4 flex-shrink-0 animate-spin text-slate-500" />
-            <AlertDescription className="text-sm text-slate-600 dark:text-slate-400">
-              Loading current live pricing...
+          <>
+            <Alert className="mb-6 border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+              <RefreshCw className="h-4 w-4 flex-shrink-0 animate-spin text-slate-500 dark:text-slate-400" />
+              <AlertDescription className="text-sm text-slate-600 dark:text-slate-400">
+                Loading current live pricing...
+              </AlertDescription>
+            </Alert>
+            <ListSkeleton rows={3} />
+          </>
+        )}
+
+        {!loading && usingFallback && (
+          <Alert className="mb-6 border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/10">
+            <AlertCircle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              No pricing plans exist in the database yet. The values below are unsaved
+              suggested defaults, they are not live anywhere until you press Save.
             </AlertDescription>
           </Alert>
         )}
 
+        {!loading && editedPricing.length === 0 && !errorMsg && (
+          <PortalCard className="mb-6 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+            No pricing tiers to show.
+          </PortalCard>
+        )}
+
+        {!loading && editedPricing.length > 0 && (
+        <>
         {/* Mobile-Optimized Pricing Cards */}
         <div className="grid gap-4 sm:gap-6 mb-6 sm:mb-8">
           {editedPricing.map((tier, index) => (
@@ -300,9 +363,18 @@ function PricingManagementPage() {
                   </Button>
                 }
               />
-              <p className="-mt-2 mb-4 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              <p className="-mt-2 mb-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
                 Monthly subscription pricing across all markets
               </p>
+              <div className="mb-5 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
+                <span className="text-3xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                  R{tier.zarPrice.toLocaleString("en-ZA")}
+                </span>
+                <span className="text-sm text-slate-500 dark:text-slate-400">per month, ZAR base price</span>
+                <span className="ml-auto text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                  ${tier.usdPrice.toLocaleString("en-ZA")} · £{tier.gbpPrice.toLocaleString("en-ZA")} · €{tier.eurPrice.toLocaleString("en-ZA")}
+                </span>
+              </div>
               <div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                   {/* South Africa ZAR - Mobile Optimized */}
@@ -316,7 +388,7 @@ function PricingManagementPage() {
                       ZAR Price (Primary)
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm sm:text-base">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base">
                         R
                       </span>
                       <Input
@@ -327,7 +399,7 @@ function PricingManagementPage() {
                         className="h-12 border-amber-200 pl-7 text-base font-bold focus:border-amber-400 dark:border-amber-500/40 sm:pl-8 sm:text-lg"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                       Base price for formula calculation
                     </p>
                   </div>
@@ -343,7 +415,7 @@ function PricingManagementPage() {
                       USD Price
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm sm:text-base">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base">
                         $
                       </span>
                       <Input
@@ -354,8 +426,8 @@ function PricingManagementPage() {
                         className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.USD} = ${calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
+                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.USD} = ${calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)} (approximate; ZAR is authoritative)
                     </p>
                   </div>
 
@@ -370,7 +442,7 @@ function PricingManagementPage() {
                       GBP Price
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm sm:text-base">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base">
                         £
                       </span>
                       <Input
@@ -381,8 +453,8 @@ function PricingManagementPage() {
                         className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.GBP} = £{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
+                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.GBP} = £{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)} (approximate; ZAR is authoritative)
                     </p>
                   </div>
 
@@ -397,7 +469,7 @@ function PricingManagementPage() {
                       EUR Price
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-sm sm:text-base">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base">
                         €
                       </span>
                       <Input
@@ -408,8 +480,8 @@ function PricingManagementPage() {
                         className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
                       />
                     </div>
-                    <p className="text-xs text-slate-500 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.EUR} = €{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
+                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.EUR} = €{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)} (approximate; ZAR is authoritative)
                     </p>
                   </div>
                 </div>
@@ -421,10 +493,12 @@ function PricingManagementPage() {
         {/* Sticky save bar */}
         <div className="sticky bottom-4 flex flex-col justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)] dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:p-5">
           <div className="flex items-center justify-center gap-2 sm:justify-start">
-            {hasChanges ? (
+            {hasChanges || usingFallback ? (
               <div className="flex items-center gap-2 text-amber-600 dark:text-amber-500">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span className="text-sm font-medium">You have unsaved changes</span>
+                <span className="text-sm font-medium">
+                  {usingFallback ? "Defaults not yet saved to the database" : "You have unsaved changes"}
+                </span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-brand-primary dark:text-brand-primary">
@@ -446,7 +520,7 @@ function PricingManagementPage() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!hasChanges || saving || loading}
+              disabled={(!hasChanges && !usingFallback) || saving || loading}
               className="h-11 w-full gap-2 text-sm sm:w-auto"
             >
               {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -454,6 +528,8 @@ function PricingManagementPage() {
             </Button>
           </div>
         </div>
+        </>
+        )}
 
         {/* Where saves land */}
         <PortalCard className="mt-6">

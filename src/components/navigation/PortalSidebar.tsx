@@ -115,6 +115,13 @@ export interface PortalSidebarConfig {
    *  Defaults to "primary" so admin-selected primary remains the lead
    *  colour across every portal. */
   leadToken?: "primary" | "accent" | "secondary";
+  /** "dark" renders the rail, mobile top bar and drawer in forced dark
+   *  chrome regardless of the page theme, by scoping Tailwind's `dark`
+   *  class to the nav subtree. Every dark: style in the tree already
+   *  exists, so the rail stays pixel-identical to the dark-mode nav.
+   *  Used by the platform (super admin) portal to visually separate the
+   *  SaaS command centre from tenant surfaces. Default: follow theme. */
+  appearance?: "light" | "dark";
 }
 
 interface PortalSidebarProps {
@@ -160,6 +167,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   }, [config.leadToken]);
 
   const collapseKey = `${config.role}Nav-collapsed`;
+  const forceDark = config.appearance === "dark";
 
   useEffect(() => {
     const saved = localStorage.getItem(collapseKey);
@@ -228,10 +236,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     const description = liveDesc !== null ? liveDesc : (item.description || null);
 
     const badgeTone =
-      badge?.tone === "critical" ? "bg-rose-100 text-rose-800 border-rose-200" :
-      badge?.tone === "warning"  ? "bg-amber-100 text-amber-800 border-amber-200" :
+      badge?.tone === "critical" ? "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30" :
+      badge?.tone === "warning"  ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30" :
       badge?.tone === "info"     ? "bg-brand-accent/10 text-brand-accent border-brand-accent/20" :
-      "bg-slate-100 text-slate-700 border-slate-200";
+      "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
 
     return (
       <Link
@@ -254,10 +262,26 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         )}
         title={collapsed ? item.title : ""}
       >
-        <span className="relative flex-shrink-0">
+        {/* Icon chip: a small rounded tile behind every nav glyph. Gives the
+            rail a consistent visual anchor column and makes the active route
+            read instantly (brand-tinted chip) without shouting. Footer rows
+            stay chip-less so the deprioritised block keeps its lighter feel. */}
+        <span
+          className={cn(
+            "relative flex flex-shrink-0 items-center justify-center transition-colors duration-150",
+            footer
+              ? ""
+              : cn(
+                  "h-8 w-8 rounded-lg border",
+                  active
+                    ? "border-brand-primary/25 bg-brand-primary/10"
+                    : "border-slate-200/70 bg-slate-100/70 group-hover:border-slate-300/80 group-hover:bg-slate-100 dark:border-slate-700/70 dark:bg-slate-800/70 dark:group-hover:border-slate-600/80 dark:group-hover:bg-slate-800",
+                ),
+          )}
+        >
           <Icon
             className={cn(
-              footer ? "h-4 w-4" : "h-5 w-5",
+              footer ? "h-4 w-4" : "h-[18px] w-[18px]",
               active
                 ? "text-brand-primary"
                 : "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200",
@@ -362,7 +386,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           );
         })}
         {!hideSignOut && (
-          <div className="pt-4 border-t border-slate-100"><SignOutButton /></div>
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800"><SignOutButton /></div>
         )}
       </div>
     </ScrollArea>
@@ -383,7 +407,15 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
       {/* Mobile header */}
       <div
-        className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700"
+        className={cn(
+          "lg:hidden fixed top-0 left-0 right-0 z-50 border-b",
+          // The `dark` class only affects DESCENDANTS (class strategy uses a
+          // descendant selector), so the bar's own surface must be set
+          // explicitly when the rail is forced dark.
+          forceDark
+            ? "dark bg-slate-950 border-slate-800"
+            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700",
+        )}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <div className="flex items-center justify-between gap-2 px-4 py-3">
@@ -396,10 +428,13 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               </SheetTrigger>
               <SheetContent
                 side="left"
-                className="w-[300px] sm:w-[350px] max-w-[85vw] p-0 flex flex-col"
+                className={cn(
+                  "w-[300px] sm:w-[350px] max-w-[85vw] p-0 flex flex-col",
+                  forceDark && "dark border-slate-800 bg-slate-950 text-slate-100",
+                )}
               >
                 <div
-                  className="flex-shrink-0 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900"
+                  className="flex-shrink-0 border-b border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] px-4 py-3 dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]"
                   style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))" }}
                 >
                   <Link
@@ -444,12 +479,21 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           left a permanent 32px dead gutter between nav and content. */}
       <div
         className={cn(
-          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900 transition-all duration-300",
+          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r transition-all duration-300",
+          // Same descendant-selector caveat as the mobile bar: the rail's
+          // own surface needs explicit dark classes when forced dark.
+          forceDark
+            ? "dark lg:border-slate-800 lg:bg-slate-950"
+            : "lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900",
           isCollapsed ? "lg:w-20" : "lg:w-72 xl:w-80",
         )}
       >
         <div className="flex flex-col flex-1 min-h-0">
-          <div className="flex flex-col gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          {/* Brand wash: the header block opens with a soft tint of the
+              portal's lead colour (tracks white-label re-theming via the
+              --portal-accent-rgb var) so the rail carries identity without
+              a loud gradient. */}
+          <div className="flex flex-col gap-3 border-b border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] px-4 py-3 dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]">
             {!isCollapsed ? (
               <>
                 <div className="flex items-center justify-between gap-2">
@@ -529,7 +573,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             <Button
               variant="ghost"
               className={cn(
-                "w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100",
+                "w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800",
                 isCollapsed ? "justify-center px-2" : "justify-start",
               )}
               onClick={toggleCollapse}

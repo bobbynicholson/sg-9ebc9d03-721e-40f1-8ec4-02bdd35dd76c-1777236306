@@ -33,7 +33,7 @@ export function SignOutButton({ collapsed = false, className }: SignOutButtonPro
       disabled={signingOut}
       title="Sign out"
       className={cn(
-        "w-full border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700",
+        "w-full border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20 dark:hover:text-rose-200",
         collapsed ? "justify-center px-2" : "justify-start gap-3 px-4",
         className,
       )}

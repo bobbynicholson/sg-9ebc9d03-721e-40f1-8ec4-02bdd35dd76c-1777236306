@@ -21,6 +21,7 @@ import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { ListSkeleton } from "@/components/ui/loading-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { staffOrderHref } from "@/lib/orderUrls";
 
 interface AuditRow {
@@ -103,15 +104,15 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
 // expensive failure modes; default tone is neutral.
 const toneFor = (action: string): string => {
   if (action.includes("fail") || action.includes("error") || action.includes("crashed")) {
-    return "border-l-rose-500 bg-rose-50/40";
+    return "border-l-rose-500 dark:border-l-rose-500 bg-rose-50/40 dark:bg-rose-500/10";
   }
   if (action.includes("refund") || action.includes("cancel")) {
-    return "border-l-amber-500 bg-amber-50/40";
+    return "border-l-amber-500 dark:border-l-amber-500 bg-amber-50/40 dark:bg-amber-500/10";
   }
   if (action.includes("delete") || action.includes("removed")) {
-    return "border-l-rose-400 bg-rose-50/40";
+    return "border-l-rose-400 dark:border-l-rose-400 bg-rose-50/40 dark:bg-rose-500/10";
   }
-  return "border-l-slate-300 bg-white";
+  return "border-l-slate-300 dark:border-l-slate-600 bg-white dark:bg-slate-900";
 };
 
 function AuditLogsViewer() {
@@ -119,6 +120,7 @@ function AuditLogsViewer() {
   const router = useRouter();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
   // Phase 6 #2: filter state lives in the URL so a deep-link to a
@@ -215,6 +217,7 @@ function AuditLogsViewer() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       let q = supabase
         .from("audit_logs")
@@ -259,7 +262,13 @@ function AuditLogsViewer() {
         }
       }
     } catch (e: any) {
+      // Surface the failure instead of quietly rendering the empty
+      // state. A broken query and "no rows match" are very different
+      // answers for an audit trail.
       console.error("[audit-logs] load failed:", e);
+      setRows([]);
+      setTotalCount(null);
+      setLoadError(e?.message || "The audit log query failed. Please retry.");
     } finally {
       setLoading(false);
     }
@@ -287,9 +296,21 @@ function AuditLogsViewer() {
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Audit logs"
             subtitle="Append-only trail across every tenant. Read-only view; the action belongs on the entity page each row links to."
             icon={ScrollText}
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {totalCount != null ? `${totalCount.toLocaleString()} rows match filters` : loading ? "Counting rows..." : "Row count unavailable"}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  Page {page + 1}{totalPages ? ` of ${totalPages}` : ""}
+                </span>
+              </>
+            }
             actions={
               <Button variant="outline" size="sm" onClick={() => { setPage(0); void load(); }} className="gap-1">
                 <RefreshCw className="w-4 h-4" />
@@ -299,7 +320,7 @@ function AuditLogsViewer() {
           />
           <PageWorkbench />
 
-          <PortalCard className="mb-5">
+          <PortalCard className="mb-6">
             <PortalCardHeader title="Filters" />
             <p className="-mt-2 mb-3 text-xs text-slate-500 dark:text-slate-400">
               Combine any of these. Defaults to the last 7 days across every tenant.
@@ -307,7 +328,7 @@ function AuditLogsViewer() {
             <div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                 <div>
-                  <Label className="text-xs">Tenant</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Tenant</Label>
                   <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setPage(0); }}>
                     <SelectTrigger>
                       <SelectValue />
@@ -323,7 +344,7 @@ function AuditLogsViewer() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Entity type</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Entity type</Label>
                   <Select value={entityTypeFilter} onValueChange={(v) => { setEntityTypeFilter(v); setPage(0); }}>
                     <SelectTrigger>
                       <SelectValue />
@@ -341,7 +362,7 @@ function AuditLogsViewer() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-xs">Action contains</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Action contains</Label>
                   <Input
                     value={actionFilter}
                     onChange={(e) => { setActionFilter(e.target.value); setPage(0); }}
@@ -349,7 +370,7 @@ function AuditLogsViewer() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Entity id (exact)</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Entity id (exact)</Label>
                   <Input
                     value={entityIdFilter}
                     onChange={(e) => { setEntityIdFilter(e.target.value); setPage(0); }}
@@ -357,7 +378,7 @@ function AuditLogsViewer() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Details contains</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Details contains</Label>
                   <Input
                     value={detailsSearch}
                     onChange={(e) => { setDetailsSearch(e.target.value); setPage(0); }}
@@ -365,7 +386,7 @@ function AuditLogsViewer() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Since</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Since</Label>
                   <Select value={sinceFilter} onValueChange={(v) => { setSinceFilter(v); setPage(0); }}>
                     <SelectTrigger>
                       <SelectValue />
@@ -385,6 +406,22 @@ function AuditLogsViewer() {
 
           {loading ? (
             <ListSkeleton rows={8} />
+          ) : loadError ? (
+            <Alert variant="destructive" className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+              <AlertDescription className="flex flex-wrap items-center gap-3 text-sm text-rose-800 dark:text-rose-300">
+                <span>Could not load audit logs: {loadError}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void load()}
+                  className="h-7 gap-1 px-2"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
           ) : rows.length === 0 ? (
             <EmptyState
               icon={ScrollText}
@@ -401,55 +438,55 @@ function AuditLogsViewer() {
                 return (
                   <div
                     key={r.id}
-                    className={`border border-slate-200 border-l-4 rounded-md p-3 ${tone}`}
+                    className={`border border-slate-200 dark:border-slate-700 border-l-4 rounded-md p-3 ${tone}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-[11px] text-slate-500">{fmtTs(r.created_at)}</span>
+                          <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">{fmtTs(r.created_at)}</span>
                           <Badge variant="outline" className="text-[10px] font-semibold">
                             {r.action}
                           </Badge>
-                          <Badge variant="outline" className="text-[10px] bg-slate-100">
+                          <Badge variant="outline" className="text-[10px] bg-slate-100 dark:bg-slate-800 dark:text-slate-300">
                             {r.entity_type}
                           </Badge>
                           {company?.company_name && (
-                            <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
+                            <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30">
                               {company.company_name}
                             </Badge>
                           )}
                         </div>
-                        <div className="mt-1 text-xs text-slate-700 flex flex-wrap items-center gap-2">
+                        <div className="mt-1 text-xs text-slate-700 dark:text-slate-300 flex flex-wrap items-center gap-2">
                           <span>
-                            <span className="text-slate-500">by</span>{" "}
+                            <span className="text-slate-500 dark:text-slate-400">by</span>{" "}
                             <span className="font-medium">
                               {user?.full_name || user?.email || (r.user_id ? r.user_id.slice(0, 8) : "system")}
                             </span>
                           </span>
                           {r.entity_id && (
-                            <span className="font-mono text-[11px] text-slate-500">
+                            <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
                               {r.entity_id.slice(0, 8)}
                             </span>
                           )}
                           {r.ip_address && (
-                            <span className="font-mono text-[11px] text-slate-400">
+                            <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
                               {r.ip_address}
                             </span>
                           )}
                         </div>
                         {r.details && Object.keys(r.details).length > 0 && (
                           <details className="mt-2">
-                            <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700">
+                            <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
                               details
                             </summary>
-                            <pre className="mt-1 text-[11px] text-slate-700 bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                            <pre className="mt-1 text-[11px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
                               {JSON.stringify(r.details, null, 2)}
                             </pre>
                           </details>
                         )}
                       </div>
                       {href && (
-                        <Link href={href} className="shrink-0 text-xs text-slate-700 hover:text-slate-900 inline-flex items-center gap-1">
+                        <Link href={href} className="shrink-0 text-xs text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white inline-flex items-center gap-1">
                           Open <ExternalLink className="w-3 h-3" />
                         </Link>
                       )}
@@ -459,12 +496,12 @@ function AuditLogsViewer() {
               })}
 
               {/* Pagination */}
-              <div className="flex items-center justify-between pt-3 text-xs text-slate-600">
+              <div className="flex items-center justify-between pt-3 text-xs text-slate-600 dark:text-slate-400">
                 <div>
                   Page {page + 1}
                   {totalPages ? ` of ${totalPages}` : ""}
                   {totalCount != null && (
-                    <span className="text-slate-400 ml-2">({totalCount.toLocaleString()} total)</span>
+                    <span className="text-slate-400 dark:text-slate-500 ml-2">({totalCount.toLocaleString()} total)</span>
                   )}
                 </div>
                 <div className="flex gap-2">

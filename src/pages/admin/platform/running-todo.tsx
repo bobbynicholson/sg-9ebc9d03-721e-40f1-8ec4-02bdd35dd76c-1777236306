@@ -49,9 +49,9 @@ type Status = "shipped" | "in_progress" | "todo" | "blocked";
 
 const statusTone: Record<Status, string> = {
   shipped:     "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
-  in_progress: "bg-amber-100 text-amber-800 border-amber-200",
-  todo:        "bg-slate-100 text-slate-700 border-slate-200",
-  blocked:     "bg-rose-100 text-rose-700 border-rose-200",
+  in_progress: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  todo:        "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  blocked:     "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
 };
 
 const statusLabel: Record<Status, string> = {
@@ -1567,28 +1567,53 @@ const groups: Group[] = [
 function ItemRow({ item }: { item: Item }) {
   const StatusIcon = statusIcon[item.status];
   return (
-    <li className="p-3 sm:p-4 flex items-start gap-3 hover:bg-slate-50">
+    <li className="p-3 sm:p-4 flex items-start gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
       <StatusIcon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${
         item.status === "shipped" ? "text-brand-primary"
-        : item.status === "in_progress" ? "text-amber-600"
-        : item.status === "blocked" ? "text-rose-500"
-        : "text-slate-400"
+        : item.status === "in_progress" ? "text-amber-600 dark:text-amber-400"
+        : item.status === "blocked" ? "text-rose-500 dark:text-rose-400"
+        : "text-slate-400 dark:text-slate-500"
       }`} />
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`text-sm font-medium ${item.status === "shipped" ? "text-slate-500 line-through" : "text-slate-900"}`}>
+          <span className={`text-sm font-medium ${item.status === "shipped" ? "text-slate-500 dark:text-slate-400 line-through" : "text-slate-900 dark:text-white"}`}>
             {item.title}
           </span>
           <Badge variant="outline" className={`${statusTone[item.status]} text-xs`}>
             {statusLabel[item.status]}
           </Badge>
-          {item.ref && <span className="text-xs text-slate-400 font-mono">{item.ref}</span>}
+          {item.ref && <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">{item.ref}</span>}
         </div>
-        {item.detail && <p className="text-xs text-slate-600 mt-1">{item.detail}</p>}
+        {item.detail && <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{item.detail}</p>}
       </div>
     </li>
   );
 }
+
+/**
+ * Map a card's legacy gradient accent string ("from-... to-...") to the
+ * toned-down design language: a thin left accent bar plus a tinted icon
+ * tile. Keyed off the from- colour so cards stay distinguishable without
+ * full-width gradient banners. Everything dark-mode aware.
+ */
+function accentClasses(accent: string): { bar: string; tile: string; icon: string } {
+  if (accent.startsWith("from-rose")) {
+    return { bar: "bg-rose-500", tile: "bg-rose-100 dark:bg-rose-500/15", icon: "text-rose-600 dark:text-rose-400" };
+  }
+  if (accent.startsWith("from-amber") || accent.startsWith("from-orange")) {
+    return { bar: "bg-amber-500", tile: "bg-amber-100 dark:bg-amber-500/15", icon: "text-amber-600 dark:text-amber-400" };
+  }
+  if (accent.startsWith("from-sky") || accent.startsWith("from-blue")) {
+    return { bar: "bg-blue-500", tile: "bg-blue-100 dark:bg-blue-500/15", icon: "text-blue-600 dark:text-blue-400" };
+  }
+  if (accent.startsWith("from-slate") || accent.startsWith("from-zinc")) {
+    return { bar: "bg-slate-400 dark:bg-slate-500", tile: "bg-slate-100 dark:bg-slate-800", icon: "text-slate-600 dark:text-slate-400" };
+  }
+  // Default: brand accent (covers all from-brand-primary variants).
+  return { bar: "bg-brand-primary", tile: "bg-brand-primary/10 dark:bg-brand-primary/15", icon: "text-brand-primary" };
+}
+
+const HEADER_BADGE = "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs";
 
 function CardAccordion({ card }: { card: SprintCard }) {
   const [open, setOpen] = useState(card.defaultOpen ?? false);
@@ -1597,39 +1622,43 @@ function CardAccordion({ card }: { card: SprintCard }) {
   const done = card.items.filter((i) => i.status === "shipped").length;
   const blocked = card.items.filter((i) => i.status === "blocked").length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const accent = accentClasses(card.accent);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center justify-between gap-3 px-4 py-3 sm:py-4 text-left bg-gradient-to-r ${card.accent} text-white hover:brightness-95 transition`}
+        className="relative w-full flex items-center justify-between gap-3 pl-5 pr-4 py-3 sm:py-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
       >
+        <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${accent.bar}`} />
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div className="w-9 h-9 rounded-md bg-white/20 flex items-center justify-center flex-shrink-0">
-            <Icon className="h-4 w-4" />
+          <div className={`w-9 h-9 rounded-md ${accent.tile} flex items-center justify-center flex-shrink-0`}>
+            <Icon className={`h-4 w-4 ${accent.icon}`} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-semibold text-sm sm:text-base">{card.title}</div>
-            <div className="text-xs text-white/85 mt-0.5 line-clamp-2">{card.why}</div>
+            <div className="font-semibold text-sm sm:text-base text-slate-900 dark:text-white">{card.title}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-2">{card.why}</div>
           </div>
         </div>
         <div className="hidden sm:flex flex-wrap items-center gap-1.5 flex-shrink-0">
           {card.estimate && (
-            <Badge variant="outline" className="bg-white/15 text-white border-white/30 text-xs">{card.estimate}</Badge>
+            <Badge variant="outline" className={HEADER_BADGE}>{card.estimate}</Badge>
           )}
           {card.risk && (
-            <Badge variant="outline" className="bg-white/15 text-white border-white/30 text-xs">Risk: {card.risk}</Badge>
+            <Badge variant="outline" className={HEADER_BADGE}>Risk: {card.risk}</Badge>
           )}
-          <Badge variant="outline" className="bg-white/15 text-white border-white/30 text-xs">
+          <Badge variant="outline" className={HEADER_BADGE}>
             {done}/{total}{blocked > 0 ? ` (${blocked} blocked)` : ""}
           </Badge>
-          <Badge variant="outline" className="bg-white/15 text-white border-white/30 text-xs tabular-nums">{pct}%</Badge>
+          <Badge variant="outline" className={`${HEADER_BADGE} tabular-nums`}>{pct}%</Badge>
         </div>
-        {open ? <ChevronDown className="h-5 w-5 flex-shrink-0" /> : <ChevronRightIcon className="h-5 w-5 flex-shrink-0" />}
+        {open
+          ? <ChevronDown className="h-5 w-5 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+          : <ChevronRightIcon className="h-5 w-5 flex-shrink-0 text-slate-400 dark:text-slate-500" />}
       </button>
       {open && (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-slate-100 dark:divide-slate-800 border-t border-slate-100 dark:border-slate-800">
           {card.items.map((item, idx) => <ItemRow key={idx} item={item} />)}
         </ul>
       )}
@@ -1641,9 +1670,9 @@ function GroupSection({ group, expandAll, collapseAll }: { group: Group; expandA
   // Re-render trigger: expandAll/collapseAll count changes force CardAccordion re-mount via key
   return (
     <section id={group.id} className="space-y-3">
-      <div className="border-l-4 border-slate-300 pl-4 mb-4">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900">{group.title}</h2>
-        <p className="text-sm text-slate-600 mt-1">{group.description}</p>
+      <div className="border-l-4 border-slate-300 dark:border-slate-600 pl-4 mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{group.title}</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{group.description}</p>
       </div>
       {group.cards.map((card) => (
         <CardAccordion key={`${card.id}-${expandAll}-${collapseAll}`} card={{ ...card, defaultOpen: expandAll > collapseAll ? true : (collapseAll > expandAll ? false : card.defaultOpen) }} />
@@ -1685,9 +1714,24 @@ function AdminRunningTodoPage() {
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Running Todo"
             subtitle="Single source of truth, everything built, everything outstanding. Combines the original 8-week launch roadmap with findings from the 215-IQ multi-specialist audit."
             icon={ListChecks}
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {stats.shipped} shipped
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {stats.inProgress} in progress
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {stats.total} items total
+                </span>
+              </>
+            }
           />
           <PageWorkbench />
 
@@ -1726,7 +1770,7 @@ function AdminRunningTodoPage() {
 
           <nav className="mb-8 flex flex-wrap gap-2">
             {groups.map((g) => (
-              <a key={g.id} href={`#${g.id}`} className="text-xs px-3 py-1.5 rounded-md bg-white border border-slate-200 hover:bg-slate-50 text-slate-700">
+              <a key={g.id} href={`#${g.id}`} className="text-xs px-3 py-1.5 rounded-md bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800 dark:text-slate-300">
                 {g.title}
               </a>
             ))}

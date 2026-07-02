@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
+import Head from "next/head";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
@@ -322,13 +324,22 @@ export default function UserManagementPage() {
     if (!deleteUserId) return;
 
     try {
-      // Delete from profiles (will cascade to auth.users via trigger)
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", deleteUserId);
-
-      if (error) throw error;
+      // FIX (2026-07-02): this used to run a client-side
+      // supabase.from("profiles").delete() and hope RLS + a trigger
+      // cleaned up auth.users. When the trigger was missing or failed,
+      // the auth row survived as an orphan the create-user pre-check
+      // then had to "heal". Route through the service-role API instead:
+      // it verifies the caller is a super admin, blocks self-deletion,
+      // and removes both auth.users and profiles authoritatively.
+      const res = await fetch("/api/admin/platform-delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: deleteUserId }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload?.error || "Failed to delete user");
+      }
 
       toast({
         title: "Success",
@@ -422,10 +433,10 @@ export default function UserManagementPage() {
       <Badge
         variant="outline"
         className={cn(
-          "border-slate-200 bg-slate-50 text-slate-700",
-          role === "super_admin" && "border-rose-200 bg-rose-50 text-rose-700",
-          role === "company_admin" && "border-amber-200 bg-amber-50 text-amber-800",
-          role === "client" && "border-emerald-200 bg-emerald-50 text-emerald-700",
+          "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300",
+          role === "super_admin" && "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400",
+          role === "company_admin" && "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400",
+          role === "client" && "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400",
         )}
       >
         {getRoleLabel(role)}
@@ -439,8 +450,8 @@ export default function UserManagementPage() {
       <Badge
         variant="outline"
         className={cn(
-          "gap-1 border-amber-200 bg-amber-50 text-amber-800",
-          active && "border-emerald-200 bg-emerald-50 text-emerald-700",
+          "gap-1 border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400",
+          active && "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400",
         )}
       >
         {active ? <CheckCircle2 className="h-3 w-3" /> : <MailQuestion className="h-3 w-3" />}
@@ -451,17 +462,36 @@ export default function UserManagementPage() {
 
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <Head>
+        <title>User management - CateringMS</title>
+      </Head>
+      <NoIndexMeta />
       <div className="admin-page-shell">
         <PlatformNav />
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
+          variant="hero"
           title="User management"
           subtitle="Platform-wide account directory with tenant ownership, invite state, and safe account actions."
           icon={Users}
+          meta={
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                {summary.total} account{summary.total === 1 ? "" : "s"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {summary.active} active
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                {summary.platformAdmins} platform admin{summary.platformAdmins === 1 ? "" : "s"}
+              </span>
+            </>
+          }
           actions={
           <Dialog open={addUserOpen} onOpenChange={closeAddUserDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-slate-950 text-white hover:bg-slate-800">
+              <Button>
                 <UserPlus className="w-4 h-4 mr-2" />
                 Add user
               </Button>
@@ -483,26 +513,26 @@ export default function UserManagementPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-3">
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5">
-                      <div><span className="text-slate-500">Email:</span> <strong>{createResult.email}</strong></div>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-1.5 dark:border-amber-500/30 dark:bg-amber-500/10">
+                      <div><span className="text-slate-500 dark:text-slate-400">Email:</span> <strong>{createResult.email}</strong></div>
                       {createResult.tempPassword && (
                         <div>
-                          <span className="text-slate-500">Temporary password:</span>{" "}
+                          <span className="text-slate-500 dark:text-slate-400">Temporary password:</span>{" "}
                           <strong className="font-mono">{createResult.tempPassword}</strong>
                         </div>
                       )}
                       {createResult.loginUrl && (
                         <div>
-                          <span className="text-slate-500">Sign in at:</span>{" "}
+                          <span className="text-slate-500 dark:text-slate-400">Sign in at:</span>{" "}
                           <strong className="break-all">{createResult.loginUrl}</strong>
                         </div>
                       )}
-                      <p className="text-xs text-slate-500 pt-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
                         They should change this password after their first sign-in.
                       </p>
                     </div>
                     {!createResult.emailed && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Set up an email sender under <strong>Email settings</strong> so future invites send automatically.
                       </p>
                     )}
@@ -578,14 +608,14 @@ export default function UserManagementPage() {
                     </Select>
                   </div>
                 )}
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
                   A unique temporary password is generated by the server and shown after save for direct handover.
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => closeAddUserDialog(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={creating} className="bg-slate-950 text-white hover:bg-slate-800">
+                  <Button type="submit" disabled={creating}>
                     {creating ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -605,7 +635,7 @@ export default function UserManagementPage() {
         />
         <PageWorkbench />
 
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <StatTile label="Accounts" value={summary.total} hint="All platform-visible profiles" icon={Users} />
           <StatTile label="Active" value={summary.active} hint="Signed in at least once" icon={CheckCircle2} />
           <StatTile label="Invite pending" value={summary.pending} hint="Created but not accepted" icon={MailQuestion} />
@@ -613,32 +643,27 @@ export default function UserManagementPage() {
           <StatTile label="Platform admins" value={summary.platformAdmins} hint="Global admin access" icon={ShieldCheck} />
         </div>
 
-        <PortalCard>
-          <PortalCardHeader
-            title={
-              <span className="flex items-center gap-2">
-                Account directory ({filteredUsers.length})
-                <InfoTooltip content="Every user account across every tenant on the platform, with the company they belong to.\n\nStatus reflects invite acceptance: Active means the user has signed in (accepted their invite / set their password); Pending means they were invited but haven't signed in yet. Use Resend invite to send a pending staff member a fresh set-password link." />
-              </span>
-            }
-            action={
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!hasActiveFilters}
-                onClick={() => {
-                  setSearchTerm("");
-                  setStatusFilter("all");
-                  setRoleFilter("all");
-                  setCompanyFilter("all");
-                }}
-              >
-                Clear filters
-              </Button>
-            }
-          />
-          <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(160px,1fr))]">
+        <PortalCard className="mb-6">
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+            <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 dark:text-slate-400">
+              Search and filters
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={!hasActiveFilters}
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("all");
+                setRoleFilter("all");
+                setCompanyFilter("all");
+              }}
+            >
+              Clear filters
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(160px,1fr))]">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
               <Input
@@ -682,6 +707,17 @@ export default function UserManagementPage() {
               </SelectContent>
             </Select>
           </div>
+        </PortalCard>
+
+        <PortalCard className="mb-6">
+          <PortalCardHeader
+            title={
+              <span className="flex items-center gap-2">
+                Account directory ({filteredUsers.length})
+                <InfoTooltip content="Every user account across every tenant on the platform, with the company they belong to.\n\nStatus reflects invite acceptance: Active means the user has signed in (accepted their invite / set their password); Pending means they were invited but haven't signed in yet. Use Resend invite to send a pending staff member a fresh set-password link." />
+              </span>
+            }
+          />
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-slate-500" />
@@ -689,32 +725,32 @@ export default function UserManagementPage() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>
+                  <TableRow className="hover:bg-transparent dark:hover:bg-transparent">
+                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="user" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>User</SortHeader>
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="role" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Role</SortHeader>
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="company" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Company</SortHeader>
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="status" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Status</SortHeader>
                     </TableHead>
-                    <TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="created" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Created</SortHeader>
                     </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                       <TableCell>
                         <div>
-                          <div className="font-medium">{user.full_name}</div>
-                          <div className="text-sm text-slate-500">{user.email}</div>
+                          <div className="font-medium text-slate-900 dark:text-white">{user.full_name}</div>
+                          <div className="text-sm text-slate-500 dark:text-slate-400">{user.email}</div>
                         </div>
                       </TableCell>
                       <TableCell>{getRoleBadge(user.role)}</TableCell>
@@ -730,8 +766,8 @@ export default function UserManagementPage() {
                       </TableCell>
                       <TableCell>{getStatusBadge(user as User)}</TableCell>
                       <TableCell>
-                        <span className="text-sm text-slate-500">
-                          {new Date(user.created_at).toLocaleDateString()}
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
+                          {new Date(user.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
@@ -747,7 +783,7 @@ export default function UserManagementPage() {
                                 size="sm"
                                 disabled={resendingId === user.id}
                                 onClick={() => handleResendInvite(user.id)}
-                                className="gap-1.5 border-amber-200 text-amber-800 hover:bg-amber-50"
+                                className="gap-1.5 border-amber-200 text-amber-800 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-400 dark:hover:bg-amber-500/10"
                               >
                                 {resendingId === user.id ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -761,7 +797,7 @@ export default function UserManagementPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => setDeleteUserId(user.id)}
-                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-500/10"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>

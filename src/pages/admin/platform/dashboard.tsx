@@ -163,9 +163,26 @@ function PlatformDashboard() {
 
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
-          title="Platform Analytics"
-          subtitle="System-wide sales and business metrics"
+          variant="hero"
+          title="Platform analytics"
+          subtitle="Revenue, growth and tenant mix across the whole platform in one view."
           icon={Activity}
+          meta={
+            metrics ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0} active companies
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {metrics?.totalCompanies ?? 0} total tenants
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {analyticsService.formatCurrency(metrics?.monthlyRecurringRevenue || 0)} MRR
+                </span>
+              </>
+            ) : undefined
+          }
           actions={
             <>
               <CompanySwitcher />
@@ -210,20 +227,7 @@ function PlatformDashboard() {
           </Alert>
         )}
 
-        {/* Live platform snapshot: only real, live figures (no placeholder metrics). */}
-        <PortalCard className="mb-6 sm:mb-8 flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-brand-primary ring-4 ring-brand-primary/20 animate-pulse" />
-              <span className="text-sm font-semibold text-slate-900 dark:text-white">Live platform snapshot</span>
-            </div>
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-              <span><span className="font-semibold text-slate-900 dark:text-white tabular-nums">{metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0}</span> active companies</span>
-              <span><span className="font-semibold text-slate-900 dark:text-white tabular-nums">{metrics?.totalCompanies ?? 0}</span> total tenants</span>
-            </div>
-        </PortalCard>
-
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4 mb-4 sm:mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <StatCard
             title="SaaS Revenue (active)"
             value={analyticsService.formatCurrency(metrics?.totalRevenue || 0)}
@@ -254,7 +258,7 @@ function PlatformDashboard() {
           />
         </div>
 
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 mb-6 sm:mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <StatCard
             title="Avg Revenue Per User"
             value={analyticsService.formatCurrency(metrics?.averageRevenuePerUser || 0)}
@@ -299,14 +303,14 @@ function PlatformDashboard() {
                 />
                 <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">New customers and cumulative total over time</p>
                   {customerGrowth.length === 0 ? (
-                    <p className="text-center text-slate-500 py-8">No growth data available yet</p>
+                    <p className="text-center text-slate-500 dark:text-slate-400 py-8">No growth data available yet</p>
                   ) : (
                     <div className="space-y-4">
                       {customerGrowth.slice(-6).map((item) => (
-                        <div key={item.month} className="flex items-center justify-between">
+                        <div key={item.month} className="flex items-center justify-between rounded-lg -mx-2 px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                           <div>
-                            <p className="font-medium">{item.month}</p>
-                            <p className="text-sm text-slate-600">
+                            <p className="font-medium text-slate-900 dark:text-white">{item.month}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
                               {item.newCustomers} new • {item.totalCustomers} total
                             </p>
                           </div>
@@ -314,7 +318,7 @@ function PlatformDashboard() {
                             <p className="font-bold text-brand-primary">
                               {analyticsService.formatCurrency(item.revenue)}
                             </p>
-                            <p className="text-xs text-slate-500">revenue</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">revenue</p>
                           </div>
                         </div>
                       ))}
@@ -333,14 +337,14 @@ function PlatformDashboard() {
                 />
                 <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Current subscription distribution</p>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-brand-primary/10 rounded-lg border border-brand-primary/20">
+                    <div className="flex items-center justify-between p-4 bg-brand-primary/10 rounded-lg border border-brand-primary/20 dark:bg-brand-primary/15 dark:border-brand-primary/30">
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-12 rounded-full bg-brand-primary flex items-center justify-center">
                           <Users className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                          <p className="text-sm text-slate-600">Active</p>
-                          <p className="text-2xl font-bold text-slate-900">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">Active</p>
+                          <p className="text-2xl font-bold text-slate-900 dark:text-white">
                             {metrics?.activeSubscriptions || 0}
                           </p>
                         </div>
@@ -354,14 +358,14 @@ function PlatformDashboard() {
                       </Badge>
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-950/40 dark:border-blue-900">
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center">
                           <Calendar className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                          <p className="text-sm text-slate-600">Trial</p>
-                          <p className="text-2xl font-bold text-slate-900">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">Trial</p>
+                          <p className="text-2xl font-bold text-slate-900 dark:text-white">
                             {metrics?.trialSubscriptions || 0}
                           </p>
                         </div>
@@ -375,14 +379,14 @@ function PlatformDashboard() {
                       </Badge>
                     </div>
 
-                    <div className="flex items-center justify-between p-4 bg-rose-50 rounded-lg border border-rose-200">
+                    <div className="flex items-center justify-between p-4 bg-rose-50 rounded-lg border border-rose-200 dark:bg-rose-950/40 dark:border-rose-900">
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-12 rounded-full bg-rose-500 flex items-center justify-center">
                           <TrendingDown className="h-6 w-6 text-white" />
                         </div>
                         <div>
-                          <p className="text-sm text-slate-600">Cancelled</p>
-                          <p className="text-2xl font-bold text-slate-900">
+                          <p className="text-sm text-slate-600 dark:text-slate-400">Cancelled</p>
+                          <p className="text-2xl font-bold text-slate-900 dark:text-white">
                             {metrics?.cancelledSubscriptions || 0}
                           </p>
                         </div>
@@ -412,28 +416,28 @@ function PlatformDashboard() {
               />
               <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Highest spending customers on the platform</p>
                 {topCustomers.length === 0 ? (
-                  <p className="text-center text-slate-500 py-8">No customer data available yet</p>
+                  <p className="text-center text-slate-500 dark:text-slate-400 py-8">No customer data available yet</p>
                 ) : (
                   <div className="space-y-3">
                     {topCustomers.map((customer, index) => (
                       <div
                         key={customer.customerId}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                        className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center h-10 w-10 rounded-full bg-slate-100 text-slate-700 font-bold">
+                          <div className="flex items-center justify-center h-10 w-10 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 font-bold">
                             #{index + 1}
                           </div>
                           <div>
-                            <p className="font-medium text-slate-900">{customer.customerName}</p>
-                            <p className="text-sm text-slate-600">{customer.email}</p>
+                            <p className="font-medium text-slate-900 dark:text-white">{customer.customerName}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">{customer.email}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-slate-900">
+                          <p className="font-bold text-slate-900 dark:text-white">
                             {analyticsService.formatCurrency(customer.totalSpent)}
                           </p>
-                          <p className="text-xs text-slate-500">{customer.planName}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{customer.planName}</p>
                         </div>
                       </div>
                     ))}
@@ -454,21 +458,21 @@ function PlatformDashboard() {
               />
               <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Revenue and customer breakdown by subscription plan</p>
                 {planDistribution.length === 0 ? (
-                  <p className="text-center text-slate-500 py-8">No plan data available yet</p>
+                  <p className="text-center text-slate-500 dark:text-slate-400 py-8">No plan data available yet</p>
                 ) : (
                   <div className="space-y-4">
                     {planDistribution.map((plan) => (
                       <div key={plan.planName} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-slate-900">{plan.planName}</p>
-                            <p className="text-sm text-slate-600">
+                            <p className="font-medium text-slate-900 dark:text-white">{plan.planName}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
                               {plan.count} customers • {analyticsService.formatCurrency(plan.revenue)} revenue
                             </p>
                           </div>
                           <Badge variant="outline">{analyticsService.formatPercentage(plan.percentage)}</Badge>
                         </div>
-                        <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
                           <div
                             className="bg-brand-primary h-2 rounded-full transition-all"
                             style={{ width: `${plan.percentage}%` }}
@@ -493,23 +497,23 @@ function PlatformDashboard() {
               />
               <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Customers and revenue by location</p>
                 {geoDistribution.length === 0 ? (
-                  <p className="text-center text-slate-500 py-8">No geographic data available yet</p>
+                  <p className="text-center text-slate-500 dark:text-slate-400 py-8">No geographic data available yet</p>
                 ) : (
                   <div className="space-y-3">
                     {geoDistribution.map((location) => (
                       <div
                         key={location.country}
-                        className="flex items-center justify-between p-4 border rounded-lg"
+                        className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <MapPin className="h-5 w-5 text-slate-600" />
+                          <MapPin className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                           <div>
-                            <p className="font-medium text-slate-900">{location.country}</p>
-                            <p className="text-sm text-slate-600">{location.region}</p>
+                            <p className="font-medium text-slate-900 dark:text-white">{location.country}</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">{location.region}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-slate-900">
+                          <p className="font-bold text-slate-900 dark:text-white">
                             {location.customerCount} customers
                           </p>
                           <p className="text-sm text-brand-primary">

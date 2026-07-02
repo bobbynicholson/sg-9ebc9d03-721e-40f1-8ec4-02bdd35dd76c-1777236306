@@ -67,20 +67,79 @@ export function PortalShell({
   );
 }
 
-/** Page header: title + optional subtitle, leading icon tile, and actions. */
+/** Page header: title + optional subtitle, leading icon tile, and actions.
+ *
+ * `variant="hero"` swaps the underlined text header for a full-width dark
+ * command band: slate-950 panel, brand radial washes, glass icon tile and
+ * white type. It reads identically in light and dark page themes (the band
+ * is dark by design) and pairs with the platform portal's forced-dark rail.
+ * Actions render inside a scoped `dark` class so shadcn outline/ghost
+ * controls pick their dark styling on the band automatically. `meta` is an
+ * optional chip row under the subtitle (live counts, scope badges). */
 export function PortalHeader({
   title,
   subtitle,
   icon: Icon,
   actions,
   className,
+  variant = "default",
+  meta,
 }: {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   icon?: React.ComponentType<{ className?: string }>;
   actions?: React.ReactNode;
   className?: string;
+  variant?: "default" | "hero";
+  meta?: React.ReactNode;
 }) {
+  if (variant === "hero") {
+    return (
+      <header
+        className={cn(
+          "relative mb-7 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 px-5 py-6 text-white sm:px-7 sm:py-7",
+          SOFT_SHADOW,
+          className,
+        )}
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgb(var(--brand-primary-rgb)/0.30),transparent_55%),radial-gradient(110%_140%_at_100%_0%,rgb(var(--brand-secondary-rgb)/0.18),transparent_60%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/20"
+        />
+        <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="flex min-w-0 items-start gap-4">
+            {Icon && (
+              <span className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white shadow-sm backdrop-blur-sm">
+                <Icon className="h-6 w-6" aria-hidden="true" />
+              </span>
+            )}
+            <div className="min-w-0">
+              <h1 className="font-brand-display text-balance text-[1.85rem] font-semibold leading-[1.1] tracking-tight sm:text-4xl">
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="mt-2 max-w-4xl text-pretty text-sm leading-6 text-slate-300">
+                  {subtitle}
+                </p>
+              )}
+              {meta && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">{meta}</div>
+              )}
+            </div>
+          </div>
+          {actions && (
+            <div className="dark flex w-full max-w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:justify-end">
+              {actions}
+            </div>
+          )}
+        </div>
+      </header>
+    );
+  }
   return (
     <header
       className={cn(

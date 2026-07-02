@@ -11,7 +11,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
-import { PortalShell, PortalHeader, PortalCard,
+import { PortalShell, PortalHeader, PortalCard, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Search, Plus, Pencil, Trash2, Sparkles, Filter, Save, Loader2,
-  Tag, ShieldCheck, ShieldAlert, ShieldX,
+  Search, Plus, Pencil, Trash2, Filter, Save, Loader2,
+  Tag, ShieldCheck, ShieldAlert, ShieldX, Landmark,
 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { PlatformNav } from "@/components/admin/PlatformNav";
@@ -56,8 +56,8 @@ interface TaxRule {
 
 const DEDUCT_TONE: Record<TaxRule["deductibility"], string> = {
   deductible: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
-  partial: "bg-amber-100 text-amber-700 border-amber-200",
-  non_deductible: "bg-rose-100 text-rose-700 border-rose-200",
+  partial: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-900",
+  non_deductible: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-900",
 };
 
 const DEDUCT_ICON: Record<TaxRule["deductibility"], typeof ShieldCheck> = {
@@ -88,6 +88,7 @@ function TaxRulesAdmin() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterGroup, setFilterGroup] = useState<string>("all");
+  const [filterDeduct, setFilterDeduct] = useState<string>("all");
   const [editing, setEditing] = useState<TaxRule | null>(null);
   const [adding, setAdding] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<TaxRule | null>(null);
@@ -117,6 +118,7 @@ function TaxRulesAdmin() {
     const q = search.toLowerCase();
     return rules.filter((r) => {
       if (filterGroup !== "all" && r.group_label !== filterGroup) return false;
+      if (filterDeduct !== "all" && r.deductibility !== filterDeduct) return false;
       if (!q) return true;
       const hay = [
         r.display_name, r.category_code, r.group_label, r.legal_reference || "",
@@ -124,7 +126,14 @@ function TaxRulesAdmin() {
       ].join(" ").toLowerCase();
       return hay.includes(q);
     });
-  }, [rules, search, filterGroup]);
+  }, [rules, search, filterGroup, filterDeduct]);
+
+  const stats = useMemo(() => ({
+    total: rules.length,
+    active: rules.filter((r) => r.is_active).length,
+    deductible: rules.filter((r) => r.deductibility === "deductible").length,
+    nonDeductible: rules.filter((r) => r.deductibility === "non_deductible").length,
+  }), [rules]);
 
   return (
     <>
@@ -136,29 +145,45 @@ function TaxRulesAdmin() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="SA Tax Rules"
             subtitle="Reference rules the slip scanner uses to classify line items as deductible or not. Global to all tenants. Edit with care."
-            icon={Sparkles}
-            actions={
-              <Button
-                onClick={() => setAdding(true)}
-              >
-                <Plus className="w-4 h-4 mr-1.5" /> Add rule
-              </Button>
+            icon={Landmark}
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {loading ? "..." : stats.total} rules total
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {loading ? "..." : stats.active} active
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {loading ? "..." : visible.length} in view
+                </span>
+              </>
             }
           />
           <PageWorkbench />
 
-          {/* Filters */}
-          <PortalCard className="mb-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-[260px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          {/* Rule mix at a glance */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile label="Total rules" value={loading ? "-" : stats.total} icon={Tag} />
+            <StatTile label="Active" value={loading ? "-" : <span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>} icon={ShieldCheck} />
+            <StatTile label="Deductible" value={loading ? "-" : stats.deductible} hint="Fully claimable categories" icon={ShieldCheck} />
+            <StatTile label="Non-deductible" value={loading ? "-" : <span className="text-rose-600 dark:text-rose-500">{stats.nonDeductible}</span>} icon={ShieldX} />
+          </div>
+
+          {/* Toolbar: search, filters and add */}
+          <PortalCard className="mb-6" padded={false}>
+            <div className="py-3 px-4 flex flex-wrap items-center gap-3">
+              <div className="relative grow min-w-[220px] max-w-[420px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                 <Input
                   placeholder="Search by name, keyword, code..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 h-9 text-sm"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -166,16 +191,31 @@ function TaxRulesAdmin() {
                 <select
                   value={filterGroup}
                   onChange={(e) => setFilterGroup(e.target.value)}
-                  className="text-sm rounded-md border border-slate-200 px-3 py-2 bg-white"
+                  className="text-sm rounded-md border border-slate-200 px-3 py-2 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white"
                 >
                   {groups.map((g) => (
                     <option key={g} value={g}>{g === "all" ? "All groups" : g}</option>
                   ))}
                 </select>
+                <select
+                  value={filterDeduct}
+                  onChange={(e) => setFilterDeduct(e.target.value)}
+                  className="text-sm rounded-md border border-slate-200 px-3 py-2 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                >
+                  <option value="all">All deductibility</option>
+                  <option value="deductible">Deductible</option>
+                  <option value="partial">Partial</option>
+                  <option value="non_deductible">Non-deductible</option>
+                </select>
               </div>
-              <span className="text-xs text-slate-500 ml-auto">
-                {visible.length} of {rules.length} rules
-              </span>
+              <div className="flex items-center gap-3 ml-auto">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {visible.length} of {rules.length} rules
+                </span>
+                <Button onClick={() => setAdding(true)} size="sm" className="h-9">
+                  <Plus className="w-4 h-4 mr-1.5" /> Add rule
+                </Button>
+              </div>
             </div>
           </PortalCard>
 
@@ -183,20 +223,20 @@ function TaxRulesAdmin() {
           <PortalCard padded={false}>
             <div className="p-0">
               {loading ? (
-                <div className="py-16 text-center text-slate-500">
+                <div className="py-16 text-center text-slate-500 dark:text-slate-400">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                   Loading rules...
                 </div>
               ) : visible.length === 0 ? (
-                <div className="py-16 text-center text-slate-500">
-                  <Tag className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                <div className="py-16 text-center text-slate-500 dark:text-slate-400">
+                  <Tag className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
                   <p className="font-semibold">No rules match this view.</p>
                   <p className="text-sm">Try clearing the search or filter.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200 bg-slate-50">
+                    <thead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
                       <tr>
                         <th className="text-left py-3 pl-4 pr-2">Rule</th>
                         <th className="text-left py-3 px-2">Group</th>
@@ -211,32 +251,32 @@ function TaxRulesAdmin() {
                       {visible.map((r) => {
                         const Icon = DEDUCT_ICON[r.deductibility];
                         return (
-                          <tr key={r.id} className={`border-b border-slate-100 ${r.is_active ? "" : "opacity-60 bg-slate-50/40"}`}>
+                          <tr key={r.id} className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors ${r.is_active ? "" : "opacity-60 bg-slate-50/40 dark:bg-slate-900/40"}`}>
                             <td className="py-3 pl-4 pr-2">
-                              <div className="font-semibold text-slate-900">{r.display_name}</div>
-                              <div className="text-[11px] text-slate-500 font-mono">{r.category_code}</div>
+                              <div className="font-semibold text-slate-900 dark:text-white">{r.display_name}</div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{r.category_code}</div>
                               {!r.is_active && (
                                 <Badge variant="outline" className="mt-1 text-[10px]">Inactive</Badge>
                               )}
                             </td>
-                            <td className="py-3 px-2 text-slate-700">{r.group_label}</td>
+                            <td className="py-3 px-2 text-slate-700 dark:text-slate-300">{r.group_label}</td>
                             <td className="py-3 px-2">
                               <Badge variant="outline" className={`${DEDUCT_TONE[r.deductibility]} border gap-1 text-[11px]`}>
                                 <Icon className="w-3 h-3" />
                                 {r.deductibility}
                               </Badge>
                             </td>
-                            <td className="py-3 px-2 text-xs text-slate-700">{r.vat_input_claimable}</td>
-                            <td className="py-3 px-2 text-xs text-slate-700">
+                            <td className="py-3 px-2 text-xs text-slate-700 dark:text-slate-300">{r.vat_input_claimable}</td>
+                            <td className="py-3 px-2 text-xs text-slate-700 dark:text-slate-300">
                               {r.treatment}
                               {r.capital_threshold_rand != null && (
-                                <div className="text-[10px] text-slate-500">@ ZAR {r.capital_threshold_rand}</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400">@ ZAR {r.capital_threshold_rand}</div>
                               )}
                             </td>
-                            <td className="py-3 px-2 text-xs text-slate-500">
+                            <td className="py-3 px-2 text-xs text-slate-500 dark:text-slate-400">
                               {(r.match_keywords || []).slice(0, 4).join(", ")}
                               {(r.match_keywords || []).length > 4 && (
-                                <span className="text-slate-400"> +{r.match_keywords.length - 4}</span>
+                                <span className="text-slate-400 dark:text-slate-500"> +{r.match_keywords.length - 4}</span>
                               )}
                             </td>
                             <td className="py-3 pr-4 text-right">
@@ -253,7 +293,7 @@ function TaxRulesAdmin() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50"
+                                  className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
                                   onClick={() => setConfirmDelete(r)}
                                   aria-label="Delete"
                                 >
@@ -417,11 +457,11 @@ function RuleFormDialog({
         <div className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Display name</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Display name</label>
               <Input value={form.display_name} onChange={(e) => set("display_name", e.target.value)} className="mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Category code (slug)</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Category code (slug)</label>
               <Input
                 value={form.category_code}
                 onChange={(e) => set("category_code", e.target.value.replace(/[^a-z0-9_]/g, "_").toLowerCase())}
@@ -433,11 +473,11 @@ function RuleFormDialog({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Group</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Group</label>
               <Input value={form.group_label} onChange={(e) => set("group_label", e.target.value)} className="mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Display order</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Display order</label>
               <Input
                 type="number"
                 value={form.display_order}
@@ -459,11 +499,11 @@ function RuleFormDialog({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Deductibility</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Deductibility</label>
               <select
                 value={form.deductibility}
                 onChange={(e) => set("deductibility", e.target.value as any)}
-                className="mt-1 w-full text-sm rounded-md border border-slate-200 px-3 py-2 bg-white"
+                className="mt-1 w-full text-sm rounded-md border border-slate-200 px-3 py-2 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white"
               >
                 <option value="deductible">Deductible</option>
                 <option value="partial">Partial</option>
@@ -471,11 +511,11 @@ function RuleFormDialog({
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">VAT input</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">VAT input</label>
               <select
                 value={form.vat_input_claimable}
                 onChange={(e) => set("vat_input_claimable", e.target.value as any)}
-                className="mt-1 w-full text-sm rounded-md border border-slate-200 px-3 py-2 bg-white"
+                className="mt-1 w-full text-sm rounded-md border border-slate-200 px-3 py-2 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white"
               >
                 <option value="claimable">Claimable</option>
                 <option value="not_claimable">Not claimable</option>
@@ -483,11 +523,11 @@ function RuleFormDialog({
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Treatment</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Treatment</label>
               <select
                 value={form.treatment}
                 onChange={(e) => set("treatment", e.target.value as any)}
-                className="mt-1 w-full text-sm rounded-md border border-slate-200 px-3 py-2 bg-white"
+                className="mt-1 w-full text-sm rounded-md border border-slate-200 px-3 py-2 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-white"
               >
                 <option value="expense">Expense (immediate)</option>
                 <option value="capital">Capital (depreciate)</option>
@@ -498,7 +538,7 @@ function RuleFormDialog({
           </div>
 
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
               Capital threshold (R), optional
             </label>
             <Input
@@ -508,13 +548,13 @@ function RuleFormDialog({
               placeholder="e.g. 7000"
               className="mt-1"
             />
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Items above this value are capital (depreciated); below are written off immediately. Set per BGR 7 (R7,000).
             </p>
           </div>
 
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Match keywords (comma-separated)</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Match keywords (comma-separated)</label>
             <Textarea
               value={keywordsText}
               onChange={(e) => setKeywordsText(e.target.value)}
@@ -522,11 +562,11 @@ function RuleFormDialog({
               className="mt-1 font-mono text-xs"
               placeholder="beef, chicken, lamb, pork, mince"
             />
-            <p className="text-[11px] text-slate-500 mt-0.5">The AI uses these to match line items against this rule.</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">The AI uses these to match line items against this rule.</p>
           </div>
 
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Example items (comma-separated)</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Example items (comma-separated)</label>
             <Textarea
               value={examplesText}
               onChange={(e) => setExamplesText(e.target.value)}
@@ -538,7 +578,7 @@ function RuleFormDialog({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Legal reference</label>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Legal reference</label>
               <Input
                 value={form.legal_reference || ""}
                 onChange={(e) => set("legal_reference", e.target.value)}
@@ -549,7 +589,7 @@ function RuleFormDialog({
           </div>
 
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Notes</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">Notes</label>
             <Textarea
               value={form.notes || ""}
               onChange={(e) => set("notes", e.target.value)}

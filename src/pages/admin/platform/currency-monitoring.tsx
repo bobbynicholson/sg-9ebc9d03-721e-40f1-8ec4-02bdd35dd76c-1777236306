@@ -19,7 +19,6 @@ import {
   Activity
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 
@@ -58,23 +57,23 @@ export default function ProtectedPlatformCurrencyMonitoringPage() {
 
 function PlatformCurrencyMonitoringPage() {
   const { user, loading: authLoading } = useAuth() as any;
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentRate, setCurrentRate] = useState<number>(0);
   const [currentRateDate, setCurrentRateDate] = useState<string | null>(null);
   const [historicalRates, setHistoricalRates] = useState<ExchangeRate[]>([]);
   const [alerts, setAlerts] = useState<FluctuationAlert[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
 
+  // ProtectedRoute handles the unauthenticated redirect; we only
+  // wait for the session so the queries run with the right JWT.
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      router.push("/auth/login");
-      return;
-    }
+    if (authLoading || !user) return;
     loadData();
-  }, [authLoading, user, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user]);
 
   // Tile 1, the history list and the 90-day calculation now all read
   // from the same exchange_rates table - so "Current Rate" matches
@@ -82,6 +81,7 @@ function PlatformCurrencyMonitoringPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [latest, rates, unresolvedAlerts] = await Promise.all([
         currencyMonitoringService.getLatestStoredRate(),
         currencyMonitoringService.getHistoricalRates(90),
@@ -92,8 +92,12 @@ function PlatformCurrencyMonitoringPage() {
       setCurrentRateDate(latest?.date ?? null);
       setHistoricalRates(rates);
       setAlerts(unresolvedAlerts);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading currency data:", error);
+      // Silent-failure audit: a failed load previously rendered
+      // "ZAR 0.00" and "No active alerts", which reads as healthy.
+      // Surface the failure and hide the zeroed data instead.
+      setLoadError(error?.message || "Couldn't load currency data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -117,13 +121,17 @@ function PlatformCurrencyMonitoringPage() {
     }
   };
 
+  // Resolve failures get their own banner - piping them into
+  // refreshError produced a "Run Check Now failed" title for an
+  // action that has nothing to do with the cron trigger.
   const handleResolveAlert = async (alertId: string) => {
+    setResolveError(null);
     try {
       await currencyMonitoringService.resolveAlert(alertId);
       await loadData();
     } catch (e: any) {
       console.error("resolveAlert failed:", e);
-      setRefreshError(e?.message || "Could not resolve the alert. Please try again.");
+      setResolveError(e?.message || "Could not resolve the alert. Please try again.");
     }
   };
 
@@ -176,9 +184,26 @@ function PlatformCurrencyMonitoringPage() {
 
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
-          title="Currency Monitoring"
-          subtitle="Track USD/ZAR rates. Alerts here are a manual review trigger. Pricing pegs in /admin/platform/pricing-management are fixed and only change when an admin updates them."
+          variant="hero"
+          title="Currency monitoring"
+          subtitle="Track USD/ZAR movement as a manual review trigger. Pricing pegs stay fixed until an admin changes them."
           icon={DollarSign}
+          meta={
+            loadError ? undefined : (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  ZAR {currentRate.toFixed(2)} per USD
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {alerts.length} unresolved alert{alerts.length === 1 ? "" : "s"}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {fluctuation.percentage >= 0 ? "+" : ""}{fluctuation.percentage.toFixed(2)}% over 90 days
+                </span>
+              </>
+            )
+          }
           actions={
             <Button
               onClick={handleRefresh}
@@ -193,6 +218,20 @@ function PlatformCurrencyMonitoringPage() {
         <PageWorkbench />
 
         <div className="space-y-6">
+        {/* Load-failure banner: without it a failed load renders
+            "ZAR 0.00" and "No active alerts", indistinguishable from
+            a healthy platform. */}
+        {loadError && (
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+              <span>{loadError}</span>
+              <Button variant="outline" size="sm" onClick={() => void loadData()}>
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {refreshError && (
           <Alert className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
             <AlertTriangle className="h-4 w-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
@@ -205,7 +244,19 @@ function PlatformCurrencyMonitoringPage() {
           </Alert>
         )}
 
-        {hasSignificantFluctuation && (
+        {resolveError && (
+          <Alert className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+            <AlertTitle className="font-semibold text-rose-900 dark:text-rose-300">
+              Could not resolve alert
+            </AlertTitle>
+            <AlertDescription className="text-sm text-rose-800 dark:text-rose-300/90">
+              {resolveError}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!loadError && hasSignificantFluctuation && (
           <Alert className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
             <AlertTriangle className="h-4 w-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
             <AlertTitle className="font-semibold text-rose-900 dark:text-rose-300">
@@ -218,7 +269,12 @@ function PlatformCurrencyMonitoringPage() {
           </Alert>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Zeroed tiles and empty alert lists after a failed load
+            look healthy, so the data sections hide behind the error
+            banner until a reload succeeds. */}
+        {!loadError && (
+        <>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <StatTile
             label="Current Rate"
             value={`ZAR ${currentRate.toFixed(2)}`}
@@ -258,7 +314,7 @@ function PlatformCurrencyMonitoringPage() {
           />
             <div className="space-y-2">
               {historicalRates.length === 0 ? (
-                <div className="text-center py-8 text-slate-500">
+                <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                   No historical data available yet. Run the daily check to start collecting data.
                 </div>
               ) : (
@@ -267,11 +323,11 @@ function PlatformCurrencyMonitoringPage() {
                     {historicalRates.slice().reverse().slice(0, 30).map((rate) => (
                       <div
                         key={rate.id}
-                        className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50"
+                        className="flex items-center justify-between rounded-xl border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50 hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-slate-500" />
-                          <span className="text-sm font-medium">
+                          <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">
                             {new Date(rate.date).toLocaleDateString()}
                           </span>
                         </div>
@@ -346,18 +402,20 @@ function PlatformCurrencyMonitoringPage() {
               )}
             </div>
         </PortalCard>
+        </>
+        )}
 
         <PortalCard className="space-y-3">
           <PortalCardHeader title="Currency Policy Reminder" />
             <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-4">
-              <h4 className="font-semibold mb-2">Currency Display:</h4>
+              <h4 className="font-semibold mb-2 text-slate-900 dark:text-white">Currency display</h4>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Prices shown in ZAR (South African Rand). USD, GBP, and EUR are approximate
                 conversions for reference only. All payments are processed in ZAR.
               </p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-4">
-              <h4 className="font-semibold mb-2">USD-Pegged Pricing:</h4>
+              <h4 className="font-semibold mb-2 text-slate-900 dark:text-white">USD-pegged pricing</h4>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 Our ZAR pricing is pegged to USD rates. We reserve the right to adjust ZAR
                 prices to maintain USD equivalency if significant currency fluctuations occur

@@ -64,7 +64,7 @@ export function CollapsibleNavSection({
       <button
         type="button"
         onClick={() => setUserOpen((v) => !v)}
-        className="w-full flex items-center justify-between mt-3 mb-1 px-2.5 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors"
+        className="w-full flex items-center justify-between mt-3 mb-1 px-2.5 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors dark:text-slate-400 dark:hover:text-slate-200"
         aria-expanded={open}
       >
         <span className="truncate">{title}</span>
