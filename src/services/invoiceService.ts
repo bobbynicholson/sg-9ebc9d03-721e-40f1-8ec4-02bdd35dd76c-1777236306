@@ -322,55 +322,74 @@ export const invoiceService = {
     const profile: any = profileData;
     const supplier: any = supplierProfile;
 
-    const items = [...((order as any).menu_items || []), ...((order as any).equipment_items || [])];
-    const lineItems: InvoiceLineItem[] = items.map((item: any) => ({
-      description: item.name || item.description || "Item",
-      quantity: item.quantity || 1,
-      unitPrice: item.pricePerPerson || item.rentalPrice || 0,
-      total: (item.quantity || 1) * (item.pricePerPerson || item.rentalPrice || 0)
+    // Line items come from the order_items table. Orders do NOT have
+    // menu_items/equipment_items columns -- those live on quotes -- so
+    // the old code read undefined and rendered an EMPTY, R0 invoice PDF.
+    // unit_price/line_total are the saved per-line figures, so per-person
+    // items already reflect guest count.
+    const { data: orderItemRows, error: orderItemsErr } = await supabase
+      .from("order_items")
+      .select("item_name, description, quantity, unit_price, line_total")
+      .eq("order_id", order.id)
+      .order("created_at", { ascending: true });
+    if (orderItemsErr) {
+      console.error("[invoiceService] order_items fetch failed:", orderItemsErr);
+    }
+    const lineItems: InvoiceLineItem[] = (orderItemRows || []).map((item: any) => ({
+      description: item.item_name || item.description || "Item",
+      quantity: Number(item.quantity) || 1,
+      unitPrice: Number(item.unit_price) || 0,
+      total:
+        Number(item.line_total) ||
+        (Number(item.quantity) || 1) * (Number(item.unit_price) || 0),
     }));
 
-    // Honour the tenant's VAT registration + rate instead of always
-    // applying 15%. Non-VAT-registered tenants must not see a VAT
-    // line on their invoices (SARS rule); VAT-registered tenants in
-    // other regions may have a non-15% rate (UK 20%, etc).
-    const { data: companyRow, error: companyRowErr } = await (supabase as any)
-      .from("companies")
-      .select("vat_registered, tax_rate:vat_rate")
-      .eq("id", (order as any).company_id)
+    // Prefer the SAVED invoice's money (subtotal / tax / total) so the
+    // downloaded PDF agrees with the real invoice on every surface. Only
+    // when no invoice row exists yet do we derive a VAT split from the
+    // tenant's registration + rate (SARS: non-registered tenants get no
+    // VAT line; other regions may not be 15%).
+    const { data: savedInv, error: savedInvErr } = await supabase
+      .from("invoices")
+      .select("invoice_number, subtotal, tax_amount, total_amount")
+      .eq("order_id", order.id)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
-    if (companyRowErr) {
-      console.error("[invoiceService] companies fetch failed:", companyRowErr);
+    if (savedInvErr) {
+      console.error("[invoiceService] invoices fetch failed:", savedInvErr);
     }
-    const vatRegistered = !!(companyRow as any)?.vat_registered;
-    const vatRatePct = Number((companyRow as any)?.tax_rate ?? 15);
-    const vatRate = vatRegistered ? vatRatePct / 100 : 0;
-    const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
-    const vatAmount = subtotal * vatRate;
-    const total = subtotal + vatAmount;
-
-    // Prefer an explicit override, then any existing invoice_number on
-    // the order row. Final fallback consumes a fresh per-tenant number
-    // via the RPC instead of slicing the order UUID (collision risk).
-    let invoiceNumber: string | undefined = edits?.invoiceNumber;
-    if (!invoiceNumber) {
-      try {
-        const { data: invRow, error: invRowErr } = await supabase
-          .from("invoices")
-          .select("invoice_number")
-          .eq("order_id", order.id)
-          .is("deleted_at", null)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (invRowErr) {
-          console.error("[invoiceService] invoices fetch failed:", invRowErr);
-        }
-        invoiceNumber = (invRow as any)?.invoice_number || undefined;
-      } catch {
-        // fall through
+    const computedSubtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+    let subtotal: number;
+    let vatAmount: number;
+    let total: number;
+    if (savedInv && Number((savedInv as any).total_amount) > 0) {
+      subtotal = Number((savedInv as any).subtotal) || computedSubtotal;
+      vatAmount = Number((savedInv as any).tax_amount) || 0;
+      total = Number((savedInv as any).total_amount);
+    } else {
+      const { data: companyRow, error: companyRowErr } = await (supabase as any)
+        .from("companies")
+        .select("vat_registered, tax_rate:vat_rate")
+        .eq("id", (order as any).company_id)
+        .maybeSingle();
+      if (companyRowErr) {
+        console.error("[invoiceService] companies fetch failed:", companyRowErr);
       }
+      const vatRegistered = !!(companyRow as any)?.vat_registered;
+      const vatRatePct = Number((companyRow as any)?.tax_rate ?? 15);
+      const vatRate = vatRegistered ? vatRatePct / 100 : 0;
+      subtotal = computedSubtotal;
+      vatAmount = subtotal * vatRate;
+      total = subtotal + vatAmount;
     }
+
+    // Prefer an explicit override, then the saved invoice's number.
+    // Final fallback consumes a fresh per-tenant number via the RPC
+    // instead of slicing the order UUID (collision risk).
+    let invoiceNumber: string | undefined =
+      edits?.invoiceNumber || (savedInv as any)?.invoice_number || undefined;
     if (!invoiceNumber) {
       try {
         const { data: numData } = await (supabase as any).rpc(

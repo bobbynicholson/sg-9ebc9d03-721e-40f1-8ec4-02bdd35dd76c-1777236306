@@ -24,7 +24,13 @@ const MAX_FILES = 20;
 function ShoppingReceiptsInner() {
   const { user } = useAuth() as any;
   const { withSlug } = useTenantHref();
-  const companyId = (user?.user_metadata?.company_id as string | undefined) || null;
+  // Prefer the top-level company_id the rest of the app uses; fall back
+  // to user_metadata only if it's absent. Reading metadata first lost
+  // tenant context whenever metadata didn't carry company_id.
+  const companyId =
+    (user?.company_id as string | undefined) ||
+    (user?.user_metadata?.company_id as string | undefined) ||
+    null;
 
   return (
     <>

@@ -543,18 +543,41 @@ export async function deductInventoryForOrder(
         // Still deduct what we have
       }
       
-      const deductAmount = Math.min(inventoryItem.current_stock, needed.quantity);
-      const newStock = inventoryItem.current_stock - deductAmount;
-      
-      // 5. Update inventory stock
-      const { error: updateError } = await supabase
-        .from("inventory_items")
-        .update({ current_stock: newStock })
-        .eq("id", inventoryItem.id);
-      
-      if (updateError) {
-        errors.push(`Failed to update ${ingredientName}: ${updateError.message}`);
+      // 5. Update inventory stock. Prefer the atomic decrement RPC
+      // (deduct_inventory_stock) so two orders deducting the same shared
+      // ingredient in the same instant can't lose an update. Fall back to
+      // the legacy read-modify-write only if the RPC isn't deployed yet,
+      // so this is safe to ship before the migration is applied.
+      let deductAmount: number;
+      let newStock: number;
+      const { data: rpcRes, error: rpcErr } = await (supabase as any).rpc(
+        "deduct_inventory_stock",
+        { p_item_id: inventoryItem.id, p_amount: needed.quantity },
+      );
+      const rpcMissing =
+        !!rpcErr &&
+        /function .*deduct_inventory_stock.* does not exist|could not find the function|schema cache/i.test(
+          rpcErr.message || "",
+        );
+      if (rpcErr && !rpcMissing) {
+        errors.push(`Failed to update ${ingredientName}: ${rpcErr.message}`);
         continue;
+      }
+      if (!rpcErr && rpcRes) {
+        deductAmount = Number((rpcRes as any).deducted) || 0;
+        newStock = Number((rpcRes as any).new_stock) || 0;
+      } else {
+        // Legacy fallback (non-atomic): RPC not yet applied on this DB.
+        deductAmount = Math.min(inventoryItem.current_stock, needed.quantity);
+        newStock = inventoryItem.current_stock - deductAmount;
+        const { error: updateError } = await supabase
+          .from("inventory_items")
+          .update({ current_stock: newStock })
+          .eq("id", inventoryItem.id);
+        if (updateError) {
+          errors.push(`Failed to update ${ingredientName}: ${updateError.message}`);
+          continue;
+        }
       }
       
       // 6. Create transaction record. Stamp unit_cost + order_id so

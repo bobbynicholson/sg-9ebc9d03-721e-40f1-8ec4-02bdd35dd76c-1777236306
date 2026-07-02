@@ -158,7 +158,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // ── Confirm branch ─────────────────────────────────────────────
     const total = Number(invoice.total_amount || 0);
     const previouslyPaid = Number(invoice.amount_paid || 0);
-    const newPaid = previouslyPaid + Number(payment.amount || 0);
+    // Clamp amount_paid to the invoice total. The EFT claim amount is
+    // client-typed and "informational"; a mis-key (e.g. R10,000 on a
+    // R1,000 invoice) must not push amount_paid past the total and
+    // permanently overstate paid-to-date. Genuine overpayment is handled
+    // as store credit elsewhere, not by inflating this invoice's ledger.
+    const claimed = Number(payment.amount || 0);
+    const newPaid = total > 0
+      ? Math.min(total, previouslyPaid + claimed)
+      : previouslyPaid + claimed;
     const newBalance = Math.max(total - newPaid, 0);
     const isFullyPaid = newBalance <= 0.005; // float guard
     const newInvoiceStatus = isFullyPaid

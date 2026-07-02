@@ -25,6 +25,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { toZonedISO } from "@/lib/localDate";
 
 const DEFAULT_OT_AFTER_HOURS = 9;
 const OT_RATE_MULTIPLIER = 1.5;
@@ -112,11 +113,16 @@ export async function summariseStaffPay(
   // Tenant currency + overtime threshold.
   const { data: company } = await (supabase as any)
     .from("companies")
-    .select("id, currency, kitchen_settings")
+    .select("id, currency, kitchen_settings, timezone")
     .eq("id", companyId)
     .maybeSingle();
   const companyTyped = company as CompanyRow | null;
   const currency = companyTyped?.currency || "ZAR";
+  // Tenant wall-clock timezone for the Sunday/holiday multiplier date
+  // match. The roster's shift_date is stored in tenant-local terms; the
+  // duty shift_end is a timestamptz, so it must be resolved to the same
+  // tenant day (not the server's UTC day) or the premium silently misses.
+  const tenantTz = (company as any)?.timezone as string | null | undefined;
   const overtimeAfter = Number(companyTyped?.kitchen_settings?.overtimeAfterHours ?? DEFAULT_OT_AFTER_HOURS);
 
   // Pull every clocked-out duty shift in the window.
@@ -173,7 +179,7 @@ export async function summariseStaffPay(
 
     // Resolve multiplier: prefer the explicit roster -> duty link.
     // Fall back to date match. Default 1x.
-    const shiftDate = new Date(ds.shift_end).toISOString().slice(0, 10);
+    const shiftDate = toZonedISO(new Date(ds.shift_end), tenantTz);
     const multiplier =
       multiplierByDuty.get(ds.id) ||
       multiplierByDate.get(shiftDate) ||
