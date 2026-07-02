@@ -4,18 +4,24 @@
 // payloads + the nested join shape on kitchen_prep_tasks (the
 // generated Database type doesn't carry the joined order/station/
 // chef fields, so we narrow at use-site instead).
+//
+// KIT4 (command-centre sweep, 2026-07-02): page now renders through
+// KitchenPageShell (hero band + workbench + brand ground), surfaces
+// load failures with a Retry card instead of a silent zero state,
+// and the realtime channel got a per-mount suffix + removeChannel
+// cleanup. Status colours moved off brand paint onto semantic tones
+// (emerald done, amber in-flight, rose overdue).
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import Head from "next/head";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
   Calendar, Clock, Users as UsersIcon, Loader2, ChevronLeft, ChevronRight,
-  CalendarDays, LayoutGrid, ChefHat, TrendingUp, TrendingDown,
+  CalendarDays, LayoutGrid, ChefHat, TrendingUp, TrendingDown, RefreshCw,
+  AlertTriangle, Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,9 +34,7 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { orderDisplayName } from "@/lib/orderDisplayName";
 import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
-import { PortalShell, PortalHeader, PortalCard, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { PortalCard, StatTile } from "@/components/portal/ui";
 import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
 import { UserRole } from "@/types/app";
 
@@ -63,6 +67,7 @@ interface PrepTask {
   id: string;
   order_id: string;
   station_id: string | null;
+  region_id?: string | null;
   menu_item_name: string | null;
   task_type: string | null;
   status: "pending" | "in_progress" | "done" | "skipped" | string;
@@ -87,23 +92,29 @@ interface PrepTask {
   } | null;
 }
 
+// KIT4: order-status badge tones are SEMANTIC, not brand paint.
+// Emerald = out the door / done, amber = being worked, slate =
+// waiting, rose = cancelled. Dark variants added (the week view
+// renders these on dark cards too).
 const STATUS_TONES: Record<string, string> = {
-  pending:    "bg-amber-50 text-amber-700 border-amber-200",
-  confirmed:  "bg-slate-100 text-slate-700 border-slate-200",
-  preparing:  "bg-amber-50 text-amber-700 border-amber-200",
-  ready:      "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
-  in_transit: "bg-slate-100 text-slate-700 border-slate-200",
-  delivered:  "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
-  cancelled:  "bg-rose-50 text-rose-700 border-rose-200",
+  pending:    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+  confirmed:  "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  preparing:  "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",
+  ready:      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900",
+  in_transit: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  delivered:  "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900",
+  completed:  "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900",
+  cancelled:  "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",
 };
 
 // Task block colours - one tone per status. Soft enough to layer on a
-// striped grid without screaming.
+// striped grid without screaming. KIT4: semantic (amber = cooking now,
+// emerald = done) instead of brand paint, with dark variants.
 const TASK_TONES: Record<string, string> = {
-  pending:     "bg-slate-200 border-slate-300 text-slate-800 hover:bg-slate-300",
-  in_progress: "bg-brand-primary/15 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/20",
-  done:        "bg-brand-primary/20 border-brand-primary/40 text-brand-primary hover:bg-brand-primary/25",
-  skipped:     "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 line-through",
+  pending:     "bg-slate-200 border-slate-300 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-600",
+  in_progress: "bg-amber-100 border-amber-400 text-amber-900 hover:bg-amber-200 dark:bg-amber-950/50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-950/70",
+  done:        "bg-emerald-100 border-emerald-400 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-950/50 dark:border-emerald-700 dark:text-emerald-200 dark:hover:bg-emerald-950/70",
+  skipped:     "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 line-through dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500 dark:hover:bg-slate-700",
 };
 
 // Day grid spans 06:00 -> 23:00 = 17 hours = 1020 minutes.
@@ -150,6 +161,10 @@ function KitchenProductionPageInner() {
   // changes mid-day.
   const [availableHours, setAvailableHours] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  // KIT4: load failures used to be toast-only, so a chef who missed
+  // the toast stared at a false "Quiet day" with zeroed tiles. Now
+  // held in state and rendered as a Retry card.
+  const [loadError, setLoadError] = useState<string | null>(null);
   // KIT3-C: "next event" lookahead for the quiet-day empty state.
   // Single-row pull beyond the on-screen window so the chef knows
   // when prep actually picks up again instead of staring at a blank.
@@ -194,9 +209,16 @@ function KitchenProductionPageInner() {
     return Array.from({ length: 7 }, (_, i) => addDays(anchor, i));
   }, [view, anchor]);
 
+  // KIT4: load sequencing. Fast Prev/Prev/Next clicking fires
+  // overlapping loads; without a sequence guard the SLOWEST response
+  // wins and the board shows a different week than the header says.
+  const loadSeqRef = useRef(0);
+
   const load = useCallback(async () => {
     if (!user?.company_id) return;
+    const seq = ++loadSeqRef.current;
     setLoading(true);
+    setLoadError(null);
     try {
       const from = windowDays[0];
       const to = addDays(windowDays[windowDays.length - 1], 1);
@@ -207,13 +229,16 @@ function KitchenProductionPageInner() {
       // a conditional .eq("region_id", ...) so the same code path
       // works for single-region tenants (no-op) and multi-branch
       // tenants (kitchen_staff sees only their branch's prep).
+      // KIT4: exclude soft-deleted rows + paused orders (a paused
+      // order must not be cooked for), not just cancelled.
       let ordersQuery = supabase
         .from("orders")
         .select("id, order_number, event_name, client_name, event_date, event_time, guest_count, status, special_instructions")
         .eq("company_id", user.company_id)
         .gte("event_date", isoDate(from))
         .lt("event_date", isoDate(to))
-        .neq("status", "cancelled")
+        .not("status", "in", "(cancelled,paused)")
+        .is("deleted_at", null)
         .order("event_date", { ascending: true })
         .order("event_time", { ascending: true });
       if (regionId) ordersQuery = ordersQuery.eq("region_id", regionId);
@@ -223,22 +248,35 @@ function KitchenProductionPageInner() {
         kitchenPrepService.getStationsForCompany(user.company_id),
         kitchenPrepService.getTasksForDateRange(user.company_id, fromISO, toISO),
       ]);
+      if (seq !== loadSeqRef.current) return; // superseded by a newer window
 
       if (ordsRes.error) throw ordsRes.error;
       const ords = (ordsRes.data || []) as Order[];
       setOrders(ords);
       setStations(stationsRes);
       // Service returns Promise<any[]>; cast to our local PrepTask shape.
-      setTasks(dedupeKitchenPrepTasks((tasksRes || []) as PrepTask[]));
+      // KIT4: the service is not region-aware yet, so multi-branch
+      // scoping happens client-side. Legacy tasks with a null
+      // region_id stay visible - hiding real prep is worse than
+      // showing a sister branch's stragglers.
+      const allTasks = dedupeKitchenPrepTasks((tasksRes || []) as PrepTask[]);
+      setTasks(regionId
+        ? allTasks.filter((t) => !t.region_id || t.region_id === regionId)
+        : allTasks);
 
       const orderIds = ords.map((o) => o.id);
       if (orderIds.length === 0) {
         setItems([]);
       } else {
-        const { data: lineItems } = await supabase
+        // KIT4: error was previously ignored - a failed line-item pull
+        // silently rendered every event card without its dishes and
+        // zeroed the Portions tile.
+        const { data: lineItems, error: itemsError } = await supabase
           .from("order_items")
           .select("id, order_id, menu_item_id, item_name, quantity, special_instructions")
           .in("order_id", orderIds);
+        if (itemsError) throw itemsError;
+        if (seq !== loadSeqRef.current) return;
         setItems((lineItems || []) as OrderItem[]);
       }
 
@@ -248,7 +286,7 @@ function KitchenProductionPageInner() {
         const accFrom = new Date(Date.now() - 30 * 86400000).toISOString();
         const accTo = new Date().toISOString();
         const accuracy = await kitchenPrepService.getRecipeAccuracy(user.company_id, accFrom, accTo);
-        setRecipeAccuracy(accuracy);
+        if (seq === loadSeqRef.current) setRecipeAccuracy(accuracy);
       } catch (accErr) {
         captureException(accErr, {
           tags: { route: "/team-portal/kitchen/production", step: "load-recipe-accuracy", companyId: user.company_id },
@@ -270,7 +308,11 @@ function KitchenProductionPageInner() {
           .eq("company_id", user.company_id)
           .lt("shift_start", toISO)
           .or(`shift_end.is.null,shift_end.gte.${fromISO}`);
-        const { data: dutyRows } = await dutyQuery;
+        // KIT4: the error half of the response was previously
+        // discarded, so a failed query fell through to hours = 0
+        // without ever reaching the catch below.
+        const { data: dutyRows, error: dutyError } = await dutyQuery;
+        if (dutyError) throw dutyError;
         let hours = 0;
         const winFrom = from.getTime();
         const winTo = to.getTime();
@@ -283,12 +325,12 @@ function KitchenProductionPageInner() {
           const clipE = Math.min(eRaw, winTo);
           if (clipE > clipS) hours += (clipE - clipS) / 3600_000;
         }
-        setAvailableHours(Math.round(hours));
+        if (seq === loadSeqRef.current) setAvailableHours(Math.round(hours));
       } catch (capErr) {
         captureException(capErr, {
           tags: { route: "/team-portal/kitchen/production", step: "load-available-hours", companyId: user.company_id },
         });
-        setAvailableHours(0);
+        if (seq === loadSeqRef.current) setAvailableHours(0);
       }
 
       // KIT3-C: next event after the current window. Powers the
@@ -300,12 +342,15 @@ function KitchenProductionPageInner() {
           .select("event_date, event_time, event_name, guest_count")
           .eq("company_id", user.company_id)
           .gte("event_date", isoDate(to))
-          .neq("status", "cancelled")
+          .not("status", "in", "(cancelled,paused)")
+          .is("deleted_at", null)
           .order("event_date", { ascending: true })
           .order("event_time", { ascending: true })
           .limit(1);
         if (regionId) nextQuery = nextQuery.eq("region_id", regionId);
-        const { data: nextRow } = await nextQuery.maybeSingle();
+        const { data: nextRow, error: nextError } = await nextQuery.maybeSingle();
+        if (nextError) throw nextError;
+        if (seq !== loadSeqRef.current) return;
         if (nextRow) {
           setNextUpcoming({
             eventDate: nextRow.event_date as string,
@@ -320,18 +365,31 @@ function KitchenProductionPageInner() {
         captureException(nextErr, {
           tags: { route: "/team-portal/kitchen/production", step: "load-next-upcoming", companyId: user.company_id },
         });
+        // Don't keep a stale lookahead from a different window.
+        if (seq === loadSeqRef.current) setNextUpcoming(null);
       }
     } catch (e: any) {
       captureException(e, {
         tags: { route: "/team-portal/kitchen/production", step: "load", companyId: user?.company_id },
       });
-      toast({ title: "Could not load production", description: e?.message, variant: "destructive" });
+      if (seq === loadSeqRef.current) {
+        setLoadError(e?.message || "We couldn't load the production board.");
+        toast({ title: "Could not load production", description: e?.message, variant: "destructive" });
+      }
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
   }, [user?.company_id, windowDays, regionId, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  // KIT4: keep a ref to the freshest load. The realtime effect below
+  // deliberately only re-subscribes on company change, so its refresh
+  // closure used to capture the FIRST load (initial window). After the
+  // chef paged to next week, any realtime event silently reloaded the
+  // original window over the visible one.
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
 
   // KIT3-C: realtime subscriptions for orders + kitchen_prep_tasks.
   // The kitchen dashboard already subscribes to these; this page
@@ -342,16 +400,30 @@ function KitchenProductionPageInner() {
   useEffect(() => {
     if (!user?.company_id) return;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    // Events that land while the tab is hidden are deferred, not
+    // dropped - the visibilitychange listener below replays them so
+    // a tablet waking from standby shows current data. (KIT4: used
+    // to `return` and never catch up.)
+    let pendingWhileHidden = false;
     const refresh = () => {
-      if (document.hidden) return;
+      if (document.hidden) { pendingWhileHidden = true; return; }
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        load();
+        loadRef.current();
       }, 400);
     };
+    const onVisible = () => {
+      if (!document.hidden && pendingWhileHidden) {
+        pendingWhileHidden = false;
+        refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    // KIT4: unique per-mount suffix so two tabs (or a fast unmount/
+    // remount) never share and tear down each other's channel.
     const sub = supabase
-      .channel(`kitchen-production-${user.company_id}`)
+      .channel(`kitchen-production-${user.company_id}-${Math.random().toString(36).slice(2)}`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on("postgres_changes" as any, {
         event: "*", schema: "public", table: "orders",
@@ -367,8 +439,9 @@ function KitchenProductionPageInner() {
     const offBus = onOrderUpdated(() => { refresh(); });
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
+      document.removeEventListener("visibilitychange", onVisible);
       offBus();
-      void sub.unsubscribe();
+      void supabase.removeChannel(sub);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
@@ -394,14 +467,30 @@ function KitchenProductionPageInner() {
     return { events, guests, dishes, cookHours };
   }, [orders, items, tasks]);
 
+  // KIT4: hero chip counts. Same predicate as useKitchenLiveCounts'
+  // overdue bucket (start_at <= now AND status pending/in_progress)
+  // scoped to the visible window, so the number on the hero agrees
+  // with the nav badge whenever the window covers today.
+  const taskCounts = useMemo(() => {
+    let inProgress = 0;
+    let overdue = 0;
+    for (const t of tasks) {
+      if (t.status === "in_progress") inProgress += 1;
+      if ((t.status === "pending" || t.status === "in_progress") && new Date(t.start_at).getTime() <= nowMs) {
+        overdue += 1;
+      }
+    }
+    return { inProgress, overdue };
+  }, [tasks, nowMs]);
+
   // KIT3-D: utilisation - scheduled cook-hours vs available staff-
   // hours. Available comes from the on-duty + scheduled shift sum
-  // (loaded below). Tone: brand under 70%, amber 70-95%, rose
+  // (loaded below). Tone: emerald under 70%, amber 70-95%, rose
   // 95%+ (likely under-resourced).
   const utilisation = useMemo(() => {
     if (availableHours <= 0) return null;
     const pct = Math.round((totals.cookHours / availableHours) * 100);
-    const tone = pct >= 95 ? "rose" : pct >= 70 ? "amber" : "brand";
+    const tone = pct >= 95 ? "rose" : pct >= 70 ? "amber" : "emerald";
     return { pct, tone };
   }, [totals.cookHours, availableHours]);
 
@@ -452,13 +541,18 @@ function KitchenProductionPageInner() {
     }
   }, [tasksOnAnchor, nowMs, view, toast]);
 
-  // Task position helper for the day grid
+  // Task position helper for the day grid. KIT4: tasks outside the
+  // 06:00-23:00 track used to return null and vanish while the
+  // station row still counted them ("3 tasks", 2 blocks). Out-of-
+  // range starts now clamp to the grid edge; the block's title
+  // carries the true start time.
   const taskPosition = (task: PrepTask): { leftPct: number; widthPct: number } | null => {
     const ts = new Date(task.start_at);
     const dayStart = new Date(anchor);
     dayStart.setHours(DAY_START_HOUR, 0, 0, 0);
-    const minsFromStart = (ts.getTime() - dayStart.getTime()) / 60_000;
-    if (minsFromStart < 0 || minsFromStart >= DAY_TOTAL_MIN) return null;
+    let minsFromStart = (ts.getTime() - dayStart.getTime()) / 60_000;
+    if (minsFromStart < 0) minsFromStart = 0;
+    if (minsFromStart > DAY_TOTAL_MIN - 15) minsFromStart = DAY_TOTAL_MIN - 15;
     const leftPct = (minsFromStart / DAY_TOTAL_MIN) * 100;
     const widthPct = Math.max(2, (Number(task.duration_min || 30) / DAY_TOTAL_MIN) * 100);
     return { leftPct, widthPct };
@@ -491,11 +585,14 @@ function KitchenProductionPageInner() {
   // KIT3-D: cook-hours per day in the week view. Pre-bucket tasks
   // by event_date once so the per-day card can render its load bar
   // without re-walking the whole tasks array.
+  // KIT4: the fallback used toISOString().slice(0,10) - UTC. In SA
+  // (UTC+2) a task starting 00:30 was bucketed onto the PREVIOUS
+  // day's load bar. toLocalISO keeps the bucket on the wall-clock day.
   const cookHoursByDate = useMemo(() => {
     const map: Record<string, number> = {};
     for (const t of tasks) {
       const date = (t.order?.event_date as string | undefined)
-        || (new Date(t.start_at).toISOString().slice(0, 10));
+        || toLocalISO(new Date(t.start_at));
       if (!date) continue;
       map[date] = (map[date] || 0) + Number(t.duration_min || 0) / 60;
     }
@@ -516,8 +613,13 @@ function KitchenProductionPageInner() {
   // tap. Loops kitchenPrepService.ensurePrepTasksForOrder over the
   // visible orders + refreshes.
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const generatingPlanRef = useRef(false);
   const generatePrepPlan = useCallback(async (forOrderIds: string[]) => {
     if (!user?.company_id || forOrderIds.length === 0) return;
+    // KIT4: double-tap guard via ref - state alone leaves a gap
+    // before React re-renders the disabled button.
+    if (generatingPlanRef.current) return;
+    generatingPlanRef.current = true;
     setGeneratingPlan(true);
     let createdTotal = 0;
     let skipped = 0;
@@ -553,6 +655,7 @@ function KitchenProductionPageInner() {
       });
       await load();
     } finally {
+      generatingPlanRef.current = false;
       setGeneratingPlan(false);
     }
   }, [user?.company_id, user?.id, load, toast]);
@@ -572,94 +675,158 @@ function KitchenProductionPageInner() {
   const stepFwd  = () => setAnchor(d => addDays(d, view === "day" ?  1 :  7));
   const goToday  = () => setAnchor(startOfDay(new Date()));
 
+  const windowLabel = view === "day"
+    ? fmtFullDay(anchor)
+    : `Week of ${fmtFullDay(anchor)} to ${fmtDay(addDays(anchor, 6))}`;
+  const loaded = !loading && !loadError;
+
   return (
     <>
-      <Head><title>Production timeline - CateringMS</title></Head>
-      <NoIndexMeta />
-      <KitchenNav />
-      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title={
-              <span className="flex items-center gap-2">
-                Production timeline
-                <InfoTooltip content="Day view shows every prep task placed on a station-by-hour grid, you can see at a glance what the kitchen is on at any moment. Week view groups orders by day." />
+      <KitchenPageShell
+        pageTitle="Production timeline - CateringMS"
+        heading={
+          <span className="flex items-center gap-2">
+            Production timeline
+            <InfoTooltip
+              className="text-white/70 hover:text-white focus-visible:text-white"
+              content="Day view shows every prep task placed on a station-by-hour grid, you can see at a glance what the kitchen is on at any moment. Week view groups orders by day."
+            />
+          </span>
+        }
+        subheading={
+          loadError
+            ? windowLabel
+            : loading
+              ? `${windowLabel}. Loading the prep board...`
+              : `${windowLabel}. ${totals.events} event${totals.events === 1 ? "" : "s"} and ${tasks.length} prep task${tasks.length === 1 ? "" : "s"} on the board.`
+        }
+        icon={Calendar}
+        width="wide"
+        meta={
+          loaded ? (
+            <>
+              <span className={KITCHEN_HERO_CHIP}>
+                <CalendarDays className="h-3 w-3" />
+                {totals.events} event{totals.events === 1 ? "" : "s"} in window
               </span>
-            }
-            subtitle={
-              view === "day"
-                ? fmtFullDay(anchor)
-                : `Week of ${fmtFullDay(anchor)}, ${fmtDay(addDays(anchor, 6))}`
-            }
-            icon={Calendar}
-            actions={
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* View toggle */}
-                <div className="inline-flex rounded-md border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                  <button
-                    type="button"
-                    onClick={() => setView("day")}
-                    className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 rounded-l-md ${
-                      view === "day"
-                        ? "bg-brand-primary text-white"
-                        : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                    }`}
+              <span className={KITCHEN_HERO_CHIP}>
+                <Flame className="h-3 w-3" />
+                {taskCounts.inProgress} in prep now
+              </span>
+              {taskCounts.overdue > 0 && (
+                <span className={KITCHEN_HERO_CHIP}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse motion-reduce:animate-none" />
+                  {taskCounts.overdue} overdue
+                </span>
+              )}
+              <span className={KITCHEN_HERO_CHIP}>
+                <Clock className="h-3 w-3" />
+                {totals.cookHours}h prep scheduled
+              </span>
+            </>
+          ) : undefined
+        }
+        headerAction={
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View toggle - white-glass segmented control on the hero band. */}
+            <div className="inline-flex h-10 overflow-hidden rounded-md border border-white/20 bg-white/10">
+              <button
+                type="button"
+                onClick={() => setView("day")}
+                aria-pressed={view === "day"}
+                className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${
+                  view === "day"
+                    ? "bg-white text-slate-900"
+                    : "text-white/85 hover:bg-white/10"
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                Day
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("week")}
+                aria-pressed={view === "week"}
+                className={`px-3 text-xs font-medium inline-flex items-center gap-1.5 border-l border-white/20 transition-colors ${
+                  view === "week"
+                    ? "bg-white text-slate-900"
+                    : "text-white/85 hover:bg-white/10"
+                }`}
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                Week
+              </button>
+            </div>
+            <Button variant="outline" onClick={stepBack}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              {view === "day" ? "Yesterday" : "Previous"}
+            </Button>
+            <Button variant="outline" onClick={goToday}>Today</Button>
+            <Button variant="outline" onClick={stepFwd}>
+              {view === "day" ? "Tomorrow" : "Next"}
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+            {/* KIT3-C: print button. Matches the Kitchen Today
+                print run-sheet pattern - chef wants paper backup
+                on prep mornings. Uses the browser's native print
+                flow against the on-screen layout. */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (loading) {
+                  toast({ title: "Still loading", description: "Give it a second, the timeline is being prepared." });
+                  return;
+                }
+                if (orders.length === 0 && tasks.length === 0) {
+                  toast({ title: "Nothing to print", description: "No prep or events in this window." });
+                  return;
+                }
+                setTimeout(() => window.print(), 100);
+              }}
+              disabled={loading}
+            >
+              Print
+            </Button>
+          </div>
+        }
+      >
+          {/* KIT4: load-failure recovery card. Everything below the hero
+              hides so a failed pull can never masquerade as a quiet day. */}
+          {loadError && !loading && (
+            <PortalCard className="border-rose-200 dark:border-rose-900">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <div>
+                  <h2 className="text-base font-bold text-rose-900 dark:text-rose-200">Couldn&apos;t load the production board</h2>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{loadError}</p>
+                  <Button
+                    size="sm"
+                    onClick={() => void load()}
+                    disabled={loading}
+                    className="mt-3 bg-brand-primary hover:opacity-90 text-white"
                   >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    Day
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setView("week")}
-                    className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 rounded-r-md border-l border-slate-200 dark:border-slate-700 ${
-                      view === "week"
-                        ? "bg-brand-primary text-white"
-                        : "text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    <CalendarDays className="w-3.5 h-3.5" />
-                    Week
-                  </button>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" onClick={stepBack}>
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  {view === "day" ? "Yesterday" : "Previous"}
-                </Button>
-                <Button variant="outline" size="sm" onClick={goToday}>Today</Button>
-                <Button variant="outline" size="sm" onClick={stepFwd}>
-                  {view === "day" ? "Tomorrow" : "Next"}
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-                {/* KIT3-C: print button. Matches the Kitchen Today
-                    print run-sheet pattern - chef wants paper backup
-                    on prep mornings. Uses the browser's native print
-                    flow against the on-screen layout. */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (loading) {
-                      toast({ title: "Still loading", description: "Give it a second, the timeline is being prepared." });
-                      return;
-                    }
-                    if (orders.length === 0 && tasks.length === 0) {
-                      toast({ title: "Nothing to print", description: "No prep or events in this window." });
-                      return;
-                    }
-                    setTimeout(() => window.print(), 100);
-                  }}
-                  disabled={loading}
-                >
-                  Print
-                </Button>
               </div>
-            }
-          />
-          <PageWorkbench />
+            </PortalCard>
+          )}
 
           {/* Stat cards - KIT3-D adds the Utilisation tile (cook-
               hours scheduled / available staff-hours) so the chef
-              sees whether the prep load fits the day's roster. */}
+              sees whether the prep load fits the day's roster.
+              KIT4: skeleton tiles while loading so a slow network
+              never flashes zeros that read as "no work today". */}
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 mb-5">
+              {Array.from({ length: 5 }, (_, i) => (
+                <div key={i} className="h-24 animate-pulse rounded-xl border border-slate-200/80 bg-white motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
+              ))}
+            </div>
+          ) : !loadError && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 mb-5">
             <StatTile
               label={
@@ -696,7 +863,7 @@ function KitchenProductionPageInner() {
             <StatTile
               label={
                 <span className="flex items-center gap-1">Utilisation
-                  <InfoTooltip content={"Scheduled cook-hours divided by available staff-hours in this window.\nAvailable comes from kitchen_duty_shifts (active + open-ended capped at 8h).\nUnder 70% uses the brand success tone, 70-95% (amber) is busy, 95%+ (rose) means you're likely under-resourced - add staff or shift prep."} />
+                  <InfoTooltip content={"Scheduled cook-hours divided by available staff-hours in this window.\nAvailable comes from kitchen_duty_shifts (active + open-ended capped at 8h).\nUnder 70% (green) fits comfortably, 70-95% (amber) is busy, 95%+ (red) means you're likely under-resourced - add staff or shift prep."} />
                 </span>
               }
               value={
@@ -707,7 +874,7 @@ function KitchenProductionPageInner() {
                         ? "text-rose-700 dark:text-rose-400"
                         : utilisation.tone === "amber"
                           ? "text-amber-700 dark:text-amber-400"
-                          : "text-brand-primary dark:text-brand-primary"
+                          : "text-emerald-700 dark:text-emerald-400"
                     }
                   >
                     {utilisation.pct}%
@@ -723,12 +890,13 @@ function KitchenProductionPageInner() {
               }
             />
           </div>
+          )}
 
           {/* KIT3-C: worst-recipe surface. The recipe accuracy panel
               at the bottom of the page sorts by variance, but a
               recipe drifting >15% is worth seeing BEFORE the chef
               scrolls. Single inline chip pointing at the table. */}
-          {!loading && recipeAccuracy.length > 0 && (() => {
+          {loaded && recipeAccuracy.length > 0 && (() => {
             const worst = recipeAccuracy
               .filter((r) => Math.abs(r.avg_variance_pct) >= 15 && r.samples >= 3)
               .sort((a, b) => Math.abs(b.avg_variance_pct) - Math.abs(a.avg_variance_pct))[0];
@@ -742,7 +910,7 @@ function KitchenProductionPageInner() {
                   <span className="tabular-nums font-semibold">{worst.avg_variance_pct > 0 ? "+" : ""}{worst.avg_variance_pct}%</span>{" "}
                   yield variance over {worst.samples} cooks. Recipe needs a recalibration.
                 </span>
-                <a href="#recipe-accuracy" className="ml-1 underline text-rose-700 hover:text-rose-900">
+                <a href="#recipe-accuracy" className="ml-1 underline text-rose-700 hover:text-rose-900 dark:text-rose-400 dark:hover:text-rose-300">
                   See all
                 </a>
               </div>
@@ -756,12 +924,12 @@ function KitchenProductionPageInner() {
               start_at, then surfacing the top 5 with live countdowns.
               Shows for day view only (week view is too coarse).
               Self-hides when nothing's queued. */}
-          {!loading && view === "day" && (() => {
+          {loaded && view === "day" && (() => {
             // nowMs comes from the 60s tick state declared above so
             // this IIFE re-renders with fresh countdowns every minute.
             const queued = tasksOnAnchor
-              .filter((t: any) => t.status === "pending" && !t.started_at)
-              .map((t: any) => {
+              .filter((t) => t.status === "pending" && !t.started_at)
+              .map((t) => {
                 const startMs = new Date(t.start_at).getTime();
                 const minsFromNow = Math.round((startMs - nowMs) / 60_000);
                 return { task: t, startMs, minsFromNow };
@@ -788,10 +956,10 @@ function KitchenProductionPageInner() {
                       const station = task.station_id ? stationById.get(task.station_id) : null;
                       const taskTypeLabel = formatKitchenPrepTaskType(task.task_type);
                       const lateClass =
-                        minsFromNow < -15 ? "bg-rose-100 text-rose-900 border-rose-300 font-bold animate-pulse" :
-                        minsFromNow < 0 ? "bg-rose-50 text-rose-800 border-rose-200 font-semibold" :
-                        minsFromNow <= 15 ? "bg-amber-100 text-amber-900 border-amber-300 font-semibold" :
-                        "bg-white text-slate-700 border-slate-200";
+                        minsFromNow < -15 ? "bg-rose-100 text-rose-900 border-rose-300 font-bold animate-pulse motion-reduce:animate-none dark:bg-rose-950/60 dark:text-rose-200 dark:border-rose-800" :
+                        minsFromNow < 0 ? "bg-rose-50 text-rose-800 border-rose-200 font-semibold dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900" :
+                        minsFromNow <= 15 ? "bg-amber-100 text-amber-900 border-amber-300 font-semibold dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900" :
+                        "bg-white text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700";
                       const lateLabel =
                         minsFromNow < -15 ? `Should have started ${Math.abs(minsFromNow)}m ago` :
                         minsFromNow < 0 ? `${Math.abs(minsFromNow)}m late` :
@@ -800,7 +968,7 @@ function KitchenProductionPageInner() {
                         `Start in ${Math.round(minsFromNow / 60)}h ${minsFromNow % 60}m`;
                       const startClock = new Date(task.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
                       return (
-                        <li key={task.id} className="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2">
+                        <li key={task.id} className="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
                           <span className={`text-[10px] uppercase tracking-wider px-2 py-1 rounded border tabular-nums whitespace-nowrap ${lateClass}`}>
                             {lateLabel}
                           </span>
@@ -809,16 +977,20 @@ function KitchenProductionPageInner() {
                               <span className="text-brand-primary mr-1.5">{taskTypeLabel}</span>
                               {task.menu_item_name || "Item"}
                             </p>
-                            <p className="text-[11px] text-slate-600 truncate">
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
                               {ord?.order_number ? `${ord.order_number} · ` : ""}
-                              {(ord?.event_name && !/^untitled$/i.test(String(ord.event_name).trim()) ? ord.event_name : ord?.client_name) || ord?.event_date || "-"}
+                              {/* KIT4: orderDisplayName so a literal "Untitled"
+                                  event name falls back to the client. */}
+                              {ord
+                                ? orderDisplayName({ event_name: ord.event_name, client_name: ord.client_name, order_number: ord.order_number })
+                                : "-"}
                               {ord?.guest_count ? ` · ${ord.guest_count} guests` : ""}
                               {station ? ` · ${station.name}` : ""}
                             </p>
                           </div>
-                          <span className="text-xs text-slate-500 tabular-nums shrink-0">
+                          <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
                             {startClock}
-                            <span className="text-slate-400 ml-1">· {Number(task.duration_min || 0)}m</span>
+                            <span className="text-slate-400 dark:text-slate-500 ml-1">· {Number(task.duration_min || 0)}m</span>
                           </span>
                         </li>
                       );
@@ -833,7 +1005,7 @@ function KitchenProductionPageInner() {
               <div className="h-40 animate-pulse rounded-2xl border border-slate-200/80 bg-white motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
               <div className="h-64 animate-pulse rounded-2xl border border-slate-200/80 bg-white motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
             </div>
-          ) : view === "day" ? (
+          ) : loadError ? null : view === "day" ? (
             // ── DAY VIEW: time-grid with stations as rows ──
             tasksOnAnchor.length === 0 && (ordersByDate[isoDate(anchor)] || []).length === 0 ? (
               <PortalCard className="p-10 text-center">
@@ -949,7 +1121,7 @@ function KitchenProductionPageInner() {
                           return (
                             <div
                               key={hour}
-                              className="absolute top-0 bottom-0 border-l border-slate-200 text-[10px] text-slate-500 px-1.5 pt-1.5"
+                              className="absolute top-0 bottom-0 border-l border-slate-200 text-[10px] text-slate-500 px-1.5 pt-1.5 dark:border-slate-800 dark:text-slate-400"
                               style={{ left: `${leftPct}%` }}
                             >
                               {String(hour).padStart(2, "0")}:00
@@ -961,7 +1133,7 @@ function KitchenProductionPageInner() {
 
                     {/* Station rows */}
                     {stationsForGrid.length === 0 ? (
-                      <div className="px-4 py-6 text-sm text-slate-500 text-center">
+                      <div className="px-4 py-6 text-sm text-slate-500 dark:text-slate-400 text-center">
                         No stations configured.
                       </div>
                     ) : stationsForGrid.map(station => {
@@ -981,7 +1153,7 @@ function KitchenProductionPageInner() {
                               return (
                                 <div
                                   key={i}
-                                  className="absolute top-0 bottom-0 border-l border-slate-100"
+                                  className="absolute top-0 bottom-0 border-l border-slate-100 dark:border-slate-800"
                                   style={{ left: `${leftPct}%` }}
                                 />
                               );
@@ -996,6 +1168,7 @@ function KitchenProductionPageInner() {
                               if (!pos) return null;
                               const tone = TASK_TONES[t.status] || TASK_TONES.pending;
                               const eventName = orderDisplayName({ event_name: t.order?.event_name, client_name: t.order?.client_name, order_number: t.order?.order_number });
+                              const startClock = new Date(t.start_at).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
                               return (
                                 <Link
                                   key={t.id}
@@ -1006,7 +1179,7 @@ function KitchenProductionPageInner() {
                                     width: `${pos.widthPct}%`,
                                     minWidth: "60px",
                                   }}
-                                  title={`Open order document - ${formatKitchenPrepTaskType(t.task_type)} · ${t.menu_item_name} · ${eventName} · ${t.duration_min}m`}
+                                  title={`Open order document - ${formatKitchenPrepTaskType(t.task_type)} · ${t.menu_item_name} · ${eventName} · starts ${startClock} · ${t.duration_min}m`}
                                 >
                                   <p className="font-semibold truncate leading-tight">
                                     {t.menu_item_name}
@@ -1019,7 +1192,7 @@ function KitchenProductionPageInner() {
                             })}
 
                             {stationTasks.length === 0 && (
-                              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-300 italic">
+                              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-slate-300 dark:text-slate-600 italic">
                                 Nothing scheduled on this station today
                               </div>
                             )}
@@ -1050,7 +1223,7 @@ function KitchenProductionPageInner() {
                   ? "bg-rose-500"
                   : loadPct >= 70
                     ? "bg-amber-500"
-                    : "bg-brand-primary";
+                    : "bg-emerald-500";
                 return (
                   <div key={key}>
                     <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
@@ -1061,7 +1234,7 @@ function KitchenProductionPageInner() {
                       <span className="text-xs text-slate-500 dark:text-slate-400">{list.length} event{list.length === 1 ? "" : "s"}</span>
                       {dayHours > 0 && (
                         <span
-                          className="ml-auto inline-flex items-center gap-2 text-[11px] text-slate-600"
+                          className="ml-auto inline-flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400"
                           title={dailyCapacity > 0
                             ? `${dayHours}h scheduled, ~${Math.round(dailyCapacity)}h of staff capacity per day`
                             : `${dayHours}h scheduled`}
@@ -1084,8 +1257,8 @@ function KitchenProductionPageInner() {
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                         {list.map((o) => {
                           const lineItems = itemsByOrder[o.id] || [];
-                          const orderTasks = tasks.filter((t: any) => t.order_id === o.id);
-                          const tasksDone = orderTasks.filter((t: any) => t.status === "done").length;
+                          const orderTasks = tasks.filter((t) => t.order_id === o.id);
+                          const tasksDone = orderTasks.filter((t) => t.status === "done").length;
                           // Wave 70.43c - whole card links to the unified
                           // order document. Kitchen details live in the
                           // kitchen section; print mode still produces a
@@ -1101,7 +1274,7 @@ function KitchenProductionPageInner() {
                               <div className="p-4">
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-medium text-slate-900 dark:text-white truncate group-hover:text-brand-primary transition-colors">{orderDisplayName({ event_name: o.event_name, client_name: (o as any).client_name, order_number: o.order_number })}</div>
+                                    <div className="font-medium text-slate-900 dark:text-white truncate group-hover:text-brand-primary transition-colors">{orderDisplayName({ event_name: o.event_name, client_name: o.client_name, order_number: o.order_number })}</div>
                                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{fmtTime(o.event_time)}</span>
                                       {o.guest_count != null && <span className="flex items-center gap-1"><UsersIcon className="h-3 w-3" />{o.guest_count} guests</span>}
@@ -1109,7 +1282,7 @@ function KitchenProductionPageInner() {
                                     </div>
                                   </div>
                                   {o.status && (
-                                    <Badge variant="outline" className={`${STATUS_TONES[o.status] ?? "bg-slate-100 text-slate-700 border-slate-200"} text-[10px] flex-shrink-0`}>
+                                    <Badge variant="outline" className={`${STATUS_TONES[o.status] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-[10px] flex-shrink-0`}>
                                       {o.status}
                                     </Badge>
                                   )}
@@ -1133,7 +1306,7 @@ function KitchenProductionPageInner() {
                                     <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                                       <div
                                         className={`h-full ${
-                                          tasksDone === orderTasks.length ? "bg-brand-primary" :
+                                          tasksDone === orderTasks.length ? "bg-emerald-500" :
                                           tasksDone > 0 ? "bg-amber-500" :
                                                           "bg-slate-300 dark:bg-slate-600"
                                         }`}
@@ -1164,12 +1337,12 @@ function KitchenProductionPageInner() {
           )}
 
           {/* Tone legend (only in day view + only when there are tasks) */}
-          {view === "day" && tasksOnAnchor.length > 0 && (
+          {loaded && view === "day" && tasksOnAnchor.length > 0 && (
             <div className="mt-3 flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 flex-wrap">
               <span className="font-semibold">Status:</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-slate-200 border border-slate-300" /> Pending</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-brand-primary/15 border border-brand-primary/30" /> In progress</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-brand-primary/20 border border-brand-primary/40" /> Done</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-slate-200 border border-slate-300 dark:bg-slate-700 dark:border-slate-600" /> Pending</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-100 border border-amber-400 dark:bg-amber-950/50 dark:border-amber-700" /> In progress</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-100 border border-emerald-400 dark:bg-emerald-950/50 dark:border-emerald-700" /> Done</span>
             </div>
           )}
 
@@ -1177,14 +1350,16 @@ function KitchenProductionPageInner() {
               prep task has both planned and actual yields logged. Lists the
               recipes by absolute variance so the worst offenders surface
               first. Sample size on each row keeps confidence honest. */}
-          {recipeAccuracy.length > 0 && (
+          {loaded && recipeAccuracy.length > 0 && (
             <PortalCard id="recipe-accuracy" padded={false} className="mt-6 scroll-mt-24">
               <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">Recipe accuracy, last 30 days</h2>
-                    <InfoTooltip content="Average difference between planned and actual yield, per recipe.\n\nNegative means you're under-producing relative to the plan; positive means over.\n\nSample size shows how many cooks the average is built on, treat single-digit samples as early signal, not gospel." />
+                    {/* KIT4: was a plain JSX attribute string, so the \n\n
+                        escapes rendered literally in the bubble. */}
+                    <InfoTooltip content={"Average difference between planned and actual yield, per recipe.\n\nNegative means you're under-producing relative to the plan; positive means over.\n\nSample size shows how many cooks the average is built on, treat single-digit samples as early signal, not gospel."} />
                   </div>
                   <span className="text-xs text-slate-500 dark:text-slate-400">{recipeAccuracy.length} recipe{recipeAccuracy.length === 1 ? "" : "s"}</span>
                 </div>
@@ -1202,7 +1377,7 @@ function KitchenProductionPageInner() {
                     <tbody>
                       {recipeAccuracy.map((r) => {
                         const tone =
-                          Math.abs(r.avg_variance_pct) < 5  ? "text-brand-primary dark:text-brand-primary" :
+                          Math.abs(r.avg_variance_pct) < 5  ? "text-emerald-700 dark:text-emerald-400" :
                           Math.abs(r.avg_variance_pct) < 15 ? "text-amber-700 dark:text-amber-400"   :
                                                               "text-rose-700 dark:text-rose-400";
                         const Arrow = r.avg_variance_pct >= 0 ? TrendingUp : TrendingDown;
@@ -1227,8 +1402,7 @@ function KitchenProductionPageInner() {
               </div>
             </PortalCard>
           )}
-        </PortalShell>
-      </main>
+      </KitchenPageShell>
 
       {/* Wave 70.7c - bottom-left FAB during service hours */}
       <KitchenServiceFAB />
@@ -1237,8 +1411,21 @@ function KitchenProductionPageInner() {
 }
 
 export default function KitchenProductionPage() {
+  // KIT4: admin set admitted alongside kitchen roles so an owner or
+  // company admin view-switching into the kitchen portal doesn't 403
+  // (middleware already lets them through to /team-portal/kitchen).
   return (
-    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.ADMIN,
+        UserRole.COMPANY_ADMIN,
+        UserRole.OWNER,
+        UserRole.SUPER_ADMIN,
+        UserRole.REGION_ADMIN,
+      ]}
+    >
       <KitchenProductionPageInner />
     </ProtectedRoute>
   );

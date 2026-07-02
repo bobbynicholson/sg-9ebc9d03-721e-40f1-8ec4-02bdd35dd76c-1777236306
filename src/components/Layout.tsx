@@ -81,8 +81,11 @@ export function Layout({
       {/* Header - Public/Marketing header */}
       {showHeader && !user && <Header />}
 
-      {/* Navigation - Role-based navigation for authenticated users */}
-      {showNav && user && <DynamicNav userRole={user.role} />}
+      {/* Navigation - Role-based navigation for authenticated users.
+          active_role first: a multi-role staffer who switched roles must
+          see the same portal chrome here as on the rest of the app
+          (landing pages and gates already resolve active_role first). */}
+      {showNav && user && <DynamicNav userRole={user.active_role || user.role} />}
 
       {/* Main Content */}
       <main className="relative z-0 flex-1">

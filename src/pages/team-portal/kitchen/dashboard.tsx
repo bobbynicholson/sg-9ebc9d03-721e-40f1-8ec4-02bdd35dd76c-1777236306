@@ -11,19 +11,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Printer } from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Printer, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { orderDisplayName } from "@/lib/orderDisplayName";
-import { Footer } from "@/components/Footer";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { KitchenNav } from "@/components/navigation/KitchenNav";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
+import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { CleaningScheduleDialog } from "@/components/kitchen/CleaningScheduleDialog";
 import { ChatBot } from "@/components/ChatBot";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
@@ -40,12 +36,12 @@ import { PrepTaskTimer } from "@/components/kitchen/PrepTaskTimer";
 // that confirmDepartedKitchen now refuses to bypass.
 import { HandoverToDriverPanel } from "@/components/kitchen/HandoverToDriverPanel";
 import { UserRole } from "@/types/app";
-import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
+import { kitchenStaffService } from "@/services/kitchenStaffService";
 import { markOrderReady } from "@/services/order/orderWorkflow";
 import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { onEquipmentDamaged } from "@/lib/events/equipmentEvents";
@@ -134,6 +130,11 @@ function KitchenDashboardInner() {
   const [selectedDate, setSelectedDate] = useState(() => localISO(new Date()));
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre restructure (2026-07-02): the primary reads (orders /
+  // planning calendar / inventory) used to captureException and quietly
+  // leave the board on stale or empty state. Failures now land here and
+  // render as a rose recovery card with a Retry that re-runs the loader.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [progressByOrder, setProgressByOrder] = useState<Record<string, { total: number; done: number }>>({});
   const [now, setNow] = useState(new Date());
   // Allergen confirmation dialog state - triggers when Mark Ready hits a
@@ -317,7 +318,11 @@ function KitchenDashboardInner() {
           orderId: row.order_id || null,
           equipmentName: eqRes?.data?.name || "Equipment",
           orderLabel: orderRow?.order_number || orderRow?.event_name || orderRow?.client_name || "an order",
-          quantity: Number(row.quantity_damaged || 1),
+          // equipment_damages has no quantity column in the live schema
+          // (verified against types.ts 2026-07-02) - each row is one
+          // damage report. Keep the payload read defensive in case a
+          // quantity lands later, but default to 1.
+          quantity: Number(row.quantity_damaged ?? 1) || 1,
           damageType: String(row.damage_type || "damaged").replace(/_/g, " "),
           createdAt: row.created_at || new Date().toISOString(),
         });
@@ -445,7 +450,10 @@ function KitchenDashboardInner() {
       offBus();
       offDamage();
       offCleaning();
-      void sub.unsubscribe();
+      // removeChannel (not bare unsubscribe) so the client also drops
+      // the channel from its registry - the recurring-bug-class rule
+      // for every non-presence realtime subscription.
+      void supabase.removeChannel(sub);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
@@ -466,6 +474,7 @@ function KitchenDashboardInner() {
 
     try {
       setLoading(true);
+      setLoadError(null);
 
       // KIT2-G (kitchen deep audit, KIT2-12 / KIT2-67 / KIT2-69):
       // Three fixes batched in this query:
@@ -549,10 +558,16 @@ function KitchenDashboardInner() {
         { data: inventoryData, error: inventoryError },
       ] = await Promise.all([ordersQuery, planningOrdersQuery, invQuery]);
 
+      // Roll the three primary-read failures into one message. Pre-
+      // restructure these were captureException-only, so the chef saw
+      // an empty (or stale) board and read it as "no work today".
+      const failedParts: string[] = [];
+
       if (ordersError) {
         captureException(ordersError, {
           tags: { route: "/team-portal/kitchen/dashboard", step: "load-orders", companyId: user.company_id },
         });
+        failedParts.push(`active orders (${ordersError.message})`);
       } else {
         setOrders(ordersData || []);
       }
@@ -561,6 +576,7 @@ function KitchenDashboardInner() {
         captureException(planningOrdersError, {
           tags: { route: "/team-portal/kitchen/dashboard", step: "load-planning-orders", companyId: user.company_id },
         });
+        failedParts.push(`event calendar (${planningOrdersError.message})`);
       } else {
         setPlanningOrders((planningOrdersData || []) as KitchenPlanningOrder[]);
       }
@@ -569,6 +585,7 @@ function KitchenDashboardInner() {
         captureException(inventoryError, {
           tags: { route: "/team-portal/kitchen/dashboard", step: "load-low-stock", companyId: user.company_id },
         });
+        failedParts.push(`stock levels (${inventoryError.message})`);
       } else {
         const lowStock = (inventoryData || []).filter(
           (item: InventoryItem) =>
@@ -577,6 +594,10 @@ function KitchenDashboardInner() {
             item.current_stock <= item.minimum_stock,
         );
         setLowStockItems(lowStock.slice(0, 5));
+      }
+
+      if (failedParts.length > 0) {
+        setLoadError(`We couldn't load ${failedParts.join(", ")}. The board may be stale.`);
       }
 
       // Phase 1: load prep task progress per order in one shot
@@ -588,17 +609,30 @@ function KitchenDashboardInner() {
         setProgressByOrder({});
       }
 
-      // KIT3-B (1): on-duty count. kitchen_duty_shifts rows where
-      // is_active=true count as "currently on the clock". Used by
-      // the staffing-flag chip below.
+      // KIT3-B (1): on-duty count. Two attendance systems coexist:
+      //   - kitchen_staff_shifts: what the KitchenStaffTileBoard on
+      //     this very page writes when the chef taps a tile (Phase 5C,
+      //     the primary clock-in surface).
+      //   - kitchen_duty_shifts: the legacy per-login duty flow, still
+      //     auto-created by kitchenPrepService task completes.
+      // Pre-fix this only counted kitchen_duty_shifts, so a team fully
+      // clocked in via the tile board still tripped the rose "No-one
+      // is clocked in" banner two cards below the tiles showing "3 on
+      // duty" (data-inconsistency on the same screen). Count both and
+      // take the larger figure; max (not sum) because the same person
+      // can have a row in each system.
       try {
-        const { count: dutyCount } = await (supabase as any)
-          .from("kitchen_duty_shifts")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", user.company_id)
-          .eq("is_active", true)
-          .is("shift_end", null);
-        setOnDutyCount(dutyCount ?? 0);
+        const [tileShifts, dutyRes] = await Promise.all([
+          kitchenStaffService.listOpenShifts(user.company_id, { department: "kitchen" }),
+          (supabase as any)
+            .from("kitchen_duty_shifts")
+            .select("id", { count: "exact", head: true })
+            .eq("company_id", user.company_id)
+            .eq("is_active", true)
+            .is("shift_end", null),
+        ]);
+        const dutyCount = dutyRes?.count ?? 0;
+        setOnDutyCount(Math.max(tileShifts.length, dutyCount));
       } catch (dutyErr) {
         captureException(dutyErr, {
           tags: { route: "/team-portal/kitchen/dashboard", step: "load-on-duty", companyId: user.company_id },
@@ -812,6 +846,11 @@ function KitchenDashboardInner() {
       captureException(error, {
         tags: { route: "/team-portal/kitchen/dashboard", step: "load-dashboard", companyId: user?.company_id },
       });
+      setLoadError(
+        error instanceof Error && error.message
+          ? `Something went wrong while loading the board (${error.message}).`
+          : "Something went wrong while loading the board.",
+      );
     } finally {
       setLoading(false);
     }
@@ -1094,10 +1133,12 @@ function KitchenDashboardInner() {
 
   const getUrgencyLevel = (eventDate: string, eventTime: string | null) => {
     const now = new Date();
-    const eventDateTime = new Date(eventDate);
-    if (eventTime) {
-      const [hours, minutes] = eventTime.split(":");
-      eventDateTime.setHours(parseInt(hours), parseInt(minutes));
+    // Parse as a LOCAL datetime. `new Date("YYYY-MM-DD")` alone parses
+    // as UTC midnight (02:00 SAST), which skewed the no-time case by
+    // two hours - the same KIT2-G timezone trap, just at render time.
+    const eventDateTime = new Date(`${eventDate}T${eventTime || "12:00"}`);
+    if (isNaN(eventDateTime.getTime())) {
+      return { level: "low", color: "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10", dot: "bg-brand-primary" };
     }
     const hoursUntil = (eventDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     
@@ -1106,92 +1147,146 @@ function KitchenDashboardInner() {
     return { level: "low", color: "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10", dot: "bg-brand-primary" };
   };
 
+  // Hero band context for KitchenPageShell. Chips only render once
+  // the board load finished without error (command-centre standard) -
+  // a zero that could actually be "failed to load" never shows.
+  const todayLabel = new Date().toLocaleDateString("en-ZA", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const inPrepCount = orders.filter((o) => o.status === "preparing").length;
+  const readyCount = orders.filter((o) => o.status === "ready").length;
+  const todayGuests = todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0);
+
   return (
     <>
-      <Head>
-        <title>Kitchen today - CateringMS</title>
-      </Head>
-      <NoIndexMeta />
-
-      <KitchenNav />
-
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title="Kitchen today"
-            subtitle="Today's service board: orders, prep blockers, production handoffs, cleaning readiness, and the printable run sheet."
-            icon={ChefHat}
-            actions={
-              <>
-                {/* KIT2-A + KIT2-O (kitchen audit, KIT2-3 / 35 / 36 / 84)
-                    + Bobby's "don't swap portals" follow-up: shows
-                    tomorrow's cleaning progress at-a-glance and opens
-                    a read-only dialog with the cleaning team, active
-                    wash jobs and per-event checklist - all without
-                    changing the active portal / role lens. */}
-                <button
-                  type="button"
-                  onClick={() => setCleaningDialogOpen(true)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors duration-150 ${
-                    cleaningReadiness && cleaningReadiness.complete === cleaningReadiness.total
-                      ? "border-brand-primary/20 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/15 dark:border-brand-primary/30 dark:bg-brand-primary/15 dark:text-brand-primary dark:hover:bg-brand-primary/20"
-                      : cleaningReadiness && cleaningReadiness.complete > 0
-                      ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900/60"
-                      : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                  }`}
-                  title={
-                    cleaningReadiness
-                      ? `Tomorrow's cleaning: ${cleaningReadiness.complete} of ${cleaningReadiness.total} done`
-                      : "View the cleaning schedule"
-                  }
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Cleaning schedule</span>
-                  {cleaningReadiness && (
-                    <Badge
-                      variant="outline"
-                      className={`ml-1 tabular-nums ${
-                        cleaningReadiness.complete === cleaningReadiness.total
-                          ? "bg-brand-primary/15 text-brand-primary border-brand-primary/30 dark:bg-brand-primary/20 dark:text-brand-primary dark:border-brand-primary/30"
-                          : cleaningReadiness.complete > 0
-                          ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900 dark:text-amber-300 dark:border-amber-800"
-                          : "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600"
-                      }`}
-                    >
-                      {cleaningReadiness.complete}/{cleaningReadiness.total}
-                    </Badge>
-                  )}
-                </button>
-                {/* KIT2-N (kitchen deep audit, KIT2-53 / KIT2-83): paper
-                    backup of today's prep + tomorrow's preview. Bobby's
-                    explicit P1 ask. Chef prep-day morning wants one
-                    printable run-sheet not 12 per-order tickets. */}
-                <Button
+      <KitchenPageShell
+        pageTitle="Kitchen today - CateringMS"
+        heading="Kitchen today"
+        subheading={
+          loadError
+            ? "Today's service board: orders, prep blockers, production handoffs, cleaning readiness, and the printable run sheet."
+            : loading
+              ? `${todayLabel}. Loading today's service board...`
+              : todayOrders.length === 0
+                ? `${todayLabel}. No events today, use the space to prep ahead or restock.`
+                : `${todayLabel}. ${todayOrders.length} event${todayOrders.length === 1 ? "" : "s"} today for ${todayGuests} guest${todayGuests === 1 ? "" : "s"}, ${inPrepCount} in prep.`
+        }
+        icon={ChefHat}
+        width="wide"
+        headerAction={
+          <>
+            {/* KIT2-A + KIT2-O (kitchen audit, KIT2-3 / 35 / 36 / 84)
+                + Bobby's "don't swap portals" follow-up: shows
+                tomorrow's cleaning progress at-a-glance and opens
+                a read-only dialog with the cleaning team, active
+                wash jobs and per-event checklist - all without
+                changing the active portal / role lens. White-glass
+                base so it sits on the hero band; the badge keeps the
+                semantic readiness colours. */}
+            <button
+              type="button"
+              onClick={() => setCleaningDialogOpen(true)}
+              className="inline-flex items-center gap-1.5 min-h-10 px-3 py-2 rounded-lg border border-white/20 bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors duration-150"
+              title={
+                cleaningReadiness
+                  ? `Tomorrow's cleaning: ${cleaningReadiness.complete} of ${cleaningReadiness.total} done`
+                  : "View the cleaning schedule"
+              }
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>Cleaning schedule</span>
+              {cleaningReadiness && (
+                <Badge
                   variant="outline"
-                  onClick={() => {
-                    // KIT3-A (task #244): guard against the first-mount
-                    // race where the toast fired "Nothing to print" before
-                    // loadDashboardData had a chance to populate state.
-                    if (loading) {
-                      toast({ title: "Still loading", description: "Give it a second, the print sheet is being prepared." });
-                      return;
-                    }
-                    if (orders.length === 0 && upcoming.length === 0) {
-                      toast({ title: "Nothing to print", description: "No orders today or in the next 6 days." });
-                      return;
-                    }
-                    setTimeout(() => window.print(), 100);
-                  }}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 h-10 sm:h-11 px-3 text-sm"
+                  className={`ml-1 tabular-nums ${
+                    cleaningReadiness.complete === cleaningReadiness.total
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                      : cleaningReadiness.complete > 0
+                      ? "bg-amber-100 text-amber-800 border-amber-300"
+                      : "bg-white text-slate-700 border-slate-300"
+                  }`}
                 >
-                  <Printer className="w-4 h-4" />
-                  Print run sheet
-                </Button>
-              </>
-            }
-          />
-          <PageWorkbench />
+                  {cleaningReadiness.complete}/{cleaningReadiness.total}
+                </Badge>
+              )}
+            </button>
+            {/* KIT2-N (kitchen deep audit, KIT2-53 / KIT2-83): paper
+                backup of today's prep + tomorrow's preview. Bobby's
+                explicit P1 ask. Chef prep-day morning wants one
+                printable run-sheet not 12 per-order tickets. */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                // KIT3-A (task #244): guard against the first-mount
+                // race where the toast fired "Nothing to print" before
+                // loadDashboardData had a chance to populate state.
+                if (loading) {
+                  toast({ title: "Still loading", description: "Give it a second, the print sheet is being prepared." });
+                  return;
+                }
+                if (orders.length === 0 && upcoming.length === 0) {
+                  toast({ title: "Nothing to print", description: "No orders today or in the next 6 days." });
+                  return;
+                }
+                setTimeout(() => window.print(), 100);
+              }}
+              disabled={loading}
+              className="gap-1.5 min-h-10"
+            >
+              <Printer className="w-4 h-4" />
+              Print run sheet
+            </Button>
+          </>
+        }
+        meta={
+          <>
+            {!loading && !loadError && (
+              <span className={KITCHEN_HERO_CHIP}>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                {todayOrders.length} {todayOrders.length === 1 ? "event" : "events"} today
+              </span>
+            )}
+            {!loading && !loadError && todayGuests > 0 && (
+              <span className={KITCHEN_HERO_CHIP}>
+                <Users className="h-3 w-3" />
+                {todayGuests} guests today
+              </span>
+            )}
+            {!loading && !loadError && (inPrepCount > 0 || readyCount > 0) && (
+              <span className={KITCHEN_HERO_CHIP}>
+                <span className={`h-1.5 w-1.5 rounded-full ${inPrepCount > 0 ? "bg-amber-400" : "bg-emerald-400"}`} />
+                {inPrepCount} in prep, {readyCount} ready
+              </span>
+            )}
+            {!loading && !loadError && cleaningReadiness && (
+              <span className={KITCHEN_HERO_CHIP}>
+                <CheckCircle className="h-3 w-3" />
+                Cleaning {cleaningReadiness.complete}/{cleaningReadiness.total} for tomorrow
+              </span>
+            )}
+          </>
+        }
+      >
+          {/* Recovery card: one or more of the primary board reads
+              failed. Pre-restructure the failure was capture-only and
+              the chef stared at an empty board that read as "day off". */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm dark:border-rose-900 dark:bg-slate-900">
+              <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load the kitchen board</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+              <Button
+                size="sm"
+                onClick={() => void loadDashboardData()}
+                disabled={loading}
+                className="bg-brand-primary hover:opacity-90 text-white"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          )}
 
           {/* Phase 5C: tile board replaces the per-user Start/End Duty
               widget. One login on the tablet, one tap per staff member. */}
@@ -1305,9 +1400,11 @@ function KitchenDashboardInner() {
 
           {/* Stats Grid - KIT3-A (task #244): rolling readiness +
               skeleton during load so the chef doesn't read "0 / 0 /
-              0 / 0" as genuine zeros before data arrives. */}
+              0 / 0" as genuine zeros before data arrives. Skeletons
+              also hold while loadError is up - genuine zeros and
+              failed-to-load must never look the same. */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
-            {loading ? (
+            {loading || loadError ? (
               [0, 1, 2, 3, 4].map((i) => (
                 <div key={i} className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
               ))
@@ -1322,19 +1419,19 @@ function KitchenDashboardInner() {
                 <StatTile
                   icon={Users}
                   label="Total guests"
-                  value={todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0)}
+                  value={todayGuests}
                   hint="Across all of today's events"
                 />
                 <StatTile
                   icon={Clock}
                   label="In prep"
-                  value={orders.filter(o => o.status === "preparing").length}
+                  value={inPrepCount}
                   hint="Being cooked right now"
                 />
                 <StatTile
                   icon={CheckCircle}
                   label="Ready"
-                  value={orders.filter(o => o.status === "ready").length}
+                  value={readyCount}
                   hint="Packed, waiting for the driver"
                 />
                 {/* KIT3-A new tile: rolling prep readiness across
@@ -1608,9 +1705,9 @@ function KitchenDashboardInner() {
               vs total guests. Rule: 1 cook per 30 guests. Tunable
               later via companies.kitchen_settings.cooks_per_guest. */}
           {(() => {
-            const totalGuests = todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0);
+            const totalGuests = todayGuests;
             const recommended = Math.max(1, Math.ceil(totalGuests / 30));
-            if (totalGuests === 0) return null;
+            if (loadError || totalGuests === 0) return null;
             const understaffed = onDutyCount > 0 && onDutyCount < recommended;
             const noStaff = onDutyCount === 0 && todayOrders.length > 0;
             if (!understaffed && !noStaff) return null;
@@ -1728,7 +1825,7 @@ function KitchenDashboardInner() {
               pickup card vanished silently and the chef saw blank
               space where the headline used to be - "did it crash?".
               Now they see a clear "no live pickups" reassurance. */}
-          {!loading && !nextPickup && orders.length === 0 && needsClosureOrders.length === 0 && (
+          {!loading && !loadError && !nextPickup && orders.length === 0 && needsClosureOrders.length === 0 && (
             <PortalCard padded={false} className="mb-4 sm:mb-6 border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
               <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
                 <div className="flex-1">
@@ -1890,9 +1987,12 @@ function KitchenDashboardInner() {
               <div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {upcoming.map((day) => {
-                    const d = new Date(day.date);
+                    // Local-midnight parse: bare new Date("YYYY-MM-DD")
+                    // is UTC midnight, which mislabels the day for
+                    // west-of-UTC tenants. Same trap as KIT2-G.
+                    const d = new Date(`${day.date}T00:00:00`);
                     const isTomorrow = d.toDateString() === new Date(Date.now() + 86400000).toDateString();
-                    const label = isTomorrow ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+                    const label = isTomorrow ? "Tomorrow" : d.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "short" });
                     return (
                       <div key={day.date} className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-3">
                         <div className="flex items-center justify-between mb-2">
@@ -1949,6 +2049,13 @@ function KitchenDashboardInner() {
                   ))}
                 </div>
               ) : orders.length === 0 ? (
+                loadError ? (
+                  // Don't claim "All caught up" when the load actually
+                  // failed; the Retry card at the top owns recovery.
+                  <p className="text-sm text-slate-500 dark:text-slate-400 py-10 text-center">
+                    The active orders board is unavailable right now. Use Retry at the top of the page to reload it.
+                  </p>
+                ) : (
                 <div className="text-center py-12 px-4">
                   <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
                     <CheckCircle className="w-6 h-6 text-slate-400 dark:text-slate-500" />
@@ -1958,6 +2065,7 @@ function KitchenDashboardInner() {
                     No live orders right now. Orders show up here automatically once the admin confirms a quote. Use the breather to deep-clean or restock.
                   </p>
                 </div>
+                )
               ) : (() => {
                 const byStatus: Record<string, Order[]> = {
                   confirmed: orders.filter(o => o.status === "confirmed"),
@@ -2256,10 +2364,7 @@ function KitchenDashboardInner() {
               })()}
             </div>
           </PortalCard>
-        </PortalShell>
-
-        <Footer />
-      </div>
+      </KitchenPageShell>
 
       {/* Wave 70.7c - service-mode FAB at bottom-left so a chef
           one-handed during service can reach the nav without
@@ -2458,7 +2563,7 @@ function KitchenDashboardInner() {
             {upcoming.map((day) => (
               <div key={day.date} style={{ marginBottom: "10pt", pageBreakInside: "avoid" }}>
                 <p style={{ fontSize: "11pt", fontWeight: 700, marginBottom: "3pt", fontFamily: "sans-serif" }}>
-                  {new Date(day.date).toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })}
+                  {new Date(`${day.date}T00:00:00`).toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })}
                   {" - "}
                   <span style={{ fontWeight: 400, color: "#475569" }}>
                     {day.orders} {day.orders === 1 ? "order" : "orders"} / {day.guests} guests
@@ -2552,8 +2657,24 @@ function KitchenDashboardInner() {
 }
 
 export default function KitchenDashboard() {
+  // Command-centre restructure (2026-07-02): full admin tier admitted.
+  // Middleware already lets admin roles into /team-portal/kitchen for
+  // view-switching / support; the page-level gate previously bounced
+  // super_admin / company_admin / owner / region_admin with a 403-style
+  // redirect even though the body already special-cases them
+  // (canSeeAdminOrderDetail).
   return (
-    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.COMPANY_ADMIN,
+        UserRole.OWNER,
+        UserRole.ADMIN,
+        UserRole.REGION_ADMIN,
+      ]}
+    >
       <KitchenDashboardInner />
     </ProtectedRoute>
   );

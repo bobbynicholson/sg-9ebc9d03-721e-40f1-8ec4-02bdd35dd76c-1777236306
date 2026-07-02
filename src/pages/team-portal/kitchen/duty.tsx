@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import Head from "next/head";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,12 +6,12 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, Banknote, Activity, MessageSquareText, Check, Calendar as CalendarIcon, Wallet, ChevronRight, Lock, UserCheck, RefreshCw } from "lucide-react";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
@@ -20,9 +19,7 @@ import { canSeeOtherStaffPay } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
-import { PortalShell, PortalHeader, PortalCard, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
+import { PortalCard, StatTile } from "@/components/portal/ui";
 
 interface Shift {
   id: string;
@@ -82,6 +79,24 @@ function KitchenDutyRosterPageInner() {
   const [staff, setStaff] = useState<Record<string, Profile>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Command-centre restructure (2026-07-02): core-load failures now
+  // surface as a Retry recovery card instead of a silently empty
+  // "Quiet kitchen" (the old queries never destructured `error`, so a
+  // 400/RLS failure rendered exactly like a genuinely empty floor).
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Secondary panels degrade independently: a failed hand-off or
+  // performance fetch shows an inline error in its own card rather
+  // than pretending "no notes yet".
+  const [handoffsError, setHandoffsError] = useState(false);
+  const [perfError, setPerfError] = useState(false);
+  // Ref-based double-submit latch for clock-in. The `saving` state
+  // alone leaves a gap between the second tap and the re-render that
+  // disables the button; two taps in that gap used to be able to
+  // insert two open shifts.
+  const clockInInFlight = useRef(false);
+  // Earnings + payroll burn were hardcoded "R"; a non-ZAR tenant's
+  // kitchen saw the wrong symbol. Same hook the driver portal uses.
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
 
   const [endingShift, setEndingShift] = useState<Shift | null>(null);
   const [handoffNotes, setHandoffNotes] = useState("");
@@ -167,23 +182,34 @@ function KitchenDutyRosterPageInner() {
   const load = useCallback(async () => {
     if (!user?.company_id) return;
     setLoading(true);
+    setLoadError(null);
     try {
-      const { data: activeShifts } = await supabase
+      const { data: activeShifts, error: activeErr } = await supabase
         .from("kitchen_duty_shifts")
         .select("*")
         .eq("company_id", user.company_id)
         .eq("is_active", true)
         .order("shift_start", { ascending: false })
         .returns<Shift[]>();
+      if (activeErr) throw activeErr;
 
-      const { data: recentShifts } = await supabase
+      // Data-consistency fix (2026-07-02): the recent fetch used to be
+      // "last 20 ever". The "This week" stat summed over those 20 rows,
+      // so any kitchen with more than 20 finished shifts this week
+      // silently under-reported weekly hours. Fetch the full 7-day
+      // window (covers the Sunday-start week the stat uses) so the
+      // tiles and the grouped list walk the same complete array.
+      const weekAgoIso = new Date(Date.now() - 7 * 86400000).toISOString();
+      const { data: recentShifts, error: recentErr } = await supabase
         .from("kitchen_duty_shifts")
         .select("*")
         .eq("company_id", user.company_id)
         .eq("is_active", false)
+        .gte("shift_end", weekAgoIso)
         .order("shift_end", { ascending: false })
-        .limit(20)
+        .limit(200)
         .returns<Shift[]>();
+      if (recentErr) throw recentErr;
 
       setActive(activeShifts || []);
       setRecent(recentShifts || []);
@@ -197,11 +223,12 @@ function KitchenDutyRosterPageInner() {
         // see every teammate's name + role for the live floor / recent
         // shifts / handoff author rendering, but never their pay rate
         // through this map.
-        const { data: profiles } = await supabase
+        const { data: profiles, error: profilesErr } = await supabase
           .from("profiles")
           .select("id, full_name, email, role")
           .in("id", Array.from(ids))
           .returns<Profile[]>();
+        if (profilesErr) throw profilesErr;
         const map: Record<string, Profile> = {};
         (profiles || []).forEach((p) => { map[p.id] = p; });
         setStaff(map);
@@ -243,18 +270,20 @@ function KitchenDutyRosterPageInner() {
         }
       }
 
-      // Pull tenant kitchen settings for overtime / break thresholds
+      // Pull tenant kitchen settings for overtime / break thresholds.
+      // Fix (2026-07-02): this used to read companies.kitchen_settings
+      // raw and look up camelCase keys (ks.overtimeAfterHours), but the
+      // JSON is stored snake_case (overtime_after_hours, saved by
+      // /admin/kitchen-settings). Every lookup missed, so the page
+      // always ran on the 9h/90min/5h defaults and silently ignored
+      // whatever the tenant had actually configured. Go through the
+      // service, which owns the snake_case -> camelCase mapping.
       try {
-        const { data: company } = await supabase
-          .from("companies")
-          .select("kitchen_settings")
-          .eq("id", user.company_id)
-          .maybeSingle();
-        const ks: any = company?.kitchen_settings || {};
+        const ks = await kitchenPrepService.getKitchenSettings(user.company_id);
         setSettings({
-          overtimeAfterHours: Number(ks.overtimeAfterHours ?? 9),
-          maxHotHoldMin: Number(ks.maxHotHoldMin ?? 90),
-          mealBreakAfterHours: Number(ks.mealBreakAfterHours ?? 5),
+          overtimeAfterHours: ks.overtimeAfterHours,
+          maxHotHoldMin: ks.maxHotHoldMin,
+          mealBreakAfterHours: ks.mealBreakAfterHours,
         });
       } catch (sErr) {
         captureException(sErr, { tags: { route: ROUTE, step: "loadKitchenSettings", companyId: user.company_id  } });
@@ -270,7 +299,10 @@ function KitchenDutyRosterPageInner() {
           to.toISOString(),
         );
         setChefPerf(perf);
+        setPerfError(false);
       } catch (perfErr) {
+        // Inline card error, not a fake "leaderboard is empty".
+        setPerfError(true);
         captureException(perfErr, { tags: { route: ROUTE, step: "loadChefPerformance", companyId: user.company_id  } });
       }
 
@@ -301,7 +333,13 @@ function KitchenDutyRosterPageInner() {
         // (or other shift_type) row today would crash maybeSingle()
         // with a "more than one row" error after Wave 41 unified the
         // table.
-        const { data: rosterRow } = await (supabase as any)
+        // Fix (2026-07-02): even scoped, TWO kitchen rows on one day
+        // are legal (split morning + evening shift). maybeSingle()
+        // errors on >1 row - and because supabase returns rather than
+        // throws, the old code silently dropped the roster line AND
+        // clock-in stopped stamping actual_start. Fetch the day's rows
+        // and prefer the first shift that hasn't ended yet.
+        const { data: rosterRows, error: rosterQueryErr } = await (supabase as any)
           .from("kitchen_shifts")
           .select("id, planned_start, planned_end, actual_start, actual_end, status")
           .eq("company_id", user.company_id)
@@ -309,8 +347,10 @@ function KitchenDutyRosterPageInner() {
           .eq("shift_date", todayIso)
           .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
           .is("deleted_at", null)
-          .maybeSingle();
-        setMyRoster(rosterRow || null);
+          .order("planned_start", { ascending: true, nullsFirst: false });
+        if (rosterQueryErr) throw rosterQueryErr;
+        const rows = (rosterRows || []) as RosteredShift[];
+        setMyRoster(rows.find((r) => !r.actual_end) ?? rows[0] ?? null);
       } catch (rosterErr) {
         captureException(rosterErr, { tags: { route: ROUTE, step: "loadRoster", companyId: user.company_id  } });
       }
@@ -319,19 +359,27 @@ function KitchenDutyRosterPageInner() {
       // tenant. Tight cap of 12 - the relevant ones are always at
       // the top, older notes belong in audit not the floor view.
       try {
-        const { data: hoData } = await supabase
+        const { data: hoData, error: hoErr2 } = await supabase
           .from("kitchen_handoffs")
           .select("id, company_id, author_id, shift_id, body, acknowledged_at, acknowledged_by, created_at")
           .eq("company_id", user.company_id)
           .order("created_at", { ascending: false })
           .limit(12)
           .returns<Handoff[]>();
+        if (hoErr2) throw hoErr2;
         setHandoffs(hoData || []);
+        setHandoffsError(false);
         // Backfill the staff lookup so author names render.
         // KIT3-F: same team-safe shape (no hourly_rate). The handoff
         // author dropdown is a name + role lookup, nothing more.
+        // Also include acknowledged_by ids so "Acknowledged by X"
+        // renders a name even when the acker never appears in the
+        // shift lists (e.g. an office admin acked from a quiet day).
         const authorIds = new Set<string>();
-        (hoData || []).forEach((h) => { if (h.author_id) authorIds.add(h.author_id); });
+        (hoData || []).forEach((h) => {
+          if (h.author_id) authorIds.add(h.author_id);
+          if (h.acknowledged_by) authorIds.add(h.acknowledged_by);
+        });
         const newIds = [...authorIds].filter((id) => !staff[id]);
         if (newIds.length > 0) {
           const { data: extraProfiles } = await supabase
@@ -348,12 +396,13 @@ function KitchenDutyRosterPageInner() {
           }
         }
       } catch (hoErr) {
+        setHandoffsError(true);
         captureException(hoErr, { tags: { route: ROUTE, step: "loadHandoffs", companyId: user.company_id  } });
       }
       setLastLoadedAt(new Date());
-    } catch (e) {
+    } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "loadDutyRoster", companyId: user.company_id  } });
-      toast({ title: "Could not load duty roster", variant: "destructive" });
+      setLoadError(e?.message || "We couldn't load the duty roster. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -378,8 +427,11 @@ function KitchenDutyRosterPageInner() {
       if (reloadTimer.current) clearTimeout(reloadTimer.current);
       reloadTimer.current = setTimeout(() => { load(); }, 400);
     };
+    // Unique per-mount suffix (standing realtime rule): a fixed
+    // channel name shared by two mounts/tabs makes removeChannel from
+    // one unsubscribe the other.
     const channel = supabase
-      .channel(`duty-roster:${user.company_id}`)
+      .channel(`duty-roster:${user.company_id}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${user.company_id}` },
         trigger,
@@ -462,7 +514,7 @@ function KitchenDutyRosterPageInner() {
     (async () => {
       try {
         const todayIso = toLocalISO(new Date());
-        const { data } = await (supabase as any)
+        const { data, error: covErr } = await (supabase as any)
           .from("kitchen_shifts")
           .select("id, actual_start")
           .eq("company_id", user.company_id)
@@ -470,6 +522,13 @@ function KitchenDutyRosterPageInner() {
           .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
           .is("deleted_at", null);
         if (cancelled) return;
+        // A failed query must not masquerade as "0 rostered" - the
+        // empty state uses that number to claim nobody's on the
+        // schedule today. Hide the chip instead.
+        if (covErr) {
+          setRosterCoverage(null);
+          throw covErr;
+        }
         const rows = (data || []) as Array<{ id: string; actual_start: string | null }>;
         setRosterCoverage({
           rostered: rows.length,
@@ -521,8 +580,32 @@ function KitchenDutyRosterPageInner() {
 
   const startShift = async () => {
     if (!user?.id || !user?.company_id) return;
+    // Ref latch: two taps before the disabled re-render lands used to
+    // race two inserts through (state updates are async, `saving`
+    // alone can't close that window).
+    if (clockInInFlight.current) return;
+    clockInInFlight.current = true;
     setSaving(true);
     try {
+      // Stale-open-shift guard: if this chef already has an active
+      // shift (opened in another tab, or local state is stale because
+      // the loader hasn't caught up), inserting again would put two
+      // open shifts on the floor and double their live hours. Check
+      // the server, not `myActiveShift`.
+      const { data: existing, error: existErr } = await supabase
+        .from("kitchen_duty_shifts")
+        .select("id")
+        .eq("company_id", user.company_id)
+        .eq("staff_id", user.id)
+        .eq("is_active", true)
+        .limit(1);
+      if (existErr) throw existErr;
+      if ((existing || []).length > 0) {
+        toast({ title: "Already clocked in", description: "You have an open shift. Refreshing the floor view." });
+        await load();
+        return;
+      }
+
       const nowIso = new Date().toISOString();
       const { data: insertedShift, error } = await supabase
         .from("kitchen_duty_shifts")
@@ -541,19 +624,20 @@ function KitchenDutyRosterPageInner() {
       // Wave 36.1: if today's roster exists for this chef, stamp
       // actual_start + flip status to 'active' + back-link to the
       // duty shift row. Best-effort - a missed roster shouldn't
-      // block clock-in (walk-in shifts are valid too).
+      // block clock-in (walk-in shifts are valid too). Supabase
+      // returns errors rather than throwing, so check the result
+      // explicitly (the old try/catch here could never fire).
       if (myRoster && myRoster.id && insertedShift) {
-        try {
-          await (supabase as any)
-            .from("kitchen_shifts")
-            .update({
-              actual_start: nowIso,
-              status: "active",
-              duty_shift_id: (insertedShift as any).id,
-            })
-            .eq("id", myRoster.id)
-            .eq("company_id", user.company_id);
-        } catch (rosterErr) {
+        const { error: rosterErr } = await (supabase as any)
+          .from("kitchen_shifts")
+          .update({
+            actual_start: nowIso,
+            status: "active",
+            duty_shift_id: (insertedShift as any).id,
+          })
+          .eq("id", myRoster.id)
+          .eq("company_id", user.company_id);
+        if (rosterErr) {
           console.warn("Could not stamp roster actual_start (non-blocking):", rosterErr);
         }
       }
@@ -562,6 +646,7 @@ function KitchenDutyRosterPageInner() {
     } catch (e: any) {
       toast({ title: "Could not clock in", description: e?.message ?? "Unknown error", variant: "destructive" });
     } finally {
+      clockInInFlight.current = false;
       setSaving(false);
     }
   };
@@ -573,16 +658,31 @@ function KitchenDutyRosterPageInner() {
 
   const confirmEndShift = async () => {
     if (!endingShift) return;
+    if (saving) return;
     setSaving(true);
     try {
       const nowIso = new Date().toISOString();
+      // Fix (2026-07-02): clocking out mid-break used to leave the
+      // open break dangling - break_started_at stayed set on the
+      // closed row and its minutes never landed in total_break_min,
+      // so the whole final break counted as paid worked time in every
+      // duration/earnings calc. Fold it into the close.
+      const closingBreakMin = endingShift.break_started_at
+        ? Math.max(0, Math.floor((Date.now() - new Date(endingShift.break_started_at).getTime()) / 60_000))
+        : 0;
       let endShiftQuery = supabase
         .from("kitchen_duty_shifts")
         .update({
           is_active: false,
           shift_end: nowIso,
           updated_at: nowIso,
-        })
+          ...(endingShift.break_started_at
+            ? {
+                break_started_at: null,
+                total_break_min: (endingShift.total_break_min || 0) + closingBreakMin,
+              }
+            : {}),
+        } as never)
         .eq("id", endingShift.id);
       if (user?.company_id) {
         endShiftQuery = endShiftQuery.eq("company_id", user.company_id);
@@ -593,19 +693,20 @@ function KitchenDutyRosterPageInner() {
       // Wave 36.1: stamp roster actual_end + flip status to
       // 'completed'. Match by duty_shift_id (set on clock-in) when
       // possible, otherwise fall back to today's roster row.
+      // Best-effort, but check the returned error - supabase doesn't
+      // throw, so the old try/catch was dead code.
       if (user?.id && user?.company_id) {
-        try {
-          let q = (supabase as any)
-            .from("kitchen_shifts")
-            .update({ actual_end: nowIso, status: "completed" });
-          if (myRoster?.id) {
-            q = q.eq("id", myRoster.id);
-          } else {
-            q = q.eq("duty_shift_id", endingShift.id);
-          }
-          q = q.eq("company_id", user.company_id);
-          await q;
-        } catch (rosterErr) {
+        let q = (supabase as any)
+          .from("kitchen_shifts")
+          .update({ actual_end: nowIso, status: "completed" });
+        if (myRoster?.id) {
+          q = q.eq("id", myRoster.id);
+        } else {
+          q = q.eq("duty_shift_id", endingShift.id);
+        }
+        q = q.eq("company_id", user.company_id);
+        const { error: rosterErr } = await q;
+        if (rosterErr) {
           console.warn("Could not stamp roster actual_end (non-blocking):", rosterErr);
         }
       }
@@ -613,33 +714,46 @@ function KitchenDutyRosterPageInner() {
       // Phase 1: hand-off notes ALWAYS save now. The previous flow silently
       // dropped them when the shift had no order_id (the common case). They
       // go to kitchen_handoffs so anyone starting the next shift sees them.
-      if (handoffNotes.trim() && user?.id && user.company_id) {
-        try {
-          await supabase.from("kitchen_handoffs").insert([{
-            company_id: user.company_id,
-            author_id: user.id,
-            shift_id: endingShift.id,
-            body: handoffNotes.trim(),
-          }] as never);
-
+      const noteText = handoffNotes.trim();
+      let noteSaved = false;
+      if (noteText && user?.id && user.company_id) {
+        const { error: hErr } = await supabase.from("kitchen_handoffs").insert([{
+          company_id: user.company_id,
+          author_id: user.id,
+          shift_id: endingShift.id,
+          body: noteText,
+        }] as never);
+        if (hErr) {
+          console.warn("Could not save hand-off note:", hErr);
+        } else {
+          noteSaved = true;
           // Also keep a per-order task_completions row when an order_id exists
           // (preserves the existing audit trail surface that admin views)
           if (endingShift.order_id) {
-            await supabase.from("kitchen_task_completions").insert([{
+            const { error: tcErr } = await supabase.from("kitchen_task_completions").insert([{
               order_id: endingShift.order_id,
               completed_by: user.id,
               user_id: user.id,
               staff_id: user.id,
               task_type: "handoff",
-              notes: handoffNotes.trim(),
+              notes: noteText,
               completed_at: new Date().toISOString(),
             }] as never);
+            if (tcErr) console.warn("Could not mirror hand-off to task completions:", tcErr);
           }
-        } catch (handoffErr) {
-          console.warn("Could not save hand-off note:", handoffErr);
         }
       }
-      toast({ title: "Clocked out", description: "Hand-off note saved." });
+      // Honest toast: the old copy always claimed "Hand-off note
+      // saved." even with an empty note box or a failed insert.
+      if (noteText && !noteSaved) {
+        toast({
+          title: "Clocked out",
+          description: "Your shift ended, but the hand-off note didn't save. Please pass it on directly.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Clocked out", description: noteSaved ? "Hand-off note saved." : "Enjoy the rest of your day." });
+      }
       setEndingShift(null);
       setHandoffNotes("");
       load();
@@ -653,6 +767,7 @@ function KitchenDutyRosterPageInner() {
   // Phase 4: break toggle. Pure pass-through to the service so the timestamp
   // bookkeeping stays in one place.
   const handleToggleBreak = async (shift: Shift) => {
+    if (saving) return;
     setSaving(true);
     try {
       if (shift.break_started_at) {
@@ -677,7 +792,11 @@ function KitchenDutyRosterPageInner() {
     if (!user?.id || !user?.company_id) return;
     setAcking(handoffId);
     try {
-      await supabase
+      // Supabase returns errors, it doesn't throw - the old code
+      // showed "Got it" and flipped the row locally even when the
+      // update failed (the note then bounced back unacked on the next
+      // realtime reload). Check the result before touching state.
+      const { error: ackErr } = await supabase
         .from("kitchen_handoffs")
         .update({
           acknowledged_at: new Date().toISOString(),
@@ -685,6 +804,7 @@ function KitchenDutyRosterPageInner() {
         } as never)
         .eq("id", handoffId)
         .eq("company_id", user.company_id);
+      if (ackErr) throw ackErr;
       // Optimistic local update so the button flips without a full reload.
       setHandoffs((prev) =>
         prev.map((h) =>
@@ -720,91 +840,161 @@ function KitchenDutyRosterPageInner() {
     return `${h}h ${m}m`;
   };
 
+  // Hero band context: KitchenPageShell paints the command-centre
+  // chrome; chips only render once the core load finished without
+  // error so a failed fetch can never masquerade as "0 on duty".
+  const todayLabel = new Date().toLocaleDateString("en-ZA", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const unackedCount = handoffs.filter((h) => !h.acknowledged_at).length;
+  const loadedClean = !loading && !loadError;
+
   return (
     <>
-      <Head><title>Kitchen duty - CateringMS</title></Head>
-      <NoIndexMeta />
-      <KitchenNav />
-      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          {/* Wave 35: header restyle. Neutral icon tile (PortalHeader),
-              live "X on duty" pulse pill that animates when anyone is
-              clocked in, plus an as-of chip + manual refresh. */}
-          <PortalHeader
-            title="Kitchen duty"
-            subtitle="Live floor, hand-off notes, performance"
-            icon={Users}
-            actions={
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* KIT3-F: as-of chip + refresh. Realtime keeps the page
-                    fresh automatically but a manual force-refresh helps
-                    when an admin wants to confirm "yes, this is the
-                    current state right now". */}
-                {lastLoadedAt && (
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
-                    As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => load()}
-                  disabled={loading}
-                  className="h-8"
-                  title="Refresh"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                </Button>
-                <div
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-medium ${
-                    active.length > 0
-                      ? "bg-brand-primary/10 border-brand-primary/20 text-brand-primary dark:bg-brand-primary/15 dark:border-brand-primary/30"
-                      : "bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"
-                  }`}
-                  title={active.length > 0 ? "Live - updates as the team clocks in" : "Nobody on shift"}
-                >
-                  <span className="relative flex h-2.5 w-2.5">
-                    {active.length > 0 && (
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-primary opacity-75 motion-reduce:hidden"></span>
-                    )}
-                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${active.length > 0 ? "bg-brand-primary" : "bg-slate-400"}`}></span>
-                  </span>
-                  {active.length > 0 ? `${active.length} on duty now` : "Nobody on duty"}
-                </div>
-              </div>
-            }
-          />
-          <PageWorkbench />
-
+      <KitchenPageShell
+        pageTitle="Kitchen duty - CateringMS"
+        heading="Kitchen duty"
+        subheading={
+          loadError
+            ? todayLabel
+            : loading
+              ? `${todayLabel}. Loading the live floor...`
+              : active.length > 0
+                ? `${todayLabel}. ${active.length} on duty right now, ${teamStats.hoursToday}h clocked today.`
+                : `${todayLabel}. Nobody is clocked in right now.`
+        }
+        icon={Users}
+        width="wide"
+        headerAction={
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* KIT3-F: as-of chip + refresh. Realtime keeps the page
+                fresh automatically but a manual force-refresh helps
+                when an admin wants to confirm "yes, this is the
+                current state right now". */}
+            {lastLoadedAt && (
+              <span className="text-[11px] text-white/70 tabular-nums hidden sm:inline" title={lastLoadedAt.toLocaleString("en-ZA")}>
+                As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => load()}
+              disabled={loading}
+              className="gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+        }
+        meta={
+          loadedClean ? (
+            <>
+              <span className={KITCHEN_HERO_CHIP} title={active.length > 0 ? "Live - updates as the team clocks in" : "Nobody on shift"}>
+                <span className="relative flex h-1.5 w-1.5">
+                  {active.length > 0 && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden"></span>
+                  )}
+                  <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${active.length > 0 ? "bg-emerald-400" : "bg-white/40"}`}></span>
+                </span>
+                {active.length > 0 ? `${active.length} on duty now` : "Nobody on duty"}
+              </span>
+              <span className={KITCHEN_HERO_CHIP}>
+                <Clock className="h-3 w-3" />
+                {teamStats.hoursToday}h clocked today
+              </span>
+              <span className={KITCHEN_HERO_CHIP}>
+                <ChefHat className="h-3 w-3" />
+                {myActiveShift
+                  ? myActiveShift.break_started_at
+                    ? "You're on break"
+                    : "You're on shift"
+                  : "You're not clocked in"}
+              </span>
+              {unackedCount > 0 && (
+                <span className={KITCHEN_HERO_CHIP}>
+                  <MessageSquareText className="h-3 w-3" />
+                  {unackedCount} unread hand-off {unackedCount === 1 ? "note" : "notes"}
+                </span>
+              )}
+            </>
+          ) : undefined
+        }
+      >
+        {loadError ? (
+          /* Recovery card: the core shift queries failed. The old page
+             swallowed this and rendered a convincing "Quiet kitchen"
+             with a live Clock in button on top of unknown state. */
+          <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm dark:border-rose-900 dark:bg-slate-900">
+            <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load the duty roster</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+            <Button
+              size="sm"
+              onClick={() => void load()}
+              disabled={loading}
+              className="bg-brand-primary hover:opacity-90 text-white"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        ) : (
+        <>
           {/* Wave 35: team-stat strip. Four headline numbers derived
               from existing data - no new queries. Hours-today ticks
-              live because the useMemo deps include `now`. */}
+              live because the useMemo deps include `now`. Skeletons
+              while loading so a not-yet-loaded 0 never renders. */}
+          {loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6" aria-busy="true" aria-label="Loading team stats">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-24 rounded-xl border border-slate-200 bg-white animate-pulse dark:border-slate-800 dark:bg-slate-900" />
+              ))}
+            </div>
+          ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             <StatTile
               label="On duty now"
               icon={Activity}
               value={<span className="text-brand-primary">{teamStats.onDutyNow}</span>}
+              hint="Clocked in right now"
             />
             <StatTile
               label="Hours today"
               icon={Clock}
               value={<>{teamStats.hoursToday}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></>}
+              hint="Worked minutes across the team, breaks excluded"
             />
             <StatTile
               label="This week"
               icon={CalendarIcon}
               value={<>{teamStats.hoursThisWeek}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></>}
+              hint="Since Sunday, breaks excluded"
             />
             <StatTile
               label="Avg shift"
               icon={TrendingUp}
               value={<>{teamStats.avgShiftHours || "-"}<span className="text-sm font-normal text-slate-500 ml-0.5">h</span></>}
+              hint="Average finished shift, last 7 days"
             />
           </div>
+          )}
 
           {/* Phase 4: live earnings + overtime + break panel. Numbers tick
               every 30s without any DB hit, pure math off the shift row. */}
           {(() => {
+            // While the core load is in flight we don't know whether
+            // this chef has an open shift; rendering "Not clocked in"
+            // plus a live Clock in button here was a first-mount race.
+            // Keep the #clock anchor mounted so the nav deep-link
+            // still lands in the right place.
+            if (loading) {
+              return (
+                <div id="clock" className="mb-6 scroll-mt-24 h-36 rounded-xl border border-slate-200 bg-white animate-pulse dark:border-slate-800 dark:bg-slate-900" aria-busy="true" aria-label="Loading your shift status" />
+              );
+            }
             // KIT3-F: earnings always come from `selfRate`. The wider
             // staff map no longer carries hourly_rate by design; using
             // it here would have been the data leak this audit closes.
@@ -834,7 +1024,9 @@ function KitchenDutyRosterPageInner() {
                       <div>
                         <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
                           Your status
-                          <InfoTooltip content="Live shift summary. Earnings show only if your hourly rate is set on your profile. Break time is excluded from worked hours.\n\nPrivate: your hourly rate and earnings are only visible to you and the catering office. No teammates see your pay on this page." />
+                          {/* JSX attribute strings don't process \n escapes -
+                              the old copy showed a literal backslash-n. */}
+                          <InfoTooltip content={"Live shift summary. Earnings show only if your hourly rate is set on your profile. Break time is excluded from worked hours.\n\nPrivate: your hourly rate and earnings are only visible to you and the catering office. No teammates see your pay on this page."} />
                           <span
                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 text-[10px] font-medium ml-1"
                             title="Pay numbers on this card are only visible to you"
@@ -859,7 +1051,11 @@ function KitchenDutyRosterPageInner() {
                           const [sh, sm] = (myRoster.planned_start || "0:0").split(":").map(Number);
                           const startedToday = new Date();
                           startedToday.setHours(sh || 0, sm || 0, 0, 0);
-                          const lateMin = !myActiveShift && !myRoster.actual_start
+                          // Guard: planned_start is expected as "HH:MM[:SS]".
+                          // If it ever arrives in another shape, Number()
+                          // gives NaN and the midnight fallback would fake a
+                          // huge lateness - skip the chip instead of lying.
+                          const lateMin = Number.isFinite(sh) && !myActiveShift && !myRoster.actual_start
                             ? Math.floor((Date.now() - startedToday.getTime()) / 60000)
                             : 0;
                           return (
@@ -942,7 +1138,7 @@ function KitchenDutyRosterPageInner() {
                           <Banknote className="h-2.5 w-2.5" />Earnings
                         </div>
                         <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tabular-nums">
-                          {earnings.earnings != null ? `R ${earnings.earnings.toFixed(2)}` : "Set rate"}
+                          {earnings.earnings != null ? tenantCurrency.format(earnings.earnings, 2) : "Set rate"}
                         </div>
                       </div>
                     </div>
@@ -994,9 +1190,9 @@ function KitchenDutyRosterPageInner() {
                       <InfoTooltip content="Combined rate of every staffer currently on shift, multiplied by their hourly rate. Aggregate only - per-person pay lives on /admin/wages and /admin/kitchen-settlement." />
                     </div>
                     <div className="text-sm font-semibold text-slate-900 dark:text-white">
-                      R {payrollBurn.perHour.toFixed(2)}/hr
+                      {tenantCurrency.format(payrollBurn.perHour, 2)}/hr
                       <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-xs">
-                        · R {payrollBurn.earnedToday.toFixed(2)} earned so far
+                        · {tenantCurrency.format(payrollBurn.earnedToday, 2)} earned so far
                       </span>
                     </div>
                   </div>
@@ -1151,6 +1347,18 @@ function KitchenDutyRosterPageInner() {
             <div>
               {loading ? (
                 <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
+              ) : handoffsError ? (
+                /* Inline recovery: a failed fetch must not read as
+                   "no notes yet" - a missed hand-off is a food-safety
+                   problem, not a cosmetic one. */
+                <div className="text-center py-10 px-4">
+                  <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Couldn&apos;t load hand-off notes</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-3">There may be notes from the previous shift you can&apos;t see right now.</p>
+                  <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                    Retry
+                  </Button>
+                </div>
               ) : handoffs.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
@@ -1221,12 +1429,23 @@ function KitchenDutyRosterPageInner() {
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Target className="w-4 h-4 text-slate-400 dark:text-slate-500" />
               This week's chefs
-              <InfoTooltip content="Rolling 7-day rollup of completed prep tasks by chef.\n\nOn-time = task completed within 5 minutes of its planned end (start_at + duration).\n\nYield variance = average % difference between planned and actual yield, only shows if your team logs actuals." />
+              <InfoTooltip content={"Rolling 7-day rollup of completed prep tasks by chef.\n\nOn-time = task completed within 5 minutes of its planned end (start_at + duration).\n\nYield variance = average % difference between planned and actual yield, only shows if your team logs actuals."} />
             </h2>
           </div>
           <PortalCard padded={false} className="mb-8">
             <div>
-              {chefPerf.length === 0 ? (
+              {loading ? (
+                <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
+              ) : perfError ? (
+                <div className="text-center py-10 px-4">
+                  <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Couldn&apos;t load chef performance</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-3">The rest of the page is unaffected.</p>
+                  <Button size="sm" variant="outline" onClick={() => void load()} disabled={loading}>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                    Retry
+                  </Button>
+                </div>
+              ) : chefPerf.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
                     <Target className="h-7 w-7 text-slate-400 dark:text-slate-500" />
@@ -1302,17 +1521,19 @@ function KitchenDutyRosterPageInner() {
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <CalendarIcon className="w-4 h-4 text-slate-600 dark:text-slate-400" />
               Recent shifts
-              <InfoTooltip content="The last 20 shifts that have ended, newest first, grouped by day." />
+              <InfoTooltip content="Shifts that ended in the last 7 days, newest first, grouped by day. The same window the stat tiles above sum over." />
             </h2>
           </div>
           <PortalCard padded={false}>
             <div>
-              {recent.length === 0 ? (
+              {loading ? (
+                <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
+              ) : recent.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
                     <Clock className="h-7 w-7 text-slate-400 dark:text-slate-500" />
                   </div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No completed shifts yet</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">No shifts ended in the last 7 days</p>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">As chefs clock out, their finished shifts will land here.</p>
                 </div>
               ) : (
@@ -1361,8 +1582,9 @@ function KitchenDutyRosterPageInner() {
               )}
             </div>
           </PortalCard>
-        </PortalShell>
-      </main>
+        </>
+        )}
+      </KitchenPageShell>
 
       {/* Wave 36.3: payslip history dialog. Read-only - the chef
           sees what the catering company has issued for them. New
@@ -1383,18 +1605,18 @@ function KitchenDutyRosterPageInner() {
               No payslips on file yet. They'll appear here as soon as the office issues one.
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
               {myPayslips.map((ps) => {
                 const periodLabel = `${new Date(ps.period_start).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${new Date(ps.period_end).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
                 const tone =
                   ps.status === "paid" ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" :
                   ps.status === "issued" ? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700" :
-                                           "bg-slate-100 text-slate-700 border-slate-200";
+                                           "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
                 return (
                   <li key={ps.id} className="py-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-slate-900">{periodLabel}</div>
-                      <div className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                      <div className="text-sm font-medium text-slate-900 dark:text-white">{periodLabel}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
                         {Number(ps.total_hours).toFixed(1)}h worked
                       </div>
                     </div>
@@ -1442,8 +1664,23 @@ function KitchenDutyRosterPageInner() {
 }
 
 export default function KitchenDutyRosterPage() {
+  // Command-centre restructure (2026-07-02): admit the full admin set.
+  // Middleware already lets admins into /team-portal/kitchen for
+  // view-switching / support, but this page's allowlist bounced
+  // super_admin / company_admin / owner / region_admin with a 403-style
+  // redirect the moment the client-side guard mounted.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.SUPER_ADMIN,
+        UserRole.COMPANY_ADMIN,
+        UserRole.OWNER,
+        UserRole.ADMIN,
+        UserRole.REGION_ADMIN,
+      ]}
+    >
       <KitchenDutyRosterPageInner />
     </ProtectedRoute>
   );

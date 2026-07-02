@@ -38,6 +38,7 @@ import {
 import Link from "next/link";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { canManageCleaningTeam, canManageKitchenTeam } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
@@ -101,6 +102,7 @@ export function KitchenStaffTileBoard({
   department?: string;
 } = {}) {
   const { user, profile, userRoles, activeRole } = useAuth() as any;
+  const { withSlug } = useTenantHref();
   const { toast } = useToast();
   // Wave 45 follow-up - fall back to profile.company_id when
   // user.company_id is undefined. AuthContext populates user.company_id
@@ -123,6 +125,11 @@ export function KitchenStaffTileBoard({
   const [staff, setStaff] = useState<KitchenStaffPublic[]>([]);
   const [openShifts, setOpenShifts] = useState<KitchenShift[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre restructure (2026-07-02): a failed staff load used
+  // to toast once and then render the "No staff yet" empty state - the
+  // chef would go chase the owner to "add staff" that already exist.
+  // Failures now render a recovery card with a Retry instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(new Date());
 
@@ -157,6 +164,7 @@ export function KitchenStaffTileBoard({
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const [s, sh] = await Promise.all([
         kitchenStaffService.listStaffPublic(companyId, { department }),
@@ -165,6 +173,7 @@ export function KitchenStaffTileBoard({
       setStaff(s);
       setOpenShifts(sh);
     } catch (e: any) {
+      setLoadError(e?.message || "We couldn't load the team board.");
       toast({ title: "Could not load staff", description: e?.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -240,6 +249,9 @@ export function KitchenStaffTileBoard({
   const handleConfirmClockIn = async () => {
     if (!openingTarget || !companyId) return;
     const { staff: s, capturedAt } = openingTarget;
+    // Double-tap guard: the dialog action can be hammered before the
+    // close animation lands, which would insert two open shifts.
+    if (busy.has(s.id)) return;
     setBusyFor(s.id, true);
     try {
       await kitchenStaffService.clockIn({
@@ -270,6 +282,7 @@ export function KitchenStaffTileBoard({
   const handleClockOut = async () => {
     if (!closingTarget) return;
     const { staff: s, shift: sh } = closingTarget;
+    if (busy.has(s.id)) return;
     setBusyFor(s.id, true);
     try {
       await kitchenStaffService.clockOut({
@@ -419,7 +432,10 @@ export function KitchenStaffTileBoard({
     : department === "shopping" ? "Shopping team"
     : department === "service" ? "Service team"
     : "Kitchen team";
-  const manageHref = `/admin/staff?department=${department}`;
+  // withSlug so a tenant user lands on /{slug}/admin/staff (Bobby's
+  // rule: every tenant page keeps the slug in the URL). Bare /admin
+  // links dropped the tenant prefix.
+  const manageHref = withSlug(`/admin/staff?department=${department}`);
 
   return (
     <Card className="border-0 shadow-md">
@@ -452,14 +468,24 @@ export function KitchenStaffTileBoard({
 
       <CardContent>
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-slate-500 text-sm">
+          <div className="flex items-center justify-center py-8 text-slate-500 dark:text-slate-400 text-sm">
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading team...
+          </div>
+        ) : loadError ? (
+          // Never show "No staff yet" for a failed load - that copy
+          // sends the chef off to add staff who already exist.
+          <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 text-center dark:border-rose-900 dark:bg-rose-950/30">
+            <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Couldn&apos;t load the team board</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{loadError}</p>
+            <Button size="sm" variant="outline" className="mt-3" onClick={() => void load()}>
+              Retry
+            </Button>
           </div>
         ) : staff.length === 0 ? (
           <div className="text-center py-8">
-            <ChefHat className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-700 font-medium">No staff yet</p>
-            <p className="text-sm text-slate-500 mt-1">
+            <ChefHat className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-700 dark:text-slate-200 font-medium">No staff yet</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               The owner needs to add {department === "cleaning" ? "cleaning" : department === "shopping" ? "shopping" : "kitchen"} staff before anyone can clock in.
             </p>
             {canManageThisBoard && (

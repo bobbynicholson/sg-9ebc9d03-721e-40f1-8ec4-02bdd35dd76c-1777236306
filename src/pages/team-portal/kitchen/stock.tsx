@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
-import Head from "next/head";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,13 +12,11 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Package, Search, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2, ShoppingCart, CheckCircle2 } from "lucide-react";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { Package, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2, ShoppingCart, CheckCircle2 } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { PortalShell, PortalHeader, PortalCard, StatTile,
-  PageWorkbench,
-} from "@/components/portal/ui";
-import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { PortalCard, StatTile } from "@/components/portal/ui";
+import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
+import { AdminSearchField } from "@/components/admin/AdminControlSurface";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +25,7 @@ import { kitchenPrepService, type IngredientDemand } from "@/services/kitchenPre
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { toLocalISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 import { UserRole } from "@/types/app";
 
 const ROUTE = "/team-portal/kitchen/stock";
@@ -40,14 +39,36 @@ type StockAction = "used" | "received" | "wasted" | "count";
 
 type SortKey = "name" | "status" | "location";
 
+// KS-C: ONE low-stock definition for every surface on this page (stat
+// tile, hero chip, push banner, filter, sort rank, row badge and
+// suggestion line). Pre-audit the page had three subtly different
+// formulas - the stat tile could say "3 below par" while the push
+// banner said "2 items below par" for the same array (items with no
+// par set and zero stock were counted by one and not the other).
+const stockOf = (i: Inventory) => Number(i.current_stock || 0);
+const parOf = (i: Inventory) => Number(i.minimum_stock || 0);
+const isOut = (i: Inventory) => stockOf(i) <= 0;
+// Below par when a par is set and stock is at/under it; items with no
+// par only count once they're fully out.
+const isBelowPar = (i: Inventory) => {
+  const m = parOf(i);
+  return m > 0 ? stockOf(i) <= m : stockOf(i) <= 0;
+};
+
 function KitchenStockPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const { withSlug } = useTenantHref();
 
   const [items, setItems] = useState<Inventory[]>([]);
   const [recipeLinkedIds, setRecipeLinkedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  // KS-C (command-centre restructure 2026-07-02): load failures now
+  // surface as a Retry card instead of a toast over a zeroed page. A
+  // chef mid-service must never mistake "load failed" for "all stock
+  // is fine".
+  const [loadError, setLoadError] = useState<string | null>(null);
   // KS-A: URL persistence on the filter chips so a chef can deep-link
   // "Below par + Produce" or "In recipes + Fridge 1" from the kitchen
   // notification banner / a saved tab.
@@ -79,19 +100,20 @@ function KitchenStockPageInner() {
   // shopping page and manually typed a list. Now they can convert
   // every below-par item into a shopping_lists row + line items
   // with one tap, with a 7-day horizon stamp so the shopping team
-  // knows the timeframe.
+  // knows the timeframe. The service itself notifies the shoppers.
   const [pushOpen, setPushOpen] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [pushResult, setPushResult] = useState<{ listId: string; itemCount: number } | null>(null);
 
-  const belowParItems = useMemo(
-    () => items.filter((i) => {
-      const s = Number(i.current_stock || 0);
-      const m = Number(i.minimum_stock || 0);
-      return m > 0 && s <= m;
-    }),
-    [items],
-  );
+  const belowParItems = useMemo(() => items.filter(isBelowPar), [items]);
+
+  // KS-C: at save time the dialog snapshot can be stale - realtime
+  // reloads keep `items` fresh while the dialog sits open during
+  // service, so we always act on the freshest row we hold for that id.
+  const liveUsingItem = useMemo(() => {
+    if (!usingItem) return null;
+    return items.find((x) => x.id === usingItem.id) ?? usingItem;
+  }, [usingItem, items]);
 
   const handlePushToShopping = async () => {
     if (!user?.company_id || !user?.id || belowParItems.length === 0) return;
@@ -102,8 +124,8 @@ function KitchenStockPageInner() {
       // clamped to >= 0. used_by is empty - this push is "fill the
       // pantry to par", not "buy for a specific order".
       const demand: IngredientDemand[] = belowParItems.map((i) => {
-        const stock = Number(i.current_stock || 0);
-        const min = Number(i.minimum_stock || 0);
+        const stock = stockOf(i);
+        const min = parOf(i);
         const max = Number(i.maximum_stock || 0);
         const reorderQty = Number(i.reorder_quantity || 0);
         const target = reorderQty > 0
@@ -172,8 +194,19 @@ function KitchenStockPageInner() {
 
   // KS-A: write URL back when filters change. Replace not push - users
   // don't want a back-button hit for every keystroke.
+  // KS-C: skip the first run after hydration. The hydration effect's
+  // setState calls haven't applied yet on that run, so writing here
+  // stripped the very params we just read (a ?below=1 deep link
+  // flickered to a bare URL for one frame; copying the link in that
+  // window lost the filter). The state updates re-fire this effect
+  // with the real values immediately after.
+  const firstWriteSkippedRef = useRef(false);
   useEffect(() => {
     if (!hydratedRef.current) return;
+    if (!firstWriteSkippedRef.current) {
+      firstWriteSkippedRef.current = true;
+      return;
+    }
     const q: Record<string, string> = {};
     if (search) q.q = search;
     if (category !== "all") q.cat = category;
@@ -196,23 +229,37 @@ function KitchenStockPageInner() {
   const load = useCallback(async () => {
     if (!user?.company_id) return;
     setLoading(true);
+    setLoadError(null);
     try {
-      // Cost-stripped getter so the chef's network response never carries
-      // rand values. Recipe-linked id set runs in parallel for the filter.
-      const [data, linked] = await Promise.all([
-        inventoryService.getInventoryPublic(user.company_id),
+      // KS-C: the main list queries inventory_items directly with the
+      // same cost-stripped column list inventoryService.getInventoryPublic
+      // uses, because that service swallows errors into an empty array -
+      // this page could not tell "no stock configured" from "load
+      // failed" and rendered comforting zeros on failure. RLS still
+      // scopes rows; the explicit select still keeps cost_per_unit off
+      // the chef's network response. The recipe-link set stays on the
+      // service and is best-effort: its failure quietly weakens the
+      // "In recipes" filter rather than erroring the whole page.
+      const [res, linked] = await Promise.all([
+        supabase
+          .from("inventory_items")
+          .select("id, company_id, item_name, category, sku, unit_of_measure, current_stock, minimum_stock, maximum_stock, reorder_quantity, storage_location, storage_instructions, is_perishable, shelf_life_days, region_id, created_at, updated_at, deleted_at, preferred_supplier_id, description")
+          .eq("company_id", user.company_id)
+          .is("deleted_at", null)
+          .order("item_name"),
         inventoryService.getInventoryIdsUsedInRecipes(user.company_id),
       ]);
-      setItems(data);
+      if (res.error) throw res.error;
+      setItems((res.data || []) as Inventory[]);
       setRecipeLinkedIds(linked);
       setLastLoadedAt(new Date());
-    } catch (e) {
+    } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "loadStock", companyId: user.company_id } });
-      toast({ title: "Could not load stock", variant: "destructive" });
+      setLoadError(e?.message || "We couldn't load the stock list.");
     } finally {
       setLoading(false);
     }
-  }, [user?.company_id, toast]);
+  }, [user?.company_id]);
 
   useEffect(() => {
     if (!user?.company_id) return;
@@ -223,6 +270,9 @@ function KitchenStockPageInner() {
   // receipt or admin tweaking a par level should reflect on the
   // chef's screen immediately, not after the next manual refresh.
   // Debounced 400ms in case a batch import fires N updates back-to-back.
+  // KS-C: per-mount channel suffix - a fixed name collides when the
+  // same chef has two tabs open (second subscribe on an identical
+  // topic can silently fail and the tab goes stale).
   const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!user?.company_id) return;
@@ -231,7 +281,7 @@ function KitchenStockPageInner() {
       reloadTimer.current = setTimeout(() => { load(); }, 400);
     };
     const channel = supabase
-      .channel(`kitchen-stock:${user.company_id}`)
+      .channel(`kitchen-stock:${user.company_id}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${user.company_id}` },
         trigger,
@@ -263,11 +313,7 @@ function KitchenStockPageInner() {
       if (category !== "all" && i.category !== category) return false;
       if (storage !== "all" && i.storage_location !== storage) return false;
       if (recipeLinkedOnly && !recipeLinkedIds.has(i.id)) return false;
-      if (belowParOnly) {
-        const stock = Number(i.current_stock || 0);
-        const min = Number(i.minimum_stock || 0);
-        if (stock > min) return false;
-      }
+      if (belowParOnly && !isBelowPar(i)) return false;
       return true;
     });
   }, [items, category, storage, belowParOnly, recipeLinkedOnly, recipeLinkedIds]);
@@ -294,11 +340,9 @@ function KitchenStockPageInner() {
     const arr = [...fuzzied];
     if (sortKey === "status") {
       const rank = (i: Inventory) => {
-        const s = Number(i.current_stock || 0);
-        const m = Number(i.minimum_stock || 0);
-        if (s <= 0) return 0;        // out
-        if (s <= m) return 1;        // below par
-        return 2;                     // ok
+        if (isOut(i)) return 0;      // out
+        if (isBelowPar(i)) return 1; // below par
+        return 2;                    // ok
       };
       arr.sort((a, b) => {
         const r = rank(a) - rank(b);
@@ -317,10 +361,13 @@ function KitchenStockPageInner() {
     return arr;
   }, [fuzzied, sortKey]);
 
+  // KS-C: every count on the page (chips, tiles, banner) derives from
+  // the same `items` array via the same predicates. No separate count
+  // queries that could drift.
   const stats = useMemo(() => {
     const total = items.length;
-    const below = items.filter((i) => Number(i.current_stock || 0) <= Number(i.minimum_stock || 0)).length;
-    const out = items.filter((i) => Number(i.current_stock || 0) <= 0).length;
+    const below = items.filter(isBelowPar).length;
+    const out = items.filter(isOut).length;
     const inRecipes = items.filter((i) => recipeLinkedIds.has(i.id)).length;
     return { total, below, out, inRecipes };
   }, [items, recipeLinkedIds]);
@@ -339,7 +386,7 @@ function KitchenStockPageInner() {
   // "adjustment" since the enum has no dedicated "receipt" - shopping
   // logs proper purchase_receipts, kitchen logs are inline corrections.
   const resolveAction = (item: Inventory, act: StockAction, qty: number) => {
-    const current = Number(item.current_stock || 0);
+    const current = stockOf(item);
     if (act === "used") {
       return {
         newStock: Math.max(0, current - qty),
@@ -374,7 +421,12 @@ function KitchenStockPageInner() {
   };
 
   const saveUsage = async () => {
-    if (!usingItem || !user?.id) return;
+    // KS-C: act on the live row, not the snapshot taken when the dialog
+    // opened. A dialog left open through a realtime refresh (teammate
+    // logs a receipt) used to compute the absolute new stock off the
+    // stale figure and silently erase the teammate's change.
+    const target = liveUsingItem;
+    if (!target || !user?.id || saving) return;
     const qty = Number(usedQty);
     if (Number.isNaN(qty) || qty < 0 || (action !== "count" && qty <= 0)) {
       toast({
@@ -383,20 +435,20 @@ function KitchenStockPageInner() {
       });
       return;
     }
-    const current = Number(usingItem.current_stock || 0);
+    const current = stockOf(target);
     // Soft guard: warn but don't block - chef may know better. Negative
     // stock is already clamped to 0 in resolveAction.
     if ((action === "used" || action === "wasted") && qty > current) {
       const proceed = window.confirm(
-        `You only have ${current} ${usingItem.unit_of_measure} on hand. Continue and clamp to 0?`,
+        `You only have ${current} ${target.unit_of_measure} on hand. Continue and clamp to 0?`,
       );
       if (!proceed) return;
     }
-    const { newStock, type, defaultNote, delta } = resolveAction(usingItem, action, qty);
+    const { newStock, type, defaultNote, delta } = resolveAction(target, action, qty);
     setSaving(true);
     try {
       await inventoryService.adjustStock(
-        usingItem.id,
+        target.id,
         newStock,
         user.id,
         usedNotes || defaultNote,
@@ -406,7 +458,7 @@ function KitchenStockPageInner() {
       const sign = delta > 0 ? "+" : "";
       toast({
         title: action === "received" ? "Stock received" : action === "wasted" ? "Waste logged" : action === "count" ? "Count saved" : "Usage logged",
-        description: `${usingItem.item_name}: ${sign}${delta} ${usingItem.unit_of_measure} (now ${newStock})`,
+        description: `${target.item_name}: ${sign}${delta} ${target.unit_of_measure} (now ${newStock})`,
       });
       closeUse();
       // No need to call load() - realtime sub will pick it up. Keep
@@ -422,171 +474,238 @@ function KitchenStockPageInner() {
   };
 
   const tone = (i: Inventory) => {
-    const s = Number(i.current_stock || 0);
-    const m = Number(i.minimum_stock || 0);
-    if (s <= 0) return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-200 dark:border-rose-800";
-    if (s <= m) return "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/20 dark:text-rose-300 dark:border-rose-900";
+    if (isOut(i)) return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-200 dark:border-rose-800";
+    if (isBelowPar(i)) return "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/20 dark:text-rose-300 dark:border-rose-900";
     return "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
   };
   const label = (i: Inventory) => {
-    const s = Number(i.current_stock || 0);
-    const m = Number(i.minimum_stock || 0);
-    if (s <= 0) return "Out";
-    if (s <= m) return "Below par";
+    if (isOut(i)) return "Out";
+    if (isBelowPar(i)) return "Below par";
     return "OK";
   };
 
+  // Chips/subheading only speak once the list has loaded without error
+  // (command-centre standard: a zero must never actually mean "failed").
+  // Deliberately NOT gated on `loading`: the realtime sub re-runs load()
+  // on every inventory write, and blanking the chips/banner/list for
+  // each background refresh would make the page strobe during service.
+  // Skeletons only show before the FIRST successful load.
+  const loaded = !loadError && lastLoadedAt !== null;
+  const firstLoad = loading && lastLoadedAt === null;
+
   return (
     <>
-      <Head><title>Kitchen stock - CateringMS</title></Head>
-      <NoIndexMeta />
-      <KitchenNav />
-      <main className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            title="Kitchen stock"
-            subtitle="What you have on hand right now, tap any item to log usage, a receipt or waste"
-            icon={Package}
-            actions={
-              <>
-                {/* KS-A: as-of chip + manual refresh. Realtime sub keeps the
-                    page fresh on inventory_items writes, but the chef
-                    doing a stocktake wants the explicit confirmation. */}
-                {lastLoadedAt && (
-                  <span
-                    className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums hidden sm:inline"
-                    title={lastLoadedAt.toLocaleString("en-ZA")}
-                  >
-                    As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                )}
-                <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="h-8" title="Refresh">
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
-                </Button>
-              </>
-            }
-          />
-          <PageWorkbench />
-
-          {/* KS-B: push-to-shopping banner. Renders only when there's
-              something to push. Surfaces the gap + offers the
-              one-tap action to convert it into a shopping list. */}
-          {belowParItems.length > 0 && (
-            <PortalCard className="mb-6 border-rose-200 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center flex-shrink-0">
-                  <ShoppingCart className="h-5 w-5 text-rose-700 dark:text-rose-300" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
-                    {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"} below par
-                  </p>
-                  <p className="text-xs text-rose-800 dark:text-rose-300/90 mt-0.5">
-                    Push the lot to shopping in one tap. Quantities default to your re-order amounts.
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={() => { setPushResult(null); setPushOpen(true); }}
-                className="bg-brand-primary hover:opacity-90 text-white"
-                disabled={pushing}
+      <KitchenPageShell
+        pageTitle="Kitchen stock - CateringMS"
+        heading="Kitchen stock"
+        subheading={
+          loadError
+            ? "What you have on hand right now, tap any item to log usage, a receipt or waste."
+            : firstLoad || !loaded
+              ? "Loading your on-hand stock..."
+              : stats.below > 0
+                ? `${stats.total} item${stats.total === 1 ? "" : "s"} on hand. ${stats.below} below par${stats.out > 0 ? `, ${stats.out} out of stock` : ""}. Tap any item to log usage, a receipt or waste.`
+                : `${stats.total} item${stats.total === 1 ? "" : "s"} on hand and everything is at or above par. Tap any item to log usage, a receipt or waste.`
+        }
+        icon={Package}
+        headerAction={
+          <div className="flex flex-wrap items-center gap-2">
+            {/* KS-A: as-of stamp + manual refresh. Realtime sub keeps the
+                page fresh on inventory_items writes, but the chef doing a
+                stocktake wants the explicit confirmation. */}
+            {lastLoadedAt && (
+              <span
+                className="text-[11px] text-white/70 tabular-nums hidden sm:inline"
+                title={lastLoadedAt.toLocaleString("en-ZA")}
               >
-                <ShoppingCart className="w-4 h-4 mr-2" />
-                Add to list
-              </Button>
-            </PortalCard>
-          )}
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-            <StatTile
-              label={<span className="flex items-center gap-1">Total items<InfoTooltip content="Every active line item in your kitchen stock list." /></span>}
-              value={stats.total}
-            />
-            <StatTile
-              label={<span className="flex items-center gap-1">In your recipes<InfoTooltip content="Inventory items that at least one of your menu item recipes uses.\n\nUse the 'In recipes' filter below to focus on these." /></span>}
-              value={stats.inRecipes}
-            />
-            <StatTile
-              label={<span className="flex items-center gap-1">Below par<InfoTooltip content="Items running low and due for a re-order.\n\nStock is at or below the minimum you've set." /></span>}
-              value={<span className="text-rose-600 dark:text-rose-500">{stats.below}</span>}
-            />
-            <StatTile
-              label={<span className="flex items-center gap-1">Out of stock<InfoTooltip content="Items you've run out of completely.\n\nAny order needing these can't be fulfilled until you restock." /></span>}
-              value={<span className="text-rose-600 dark:text-rose-500">{stats.out}</span>}
-            />
+                As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="gap-1.5">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
+              Refresh
+            </Button>
           </div>
-
-          <PortalCard padded className="mb-6">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input placeholder="Search by name, SKU, category..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+        }
+        meta={
+          loaded ? (
+            <>
+              <span className={KITCHEN_HERO_CHIP}>
+                <Package className="h-3 w-3" />
+                {stats.total} item{stats.total === 1 ? "" : "s"} tracked
+              </span>
+              <span className={KITCHEN_HERO_CHIP}>
+                <span className={`h-1.5 w-1.5 rounded-full ${stats.below > 0 ? "bg-rose-400" : "bg-emerald-400"}`} />
+                {stats.below} below par
+              </span>
+              {stats.out > 0 && (
+                <span className={KITCHEN_HERO_CHIP}>
+                  <AlertTriangle className="h-3 w-3" />
+                  {stats.out} out of stock
+                </span>
+              )}
+              {/* Only shown when > 0: the recipe-link lookup is
+                  best-effort and returns empty on failure, so a zero
+                  here could be a failed load rather than a fact. */}
+              {stats.inRecipes > 0 && (
+                <span className={KITCHEN_HERO_CHIP}>
+                  <ChefHat className="h-3 w-3" />
+                  {stats.inRecipes} in recipes
+                </span>
+              )}
+            </>
+          ) : undefined
+        }
+      >
+        {/* Recovery card: the stock load failed. Pre-restructure this
+            rendered a toast over a page of comforting zeros. */}
+        {loadError ? (
+          <PortalCard className="border-rose-200 dark:border-rose-900">
+            <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load kitchen stock</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+            <Button
+              size="sm"
+              onClick={() => void load()}
+              disabled={loading}
+              className="bg-brand-primary hover:opacity-90 text-white"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </PortalCard>
+        ) : (
+          <>
+            {/* KS-B: push-to-shopping banner. Renders only when there's
+                something to push. Surfaces the gap + offers the
+                one-tap action to convert it into a shopping list. */}
+            {loaded && belowParItems.length > 0 && (
+              <PortalCard className="mb-6 border-rose-200 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center flex-shrink-0">
+                    <ShoppingCart className="h-5 w-5 text-rose-700 dark:text-rose-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
+                      {belowParItems.length} item{belowParItems.length === 1 ? "" : "s"} below par
+                    </p>
+                    <p className="text-xs text-rose-800 dark:text-rose-300/90 mt-0.5">
+                      Push the lot to shopping in one tap. Quantities default to your re-order amounts.
+                    </p>
+                  </div>
                 </div>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="w-full sm:w-[170px]"><SelectValue placeholder="Category" /></SelectTrigger>
-                  <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
-                </Select>
-                {/* KS-A: storage location filter. Chef wants to count
-                    Fridge 1, this scopes the list. */}
-                <Select value={storage} onValueChange={setStorage}>
-                  <SelectTrigger className="w-full sm:w-[170px]">
-                    <span className="inline-flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      <SelectValue placeholder="Storage" />
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>{storageLocations.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All locations" : c}</SelectItem>)}</SelectContent>
-                </Select>
+                <Button
+                  onClick={() => { setPushResult(null); setPushOpen(true); }}
+                  className="bg-brand-primary hover:opacity-90 text-white min-h-10"
+                  disabled={pushing}
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  Add to list
+                </Button>
+              </PortalCard>
+            )}
+
+            {/* First-screen stat band. Skeletons while loading so the
+                tiles never flash zeros that just mean "not loaded yet". */}
+            {firstLoad ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6" aria-hidden="true">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-24 rounded-xl border border-slate-200 bg-white animate-pulse motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
+                ))}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={`h-10 ${recipeLinkedOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}`}>
-                  <ChefHat className="h-4 w-4 mr-2" />In recipes
-                </Button>
-                <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={`h-10 ${belowParOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}`}>
-                  <AlertTriangle className="h-4 w-4 mr-2" />Below par
-                </Button>
-                {/* KS-A: sort selector. Default is alphabetical
-                    (familiar). "Status" floats out-of-stock and
-                    below-par to the top, "Location" groups by
-                    storage for end-of-shift walkthroughs. */}
-                <div className="ml-auto inline-flex items-center gap-1.5">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                  <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-                    <SelectTrigger className="h-10 w-[160px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="name">A-Z</SelectItem>
-                      <SelectItem value="status">Status (low first)</SelectItem>
-                      <SelectItem value="location">Storage location</SelectItem>
-                    </SelectContent>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+                <StatTile
+                  label={<span className="flex items-center gap-1">Total items<InfoTooltip content="Every active line item in your kitchen stock list." /></span>}
+                  value={stats.total}
+                />
+                <StatTile
+                  label={<span className="flex items-center gap-1">In your recipes<InfoTooltip content="Inventory items that at least one of your menu item recipes uses.\n\nUse the 'In recipes' filter below to focus on these." /></span>}
+                  value={stats.inRecipes}
+                />
+                <StatTile
+                  label={<span className="flex items-center gap-1">Below par<InfoTooltip content="Items running low and due for a re-order.\n\nStock is at or below the minimum you've set." /></span>}
+                  value={<span className="text-rose-600 dark:text-rose-500">{stats.below}</span>}
+                />
+                <StatTile
+                  label={<span className="flex items-center gap-1">Out of stock<InfoTooltip content="Items you've run out of completely.\n\nAny order needing these can't be fulfilled until you restock." /></span>}
+                  value={<span className="text-rose-600 dark:text-rose-500">{stats.out}</span>}
+                />
+              </div>
+            )}
+
+            <PortalCard padded className="mb-6">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <AdminSearchField
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Search by name, SKU, category..."
+                    className="flex-1"
+                  />
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="h-10 w-full sm:w-[170px]"><SelectValue placeholder="Category" /></SelectTrigger>
+                    <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
+                  </Select>
+                  {/* KS-A: storage location filter. Chef wants to count
+                      Fridge 1, this scopes the list. */}
+                  <Select value={storage} onValueChange={setStorage}>
+                    <SelectTrigger className="h-10 w-full sm:w-[170px]">
+                      <span className="inline-flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        <SelectValue placeholder="Storage" />
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>{storageLocations.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All locations" : c}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-              </div>
-              {/* KS-A: active-filter recap line. Shown only when at
-                  least one filter is on. One-tap clear-all. */}
-              {(search || category !== "all" || storage !== "all" || belowParOnly || recipeLinkedOnly || sortKey !== "name") && (
-                <div className="flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-3">
-                  <span>
-                    Showing <strong className="text-slate-900 dark:text-white tabular-nums">{filtered.length}</strong> of {items.length} items
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setSearch(""); setCategory("all"); setStorage("all");
-                      setBelowParOnly(false); setRecipeLinkedOnly(false); setSortKey("name");
-                    }}
-                    className="h-7 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                  >
-                    Clear all
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant={recipeLinkedOnly ? "default" : "outline"} onClick={() => setRecipeLinkedOnly((v) => !v)} className={`h-10 ${recipeLinkedOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}`}>
+                    <ChefHat className="h-4 w-4 mr-2" />In recipes
                   </Button>
+                  <Button size="sm" variant={belowParOnly ? "default" : "outline"} onClick={() => setBelowParOnly((v) => !v)} className={`h-10 ${belowParOnly ? "bg-brand-primary hover:opacity-90 text-white" : ""}`}>
+                    <AlertTriangle className="h-4 w-4 mr-2" />Below par
+                  </Button>
+                  {/* KS-A: sort selector. Default is alphabetical
+                      (familiar). "Status" floats out-of-stock and
+                      below-par to the top, "Location" groups by
+                      storage for end-of-shift walkthroughs. */}
+                  <div className="ml-auto inline-flex items-center gap-1.5">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                    <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+                      <SelectTrigger className="h-10 w-[160px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="name">A-Z</SelectItem>
+                        <SelectItem value="status">Status (low first)</SelectItem>
+                        <SelectItem value="location">Storage location</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              )}
-            </div>
-          </PortalCard>
+                {/* KS-A: active-filter recap line. Shown only when at
+                    least one filter is on. One-tap clear-all. */}
+                {(search || category !== "all" || storage !== "all" || belowParOnly || recipeLinkedOnly || sortKey !== "name") && (
+                  <div className="flex items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-3">
+                    <span>
+                      Showing <strong className="text-slate-900 dark:text-white tabular-nums">{filtered.length}</strong> of {items.length} items
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSearch(""); setCategory("all"); setStorage("all");
+                        setBelowParOnly(false); setRecipeLinkedOnly(false); setSortKey("name");
+                      }}
+                      className="h-7 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                    >
+                      Clear all
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </PortalCard>
 
-          <PortalCard padded={false}>
-              {loading ? (
+            <PortalCard padded={false}>
+              {firstLoad ? (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-hidden="true">
                   {Array.from({ length: 6 }).map((_, idx) => (
                     <li key={idx} className="flex items-center gap-3 p-4">
@@ -599,6 +718,22 @@ function KitchenStockPageInner() {
                     </li>
                   ))}
                 </ul>
+              ) : items.length === 0 ? (
+                // KS-C: true-empty state (no inventory configured) now
+                // reads differently from "filters matched nothing" and
+                // points at where the data gets created.
+                <div className="px-6 py-16 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                    <Package className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <p className="font-semibold text-slate-900 dark:text-white">No stock items set up yet</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                    Stock items are created by the office team under Admin, Inventory. Once they exist they show up here with live on-hand levels.
+                  </p>
+                  <Button asChild size="sm" variant="outline" className="mt-4">
+                    <Link href={withSlug("/admin/inventory")}>Open inventory admin</Link>
+                  </Button>
+                </div>
               ) : filtered.length === 0 ? (
                 <div className="px-6 py-16 text-center">
                   <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
@@ -610,8 +745,8 @@ function KitchenStockPageInner() {
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filtered.map((i) => {
-                    const stock = Number(i.current_stock ?? 0);
-                    const min = Number(i.minimum_stock ?? 0);
+                    const stock = stockOf(i);
+                    const min = parOf(i);
                     const max = Number(i.maximum_stock ?? 0);
                     const reorderQty = Number(i.reorder_quantity ?? 0);
                     // KS-A: suggested order qty when below par. Prefer
@@ -619,7 +754,7 @@ function KitchenStockPageInner() {
                     // (max - stock) if max is set, else (par - stock)
                     // doubled to give the kitchen a little headroom.
                     let suggestion = 0;
-                    if (stock <= min) {
+                    if (isBelowPar(i)) {
                       if (reorderQty > 0) suggestion = reorderQty;
                       else if (max > 0) suggestion = Math.max(0, max - stock);
                       else suggestion = Math.max(min, min * 2 - stock);
@@ -669,9 +804,10 @@ function KitchenStockPageInner() {
                   })}
                 </div>
               )}
-          </PortalCard>
-        </PortalShell>
-      </main>
+            </PortalCard>
+          </>
+        )}
+      </KitchenPageShell>
 
       <Dialog open={!!usingItem} onOpenChange={(o) => !o && closeUse()}>
         <DialogContent>
@@ -683,7 +819,7 @@ function KitchenStockPageInner() {
                                      "Save count"}
             </DialogTitle>
             <DialogDescription>
-              {usingItem && `${usingItem.item_name} - ${Number(usingItem.current_stock ?? 0)} ${usingItem.unit_of_measure} on hand`}
+              {liveUsingItem && `${liveUsingItem.item_name} - ${stockOf(liveUsingItem)} ${liveUsingItem.unit_of_measure} on hand`}
             </DialogDescription>
           </DialogHeader>
 
@@ -729,10 +865,10 @@ function KitchenStockPageInner() {
           <div className="space-y-3 mt-2">
             <div>
               <Label htmlFor="qty">
-                {action === "used" ? `Used (${usingItem?.unit_of_measure})` :
-                 action === "received" ? `Received (${usingItem?.unit_of_measure})` :
-                 action === "wasted" ? `Wasted (${usingItem?.unit_of_measure})` :
-                                       `Counted total (${usingItem?.unit_of_measure})`}
+                {action === "used" ? `Used (${liveUsingItem?.unit_of_measure})` :
+                 action === "received" ? `Received (${liveUsingItem?.unit_of_measure})` :
+                 action === "wasted" ? `Wasted (${liveUsingItem?.unit_of_measure})` :
+                                       `Counted total (${liveUsingItem?.unit_of_measure})`}
               </Label>
               <Input
                 id="qty"
@@ -746,11 +882,11 @@ function KitchenStockPageInner() {
               />
               {/* KS-A: live preview of new stock so the chef can see
                   what the save will leave them with before tapping. */}
-              {usingItem && usedQty && !Number.isNaN(Number(usedQty)) && Number(usedQty) >= 0 && (() => {
-                const preview = resolveAction(usingItem, action, Number(usedQty));
+              {liveUsingItem && usedQty && !Number.isNaN(Number(usedQty)) && Number(usedQty) >= 0 && (() => {
+                const preview = resolveAction(liveUsingItem, action, Number(usedQty));
                 return (
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 tabular-nums">
-                    New on-hand: <strong className="text-slate-900 dark:text-white">{preview.newStock} {usingItem.unit_of_measure}</strong>
+                    New on-hand: <strong className="text-slate-900 dark:text-white">{preview.newStock} {liveUsingItem.unit_of_measure}</strong>
                     {preview.delta !== 0 && (
                       <span className={preview.delta > 0 ? "text-brand-primary dark:text-brand-primary" : "text-rose-700 dark:text-rose-400"}>
                         {" "}({preview.delta > 0 ? "+" : ""}{preview.delta})
@@ -838,8 +974,8 @@ function KitchenStockPageInner() {
             <>
               <div className="max-h-[40vh] overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-md divide-y divide-slate-100 dark:divide-slate-800">
                 {belowParItems.map((i) => {
-                  const stock = Number(i.current_stock || 0);
-                  const min = Number(i.minimum_stock || 0);
+                  const stock = stockOf(i);
+                  const min = parOf(i);
                   const max = Number(i.maximum_stock || 0);
                   const reorderQty = Number(i.reorder_quantity || 0);
                   const target = reorderQty > 0 ? stock + reorderQty : max > 0 ? max : min * 2;
@@ -876,8 +1012,19 @@ function KitchenStockPageInner() {
 }
 
 export default function KitchenStockPage() {
+  // KS-C: admit the full admin set alongside kitchen roles so an admin
+  // view-switching into the kitchen portal isn't bounced (middleware
+  // already lets them through to /team-portal/kitchen).
   return (
-    <ProtectedRoute allowedRoles={[UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[
+      UserRole.KITCHEN_MANAGER,
+      UserRole.KITCHEN_STAFF,
+      UserRole.ADMIN,
+      UserRole.COMPANY_ADMIN,
+      UserRole.OWNER,
+      UserRole.REGION_ADMIN,
+      UserRole.SUPER_ADMIN,
+    ]}>
       <KitchenStockPageInner />
     </ProtectedRoute>
   );

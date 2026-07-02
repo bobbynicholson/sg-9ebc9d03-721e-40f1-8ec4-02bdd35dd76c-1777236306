@@ -2,23 +2,18 @@
 // KIT3-E (task #248): @ts-nocheck removed; this file is type-checked.
 // Remaining `any` casts are isolated to supabase realtime payloads
 // and the `equipment_items` JSONB column shape.
-import { useEffect, useMemo, useState, useCallback } from "react";
-import Head from "next/head";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ClipboardList, ChefHat, Calendar, Users, MapPin, Clock,
   AlertTriangle, CheckCircle2, ShoppingCart, Layers, Package, Info, ExternalLink,
-  RotateCcw,
+  RotateCcw, RefreshCw,
 } from "lucide-react";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
-  PageWorkbench,
-} from "@/components/portal/ui";
-import { KitchenNav } from "@/components/navigation/KitchenNav";
+import { PortalCard, PortalCardHeader, PortalOverview } from "@/components/portal/ui";
+import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { canAccessAdminDashboard } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
@@ -27,11 +22,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { kitchenPrepService, type IngredientDemand } from "@/services/kitchenPrepService";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { toLocalISO } from "@/lib/localDate";
+import { parseLocalDay, toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { orderDisplayName } from "@/lib/orderDisplayName";
-import { RefreshCw } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
 
 interface DemandRow {
@@ -48,18 +42,12 @@ interface DemandRow {
   inventory_item_id: string | null;
 }
 
-interface OutlookRow {
-  inventory_item_id: string;
-  current_stock: number;
-  unit_of_measure: string | null;
-}
-
 interface OrderRow {
   id: string;
   venue_address: string | null;
   event_time: string | null;
   client_name: string | null;
-  /** From orders.equipment_items jsonb - shape:
+  /** From the linked quote's equipment_items jsonb - shape:
    *  [{ equipment_id, name, category, quantity, unit_price, ... }] */
   equipment_items?: any[] | null;
   /** Allergen + dietary text the chef must see before they start prepping.
@@ -68,10 +56,16 @@ interface OrderRow {
   dietary_requirements?: string | null;
   kitchen_instructions?: string | null;
   special_instructions?: string | null;
+  /** Branch stamp, used to region-scope the by-order rows the same
+   *  way getAggregatedDemand scopes the by-ingredient totals. */
+  region_id?: string | null;
 }
 
 const dayBucket = (d: string, today: Date) => {
-  const date = new Date(d + "T00:00:00");
+  // parseLocalDay pins the event date to LOCAL midnight so the bucket
+  // math matches the wall-clock day everywhere (a bare new Date("YYYY-MM-DD")
+  // is UTC midnight, which slips a day for anyone west of UTC).
+  const date = parseLocalDay(d) ?? new Date(d + "T00:00:00");
   const diff = Math.floor((date.getTime() - today.getTime()) / 86400000);
   if (diff <= 0) return "Today";
   if (diff === 1) return "Tomorrow";
@@ -96,14 +90,18 @@ function KitchenPrepListPageInner() {
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [rows, setRows] = useState<DemandRow[]>([]);
-  const [outlook, setOutlook] = useState<Record<string, OutlookRow>>({});
   const [orderMeta, setOrderMeta] = useState<Record<string, OrderRow>>({});
   const [loading, setLoading] = useState(true);
+  // Command-centre restructure (2026-07-02): load failures used to be
+  // console.error-ed and the page rendered the "Nothing booked yet"
+  // empty state - a lie at 6am. Both loads now surface a Retry card.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("by_order");
 
   // Phase 1: aggregated demand across all orders in the window
   const [aggregated, setAggregated] = useState<IngredientDemand[]>([]);
   const [aggregatedLoading, setAggregatedLoading] = useState(true);
+  const [aggregatedError, setAggregatedError] = useState<string | null>(null);
 
   // Phase 2 #3: kitchen prep lead hours drives the urgency calc. The
   // companies row was already a P1-11 source of truth; default 12h
@@ -118,53 +116,51 @@ function KitchenPrepListPageInner() {
   const [confirmedOrdersInWindow, setConfirmedOrdersInWindow] = useState(0);
 
   // KIT3-E: horizon selector. Chef gets to pick how far out the pull
-  // list looks. 30d (default) covers a whole month for tenants that
-  // plan ahead; 7d / 14d narrows the view to the imminent prep load.
+  // list looks. 7d (default) keeps the 6am view on the imminent prep
+  // load; 14d / 30d widen it for tenants that plan ahead.
   const [horizonDays, setHorizonDays] = useState<7 | 14 | 30>(7);
   // "As of" timestamp - last successful load. Surfaces in the
   // header so the chef knows whether the screen is fresh.
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
+  // Monotonic load counter: load() is callable from the initial mount,
+  // the horizon/region deps, the Refresh button AND debounced realtime
+  // ticks, so two invocations can overlap. Every state write below is
+  // guarded by "am I still the newest load"; a superseded invocation
+  // drops its writes instead of clobbering fresher data (the old
+  // `cancelled` flag never flipped, so it guarded nothing).
+  const loadSeqRef = useRef(0);
+
   const load = useCallback(async () => {
     const companyId = profile?.company_id;
     if (!companyId) return;
-    // `cancelled` is a no-op flag now (load() is callable from
-    // multiple sources, not anchored to a single useEffect closure
-    // that flips it on unmount). The inner `if (!cancelled)` guards
-    // are kept so the structure stays the same and a future
-    // concurrent-load abort can flip it.
-    const cancelled = false;
+    const seq = ++loadSeqRef.current;
+    const stale = () => seq !== loadSeqRef.current;
     setLoading(true);
+    setLoadError(null);
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayStr = toLocalISO(today);
       const horizon = toLocalISO(new Date(today.getTime() + horizonDays * 86400000));
 
-      const [demandRes, outlookRes] = await Promise.all([
-        supabase
-          .from("order_ingredient_demand")
-          .select("*")
-          .eq("company_id", companyId)
-          .gte("event_date", todayStr)
-          .in("order_status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
-          .order("event_date", { ascending: true }),
-        supabase
-          .from("inventory_demand_outlook")
-          .select("inventory_item_id, current_stock, unit_of_measure")
-          .eq("company_id", companyId),
-      ]);
-      if (cancelled) return;
-      if (demandRes.error) console.error("demand", demandRes.error);
+      // Horizon-bounded on BOTH ends: the by-order list, the confirmed
+      // count and the aggregated shortfall all read the same
+      // [today, today + horizonDays] window, so the "N orders" in the
+      // header can never disagree with the shortfall banner (the old
+      // query had no upper bound and counted every future booking).
+      const demandRes = await supabase
+        .from("order_ingredient_demand")
+        .select("*")
+        .eq("company_id", companyId)
+        .gte("event_date", todayStr)
+        .lte("event_date", horizon)
+        .in("order_status", ["confirmed", "preparing", "ready", "in_transit", "delivered"])
+        .order("event_date", { ascending: true });
+      if (stale()) return;
+      if (demandRes.error) throw demandRes.error;
 
-      const demandRows = (demandRes.data || []) as DemandRow[];
-      setRows(demandRows);
-
-      const outlookMap: Record<string, OutlookRow> = {};
-      (outlookRes.data || []).forEach((o: any) => {
-        if (o.inventory_item_id) outlookMap[o.inventory_item_id] = o;
-      });
-      setOutlook(outlookMap);
+      let demandRows = (demandRes.data || []) as DemandRow[];
 
       const orderIds = Array.from(new Set(demandRows.map((d) => d.order_id)));
       if (orderIds.length) {
@@ -172,15 +168,35 @@ function KitchenPrepListPageInner() {
         // kitchen knows what to pack for each order, not just what to
         // cook. The quote builder writes equipment_items as a JSONB
         // array of { equipment_id, name, category, quantity, ... }.
-        const { data: orders } = await supabase
+        const { data: orders, error: metaError } = await supabase
           .from("orders")
           // equipment_items lives on the linked quote, not orders.
-          .select("id, venue_address, event_time, client_name, dietary_requirements, kitchen_instructions, special_instructions, quote:quotes!orders_quote_id_fkey(equipment_items)")
+          .select("id, venue_address, event_time, client_name, region_id, dietary_requirements, kitchen_instructions, special_instructions, quote:quotes!orders_quote_id_fkey(equipment_items)")
           .in("id", orderIds);
+        if (stale()) return;
+        // The meta carries the allergen / dietary notes - a chef card
+        // without them is unsafe, so a failed meta read fails the load
+        // instead of silently rendering note-free cards.
+        if (metaError) throw metaError;
         const map: Record<string, OrderRow> = {};
         (orders || []).forEach((o: any) => { map[o.id] = { ...o, equipment_items: o.quote?.equipment_items ?? null }; });
-        if (!cancelled) setOrderMeta(map);
+        // Region scope: the order_ingredient_demand view carries no
+        // region_id, so when a branch filter is active we drop rows for
+        // other branches here - the SAME fall-through rule (branch rows +
+        // null/legacy rows) getAggregatedDemand applies, so the two tabs
+        // can never disagree about which orders are in play.
+        if (regionFilterId) {
+          demandRows = demandRows.filter((d) => {
+            const region = map[d.order_id]?.region_id;
+            return !region || region === regionFilterId;
+          });
+        }
+        setOrderMeta(map);
+      } else {
+        // Window shrank to zero orders - drop the previous window's meta.
+        setOrderMeta({});
       }
+      setRows(demandRows);
 
       // Pull the company's kitchen lead hours so the urgency calc
       // matches what the order-confirm flow warns about. Single read
@@ -191,7 +207,7 @@ function KitchenPrepListPageInner() {
           .select("kitchen_prep_lead_hours")
           .eq("id", companyId)
           .maybeSingle();
-        if (!cancelled && (companyRow as any)?.kitchen_prep_lead_hours != null) {
+        if (!stale() && (companyRow as any)?.kitchen_prep_lead_hours != null) {
           setKitchenLeadHours(Number((companyRow as any).kitchen_prep_lead_hours));
         }
       } catch (e) {
@@ -200,51 +216,63 @@ function KitchenPrepListPageInner() {
 
       // Wave 70.10 - separate count of confirmed orders in the
       // window so the empty state can distinguish "no orders" from
-      // "orders exist but no recipes attached".
-      try {
-        const { count } = await (supabase as any)
-          .from("orders")
-          .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .gte("event_date", todayStr)
-          .lte("event_date", horizon)
-          .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
-        if (!cancelled) setConfirmedOrdersInWindow(count || 0);
-      } catch (e) {
-        captureException(e, {
+      // "orders exist but no recipes attached". Best-effort; skips
+      // soft-deleted orders so a cancelled-and-removed booking can't
+      // trigger the "orders booked but no demand" banner.
+      const { count, error: countError } = await supabase
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("event_date", todayStr)
+        .lte("event_date", horizon)
+        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
+      if (stale()) return;
+      if (countError) {
+        captureException(countError, {
           tags: { route: "/team-portal/kitchen/prep-list", step: "orders-count", companyId },
         });
+      } else {
+        setConfirmedOrdersInWindow(count || 0);
       }
 
       setLoading(false);
 
-      // Aggregated demand runs in parallel via the kitchen prep service
+      // Aggregated demand runs after the main list via the kitchen prep service
       setAggregatedLoading(true);
+      setAggregatedError(null);
       try {
         const agg = await kitchenPrepService.getAggregatedDemand(companyId, todayStr, horizon, regionFilterId);
-        if (!cancelled) setAggregated(agg);
+        if (!stale()) setAggregated(agg);
       } catch (e) {
         captureException(e, {
           tags: { route: "/team-portal/kitchen/prep-list", step: "aggregated-demand", companyId },
         });
+        if (!stale()) {
+          setAggregatedError("We couldn't work out the cross-order totals. The per-order cards are still accurate.");
+        }
       } finally {
-        if (!cancelled) setAggregatedLoading(false);
-        if (!cancelled) setLastLoadedAt(new Date());
+        if (!stale()) {
+          setAggregatedLoading(false);
+          setLastLoadedAt(new Date());
+        }
       }
     } catch (loadErr) {
       captureException(loadErr, {
         tags: { route: "/team-portal/kitchen/prep-list", step: "load", companyId },
       });
+      if (stale()) return;
+      const message = (loadErr as { message?: string })?.message;
+      setLoadError(message || "We couldn't load the prep list. Check your connection and try again.");
       setLoading(false);
     }
-    // The cancelled flag is no longer scoped to a useEffect closure;
-    // load() is callable from realtime + refresh. State writes inside
-    // are guarded by the local cancelled var which stays false for the
-    // current invocation. We leave it in place for the read-aborts
-    // inside the await sites above; concurrent invocations rely on
-    // setState being a no-op when the most recent value wins.
-    void cancelled;
   }, [profile?.company_id, regionFilterId, horizonDays]);
+
+  // Keep a ref pointing at the freshest load so long-lived closures
+  // (the realtime subscription below) never call a stale version that
+  // would refetch the previous horizon / region window.
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
 
   // Initial load + refire when the deps change (region scope, horizon).
   useEffect(() => {
@@ -263,11 +291,16 @@ function KitchenPrepListPageInner() {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         debounceTimer = null;
-        load();
+        // Via the ref: the closure outlives horizon/region changes and
+        // must always refetch the CURRENT window, not the mount-time one.
+        loadRef.current();
       }, 400);
     };
+    // Per-mount random suffix: two mounts of the same page (fast
+    // remount, two tabs) sharing one channel name silently drops the
+    // second subscription.
     const sub = supabase
-      .channel(`kitchen-prep-list-${companyId}`)
+      .channel(`kitchen-prep-list-${companyId}-${Math.random().toString(36).slice(2)}`)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .on("postgres_changes" as any, {
         event: "*", schema: "public", table: "orders",
@@ -287,9 +320,8 @@ function KitchenPrepListPageInner() {
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       offBus();
-      void sub.unsubscribe();
+      void supabase.removeChannel(sub);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.company_id]);
 
   // ── Group by order ────────────────────────────────────────────────
@@ -440,6 +472,10 @@ function KitchenPrepListPageInner() {
     const companyId = profile?.company_id;
     const userId = (profile as { id?: string } | null)?.id;
     if (!companyId || !userId) return;
+    // Single-flight: a second tap while one add is writing could race
+    // the open-list lookup inside the service and spawn a duplicate
+    // shopping list. The buttons are disabled too; this is the backstop.
+    if (addingId || creatingList) return;
     setAddingId(d.inventory_item_id || d.name);
     try {
       const today = new Date();
@@ -489,6 +525,8 @@ function KitchenPrepListPageInner() {
     const companyId = profile?.company_id;
     const userId = (profile as any)?.id;
     if (!companyId || !userId) return;
+    // Same single-flight rule as the per-row add (see above).
+    if (creatingList || addingId) return;
     setCreatingList(true);
     try {
       const today = new Date();
@@ -515,68 +553,136 @@ function KitchenPrepListPageInner() {
         });
       }
     } catch (e: any) {
-      toast({ title: "Could not create list", description: e?.message, variant: "destructive" });
+      captureException(e, {
+        tags: { route: "/team-portal/kitchen/prep-list", step: "create-shopping-list", companyId },
+      });
+      toast({ title: "Could not create list", description: e?.message || "Please try again.", variant: "destructive" });
     } finally {
       setCreatingList(false);
     }
   };
 
-  return (
-    <>
-      <NoIndexMeta />
-      <Head><title>Prep List - CateringMS</title></Head>
-      <KitchenNav />
+  // Derived summary numbers for the hero chips + overview band. All of
+  // them come from the same arrays the body renders (`orders`,
+  // `aggregated`), never from separate count queries that could drift.
+  const ordersToday = orders.filter((o) => o.bucket === "Today").length;
+  const aggregatedReady = !aggregatedLoading && !aggregatedError;
 
-      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
-        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <PortalHeader
-            icon={ClipboardList}
-            title={
-              <span className="flex items-center gap-2">
-                Prep List
-                <InfoTooltip content={`Everything you need to pull from stores. Two views: by order (one card per booking) or by ingredient (totals across the next ${horizonDays} days).`} />
+  return (
+    <KitchenPageShell
+      pageTitle="Prep List - CateringMS"
+      heading="Prep list"
+      subheading={
+        loadError
+          ? "Everything to pull from stores for upcoming bookings."
+          : loading
+            ? "Loading what to pull from stores..."
+            : `What to pull from stores across ${orders.length} order${orders.length === 1 ? "" : "s"} in the next ${horizonDays} days.`
+      }
+      icon={ClipboardList}
+      headerAction={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => load()}
+          disabled={loading}
+          className="gap-1.5"
+          title={lastLoadedAt ? `Last loaded ${lastLoadedAt.toLocaleTimeString("en-ZA")}` : "Refresh"}
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      }
+      meta={
+        <>
+          {!loading && !loadError && (
+            <span className={KITCHEN_HERO_CHIP}>
+              <Layers className="h-3 w-3" />
+              {orders.length} order{orders.length === 1 ? "" : "s"} in {horizonDays}d
+            </span>
+          )}
+          {!loading && !loadError && (
+            <span className={KITCHEN_HERO_CHIP}>
+              <Calendar className="h-3 w-3" />
+              {ordersToday} today
+            </span>
+          )}
+          {!loading && !loadError && aggregatedReady && (
+            shortfallCount > 0 ? (
+              <span className={KITCHEN_HERO_CHIP}>
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                {shortfallCount} ingredient{shortfallCount === 1 ? "" : "s"} short
               </span>
+            ) : (
+              <span className={KITCHEN_HERO_CHIP}>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Stores cover the window
+              </span>
+            )
+          )}
+          {!loading && lastLoadedAt && (
+            <span className={KITCHEN_HERO_CHIP}>
+              <Clock className="h-3 w-3" />
+              As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </>
+      }
+      overview={
+        loadError ? undefined : (
+          <PortalOverview
+            eyebrow="Kitchen stores"
+            title={
+              loading
+                ? "Loading the pull list"
+                : aggregatedReady && shortfallCount > 0
+                  ? "Buy the short items before you start pulling"
+                  : orders.length > 0
+                    ? `Pull stock for the next ${horizonDays} days`
+                    : "Nothing to pull in this window"
             }
-            subtitle={`What to pull from stores. Across ${orders.length} order${orders.length === 1 ? "" : "s"} in the next ${horizonDays} days.`}
+            description="One card per booking with scaled ingredients, equipment to pack and allergen notes. The by-ingredient view totals demand across every order and flags what stores can't cover."
+            items={[
+              { label: "Orders", value: loading ? "-" : orders.length, helper: `Next ${horizonDays} days`, icon: Layers, tone: !loading && orders.length > 0 ? "brand" : "neutral" },
+              { label: "Today", value: loading ? "-" : ordersToday, helper: "Events on today", icon: Calendar, tone: !loading && ordersToday > 0 ? "warning" : "neutral" },
+              { label: "Ingredients", value: aggregatedReady ? aggregated.length : "-", helper: "Distinct lines to pull", icon: Package, tone: "neutral" },
+              { label: "Short", value: aggregatedReady ? shortfallCount : "-", helper: aggregatedReady && shortfallCount > 0 ? "Needs buying" : "Stores cover it", icon: ShoppingCart, tone: aggregatedReady && shortfallCount > 0 ? "danger" : "success" },
+            ]}
             actions={
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* KIT3-E: horizon picker + refresh + last-loaded chip. */}
-                <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                  {([7, 14, 30] as const).map((d) => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => setHorizonDays(d)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                        horizonDays === d
-                          ? "bg-brand-primary text-white shadow-sm"
-                          : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-                      }`}
-                    >
-                      {d}d
-                    </button>
-                  ))}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => load()}
-                  disabled={loading}
-                  className="gap-1.5"
-                  title={lastLoadedAt ? `Last loaded ${lastLoadedAt.toLocaleTimeString("en-ZA")}` : "Refresh"}
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-                  Refresh
+              <>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={withSlug("/team-portal/kitchen/stock")}>Stock room</Link>
                 </Button>
-                {lastLoadedAt && (
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                    As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                )}
-              </div>
+                <Button asChild size="sm" variant="outline">
+                  <Link href={withSlug("/team-portal/kitchen/production")}>Production board</Link>
+                </Button>
+              </>
             }
           />
-          <PageWorkbench />
+        )
+      }
+    >
+      {/* Recovery card: the demand load failed. Pre-restructure this
+          state rendered as a misleading "Nothing booked yet". */}
+      {loadError && (
+        <PortalCard className="border-rose-200 dark:border-rose-900">
+          <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t load the prep list</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{loadError}</p>
+          <Button
+            size="sm"
+            onClick={() => load()}
+            disabled={loading}
+            className="bg-brand-primary hover:opacity-90 text-white"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
+          </Button>
+        </PortalCard>
+      )}
+
+      {!loadError && (
+        <>
+
 
           {/* KIT3-E: recipe-gap banner. When the by-order view has
               ingredients (sourced from the order_ingredient_demand
@@ -588,7 +694,7 @@ function KitchenPrepListPageInner() {
               now covers the buy-and-sell path too so this only
               fires in genuinely weird shapes; useful as a safety
               net. */}
-          {!loading && !aggregatedLoading && rows.length > 0 && aggregated.length === 0 && (
+          {!loading && !aggregatedLoading && !aggregatedError && rows.length > 0 && aggregated.length === 0 && (
             <PortalCard padded={false} className="border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20 mb-5">
               <div className="p-3 px-4 flex items-start gap-3 text-xs">
                 <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
@@ -601,7 +707,7 @@ function KitchenPrepListPageInner() {
 
           {/* Aggregated shortfall banner, Phase 3 wires the one-click
               "create shopping list" path so the chef never has to retype it. */}
-          {!aggregatedLoading && shortfallCount > 0 && (
+          {!aggregatedLoading && !aggregatedError && shortfallCount > 0 && (
             <PortalCard padded={false} className="border-rose-300 bg-rose-50/40 dark:border-rose-900 dark:bg-rose-950/20 mb-5">
               <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                 <ShoppingCart className="w-5 h-5 text-rose-600 dark:text-rose-500 mt-0.5 shrink-0" />
@@ -635,42 +741,66 @@ function KitchenPrepListPageInner() {
             </PortalCard>
           )}
 
-          {/* Wave 33.1: segmented control. Was two disconnected pills
-              with text-xs that felt like an afterthought; now a single
-              tinted container with two equally-weighted segments and
-              tap-target-friendly padding for kitchen tablets. */}
-          <div className="mb-5 flex w-full gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setView("by_order")}
-              className={`flex-1 justify-center min-w-[140px] whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
-                view === "by_order"
-                  ? "bg-brand-primary text-white shadow-sm"
-                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              By order
-              <span className={`text-xs tabular-nums ${view === "by_order" ? "text-white/70" : "text-slate-400 dark:text-slate-500"}`}>
-                {orders.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("by_ingredient")}
-              className={`flex-1 justify-center min-w-[140px] whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
-                view === "by_ingredient"
-                  ? "bg-brand-primary text-white shadow-sm"
-                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
-              }`}
-            >
-              <Package className="w-3.5 h-3.5" />
-              By ingredient
-              <span className={`text-xs tabular-nums ${view === "by_ingredient" ? "text-white/70" : "text-slate-400 dark:text-slate-500"}`}>
-                {aggregated.length}
-              </span>
-            </button>
-          </div>
+          {/* Wave 33.1 + command-centre restructure: ONE toolbar card
+              holds every control - the by-order / by-ingredient view
+              toggle plus the KIT3-E horizon picker (previously stranded
+              up in the header). Segments keep min-h-10 tap targets for
+              kitchen tablets. */}
+          <PortalCard className="mb-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex w-full flex-1 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setView("by_order")}
+                  className={`flex-1 justify-center min-h-10 min-w-[140px] whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
+                    view === "by_order"
+                      ? "bg-brand-primary text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  By order
+                  <span className={`text-xs tabular-nums ${view === "by_order" ? "text-white/70" : "text-slate-400 dark:text-slate-500"}`}>
+                    {loading ? "..." : orders.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("by_ingredient")}
+                  className={`flex-1 justify-center min-h-10 min-w-[140px] whitespace-nowrap px-4 py-2 text-sm font-medium rounded-md transition-all inline-flex items-center gap-2 ${
+                    view === "by_ingredient"
+                      ? "bg-brand-primary text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  }`}
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  By ingredient
+                  <span className={`text-xs tabular-nums ${view === "by_ingredient" ? "text-white/70" : "text-slate-400 dark:text-slate-500"}`}>
+                    {aggregatedReady ? aggregated.length : "..."}
+                  </span>
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Look ahead</span>
+                <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                  {([7, 14, 30] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setHorizonDays(d)}
+                      className={`min-h-10 px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                        horizonDays === d
+                          ? "bg-brand-primary text-white shadow-sm"
+                          : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                      }`}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </PortalCard>
 
           {loading ? (
             <div className="space-y-4" aria-busy="true" aria-label="Loading pull list">
@@ -683,7 +813,30 @@ function KitchenPrepListPageInner() {
             </div>
           ) : view === "by_ingredient" ? (
             // ── BY INGREDIENT view (aggregated demand across all orders) ──
-            aggregated.length === 0 ? (
+            aggregatedError ? (
+              // The cross-order totals failed independently of the main
+              // list; give this tab its own Retry instead of a fake
+              // "Nothing to pull" empty state.
+              <PortalCard className="border-rose-200 dark:border-rose-900">
+                <h2 className="text-base font-bold text-rose-900 dark:text-rose-200 mb-1">Couldn&apos;t total the ingredients</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{aggregatedError}</p>
+                <Button
+                  size="sm"
+                  onClick={() => load()}
+                  disabled={loading || aggregatedLoading}
+                  className="bg-brand-primary hover:opacity-90 text-white"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+              </PortalCard>
+            ) : aggregatedLoading ? (
+              <div
+                className="h-64 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse motion-reduce:animate-none"
+                aria-busy="true"
+                aria-label="Loading ingredient totals"
+              />
+            ) : aggregated.length === 0 ? (
               // Wave 70.10 - smarter empty state. If there are
               // confirmed orders in the window but zero demand
               // rows, it's because the menu items have no recipes
@@ -777,9 +930,12 @@ function KitchenPrepListPageInner() {
                                     variant="outline"
                                     className="h-7 text-[11px] gap-1 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/5"
                                     onClick={() => handleAddToShoppingList(d)}
+                                    // Disabled while ANY add is in flight - parallel
+                                    // adds race the open-list lookup in the service.
+                                    disabled={addingId !== null || creatingList}
                                   >
                                     <ShoppingCart className="w-3 h-3" />
-                                    Add to list
+                                    {addingId === (d.inventory_item_id || d.name) ? "Adding..." : "Add to list"}
                                   </Button>
                                 ) : (
                                   <CheckCircle2 className="w-4 h-4 text-brand-primary inline" />
@@ -928,7 +1084,10 @@ function KitchenPrepListPageInner() {
                                 <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-3 h-3" />
-                                    {new Date(o.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                                    {/* parseLocalDay: a bare new Date("YYYY-MM-DD")
+                                        is UTC midnight and renders the previous
+                                        day for browsers west of UTC. */}
+                                    {(parseLocalDay(o.event_date) ?? new Date(o.event_date)).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
                                   </span>
                                   {meta?.event_time && (
                                     <span className="flex items-center gap-1">
@@ -1084,12 +1243,12 @@ function KitchenPrepListPageInner() {
                               </div>
                             </div>
                             {/*
-                              Equipment to pack, pulled from
-                              orders.equipment_items jsonb. Sales
-                              writes this on the quote, it persists
-                              through the quote->order conversion, the
-                              kitchen sees it here, the driver sees it
-                              on their delivery card. End-to-end visibility.
+                              Equipment to pack, pulled from the linked
+                              quote's equipment_items jsonb (orders has
+                              no such column - the schema-audit trap).
+                              Sales writes it on the quote, the kitchen
+                              sees it here, the driver sees it on their
+                              delivery card. End-to-end visibility.
                             */}
                             {equipmentItems.length > 0 && (
                               <div>
@@ -1186,10 +1345,9 @@ function KitchenPrepListPageInner() {
               ))}
             </div>
           )}
-        </PortalShell>
-        <Footer />
-      </div>
-    </>
+        </>
+      )}
+    </KitchenPageShell>
   );
 }
 

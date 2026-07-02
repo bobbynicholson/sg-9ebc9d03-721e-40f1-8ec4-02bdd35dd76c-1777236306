@@ -101,6 +101,103 @@ export interface KitchenStation {
   notes: string | null;
 }
 
+// ── Recipe lookup core ──────────────────────────────────────────────────────
+
+/**
+ * Kitchen sweep 2026-07-02: module-scope core of lookupRecipe that takes
+ * pre-fetched settings. lookupRecipe used to call getKitchenSettings on
+ * EVERY invocation, so planTasksForOrder re-fetched the companies row once
+ * per menu item (an order with 10 lines cost 11 identical settings reads).
+ * The public lookupRecipe signature is unchanged; the planner calls this
+ * directly with the settings it already holds.
+ */
+async function lookupRecipeWithSettings(
+  companyId: string,
+  menuItemName: string,
+  client: typeof supabase | undefined,
+  settings: KitchenSettings,
+): Promise<{
+  base_servings: number;
+  prep_time_min: number;
+  cook_time_min: number;
+  ingredients: Array<{ name: string; quantity: number; unit: string; inventory_item_id?: string | null }>;
+} | null> {
+  const sb: any = client || supabase;
+
+  // Try DB: menu_items by name -> recipes -> recipe_ingredients.
+  // .limit(1) before maybeSingle: duplicate item names (tenants clone
+  // items) made maybeSingle error out, which was logged then silently
+  // fell through to the legacy fallback / default times.
+  const { data: menuItem, error: menuItemErr } = await sb
+    .from("menu_items")
+    .select("id, item_name, base_servings, prep_time_minutes, cook_time_minutes")
+    .eq("company_id", companyId)
+    .ilike("item_name", menuItemName.trim())
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (menuItemErr) {
+    console.error("[kitchenPrepService] menu_items fetch failed:", menuItemErr);
+  }
+
+  if (menuItem?.id) {
+    const { data: recipe, error: recipeErr } = await sb
+      .from("recipes")
+      .select("id, base_servings, prep_time_minutes, cook_time_minutes")
+      .eq("menu_item_id", menuItem.id)
+      .limit(1)
+      .maybeSingle();
+    if (recipeErr) {
+      console.error("[kitchenPrepService] recipes fetch failed:", recipeErr);
+    }
+
+    if (recipe?.id) {
+      const { data: ings, error: ingsErr } = await sb
+        .from("recipe_ingredients")
+        .select("ingredient_name, quantity, unit, inventory_item_id")
+        .eq("recipe_id", recipe.id);
+      if (ingsErr) {
+        console.error("[kitchenPrepService] recipe_ingredients fetch failed:", ingsErr);
+      }
+
+      if (ings && ings.length > 0) {
+        return {
+          base_servings: Number(recipe.base_servings ?? menuItem.base_servings ?? 1),
+          prep_time_min: Number(recipe.prep_time_minutes ?? menuItem.prep_time_minutes ?? settings.defaultPrepMinPerDish),
+          cook_time_min: Number(recipe.cook_time_minutes ?? menuItem.cook_time_minutes ?? settings.defaultCookMinPerDish),
+          ingredients: ings.map((r: any) => ({
+            name: r.ingredient_name,
+            quantity: Number(r.quantity || 0),
+            unit: r.unit || "unit",
+            inventory_item_id: r.inventory_item_id ?? null,
+          })),
+        };
+      }
+    }
+  }
+
+  // Fallback: hardcoded RECIPE_MAPPINGS in inventoryDeductionService.
+  // The legacy shape stores quantity_per_serving (not absolute) and has
+  // no prep / cook time, so we wrap and treat base_servings as 1 - the
+  // legacy multiplier is already "per guest", so scaledServings is the
+  // direct multiplier.
+  const fallback = getLegacyRecipe(menuItemName);
+  if (fallback) {
+    return {
+      base_servings: 1,
+      prep_time_min: settings.defaultPrepMinPerDish,
+      cook_time_min: settings.defaultCookMinPerDish,
+      ingredients: (fallback.ingredients || []).map((i: any) => ({
+        name: i.inventory_item_name || i.name,
+        quantity: Number(i.quantity_per_serving ?? i.quantity ?? 0),
+        unit: i.unit || "unit",
+      })),
+    };
+  }
+
+  return null;
+}
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 export const kitchenPrepService = {
@@ -132,11 +229,33 @@ export const kitchenPrepService = {
       overtimeAfterHours:     Number(raw.overtime_after_hours       ?? DEFAULT_KITCHEN_SETTINGS.overtimeAfterHours),
       maxHotHoldMin:          Number(raw.max_hot_hold_min           ?? DEFAULT_KITCHEN_SETTINGS.maxHotHoldMin),
       mealBreakAfterHours:    Number(raw.meal_break_after_hours     ?? DEFAULT_KITCHEN_SETTINGS.mealBreakAfterHours),
+      // Kitchen sweep 2026-07-02: planTasksForOrder reads
+      // (settings as any).prepParallelism for the batch-scaling cap, but
+      // this key was never mapped from the jsonb - the tenant override
+      // (kitchen_settings.prep_parallelism) was silently ignored and the
+      // cap was always the hardcoded 3. Not on the public interface yet;
+      // carried as an extra key under the cast.
+      prepParallelism:        Number(raw.prep_parallelism           ?? 3),
     } as KitchenSettings;
   },
 
   async updateKitchenSettings(companyId: string, s: KitchenSettings): Promise<boolean> {
+    // Kitchen sweep 2026-07-02: merge over the existing jsonb instead of
+    // replacing it wholesale. The old write rebuilt the object from the
+    // seven known keys, so any key NOT on the KitchenSettings interface
+    // (e.g. prep_parallelism, set directly in SQL) was erased on every
+    // settings save. Read-merge-write keeps unknown keys intact.
+    const { data: current, error: readErr } = await supabase
+      .from("companies")
+      .select("kitchen_settings")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    const existing = ((current as any)?.kitchen_settings && typeof (current as any).kitchen_settings === "object")
+      ? (current as any).kitchen_settings
+      : {};
     const payload = {
+      ...existing,
       prep_safety_buffer_min: s.prepSafetyBufferMin,
       default_prep_min_per_dish: s.defaultPrepMinPerDish,
       default_cook_min_per_dish: s.defaultCookMinPerDish,
@@ -171,76 +290,11 @@ export const kitchenPrepService = {
   } | null> {
     // Wave 70.13 - thread the optional client through so server-
     // side regen API + cron callers can read without RLS blocking.
-    const sb: any = client || supabase;
+    // Kitchen sweep 2026-07-02: body extracted to module-scope
+    // lookupRecipeWithSettings so planTasksForOrder can pass its
+    // already-fetched settings instead of re-reading companies per item.
     const settings = await this.getKitchenSettings(companyId, client);
-
-    // Try DB: menu_items by name -> recipes -> recipe_ingredients
-    const { data: menuItem, error: menuItemErr } = await sb
-      .from("menu_items")
-      .select("id, item_name, base_servings, prep_time_minutes, cook_time_minutes")
-      .eq("company_id", companyId)
-      .ilike("item_name", menuItemName.trim())
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (menuItemErr) {
-      console.error("[kitchenPrepService] menu_items fetch failed:", menuItemErr);
-    }
-
-    if (menuItem?.id) {
-      const { data: recipe, error: recipeErr } = await sb
-        .from("recipes")
-        .select("id, base_servings, prep_time_minutes, cook_time_minutes")
-        .eq("menu_item_id", menuItem.id)
-        .maybeSingle();
-      if (recipeErr) {
-        console.error("[kitchenPrepService] recipes fetch failed:", recipeErr);
-      }
-
-      if (recipe?.id) {
-        const { data: ings, error: ingsErr } = await sb
-          .from("recipe_ingredients")
-          .select("ingredient_name, quantity, unit, inventory_item_id")
-          .eq("recipe_id", recipe.id);
-        if (ingsErr) {
-          console.error("[kitchenPrepService] recipe_ingredients fetch failed:", ingsErr);
-        }
-
-        if (ings && ings.length > 0) {
-          return {
-            base_servings: Number(recipe.base_servings ?? menuItem.base_servings ?? 1),
-            prep_time_min: Number(recipe.prep_time_minutes ?? menuItem.prep_time_minutes ?? settings.defaultPrepMinPerDish),
-            cook_time_min: Number(recipe.cook_time_minutes ?? menuItem.cook_time_minutes ?? settings.defaultCookMinPerDish),
-            ingredients: ings.map((r: any) => ({
-              name: r.ingredient_name,
-              quantity: Number(r.quantity || 0),
-              unit: r.unit || "unit",
-              inventory_item_id: r.inventory_item_id ?? null,
-            })),
-          };
-        }
-      }
-    }
-
-    // Fallback: hardcoded RECIPE_MAPPINGS in inventoryDeductionService.
-    // The legacy shape stores quantity_per_serving (not absolute) and has
-    // no prep / cook time, so we wrap and treat base_servings as 1 - the
-    // legacy multiplier is already "per guest", so scaledServings is the
-    // direct multiplier.
-    const fallback = getLegacyRecipe(menuItemName);
-    if (fallback) {
-      return {
-        base_servings: 1,
-        prep_time_min: settings.defaultPrepMinPerDish,
-        cook_time_min: settings.defaultCookMinPerDish,
-        ingredients: (fallback.ingredients || []).map((i: any) => ({
-          name: i.inventory_item_name || i.name,
-          quantity: Number(i.quantity_per_serving ?? i.quantity ?? 0),
-          unit: i.unit || "unit",
-        })),
-      };
-    }
-
-    return null;
+    return lookupRecipeWithSettings(companyId, menuItemName, client, settings);
   },
 
   // ── Scaling math ─────────────────────────────────────────────────────────
@@ -381,12 +435,26 @@ export const kitchenPrepService = {
       }));
     }
 
+    // Kitchen sweep 2026-07-02: resolve recipes once per UNIQUE item name,
+    // in parallel, instead of a sequential lookupRecipe per line (each of
+    // which also re-fetched settings). A 10-line order went from ~40
+    // serial round-trips to one settings read + 10 parallel lookups.
+    const uniqueNames = Array.from(new Set(
+      items
+        .map((item: any) => item?.name || item?.item_name || item?.menu_item_name)
+        .filter((n: any): n is string => Boolean(n)),
+    ));
+    const recipeByName = new Map<string, Awaited<ReturnType<typeof lookupRecipeWithSettings>>>();
+    await Promise.all(uniqueNames.map(async (n) => {
+      recipeByName.set(n, await lookupRecipeWithSettings(companyId, n, client, settings));
+    }));
+
     const tasks: PrepTask[] = [];
     for (const item of items) {
       const name = item?.name || item?.item_name || item?.menu_item_name;
       if (!name) continue;
 
-      const recipe = await this.lookupRecipe(companyId, name, client);
+      const recipe = recipeByName.get(name) ?? null;
       const basePrepMin = recipe?.prep_time_min ?? settings.defaultPrepMinPerDish;
       const baseCookMin = recipe?.cook_time_min ?? settings.defaultCookMinPerDish;
 
@@ -489,7 +557,12 @@ export const kitchenPrepService = {
       .eq("id", orderId)
       .maybeSingle();
     if (orderMetaErr) {
+      // Kitchen sweep 2026-07-02: bail instead of falling through. If this
+      // read fails (RLS, network) the quarantine + past-date guards below
+      // are silently skipped, so a retry could generate prep tasks for an
+      // imported/historical order. Fail closed; the caller can retry.
       console.error("[kitchenPrepService] orders fetch failed:", orderMetaErr);
+      return { created: 0, skippedReason: `order_lookup_failed:${orderMetaErr.message}` };
     }
     if (orderMeta) {
       const importedAt = (orderMeta as any).imported_at;
@@ -538,7 +611,12 @@ export const kitchenPrepService = {
       .in("status", ["pending", "in_progress"])
       .is("deleted_at", null);
     if (existingErr) {
+      // Kitchen sweep 2026-07-02: this SELECT is the idempotency gate. If
+      // it fails and we fall through, `existing` is null and we insert a
+      // second full set of tasks next to the ones already there. Fail
+      // closed instead - a retry when the read works again is safe.
       console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", existingErr);
+      return { created: 0, skippedReason: `idempotency_check_failed:${existingErr.message}` };
     }
     if (existing && existing.length > 0) {
       if (opts.force) {
