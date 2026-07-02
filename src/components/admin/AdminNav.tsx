@@ -380,6 +380,7 @@ export function AdminNav(_: AdminNavProps = {}) {
     title: "Admin",
     mobileSubtitle: "Operations & admin",
     brandIcon: LayoutDashboard,
+    appearance: "brand",
     // Tenant brand accent - resolves to THIS company's colours via the
     // brand-* CSS vars (set by TenantBrandingApplier), falling back to
     // the CateringMS default for non-white-label tenants.

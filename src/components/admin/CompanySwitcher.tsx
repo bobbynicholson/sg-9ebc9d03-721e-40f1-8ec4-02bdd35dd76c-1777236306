@@ -27,13 +27,28 @@ export function CompanySwitcher() {
 
   useEffect(() => {
     loadCompanies();
-    
-    // Detect current company from URL
-    const pathMatch = router.pathname.match(/^\/([^\/]+)/);
-    if (pathMatch && pathMatch[1] !== "super-admin") {
+
+    if (!router.isReady) return;
+
+    const asPath = router.asPath || router.pathname || "";
+    if (asPath.startsWith("/admin/platform") || asPath.startsWith("/super-admin")) {
+      setSelectedCompany("super-admin");
+      return;
+    }
+
+    const querySlug = typeof router.query.company_slug === "string"
+      ? router.query.company_slug
+      : "";
+    if (querySlug) {
+      setSelectedCompany(querySlug);
+      return;
+    }
+
+    const pathMatch = asPath.match(/^\/([^/?#]+)\/admin(?:\/|$)/);
+    if (pathMatch?.[1]) {
       setSelectedCompany(pathMatch[1]);
     }
-  }, [router.pathname]);
+  }, [router.isReady, router.asPath, router.pathname, router.query.company_slug]);
 
   const loadCompanies = async () => {
     try {
@@ -62,9 +77,9 @@ export function CompanySwitcher() {
     setSelectedCompany(value);
 
     if (value === "super-admin") {
-      router.push("/super-admin/dashboard");
+      router.push("/admin/platform/dashboard");
       toast({
-        title: "Switched to Super Admin",
+        title: "Switched to Platform Admin",
         description: "Viewing platform-wide dashboard",
       });
     } else {
@@ -98,7 +113,7 @@ export function CompanySwitcher() {
         <SelectContent>
           <SelectItem value="super-admin">
             <div className="flex items-center gap-2">
-              <span className="font-semibold">🌟 Super Admin</span>
+              <span className="font-semibold">Platform Admin</span>
             </div>
           </SelectItem>
           

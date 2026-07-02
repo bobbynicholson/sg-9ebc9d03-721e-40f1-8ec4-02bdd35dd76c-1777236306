@@ -33,6 +33,9 @@ interface CollapsibleNavSectionProps {
   /** When true, this section contains the currently active route - the
    *  section will auto-expand even if the user previously closed it. */
   containsActiveRoute?: boolean;
+  /** Brand-painted sidebars need light section headers on top of the
+   *  tenant gradient instead of the neutral slate labels. */
+  brandMode?: boolean;
   children: React.ReactNode;
 }
 
@@ -42,6 +45,7 @@ export function CollapsibleNavSection({
   defaultOpen = true,
   flatMode = false,
   containsActiveRoute = false,
+  brandMode = false,
   children,
 }: CollapsibleNavSectionProps) {
   void _storageKey;
@@ -64,13 +68,19 @@ export function CollapsibleNavSection({
       <button
         type="button"
         onClick={() => setUserOpen((v) => !v)}
-        className="w-full flex items-center justify-between mt-3 mb-1 px-2.5 py-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors dark:text-slate-400 dark:hover:text-slate-200"
+        className={cn(
+          "w-full flex items-center justify-between mt-3 mb-1 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+          brandMode
+            ? "text-white/65 hover:text-white"
+            : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+        )}
         aria-expanded={open}
       >
         <span className="truncate">{title}</span>
         <ChevronDown
           className={cn(
-            "h-3 w-3 flex-shrink-0 text-slate-400 transition-transform duration-200",
+            "h-3 w-3 flex-shrink-0 transition-transform duration-200",
+            brandMode ? "text-white/55" : "text-slate-400",
             open ? "rotate-0" : "-rotate-90",
           )}
         />

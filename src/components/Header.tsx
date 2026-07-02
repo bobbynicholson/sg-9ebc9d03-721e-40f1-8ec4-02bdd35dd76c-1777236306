@@ -32,7 +32,7 @@ const getDashboardPath = (role: UserRole, companySlug?: string): string => {
   
   switch (role) {
     case UserRole.SUPER_ADMIN:
-      return "/super-admin/dashboard";
+      return "/admin/platform/dashboard";
     case UserRole.COMPANY_ADMIN:
     case UserRole.ADMIN:
       return adminPath;
@@ -153,7 +153,7 @@ export function Header() {
             <>
               <Link href={dashboardPath}>
                 <Button className="bg-brand-primary text-white hover:opacity-90">
-                  Dashboard →
+                  Dashboard
                 </Button>
               </Link>
               <DropdownMenu>

@@ -40,7 +40,7 @@ const EXCHANGE_RATES = {
   EUR: 20.0
 };
 
-const PRICING_FORMULA = "Foreign Currency = (ZAR Price × 3) ÷ Exchange Rate";
+const PRICING_FORMULA = "Foreign Currency = (ZAR Price x 3) / Exchange Rate";
 
 const FALLBACK_TIERS: PricingTier[] = [
   { slug: "starter", name: "Starter", zarPrice: 999, usdPrice: 162, gbpPrice: 128, eurPrice: 150 },
@@ -80,7 +80,7 @@ function PricingManagementPage() {
     (async () => {
       try {
         const r = await fetch("/api/platform/pricing-plans");
-        const j = await r.json();
+        const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j?.error || "Could not load pricing");
         const plans = (j.plans || []) as Array<{
           slug: string; name: string; zar_price: number; usd_price: number;
@@ -236,7 +236,6 @@ function PricingManagementPage() {
               className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:border-white/40 hover:bg-white/20"
             >
               See your COGS at this price
-              <span aria-hidden>→</span>
             </a>
           }
         />
@@ -279,7 +278,7 @@ function PricingManagementPage() {
                     <Badge variant="outline" className="border-slate-200 bg-white text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
                       {code}
                     </Badge>
-                    <span className="text-slate-500 dark:text-slate-400">÷ {rate}</span>
+                    <span className="text-slate-500 dark:text-slate-400">divide by {rate}</span>
                   </div>
                 ),
               )}
@@ -372,7 +371,7 @@ function PricingManagementPage() {
                 </span>
                 <span className="text-sm text-slate-500 dark:text-slate-400">per month, ZAR base price</span>
                 <span className="ml-auto text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                  ${tier.usdPrice.toLocaleString("en-ZA")} · £{tier.gbpPrice.toLocaleString("en-ZA")} · €{tier.eurPrice.toLocaleString("en-ZA")}
+                  USD {tier.usdPrice.toLocaleString("en-ZA")} / GBP {tier.gbpPrice.toLocaleString("en-ZA")} / EUR {tier.eurPrice.toLocaleString("en-ZA")}
                 </span>
               </div>
               <div>
@@ -381,7 +380,7 @@ function PricingManagementPage() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant="outline" className="border-amber-200 bg-amber-50 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
-                        🇿🇦 South Africa
+                        South Africa
                       </Badge>
                     </div>
                     <Label htmlFor={`zar-${index}`} className="text-xs sm:text-sm font-semibold">
@@ -408,7 +407,7 @@ function PricingManagementPage() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        🇺🇸 United States
+                        United States
                       </Badge>
                     </div>
                     <Label htmlFor={`usd-${index}`} className="text-xs sm:text-sm font-semibold">
@@ -416,18 +415,18 @@ function PricingManagementPage() {
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base">
-                        $
+                        USD
                       </span>
                       <Input
                         id={`usd-${index}`}
                         type="number"
                         value={tier.usdPrice}
                         onChange={(e) => handleForeignPriceChange(index, "usdPrice", e.target.value)}
-                        className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
+                        className="h-12 border-slate-200 pl-14 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:text-lg"
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.USD} = ${calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)} (approximate; ZAR is authoritative)
+                      Auto: ZAR {tier.zarPrice} x 3 / {EXCHANGE_RATES.USD} = USD {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)} (approximate; ZAR is authoritative)
                     </p>
                   </div>
 
@@ -435,7 +434,7 @@ function PricingManagementPage() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        🇬🇧 United Kingdom
+                        United Kingdom
                       </Badge>
                     </div>
                     <Label htmlFor={`gbp-${index}`} className="text-xs sm:text-sm font-semibold">
@@ -443,18 +442,18 @@ function PricingManagementPage() {
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base">
-                        £
+                        GBP
                       </span>
                       <Input
                         id={`gbp-${index}`}
                         type="number"
                         value={tier.gbpPrice}
                         onChange={(e) => handleForeignPriceChange(index, "gbpPrice", e.target.value)}
-                        className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
+                        className="h-12 border-slate-200 pl-14 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:text-lg"
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.GBP} = £{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)} (approximate; ZAR is authoritative)
+                      Auto: ZAR {tier.zarPrice} x 3 / {EXCHANGE_RATES.GBP} = GBP {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)} (approximate; ZAR is authoritative)
                     </p>
                   </div>
 
@@ -462,7 +461,7 @@ function PricingManagementPage() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        🇪🇺 Europe
+                        Europe
                       </Badge>
                     </div>
                     <Label htmlFor={`eur-${index}`} className="text-xs sm:text-sm font-semibold">
@@ -470,18 +469,18 @@ function PricingManagementPage() {
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base">
-                        €
+                        EUR
                       </span>
                       <Input
                         id={`eur-${index}`}
                         type="number"
                         value={tier.eurPrice}
                         onChange={(e) => handleForeignPriceChange(index, "eurPrice", e.target.value)}
-                        className="h-12 border-slate-200 pl-7 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:pl-8 sm:text-lg"
+                        className="h-12 border-slate-200 pl-14 text-base font-semibold focus:border-amber-400 dark:border-slate-700 sm:text-lg"
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} × 3 ÷ {EXCHANGE_RATES.EUR} = €{calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)} (approximate; ZAR is authoritative)
+                      Auto: ZAR {tier.zarPrice} x 3 / {EXCHANGE_RATES.EUR} = EUR {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)} (approximate; ZAR is authoritative)
                     </p>
                   </div>
                 </div>

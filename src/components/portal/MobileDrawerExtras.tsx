@@ -31,8 +31,7 @@ export function MobileSearchTrigger({
       <Search className="w-4 h-4 flex-shrink-0" />
       <span className="flex-1 text-left">{hint}</span>
       <kbd className="hidden sm:inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-600">
-        <span>⌘</span>
-        K
+        Cmd K
       </kbd>
     </button>
   );

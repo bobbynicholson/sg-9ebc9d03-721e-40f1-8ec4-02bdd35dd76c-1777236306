@@ -72,13 +72,25 @@ function MoneyHealthPage() {
   const drain = async () => {
     setDraining(true);
     try {
-      const r = await fetch("/api/admin/email-health", { method: "POST" }).then((x) => x.json());
-      if (r?.ok) {
-        toast({ title: "Queue processed", description: `${r.drained?.sent || 0} sent, ${r.drained?.failed || 0} failed.` });
-        setEmail(r.health);
+      const response = await fetch("/api/admin/email-health", { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && body?.ok) {
+        toast({ title: "Queue processed", description: `${body.drained?.sent || 0} sent, ${body.drained?.failed || 0} failed.` });
+        setEmail(body.health);
+        setEmailError(null);
       } else {
-        toast({ title: "Could not send", description: r?.error || "Try again", variant: "destructive" });
+        toast({
+          title: "Could not send",
+          description: body?.error || `Email worker returned HTTP ${response.status}`,
+          variant: "destructive",
+        });
       }
+    } catch (e: any) {
+      toast({
+        title: "Could not send",
+        description: e?.message || "Network error while processing the email queue.",
+        variant: "destructive",
+      });
     } finally {
       setDraining(false);
     }

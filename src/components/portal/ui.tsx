@@ -69,13 +69,19 @@ export function PortalShell({
 
 /** Page header: title + optional subtitle, leading icon tile, and actions.
  *
- * `variant="hero"` swaps the underlined text header for a full-width dark
- * command band: slate-950 panel, brand radial washes, glass icon tile and
- * white type. It reads identically in light and dark page themes (the band
- * is dark by design) and pairs with the platform portal's forced-dark rail.
- * Actions render inside a scoped `dark` class so shadcn outline/ghost
- * controls pick their dark styling on the band automatically. `meta` is an
- * optional chip row under the subtitle (live counts, scope badges). */
+ * `variant="hero"` swaps the underlined text header for a full-width command
+ * band. Two appearances:
+ * - `"brand"` (default on tenant surfaces): the band is PAINTED in the
+ *   tenant's own colours - a primary→secondary gradient (the admin-chosen
+ *   white-label palette) with a soft contrast scrim so white type stays
+ *   legible on any brand hue. No fixed dark slate anywhere.
+ * - `"dark"` (default on /admin/platform): the slate-950 command band that
+ *   pairs with the super-admin forced-dark rail.
+ * When `appearance` is omitted it resolves from the route, so tenant admin
+ * pages automatically carry the brand band while the platform keeps its
+ * dark identity. Actions render inside a scoped `dark` class so shadcn
+ * outline/ghost controls pick dark styling on the band automatically.
+ * `meta` is an optional chip row under the subtitle (live counts, badges). */
 export function PortalHeader({
   title,
   subtitle,
@@ -83,6 +89,7 @@ export function PortalHeader({
   actions,
   className,
   variant = "default",
+  appearance,
   meta,
 }: {
   title: React.ReactNode;
@@ -91,21 +98,47 @@ export function PortalHeader({
   actions?: React.ReactNode;
   className?: string;
   variant?: "default" | "hero";
+  /** Hero band paint: "brand" = tenant colours, "dark" = slate command
+   *  band. Defaults by route (platform → dark, everything else → brand). */
+  appearance?: "brand" | "dark";
   meta?: React.ReactNode;
 }) {
+  const router = useRouter();
   if (variant === "hero") {
+    const resolvedAppearance =
+      appearance ??
+      ((router.pathname || "").includes("/admin/platform") ? "dark" : "brand");
+    const isBrand = resolvedAppearance === "brand";
     return (
       <header
         className={cn(
-          "relative mb-7 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 px-5 py-6 text-white sm:px-7 sm:py-7",
+          "relative mb-7 overflow-hidden rounded-2xl border px-5 py-6 text-white sm:px-7 sm:py-7",
+          isBrand
+            ? "border-white/15 bg-[linear-gradient(130deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
+            : "border-slate-800 bg-slate-950",
           SOFT_SHADOW,
           className,
         )}
       >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgb(var(--brand-primary-rgb)/0.30),transparent_55%),radial-gradient(110%_140%_at_100%_0%,rgb(var(--brand-secondary-rgb)/0.18),transparent_60%)]"
-        />
+        {isBrand ? (
+          <>
+            {/* Contrast scrim: deepens the tenant colour just enough for
+                white type without ever reading as a dark header. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.14),rgba(2,6,23,0.32))]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgba(255,255,255,0.16),transparent_55%)]"
+            />
+          </>
+        ) : (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgb(var(--brand-primary-rgb)/0.30),transparent_55%),radial-gradient(110%_140%_at_100%_0%,rgb(var(--brand-secondary-rgb)/0.18),transparent_60%)]"
+          />
+        )}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/20"
@@ -122,7 +155,12 @@ export function PortalHeader({
                 {title}
               </h1>
               {subtitle && (
-                <p className="mt-2 max-w-4xl text-pretty text-sm leading-6 text-slate-300">
+                <p
+                  className={cn(
+                    "mt-2 max-w-4xl text-pretty text-sm leading-6",
+                    isBrand ? "text-white/85" : "text-slate-300",
+                  )}
+                >
                   {subtitle}
                 </p>
               )}

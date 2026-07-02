@@ -120,8 +120,16 @@ export interface PortalSidebarConfig {
    *  class to the nav subtree. Every dark: style in the tree already
    *  exists, so the rail stays pixel-identical to the dark-mode nav.
    *  Used by the platform (super admin) portal to visually separate the
-   *  SaaS command centre from tenant surfaces. Default: follow theme. */
-  appearance?: "light" | "dark";
+   *  SaaS command centre from tenant surfaces.
+   *
+   *  "brand" paints the rail, mobile top bar and drawer in the TENANT'S
+   *  own colours (a primary→secondary gradient from the white-label
+   *  palette, softly deepened for contrast) with white-glass rows - the
+   *  same command-centre structure as the platform rail, but wearing the
+   *  colours the admin chose instead of fixed slate. Repaints live when
+   *  branding changes because it reads the --brand-*-rgb vars.
+   *  Default: follow theme. */
+  appearance?: "light" | "dark" | "brand";
 }
 
 interface PortalSidebarProps {
@@ -168,6 +176,18 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
   const collapseKey = `${config.role}Nav-collapsed`;
   const forceDark = config.appearance === "dark";
+  const forceBrand = config.appearance === "brand";
+  // Brand rail paint: tenant primary→secondary gradient under a soft
+  // slate scrim so white type is legible on ANY admin-chosen hue while
+  // the surface still clearly reads as the brand colour (never generic
+  // dark). Written as full literals so Tailwind JIT emits them.
+  const BRAND_SURFACE =
+    "bg-[linear-gradient(180deg,rgba(2,6,23,0.28),rgba(2,6,23,0.44)),linear-gradient(170deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]";
+  // On the brand rail the config's brand-tinted hover/search classes are
+  // tone-on-tone (invisible); swap them for white-glass equivalents.
+  const searchAccent = forceBrand
+    ? "bg-white/10 hover:bg-white/15 text-white"
+    : config.searchAccent;
 
   useEffect(() => {
     const saved = localStorage.getItem(collapseKey);
@@ -235,11 +255,22 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     const overlay = item.iconOverlay ? item.iconOverlay() : null;
     const description = liveDesc !== null ? liveDesc : (item.description || null);
 
-    const badgeTone =
-      badge?.tone === "critical" ? "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30" :
-      badge?.tone === "warning"  ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30" :
-      badge?.tone === "info"     ? "bg-brand-accent/10 text-brand-accent border-brand-accent/20" :
-      "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+    const badgeTone = forceBrand
+      ? (
+        // Glass badges for the brand-painted rail. Semantic hues survive
+        // (rose = critical, amber = warning) but as light tints that stay
+        // readable on any brand colour.
+        badge?.tone === "critical" ? "bg-rose-400/25 text-rose-50 border-rose-200/40" :
+        badge?.tone === "warning"  ? "bg-amber-300/25 text-amber-50 border-amber-200/40" :
+        badge?.tone === "info"     ? "bg-white/15 text-white border-white/25" :
+        "bg-white/10 text-white/85 border-white/20"
+      )
+      : (
+        badge?.tone === "critical" ? "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30" :
+        badge?.tone === "warning"  ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30" :
+        badge?.tone === "info"     ? "bg-brand-accent/10 text-brand-accent border-brand-accent/20" :
+        "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+      );
 
     return (
       <Link
@@ -254,10 +285,16 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // labels, 20px icons. Specific transition, not `all`.
           "group relative flex items-center gap-2.5 overflow-hidden rounded-lg border border-transparent transition-colors duration-150",
           footer ? "px-3 py-2 text-[13px] font-medium" : "px-3 py-2.5 text-sm font-medium",
-          active
-            ? "border-brand-primary/20 bg-brand-primary/[0.07] text-slate-950 shadow-sm dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-white"
-            : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700 dark:text-slate-300",
-          !active && config.hoverClasses,
+          // Brand rail: white-glass rows (brand-tinted states would be
+          // tone-on-tone against the brand-painted surface).
+          forceBrand
+            ? active
+              ? "border-white/25 bg-white/15 text-white shadow-sm"
+              : footer ? "text-white/70" : "text-white/85"
+            : active
+              ? "border-brand-primary/20 bg-brand-primary/[0.07] text-slate-950 shadow-sm dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-white"
+              : footer ? "text-slate-600 dark:text-slate-400" : "text-slate-700 dark:text-slate-300",
+          !active && (forceBrand ? "hover:bg-white/10 hover:text-white" : config.hoverClasses),
           collapsed ? "justify-center" : "",
         )}
         title={collapsed ? item.title : ""}
@@ -273,18 +310,26 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               ? ""
               : cn(
                   "h-8 w-8 rounded-lg border",
-                  active
-                    ? "border-brand-primary/25 bg-brand-primary/10"
-                    : "border-slate-200/70 bg-slate-100/70 group-hover:border-slate-300/80 group-hover:bg-slate-100 dark:border-slate-700/70 dark:bg-slate-800/70 dark:group-hover:border-slate-600/80 dark:group-hover:bg-slate-800",
+                  forceBrand
+                    ? active
+                      ? "border-white/30 bg-white/20"
+                      : "border-white/10 bg-white/10 group-hover:border-white/20 group-hover:bg-white/15"
+                    : active
+                      ? "border-brand-primary/25 bg-brand-primary/10"
+                      : "border-slate-200/70 bg-slate-100/70 group-hover:border-slate-300/80 group-hover:bg-slate-100 dark:border-slate-700/70 dark:bg-slate-800/70 dark:group-hover:border-slate-600/80 dark:group-hover:bg-slate-800",
                 ),
           )}
         >
           <Icon
             className={cn(
               footer ? "h-4 w-4" : "h-[18px] w-[18px]",
-              active
-                ? "text-brand-primary"
-                : "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200",
+              forceBrand
+                ? active
+                  ? "text-white"
+                  : "text-white/80 group-hover:text-white"
+                : active
+                  ? "text-brand-primary"
+                  : "text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200",
             )}
           />
           {overlay && (
@@ -296,7 +341,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             <div className="flex-1 min-w-0">
               <div className="truncate">{item.title}</div>
               {description && !active && !footer && (
-                <div className="text-[11px] text-slate-500/90 dark:text-slate-400 truncate">{description}</div>
+                <div className={cn(
+                  "text-[11px] truncate",
+                  forceBrand ? "text-white/60" : "text-slate-500/90 dark:text-slate-400",
+                )}>{description}</div>
               )}
             </div>
             {badge && !active && (
@@ -317,11 +365,24 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 {badge.text}
               </span>
             )}
-            {active && <ChevronRight className="h-4 w-4 flex-shrink-0 text-brand-primary" />}
+            {active && (
+              <ChevronRight
+                className={cn(
+                  "h-4 w-4 flex-shrink-0",
+                  forceBrand ? "text-white" : "text-brand-primary",
+                )}
+              />
+            )}
           </>
         )}
         {active && !collapsed && (
-          <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full bg-brand-primary" aria-hidden="true" />
+          <span
+            className={cn(
+              "absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full",
+              forceBrand ? "bg-white" : "bg-brand-primary",
+            )}
+            aria-hidden="true"
+          />
         )}
       </Link>
     );
@@ -337,7 +398,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       <div className="space-y-4">
         {mobile && (
           <div className="space-y-3">
-            <MobileSearchTrigger accent={config.searchAccent} hint={config.searchHint} />
+            <MobileSearchTrigger accent={searchAccent} hint={config.searchHint} />
             {config.renderMobileQuickActions ? (
               config.renderMobileQuickActions({ onNavigate: () => setOpen(false) })
             ) : (
@@ -361,7 +422,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             // Footer sections render flat with a top divider, no
             // accordion. Visually deprioritised relative to main nav.
             return (
-              <div key={section.id} className="pt-3 mt-2 border-t border-slate-200/80 dark:border-slate-700/60 space-y-0.5">
+              <div key={section.id} className={cn(
+                "pt-3 mt-2 border-t space-y-0.5",
+                forceBrand ? "border-white/15" : "border-slate-200/80 dark:border-slate-700/60",
+              )}>
                 {section.items.map((item) => renderNavRow(item, {
                   active: isActive(item.href),
                   footer: true,
@@ -377,6 +441,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               storageKey={`${config.role}:${section.id}`}
               defaultOpen={section.defaultOpen}
               containsActiveRoute={containsActive}
+              brandMode={forceBrand}
             >
               {section.items.map((item) => renderNavRow(item, {
                 active: isActive(item.href),
@@ -386,7 +451,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           );
         })}
         {!hideSignOut && (
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800"><SignOutButton /></div>
+          <div className={cn(
+            "pt-4 border-t",
+            forceBrand ? "border-white/15" : "border-slate-100 dark:border-slate-800",
+          )}><SignOutButton /></div>
         )}
       </div>
     </ScrollArea>
@@ -414,7 +482,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // explicitly when the rail is forced dark.
           forceDark
             ? "dark bg-slate-950 border-slate-800"
-            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700",
+            : forceBrand
+              ? cn("dark border-black/10", BRAND_SURFACE)
+              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700",
         )}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
@@ -422,7 +492,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Open navigation menu">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Open navigation menu"
+                  className={forceBrand ? "text-white hover:bg-white/10 hover:text-white" : undefined}
+                >
                   <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
@@ -431,10 +506,16 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 className={cn(
                   "w-[300px] sm:w-[350px] max-w-[85vw] p-0 flex flex-col",
                   forceDark && "dark border-slate-800 bg-slate-950 text-slate-100",
+                  forceBrand && cn("dark border-black/10 text-white", BRAND_SURFACE),
                 )}
               >
                 <div
-                  className="flex-shrink-0 border-b border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] px-4 py-3 dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]"
+                  className={cn(
+                    "flex-shrink-0 border-b px-4 py-3",
+                    forceBrand
+                      ? "border-white/15 bg-white/10"
+                      : "border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]",
+                  )}
                   style={{ paddingTop: "max(1rem, env(safe-area-inset-top, 1rem))" }}
                 >
                   <Link
@@ -444,8 +525,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   >
                     <LogoTile size="lg" />
                     <div className="min-w-0">
-                      <h2 className="truncate text-sm font-semibold text-slate-950 dark:text-white">{config.title}</h2>
-                      <p className="truncate text-xs text-slate-600 dark:text-slate-400">{companyName}</p>
+                      <h2 className={cn("truncate text-sm font-semibold", forceBrand ? "text-white" : "text-slate-950 dark:text-white")}>{config.title}</h2>
+                      <p className={cn("truncate text-xs", forceBrand ? "text-white/70" : "text-slate-600 dark:text-slate-400")}>{companyName}</p>
                     </div>
                   </Link>
                 </div>
@@ -455,7 +536,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 {/* Pinned sign-out so the operator can always leave --
                     not buried under the nav scroll. */}
                 <div
-                  className="border-t border-slate-200 dark:border-slate-700 px-4 py-3 flex-shrink-0 bg-white dark:bg-slate-900"
+                  className={cn(
+                    "border-t px-4 py-3 flex-shrink-0",
+                    forceBrand
+                      ? "border-white/15 bg-black/10"
+                      : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900",
+                  )}
                   style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))" }}
                 >
                   <SignOutButton />
@@ -464,7 +550,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </Sheet>
             <Link href={withSlug(config.dashboardHref)} className="flex items-center gap-2 min-w-0">
               <LogoTile size="sm" />
-              <span className="font-bold text-slate-900 dark:text-white truncate">{config.title}</span>
+              <span className={cn("font-bold truncate", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{config.title}</span>
             </Link>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -484,7 +570,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           // own surface needs explicit dark classes when forced dark.
           forceDark
             ? "dark lg:border-slate-800 lg:bg-slate-950"
-            : "lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900",
+            : forceBrand
+              ? cn("dark lg:border-black/10 text-white", BRAND_SURFACE)
+              : "lg:border-slate-200 dark:lg:border-slate-700 lg:bg-white dark:lg:bg-slate-900",
           isCollapsed ? "lg:w-20" : "lg:w-72 xl:w-80",
         )}
       >
@@ -493,15 +581,22 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               portal's lead colour (tracks white-label re-theming via the
               --portal-accent-rgb var) so the rail carries identity without
               a loud gradient. */}
-          <div className="flex flex-col gap-3 border-b border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] px-4 py-3 dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]">
+          <div
+            className={cn(
+              "flex flex-col gap-3 border-b px-4 py-3",
+              forceBrand
+                ? "border-white/15 bg-white/10"
+                : "border-slate-200 bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.07),rgb(var(--portal-accent-rgb)/0.02))] dark:border-slate-700 dark:bg-[linear-gradient(180deg,rgb(var(--portal-accent-rgb)/0.12),transparent)]",
+            )}
+          >
             {!isCollapsed ? (
               <>
                 <div className="flex items-center justify-between gap-2">
                   <Link href={withSlug(config.dashboardHref)} className="flex items-center gap-3 min-w-0 flex-1">
                     <LogoTile size="lg" />
                     <div className="min-w-0">
-                      <h1 className="font-bold text-slate-900 dark:text-white truncate">{config.title}</h1>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{companyName}</p>
+                      <h1 className={cn("font-bold truncate", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{config.title}</h1>
+                      <p className={cn("text-xs truncate", forceBrand ? "text-white/70" : "text-slate-600 dark:text-slate-400")}>{companyName}</p>
                     </div>
                   </Link>
                   <div className="flex items-center gap-2 shrink-0">
@@ -544,7 +639,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     <div
                       key={section.id}
                       className={cn(
-                        "pt-3 mt-2 border-t border-slate-200/80 dark:border-slate-700/60 space-y-0.5",
+                        "pt-3 mt-2 border-t space-y-0.5",
+                        forceBrand ? "border-white/15" : "border-slate-200/80 dark:border-slate-700/60",
                         isCollapsed ? "" : "",
                       )}
                     >
@@ -560,6 +656,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     defaultOpen={section.defaultOpen}
                     containsActiveRoute={containsActive}
                     flatMode={isCollapsed}
+                    brandMode={forceBrand}
                   >
                     {linkRows}
                   </CollapsibleNavSection>
@@ -568,12 +665,20 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </div>
           </ScrollArea>
 
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+          <div
+            className={cn(
+              "p-4 border-t space-y-2",
+              forceBrand ? "border-white/15" : "border-slate-200 dark:border-slate-700",
+            )}
+          >
             <SignOutButton collapsed={isCollapsed} />
             <Button
               variant="ghost"
               className={cn(
-                "w-full text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800",
+                "w-full",
+                forceBrand
+                  ? "text-white/75 hover:bg-white/10 hover:text-white"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800",
                 isCollapsed ? "justify-center px-2" : "justify-start",
               )}
               onClick={toggleCollapse}

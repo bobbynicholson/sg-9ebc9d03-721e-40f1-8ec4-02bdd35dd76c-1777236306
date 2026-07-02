@@ -46,7 +46,7 @@ export function CommandPaletteHint({ className }: { className?: string }) {
       <Search className="h-3.5 w-3.5" />
       <span className="hidden sm:inline">Quick search</span>
       <kbd className="rounded border bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500 group-hover:bg-white">
-        {isMac ? "⌘" : "Ctrl"} K
+        {isMac ? "Cmd" : "Ctrl"} K
       </kbd>
     </button>
   );

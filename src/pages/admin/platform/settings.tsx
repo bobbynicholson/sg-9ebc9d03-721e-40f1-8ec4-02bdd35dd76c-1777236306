@@ -84,7 +84,7 @@ function PlatformSettingsPage() {
     setError(null);
     try {
       const r = await fetch("/api/platform/app-config");
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || "Could not load");
       setRows((j.entries || []) as ConfigRow[]);
     } catch (e: any) {

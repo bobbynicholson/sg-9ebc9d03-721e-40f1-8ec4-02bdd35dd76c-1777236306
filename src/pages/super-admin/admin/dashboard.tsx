@@ -124,7 +124,7 @@ export default function SuperAdminManagementDashboard() {
         subtitle="CateringMS super-admin dashboard for companies, subscriptions and revenue."
         icon={Activity}
         actions={(
-          <Button onClick={() => router.push("/super-admin")}>
+          <Button onClick={() => router.push("/admin/platform/dashboard")}>
             Back to Overview
           </Button>
         )}
