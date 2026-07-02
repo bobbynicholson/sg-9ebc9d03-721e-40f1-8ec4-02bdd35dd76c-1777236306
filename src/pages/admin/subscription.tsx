@@ -27,6 +27,7 @@ import {
   Info
 } from "lucide-react";
 import { subscriptionService } from "@/services/subscriptionService";
+import { formatZAR } from "@/lib/formatters";
 import type { Database } from "@/integrations/supabase/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -54,6 +55,7 @@ function SubscriptionPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billingHistory, setHistory] = useState<BillingHistory[]>([]);
   const [trialStatus, setTrialStatus] = useState<{ isInTrial: boolean; daysRemaining: number; trialEndsAt: string | null } | null>(null);
@@ -86,11 +88,14 @@ function SubscriptionPage() {
 
     try {
       setLoading(true);
+      setLoadError(null);
+      // throwOnError so a DB failure surfaces as the error card below
+      // instead of masquerading as the "no subscription" empty state.
       const [subData, historyData, trialData, deletionData] = await Promise.all([
-        subscriptionService.getSubscription(user.id),
-        subscriptionService.getBillingHistory(user.id),
+        subscriptionService.getSubscription(user.id, { throwOnError: true }),
+        subscriptionService.getBillingHistory(user.id, { throwOnError: true }),
         subscriptionService.checkTrialStatus(user.id),
-        subscriptionService.getAccountDeletionRequest(user.id)
+        subscriptionService.getAccountDeletionRequest(user.id, { throwOnError: true })
       ]);
 
       setSubscription(subData);
@@ -102,8 +107,9 @@ function SubscriptionPage() {
         const limits = await subscriptionService.checkUsageLimits(subData);
         setUsageLimits(limits);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading subscription data:", error);
+      setLoadError(error?.message || "Could not load your subscription details.");
     } finally {
       setLoading(false);
     }
@@ -220,12 +226,11 @@ function SubscriptionPage() {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string = "ZAR") => {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: currency
-    }).format(amount);
-  };
+  // formatZAR is the display source of truth for money. Amounts on
+  // subscriptions/billing_history are rand values, not cents. currency
+  // can be NULL on old rows; the old inline Intl call crashed on null.
+  const formatCurrency = (amount: number, currency?: string | null) =>
+    formatZAR(amount, { currency: currency || "ZAR" });
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A';
@@ -236,14 +241,27 @@ function SubscriptionPage() {
     });
   };
 
+  // Status colours are semantic (good = emerald, warning = amber, bad =
+  // rose), never brand tokens.
   const getStatusColor = (status: string | null | undefined) => {
     switch (status) {
-      case "active": return "bg-brand-primary";
+      case "active": return "bg-emerald-600";
       case "trial": return "bg-blue-500";
-      case "past_due": return "bg-yellow-500";
+      case "past_due": return "bg-amber-500";
       case "cancelled": return "bg-rose-500";
       case "expired": return "bg-gray-500";
       default: return "bg-gray-500";
+    }
+  };
+
+  // Hero chip dot for the current status, same semantic scale.
+  const statusDot = (status: string | null | undefined) => {
+    switch (status) {
+      case "active": return "bg-emerald-400";
+      case "trial": return "bg-blue-400";
+      case "past_due": return "bg-amber-400";
+      case "cancelled": return "bg-rose-400";
+      default: return "bg-slate-400";
     }
   };
 
@@ -261,6 +279,46 @@ function SubscriptionPage() {
           <p className="text-slate-600">Loading subscription details...</p>
         </div>
       </div>
+    );
+  }
+
+  if (loadError) {
+    // Load failure gets its own surface with a retry. Without this a
+    // DB error rendered the "no subscription" empty state, which lies.
+    return (
+      <>
+        <NoIndexMeta />
+        <Head>
+          <title>Subscription - CateringMS</title>
+        </Head>
+        <AdminNav />
+        <div className="admin-page-shell">
+          <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+            <PortalHeader
+              variant="hero"
+              title="Subscription"
+              icon={CreditCard}
+              subtitle="Your CateringMS plan, usage against plan limits, billing history and account controls."
+            />
+            <PageWorkbench />
+            <Card className="border-rose-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-rose-900">
+                  <AlertTriangle className="h-5 w-5" />
+                  Could not load your subscription
+                </CardTitle>
+                <CardDescription>{loadError}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" onClick={loadSubscriptionData} className="gap-2">
+                  <RefreshCw className="w-4 h-4" />
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          </PortalShell>
+        </div>
+      </>
     );
   }
 
@@ -283,12 +341,21 @@ function SubscriptionPage() {
           <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
             <PortalHeader
+              variant="hero"
               title="Subscription"
               icon={CreditCard}
               subtitle={
                 trialStatus?.isInTrial
-                  ? `You're on the free trial. ${trialStatus.daysRemaining} day${trialStatus.daysRemaining === 1 ? "" : "s"} left.`
+                  ? "You're on the free trial. Pick a plan before it ends and the switchover is automatic."
                   : "Pick a plan to keep using CateringMS once your trial ends."
+              }
+              meta={
+                trialStatus?.isInTrial ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${trialStatus.daysRemaining <= 3 ? "bg-amber-400" : "bg-emerald-400"}`} />
+                    {trialStatus.daysRemaining} trial day{trialStatus.daysRemaining === 1 ? "" : "s"} left
+                  </span>
+                ) : undefined
               }
             />
             <PageWorkbench />
@@ -317,8 +384,14 @@ function SubscriptionPage() {
     );
   }
 
-  const usagePercentageClients = usageLimits ? (usageLimits.currentActiveClients / usageLimits.activeClientsLimit) * 100 : 0;
-  const usagePercentageOrders = usageLimits ? (usageLimits.currentOrders / usageLimits.ordersLimit) * 100 : 0;
+  // Guard the zero-limit edge (unknown plan id) and clamp so an
+  // over-limit tenant doesn't push the Progress bar past 100%.
+  const usagePercentageClients = usageLimits && usageLimits.activeClientsLimit > 0
+    ? Math.min(100, (usageLimits.currentActiveClients / usageLimits.activeClientsLimit) * 100)
+    : 0;
+  const usagePercentageOrders = usageLimits && usageLimits.ordersLimit > 0
+    ? Math.min(100, (usageLimits.currentOrders / usageLimits.ordersLimit) * 100)
+    : 0;
 
   return (
     <>
@@ -334,9 +407,26 @@ function SubscriptionPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Subscription"
             icon={CreditCard}
             subtitle="Manage your plan, billing history and account."
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className={`h-1.5 w-1.5 rounded-full ${statusDot(subscription.status)}`} />
+                  {subscription.plan_name} ({getStatusText(subscription.status)})
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {formatCurrency(Number(subscription.amount), subscription.currency)} / {subscription.billing_cycle === "monthly" ? "month" : "year"}
+                </span>
+                {subscription.next_billing_date && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    Next billing {formatDate(subscription.next_billing_date)}
+                  </span>
+                )}
+              </>
+            }
           />
           <PageWorkbench />
 
@@ -344,12 +434,12 @@ function SubscriptionPage() {
             <Alert className="mb-6 border-rose-200 bg-rose-50">
               <AlertTriangle className="h-5 w-5 border-rose-200" />
               <AlertDescription className="border-rose-200">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold mb-1">Account Deletion Scheduled</p>
                     <p className="text-sm">Your account is scheduled for deletion on {formatDate(pendingDeletion.scheduled_deletion_date)}. You have time to change your mind.</p>
                   </div>
-                  <Button variant="outline" onClick={handleCancelDeletion}>
+                  <Button variant="outline" onClick={handleCancelDeletion} className="shrink-0">
                     Cancel Deletion
                   </Button>
                 </div>
@@ -361,12 +451,12 @@ function SubscriptionPage() {
             <Alert className="mb-6 border-yellow-200 bg-yellow-50">
               <AlertTriangle className="h-5 w-5 text-yellow-600" />
               <AlertDescription className="text-yellow-900">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold mb-1">Subscription Cancelling</p>
                     <p className="text-sm">Your subscription will end on {formatDate(subscription.current_period_end)}. You will still have access until then.</p>
                   </div>
-                  <Button variant="outline" onClick={handleReactivate}>
+                  <Button variant="outline" onClick={handleReactivate} className="shrink-0">
                     Reactivate Subscription
                   </Button>
                 </div>
@@ -500,11 +590,11 @@ function SubscriptionPage() {
               ) : (
                 <div className="space-y-3">
                   {billingHistory.map((record) => (
-                    <div key={record.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div key={record.id} className="flex flex-wrap items-center justify-between gap-3 p-4 border rounded-lg">
                       <div className="flex items-center gap-4">
-                        <div className={`p-2 rounded-full ${record.status === "succeeded" ? "bg-brand-primary/15" : "bg-rose-100"}`}>
+                        <div className={`p-2 rounded-full ${record.status === "succeeded" ? "bg-emerald-100" : "bg-rose-100"}`}>
                           {record.status === "succeeded" ? (
-                            <CheckCircle2 className="h-5 w-5 text-brand-primary" />
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                           ) : (
                             <XCircle className="h-5 w-5 text-rose-600" />
                           )}
@@ -517,9 +607,11 @@ function SubscriptionPage() {
                         </div>
                       </div>
                       {record.invoice_pdf_url && (
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4 mr-2" />
-                          Invoice
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={record.invoice_pdf_url} target="_blank" rel="noopener noreferrer">
+                            <Download className="h-4 w-4 mr-2" />
+                            Invoice
+                          </a>
                         </Button>
                       )}
                     </div>
@@ -535,7 +627,7 @@ function SubscriptionPage() {
               <CardDescription>Irreversible actions for your subscription and account</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border border-rose-200 rounded-lg bg-rose-50">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 border border-rose-200 rounded-lg bg-rose-50">
                 <div>
                   <p className="font-medium text-slate-900">Cancel Subscription</p>
                   <p className="text-sm text-slate-600">Stop your subscription and lose access to features</p>
@@ -606,7 +698,7 @@ function SubscriptionPage() {
                 </Dialog>
               </div>
 
-              <div className="flex items-center justify-between p-4 border border-rose-300 rounded-lg bg-rose-100">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 border border-rose-300 rounded-lg bg-rose-100">
                 <div>
                   <p className="font-medium text-slate-900">Delete Account</p>
                   <p className="text-sm text-slate-600">Permanently delete your account and all data (30-day grace period)</p>

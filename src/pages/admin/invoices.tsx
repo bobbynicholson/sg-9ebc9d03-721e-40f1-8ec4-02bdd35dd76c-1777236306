@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Head from "next/head";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useRouter } from "next/router";
-import { toLocalISO } from "@/lib/localDate";
+import { toLocalISO, toZonedISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
@@ -67,16 +67,29 @@ import { isAutomatedTestInvoice } from "@/lib/testDataDetection";
 // the due date has passed (covers cron lag). Used by both the Overdue
 // quick-filter and its count so the chip number and the filtered rows
 // always agree. Module-scope (pure) so it's a stable memo dependency.
-function isEffectivelyOverdue(inv: any): boolean {
+// `todayIso` is the tenant-timezone day (the old inline
+// toISOString().slice(0,10) was UTC "today", which flips a day early /
+// late for any tenant off the prime meridian).
+function isEffectivelyOverdue(inv: any, todayIso: string): boolean {
   if (!inv) return false;
   if (inv.status === "overdue") return true;
   if (inv.status !== "sent" && inv.status !== "partially_paid") return false;
   if (Number(inv.balance_due || 0) <= 0) return false;
   if (!inv.due_date) return false;
-  return String(inv.due_date).slice(0, 10) < new Date().toISOString().slice(0, 10);
+  return String(inv.due_date).slice(0, 10) < todayIso;
 }
 
 const CLOSED_OUT_INVOICE_STATUSES = new Set(["written_off", "voided"]);
+
+// Money maths in integer cents (see feedback: money must sum and agree
+// on every surface). Summing raw decimal rands accumulates float drift.
+const toCents = (v: unknown) => Math.round(Number(v || 0) * 100);
+
+// Whole-day difference between two YYYY-MM-DD strings (a - b). Both
+// parse as UTC midnight so the diff is exact regardless of DST/offset.
+function dayDiff(aIso: string, bIso: string): number {
+  return Math.round((Date.parse(aIso) - Date.parse(bIso)) / 86_400_000);
+}
 
 function isLiveUnpaidInvoice(inv: any): boolean {
   if (!inv) return false;
@@ -118,11 +131,19 @@ function InvoicesPageInner() {
     [invoices],
   );
   const testInvoiceTotal = useMemo(
-    () => testInvoices.reduce((sum: number, inv: any) => sum + Number(inv.total_amount || 0), 0),
+    () => testInvoices.reduce((sum: number, inv: any) => sum + toCents(inv.total_amount), 0) / 100,
     [testInvoices],
   );
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre audit: persistent load-failure state. The old
+  // toast-only handling vanished after 5s and left "No invoices match
+  // these filters" on screen - which reads as an empty ledger, not a
+  // failed query.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Non-fatal: the uninvoiced-orders card's queries failed. Kept
+  // separate because the invoice ledger itself is still trustworthy.
+  const [uninvoicedLoadFailed, setUninvoicedLoadFailed] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   // Phase 27 #1: ?invoiceId auto-opens the preview drawer once
   // invoices have loaded. Used by OverdueInvoicesWidget (Phase
@@ -385,6 +406,13 @@ function InvoicesPageInner() {
     })();
     return () => { cancelled = true; };
   }, [(user as any)?.company_id]);
+  // Tenant-timezone "today" for every overdue / due-soon / event-today
+  // comparison on this page. Falls back to the browser's local day
+  // until companies.timezone resolves.
+  const tenantTodayIso = useMemo(
+    () => toZonedISO(new Date(), tenantTimezone),
+    [tenantTimezone],
+  );
   const toggleBulkMarkPaid = (id: string) => {
     setBulkMarkPaidIds((prev) => {
       const next = new Set(prev);
@@ -797,7 +825,9 @@ function InvoicesPageInner() {
 
       if (error) throw error;
       setAllInvoices(data || []);
+      setLoadError(null);
     } catch (error: any) {
+      setLoadError(dbErrorMessage(error, { entity: "invoice" }));
       toast({
         title: "Error",
         description: dbErrorMessage(error, { entity: "invoice" }),
@@ -838,22 +868,34 @@ function InvoicesPageInner() {
         .is("deleted_at", null),
     ]);
 
-    if (!ordersRes.error) {
-      // Any existing invoice counts - a draft is still an active
-      // invoice for that order. The DB's uniq_invoices_active_order_id
-      // is the source of truth; this filter just keeps the list clean
-      // and stops the user from clicking Generate Invoice on something
-      // that would hit the constraint.
-      const invoicedOrderIds = new Set(
-        ((invoicesRes.data || []) as any[])
-          .map(inv => inv.order_id)
-          .filter(Boolean),
-      );
-      const uninvoicedOrders = (ordersRes.data || []).filter(
-        order => !invoicedOrderIds.has(order.id)
-      );
-      setOrders(uninvoicedOrders);
+    // Silent-failure audit: either leg failing used to be swallowed.
+    // Worse, an invoices-leg failure with a healthy orders leg would
+    // have offered "Generate Invoice" on ALREADY-invoiced orders
+    // (empty invoicedOrderIds set), inviting constraint errors. Bail
+    // and flag instead of computing from partial data.
+    if (ordersRes.error || invoicesRes.error) {
+      captureException(ordersRes.error || invoicesRes.error, {
+        level: "warning",
+        tags: { route: "/admin/invoices", step: "load_uninvoiced_orders" },
+      });
+      setUninvoicedLoadFailed(true);
+      return;
     }
+    setUninvoicedLoadFailed(false);
+    // Any existing invoice counts - a draft is still an active
+    // invoice for that order. The DB's uniq_invoices_active_order_id
+    // is the source of truth; this filter just keeps the list clean
+    // and stops the user from clicking Generate Invoice on something
+    // that would hit the constraint.
+    const invoicedOrderIds = new Set(
+      ((invoicesRes.data || []) as any[])
+        .map(inv => inv.order_id)
+        .filter(Boolean),
+    );
+    const uninvoicedOrders = (ordersRes.data || []).filter(
+      order => !invoicedOrderIds.has(order.id)
+    );
+    setOrders(uninvoicedOrders);
   };
 
   const handleGenerateInvoice = async (orderId: string) => {
@@ -1229,7 +1271,7 @@ function InvoicesPageInner() {
     } else if (statusFilter === "overdue") {
       // Effective overdue (stored 'overdue' + past-due unpaid) so the
       // view is right even if the overdue cron hasn't run yet.
-      rows = rows.filter(isEffectivelyOverdue);
+      rows = rows.filter((inv: any) => isEffectivelyOverdue(inv, tenantTodayIso));
     } else if (statusFilter !== "all") {
       rows = rows.filter((inv: any) => inv.status === statusFilter);
     } else if (!includeWrittenOff) {
@@ -1255,21 +1297,23 @@ function InvoicesPageInner() {
         return String(inv.invoice_date).slice(0, 10) <= dateTo;
       });
     }
-    // Wave 65 - amount-range filter on total_amount.
+    // Wave 65 - amount-range filter on total_amount. Compared in
+    // integer cents so a boundary value like 10406.30 can't miss on
+    // float representation.
     if (amountMin) {
       const n = Number(amountMin);
       if (Number.isFinite(n)) {
-        rows = rows.filter((inv: any) => Number(inv.total_amount || 0) >= n);
+        rows = rows.filter((inv: any) => toCents(inv.total_amount) >= toCents(n));
       }
     }
     if (amountMax) {
       const n = Number(amountMax);
       if (Number.isFinite(n)) {
-        rows = rows.filter((inv: any) => Number(inv.total_amount || 0) <= n);
+        rows = rows.filter((inv: any) => toCents(inv.total_amount) <= toCents(n));
       }
     }
     return rows;
-  }, [invoices, statusFilter, includeWrittenOff, clientFilterId, dateFrom, dateTo, amountMin, amountMax]);
+  }, [invoices, statusFilter, includeWrittenOff, clientFilterId, dateFrom, dateTo, amountMin, amountMax, tenantTodayIso]);
 
   // Live counts per status for the quick-filter chips. Written-off rows
   // are excluded (they're closed-loop); overdue uses the effective rule.
@@ -1280,11 +1324,41 @@ function InvoicesPageInner() {
       unpaid: base.filter(isLiveUnpaidInvoice).length,
       sent: base.filter((i: any) => i.status === "sent").length,
       partially_paid: base.filter((i: any) => i.status === "partially_paid").length,
-      overdue: base.filter(isEffectivelyOverdue).length,
+      overdue: base.filter((i: any) => isEffectivelyOverdue(i, tenantTodayIso)).length,
       paid: base.filter((i: any) => i.status === "paid").length,
       draft: base.filter((i: any) => i.status === "draft").length,
       written_off: invoices.filter((i: any) => i.status === "written_off").length,
       voided: invoices.filter((i: any) => i.status === "voided").length,
+    };
+  }, [invoices, tenantTodayIso]);
+
+  // One memo for the money tiles + hero chips so every surface reads
+  // the SAME cents-summed figures and the identity
+  // totalInvoiced == collected + outstanding holds (each row keeps
+  // total_amount == amount_paid + balance_due).
+  const moneySummary = useMemo(() => {
+    const liveUnpaid = invoices.filter(isLiveUnpaidInvoice);
+    const outstandingCents = liveUnpaid.reduce((s: number, i: any) => s + toCents(i.balance_due), 0);
+    const issued = invoices.filter((inv: any) => {
+      const s = String(inv.status || "").toLowerCase();
+      return s !== "draft" && !CLOSED_OUT_INVOICE_STATUSES.has(s);
+    });
+    // Collected = amount_paid across issued invoices. The old tile
+    // summed total_amount over fully-paid rows only, so part payments
+    // (deposits!) were in the bank but invisible - and the three tiles
+    // could not reconcile against each other.
+    const collectedCents = issued.reduce((s: number, i: any) => s + toCents(i.amount_paid), 0);
+    const totalInvoicedCents = issued.reduce((s: number, i: any) => s + toCents(i.total_amount), 0);
+    const vatPaidCents = invoices
+      .filter((i: any) => i.status === "paid")
+      .reduce((s: number, i: any) => s + toCents(i.tax_amount), 0);
+    return {
+      unpaidCount: liveUnpaid.length,
+      outstandingCents,
+      collectedCents,
+      paidCount: invoices.filter((i: any) => i.status === "paid").length,
+      totalInvoicedCents,
+      vatPaidCents,
     };
   }, [invoices]);
 
@@ -1343,6 +1417,10 @@ function InvoicesPageInner() {
           }
           .lg\\:pl-72, .xl\\:pl-80 { padding-left: 0 !important; }
           body { background: white !important; }
+          /* Hero band prints without its dark background, so force the
+             heading text back to ink or the page title goes invisible. */
+          header { background: white !important; }
+          header, header * { color: #0f172a !important; }
           .shadow, .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
           button, a[role="button"] { display: none !important; }
           input, select { display: none !important; }
@@ -1378,24 +1456,45 @@ function InvoicesPageInner() {
               size="sm"
               variant="outline"
               className="border-amber-400 text-amber-900 hover:bg-amber-100"
-              onClick={() => router.push("/admin/integrations")}
+              onClick={() => router.push(withSlug("/admin/integrations"))}
             >
               Open integrations
             </Button>
           </div>
         )}
 
-        {/* Header */}
+        {/* Header. Hero band: command-centre treatment washed in the
+            tenant's brand colours via the --brand-*-rgb vars. The
+            timezone hint moved from the subtitle into a meta chip so
+            no light-theme text sits on the dark band. */}
         <PortalHeader
+          variant="hero"
           title="Invoices"
           icon={FileText}
-          subtitle={
+          subtitle="Generate, send and track payment on every bill you issue, with EFT claims surfaced up top for bank-statement confirmation."
+          meta={
             <>
-              Bills issued for orders. Generate, send, and track payments. EFT claims show at the top so you can confirm against your bank statement before marking them paid.
+              {!loading && !loadError && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {tenantMoney.format(moneySummary.outstandingCents / 100)} outstanding
+                </span>
+              )}
+              {!loading && !loadError && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  {moneySummary.unpaidCount} unpaid invoice{moneySummary.unpaidCount === 1 ? "" : "s"}
+                </span>
+              )}
+              {!loading && !loadError && statusCounts.overdue > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                  {statusCounts.overdue} overdue
+                </span>
+              )}
               {tenantTimezone && (
-                <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-500 align-middle">
-                  <Clock className="w-3 h-3" />
-                  Dates in <span className="font-mono">{tenantTimezone}</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                  <Clock className="h-3 w-3" />
+                  <span className="font-mono">{tenantTimezone}</span>
                 </span>
               )}
             </>
@@ -1489,7 +1588,7 @@ function InvoicesPageInner() {
           {/* Wave 68 - recurring invoices entry point. */}
           <Button
             variant="outline"
-            onClick={() => router.push("/admin/recurring-invoices")}
+            onClick={() => router.push(withSlug("/admin/recurring-invoices"))}
             title="Set up weekly / monthly / quarterly invoices that generate themselves"
           >
             <Clock className="w-4 h-4 mr-2" />
@@ -1520,6 +1619,38 @@ function InvoicesPageInner() {
           }
         />
         <PageWorkbench />
+
+        {/* Persistent load-failure card. The toast-only handling
+            disappeared and left an empty ledger on screen. */}
+        {loadError && !loading && (
+          <Card className="mb-4 border-rose-200" data-print-hidden="true">
+            <CardContent className="py-4 px-5 flex flex-wrap items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              <div className="flex-1 min-w-[200px]">
+                <p className="text-sm font-semibold text-rose-900">Couldn't load invoices</p>
+                <p className="text-xs text-slate-600 mt-0.5">{loadError}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={loadInvoices} className="gap-1.5">
+                <RefreshCw className="w-4 h-4" /> Retry
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Uninvoiced-orders lookup failed: the card below would either
+            vanish (orders leg died) or, worse, offer Generate Invoice on
+            already-invoiced orders (invoices leg died). Say so. */}
+        {uninvoicedLoadFailed && !loading && (
+          <div data-print-hidden="true" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 flex flex-wrap items-center gap-2 text-xs text-amber-900">
+            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+            <span className="flex-1 min-w-[200px]">
+              The uninvoiced-orders check failed, so that section is hidden to avoid duplicate invoices.
+            </span>
+            <Button size="sm" variant="outline" className="border-amber-300 text-amber-900 hover:bg-amber-100" onClick={loadOrders}>
+              Retry
+            </Button>
+          </div>
+        )}
 
         {testInvoices.length > 0 && (
           <div data-print-hidden="true" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1609,36 +1740,35 @@ function InvoicesPageInner() {
                   draft|sent|paid|partially_paid|overdue|written_off
                   - no "outstanding" value. So this tile read 0
                   forever regardless of how much was actually owed.
-                  Now: sum balance_due across the live unpaid set,
-                  and surface the count as a subtext. */}
-              {(() => {
-                const live = invoices.filter(isLiveUnpaidInvoice);
-                const total = live.reduce((s: number, i: any) => s + Number(i.balance_due || 0), 0);
-                return (
-                  <>
-                    <div className="text-2xl font-bold text-amber-700">
-                      {tenantMoney.format(total)}
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                      {live.length} unpaid
-                    </div>
-                  </>
-                );
-              })()}
+                  Now via moneySummary (cents-summed, shared with the
+                  hero chips so every surface agrees). */}
+              <div className="text-2xl font-bold text-amber-700">
+                {tenantMoney.format(moneySummary.outstandingCents / 100)}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                {moneySummary.unpaidCount} unpaid
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                Collected <InfoTooltip content={"Total value across invoices the client has settled in full. Money actually in the bank."} />
+                Collected <InfoTooltip content={"Money actually received across every issued invoice, including part payments and deposits on invoices that still carry a balance."} />
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Command-centre audit: was sum(total_amount) over fully-
+                  paid rows only, so a R5k deposit on a part-paid invoice
+                  was in the bank but invisible - and Collected +
+                  Outstanding could not reconcile with Total invoiced.
+                  Now sums invoices.amount_paid (the paid-to-date source
+                  of truth) across issued rows, so the identity
+                  Total invoiced = Collected + Outstanding holds. */}
               <div className="text-2xl font-bold text-brand-primary">
-                {tenantMoney.format(invoices.filter(i => i.status === "paid").reduce((sum, inv) => sum + (inv.total_amount || 0), 0))}
+                {tenantMoney.format(moneySummary.collectedCents / 100)}
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                {invoices.filter(i => i.status === "paid").length} paid
+                {moneySummary.paidCount} paid in full
               </div>
             </CardContent>
           </Card>
@@ -1656,14 +1786,7 @@ function InvoicesPageInner() {
                     drafts saw their "Total invoiced" tile read R10k
                     higher than reality, and the gap between Total /
                     Collected / Outstanding was unexplainable. */}
-                {tenantMoney.format(
-                  invoices
-                    .filter((inv) => {
-                      const s = (inv.status || "").toLowerCase();
-                      return s !== "draft" && !CLOSED_OUT_INVOICE_STATUSES.has(s);
-                    })
-                    .reduce((sum, inv) => sum + (inv.total_amount || 0), 0),
-                )}
+                {tenantMoney.format(moneySummary.totalInvoicedCents / 100)}
               </div>
               {/* Wave 67 - VAT collected line. SARS-aware. Sums
                   tax_amount across PAID invoices only - that's
@@ -1671,17 +1794,11 @@ function InvoicesPageInner() {
                   Pre-Wave-67 the page had no surface for monthly
                   VAT reconciliation despite the data being on
                   every invoice row. */}
-              {(() => {
-                const vatCollected = invoices
-                  .filter((i: any) => i.status === "paid")
-                  .reduce((sum: number, inv: any) => sum + Number(inv.tax_amount || 0), 0);
-                if (vatCollected <= 0) return null;
-                return (
-                  <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                    Output VAT (paid): {tenantMoney.format(vatCollected)}
-                  </div>
-                );
-              })()}
+              {moneySummary.vatPaidCents > 0 && (
+                <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
+                  Output VAT (paid): {tenantMoney.format(moneySummary.vatPaidCents / 100)}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -2047,8 +2164,9 @@ function InvoicesPageInner() {
                       total: 0,
                     };
                     existing.invoices.push(inv);
-                    existing.outstanding += Number(inv.balance_due || 0);
-                    existing.total += Number(inv.total_amount || 0);
+                    // Accumulate in integer cents; divide only at display.
+                    existing.outstanding += toCents(inv.balance_due);
+                    existing.total += toCents(inv.total_amount);
                     groups.set(cid, existing);
                   }
                   // INV-B: stable tiebreaker. Two clients with the
@@ -2087,9 +2205,9 @@ function InvoicesPageInner() {
                       </div>
                       <div className="text-right tabular-nums flex-shrink-0">
                         <div className="text-xs text-slate-500">Outstanding</div>
-                        <div className="text-lg font-bold text-amber-700">{tenantMoney.format(g.outstanding)}</div>
+                        <div className="text-lg font-bold text-amber-700">{tenantMoney.format(g.outstanding / 100)}</div>
                         <div className="text-[11px] text-slate-500 mt-0.5">
-                          Total: {tenantMoney.format(g.total)}
+                          Total: {tenantMoney.format(g.total / 100)}
                         </div>
                       </div>
                     </div>
@@ -2116,9 +2234,10 @@ function InvoicesPageInner() {
                   let isDueSoon = false;
                   let daysToDue = 0;
                   if (invoice.due_date && balanceOpen && liveStatus) {
-                    const dueMs = new Date(invoice.due_date).getTime();
-                    const nowMs = Date.now();
-                    const diffDays = Math.floor((nowMs - dueMs) / 86_400_000);
+                    // Whole-day diff against the tenant's "today" (the
+                    // old Date.now() maths used the browser clock and
+                    // flipped rows a day early/late off SAST).
+                    const diffDays = dayDiff(tenantTodayIso, String(invoice.due_date).slice(0, 10));
                     if (diffDays > 0) {
                       isOverdue = true;
                       daysOverdue = diffDays;
@@ -2141,14 +2260,8 @@ function InvoicesPageInner() {
                   if (balanceOpen && liveStatus) {
                     const evtRaw = (invoice as any).orders?.event_date;
                     if (evtRaw) {
-                      const evt = new Date(evtRaw);
-                      if (!isNaN(evt.getTime())) {
-                        const evtMid = new Date(evt);
-                        evtMid.setHours(0, 0, 0, 0);
-                        const todayMid = new Date();
-                        todayMid.setHours(0, 0, 0, 0);
-                        eventIsToday = evtMid.getTime() === todayMid.getTime();
-                      }
+                      // Compare calendar days in the tenant timezone.
+                      eventIsToday = String(evtRaw).slice(0, 10) === tenantTodayIso;
                     }
                   }
                   const overdueBorder = isOverdue
@@ -2284,14 +2397,12 @@ function InvoicesPageInner() {
                             );
                           }
 
-                          // Relative event phrase. Compares date-only
-                          // (midnight) so "today" doesn't flip to
-                          // "yesterday" at midnight on the event day.
-                          const todayMid = new Date();
-                          todayMid.setHours(0, 0, 0, 0);
-                          const evtMid = new Date(evt);
-                          evtMid.setHours(0, 0, 0, 0);
-                          const daysDiff = Math.round((evtMid.getTime() - todayMid.getTime()) / 86400000);
+                          // Relative event phrase. Compares calendar
+                          // days against the TENANT's today so "today"
+                          // doesn't flip a day early for an operator
+                          // browsing from another timezone.
+                          const evtIso = String((invoice as any).orders.event_date).slice(0, 10);
+                          const daysDiff = dayDiff(evtIso, tenantTodayIso);
                           let relative: string;
                           let tone: string;
                           if (daysDiff === 0) {
@@ -2321,9 +2432,11 @@ function InvoicesPageInner() {
                           // - issue after event -> "Invoiced Xd after"
                           let gapLine: string | null = null;
                           if (iss && !isNaN(iss.getTime())) {
-                            const issMid = new Date(iss);
-                            issMid.setHours(0, 0, 0, 0);
-                            const gap = Math.round((evtMid.getTime() - issMid.getTime()) / 86400000);
+                            // Calendar-day gap straight off the two ISO
+                            // date strings (the old local-midnight maths
+                            // hit the UTC-parse trap west of UTC).
+                            const issIso = String(invoice.invoice_date).slice(0, 10);
+                            const gap = dayDiff(evtIso, issIso);
                             if (gap > 0) gapLine = `Invoiced ${gap} day${gap === 1 ? "" : "s"} before`;
                             else if (gap < 0) gapLine = `Invoiced ${Math.abs(gap)} day${Math.abs(gap) === 1 ? "" : "s"} after`;
                             // gap === 0 -> collapse (same-day issue, no extra line)

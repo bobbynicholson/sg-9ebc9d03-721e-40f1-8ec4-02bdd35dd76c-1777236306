@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { formatZAR } from "@/lib/formatters";
 import { Activity, AlertTriangle, CheckCircle2, Loader2, Mail, RefreshCw, Send, Banknote } from "lucide-react";
 
 function MoneyHealthPage() {
@@ -30,16 +31,37 @@ function MoneyHealthPage() {
   const [draining, setDraining] = useState(false);
   const [money, setMoney] = useState<any | null>(null);
   const [email, setEmail] = useState<any | null>(null);
+  // Audit fix: track per-endpoint failures. Previously both fetches
+  // swallowed errors into null, and a null money payload rendered the
+  // green "every order reconciles" state - a failed scan looked
+  // identical to a clean one on the page whose whole job is catching
+  // silent drift.
+  const [moneyError, setMoneyError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [mRes, eRes] = await Promise.all([
-        fetch("/api/admin/money-reconciliation").then((r) => r.json()).catch(() => null),
-        fetch("/api/admin/email-health").then((r) => r.json()).catch(() => null),
+      const [m, e] = await Promise.all([
+        fetch("/api/admin/money-reconciliation")
+          .then(async (r) => {
+            const j = await r.json().catch(() => null);
+            if (!j?.ok) throw new Error(j?.error || `Scan failed (HTTP ${r.status})`);
+            return { data: j, error: null as string | null };
+          })
+          .catch((err: any) => ({ data: null, error: err?.message || "Reconciliation scan failed" })),
+        fetch("/api/admin/email-health")
+          .then(async (r) => {
+            const j = await r.json().catch(() => null);
+            if (!j?.ok) throw new Error(j?.error || `Health check failed (HTTP ${r.status})`);
+            return { data: j.health, error: null as string | null };
+          })
+          .catch((err: any) => ({ data: null, error: err?.message || "Email health check failed" })),
       ]);
-      setMoney(mRes?.ok ? mRes : null);
-      setEmail(eRes?.ok ? eRes.health : null);
+      setMoney(m.data);
+      setMoneyError(m.error);
+      setEmail(e.data);
+      setEmailError(e.error);
     } finally {
       setLoading(false);
     }
@@ -62,7 +84,9 @@ function MoneyHealthPage() {
     }
   };
 
-  const fmtR = (n: number) => `R ${Number(n || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+  // Display source of truth for money: formatZAR. The API returns
+  // rand figures (r2-rounded), never cents.
+  const fmtR = (n: number) => formatZAR(Number(n || 0));
   const issues = (money?.issues || []) as any[];
   const errorCount = issues.filter((i) => i.severity === "error").length;
 
@@ -73,10 +97,33 @@ function MoneyHealthPage() {
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* Command-centre hero: dark band washed in the tenant's
+              brand colours. Meta chips carry the two live health
+              signals; both stay semantic (emerald = clean, rose /
+              amber = drift or backlog). */}
           <PortalHeader
+            variant="hero"
             title="Money & email health"
             subtitle="Catch money drift before a client does, and keep the email queue moving."
             icon={Activity}
+            meta={
+              <>
+                {money && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${issues.length === 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
+                    {issues.length === 0
+                      ? `${money.scanned} orders reconcile`
+                      : `${money.affectedOrders} order${money.affectedOrders === 1 ? "" : "s"} drifting`}
+                  </span>
+                )}
+                {email && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${email.queued === 0 && email.failed === 0 ? "bg-emerald-400" : "bg-amber-400"}`} />
+                    {email.queued} queued, {email.failed} failed
+                  </span>
+                )}
+              </>
+            }
             actions={
               <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
@@ -116,7 +163,11 @@ function MoneyHealthPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">Couldn't load email health.</p>
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <p className="flex-1 text-sm text-rose-900">{emailError || "Couldn't load email health."}</p>
+                  <Button variant="outline" size="sm" onClick={load} disabled={loading}>Retry</Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -136,6 +187,15 @@ function MoneyHealthPage() {
             <CardContent>
               {loading && !money ? (
                 <div className="py-4 text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Scanning {/* */}orders...</div>
+              ) : !money ? (
+                // Audit fix: a failed scan used to fall through to the
+                // green "everything reconciles" branch below. Never
+                // report clean books off a scan that didn't run.
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                  <p className="flex-1 text-sm text-rose-900">{moneyError || "Couldn't run the reconciliation scan."}</p>
+                  <Button variant="outline" size="sm" onClick={load} disabled={loading}>Retry</Button>
+                </div>
               ) : issues.length === 0 ? (
                 <div className="py-8 text-center text-slate-500">
                   <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-brand-primary" />

@@ -49,6 +49,8 @@ import { captureException } from "@/lib/observability";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
+import { isOpenRefundStatus } from "@/lib/refundStatus";
+import { formatZAR } from "@/lib/formatters";
 
 interface RefundRow {
   id: string;
@@ -86,24 +88,12 @@ interface RefundRow {
 type FilterKey = "all" | "auto" | "credits" | "pending" | "rejected";
 
 /**
- * Phase 15 #10: tenant-currency-aware formatter. Same locale-
- * lookup pattern used on the dashboard + invoice PDF - falls
- * back to ZAR / en-ZA when the tenant's currency code is
- * unknown so existing tenants render unchanged.
+ * Money-critical: sums and comparisons run on integer cents, never on
+ * the float rand values Postgres numeric columns deserialise to.
+ * payments.amount is stored in rand; convert once at the aggregation
+ * boundary and divide by 100 only for display.
  */
-const CURRENCY_LOCALE: Record<string, string> = {
-  ZAR: "en-ZA", USD: "en-US", GBP: "en-GB", EUR: "en-IE", AUD: "en-AU", NZD: "en-NZ", NGN: "en-NG", KES: "en-KE",
-};
-const buildFmt = (code: string) => {
-  try {
-    return new Intl.NumberFormat(CURRENCY_LOCALE[code] || "en-ZA", {
-      style: "currency",
-      currency: code,
-    });
-  } catch {
-    return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" });
-  }
-};
+const centsOf = (n: unknown): number => Math.round((Number(n) || 0) * 100);
 
 function ProtectedRefundsPage() {
   // REF-A (refunds audit, 2026-05-23): OWNER added per the Skylight
@@ -169,14 +159,15 @@ function RefundsPage() {
   const { withSlug } = useTenantHref();
   const { user } = useAuth() as any;
   const companyId = user?.company_id || null;
-  // Phase 15 #10: tenant currency. Closure-bind a formatter
-  // off the resolved code so a UK / US tenant sees their
-  // own symbol on the refund amounts.
+  // Phase 15 #10: tenant currency. Display goes through formatZAR
+  // (the platform-wide money formatter) with the tenant's code so a
+  // UK / US tenant sees their own symbol on the refund amounts.
   const tenantCurrency = useTenantCurrency(companyId);
-  const fmt = buildFmt(tenantCurrency.code);
+  const fmtAmount = (n: number) => formatZAR(n, { currency: tenantCurrency.code });
 
   const [rows, setRows] = useState<RefundRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   // Phase 27 #3: ?paymentId scrolls to + highlights the matching
@@ -249,6 +240,7 @@ function RefundsPage() {
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       // Wave 29.3: pull credit_issue + credit_redeem alongside refunds
       // so the page is a unified "money out / credit in / credit
@@ -342,6 +334,9 @@ function RefundsPage() {
         level: "error",
         tags: { companyId, route: "/admin/refunds", step: "load" },
       });
+      // Audit: a failed load used to render as "No refunds or credits
+      // yet" - a fake empty state. Surface it and offer a Retry.
+      setLoadError(e?.message || "Could not load refunds. Check your connection and retry.");
     } finally {
       setLoading(false);
     }
@@ -449,7 +444,7 @@ function RefundsPage() {
       } else {
         const who = r.client_name ? ` for ${r.client_name}` : "";
         toast({
-          title: `Refund of ${fmt.format(r.amount)} marked paid`,
+          title: `Refund of ${fmtAmount(r.amount)} marked paid`,
           description: `Recorded against order #${r.order_number || r.order_id?.slice(0, 8) || "?"}${who}. Audit log updated.`,
         });
         await load();
@@ -484,7 +479,7 @@ function RefundsPage() {
         });
       } else if (json.status === "auto_processed") {
         toast({
-          title: `Refund of ${fmt.format(r.amount)} auto-processed`,
+          title: `Refund of ${fmtAmount(r.amount)} auto-processed`,
           description: `PayFast accepted the refund${r.client_name ? ` for ${r.client_name}` : ""}.`,
         });
         await load();
@@ -527,16 +522,25 @@ function RefundsPage() {
     // rows are excluded because they auto-complete and have no
     // gateway / pending state.
     const refundsOnly = rows.filter((r) => r.kind === "refund");
-    if (filter === "rejected") return refundsOnly.filter((r) => r.status === "failed" || r.status === "rejected");
+    // Audit 2026-07-02: "pending" now means OPEN_REFUND_STATUSES
+    // (pending / processing / failed) - the same source of truth the
+    // dashboard's PendingRefundsWidget counts against, so the widget's
+    // deep-link lands on the same set it advertised. Pre-audit this
+    // page classed 'failed' as rejected/terminal, which both
+    // disagreed with the widget count AND hid the retry action on a
+    // refund the client is still owed. "Rejected" is the terminal
+    // remainder (not completed, not open).
+    if (filter === "rejected") {
+      return refundsOnly.filter(
+        (r) => r.status !== "completed" && !isOpenRefundStatus(r.status),
+      );
+    }
     if (filter === "auto") {
       return refundsOnly.filter(
         (r) => r.status === "completed" && (r.refund_gateway || "").toLowerCase() === "payfast",
       );
     }
-    // pending = anything not completed and not failed/rejected
-    return refundsOnly.filter(
-      (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
-    );
+    return refundsOnly.filter((r) => isOpenRefundStatus(r.status));
   }, [rows, filter]);
 
   const counts = useMemo(() => {
@@ -546,10 +550,10 @@ function RefundsPage() {
     const auto = refundsOnly.filter(
       (r) => r.status === "completed" && (r.refund_gateway || "").toLowerCase() === "payfast",
     ).length;
-    const pending = refundsOnly.filter(
-      (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
+    const pending = refundsOnly.filter((r) => isOpenRefundStatus(r.status)).length;
+    const rejected = refundsOnly.filter(
+      (r) => r.status !== "completed" && !isOpenRefundStatus(r.status),
     ).length;
-    const rejected = refundsOnly.filter((r) => r.status === "failed" || r.status === "rejected").length;
     const credits = rows.filter(
       (r) => r.kind === "credit_issue" || r.kind === "credit_redeem",
     ).length;
@@ -565,14 +569,15 @@ function RefundsPage() {
     const refundsCompletedYTD = rows.filter(
       (r) => r.kind === "refund" && r.status === "completed" && new Date(r.created_at) >= yearStart,
     );
-    const refundedYTD = refundsCompletedYTD.reduce((s, r) => s + Number(r.amount || 0), 0);
+    // Cents everywhere below - float rand sums drift on long lists.
+    const refundedYTDCents = refundsCompletedYTD.reduce((s, r) => s + centsOf(r.amount), 0);
     // Credit liability = issued minus redeemed across all time.
     // Negative would mean we've applied more credit than we issued
     // (impossible in steady state) - clamp at 0 for display.
-    const creditLiability = Math.max(
+    const creditLiabilityCents = Math.max(
       0,
-      rows.filter((r) => r.kind === "credit_issue").reduce((s, r) => s + Number(r.amount || 0), 0)
-      - rows.filter((r) => r.kind === "credit_redeem").reduce((s, r) => s + Number(r.amount || 0), 0),
+      rows.filter((r) => r.kind === "credit_issue").reduce((s, r) => s + centsOf(r.amount), 0)
+      - rows.filter((r) => r.kind === "credit_redeem").reduce((s, r) => s + centsOf(r.amount), 0),
     );
     // Avg time from raised -> processed for completed refunds in the
     // last 90 days. Useful as a service-level signal - if it's
@@ -584,14 +589,15 @@ function RefundsPage() {
     const avgMs = recent.length === 0 ? 0
       : recent.reduce((s, r) => s + (new Date(r.processed_at!).getTime() - new Date(r.created_at).getTime()), 0) / recent.length;
     const avgDays = avgMs / (1000 * 60 * 60 * 24);
-    return { refundedYTD, creditLiability, avgDays, hasRefundActivity: refundsCompletedYTD.length > 0 };
+    return { refundedYTDCents, creditLiabilityCents, avgDays, hasRefundActivity: refundsCompletedYTD.length > 0 };
   }, [rows, yearStart]);
 
   // Phase 19 #1: amount totals per filter so finance sees the
   // monetary exposure for each slice next to the row counts. Same
-  // source array as counts so the two always agree.
+  // source array + same status partition as counts so the two always
+  // agree. Values are integer CENTS; divide by 100 at display.
   const totals = useMemo(() => {
-    const sum = (xs: RefundRow[]) => xs.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const sum = (xs: RefundRow[]) => xs.reduce((s, r) => s + centsOf(r.amount), 0);
     const refundsOnly = rows.filter((r) => r.kind === "refund");
     return {
       all: sum(rows),
@@ -602,11 +608,9 @@ function RefundsPage() {
       // chip reads "outstanding credit owed across all clients".
       credits: sum(rows.filter((r) => r.kind === "credit_issue"))
         - sum(rows.filter((r) => r.kind === "credit_redeem")),
-      pending: sum(refundsOnly.filter(
-        (r) => r.status !== "completed" && r.status !== "failed" && r.status !== "rejected",
-      )),
+      pending: sum(refundsOnly.filter((r) => isOpenRefundStatus(r.status))),
       rejected: sum(refundsOnly.filter(
-        (r) => r.status === "failed" || r.status === "rejected",
+        (r) => r.status !== "completed" && !isOpenRefundStatus(r.status),
       )),
     };
   }, [rows]);
@@ -618,14 +622,20 @@ function RefundsPage() {
 
   const Row = ({ r }: { r: RefundRow }) => {
     const isCompleted = r.status === "completed";
-    const isRejected = r.status === "failed" || r.status === "rejected";
-    const isAutoFailed = r.status === "auto_failed";
+    // Audit 2026-07-02: open/terminal split follows OPEN_REFUND_STATUSES
+    // (the same source of truth as the dashboard widget). 'failed' is
+    // OPEN - the client is still owed money and the operator can retry
+    // or fall back to EFT; pre-audit it rendered terminal with no
+    // actions.
+    const isOpen = isOpenRefundStatus(r.status);
+    const isRejected = !isCompleted && !isOpen;
+    const isFailed = r.status === "failed" || r.status === "auto_failed";
     const isProcessing = r.status === "processing";
     const parentIsPayFast = (r.parent_gateway || "").toLowerCase() === "payfast";
     // REF-A: aging - flag pending refunds that have been sitting for
     // >7 days. Manual EFT is meant to clear inside the working week;
     // anything older is an operator-action gap.
-    const ageDays = r.kind === "refund" && !isCompleted && !isRejected
+    const ageDays = r.kind === "refund" && isOpen
       ? Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86_400_000)
       : 0;
     const isAgingPending = ageDays > 7;
@@ -634,8 +644,8 @@ function RefundsPage() {
     const isRefund = r.kind === "refund";
     const isCreditIssue = r.kind === "credit_issue";
     const isCreditRedeem = r.kind === "credit_redeem";
-    const showMarkPaid = isRefund && !isCompleted && !isRejected && !parentIsPayFast;
-    const showRetry = isRefund && !isCompleted && !isRejected && parentIsPayFast;
+    const showMarkPaid = isRefund && isOpen && !parentIsPayFast;
+    const showRetry = isRefund && isOpen && parentIsPayFast;
 
     // Icon + tone vary by kind so the row is identifiable at a glance.
     let iconBg: string;
@@ -681,7 +691,7 @@ function RefundsPage() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <strong className={amountColor}>{fmt.format(r.amount)}</strong>
+            <strong className={amountColor}>{fmtAmount(r.amount)}</strong>
             <span className="text-sm text-slate-700">{kindLabel}</span>
             {r.order_number ? (
               <Link
@@ -718,15 +728,15 @@ function RefundsPage() {
                 Applied to invoice
               </Badge>
             )}
-            {/* REF-A: auto_failed + processing chips. Pre-REF-A both
+            {/* REF-A: failed + processing chips. Pre-REF-A these
                 states rendered as the generic amber "pending" icon
-                with no clue why - auto_failed in particular means
-                PayFast bounced the refund and the operator needs to
+                with no clue why - failed in particular means the
+                gateway bounced the refund and the operator needs to
                 retry or fall back to EFT. */}
-            {isAutoFailed && (
+            {isFailed && (
               <Badge variant="outline" className="text-[10px] border-rose-300 text-rose-800 bg-rose-50">
                 <AlertCircle className="w-2.5 h-2.5 mr-0.5" />
-                PayFast auto-failed
+                Failed, retry or refund by EFT
               </Badge>
             )}
             {isProcessing && (
@@ -813,8 +823,8 @@ function RefundsPage() {
     // owed across all clients". Branch per filter.
     const tooltip = total > 0
       ? (k === "credits"
-          ? `${count} credit movement${count === 1 ? "" : "s"}, net liability ${fmt.format(total)}`
-          : `${count} refund${count === 1 ? "" : "s"} totalling ${fmt.format(total)}`)
+          ? `${count} credit movement${count === 1 ? "" : "s"}, net liability ${fmtAmount(total / 100)}`
+          : `${count} refund${count === 1 ? "" : "s"} totalling ${fmtAmount(total / 100)}`)
       : undefined;
     return (
     <button
@@ -834,7 +844,7 @@ function RefundsPage() {
       </span>
       {total > 0 && (
         <span className={`ml-1.5 pl-1.5 border-l ${filter === k ? "border-slate-700 text-slate-300" : "border-slate-300 text-slate-500"}`}>
-          {tenantCurrency.symbol}{fmtCompact(total)}
+          {tenantCurrency.symbol}{fmtCompact(total / 100)}
         </span>
       )}
     </button>
@@ -851,9 +861,30 @@ function RefundsPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Refunds & Credits"
             icon={Receipt}
-            subtitle="Cancellation refunds plus store-credit issuances and redemptions. PayFast refunds auto-process; EFT and cash need a manual mark as paid. Credit movements are display-only - they auto-completed at issue or redeem time."
+            subtitle="Every refund, store-credit issue and credit redemption in one reconciliation timeline. PayFast refunds auto-process; EFT and cash need a manual mark as paid."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${counts.pending > 0 ? "bg-amber-400" : "bg-emerald-400"}`} />
+                    {counts.pending} pending refund{counts.pending === 1 ? "" : "s"}
+                  </span>
+                  {totals.pending > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {fmtAmount(totals.pending / 100)} owed to clients
+                    </span>
+                  )}
+                  {intel.creditLiabilityCents > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                      {fmtAmount(intel.creditLiabilityCents / 100)} credit liability
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <>
               {/* Phase 16 #7: refunds CSV export. Bookkeeping team
@@ -922,6 +953,18 @@ function RefundsPage() {
           <PageWorkbench />
 
           <div className="space-y-6">
+          {/* Load failure: loud recovery card. Chips + list below are
+              hidden so a failed pull never masquerades as "no
+              refunds". */}
+          {loadError && !loading && (
+            <div className="rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load refunds &amp; credits</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={load} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                Retry
+              </Button>
+            </div>
+          )}
           {/* REF-A intel: orphan cancelled-orders banner. Pre-REF-A
               the page had no way to surface cancellations that
               should have refunded or credited but didn't. The
@@ -946,6 +989,8 @@ function RefundsPage() {
             </div>
           )}
 
+          {!loadError && (
+          <>
           {/* REF-A intel: summary tile strip. Three numbers the
               finance persona actually wants at a glance: YTD
               refunded, outstanding credit liability, average time
@@ -958,7 +1003,7 @@ function RefundsPage() {
                 <CardContent className="pt-4 pb-3">
                   <p className="text-xs font-medium text-slate-600">Refunded year to date</p>
                   <p className="text-2xl font-bold tabular-nums text-rose-700 mt-1">
-                    {fmt.format(intel.refundedYTD)}
+                    {fmtAmount(intel.refundedYTDCents / 100)}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-0.5">Completed refunds since 1 Jan.</p>
                 </CardContent>
@@ -967,7 +1012,7 @@ function RefundsPage() {
                 <CardContent className="pt-4 pb-3">
                   <p className="text-xs font-medium text-slate-600">Credit liability outstanding</p>
                   <p className="text-2xl font-bold tabular-nums text-brand-primary mt-1">
-                    {fmt.format(intel.creditLiability)}
+                    {fmtAmount(intel.creditLiabilityCents / 100)}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-0.5">Issued minus redeemed across all time. Money you owe clients in unspent credit.</p>
                 </CardContent>
@@ -1097,6 +1142,8 @@ function RefundsPage() {
               )}
             </CardContent>
           </Card>
+          </>
+          )}
           </div>
         </PortalShell>
       </div>

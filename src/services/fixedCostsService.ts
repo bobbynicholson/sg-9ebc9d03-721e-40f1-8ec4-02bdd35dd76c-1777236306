@@ -71,7 +71,7 @@ export interface CreateFixedCostInput {
   created_by?: string | null;
 }
 
-async function list(companyId: string, opts?: { activeOnly?: boolean }): Promise<FixedCost[]> {
+async function list(companyId: string, opts?: { activeOnly?: boolean; throwOnError?: boolean }): Promise<FixedCost[]> {
   let q = (supabase as any)
     .from("fixed_costs")
     .select("*")
@@ -82,6 +82,9 @@ async function list(companyId: string, opts?: { activeOnly?: boolean }): Promise
   const { data, error } = await q;
   if (error) {
     console.error("[fixedCostsService.list] failed:", error);
+    // Callers that render an error state (the fixed-costs page) opt
+    // in; the forecast keeps the old silent-empty contract.
+    if (opts?.throwOnError) throw error;
     return [];
   }
   return (data || []) as FixedCost[];

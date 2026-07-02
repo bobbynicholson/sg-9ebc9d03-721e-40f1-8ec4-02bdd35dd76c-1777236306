@@ -49,7 +49,7 @@ export interface CreatePayableInput {
 
 async function list(
   companyId: string,
-  opts?: { status?: PayableStatus | "all"; horizonDays?: number },
+  opts?: { status?: PayableStatus | "all"; horizonDays?: number; throwOnError?: boolean },
 ): Promise<SupplierPayable[]> {
   let query = (supabase as any)
     .from("supplier_payables")
@@ -66,6 +66,9 @@ async function list(
   const { data, error } = await query;
   if (error) {
     console.error("[supplierPayablesService.list] failed:", error);
+    // Callers that render an error state (the payables page) opt in;
+    // the forecast keeps the old silent-empty contract.
+    if (opts?.throwOnError) throw error;
     return [];
   }
   return (data || []) as SupplierPayable[];

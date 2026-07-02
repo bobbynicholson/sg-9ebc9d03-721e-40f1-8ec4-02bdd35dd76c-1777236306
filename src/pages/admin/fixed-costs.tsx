@@ -57,7 +57,9 @@ import {
 } from "@/services/fixedCostsService";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import * as currencyUtils from "@/lib/currencyUtils";
+import { formatZAR } from "@/lib/formatters";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 const CADENCE_MULTIPLIER: Record<Cadence, number> = {
   weekly: 52 / 12,
@@ -76,13 +78,12 @@ function toMonthlyCents(amount_cents: number, cadence: Cadence): number {
  * fixedCostsService.ts header comment from 2026-05-18). Rather than
  * lying with a stale date in the past, we compute the next live
  * occurrence on every render. Cheap - max ~52 iterations on a year-
- * old weekly row.
+ * old weekly row. `today` is the TENANT's calendar day (audit: was
+ * the browser's clock, which drifted a day for travelling operators).
  */
-function nextFutureOccurrence(row: FixedCost): Date | null {
+function nextFutureOccurrence(row: FixedCost, today: Date): Date | null {
   const cur = new Date(row.next_due_date);
   if (isNaN(cur.getTime())) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   let safety = 0;
   while (cur < today && safety < 200) {
     if (row.cadence === "weekly") cur.setDate(cur.getDate() + 7);
@@ -233,13 +234,38 @@ function categoryLabel(c: FixedCostCategory | null): string {
 function FixedCostsPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const companyId = user?.company_id || profile?.company_id || null;
   const userId = user?.id || null;
   const currency = user?.currency || "ZAR";
-  const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
+  // Money display goes through formatZAR (the platform-wide money
+  // formatter) so amounts read "R 12 500.00" like every other finance
+  // surface, not the old toFixed "R12500.00".
+  const fmt = (a: number, c: string) => formatZAR(a, { currency: c });
 
   const [rows, setRows] = useState<FixedCost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // "Due in Nd" / overdue maths anchors on the TENANT's calendar day
+  // so badges don't drift for an operator in another timezone.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || DEFAULT_TENANT_TIMEZONE);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+  const todayAnchor = useMemo(
+    () => tenantToday(tenantTimezone || DEFAULT_TENANT_TIMEZONE),
+    [tenantTimezone],
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
@@ -262,9 +288,17 @@ function FixedCostsPage() {
   const load = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
-    const data = await fixedCostsService.list(companyId);
-    setRows(data);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const data = await fixedCostsService.list(companyId, { throwOnError: true });
+      setRows(data);
+    } catch (e: any) {
+      // Pre-audit a failed list rendered as "No fixed costs yet" -
+      // indistinguishable from a genuinely empty ledger.
+      setLoadError(e?.message || "Could not load fixed costs. Check your connection and retry.");
+    } finally {
+      setLoading(false);
+    }
   }, [companyId]);
 
   useEffect(() => {
@@ -343,6 +377,9 @@ function FixedCostsPage() {
           setEditingId(null);
           setDraft(EMPTY_DRAFT);
           void load();
+        } else {
+          // Pre-audit a failed save closed nothing and said nothing.
+          toast({ title: "Couldn't save changes", description: "The update didn't save. Try again.", variant: "destructive" });
         }
       } else {
         const row = await fixedCostsService.create({
@@ -360,6 +397,8 @@ function FixedCostsPage() {
           setDialogOpen(false);
           setDraft(EMPTY_DRAFT);
           void load();
+        } else {
+          toast({ title: "Couldn't add fixed cost", description: "The insert didn't save. Try again.", variant: "destructive" });
         }
       }
     } catch (e) {
@@ -375,6 +414,7 @@ function FixedCostsPage() {
   const handleToggleActive = async (id: string, active: boolean) => {
     const row = await fixedCostsService.update(id, { active });
     if (row) void load();
+    else toast({ title: `Couldn't ${active ? "resume" : "pause"} the cost`, description: "The update didn't save. Try again.", variant: "destructive" });
   };
 
   // FXC-B: bulk CSV import handlers, mirroring payables.
@@ -433,6 +473,8 @@ function FixedCostsPage() {
     if (ok) {
       toast({ title: "Removed" });
       void load();
+    } else {
+      toast({ title: "Couldn't remove", description: "The delete didn't save. Try again.", variant: "destructive" });
     }
   };
 
@@ -462,8 +504,7 @@ function FixedCostsPage() {
   // with the chart on what's actually projected).
   const occurrenceBuckets = useMemo(() => {
     const occ = fixedCostsService.expandOccurrences(activeRows, 90);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = todayAnchor;
     const b: { d30: number; d60: number; d90: number } = { d30: 0, d60: 0, d90: 0 };
     for (const o of occ) {
       const days = daysBetween(today, new Date(o.date));
@@ -473,7 +514,7 @@ function FixedCostsPage() {
       else b.d90 += o.amount_cents;
     }
     return { d30: b.d30 / 100, d60: b.d60 / 100, d90: b.d90 / 100 };
-  }, [activeRows]);
+  }, [activeRows, todayAnchor]);
 
   // FXC-B intel: group active rows by category for the toggle view.
   // Categories with NULL fall under "Uncategorised". Sorts groups
@@ -519,17 +560,39 @@ function FixedCostsPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Fixed costs"
             icon={Repeat}
             subtitle={
               <>
                 Recurring rent, software, vehicles, anything that hits the bank account on a schedule.
                 Drives the cashflow forecast on{" "}
-                <Link href="/admin/cashflow-dashboard" className="text-blue-600 hover:underline">
+                <Link
+                  href={withSlug("/admin/cashflow-dashboard")}
+                  className="font-semibold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white"
+                >
                   Cashflow dashboard
                 </Link>
                 .
               </>
+            }
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {activeRows.length} active cost{activeRows.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {fmt(monthlyEquivalent, currency)} / month
+                  </span>
+                  {pausedRows.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                      {pausedRows.length} paused
+                    </span>
+                  )}
+                </>
+              ) : undefined
             }
             actions={
             <>
@@ -547,6 +610,20 @@ function FixedCostsPage() {
           <PageWorkbench />
           <CashflowContextBanner message="Each fixed cost expands into 30-day occurrences on the forecast. Edit one here to see the chart redraw." />
 
+          {/* Load failure: loud recovery card instead of tiles full of
+              fake zeros over an "empty" list. */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load fixed costs</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={() => void load()} size="sm" className="bg-brand-primary hover:bg-brand-primary/90" disabled={loading}>
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {!loadError && (
+          <>
           {/* FXC-A: three summary tiles. Active + Monthly were the
               pre-FXC-A pair; Annual is new. Bobby's prompt called
               out the annualised burn explicitly - R8,600/mo = R103k
@@ -666,8 +743,12 @@ function FixedCostsPage() {
               {loading ? (
                 <div className="p-8 text-center text-slate-400">Loading...</div>
               ) : rows.length === 0 ? (
-                <div className="p-12 text-center text-slate-400">
-                  No fixed costs yet. Add rent, software subscriptions, or vehicles.
+                <div className="p-12 text-center">
+                  <p className="text-sm text-slate-500">No fixed costs yet. Add rent, software subscriptions, or vehicles.</p>
+                  <Button onClick={openCreate} variant="outline" size="sm" className="mt-3">
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    Add your first fixed cost
+                  </Button>
                 </div>
               ) : groupByCategory && activeRows.length > 0 ? (
                 <div className="divide-y divide-slate-200">
@@ -688,6 +769,7 @@ function FixedCostsPage() {
                             row={r}
                             currency={currency}
                             fmt={fmt}
+                            today={todayAnchor}
                             isLargest={r.id === largestLineId}
                             onEdit={() => openEdit(r)}
                             onToggle={(v) => handleToggleActive(r.id, v)}
@@ -706,6 +788,7 @@ function FixedCostsPage() {
                       row={r}
                       currency={currency}
                       fmt={fmt}
+                      today={todayAnchor}
                       isLargest={r.id === largestLineId}
                       onEdit={() => openEdit(r)}
                       onToggle={(v) => handleToggleActive(r.id, v)}
@@ -745,6 +828,7 @@ function FixedCostsPage() {
                           row={r}
                           currency={currency}
                           fmt={fmt}
+                          today={todayAnchor}
                           isLargest={false}
                           onEdit={() => openEdit(r)}
                           onToggle={(v) => handleToggleActive(r.id, v)}
@@ -756,6 +840,8 @@ function FixedCostsPage() {
                 </Card>
               )}
             </div>
+          )}
+          </>
           )}
         </PortalShell>
       </div>
@@ -965,15 +1051,16 @@ interface CostRowProps {
   row: FixedCost;
   currency: string;
   fmt: (a: number, c: string) => string;
+  /** Tenant-timezone "today" anchor from the page. */
+  today: Date;
   isLargest: boolean;
   onEdit: () => void;
   onToggle: (v: boolean) => void;
   onDelete: () => void;
 }
 
-function CostRow({ row, currency, fmt, isLargest, onEdit, onToggle, onDelete }: CostRowProps) {
-  const nextOcc = nextFutureOccurrence(row);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+function CostRow({ row, currency, fmt, today, isLargest, onEdit, onToggle, onDelete }: CostRowProps) {
+  const nextOcc = nextFutureOccurrence(row, today);
   const daysToNext = nextOcc ? daysBetween(today, nextOcc) : null;
   const wasStored = new Date(row.next_due_date);
   const storedIsPast = !isNaN(wasStored.getTime()) && wasStored < today;
@@ -1004,8 +1091,8 @@ function CostRow({ row, currency, fmt, isLargest, onEdit, onToggle, onDelete }: 
     && row.previous_amount_cents !== row.amount_cents;
 
   return (
-    <div className="flex items-center gap-4 p-4 hover:bg-slate-50">
-      <div className="flex-1 min-w-0">
+    <div className="flex flex-wrap items-center gap-3 p-4 hover:bg-slate-50 sm:flex-nowrap sm:gap-4">
+      <div className="flex-1 min-w-[10rem]">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"

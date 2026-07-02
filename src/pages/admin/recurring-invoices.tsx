@@ -43,14 +43,16 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pause, Play, Trash2, RefreshCw, Repeat, ArrowLeft, X } from "lucide-react";
+import { Plus, Pause, Play, Trash2, RefreshCw, Repeat, ArrowLeft, X, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useToast } from "@/hooks/use-toast";
-import { formatZAR } from "@/lib/formatters";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { formatLocalDate } from "@/lib/localFormat";
 
 type LineItem = {
   item_name: string;
@@ -61,6 +63,12 @@ type LineItem = {
 function emptyLine(): LineItem {
   return { item_name: "", quantity: 1, unit_price: 0 };
 }
+
+// Money maths in integer cents: qty * price per line, summed, and only
+// divided back to rands at the display / insert boundary. Keeps the
+// stored total_amount free of float drift (e.g. 3 x 19.99).
+const toCents = (v) => Math.round(Number(v || 0) * 100);
+const lineTotalCents = (l: LineItem) => (Number(l.quantity) || 0) * toCents(l.unit_price);
 
 type Template = {
   id: string;
@@ -90,8 +98,15 @@ export default function RecurringInvoicesPage() {
 function RecurringInvoicesPageInner() {
   const { user } = useAuth() as any;
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
+  // Tenant currency so a non-ZAR tenant sees the same symbol here as
+  // on /admin/invoices (this page previously hard-coded formatZAR).
+  const tenantMoney = useTenantCurrency(user?.company_id ?? null);
   const [rows, setRows] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure with Retry - a toast alone disappears and
+  // leaves an empty list that reads as "no templates yet".
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   // Wave 68.1 - proper Dialog state replacing the window.prompt chain.
   // 4 sequential prompts couldn't be cancelled cleanly, lost typing on
@@ -106,7 +121,7 @@ function RecurringInvoicesPageInner() {
   const [lineItems, setLineItems] = useState<LineItem[]>([emptyLine()]);
 
   const subtotal = useMemo(
-    () => lineItems.reduce((sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unit_price) || 0), 0),
+    () => lineItems.reduce((sum, l) => sum + lineTotalCents(l), 0) / 100,
     [lineItems],
   );
 
@@ -133,8 +148,9 @@ function RecurringInvoicesPageInner() {
       .eq("company_id", user.company_id)
       .order("created_at", { ascending: false });
     if (error) {
-      toast({ title: "Could not load", description: dbErrorMessage(error, { entity: "recurring invoice" }), variant: "destructive" });
+      setLoadError(dbErrorMessage(error, { entity: "recurring invoice" }));
     } else {
+      setLoadError(null);
       setRows((data || []) as Template[]);
     }
     setLoading(false);
@@ -145,19 +161,39 @@ function RecurringInvoicesPageInner() {
   }, [user?.company_id]);
 
   const toggleActive = async (t: Template) => {
-    await (supabase as any)
+    // Surface the failure: a silently-dropped pause means the cron
+    // keeps billing a client the operator believes they've stopped.
+    const { error } = await (supabase as any)
       .from("recurring_invoice_templates")
       .update({ active: !t.active, updated_at: new Date().toISOString() })
       .eq("id", t.id);
+    if (error) {
+      toast({
+        title: t.active ? "Could not pause" : "Could not resume",
+        description: dbErrorMessage(error, { entity: "recurring invoice" }),
+        variant: "destructive",
+      });
+      return;
+    }
     load();
   };
 
   const remove = async (t: Template) => {
     if (!confirm(`Delete recurring template "${t.template_name}"? Invoices already generated will stay - only the template + future runs are removed.`)) return;
-    await (supabase as any)
+    const { error } = await (supabase as any)
       .from("recurring_invoice_templates")
       .delete()
       .eq("id", t.id);
+    if (error) {
+      // Pre-audit this toasted "Template deleted" even when the DELETE
+      // failed, so the row came back on the next load looking haunted.
+      toast({
+        title: "Could not delete",
+        description: dbErrorMessage(error, { entity: "recurring invoice" }),
+        variant: "destructive",
+      });
+      return;
+    }
     toast({ title: "Template deleted", description: t.template_name });
     load();
   };
@@ -171,6 +207,20 @@ function RecurringInvoicesPageInner() {
     }
     if (!clientName.trim()) {
       toast({ title: "Client name required", variant: "destructive" });
+      return;
+    }
+    // Light-touch email check: the cron uses this address to send the
+    // generated invoice, so a typo means every cycle fails silently.
+    if (clientEmail.trim() && !/^\S+@\S+\.\S+$/.test(clientEmail.trim())) {
+      toast({
+        title: "Client email looks wrong",
+        description: "Fix the address or leave it blank.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!startDate) {
+      toast({ title: "First run date required", variant: "destructive" });
       return;
     }
     const cleanLines = lineItems
@@ -188,7 +238,10 @@ function RecurringInvoicesPageInner() {
       });
       return;
     }
-    const total = cleanLines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+    // Total in integer cents (qty * unit price per line), back to rands
+    // only for the stored columns.
+    const totalCents = cleanLines.reduce((s, l) => s + l.quantity * toCents(l.unit_price), 0);
+    const total = totalCents / 100;
 
     setCreating(true);
     const { error } = await (supabase as any)
@@ -208,7 +261,7 @@ function RecurringInvoicesPageInner() {
           item_name: l.item_name,
           quantity: l.quantity,
           unit_price: l.unit_price,
-          line_total: l.quantity * l.unit_price,
+          line_total: (l.quantity * toCents(l.unit_price)) / 100,
         })),
         created_by: user.id,
       }]);
@@ -241,13 +294,42 @@ function RecurringInvoicesPageInner() {
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
-          <Link href="/admin/invoices" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
+          {/* withSlug keeps the tenant slug on the back-link; the bare
+              /admin/invoices path dropped it and broke slug routing. */}
+          <Link href={withSlug("/admin/invoices")} className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 mb-4">
             <ArrowLeft className="w-4 h-4" /> Back to invoices
           </Link>
           <PortalHeader
+            variant="hero"
             title="Recurring invoices"
             icon={Repeat}
-            subtitle="Set up weekly / monthly / quarterly invoices once; the platform generates a draft on each cycle."
+            subtitle="Set up weekly, monthly or quarterly invoices once; the platform generates a draft on each cycle."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {rows.length} template{rows.length === 1 ? "" : "s"}
+                  </span>
+                  {(() => {
+                    const active = rows.filter((t) => t.active);
+                    const perCycle = active.reduce((s, t) => s + toCents(t.total_amount), 0) / 100;
+                    return (
+                      <>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          {active.length} active
+                        </span>
+                        {active.length > 0 && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                            {tenantMoney.format(perCycle)} per cycle
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              ) : undefined
+            }
             actions={
             <>
               <Button variant="outline" onClick={load} disabled={loading}>
@@ -263,18 +345,41 @@ function RecurringInvoicesPageInner() {
           />
           <PageWorkbench />
 
+          {loadError && !loading && (
+            <Card className="mb-4 border-rose-200">
+              <CardContent className="py-4 px-5 flex flex-wrap items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                <div className="flex-1 min-w-[200px]">
+                  <p className="text-sm font-semibold text-rose-900">Couldn't load recurring templates</p>
+                  <p className="text-xs text-slate-600 mt-0.5">{loadError}</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={load} className="gap-1.5">
+                  <RefreshCw className="w-4 h-4" /> Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Your templates ({rows.length})</CardTitle>
             </CardHeader>
             <CardContent>
               {loading && <p className="text-sm text-slate-500">Loading...</p>}
-              {!loading && rows.length === 0 && (
+              {!loading && !loadError && rows.length === 0 && (
                 <div className="py-12 text-center text-slate-500">
                   <Repeat className="w-12 h-12 mx-auto opacity-30 mb-3" />
                   <p className="text-sm">No recurring templates yet.</p>
                   <p className="text-xs mt-1">Click "New template" to set up your first.</p>
+                  <Button onClick={openCreate} size="sm" className="mt-3 bg-brand-primary hover:opacity-90">
+                    <Plus className="w-4 h-4 mr-2" /> New template
+                  </Button>
                 </div>
+              )}
+              {!loading && loadError && rows.length === 0 && (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  Templates unavailable. Use Retry above to reload.
+                </p>
               )}
               <div className="space-y-2">
                 {rows.map((t) => (
@@ -286,11 +391,13 @@ function RecurringInvoicesPageInner() {
                         {!t.active && <Badge className="bg-slate-300 text-slate-800 text-xs">Paused</Badge>}
                       </div>
                       <p className="text-xs text-slate-600 mt-0.5 truncate">
-                        {t.client_name} · next run {t.next_run_at}
+                        {/* formatLocalDate: next_run_at is a timestamp;
+                            the raw ISO string read like debug output. */}
+                        {t.client_name} · next run {formatLocalDate(t.next_run_at, "not scheduled")}
                       </p>
                     </div>
                     <div className="text-right tabular-nums">
-                      <p className="text-sm font-semibold text-slate-900">{formatZAR(t.total_amount)}</p>
+                      <p className="text-sm font-semibold text-slate-900">{tenantMoney.format(Number(t.total_amount) || 0)}</p>
                       <p className="text-[11px] text-slate-500">per cycle</p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -323,8 +430,10 @@ function RecurringInvoicesPageInner() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2">
+            {/* Single column below 640px so the paired fields don't
+                crush on small phones. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="ri-name">Template name</Label>
                 <Input
                   id="ri-name"
@@ -385,8 +494,8 @@ function RecurringInvoicesPageInner() {
                   Add line
                 </Button>
               </div>
-              <div className="border border-slate-200 rounded-md overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="border border-slate-200 rounded-md overflow-x-auto">
+                <table className="w-full min-w-[420px] text-sm">
                   <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
                     <tr>
                       <th className="text-left px-2 py-1.5">Item</th>
@@ -398,7 +507,7 @@ function RecurringInvoicesPageInner() {
                   </thead>
                   <tbody>
                     {lineItems.map((l, i) => {
-                      const lineTotal = (Number(l.quantity) || 0) * (Number(l.unit_price) || 0);
+                      const lineTotal = lineTotalCents(l) / 100;
                       return (
                         <tr key={i} className="border-t border-slate-100">
                           <td className="px-2 py-1">
@@ -430,7 +539,7 @@ function RecurringInvoicesPageInner() {
                             />
                           </td>
                           <td className="px-2 py-1 text-right tabular-nums text-slate-700">
-                            {formatZAR(lineTotal)}
+                            {tenantMoney.format(lineTotal)}
                           </td>
                           <td className="px-1 py-1 text-center">
                             <button
@@ -453,7 +562,7 @@ function RecurringInvoicesPageInner() {
                         Subtotal per cycle
                       </td>
                       <td className="px-2 py-1.5 text-right text-sm font-semibold tabular-nums text-slate-900">
-                        {formatZAR(subtotal)}
+                        {tenantMoney.format(subtotal)}
                       </td>
                       <td></td>
                     </tr>

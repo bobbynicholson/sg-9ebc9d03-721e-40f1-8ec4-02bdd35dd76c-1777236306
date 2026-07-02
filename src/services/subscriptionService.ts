@@ -56,7 +56,11 @@ type AccountDeletionRequest = Database["public"]["Tables"]["account_deletion_req
 export const subscriptionService = {
   // ==================== SUBSCRIPTION MANAGEMENT ====================
   
-  async getSubscription(userId: string): Promise<Subscription | null> {
+  // opts.throwOnError: the swallow-and-return-null default hides DB
+  // failures behind the "no subscription" empty state. Surfaces that
+  // render an error + retry (the admin subscription page) pass true;
+  // best-effort callers (checkTrialStatus banner) keep the default.
+  async getSubscription(userId: string, opts: { throwOnError?: boolean } = {}): Promise<Subscription | null> {
     const { data, error } = await supabase
       .from("subscriptions")
       .select("*")
@@ -68,6 +72,7 @@ export const subscriptionService = {
 
     if (error) {
       console.error("Error fetching subscription:", error);
+      if (opts.throwOnError) throw error;
       return null;
     }
 
@@ -237,7 +242,7 @@ export const subscriptionService = {
 
   // ==================== BILLING HISTORY ====================
 
-  async getBillingHistory(userId: string): Promise<BillingHistory[]> {
+  async getBillingHistory(userId: string, opts: { throwOnError?: boolean } = {}): Promise<BillingHistory[]> {
     const { data, error } = await supabase
       .from("billing_history")
       .select("*")
@@ -246,6 +251,7 @@ export const subscriptionService = {
 
     if (error) {
       console.error("Error fetching billing history:", error);
+      if (opts.throwOnError) throw error;
       return [];
     }
 
@@ -327,7 +333,7 @@ export const subscriptionService = {
     return true;
   },
 
-  async getAccountDeletionRequest(userId: string): Promise<AccountDeletionRequest | null> {
+  async getAccountDeletionRequest(userId: string, opts: { throwOnError?: boolean } = {}): Promise<AccountDeletionRequest | null> {
     const { data, error } = await supabase
       .from("account_deletion_requests")
       .select("*")
@@ -339,6 +345,7 @@ export const subscriptionService = {
 
     if (error) {
       console.error("Error fetching account deletion request:", error);
+      if (opts.throwOnError) throw error;
       return null;
     }
 

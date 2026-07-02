@@ -25,7 +25,7 @@ import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import { toLocalISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, parseLocalDay, tenantToday, toLocalISO } from "@/lib/localDate";
 import { computeCurrentCashPosition } from "@/lib/cashflowMath";
 import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
 import { fixedCostsService } from "@/services/fixedCostsService";
@@ -112,6 +112,11 @@ function CashflowDashboardInner() {
   // load-error so the page can show "couldn't load - retry" instead
   // of pretending everything's R0.
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Audit fix: the per-feed catches below (fixed costs, payables,
+  // hire / shopping counts, invoices) used to log-and-zero in
+  // silence, so a broken feed read as "R0 due" forever. Collect the
+  // failures and surface a partial-load banner instead.
+  const [partialFailures, setPartialFailures] = useState<string[]>([]);
   // CASH-D: Quick Action "Chase unpaid invoices" now opens the same
   // bulk-remind dialog the financial-dashboard uses. Pre-CASH-D the
   // button label was a verb ("Chase") but the action was just a
@@ -135,8 +140,30 @@ function CashflowDashboardInner() {
     try {
       setLoading(true);
       setLoadError(null);
+      const failures: string[] = [];
 
       const companyId = user.company_id;
+
+      // Tenant timezone anchor. Every "today" comparison below follows
+      // the tenant's wall clock (companies.timezone), not the
+      // operator's browser clock - a JHB tenant's 30-day window
+      // shouldn't shift because the bookkeeper is travelling.
+      let tenantTz: string = DEFAULT_TENANT_TIMEZONE;
+      try {
+        const { data: companyRow, error: tzErr } = await (supabase as any)
+          .from("companies")
+          .select("timezone")
+          .eq("id", companyId)
+          .maybeSingle();
+        if (tzErr) throw tzErr;
+        tenantTz = (companyRow as any)?.timezone || DEFAULT_TENANT_TIMEZONE;
+      } catch (tzErr) {
+        // Fall back to the SA default; not worth a user-facing banner.
+        captureException(tzErr, {
+          level: "warning",
+          tags: { companyId, route: "/admin/cashflow-dashboard", step: "tenant_timezone" },
+        });
+      }
       // SHAPE-A (task #97, 2026-05-24): cashflow projections read
       // order columns + region_id only. No nested data is touched.
       // Drop to light mode to skip the joins that this tenant's
@@ -167,8 +194,9 @@ function CashflowDashboardInner() {
       // the "Tight Cash Flow Expected" warning on every page load
       // regardless of actual inflow. Real projection is the sum of
       // non-cancelled orders with event_date in [today, today+30].
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Tenant-timezone "today" (local midnight) rather than browser
+      // midnight - see the timezone fetch above.
+      const today = tenantToday(tenantTz);
       const horizon = new Date(today.getTime() + 30 * 86_400_000);
       // TIGHTEN I.70 (2026-06-01): use isPipelineRevenue so
       // projection counts pipeline + booked + realised but excludes
@@ -176,20 +204,24 @@ function CashflowDashboardInner() {
       // which is the same set today but locks the semantic in via
       // the shared helper - future enum drift won't silently change
       // this projection.
+      // parseLocalDay pins the bare event_date to local midnight so
+      // the compare lives in the same local-midnight space as the
+      // tenantToday anchor (new Date("YYYY-MM-DD") parses as UTC
+      // midnight, which slips a day for browsers west of UTC).
       const projectedRevenue30Days = scopedOrders
         .filter((o) => {
           if (!o.event_date) return false;
           if (!isPipelineRevenue(o as any)) return false;
-          const d = new Date(o.event_date);
-          return !isNaN(d.getTime()) && d >= today && d <= horizon;
+          const d = parseLocalDay(o.event_date);
+          return !!d && d >= today && d <= horizon;
         })
         .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
 
       // Mirror the CashflowForecastCard cost feeds so the summary
       // and chart move in sync. Best-effort: a missing table / RLS
       // refusal logs and zeroes the row instead of nuking the page.
-      const todayIso = toLocalISO(new Date());
-      const thirtyIso = toLocalISO(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+      const todayIso = toLocalISO(today);
+      const thirtyIso = toLocalISO(horizon);
       let fixedCostsNext30 = 0;
       let supplierPayablesNext30 = 0;
       try {
@@ -204,9 +236,13 @@ function CashflowDashboardInner() {
           level: "warning",
           tags: { companyId, route: "/admin/cashflow-dashboard", step: "fixed_costs" },
         });
+        failures.push("fixed costs");
       }
       try {
-        const { data: payables } = await (supabase as any)
+        // Audit fix: PostgREST returns errors in the result, it does
+        // not throw - the old destructure-data-only shape meant a
+        // failed query silently zeroed the payables row.
+        const { data: payables, error: spQueryErr } = await (supabase as any)
           .from("supplier_payables")
           .select("amount_cents, due_date")
           .eq("company_id", companyId)
@@ -214,6 +250,7 @@ function CashflowDashboardInner() {
           .is("deleted_at", null)
           .gte("due_date", todayIso)
           .lte("due_date", thirtyIso);
+        if (spQueryErr) throw spQueryErr;
         supplierPayablesNext30 = ((payables as Array<{ amount_cents: number }>) || [])
           .reduce((sum, r) => sum + (Number(r.amount_cents) || 0) / 100, 0);
       } catch (spErr) {
@@ -221,6 +258,7 @@ function CashflowDashboardInner() {
           level: "warning",
           tags: { companyId, route: "/admin/cashflow-dashboard", step: "supplier_payables" },
         });
+        failures.push("supplier payables");
       }
 
       // CASH-B: feed the empty-state guard. Without these counts the
@@ -231,32 +269,36 @@ function CashflowDashboardInner() {
       let equipmentHireUpcomingCount = 0;
       let shoppingUpcomingCount = 0;
       try {
-        const { count: hireCount } = await (supabase as any)
+        const { count: hireCount, error: hireQueryErr } = await (supabase as any)
           .from("equipment_hire_orders")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .gte("expected_pickup_date", todayIso)
           .not("status", "in", "(completed,cancelled,returned)");
+        if (hireQueryErr) throw hireQueryErr;
         equipmentHireUpcomingCount = hireCount || 0;
       } catch (hireErr) {
         captureException(hireErr, {
           level: "warning",
           tags: { companyId, route: "/admin/cashflow-dashboard", step: "equipment_hire_count" },
         });
+        failures.push("equipment hire count");
       }
       try {
-        const { count: shopCount } = await (supabase as any)
+        const { count: shopCount, error: shopQueryErr } = await (supabase as any)
           .from("shopping_lists")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .gte("list_date", todayIso)
           .not("status", "in", "(completed,cancelled)");
+        if (shopQueryErr) throw shopQueryErr;
         shoppingUpcomingCount = shopCount || 0;
       } catch (shopErr) {
         captureException(shopErr, {
           level: "warning",
           tags: { companyId, route: "/admin/cashflow-dashboard", step: "shopping_count" },
         });
+        failures.push("shopping list count");
       }
 
       // CASH-A: pending payments = outstanding balance, not gross
@@ -307,8 +349,10 @@ function CashflowDashboardInner() {
           tags: { companyId, route: "/admin/cashflow-dashboard", step: "invoices_outstanding" },
         });
         setInvoicesOutstanding(null);
+        failures.push("outstanding invoices total");
       }
 
+      setPartialFailures(failures);
       setLoadedAt(Date.now());
 
       // AI alerts use the same payload as the financial dashboard
@@ -437,10 +481,33 @@ function CashflowDashboardInner() {
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* Command-centre hero: dark band with the tenant's brand
+              washes. Chips read live values off the loaded metrics;
+              the net chip stays semantic (emerald good, rose bad). */}
           <PortalHeader
-            title="Cashflow Dashboard"
+            variant="hero"
+            title="Cashflow"
             icon={TrendingUp}
-            subtitle={"Forward-looking view of cash in and cash out. Answer the question “can I pay this week?” without doing the maths by hand."}
+            subtitle={'Forward-looking view of cash in and cash out. Answers "can I pay this week?" without doing the maths by hand.'}
+            meta={
+              metrics ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${net30 >= 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
+                    Net 30d {fmt(net30, currency)}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {fmt(metrics.pendingPayments, currency)} outstanding
+                  </span>
+                  {alerts.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {alerts.length} alert{alerts.length === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
             <>
               <Button
@@ -458,6 +525,28 @@ function CashflowDashboardInner() {
           />
           <PageWorkbench />
 
+          {/* Reload failed but we still hold the previous figures:
+              say so instead of silently showing stale numbers. */}
+          {loadError && metrics && (
+            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600" />
+              <p className="flex-1 text-sm text-rose-900">Couldn't refresh: {loadError} The figures below may be stale.</p>
+              <Button variant="outline" size="sm" onClick={() => { void load(); }} disabled={loading}>Retry</Button>
+            </div>
+          )}
+
+          {/* Partial-load warning: one of the cost feeds failed and
+              its row may read R0 by mistake. */}
+          {!loadError && partialFailures.length > 0 && (
+            <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
+              <p className="flex-1 text-sm text-amber-900">
+                Some figures failed to load and may show 0 ({partialFailures.join(", ")}).
+              </p>
+              <Button variant="outline" size="sm" onClick={() => { void load(); }} disabled={loading}>Retry</Button>
+            </div>
+          )}
+
           {/* Admin follow-up (admin.md): zero-data empty state.
               Replace the chart + KPI tiles with a "no activity yet"
               card when the tenant has no orders + no inflows + no
@@ -467,7 +556,10 @@ function CashflowDashboardInner() {
               tenant with no orders but upcoming hire or a buy-list
               doesn't see the empty-state while the chart below
               renders real costs. */}
+          {/* Guarded on partialFailures too: a failed feed must not
+              masquerade as a genuinely empty tenant. */}
           {orders.length === 0
+            && partialFailures.length === 0
             && (metrics?.cashReceived || 0) === 0
             && (metrics?.pendingPayments || 0) === 0
             && (metrics?.fixedCostsNext30 || 0) === 0

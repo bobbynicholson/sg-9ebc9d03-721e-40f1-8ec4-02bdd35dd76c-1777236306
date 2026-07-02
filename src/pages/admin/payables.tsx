@@ -43,8 +43,9 @@ import {
   type SupplierPayable,
   type PayableStatus,
 } from "@/services/supplierPayablesService";
-import * as currencyUtils from "@/lib/currencyUtils";
-import { toLocalISO } from "@/lib/localDate";
+import { formatZAR } from "@/lib/formatters";
+import { DEFAULT_TENANT_TIMEZONE, toZonedISO } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
 
 /**
  * Bulk-import row shape. One entry per CSV line after parsing /
@@ -182,15 +183,38 @@ export default function ProtectedPayablesPage() {
 function PayablesPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { withSlug } = useTenantHref();
   const companyId = (user as any)?.company_id || (profile as any)?.company_id;
   const userId = (user as any)?.id || null;
   const currency = (user as any)?.currency || "ZAR";
-  const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
+  // Money display goes through formatZAR (the platform-wide money
+  // formatter) so payables reads "R 12 500.00" like every other
+  // finance surface, not the old toFixed "R12500.00".
+  const fmt = (a: number, c: string) => formatZAR(a, { currency: c });
 
   const [rows, setRows] = useState<SupplierPayable[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<PayableStatus | "all">("pending");
   const [suppliers, setSuppliers] = useState<Array<{ id: string; supplier_name: string }>>([]);
+  // Overdue is judged against the TENANT's calendar day, not the
+  // operator's browser clock - a payable shouldn't flip overdue early
+  // or late because the bookkeeper is travelling in another timezone.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || DEFAULT_TENANT_TIMEZONE);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+  const todayISO = toZonedISO(new Date(), tenantTimezone || DEFAULT_TENANT_TIMEZONE);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState({
@@ -214,24 +238,47 @@ function PayablesPage() {
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
-    const [data, sups] = await Promise.all([
-      supplierPayablesService.list(companyId, { status: filter }),
-      (supabase as any)
-        .from("suppliers")
-        .select("id, supplier_name")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .order("supplier_name", { ascending: true }),
-    ]);
-    setRows(data);
-    setSuppliers((sups?.data || []) as Array<{ id: string; supplier_name: string }>);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      // Always pull ALL statuses and slice client-side. Pre-audit the
+      // status filter was applied server-side, so with the "Paid"
+      // filter active the "Pending total" tile summed over paid rows
+      // only and reported a fake R 0.00 pending. The ledger is small
+      // (tens of rows), one full pull is cheaper than a refetch per
+      // filter flip anyway.
+      const [data, sups] = await Promise.all([
+        supplierPayablesService.list(companyId, { status: "all", throwOnError: true }),
+        (supabase as any)
+          .from("suppliers")
+          .select("id, supplier_name")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .order("supplier_name", { ascending: true }),
+      ]);
+      // Suppliers feed the Add dialog + bulk-import matching; a
+      // silent failure there means every bulk row "fails to match"
+      // with no explanation. Surface it with the same error state.
+      if (sups?.error) throw sups.error;
+      setRows(data);
+      setSuppliers((sups?.data || []) as Array<{ id: string; supplier_name: string }>);
+    } catch (e: any) {
+      setLoadError(e?.message || "Could not load payables. Check your connection and retry.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, filter]);
+  }, [companyId]);
+
+  // Client-side status slice for the list. Tiles + hero chips always
+  // compute off the full set so they stay truthful under any filter.
+  const visibleRows = useMemo(
+    () => (filter === "all" ? rows : rows.filter((r) => r.status === filter)),
+    [rows, filter],
+  );
 
   const handleCreate = async () => {
     if (!companyId) return;
@@ -270,6 +317,10 @@ function PayablesPage() {
     if (row) {
       toast({ title: "Marked paid", description: "Forecast refreshed next page load." });
       void load();
+    } else {
+      // Pre-audit this failed in silence - the button did nothing and
+      // the operator assumed the payable was settled.
+      toast({ title: "Couldn't mark paid", description: "The update didn't save. Try again.", variant: "destructive" });
     }
   };
 
@@ -329,17 +380,22 @@ function PayablesPage() {
     if (ok) {
       toast({ title: "Removed" });
       void load();
+    } else {
+      toast({ title: "Couldn't remove", description: "The delete didn't save. Try again.", variant: "destructive" });
     }
   };
 
-  const totalPending = useMemo(
-    () => rows.filter((r) => r.status === "pending").reduce((s, r) => s + r.amount_cents, 0) / 100,
-    [rows],
+  // Money math stays in integer cents; the /100 happens only at the
+  // fmt() display boundary.
+  const pendingRows = useMemo(() => rows.filter((r) => r.status === "pending"), [rows]);
+  const totalPendingCents = useMemo(
+    () => pendingRows.reduce((s, r) => s + r.amount_cents, 0),
+    [pendingRows],
   );
-  const overdueCount = useMemo(() => {
-    const today = toLocalISO(new Date());
-    return rows.filter((r) => r.status === "pending" && r.due_date < today).length;
-  }, [rows]);
+  const overdueCount = useMemo(
+    () => pendingRows.filter((r) => r.due_date < todayISO).length,
+    [pendingRows, todayISO],
+  );
 
   return (
     <>
@@ -351,16 +407,39 @@ function PayablesPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Payables"
             icon={Wallet}
             subtitle={
               <>
                 Outstanding supplier invoices. Drives the cashflow forecast on{" "}
-                <Link href="/admin/financial-dashboard" className="text-blue-600 hover:underline">
+                <Link
+                  href={withSlug("/admin/financial-dashboard")}
+                  className="font-semibold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white"
+                >
                   Financial dashboard
                 </Link>
                 .
               </>
+            }
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {pendingRows.length} pending invoice{pendingRows.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {fmt(totalPendingCents / 100, currency)} owed
+                  </span>
+                  {overdueCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {overdueCount} overdue
+                    </span>
+                  )}
+                </>
+              ) : undefined
             }
             actions={
               <>
@@ -378,6 +457,20 @@ function PayablesPage() {
           <PageWorkbench />
           <CashflowContextBanner message="Payables here feed the 30-day forecast outflow. Add a missing one to sharpen the projection." />
 
+          {/* Load failure: loud recovery card instead of tiles full of
+              fake zeros over an empty list. */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load payables</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={load} size="sm" className="bg-brand-primary hover:bg-brand-primary/90" disabled={loading}>
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {!loadError && (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <Card className="border-2">
               <CardHeader className="pb-2">
@@ -385,9 +478,9 @@ function PayablesPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold tabular-nums text-slate-900">
-                  {fmt(totalPending, currency)}
+                  {fmt(totalPendingCents / 100, currency)}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Across {rows.filter(r => r.status === "pending").length} invoices</p>
+                <p className="text-xs text-slate-500 mt-1">Across {pendingRows.length} invoice{pendingRows.length === 1 ? "" : "s"}</p>
               </CardContent>
             </Card>
             <Card className="border-2">
@@ -428,18 +521,25 @@ function PayablesPage() {
             <CardContent className="p-0">
               {loading ? (
                 <div className="p-8 text-center text-slate-400">Loading...</div>
-              ) : rows.length === 0 ? (
-                <div className="p-12 text-center text-slate-400">
-                  No {filter === "all" ? "" : filter} payables.
+              ) : visibleRows.length === 0 ? (
+                <div className="p-12 text-center">
+                  <p className="text-sm text-slate-500">
+                    No {filter === "all" ? "" : filter.replace("_", " ")} payables{rows.length > 0 && filter !== "all" ? ` (${rows.length} in All)` : ""}.
+                  </p>
+                  {rows.length === 0 && (
+                    <Button onClick={() => setDialogOpen(true)} variant="outline" size="sm" className="mt-3">
+                      <Plus className="w-3.5 h-3.5 mr-1.5" />
+                      Add your first payable
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {rows.map((r) => {
-                    const today = toLocalISO(new Date());
-                    const isOverdue = r.status === "pending" && r.due_date < today;
+                  {visibleRows.map((r) => {
+                    const isOverdue = r.status === "pending" && r.due_date < todayISO;
                     return (
-                      <div key={r.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
-                        <div className="flex-1 min-w-0">
+                      <div key={r.id} className="flex flex-wrap items-center gap-3 p-4 hover:bg-slate-50 sm:flex-nowrap sm:gap-4">
+                        <div className="flex-1 min-w-[10rem]">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-slate-900">
                               {r.supplier?.supplier_name || "Unknown supplier"}
@@ -498,6 +598,8 @@ function PayablesPage() {
               )}
             </CardContent>
           </Card>
+          </>
+          )}
         </PortalShell>
       </div>
 

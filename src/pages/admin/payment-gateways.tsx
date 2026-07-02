@@ -77,7 +77,7 @@ function ToneBadge({ label, tone }: { label: string; tone: "muted" | "info" | "s
   const map: Record<string, string> = {
     muted: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
     info: "bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
-    success: "bg-brand-primary/15 text-brand-primary border border-brand-primary/20",
+    success: "bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
     live: "bg-rose-100 text-rose-800 border border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30",
   };
   return <span className={`text-xs font-semibold px-2 py-1 rounded-full ${map[tone]}`}>{label}</span>;
@@ -145,20 +145,23 @@ function PaymentGatewaysPage() {
   // Super_admin picker source. Pulls every non-deleted company so the
   // platform user can manage gateways for any tenant. Tenant admins
   // skip this entirely.
+  const loadCompanies = async () => {
+    const { data, error } = await supabase
+      .from("companies")
+      .select("id, company_name")
+      .is("deleted_at", null)
+      .order("company_name", { ascending: true });
+    if (error) {
+      setPageError(error.message);
+      return;
+    }
+    setCompanies((data || []) as Array<{ id: string; company_name: string }>);
+  };
+
   useEffect(() => {
     if (!isSuperAdmin) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from("companies")
-        .select("id, company_name")
-        .is("deleted_at", null)
-        .order("company_name", { ascending: true });
-      if (error) {
-        setPageError(error.message);
-        return;
-      }
-      setCompanies((data || []) as Array<{ id: string; company_name: string }>);
-    })();
+    loadCompanies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuperAdmin]);
 
   useEffect(() => {
@@ -348,14 +351,30 @@ function PaymentGatewaysPage() {
             />
           ) : (
             <PortalHeader
-              title={
-                <span className="flex items-center gap-2">
-                  Payment Gateways
-                  <InfoTooltip content={"Configure a South African gateway so your clients can pay invoices online.\n\nOne gateway can be active at a time. Saved credentials are encrypted at rest and never read back into the browser."} />
-                </span>
-              }
+              variant="hero"
+              title="Payment Gateways"
               icon={CreditCard}
-              subtitle="Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT."
+              subtitle="Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT. One gateway can be active at a time and saved credentials are never read back into the browser."
+              meta={
+                !loading && activeCompanyId ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {configs.length} of {catalogue.length} configured
+                    </span>
+                    {activeConfig ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        <span className={`h-1.5 w-1.5 rounded-full ${activeConfig.is_test ? "bg-amber-400" : "bg-emerald-400"}`} />
+                        {activeName} {activeConfig.is_test ? "test" : "live"} mode
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                        No active gateway
+                      </span>
+                    )}
+                  </>
+                ) : undefined
+              }
             />
           )}
           <PageWorkbench />
@@ -442,7 +461,7 @@ function PaymentGatewaysPage() {
               className={
                 activeConfig
                   ? activeConfig.is_test
-                    ? "border-brand-primary/20 bg-brand-primary/10"
+                    ? "border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10"
                     : "border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10"
                   : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50"
               }
@@ -468,18 +487,46 @@ function PaymentGatewaysPage() {
           {pageError && (
             <Alert className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
               <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-              <AlertDescription className="text-rose-800 dark:text-rose-300">{pageError}</AlertDescription>
+              <AlertDescription className="text-rose-800 dark:text-rose-300">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span>{pageError}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setPageError(null);
+                      if (isSuperAdmin) loadCompanies();
+                      load();
+                    }}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              </AlertDescription>
             </Alert>
           )}
 
           {savedToast && (
-            <Alert className="border-brand-primary/20 bg-brand-primary/10">
-              <Check className="h-4 w-4 text-brand-primary" />
-              <AlertDescription className="text-brand-primary">{savedToast}</AlertDescription>
+            <Alert className="border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+              <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <AlertDescription className="text-emerald-800 dark:text-emerald-300">{savedToast}</AlertDescription>
             </Alert>
           )}
 
-          {activeCompanyId && (
+          {/* Skeleton while the gateway list is loading, so the provider
+              cards never flash "Not configured" against stale data. */}
+          {activeCompanyId && loading && (
+            <div className="grid md:grid-cols-3 gap-6">
+              {catalogue.map((entry) => (
+                <div
+                  key={entry.provider}
+                  className="h-56 animate-pulse rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800/50"
+                />
+              ))}
+            </div>
+          )}
+
+          {activeCompanyId && !loading && (
           <div className="grid md:grid-cols-3 gap-6">
             {catalogue.map((entry) => {
               const config = configs.find((c) => c.provider === entry.provider);
@@ -534,7 +581,7 @@ function PaymentGatewaysPage() {
                       </Button>
                     )}
                     {config && testResults[config.id] && (
-                      <p className={`text-xs ${testResults[config.id].ok ? "text-brand-primary" : "text-rose-700 dark:text-rose-400"}`}>
+                      <p className={`text-xs ${testResults[config.id].ok ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                         {testResults[config.id].ok
                           ? "Credentials verified."
                           : `Test failed: ${testResults[config.id].message || "see logs"}`}
@@ -584,7 +631,7 @@ function PaymentGatewaysPage() {
             <div className="space-y-4">
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-brand-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Sign up with the provider</p>
                     <p className="text-sm text-muted-foreground">
@@ -593,7 +640,7 @@ function PaymentGatewaysPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-brand-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Test in sandbox first</p>
                     <p className="text-sm text-muted-foreground">
@@ -602,7 +649,7 @@ function PaymentGatewaysPage() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-brand-primary mt-0.5" />
                   <div>
                     <p className="font-medium">Webhook URL on the provider side</p>
                     <p className="text-sm text-muted-foreground">

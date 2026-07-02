@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, Banknote, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Sparkles, Trophy, Download, RefreshCw } from "lucide-react";
+import { TrendingUp, Banknote, AlertTriangle, Calendar, Users, Package, CreditCard, ArrowUpRight, ArrowDownRight, Trophy, Download, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -12,14 +12,13 @@ import { captureException } from "@/lib/observability";
 import { fixedCostsService } from "@/services/fixedCostsService";
 import { orderService } from "@/services/orderService";
 import { paymentLedgerService } from "@/services/paymentLedgerService";
-import { analyticsService } from "@/services/analyticsService";
 import { aiFinancialService } from "@/services/aiFinancialService";
 import * as currencyUtils from "@/lib/currencyUtils";
 import { formatLocalDate } from "@/lib/localFormat";
 import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
-import { toLocalISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, parseLocalDay, tenantToday, toLocalISO } from "@/lib/localDate";
 import { computeCurrentCashPosition } from "@/lib/cashflowMath";
-import type { Order, Profile } from "@/types";
+import type { Order } from "@/types";
 import Head from "next/head";
 import Link from "next/link";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -32,7 +31,6 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { Building2 } from "lucide-react";
 import { useTenantHref } from "@/lib/tenantUrl";
-import { CashflowForecastCard } from "@/components/admin/financial/CashflowForecastCard";
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -106,9 +104,11 @@ function FinancialDashboardInner() {
   // cashflow-dashboard pattern. Track load errors so we can show
   // a recovery card instead of a wall of zeros that looks broken.
   const [loadError, setLoadError] = useState<string | null>(null);
-  // Bumped when the metrics finish loading so the Cashflow Forecast
-  // Card refetches its cash_on_hand value alongside the page refresh.
-  const [loadedAt, setLoadedAt] = useState<number>(0);
+  // Audit fix: the best-effort feeds (fixed costs, payables, peak
+  // season, COGS) used to log-and-zero in silence. Collect failures
+  // and surface a partial-load banner so a broken feed never reads
+  // as an honest R0.
+  const [partialFailures, setPartialFailures] = useState<string[]>([]);
 
   // Cashflow Forecast Card is gated to operator / director roles per
   // the finance-visibility rule. TIGHTEN I.7 (2026-05-26): the
@@ -131,6 +131,36 @@ function FinancialDashboardInner() {
     try {
       setLoading(true);
       setLoadError(null);
+      const failures: string[] = [];
+
+      // Tenant timezone + peak-season config in one round trip. The
+      // timezone anchors every "today" comparison below to the
+      // tenant's wall clock (companies.timezone) instead of the
+      // operator's browser clock. FIN-C originally fetched only the
+      // peak-season columns further down; merged here so the anchor
+      // exists before the projection maths runs.
+      let tenantTz: string = DEFAULT_TENANT_TIMEZONE;
+      let peakSeasonStartMonth: number | null = null;
+      let peakSeasonEndMonth: number | null = null;
+      if (user.company_id) {
+        try {
+          const { data: companyRow, error: companyErr } = await (supabase as any)
+            .from("companies")
+            .select("timezone, peak_season_start_month, peak_season_end_month")
+            .eq("id", user.company_id)
+            .maybeSingle();
+          if (companyErr) throw companyErr;
+          tenantTz = (companyRow as any)?.timezone || DEFAULT_TENANT_TIMEZONE;
+          peakSeasonStartMonth = (companyRow as any)?.peak_season_start_month ?? null;
+          peakSeasonEndMonth = (companyRow as any)?.peak_season_end_month ?? null;
+        } catch (peakErr) {
+          captureException(peakErr, {
+            level: "warning",
+            tags: { companyId: user.company_id, route: "/admin/financial-dashboard", step: "company_config" },
+          });
+        }
+      }
+      const todayAnchor = tenantToday(tenantTz);
 
       // Load all financial data. SHAPE-A (task #97, 2026-05-24):
       // dashboard reads order columns + computes totals; never
@@ -168,8 +198,8 @@ function FinancialDashboardInner() {
       // Calculate metrics
       const cashReceived = calculateCashReceived(scopedOrders);
       const staffPaymentsOwed = ledgerData.totalOwed || 0;
-      const projectedRevenue30Days = calculateProjectedRevenue(scopedOrders, 30);
-      const projectedRevenue90Days = calculateProjectedRevenue(scopedOrders, 90);
+      const projectedRevenue30Days = calculateProjectedRevenue(scopedOrders, 30, todayAnchor);
+      const projectedRevenue90Days = calculateProjectedRevenue(scopedOrders, 90, todayAnchor);
       const pendingPayments = calculatePendingPayments(scopedOrders);
       const unpaidSessionsCount = (ledgerData.unpaidSessions || []).length;
       const unpaidStaffCount = ledgerData.staffCount || 0;
@@ -180,8 +210,8 @@ function FinancialDashboardInner() {
       // forecast chart's R0 line dipping. Both loads tolerant of
       // RLS / missing tables - we default to 0 on failure so the
       // summary still renders.
-      const todayIso = toLocalISO(new Date());
-      const thirtyIso = toLocalISO(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
+      const todayIso = toLocalISO(todayAnchor);
+      const thirtyIso = toLocalISO(new Date(todayAnchor.getTime() + 30 * 24 * 60 * 60 * 1000));
       let fixedCostsNext30 = 0;
       let supplierPayablesNext30 = 0;
       if (user.company_id) {
@@ -204,9 +234,13 @@ function FinancialDashboardInner() {
             level: "warning",
             tags: { companyId: user.company_id, route: "/admin/financial-dashboard", step: "fixed_costs" },
           });
+          failures.push("fixed costs");
         }
         try {
-          const { data: payables } = await (supabase as any)
+          // Audit fix: PostgREST returns errors in the result, it
+          // does not throw - the old destructure-data-only shape
+          // meant a failed query silently zeroed the payables row.
+          const { data: payables, error: spQueryErr } = await (supabase as any)
             .from("supplier_payables")
             .select("amount_cents, due_date")
             .eq("company_id", user.company_id)
@@ -214,6 +248,7 @@ function FinancialDashboardInner() {
             .is("deleted_at", null)
             .gte("due_date", todayIso)
             .lte("due_date", thirtyIso);
+          if (spQueryErr) throw spQueryErr;
           supplierPayablesNext30 = ((payables as Array<{ amount_cents: number }>) || [])
             .reduce((sum, r) => sum + (Number(r.amount_cents) || 0) / 100, 0);
         } catch (spErr) {
@@ -221,29 +256,12 @@ function FinancialDashboardInner() {
             level: "warning",
             tags: { companyId: user.company_id, route: "/admin/financial-dashboard", step: "supplier_payables" },
           });
+          failures.push("supplier payables");
         }
       }
 
-      // FIN-C: pull the tenant's peak-season config (NULL = SA wedding
-      // default). Drives the Peak Season banner copy + trigger window.
-      let peakSeasonStartMonth: number | null = null;
-      let peakSeasonEndMonth: number | null = null;
-      if (user.company_id) {
-        try {
-          const { data: companyRow } = await (supabase as any)
-            .from("companies")
-            .select("peak_season_start_month, peak_season_end_month")
-            .eq("id", user.company_id)
-            .maybeSingle();
-          peakSeasonStartMonth = (companyRow as any)?.peak_season_start_month ?? null;
-          peakSeasonEndMonth = (companyRow as any)?.peak_season_end_month ?? null;
-        } catch (peakErr) {
-          captureException(peakErr, {
-            level: "warning",
-            tags: { companyId: user.company_id, route: "/admin/financial-dashboard", step: "peak_season" },
-          });
-        }
-      }
+      // Peak-season config now rides the companies fetch at the top
+      // of this function (merged with the timezone read).
 
       // The 4-tile strip above keeps its simpler currentCashFlow
       // breakdown (Received / Wages owed). The Financial Summary
@@ -260,6 +278,10 @@ function FinancialDashboardInner() {
       const cogsData = user.company_id
         ? await fetchRealCogs(user.company_id, cogsSince.toISOString())
         : null;
+      // fetchRealCogs returns null on query failure (a tenant with no
+      // usage data still gets a zeroed object back), so with a
+      // company_id present null means the COGS feed broke.
+      if (user.company_id && cogsData === null) failures.push("inventory COGS");
       const inventoryCosts = cogsData ? cogsData.cogs : null;
       const profitMargin = calculateProfitMargin(ordersData, cogsData);
       const healthScore = calculateHealthScore({
@@ -291,7 +313,7 @@ function FinancialDashboardInner() {
         fixedCostsNext30,
         supplierPayablesNext30,
       });
-      setLoadedAt(Date.now());
+      setPartialFailures(failures);
 
       // Generate AI-powered alerts. FIN-C threads peak-season config
       // through so the seasonal banner respects tenant configuration.
@@ -391,22 +413,27 @@ function FinancialDashboardInner() {
       .reduce((sum, o) => sum + (Number((o as any).amount_paid) || 0), 0);
   };
 
-  const calculateProjectedRevenue = (orders: Order[], days: number) => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+  // `anchor` is the tenant-timezone "today" (local midnight) from
+  // tenantToday(companies.timezone) so the window follows the
+  // tenant's wall clock, not the operator's browser clock.
+  const calculateProjectedRevenue = (orders: Order[], days: number, anchor: Date) => {
+    const now = anchor;
     const futureDate = new Date(now);
     futureDate.setDate(futureDate.getDate() + days);
 
     // TIGHTEN I.70: shared canonical helper. Behaviour identical to
     // the prior "not cancelled" filter but locked in via the
     // classification module so future enum drift can't silently
-    // change projection numbers.
+    // change projection numbers. parseLocalDay pins the bare
+    // event_date to local midnight so the compare lives in the same
+    // space as the anchor (new Date("YYYY-MM-DD") parses as UTC
+    // midnight, which slips a day for browsers west of UTC).
     return orders
       .filter(o => {
         if (!o.event_date) return false;
         if (!isPipelineRevenue(o as any)) return false;
-        const eventDate = new Date(o.event_date);
-        if (isNaN(eventDate.getTime())) return false;
+        const eventDate = parseLocalDay(o.event_date);
+        if (!eventDate) return false;
         return eventDate >= now && eventDate <= futureDate;
       })
       .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
@@ -545,13 +572,20 @@ function FinancialDashboardInner() {
   }
 
   if (loading) {
+    // Matches the cashflow-dashboard loading shell: nav stays mounted
+    // so the operator isn't dropped onto a bare spinner page.
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto mb-4"></div>
-          <p>Loading financial data...</p>
+      <>
+        <Head><title>Financial dashboard - CateringMS</title></Head>
+        <NoIndexMeta />
+        <AdminNav />
+        <div className="admin-page-shell admin-page-shell--center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto mb-4"></div>
+            <p>Loading financial data...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -639,8 +673,15 @@ function FinancialDashboardInner() {
           <CashflowContextBanner message="Margin, health score and per-order analysis. Use the cashflow forecast for the forward 30-day view." />
           {/* Header with Health Score */}
           <div className="mb-8">
+            {/* Command-centre hero: dark band with the tenant's
+                brand washes. The health-score card that used to sit
+                in `actions` is now a meta chip; its dot stays
+                SEMANTIC (emerald / amber / rose) on the FIN-B
+                retuned 70 / 55 cutoffs, which match the score
+                function's real 0-80 range. */}
             <PortalHeader
-              title="Financial Dashboard"
+              variant="hero"
+              title="Financial dashboard"
               icon={Banknote}
               subtitle={
                 <>
@@ -651,7 +692,34 @@ function FinancialDashboardInner() {
                   Revenue, profitability and cashflow at a glance.
                   Rolling 90-day view with profit margin and
                   outstanding balances.
-                  <div className="mt-3 flex flex-wrap gap-2">
+                </>
+              }
+              meta={
+                metrics ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className={`h-1.5 w-1.5 rounded-full ${
+                        metrics.healthScore >= 70 ? "bg-emerald-400" :
+                        metrics.healthScore >= 55 ? "bg-amber-400" :
+                        "bg-rose-400"
+                      }`} />
+                      Financial health {metrics.healthScore}%
+                      <InfoTooltip
+                        className="text-white/60 hover:text-white"
+                        content={"A score out of 100 that blends cash flow, the next 30 days of bookings, what you owe staff, and profit margin into one quick health check.\n\nHigher is better. Caps at 80 until a full COGS pipeline lands."}
+                      />
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {formatCurrency(metrics.cashReceived)} received
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {formatCurrency(metrics.pendingPayments)} outstanding
+                    </span>
+                  </>
+                ) : undefined
+              }
+              actions={
+                <>
                   {/* Phase 27 #4: manual refresh. The page only
                       auto-loads on mount; a bookkeeper running
                       reconciliation throughout the day previously
@@ -714,46 +782,32 @@ function FinancialDashboardInner() {
                       Export snapshot CSV
                     </Button>
                   )}
-                  </div>
                 </>
-              }
-              actions={
-                <div className="mt-4 md:mt-0">
-                {/* FIN-B (financial dashboard audit): retuned the
-                    threshold cutoffs to match the score function's
-                    actual range. calculateHealthScore caps at 80
-                    (margin signal is disabled until a real COGS
-                    pipeline lands) - the previous 85/70 cutoffs
-                    meant the card could never go green and the green
-                    branch was structurally unreachable. Retune to
-                    70/55 so the score's 0-80 range produces the full
-                    red/yellow/green spectrum honestly. */}
-                <Card className={`border-2 ${
-                  (metrics?.healthScore || 0) >= 70 ? "border-brand-primary bg-brand-primary/10" :
-                  (metrics?.healthScore || 0) >= 55 ? "border-yellow-500 bg-yellow-50" :
-                  "border-rose-500 bg-rose-50"
-                }`}>
-                  <CardContent className="p-4 text-center">
-                    <div className="flex items-center gap-2 justify-center mb-1">
-                      {(metrics?.healthScore || 0) >= 70 ? (
-                        <Trophy className="w-5 h-5 text-brand-primary" />
-                      ) : (
-                        <Sparkles className="w-5 h-5 text-yellow-600" />
-                      )}
-                      <span className="text-sm font-medium text-slate-600 flex items-center gap-1">
-                        Financial Health
-                        <InfoTooltip content={"A score out of 100 that blends cash flow, the next 30 days of bookings, what you owe staff, and profit margin into one quick health check.\n\nHigher is better."} />
-                      </span>
-                    </div>
-                    <div className="text-3xl font-bold text-slate-900">
-                      {metrics?.healthScore || 0}%
-                    </div>
-                  </CardContent>
-                </Card>
-                </div>
               }
             />
             <PageWorkbench />
+
+            {/* Reload failed but we still hold the previous figures:
+                say so instead of silently showing stale numbers. */}
+            {loadError && metrics && (
+              <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600" />
+                <p className="flex-1 text-sm text-rose-900">Couldn't refresh: {loadError} The figures below may be stale.</p>
+                <Button variant="outline" size="sm" onClick={loadFinancialData} disabled={loading}>Retry</Button>
+              </div>
+            )}
+
+            {/* Partial-load warning: one of the best-effort feeds
+                failed and its line may read R0 by mistake. */}
+            {!loadError && partialFailures.length > 0 && (
+              <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
+                <p className="flex-1 text-sm text-amber-900">
+                  Some figures failed to load and may show 0 ({partialFailures.join(", ")}).
+                </p>
+                <Button variant="outline" size="sm" onClick={loadFinancialData} disabled={loading}>Retry</Button>
+              </div>
+            )}
 
             {/* TIGHTEN I.29: the inline zero-data card moved into a
                 dedicated early-return at the top of the component.

@@ -43,7 +43,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { toLocalISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
+import { formatZAR } from "@/lib/formatters";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,13 +59,17 @@ import {
   type PurchaseReceiptItem,
 } from "@/services/taxPurchaseService";
 
-const fmtR = (v?: number | null) =>
-  v == null ? "-" : `R ${Number(v).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// Money display goes through formatZAR (the platform-wide money
+// formatter); this page keeps its "-" null fallback for empty cells.
+const fmtR = (v?: number | null) => (v == null ? "-" : formatZAR(v));
 
 type WindowKind = "this_month" | "this_quarter" | "this_year" | "tax_year" | "all";
 
-function dateRangeFor(window: WindowKind): { from?: string; to?: string } {
-  const now = new Date();
+// Window boundaries anchor on the TENANT's calendar day (passed in by
+// the page), not the operator's browser clock - "This month" on the
+// 1st shouldn't include the old month for a bookkeeper west of the
+// tenant's timezone.
+function dateRangeFor(window: WindowKind, now: Date): { from?: string; to?: string } {
   if (window === "all") return {};
   if (window === "this_month") {
     const from = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -86,9 +91,8 @@ function dateRangeFor(window: WindowKind): { from?: string; to?: string } {
  * TAX-B: same window kind, shifted back one year. Used for the
  * YoY tile so we can read last year's totals through the same path.
  */
-function priorYearRangeFor(window: WindowKind): { from?: string; to?: string } {
+function priorYearRangeFor(window: WindowKind, now: Date): { from?: string; to?: string } {
   if (window === "all") return {};
-  const now = new Date();
   const lastYear = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
   if (window === "this_month") {
     const from = new Date(lastYear.getFullYear(), lastYear.getMonth(), 1);
@@ -118,17 +122,41 @@ function TaxPurchasesPage() {
 
   const [receipts, setReceipts] = useState<ReceiptWithItems[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [windowKind, setWindowKind] = useState<WindowKind>("this_month");
   // TAX-B: prior-year deductible total for the YoY delta. NULL =
   // not loaded yet / "all time" (which has no comparison window).
   const [priorYearDeductible, setPriorYearDeductible] = useState<number | null>(null);
+  const [priorYearError, setPriorYearError] = useState(false);
   // TAX-B: a longer-window pull (180 days) feeds the sparkline and
   // missing-slip detection. Independent of the visible window so the
   // operator can flip "This month" without losing the trend chart.
   const [longRangeReceipts, setLongRangeReceipts] = useState<ReceiptWithItems[]>([]);
+  const [longRangeError, setLongRangeError] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+
+  // Window maths anchors on the tenant's calendar day (companies.
+  // timezone), not the operator's browser clock.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || DEFAULT_TENANT_TIMEZONE);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+  const dayAnchor = useMemo(
+    () => tenantToday(tenantTimezone || DEFAULT_TENANT_TIMEZONE),
+    [tenantTimezone],
+  );
 
   // Visible-window receipts.
   useEffect(() => {
@@ -136,16 +164,20 @@ function TaxPurchasesPage() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setLoadError(null);
       try {
-        const range = dateRangeFor(windowKind);
+        const range = dateRangeFor(windowKind, dayAnchor);
         const list = await listForCompany({ companyId, fromDate: range.from, toDate: range.to });
         if (!cancelled) setReceipts(list);
-      } catch (e) {
+      } catch (e: any) {
         captureException(e, {
           tags: { route: "/admin/tax-purchases", step: "load-receipts", companyId },
         });
         if (!cancelled) {
-          toast({ title: "Could not load slips", variant: "destructive" });
+          // Audit: pre-fix a failed pull rendered as zero tiles and an
+          // empty slip list under a one-shot toast. Keep an on-page
+          // error state so the failure stays visible.
+          setLoadError(e?.message || "Could not load slips. Check your connection and retry.");
           setReceipts([]);
         }
       } finally {
@@ -153,30 +185,31 @@ function TaxPurchasesPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, windowKind, refreshTick, toast]);
+  }, [companyId, windowKind, refreshTick, dayAnchor]);
 
   // TAX-B: prior-year same-window pull. Cheap (no joins beyond what
   // listForCompany already does) so it runs on every window change.
   useEffect(() => {
     if (!companyId) return;
-    if (windowKind === "all") { setPriorYearDeductible(null); return; }
+    if (windowKind === "all") { setPriorYearDeductible(null); setPriorYearError(false); return; }
     let cancelled = false;
     (async () => {
       try {
-        const range = priorYearRangeFor(windowKind);
+        const range = priorYearRangeFor(windowKind, dayAnchor);
         const list = await listForCompany({ companyId, fromDate: range.from, toDate: range.to });
         if (!cancelled) {
           setPriorYearDeductible(list.reduce((s, r) => s + r.deductibleTotal, 0));
+          setPriorYearError(false);
         }
       } catch (e) {
         captureException(e, {
           tags: { route: "/admin/tax-purchases", step: "load-prior-year", companyId },
         });
-        if (!cancelled) setPriorYearDeductible(null);
+        if (!cancelled) { setPriorYearDeductible(null); setPriorYearError(true); }
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, windowKind, refreshTick]);
+  }, [companyId, windowKind, refreshTick, dayAnchor]);
 
   // TAX-B: 180-day pull for the sparkline + missing-slip detector.
   // Runs once per mount per tenant + on realtime bumps.
@@ -185,19 +218,19 @@ function TaxPurchasesPage() {
     let cancelled = false;
     (async () => {
       try {
-        const since = new Date();
+        const since = new Date(dayAnchor);
         since.setDate(since.getDate() - 180);
         const list = await listForCompany({ companyId, fromDate: toLocalISO(since) });
-        if (!cancelled) setLongRangeReceipts(list);
+        if (!cancelled) { setLongRangeReceipts(list); setLongRangeError(false); }
       } catch (e) {
         captureException(e, {
           tags: { route: "/admin/tax-purchases", step: "load-long-range", companyId },
         });
-        if (!cancelled) setLongRangeReceipts([]);
+        if (!cancelled) { setLongRangeReceipts([]); setLongRangeError(true); }
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, refreshTick]);
+  }, [companyId, refreshTick, dayAnchor]);
 
   // TAX-B: realtime channel. New slip on /admin/shopping should
   // refresh this page; debounced 500ms because OCR fan-out can fire
@@ -263,32 +296,34 @@ function TaxPurchasesPage() {
   const missingWeeks = useMemo(() => detectMissingSlipWeeks(longRangeReceipts), [longRangeReceipts]);
 
   // Category rollup. Made clickable to filter the slip list below.
+  // Accumulates in integer CENTS (floats drift over long lists);
+  // totalCents / 100 only at display.
   const deductibleByCategory = useMemo(() => {
-    const map = new Map<string, { count: number; total: number }>();
+    const map = new Map<string, { count: number; totalCents: number }>();
     for (const r of receipts) {
       for (const it of r.items) {
         if (!it.is_deductible) continue;
         const key = (it.category || "").trim() || "Uncategorised";
-        const cur = map.get(key) || { count: 0, total: 0 };
+        const cur = map.get(key) || { count: 0, totalCents: 0 };
         cur.count += 1;
-        cur.total += Number(it.amount) || 0;
+        cur.totalCents += Math.round((Number(it.amount) || 0) * 100);
         map.set(key, cur);
       }
     }
     return [...map.entries()]
       .map(([category, v]) => ({ category, ...v }))
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => b.totalCents - a.totalCents);
   }, [receipts]);
 
-  // Top supplier rollup.
+  // Top supplier rollup. Cents for the same reason as above.
   const topSupplier = useMemo(() => {
     const map = new Map<string, number>();
     for (const r of receipts) {
       const key = (r.vendor || "Unnamed").trim();
-      map.set(key, (map.get(key) || 0) + r.deductibleTotal);
+      map.set(key, (map.get(key) || 0) + Math.round((r.deductibleTotal || 0) * 100));
     }
     const top = [...map.entries()].sort((a, b) => b[1] - a[1])[0];
-    return top ? { vendor: top[0], total: top[1] } : null;
+    return top ? { vendor: top[0], totalCents: top[1] } : null;
   }, [receipts]);
 
   // TAX-B: visible-slips filter when a category row is selected.
@@ -335,9 +370,28 @@ function TaxPurchasesPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Tax overview"
             icon={Receipt}
-            subtitle="Read-only view of your deductible spend. Snapping slips, marking lines and editing the log all happen on the Shopping dashboard now. This page is the accountant's lens onto the same data."
+            subtitle="Read-only view of your deductible spend for the accountant. Snapping slips, marking lines and editing the log all happen on the Shopping dashboard."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {summary.receiptCount} slip{summary.receiptCount === 1 ? "" : "s"} in window
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {fmtR(summary.deductibleTotal)} deductible
+                  </span>
+                  {summary.vatClaimableTotal > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                      {fmtR(summary.vatClaimableTotal)} VAT claimable
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <>
                 <Button variant="outline" size="sm" onClick={handleExportCsv} className="gap-1.5" disabled={receipts.length === 0}>
@@ -355,6 +409,27 @@ function TaxPurchasesPage() {
           />
           <PageWorkbench />
 
+            {/* Load failure: loud recovery card instead of a page of
+                fake-zero tiles over an empty slip list. */}
+            {loadError && (
+              <Card className="mb-4 border-rose-200">
+                <CardContent className="py-4 px-4">
+                  <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load the tax overview</h2>
+                  <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+                  <Button
+                    size="sm"
+                    className="bg-brand-primary hover:bg-brand-primary/90"
+                    onClick={() => setRefreshTick((n) => n + 1)}
+                    disabled={loading}
+                  >
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {!loadError && (
+            <>
             {/* TAX-B: page-level mismatch + override banner. Promotes
                 the per-slip rose chip to a louder warning so the
                 accountant sees it before exporting. */}
@@ -407,7 +482,7 @@ function TaxPurchasesPage() {
                   <p className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{summary.receiptCount}</p>
                   {topSupplier && (
                     <p className="text-[10px] text-slate-500 mt-1 truncate" title={`Top supplier: ${topSupplier.vendor}`}>
-                      Top: {topSupplier.vendor} ({fmtR(topSupplier.total)})
+                      Top: {topSupplier.vendor} ({fmtR(topSupplier.totalCents / 100)})
                     </p>
                   )}
                 </CardContent>
@@ -427,6 +502,11 @@ function TaxPurchasesPage() {
                   )}
                   {yoyDelta && yoyDelta.pct == null && priorYearDeductible === 0 && (
                     <p className="text-[10px] text-brand-primary/70 mt-1">No comparable spend last year</p>
+                  )}
+                  {/* Surface a failed prior-year pull instead of
+                      silently hiding the YoY line. */}
+                  {priorYearError && (
+                    <p className="text-[10px] text-amber-700 mt-1">YoY comparison unavailable (last year&apos;s pull failed)</p>
                   )}
                 </CardContent>
               </Card>
@@ -526,7 +606,16 @@ function TaxPurchasesPage() {
                     </p>
                     <span className="text-[10px] text-slate-400">Independent of window above</span>
                   </div>
-                  {sparkline.every((b) => b.total === 0) ? (
+                  {longRangeError ? (
+                    // Distinguish "pull failed" from a genuinely quiet
+                    // 6 months - pre-audit both rendered the same line.
+                    <p className="text-xs text-amber-700">
+                      Couldn&apos;t load the trend.{" "}
+                      <button type="button" className="underline" onClick={() => setRefreshTick((n) => n + 1)}>
+                        Retry
+                      </button>
+                    </p>
+                  ) : sparkline.every((b) => b.total === 0) ? (
                     <p className="text-xs text-slate-500">No deductible spend in the last 6 months.</p>
                   ) : (
                     <div className="flex items-end gap-2 h-20">
@@ -633,7 +722,7 @@ function TaxPurchasesPage() {
                             >
                               <td className="py-2 pr-3 text-slate-900">{row.category}</td>
                               <td className="py-2 px-3 text-right tabular-nums text-slate-600">{row.count}</td>
-                              <td className="py-2 pl-3 text-right tabular-nums font-semibold text-brand-primary">{fmtR(row.total)}</td>
+                              <td className="py-2 pl-3 text-right tabular-nums font-semibold text-brand-primary">{fmtR(row.totalCents / 100)}</td>
                             </tr>
                           );
                         })}
@@ -642,8 +731,12 @@ function TaxPurchasesPage() {
                           <td className="py-2 px-3 text-right tabular-nums text-slate-600">
                             {deductibleByCategory.reduce((s, r) => s + r.count, 0)}
                           </td>
+                          {/* Sum of the category rows above (cents), so
+                              the table always internally reconciles. In
+                              practice it equals summary.deductibleTotal
+                              on the tile - both roll up the same lines. */}
                           <td className="py-2 pl-3 text-right tabular-nums font-bold text-brand-primary">
-                            {fmtR(summary.deductibleTotal)}
+                            {fmtR(deductibleByCategory.reduce((s, r) => s + r.totalCents, 0) / 100)}
                           </td>
                         </tr>
                       </tbody>
@@ -706,6 +799,8 @@ function TaxPurchasesPage() {
                 )}
               </CardContent>
             </Card>
+            </>
+            )}
 
         </PortalShell>
 
@@ -858,9 +953,11 @@ function LineRow({
   withSlug: (path: string) => string;
 }) {
   const isOverride = it.is_deductible && it.rule?.deductibility === "non_deductible";
+  // 15/115 VAT back-out, computed on integer cents then rounded so
+  // the displayed claim is a real money value, not a float tail.
   const vatClaim =
     it.is_deductible && it.rule?.vat_input_claimable === "claimable"
-      ? (Number(it.amount) || 0) * 15 / 115
+      ? Math.round(Math.round((Number(it.amount) || 0) * 100) * 15 / 115) / 100
       : 0;
   return (
     <tr className="border-b border-slate-50 last:border-b-0">
