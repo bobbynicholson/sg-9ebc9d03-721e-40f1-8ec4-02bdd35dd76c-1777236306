@@ -33,13 +33,17 @@ export function SignOutButton({ collapsed = false, className }: SignOutButtonPro
       disabled={signingOut}
       title="Sign out"
       className={cn(
-        "w-full border border-rose-100 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20 dark:hover:text-rose-200",
-        collapsed ? "justify-center px-2" : "justify-start gap-3 px-4",
+        "h-10 max-w-full min-w-0 overflow-hidden rounded-lg border border-transparent bg-transparent text-[13px] font-semibold text-rose-600 shadow-none hover:border-rose-200/70 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:border-rose-500/20 dark:hover:bg-rose-500/10 dark:hover:text-rose-200",
+        collapsed ? "mx-auto w-10 flex-none justify-center p-0" : "w-full justify-start gap-2.5 px-3",
         className,
       )}
     >
-      <LogOut className="h-4 w-4" />
-      {!collapsed && <span>{signingOut ? "Signing out..." : "Sign out"}</span>}
+      <LogOut className="h-4 w-4 flex-shrink-0" />
+      {!collapsed && (
+        <span className="min-w-0 truncate">
+          {signingOut ? "Signing out..." : "Sign out"}
+        </span>
+      )}
     </Button>
   );
 }

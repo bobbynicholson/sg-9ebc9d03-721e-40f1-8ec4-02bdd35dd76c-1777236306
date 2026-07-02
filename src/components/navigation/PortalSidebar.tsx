@@ -188,6 +188,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const searchAccent = forceBrand
     ? "bg-white/10 hover:bg-white/15 text-white"
     : config.searchAccent;
+  const signOutBrandClass = forceBrand
+    ? "border-transparent bg-transparent text-white/75 hover:border-white/15 hover:bg-white/10 hover:text-white"
+    : undefined;
 
   useEffect(() => {
     const saved = localStorage.getItem(collapseKey);
@@ -456,7 +459,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             forceBrand ? "border-white/15" : "border-slate-100 dark:border-slate-800",
           )}>
             <SignOutButton
-              className={forceBrand ? "border-white/15 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white" : undefined}
+              className={signOutBrandClass}
             />
           </div>
         )}
@@ -549,7 +552,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))" }}
                 >
                   <SignOutButton
-                    className={forceBrand ? "border-white/15 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white" : undefined}
+                    className={signOutBrandClass}
                   />
                 </div>
               </SheetContent>
@@ -679,7 +682,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           >
             <SignOutButton
               collapsed={isCollapsed}
-              className={forceBrand ? "border-white/15 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white" : undefined}
+              className={signOutBrandClass}
             />
             <Button
               variant="ghost"
