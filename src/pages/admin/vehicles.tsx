@@ -46,6 +46,8 @@ import { useToast } from "@/hooks/use-toast";
 import { vehicleService, type Vehicle } from "@/services/vehicleService";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { toLocalISO } from "@/lib/localDate";
+import { formatZAR } from "@/lib/formatters";
 
 interface DriverProfile {
   id: string;
@@ -323,14 +325,23 @@ function VehiclesPage() {
     if (!companyId) return;
     let cancelled = false;
     (async () => {
-      const today = new Date().toISOString().slice(0, 10);
-      const { count } = await (supabase as any)
+      // Local calendar date, not the UTC slice: around midnight SAST the
+      // UTC date is still "yesterday" and the gap count included events
+      // that already happened.
+      const today = toLocalISO(new Date());
+      const { count, error } = await (supabase as any)
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .eq("requires_refrigeration", true)
         .not("status", "in", "(cancelled,completed)")
         .gte("event_date", today);
+      if (error) {
+        // Soft advisory banner only; a failed count must not blank the
+        // page, but log it so a broken filter doesn't hide the gap forever.
+        console.warn("[vehicles] cold-chain gap count failed:", error);
+        return;
+      }
       if (!cancelled) setColdChainPending(count || 0);
     })();
     return () => { cancelled = true; };
@@ -579,14 +590,37 @@ function VehiclesPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2">
                 Vehicles
-                <InfoTooltip content={"Your fleet plus any vehicles drivers bring themselves.\n\nDispatch uses these to suggest the right vehicle for an order, and to flag jobs that need two drivers."} />
+                <InfoTooltip
+                  className="text-white/60 hover:text-white focus-visible:text-white"
+                  content={"Your fleet plus any vehicles drivers bring themselves.\n\nDispatch uses these to suggest the right vehicle for an order, and to flag jobs that need two drivers."}
+                />
               </span>
             }
             icon={Truck}
             subtitle="Fleet roster. Refrigerated and warmer vehicles unlock cold and hot-chain orders for assignment."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.total} vehicle{stats.total === 1 ? "" : "s"} on the roster
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {stats.refrigerated} refrigerated
+                  </span>
+                  {serviceRollup.overdue > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {serviceRollup.overdue} service{serviceRollup.overdue === 1 ? "" : "s"} overdue
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
             <>
               {/* Phase 28 #3: manual refresh. Fleet roster loads on
@@ -617,7 +651,10 @@ function VehiclesPage() {
           {loadError && (
             <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{loadError}</span>
+              <span className="flex-1">{loadError}</span>
+              <Button size="sm" variant="outline" onClick={load} disabled={loading} className="shrink-0">
+                Retry
+              </Button>
             </div>
           )}
 
@@ -1375,7 +1412,9 @@ function UtilisationView({
     revenue: acc.revenue + r.revenueCarried,
   }), { runs: 0, hours: 0, distance: 0, revenue: 0 });
   const totalsHours = Math.max(1, totals.hours); // for share %
-  const fmtR = (v: number) => `R ${Math.round(v).toLocaleString("en-ZA")}`;
+  // formatZAR is the display source of truth for money; the previous
+  // hand-rolled formatter drifted from the "R 15 453" style elsewhere.
+  const fmtR = (v: number) => formatZAR(v, { decimals: 0 });
 
   return (
     <div className="space-y-4">
@@ -1470,7 +1509,7 @@ function UtilisationView({
                       {r.distanceKm > 0 ? `${r.distanceKm.toFixed(0)}km` : "-"}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-slate-700">
-                      {r.revenueCarried > 0 ? `R ${Math.round(r.revenueCarried).toLocaleString("en-ZA")}` : "-"}
+                      {r.revenueCarried > 0 ? fmtR(r.revenueCarried) : "-"}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums">
                       {r.cancelledRuns > 0 ? (

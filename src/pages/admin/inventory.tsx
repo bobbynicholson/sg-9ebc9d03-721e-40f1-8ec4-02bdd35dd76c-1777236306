@@ -31,7 +31,6 @@ import {
   TrendingDown,
   Plus,
   Search,
-  Filter,
   Download,
   Edit,
   Trash2,
@@ -234,6 +233,12 @@ function AdminInventory() {
 
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // Audit 2026-07-02: load failures used to console.error and render
+  // an empty (healthy-looking) table. Persist the failure + Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Demand-outlook failures fail soft; the At-risk panel would
+  // otherwise read "All covered" which is worse than a warning.
+  const [outlookWarning, setOutlookWarning] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"all" | "below_reorder" | "out" | "expiring">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [outlook, setOutlook] = useState<any[]>([]);
@@ -314,6 +319,25 @@ function AdminInventory() {
     if (q) setSearchTerm(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady]);
+
+  // Audit 2026-07-02: honour ?id=<inventory_item_id>. /admin/stock's
+  // low-stock and stockout rows deep-link here with ?id but the page
+  // ignored it, so every drill-through landed on the unfiltered
+  // table. Once the list loads, search on the item's name and expand
+  // its row. One-shot so a manual clear doesn't re-apply.
+  const [didFocusFromQuery, setDidFocusFromQuery] = useState(false);
+  useEffect(() => {
+    if (didFocusFromQuery) return;
+    if (!router.isReady || inventory.length === 0) return;
+    const id = typeof router.query.id === "string" ? router.query.id : "";
+    if (!id) return;
+    const target = inventory.find((i) => i.id === id);
+    if (!target) return;
+    setDidFocusFromQuery(true);
+    setSearchTerm(target.name);
+    void toggleRow(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.id, inventory.length]);
 
   // ── URL action handler: command palette can deep-link to a flow ──
   // /admin/inventory?action=receive | count | writeoff opens the dialog.
@@ -409,13 +433,20 @@ function AdminInventory() {
       .select("*")
       .eq("company_id", companyId)
       .returns<Record<string, unknown>[]>();
-    if (error) { setOutlook([]); return; }
+    if (error) {
+      console.warn("[admin/inventory] demand outlook query failed:", error);
+      setOutlook([]);
+      setOutlookWarning("Demand outlook failed to load, so the At-risk panel may be incomplete. Refresh to retry.");
+      return;
+    }
+    setOutlookWarning(null);
     setOutlook(data || []);
   };
 
   const loadInventory = async () => {
     if (!companyId) { setLoading(false); return; }
     setLoading(true);
+    setLoadError(null);
     try {
       const rows = await inventoryService.getInventoryWithSuppliers(companyId);
       const mapped: InventoryItem[] = (rows || []).map((row: any) => ({
@@ -442,6 +473,7 @@ function AdminInventory() {
       setInventory(mapped);
     } catch (err) {
       console.error("Error loading inventory:", err);
+      setLoadError(err instanceof Error ? err.message : "Could not load inventory.");
       setInventory([]);
     } finally {
       setLoading(false);
@@ -950,23 +982,37 @@ function AdminInventory() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Food & Ingredients"
             icon={Package}
-            subtitle={
-              <>
-                Pantry and chiller stock. Levels per item, low-stock alerts, and what each upcoming event will pull.
-                <span className="block text-xs text-slate-500 mt-0.5">
-                  {inventory.length} item{inventory.length === 1 ? "" : "s"}
-                  {lastActivity && <> · last movement {relativeTime(lastActivity.created_at)}</>}
-                </span>
-              </>
+            subtitle="Pantry and chiller stock. Levels per item, low-stock alerts, and what each upcoming event will pull."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {inventory.length} item{inventory.length === 1 ? "" : "s"}
+                  </span>
+                  {belowReorderCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {belowReorderCount} below reorder
+                    </span>
+                  )}
+                  {lastActivity && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                      Last movement {relativeTime(lastActivity.created_at)}
+                    </span>
+                  )}
+                </>
+              ) : undefined
             }
             actions={
             <>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9 w-9 p-0 text-slate-500 hover:text-slate-900"
+                className="h-9 w-9 p-0"
                 onClick={refreshAll}
                 title="Refresh"
               >
@@ -1024,6 +1070,35 @@ function AdminInventory() {
           />
           <PageWorkbench />
           <CatalogueOperationsStrip active="inventory" />
+
+          {/* Audit 2026-07-02: persistent load-failure state with
+              Retry. A silent failure used to render an empty table
+              that read as "no stock". */}
+          {loadError && (
+            <Card className="bg-rose-50 border-l-4 border-l-rose-500 mb-4">
+              <CardContent className="py-3 px-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-rose-900">Could not load inventory</p>
+                  <p className="text-xs text-rose-800/90">{loadError}</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={refreshAll} disabled={loading} className="gap-1.5">
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          {!loadError && outlookWarning && (
+            <Card className="bg-amber-50 border-l-4 border-l-amber-500 mb-4">
+              <CardContent className="py-3 px-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <p className="flex-1 min-w-0 text-sm text-amber-900">{outlookWarning}</p>
+                <Button size="sm" variant="outline" onClick={loadOutlook}>
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent receipts that fed inventory - collapsible audit
               trail tying stock movements back to the slip they came from. */}
@@ -1247,10 +1322,10 @@ function AdminInventory() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="outline" size="sm" className="gap-2" disabled title="Coming soon">
-                <Filter className="w-4 h-4" />
-                Filters
-              </Button>
+              {/* Audit 2026-07-02: removed the permanently disabled
+                  "Filters (Coming soon)" button - a dead control the
+                  running-todo flagged. The tab chips below plus fuzzy
+                  search already cover the filtering need. */}
               <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV} title="Export current view to CSV">
                 <Download className="w-4 h-4" />
                 Export

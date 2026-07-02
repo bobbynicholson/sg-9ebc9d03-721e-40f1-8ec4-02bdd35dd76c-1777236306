@@ -39,7 +39,8 @@ import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
-import { toLocalISO } from "@/lib/localDate";
+import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
+import { notificationService } from "@/services/notificationService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,6 +174,31 @@ function StockPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  // Audit 2026-07-02: persistent load-failure + partial-failure
+  // states. The catch used to fire a toast only, and most of the
+  // intel queries never even checked res.error, so a broken filter
+  // zeroed a card in silence forever.
+  const [error, setError] = useState<string | null>(null);
+  const [partialWarning, setPartialWarning] = useState<string | null>(null);
+
+  // Audit 2026-07-02: overdue / today comparisons run on the tenant's
+  // clock, not the browser's. Same pattern as /admin/dashboard.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  const effectiveTenantTimezone = tenantTimezone || DEFAULT_TENANT_TIMEZONE;
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error: tzErr } = await supabase
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (tzErr) console.warn("[admin/stock] companies.timezone fetch failed:", tzErr);
+      if (!cancelled) setTenantTimezone(((data as { timezone?: string } | null)?.timezone) || DEFAULT_TENANT_TIMEZONE);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
 
   // STK-B: filter chip persists to URL so the operator can bookmark
   // a curated view. Same pattern leads / contacts use.
@@ -233,7 +259,12 @@ function StockPage() {
   const load = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
-    const today = new Date();
+    setError(null);
+    setPartialWarning(null);
+    // Secondary intel queries fail soft; collect labels for the
+    // partial-failure banner instead of zeroing cards in silence.
+    const failedSections: string[] = [];
+    const today = tenantToday(effectiveTenantTimezone);
     const todayISO = toLocalISO(today);
     const horizonISO = toLocalISO(new Date(today.getTime() + equipWindow * 24 * 3600 * 1000));
     const in30ISO = toLocalISO(new Date(today.getTime() + 30 * 24 * 3600 * 1000));
@@ -272,7 +303,10 @@ function StockPage() {
       if (regionFilterId) {
         bookingsQ = bookingsQ.eq("orders.region_id", regionFilterId);
       }
-      const { data: bookingRows } = await bookingsQ;
+      const { data: bookingRows, error: bookingsErr } = await bookingsQ;
+      // Core tile - a silent failure here zeroes the Equipment tile
+      // and the feed, so fail loud into the error banner.
+      if (bookingsErr) throw bookingsErr;
       type BookingRow = {
         id: string; booked_from: string | null; booked_until: string | null;
         quantity: number | null; status: string; equipment_id: string;
@@ -341,7 +375,8 @@ function StockPage() {
       if (regionFilterId) {
         hireQ = hireQ.eq("orders.region_id", regionFilterId);
       }
-      const { data: hireRows } = await hireQ;
+      const { data: hireRows, error: hireErr } = await hireQ;
+      if (hireErr) throw hireErr;
       type HireRow = {
         id: string; expected_pickup_date: string | null; expected_return_date: string | null;
         status: string; supplier_name: string | null; equipment_name: string | null;
@@ -383,7 +418,11 @@ function StockPage() {
         .gt("shortfall_next_7_days", 0)
         .order("shortfall_next_7_days", { ascending: false })
         .limit(20);
-      const { data: outlookRows } = await outlookQ;
+      const { data: outlookRows, error: outlookErr } = await outlookQ;
+      if (outlookErr) {
+        console.warn("[admin/stock] demand outlook query failed:", outlookErr);
+        failedSections.push("stockout risk");
+      }
       const stockoutList: StockoutItem[] = ((outlookRows || []) as unknown as Array<{
         inventory_item_id: string | null; item_name: string | null;
         current_stock: number | null; demand_next_7_days: number | null;
@@ -422,7 +461,11 @@ function StockPage() {
       if (regionFilterId) {
         ordersQ = ordersQ.eq("region_id", regionFilterId);
       }
-      const { data: orderRows } = await ordersQ;
+      const { data: orderRows, error: ordersErr } = await ordersQ;
+      if (ordersErr) {
+        console.warn("[admin/stock] upcoming orders query failed:", ordersErr);
+        failedSections.push("event readiness");
+      }
       type OrderRow = { id: string; event_date: string | null; status: string; client_name: string | null };
       const oRows = ((orderRows || []) as unknown as OrderRow[]).filter((o) => !!o.event_date);
 
@@ -473,12 +516,16 @@ function StockPage() {
       // can't keep up. Count adjustment + usage events that pushed
       // stock under minimum in the last 30 days.
       type TxnRow = { inventory_item_id: string; transaction_type: string; quantity: number; created_at: string | null };
-      const { data: txnRows } = await supabase
+      const { data: txnRows, error: txnErr } = await supabase
         .from("inventory_transactions")
         .select("inventory_item_id, transaction_type, quantity, created_at")
         .eq("company_id", companyId)
         .gte("created_at", last30ISO)
         .in("transaction_type", ["usage", "adjustment"]);
+      if (txnErr) {
+        console.warn("[admin/stock] transactions query failed:", txnErr);
+        failedSections.push("re-order trend");
+      }
       const breachCount: Record<string, number> = {};
       for (const t of (txnRows || []) as unknown as TxnRow[]) {
         if (Number(t.quantity || 0) >= 0) continue; // only deductions matter
@@ -520,12 +567,16 @@ function StockPage() {
       }
       const supplierList: SupplierContribution[] = [];
       if (supplierIdsToName.size > 0) {
-        const { data: supplierNames } = await supabase
+        const { data: supplierNames, error: supErr } = await supabase
           .from("suppliers")
           // suppliers has no `name` column - it's supplier_name everywhere
           // else. Alias so the s.name consumer below stays unchanged.
           .select("id, name:supplier_name")
           .in("id", Array.from(supplierIdsToName));
+        if (supErr) {
+          console.warn("[admin/stock] supplier names query failed:", supErr);
+          failedSections.push("supplier leaderboard");
+        }
         const nameMap = new Map(
           ((supplierNames || []) as unknown as Array<{ id: string; name: string | null }>)
             .map((s) => [s.id, s.name || "Unnamed supplier"]),
@@ -557,12 +608,16 @@ function StockPage() {
       if (daysUntilSoonest != null && filteredLow.length > 0) {
         const lowIds = filteredLow.map((i) => i.id);
         type SupplierLink = { inventory_item_id: string; lead_time_days: number | null; is_preferred: boolean };
-        const { data: linkRows } = await supabase
+        const { data: linkRows, error: linkErr } = await supabase
           .from("inventory_item_suppliers")
           .select("inventory_item_id, lead_time_days, is_preferred")
           .eq("company_id", companyId)
           .in("inventory_item_id", lowIds)
           .eq("is_preferred", true);
+        if (linkErr) {
+          console.warn("[admin/stock] supplier link query failed:", linkErr);
+          failedSections.push("lead-time flags");
+        }
         for (const link of (linkRows || []) as unknown as SupplierLink[]) {
           const lead = Number(link.lead_time_days || 0);
           if (lead <= 0) continue;
@@ -584,12 +639,16 @@ function StockPage() {
       // "you wrote off 8kg of brisket" so the operator can investigate
       // storage / portioning / shelf-life issues.
       type WasteRow = { inventory_item_id: string; quantity: number };
-      const { data: wasteRows } = await supabase
+      const { data: wasteRows, error: wasteErr } = await supabase
         .from("inventory_transactions")
         .select("inventory_item_id, quantity")
         .eq("company_id", companyId)
         .eq("transaction_type", "waste")
         .gte("created_at", last30ISO);
+      if (wasteErr) {
+        console.warn("[admin/stock] wastage query failed:", wasteErr);
+        failedSections.push("wastage");
+      }
       const wasteByItem: Record<string, number> = {};
       for (const w of (wasteRows || []) as unknown as WasteRow[]) {
         const id = w.inventory_item_id;
@@ -691,8 +750,14 @@ function StockPage() {
       });
 
       setAlerts(feed);
+      setPartialWarning(
+        failedSections.length
+          ? `Some sections failed to load and may show nothing (${failedSections.join(", ")}). Refresh to retry.`
+          : null,
+      );
     } catch (err: unknown) {
       captureException(err, { tags: { route: "/admin/stock", step: "load", companyId } });
+      setError(err instanceof Error ? err.message : "Could not load the stock view.");
       toast({
         title: "Could not load stock view",
         description: err instanceof Error ? err.message : "Check your connection and retry.",
@@ -701,7 +766,7 @@ function StockPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, regionFilterId, equipWindow, toast]);
+  }, [companyId, regionFilterId, equipWindow, toast, effectiveTenantTimezone]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -815,6 +880,25 @@ function StockPage() {
         .from("shopping_list_items")
         .insert(items);
       if (itemsErr) throw new Error(itemsErr.message);
+      // Best-effort: tell the shopping team a run is ready. Same
+      // deduped broadcast pattern useActiveShoppingList uses; a
+      // notification failure never blocks the list itself.
+      try {
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "shopping_list_created",
+          title: "New shopping list ready",
+          message: `A low-stock shopping list with ${items.length} item${items.length === 1 ? "" : "s"} was generated from the stock page. Open the Buy list to start ticking items off.`,
+          targetRoles: [UserRole.SHOPPING_STAFF],
+          priority: "normal",
+          link: "/team-portal/shopping/dashboard",
+          relatedEntityType: "shopping_list",
+          relatedEntityId: listRow.id,
+          dedup: true,
+        });
+      } catch (notifyErr) {
+        console.warn("[admin/stock] shopping-list notification failed:", notifyErr);
+      }
       toast({
         title: `Shopping list created with ${items.length} item${items.length === 1 ? "" : "s"}`,
         description: "Opening on /admin/shopping...",
@@ -832,8 +916,8 @@ function StockPage() {
     }
   };
 
-  const todayISO = () => toLocalISO(new Date());
-  const today = new Date();
+  const todayISO = () => toLocalISO(tenantToday(effectiveTenantTimezone));
+  const today = tenantToday(effectiveTenantTimezone);
   const daysSince = (iso: string) => {
     if (!iso) return 0;
     return Math.max(0, Math.floor((today.getTime() - new Date(iso).getTime()) / 86_400_000));
@@ -851,6 +935,7 @@ function StockPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Stock"
             icon={Boxes}
             subtitle={
@@ -858,8 +943,26 @@ function StockPage() {
                 {/* STK-B: operator-language hero copy. "Pressure feed"
                     was too clever; this names the three pillars. */}
                 What needs your attention today: stock running low, equipment committed for upcoming events, and hire-in orders still pending.
+              </>
+            }
+            meta={
+              <>
+                {!loading && !error && (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className={`h-1.5 w-1.5 rounded-full ${lowStock.count > 0 ? "bg-rose-400" : "bg-emerald-400"}`} />
+                      {lowStock.count} low stock
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {equipPressure.count} equipment commitment{equipPressure.count === 1 ? "" : "s"}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {hireIn.count} hire-in pending
+                    </span>
+                  </>
+                )}
                 {regionLabel && (
-                  <span className="ml-2 inline-flex items-center gap-1 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
                     <MapPin className="w-3 h-3" /> {regionLabel}
                   </span>
                 )}
@@ -890,6 +993,34 @@ function StockPage() {
           />
           <PageWorkbench />
           <CatalogueOperationsStrip active="stock" />
+
+          {/* Audit 2026-07-02: persistent load-failure state with
+              Retry. Toast-only errors read as "all healthy" zeros. */}
+          {error && (
+            <Card className="bg-rose-50 border-l-4 border-l-rose-500 mb-4">
+              <CardContent className="py-3 px-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-rose-900">Could not load the stock view</p>
+                  <p className="text-xs text-rose-800/90">{error}</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={load} disabled={loading} className="gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5" /> Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          {!error && partialWarning && (
+            <Card className="bg-amber-50 border-l-4 border-l-amber-500 mb-4">
+              <CardContent className="py-3 px-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <p className="flex-1 min-w-0 text-sm text-amber-900">{partialWarning}</p>
+                <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* STK-B: aging hire-in escalation banner. Loud when one or
               more suppliers owe orders that are >7 days overdue. */}
@@ -990,7 +1121,7 @@ function StockPage() {
                         type="button"
                         onClick={() => setEquipWindowPersisted(n)}
                         className={`px-1.5 py-0.5 rounded ${
-                          equipWindow === n ? "bg-sky-600 text-white font-medium" : "text-slate-600"
+                          equipWindow === n ? "bg-brand-primary text-white font-medium" : "text-slate-600"
                         }`}
                       >
                         {n}d

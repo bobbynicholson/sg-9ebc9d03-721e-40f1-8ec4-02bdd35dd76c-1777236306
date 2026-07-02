@@ -1,4 +1,5 @@
 import { UserRole } from "@/types/app";
+import Head from "next/head";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
@@ -39,6 +40,7 @@ import { vehicleService, type Vehicle } from "@/services/vehicleService";
 import { dispatchService } from "@/services/dispatchService";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 import { toLocalISO } from "@/lib/localDate";
+import { formatZAR } from "@/lib/formatters";
 
 interface Driver {
   id: string;
@@ -80,7 +82,8 @@ function relativeTime(iso: string): string {
 
 export default function ProtectedDriverManagementPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.COMPANY_ADMIN]}>
+    // Audit note: COMPANY_ADMIN was listed twice here; deduplicated.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
       <DriverManagementPage />
     </ProtectedRoute>
   );
@@ -91,6 +94,10 @@ function DriverManagementPage() {
   const { toast } = useToast();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre audit: persist a roster load failure so the page
+  // shows a Retry card instead of the misleading "No drivers yet"
+  // empty state over a failed fetch.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   // Phase 26 #10: "/" or Cmd-F focuses the search input.
   // Phase 29 #10: "n" opens the Add New Driver dialog.
@@ -241,6 +248,7 @@ function DriverManagementPage() {
     }
     try {
       setLoading(true);
+      setLoadError(null);
       const allUsers = await userManagementService.getAllUsers(user.company_id);
       // userManagementService selects * from profiles so the new rate
       // columns flow through at runtime, but the static type
@@ -252,9 +260,11 @@ function DriverManagementPage() {
       const driverIds = driverUsers.map(d => d.id);
       if (driverIds.length === 0) return;
 
-      // Active jobs today
+      // Active jobs today. Errors on these enrichment queries are
+      // logged rather than fatal: the roster stays useful, the live
+      // signals just read 0 / dash (and the console says why).
       const today = toLocalISO(new Date());
-      const { data: activeOrders } = await supabase
+      const { data: activeOrders, error: activeOrdersError } = await supabase
         .from("orders")
         .select("assigned_driver_id")
         .eq("company_id", user.company_id)
@@ -262,6 +272,7 @@ function DriverManagementPage() {
         .eq("event_date", today)
         .in("assigned_driver_id", driverIds)
         .in("status", ["confirmed", "preparing", "ready", "in_transit"]);
+      if (activeOrdersError) console.warn("[driver-management] jobs-today query failed:", activeOrdersError);
       const loadMap: Record<string, number> = {};
       driverIds.forEach(id => { loadMap[id] = 0; });
       for (const o of activeOrders || []) {
@@ -273,10 +284,11 @@ function DriverManagementPage() {
       // Last GPS ping per driver - single-row-per-driver lookup off
       // driver_locations (P1-23 split). The "last seen" timestamp lives
       // on driver_locations.updated_at.
-      const { data: pings } = await (supabase as any)
+      const { data: pings, error: pingsError } = await (supabase as any)
         .from("driver_locations")
         .select("driver_id, updated_at")
         .in("driver_id", driverIds);
+      if (pingsError) console.warn("[driver-management] driver_locations query failed:", pingsError);
       const pingMap: Record<string, string> = {};
       for (const p of pings || []) {
         const did = (p as any).driver_id;
@@ -305,8 +317,9 @@ function DriverManagementPage() {
         };
       }
       setPerfByDriver(perfMap);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error loading drivers:", err);
+      setLoadError(err?.message || "Failed to load drivers. Check your connection and try again.");
       toast({
         title: "Error",
         description: "Failed to load drivers",
@@ -330,11 +343,16 @@ function DriverManagementPage() {
   useEffect(() => {
     if (!user?.company_id) return;
     (async () => {
-      const { data } = await (supabase as any)
+      const { data, error } = await (supabase as any)
         .from("companies")
         .select("default_driver_hourly_rate, default_distance_rate_per_km, default_base_callout_fee")
         .eq("id", user.company_id)
         .maybeSingle();
+      if (error) {
+        // Placeholders silently fall back to generic examples; log so a
+        // broken column name doesn't hide the defaults forever.
+        console.warn("[driver-management] pay defaults load failed:", error);
+      }
       if (data) {
         setCompanyPayDefaults({
           default_driver_hourly_rate: data.default_driver_hourly_rate ?? null,
@@ -745,18 +763,46 @@ function DriverManagementPage() {
 
   const activeDrivers = drivers.filter(d => d.is_active).length;
   const inactiveDrivers = drivers.filter(d => !d.is_active).length;
+  // Hero chip: drivers with a GPS ping in the last 60 minutes (same
+  // definition as the "On shift now" stat tile below).
+  const onShiftCount = useMemo(
+    () => Object.values(lastPingByDriver).filter(
+      (ts) => (Date.now() - new Date(ts).getTime()) / 60_000 <= 60,
+    ).length,
+    [lastPingByDriver],
+  );
 
   return (
     <>
       <NoIndexMeta />
+      <Head><title>Drivers - CateringMS</title></Head>
       <AdminNav />
 
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Drivers"
             icon={Truck}
             subtitle="Driver roster, vehicles, and pay rates. Add a driver, link their vehicle, set per-driver overrides for hourly, distance per km, and callouts. Falls back to company defaults where no override is set."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {activeDrivers} active driver{activeDrivers === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {onShiftCount} on shift now
+                  </span>
+                  {inactiveDrivers > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                      {inactiveDrivers} inactive
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
             <>
               {/* Phase 28 #4: manual refresh. Drivers are added
@@ -808,7 +854,9 @@ function DriverManagementPage() {
                       esc((d.regions_covered || []).join(";")),
                     ].join(","));
                   }
-                  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  // UTF-8 BOM so Excel-ZA opens the file as UTF-8,
+                  // matching the other admin CSV exports.
+                  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
@@ -1011,7 +1059,7 @@ function DriverManagementPage() {
                       <CardContent className="py-4 px-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                            <Activity className="w-3.5 h-3.5 text-orange-600" />
+                            <Activity className="w-3.5 h-3.5 text-brand-primary" />
                             Pay rates
                           </Label>
                           <span className="text-[10px] text-slate-400 uppercase tracking-wide">Optional, falls back to company defaults</span>
@@ -1271,6 +1319,20 @@ function DriverManagementPage() {
             }
           />
 
+          <PageWorkbench />
+
+          {/* Surfaced load failure with Retry; pre-audit a failed roster
+              fetch rendered as the "No drivers yet" empty state. */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load drivers</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={loadDrivers} size="sm" disabled={loading} className="bg-brand-primary hover:bg-brand-primary/90">
+                <RefreshCw className="w-4 h-4 mr-2" /> Retry
+              </Button>
+            </div>
+          )}
+
           <div className="mb-8">
           {/* Phase 11 #3: month-to-date driver leaderboard.
               Top 5 by hours worked with completed deliveries as
@@ -1347,7 +1409,6 @@ function DriverManagementPage() {
           defaults={companyPayDefaults}
           onSaved={(next) => setCompanyPayDefaults(next)}
         />
-          <PageWorkbench />
 
         {/* Search + sort */}
         <div className="mb-6 flex flex-col sm:flex-row gap-2 sm:items-center">
@@ -1402,6 +1463,10 @@ function DriverManagementPage() {
               <div className="text-center py-12">
                 <p className="text-slate-500">Loading drivers...</p>
               </div>
+            ) : loadError ? (
+              <div className="text-center py-12 text-sm text-slate-500">
+                Roster unavailable. Use Retry above.
+              </div>
             ) : filteredDrivers.length === 0 ? (
               <div className="text-center py-12">
                 <Truck className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -1437,12 +1502,14 @@ function DriverManagementPage() {
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shrink-0 ${
                               onShift ? "bg-gradient-to-br from-brand-primary to-brand-secondary" : "bg-gradient-to-br from-slate-400 to-slate-500"
                             }`}>
-                              {driver.full_name.charAt(0).toUpperCase()}
+                              {/* full_name is nullable on legacy rows; fall
+                                  back to the email initial, never crash. */}
+                              {(driver.full_name || driver.email || "?").charAt(0).toUpperCase()}
                             </div>
 
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                <h3 className="font-semibold text-slate-900 truncate">{driver.full_name}</h3>
+                                <h3 className="font-semibold text-slate-900 truncate">{driver.full_name || driver.email}</h3>
                                 {onShift && (
                                   <Badge className="bg-brand-primary/15 text-brand-primary border-0 text-[10px] font-medium gap-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-brand-primary animate-pulse" />
@@ -1980,7 +2047,7 @@ function CompanyPayDefaultsCard({
   };
 
   const fmt = (v: number | null) =>
-    v == null ? <span className="text-slate-400">Not set</span> : `R ${v.toFixed(2)}`;
+    v == null ? <span className="text-slate-400">Not set</span> : formatZAR(v);
 
   return (
     <Card className="mb-6 border-brand-primary/20 bg-gradient-to-br from-brand-primary/5 to-brand-secondary/5">
@@ -2015,15 +2082,15 @@ function CompanyPayDefaultsCard({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                <div className="rounded-md bg-white border border-orange-200 px-3 py-2">
+                <div className="rounded-md bg-white border border-brand-primary/20 px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Hourly</div>
                   <div className="font-semibold text-slate-900 tabular-nums">{fmt(defaults.default_driver_hourly_rate)}</div>
                 </div>
-                <div className="rounded-md bg-white border border-orange-200 px-3 py-2">
+                <div className="rounded-md bg-white border border-brand-primary/20 px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Per km</div>
                   <div className="font-semibold text-slate-900 tabular-nums">{fmt(defaults.default_distance_rate_per_km)}</div>
                 </div>
-                <div className="rounded-md bg-white border border-orange-200 px-3 py-2">
+                <div className="rounded-md bg-white border border-brand-primary/20 px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Callout</div>
                   <div className="font-semibold text-slate-900 tabular-nums">{fmt(defaults.default_base_callout_fee)}</div>
                 </div>

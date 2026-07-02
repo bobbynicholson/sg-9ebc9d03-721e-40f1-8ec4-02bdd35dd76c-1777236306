@@ -67,6 +67,7 @@ import { ShortagesPanel } from "@/components/admin/equipment/ShortagesPanel";
 import { HireInPanel } from "@/components/admin/equipment/HireInPanel";
 import { DamageAnalytics } from "@/components/cleaning/DamageAnalytics";
 import { toLocalISO } from "@/lib/localDate";
+import { formatZAR } from "@/lib/formatters";
 import { captureException } from "@/lib/observability";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -140,11 +141,8 @@ const safeNum = (v: any) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const fmtR = (v: number) =>
-  `R ${(Number.isFinite(v) ? v : 0).toLocaleString("en-ZA", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+// formatZAR is the display source of truth for money on every surface.
+const fmtR = (v: number) => formatZAR(Number.isFinite(v) ? v : 0);
 
 // ── Page ─────────────────────────────────────────────────────────────
 
@@ -195,6 +193,7 @@ function EquipmentPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Equipment"
             subtitle="Catering equipment catalogue. Availability per date, current bookings, shortages, and hire-in cover when you're running short for an event."
             icon={Package}
@@ -253,6 +252,9 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
   const pricingMode = usePricingMode();
   const [rows, setRows] = useState<EquipmentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Audit 2026-07-02: persistent load-failure state. Toast-only
+  // errors left the tab reading as an empty catalogue.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   // Phase 26 #8: "/" or Cmd-F focuses the search input.
   // Phase 29 #6: "n" opens the Add equipment dialog.
@@ -336,6 +338,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       const [data, util, damages, hireSpend] = await Promise.all([
         equipmentManagementService.getAllEquipment(companyId),
@@ -349,6 +352,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
       setHireSpendByItem(hireSpend);
     } catch (e: unknown) {
       captureException(e, { tags: { route: "/admin/equipment", step: "load-catalog", companyId } });
+      setLoadError(e instanceof Error ? e.message : "Could not load the equipment catalogue.");
       toast({
         title: "Could not load equipment",
         description: e instanceof Error ? e.message : "",
@@ -654,6 +658,22 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
         </div>
       </div>
 
+      {/* Audit 2026-07-02: persistent load-failure state with Retry. */}
+      {loadError && (
+        <Card className="bg-rose-50 border-l-4 border-l-rose-500 mb-4">
+          <CardContent className="py-3 px-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-rose-900">Could not load the equipment catalogue</p>
+              <p className="text-xs text-rose-800/90">{loadError}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={loadRows} disabled={loading} className="gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5" /> Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card><CardContent className="p-4"><p className="text-xs text-slate-600 mb-1">Catalog items</p><p className="text-2xl font-bold text-slate-900">{totalItems}</p></CardContent></Card>
         {/* EQP-B: replaced "Total units" vanity tile with hire-in
@@ -665,7 +685,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
             <CardContent className="p-4">
               <p className="text-xs text-slate-600 mb-1">Hire-in spend (90d)</p>
               <p className="text-2xl font-bold text-rose-600">
-                R {hireInCommittedTotal.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                {formatZAR(hireInCommittedTotal, { decimals: 0 })}
               </p>
               {hireInCommittedCount > 0 && (
                 <p className="text-[10px] text-slate-500 mt-0.5">{hireInCommittedCount} order{hireInCommittedCount === 1 ? "" : "s"}</p>
@@ -744,7 +764,7 @@ function CatalogTab({ companyId }: { companyId: string | null }) {
               onClick={() => setFilterAvailable(k)}
               className={`px-3 py-1.5 rounded-md ${
                 filterAvailable === k
-                  ? "bg-blue-100 text-blue-700 font-medium"
+                  ? "bg-brand-primary/10 text-brand-primary font-medium"
                   : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -1575,6 +1595,10 @@ interface AvailabilityRow {
   reserved: number;
   available: number;
   loading: boolean;
+  /** Audit 2026-07-02: availability lookup failed for this row. The
+   *  old fallback silently pretended everything was free, which is
+   *  exactly the wrong answer to hand a dispatcher. */
+  failed?: boolean;
 }
 
 function AvailabilityTab({ companyId }: { companyId: string | null }) {
@@ -1582,27 +1606,33 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
   const [date, setDate] = useState<string>(() => toLocalISO(new Date()));
   const [items, setItems] = useState<EquipmentRow[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
+  const [loadItemsError, setLoadItemsError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<AvailabilityRow[]>([]);
   const [computing, setComputing] = useState(false);
 
-  // Fetch the catalog once.
+  // Fetch the catalog once (reloadNonce bumps re-run it for Retry).
   useEffect(() => {
     if (!companyId) { setLoadingItems(false); return; }
     let cancelled = false;
     (async () => {
       setLoadingItems(true);
+      setLoadItemsError(null);
       try {
         const data = await equipmentManagementService.getAllEquipment(companyId);
         if (!cancelled) setItems((data as any) || []);
       } catch (e: any) {
-        if (!cancelled) toast({ title: "Could not load equipment", description: e?.message ?? "", variant: "destructive" });
+        if (!cancelled) {
+          setLoadItemsError(e?.message || "Could not load the equipment catalogue.");
+          toast({ title: "Could not load equipment", description: e?.message ?? "", variant: "destructive" });
+        }
       } finally {
         if (!cancelled) setLoadingItems(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [companyId, toast]);
+  }, [companyId, toast, reloadNonce]);
 
   // Recompute availability whenever the date or catalog changes.
   useEffect(() => {
@@ -1640,14 +1670,17 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
               loading: false,
             } as AvailabilityRow;
           } catch {
+            // Mark the row failed instead of pretending the full
+            // owned quantity is free.
             return {
               id: it.id,
               name: it.name || "(unnamed)",
               category: it.category || "Uncategorised",
               owned: safeNum(it.quantity),
               reserved: 0,
-              available: safeNum(it.quantity),
+              available: 0,
               loading: false,
+              failed: true,
             } as AvailabilityRow;
           }
         }));
@@ -1722,6 +1755,19 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           Loading catalog...
         </CardContent></Card>
+      ) : loadItemsError ? (
+        <Card className="bg-rose-50 border-l-4 border-l-rose-500">
+          <CardContent className="py-3 px-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-rose-900">Could not load the catalogue</p>
+              <p className="text-xs text-rose-800/90">{loadItemsError}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setReloadNonce((n) => n + 1)} className="gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5" /> Retry
+            </Button>
+          </CardContent>
+        </Card>
       ) : items.length === 0 ? (
         <Card className="border-2 border-dashed">
           <CardContent className="p-12 text-center">
@@ -1761,12 +1807,20 @@ function AvailabilityTab({ companyId }: { companyId: string | null }) {
                               </td>
                               <td className="px-3 py-2.5 text-right tabular-nums">{r.owned}</td>
                               <td className={`px-3 py-2.5 text-right tabular-nums ${over ? "text-rose-700 font-semibold" : "text-slate-700"}`}>
-                                {r.loading ? <Loader2 className="w-3.5 h-3.5 inline animate-spin text-slate-400" /> : r.reserved}
+                                {r.loading
+                                  ? <Loader2 className="w-3.5 h-3.5 inline animate-spin text-slate-400" />
+                                  : r.failed
+                                    ? <span className="text-slate-400" title="Availability lookup failed for this item. Refresh to retry.">?</span>
+                                    : r.reserved}
                               </td>
                               <td className={`px-3 py-2.5 text-right tabular-nums font-semibold ${
-                                tight ? "text-amber-700" : over ? "text-rose-700" : "text-brand-primary"
+                                r.failed ? "text-slate-400" : tight ? "text-amber-700" : over ? "text-rose-700" : "text-brand-primary"
                               }`}>
-                                {r.loading ? <Loader2 className="w-3.5 h-3.5 inline animate-spin text-slate-400" /> : r.available}
+                                {r.loading
+                                  ? <Loader2 className="w-3.5 h-3.5 inline animate-spin text-slate-400" />
+                                  : r.failed
+                                    ? <span title="Availability lookup failed for this item. Refresh to retry.">?</span>
+                                    : r.available}
                               </td>
                             </tr>
                           );

@@ -168,6 +168,13 @@ function RegionsPage() {
   const { toast } = useToast();
   const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre audit: persist load failures so the page shows a
+  // Retry card instead of only a transient toast over an empty list.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Enrichment (per-branch counts) is best-effort; when any of those
+  // parallel count queries fails the branch cards silently read 0.
+  // Track it and surface an amber "some stats failed" banner.
+  const [statsWarning, setStatsWarning] = useState<string | null>(null);
   const [staff, setStaff] = useState<Array<{ id: string; full_name: string; email: string; active_role: string; role: string; region_id: string | null }>>([]);
   // Phase 12 #10: company default tz + currency for the divergence
   // chip on each region card. A region with a different tz / code
@@ -239,6 +246,8 @@ function RegionsPage() {
   const loadRegions = async () => {
     if (!user?.company_id) return;
     setLoading(true);
+    setLoadError(null);
+    setStatsWarning(null);
     const { data, error } = await supabase
       .from("regions")
       .select(`
@@ -249,7 +258,9 @@ function RegionsPage() {
       .order("name", { ascending: true });
 
     if (error) {
-      toast({ title: "Failed to load regions", description: dbErrorMessage(error, { entity: "region" }), variant: "destructive" });
+      const message = dbErrorMessage(error, { entity: "region" });
+      setLoadError(message);
+      toast({ title: "Failed to load regions", description: message, variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -261,15 +272,18 @@ function RegionsPage() {
     const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const mtdStartIso = toLocalISO(mtdStart);
 
-    // Enrich with staff/order counts (best-effort; failures shouldn't block UI)
+    // Enrich with staff/order counts (best-effort; failures shouldn't
+    // block UI, but they must not be invisible either - REG-E showed a
+    // rejected filter can zero every card for months).
+    let enrichFailures = 0;
     const enriched = await Promise.all(
       (data || []).map(async (r: any) => {
         const [
-          { count: staffCount },
-          { count: orderCount },
-          { count: mtdOrderCount },
+          staffRes,
+          orderRes,
+          mtdOrderRes,
           mtdRevenueRes,
-          { count: openQuoteCount },
+          openQuoteRes,
         ] = await Promise.all([
           supabase.from("profiles").select("id", { count: "exact", head: true }).eq("region_id", r.id),
           supabase.from("orders").select("id", { count: "exact", head: true }).eq("region_id", r.id),
@@ -311,6 +325,16 @@ function RegionsPage() {
             .eq("region_id", r.id)
             .in("status", ["draft", "sent"]),
         ]);
+        for (const res of [staffRes, orderRes, mtdOrderRes, mtdRevenueRes, openQuoteRes]) {
+          if ((res as any)?.error) {
+            enrichFailures += 1;
+            console.warn(`[regions] branch stat query failed for ${r.name}:`, (res as any).error);
+          }
+        }
+        const staffCount = staffRes?.count;
+        const orderCount = orderRes?.count;
+        const mtdOrderCount = mtdOrderRes?.count;
+        const openQuoteCount = openQuoteRes?.count;
         const mtdRevenue = (mtdRevenueRes?.data || []).reduce(
           (sum: number, row: any) => sum + Number(row?.total_amount || 0),
           0,
@@ -380,6 +404,11 @@ function RegionsPage() {
     );
 
     setRegions(enriched);
+    setStatsWarning(
+      enrichFailures > 0
+        ? `${enrichFailures} branch stat quer${enrichFailures === 1 ? "y" : "ies"} failed; some counts may show 0. Refresh to retry.`
+        : null,
+    );
     setLoading(false);
   };
 
@@ -389,11 +418,16 @@ function RegionsPage() {
     // assign-staff dialog can show role + current region per profile.
     // The dialog filters clients out of the picker since they aren't
     // staff.
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("profiles")
       .select("id, full_name, email, active_role, role, region_id")
       .eq("company_id", user.company_id)
       .order("full_name");
+    if (error) {
+      // Staff drives the unlinked banner + the assign dialog roster;
+      // a silent failure hides both, so at least log it.
+      console.warn("[regions] staff roster load failed:", error);
+    }
     setStaff((data || []) as any);
   };
 
@@ -714,27 +748,36 @@ function RegionsPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title="Branches"
             icon={Globe}
-            subtitle={
+            subtitle="One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on."
+            meta={
               <>
-                One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on.
-                {/* Phase 17 #6: HQ defaults chip. Each per-region
+                {!loading && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.active} active branch{stats.active === 1 ? "" : "es"}
+                  </span>
+                )}
+                {!loading && stats.openQuotes > 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {stats.openQuotes} open quote{stats.openQuotes === 1 ? "" : "s"}
+                  </span>
+                )}
+                {/* Phase 17 #6: HQ defaults chips. Each per-region
                     chip surfaces a 'differs from HQ' warning
-                    (Phase 12 #10) when the value diverges; this
-                    line surfaces the HQ baseline so the operator
-                    can see what the diff is anchored to without
-                    opening /admin/company-profile. */}
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                  <Clock className="w-3 h-3" />
-                  HQ defaults:
-                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono">
-                    {companyDefaults.timezone}
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono">
-                    {companyDefaults.currency}
-                  </span>
-                </div>
+                    (Phase 12 #10) when the value diverges; these
+                    surface the HQ baseline so the operator can see
+                    what the diff is anchored to without opening
+                    /admin/company-profile. */}
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                  <Clock className="h-3 w-3" />
+                  HQ <span className="font-mono">{companyDefaults.timezone}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                  <span className="font-mono">{companyDefaults.currency}</span>
+                </span>
               </>
             }
             actions={
@@ -816,6 +859,30 @@ function RegionsPage() {
           />
           <PageWorkbench />
 
+          {/* Surfaced load failure with Retry; the toast alone left an
+              empty grid that read like "no branches yet". */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load branches</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={() => void loadRegions()} size="sm" disabled={loading} className="bg-brand-primary hover:bg-brand-primary/90">
+                <RefreshCw className="w-4 h-4 mr-2" /> Retry
+              </Button>
+            </div>
+          )}
+
+          {/* Partial-failure banner: branch cards render but one or more
+              count queries silently zeroed (the REG-E failure mode). */}
+          {!loadError && statsWarning && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <span className="flex-1 text-xs text-amber-900">{statsWarning}</span>
+              <Button size="sm" variant="outline" onClick={() => void loadRegions()} disabled={loading} className="shrink-0 border-amber-300 bg-white">
+                Retry
+              </Button>
+            </div>
+          )}
+
           {/* REG-D (regions follow-ups): unlinked-staff banner. Pre-
               REG-D the page never surfaced HOW MANY staff weren't
               linked to a branch; the audit only said "Linked staff:
@@ -876,6 +943,7 @@ function RegionsPage() {
               </CardContent>
             </Card>
           ) : regions.length === 0 ? (
+            loadError ? null : (
             <Card>
               <CardContent className="py-16 text-center">
                 <Globe className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -888,6 +956,7 @@ function RegionsPage() {
                 </Button>
               </CardContent>
             </Card>
+            )
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {regions.map((region) => (

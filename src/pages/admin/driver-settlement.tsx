@@ -148,6 +148,11 @@ function DriverSettlementPage() {
   const [to, setTo] = useState(todayIso());
   const [rows, setRows] = useState<SettlementRow[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
+  // Command-centre audit: persist the driver-list load failure so the
+  // page shows a Retry card instead of the misleading "No drivers
+  // configured yet" empty state. loadTick re-arms the fetch effect.
+  const [driversError, setDriversError] = useState<string | null>(null);
+  const [loadTick, setLoadTick] = useState(0);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [companyName, setCompanyName] = useState<string>("CateringMS");
   // Phase 8 #1: bump to refetch pay summaries after a shift edit
@@ -230,6 +235,7 @@ function DriverSettlementPage() {
     let cancelled = false;
     (async () => {
       setLoadingDrivers(true);
+      setDriversError(null);
       try {
         let q = (supabase as any)
           .from("profiles")
@@ -254,17 +260,18 @@ function DriverSettlementPage() {
         if (!cancelled) {
           setRows(drivers.map((d) => ({ driver: d, summary: null, loading: true })));
         }
-      } catch (e) {
+      } catch (e: any) {
         captureException(e, {
           tags: { route: "/admin/driver-settlement", step: "load-drivers", companyId: user?.company_id },
         });
+        if (!cancelled) setDriversError(e?.message || "Could not load drivers. Check your connection and try again.");
         toast({ title: "Could not load drivers", variant: "destructive" });
       } finally {
         if (!cancelled) setLoadingDrivers(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.company_id, regionFilterId, toast]);
+  }, [user?.company_id, regionFilterId, toast, loadTick]);
 
   // DRV-B: recompute pay summaries via the bulk helper. The N+1
   // pattern (1 getPaySummary call per driver, each fanning out 5
@@ -705,11 +712,40 @@ function DriverSettlementPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
-            title="Driver Settlement"
+            variant="hero"
+            title="Driver settlement"
             icon={Wallet}
             subtitle="Per-driver pay summary. Hourly, round-trip kilometres, callout fees, and the total owed for the period. Mark each driver as paid once the money's out."
+            meta={
+              !loadingDrivers && !driversError && totals.roster > 0 ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {totals.active} of {totals.roster} driver{totals.roster === 1 ? "" : "s"} with pay
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {formatR(totals.grand)} this period
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    {from} to {to}
+                  </span>
+                </>
+              ) : undefined
+            }
           />
           <PageWorkbench />
+
+          {/* Surfaced driver-list failure with Retry; pre-audit a failed
+              fetch rendered as "No drivers configured yet". */}
+          {driversError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load drivers</h2>
+              <p className="text-sm text-slate-600 mb-3">{driversError}</p>
+              <Button onClick={() => setLoadTick((n) => n + 1)} size="sm" disabled={loadingDrivers} className="bg-brand-primary hover:bg-brand-primary/90">
+                <RefreshCw className="w-4 h-4 mr-2" /> Retry
+              </Button>
+            </div>
+          )}
 
           {/* Period picker */}
           <Card className="mb-6">
@@ -974,11 +1010,13 @@ function DriverSettlementPage() {
               </CardContent>
             </Card>
           ) : rows.length === 0 ? (
+            driversError ? null : (
             <Card>
               <CardContent className="py-16 text-center text-slate-500">
                 No drivers configured yet. Add some on /admin/driver-management.
               </CardContent>
             </Card>
+            )
           ) : (() => {
             // DRV-B: shared filter + sort pipeline drives both the
             // desktop table and the mobile card stack so they

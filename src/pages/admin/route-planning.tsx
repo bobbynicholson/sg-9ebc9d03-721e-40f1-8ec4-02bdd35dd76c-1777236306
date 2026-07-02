@@ -67,6 +67,10 @@ function RoutePlanningInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  // Command-centre audit: keep the toast for transient feedback but also
+  // persist the failure so the page renders a Retry card instead of a
+  // silently-empty queue (the zeros looked identical to "nothing to do").
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [optimising, setOptimising] = useState(false);
   const [unassignedOrders, setUnassignedOrders] = useState<DeliveryStop[]>([]);
   const [drivers, setDrivers] = useState<DriverProfile[]>([]);
@@ -91,8 +95,16 @@ function RoutePlanningInner() {
   // Load batch suggestions whenever the queue refreshes
   const loadBatchPairs = useCallback(async () => {
     if (!user?.company_id) return;
-    const pairs = await dispatchService.findBatchableOrders(user.company_id);
-    setBatchPairs(pairs);
+    try {
+      const pairs = await dispatchService.findBatchableOrders(user.company_id);
+      setBatchPairs(pairs);
+    } catch (err) {
+      // Batch suggestions are an optimisation aid, not core queue data.
+      // A failure here must not reject unhandled or blank the page; the
+      // card simply self-hides and the console records why.
+      console.warn("[route-planning] batch suggestions failed:", err);
+      setBatchPairs([]);
+    }
   }, [user?.company_id]);
 
   useEffect(() => { loadBatchPairs(); }, [loadBatchPairs]);
@@ -155,6 +167,15 @@ function RoutePlanningInner() {
       );
       loadDispatchData();
       loadBatchPairs();
+    } catch (error: any) {
+      // Without this catch a scorer/assign failure rejected unhandled and
+      // left the button stuck on "Assigning..." with no feedback.
+      console.error("Batch assign failed:", error);
+      toast({
+        title: "Batch assign failed",
+        description: error?.message || "Try assigning manually.",
+        variant: "destructive",
+      });
     } finally {
       setBatchAssigning(null);
     }
@@ -166,6 +187,7 @@ function RoutePlanningInner() {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       const [orders, driverList] = await Promise.all([
         routeOptimizationService.getUnassignedOrders(user.company_id),
@@ -188,6 +210,7 @@ function RoutePlanningInner() {
       setDrivers(activeDrivers);
     } catch (error: any) {
       console.error("Error loading dispatch data:", error);
+      setLoadError(error?.message || "Check your connection and try again.");
       toast({
         title: "Could not load dispatch data",
         description: error?.message || "Check your connection and try again.",
@@ -290,6 +313,15 @@ function RoutePlanningInner() {
       emitOrderUpdated(assignedIds, "auto-assign");
       loadDispatchData();
       loadBatchPairs();
+    } catch (error: any) {
+      // Same unhandled-rejection trap as handleBatchAssign: a mid-loop
+      // failure previously froze the button in "Matching..." forever.
+      console.error("Auto-assign failed:", error);
+      toast({
+        title: "Auto-assign failed",
+        description: error?.message || `Assigned ${assigned} before the failure. Refresh and try again.`,
+        variant: "destructive",
+      });
     } finally {
       setAutoAssigning(false);
     }
@@ -405,7 +437,8 @@ function RoutePlanningInner() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           {/* Page Header */}
           <PortalHeader
-            title="Route Planning"
+            variant="hero"
+            title="Route planning"
             icon={Route}
             subtitle={
               /* RP-B (route-planning audit, RP-3): honest copy. Pre-
@@ -420,6 +453,24 @@ function RoutePlanningInner() {
                  gate; that refactor is its own PR. New copy
                  describes what's actually true today. */
               "Auto-assign drivers and optimise routes for upcoming unassigned orders. Capacity, time-conflict and vehicle gates run on the Auto-assign and Batch buttons before any assignment lands."
+            }
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className={`h-1.5 w-1.5 rounded-full ${unassignedOrders.length === 0 ? "bg-emerald-400" : "bg-amber-400"}`} />
+                    {unassignedOrders.length} unassigned order{unassignedOrders.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {drivers.length} active driver{drivers.length === 1 ? "" : "s"}
+                  </span>
+                  {batchPairs.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {batchPairs.length} batchable pair{batchPairs.length === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </>
+              ) : undefined
             }
             actions={
             <>
@@ -474,6 +525,18 @@ function RoutePlanningInner() {
           />
           <PageWorkbench />
 
+          {/* Surfaced load failure with a Retry, instead of a queue that
+              silently reads 0 and looks like an empty dispatch day. */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load dispatch data</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={loadDispatchData} size="sm" disabled={loading} className="bg-brand-primary hover:bg-brand-primary/90">
+                <RefreshCw className="w-4 h-4 mr-2" /> Retry
+              </Button>
+            </div>
+          )}
+
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
@@ -527,8 +590,9 @@ function RoutePlanningInner() {
             </Card>
           </div>
 
-          {/* Empty state */}
-          {!loading && unassignedOrders.length === 0 && optimizedRoutes.length === 0 && (
+          {/* Empty state (suppressed while a load failure is showing,
+              zeros from a failed fetch are not a clear dispatch day) */}
+          {!loading && !loadError && unassignedOrders.length === 0 && optimizedRoutes.length === 0 && (
             <Card className="mb-6 border-dashed">
               <CardContent className="py-12 text-center">
                 <CheckCircle className="h-12 w-12 text-brand-primary mx-auto mb-3" />

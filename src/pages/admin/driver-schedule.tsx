@@ -103,6 +103,10 @@ function DriverScheduleGrid() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [shifts, setShifts] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Command-centre audit: a failed load previously blanked the grid
+  // into "No drivers in this company yet", which reads as an empty
+  // roster rather than an outage. Persist the failure + offer Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [logTarget, setLogTarget] = useState<{ driverId: string; driverName: string } | null>(null);
   // Wave 70.12 - edit-mode target. When set, opens LogDriverShiftModal
   // pre-filled with the existing shift's actual_start / actual_end /
@@ -127,6 +131,7 @@ function DriverScheduleGrid() {
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const fromIso = toLocalISO(weekStart);
       const toIso = toLocalISO(addDays(weekStart, 6));
@@ -146,6 +151,12 @@ function DriverScheduleGrid() {
           .lte("shift_date", toIso)
           .is("deleted_at", null),
       ]);
+      // supabase-js never throws on a query error; it returns it on the
+      // result. The old catch-only handling meant a rejected filter fell
+      // through as data=null and the grid silently read as an empty
+      // roster forever.
+      if (driversRes.error) throw driversRes.error;
+      if (shiftsRes.error) throw shiftsRes.error;
       setDrivers((driversRes.data || []) as Driver[]);
       const shiftRows = (shiftsRes.data || []) as ShiftRow[];
       setShifts(shiftRows);
@@ -156,7 +167,9 @@ function DriverScheduleGrid() {
       } else {
         setTasksByShift(new Map());
       }
-    } catch {
+    } catch (e: any) {
+      console.error("[driver-schedule] load failed:", e);
+      setLoadError(e?.message || "Could not load the schedule. Check your connection and try again.");
       setDrivers([]);
       setShifts([]);
       setTasksByShift(new Map());
@@ -168,8 +181,14 @@ function DriverScheduleGrid() {
   const refreshTasks = async () => {
     const shiftIds = shifts.map((s) => s.id);
     if (shiftIds.length === 0) return;
-    const taskMap = await listTasksForShifts(supabase as any, shiftIds);
-    setTasksByShift(taskMap);
+    try {
+      const taskMap = await listTasksForShifts(supabase as any, shiftIds);
+      setTasksByShift(taskMap);
+    } catch (e) {
+      // Chips keep their last-known state; a failed refresh must not
+      // reject unhandled out of the modal's onChanged callback.
+      console.warn("[driver-schedule] task refresh failed:", e);
+    }
   };
 
   useEffect(() => {
@@ -188,6 +207,16 @@ function DriverScheduleGrid() {
     return map;
   }, [shifts]);
 
+  // One hours definition for every total on the page: planned hours
+  // when a roster window exists, else actual clocked hours. Pre-audit
+  // the per-driver Total column summed planned hours only while the
+  // Day total footer summed actual hours only, so the two axes of the
+  // same grid disagreed whenever a shift had one but not the other.
+  const shiftHours = (s: ShiftRow): number => {
+    const planned = plannedHoursFromTime(s.planned_start, s.planned_end);
+    return planned > 0 ? planned : fmtHours(s.actual_start, s.actual_end).hours;
+  };
+
   // Per-day total hours across all drivers - footer row.
   const dayTotals = useMemo(() => {
     return weekDays.map((d) => {
@@ -195,10 +224,11 @@ function DriverScheduleGrid() {
       let h = 0;
       for (const s of shifts) {
         if (s.shift_date !== iso) continue;
-        h += fmtHours(s.actual_start, s.actual_end).hours;
+        h += shiftHours(s);
       }
       return h;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shifts, weekDays]);
 
   const weekLabel = `${weekStart.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} - ${addDays(weekStart, 6).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}`;
@@ -211,15 +241,33 @@ function DriverScheduleGrid() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Driver schedule"
             icon={Calendar}
-            subtitle="Weekly grid of every driver's logged shifts. Click an empty cell to log a shift."
+            subtitle="Weekly grid of every driver's shifts. Click an empty cell to log a shift, or an existing one to edit it."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {drivers.length} driver{drivers.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {shifts.length} shift{shifts.length === 1 ? "" : "s"} this week
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {dayTotals.reduce((a, b) => a + b, 0).toFixed(1)}h rostered
+                  </span>
+                </>
+              ) : undefined
+            }
             actions={
             <>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, -7))}>
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <div className="text-sm font-medium text-slate-700 px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
+                {/* Hero band is dark; slate-700 text vanished on it. */}
+                <div className="text-sm font-medium text-white px-2 tabular-nums whitespace-nowrap">{weekLabel}</div>
                 <Button variant="outline" size="sm" onClick={() => setWeekStart(addDays(weekStart, 7))}>
                   <ChevronRight className="w-4 h-4" />
                 </Button>
@@ -264,7 +312,9 @@ function DriverScheduleGrid() {
                         const dayShifts = shiftIndex[`${d.id}|${iso}`] || [];
                         if (dayShifts.length === 0) continue;
                         for (const s of dayShifts) {
-                          const { hours } = fmtHours(s.actual_start, s.actual_end);
+                          // Same planned-else-actual definition as the
+                          // grid totals so the export matches the screen.
+                          const hours = shiftHours(s);
                           lines.push([
                             esc(d.full_name || ""),
                             esc(d.email || ""),
@@ -278,7 +328,10 @@ function DriverScheduleGrid() {
                       }
                     }
                     if (lines.length === 1) return;
-                    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                    // UTF-8 BOM so Excel-ZA opens the file as UTF-8,
+                    // matching the CSV exports on calendar / regions /
+                    // route-planning.
+                    const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
@@ -297,19 +350,35 @@ function DriverScheduleGrid() {
           />
           <PageWorkbench />
 
+          {/* Surfaced load failure with Retry; pre-audit a failed fetch
+              rendered as "No drivers in this company yet". */}
+          {loadError && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn&apos;t load the schedule</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={load} size="sm" disabled={loading} className="bg-brand-primary hover:bg-brand-primary/90">
+                <RefreshCw className="w-4 h-4 mr-2" /> Retry
+              </Button>
+            </div>
+          )}
+
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
                   {drivers.length} driver{drivers.length === 1 ? "" : "s"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Cells show actual hours logged. Click an empty cell to log a shift for that driver / day.
+                  Cells show planned times, with actual hours once logged. Totals use planned hours where set, otherwise actual. Click an empty cell to log a shift for that driver / day.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /> Loading...
+                  </div>
+                ) : loadError ? (
+                  <div className="text-center py-12 text-slate-500 text-sm">
+                    Schedule unavailable. Use Retry above.
                   </div>
                 ) : drivers.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
@@ -350,7 +419,7 @@ function DriverScheduleGrid() {
                                 // grid totals reflect rostered coverage, matching kitchen +
                                 // cleaning grids.
                                 const totalPlanned = cellShifts.reduce(
-                                  (acc, s) => acc + plannedHoursFromTime(s.planned_start, s.planned_end),
+                                  (acc, s) => acc + shiftHours(s),
                                   0,
                                 );
                                 driverTotal += totalPlanned;

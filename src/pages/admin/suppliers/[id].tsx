@@ -77,6 +77,10 @@ function SupplierDetail() {
   // in May, and these are the events that ran in May."
   const [relatedOrders, setRelatedOrders] = useState<Array<{ id: string; order_number: string; event_name: string | null; event_date: string; guest_count: number | null; status: string; total_amount: number | null }>>([]);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure. Previously the Promise.all had no catch:
+  // one rejected query left the page on the spinner forever with the
+  // error swallowed. Now rendered as a recovery card with Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [linkProductOpen, setLinkProductOpen] = useState(false);
   const [confirmUnlink, setConfirmUnlink] = useState<SupplierProduct | null>(null);
@@ -87,10 +91,17 @@ function SupplierDetail() {
 
   const { fromIso, toIso } = useMemo(() => {
     if (range === "custom") {
-      return {
-        fromIso: new Date(customFrom + "T00:00:00").toISOString(),
-        toIso: new Date(customTo + "T23:59:59").toISOString(),
-      };
+      // Guard: a cleared date input yields "" -> Invalid Date ->
+      // toISOString() throws and takes the whole page down. Fall back
+      // to the 90d window until both bounds parse.
+      const from = new Date(customFrom + "T00:00:00");
+      const to = new Date(customTo + "T23:59:59");
+      if (Number.isFinite(from.getTime()) && Number.isFinite(to.getTime())) {
+        // Tolerate a reversed pair (from after to) by swapping.
+        return from <= to
+          ? { fromIso: from.toISOString(), toIso: to.toISOString() }
+          : { fromIso: to.toISOString(), toIso: from.toISOString() };
+      }
     }
     const days = range === "30d" ? 30 : range === "90d" ? 90 : 365;
     return { fromIso: isoDaysAgo(days), toIso: new Date().toISOString() };
@@ -101,29 +112,43 @@ function SupplierDetail() {
     setLoading(true);
     const fromDate = fromIso.slice(0, 10);
     const toDate = toIso.slice(0, 10);
-    const [s, prods, sum, rcpts, relRes] = await Promise.all([
-      supplierService.getById(supplierId),
-      supplierService.listProducts(supplierId),
-      supplierService.getPurchaseSummary({ supplierId, companyId, fromIso, toIso }),
-      supplierService.listReceipts({ supplierId, companyId, fromIso, toIso }),
-      // Related-orders fetch: orders with event_date in the window.
-      // Tenant-scoped via company_id; soft-deletes excluded.
-      (supabase as any)
-        .from("orders")
-        .select("id, order_number, event_name, event_date, guest_count, status, total_amount")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .gte("event_date", fromDate)
-        .lte("event_date", toDate)
-        .order("event_date", { ascending: false })
-        .limit(50),
-    ]);
-    setSupplier(s);
-    setProducts(prods);
-    setSummary(sum);
-    setReceipts(rcpts);
-    setRelatedOrders(((relRes as any)?.data || []) as any[]);
-    setLoading(false);
+    try {
+      const [s, prods, sum, rcpts, relRes] = await Promise.all([
+        supplierService.getById(supplierId),
+        supplierService.listProducts(supplierId),
+        supplierService.getPurchaseSummary({ supplierId, companyId, fromIso, toIso }),
+        supplierService.listReceipts({ supplierId, companyId, fromIso, toIso }),
+        // Related-orders fetch: orders with event_date in the window.
+        // Tenant-scoped via company_id; soft-deletes excluded.
+        (supabase as any)
+          .from("orders")
+          .select("id, order_number, event_name, event_date, guest_count, status, total_amount")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .gte("event_date", fromDate)
+          .lte("event_date", toDate)
+          .order("event_date", { ascending: false })
+          .limit(50),
+      ]);
+      // Supabase builders resolve with {error} instead of rejecting -
+      // the related-orders leg needs its error checked explicitly.
+      if ((relRes as any)?.error) throw (relRes as any).error;
+      setSupplier(s);
+      setProducts(prods);
+      setSummary(sum);
+      setReceipts(rcpts);
+      setRelatedOrders(((relRes as any)?.data || []) as any[]);
+      setLoadError(null);
+    } catch (e: unknown) {
+      setLoadError(e instanceof Error ? e.message : "Could not load this supplier.");
+      toast({
+        title: "Could not load supplier",
+        description: e instanceof Error ? e.message : "",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { reload(); }, [supplierId, companyId, fromIso, toIso]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -146,9 +171,28 @@ function SupplierDetail() {
           </Link>
 
           <PortalHeader
+            variant="hero"
             title={supplier?.supplier_name || "Supplier"}
             icon={Building2}
             subtitle="Contact details, purchase analytics, linked products and receipts for this supplier."
+            meta={
+              !loading && !loadError && supplier ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {products.length} linked product{products.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {receipts.length} receipt{receipts.length === 1 ? "" : "s"} in window
+                  </span>
+                  {summary && Number(summary.total_spend || 0) > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {fmtR(summary.total_spend)} spend in window
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <Button
                 onClick={() => setComposeOpen(true)}
@@ -161,10 +205,28 @@ function SupplierDetail() {
           />
           <PageWorkbench />
 
-          {loading || !supplier ? (
+          {loadError && (
+            <div className="mb-5 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load this supplier</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={reload} size="sm" disabled={loading} className="bg-brand-primary text-white hover:bg-brand-primary/90">
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {loading ? (
             <Card><CardContent className="py-16 text-center text-slate-500">
               <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" /> Loading supplier...
             </CardContent></Card>
+          ) : !supplier ? (
+            // Distinct not-found state - previously !supplier fell into
+            // the loading branch and span forever on a bad or foreign id.
+            !loadError && (
+              <Card><CardContent className="py-16 text-center text-slate-500">
+                Supplier not found. It may have been deleted or belongs to another workspace.
+              </CardContent></Card>
+            )
           ) : (
             <>
               {/* Contact + terms (title and primary CTA live in the PortalHeader) */}
@@ -180,7 +242,7 @@ function SupplierDetail() {
                         <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{supplier.phone}</span>
                       )}
                       {(supplier as any).website && (
-                        <a href={(supplier as any).website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-700 hover:underline">
+                        <a href={(supplier as any).website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand-primary hover:underline">
                           <Globe className="w-3 h-3" />{(supplier as any).website}
                         </a>
                       )}
@@ -198,7 +260,7 @@ function SupplierDetail() {
                       <p className="text-xs text-slate-500 mt-2">
                         {(supplier as any).payment_method && <span className="capitalize">{(supplier as any).payment_method}</span>}
                         {(supplier as any).payment_method && supplier.payment_terms && <span> · </span>}
-                        {supplier.payment_terms && <span>{supplier.payment_terms}</span>}
+                        {supplier.payment_terms && <span>Net {supplier.payment_terms} days</span>}
                       </p>
                     )}
                     {supplier.notes && (
@@ -297,7 +359,7 @@ function SupplierDetail() {
               <Card className="mb-5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-600" />
+                    <Calendar className="w-4 h-4 text-brand-primary" />
                     Events during this period
                     <Badge variant="outline" className="text-[10px] bg-slate-50">{relatedOrders.length}</Badge>
                   </CardTitle>
@@ -328,7 +390,7 @@ function SupplierDetail() {
                               <td className="py-2 px-3">
                                 <Link
                                   href={withSlug(staffOrderHref(o.id, "shopping_staff"))}
-                                  className="text-blue-700 hover:text-blue-900 font-medium inline-flex items-center gap-1"
+                                  className="text-brand-primary hover:opacity-80 font-medium inline-flex items-center gap-1"
                                 >
                                   {o.order_number}
                                   {o.event_name ? ` - ${o.event_name}` : ""}
@@ -427,7 +489,7 @@ function SupplierDetail() {
               <Card className="mb-5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-blue-600" />
+                    <Receipt className="w-4 h-4 text-brand-primary" />
                     Receipts in this window
                     <Badge variant="outline" className="text-[10px] bg-slate-50">{receipts.length}</Badge>
                   </CardTitle>
@@ -569,7 +631,7 @@ function ComposeSupplierEmail({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Send className="w-5 h-5 text-amber-600" />
+            <Send className="w-5 h-5 text-brand-primary" />
             Email {supplier.supplier_name}
           </DialogTitle>
           <DialogDescription>

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
 import { toLocalISO } from "@/lib/localDate";
+import { formatZAR } from "@/lib/formatters";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -313,6 +314,7 @@ function MenuPage() {
   const load = async () => {
     if (!companyId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const [list, inv, providersRes] = await Promise.all([
         menuService.list(companyId, /* includeArchived */ true),
@@ -325,11 +327,19 @@ function MenuPage() {
           .is("deleted_at", null)
           .order("provider_name", { ascending: true }),
       ]);
+      // Audit 2026-07-02: the providers query error used to be
+      // silently swallowed; a failure left the fulfilment picker
+      // claiming "No outsource providers on file" which is
+      // misleading. Non-fatal (secondary feature) so warn only.
+      if (providersRes?.error) {
+        console.warn("[admin/menu] outsource_providers query failed (fulfilment picker may be empty):", providersRes.error);
+      }
       setItems(list);
       setInventoryPool(inv);
       setProviderPool((providersRes?.data || []) as typeof providerPool);
     } catch (e: any) {
       captureException(e, { tags: { route: "/admin/menu", step: "load", companyId } });
+      setLoadError(e?.message || "Could not load the menu.");
       toast({ title: "Could not load menu", description: e?.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -1085,6 +1095,7 @@ function MenuPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2">
                 Menu
@@ -1093,6 +1104,25 @@ function MenuPage() {
             }
             icon={BookOpen}
             subtitle="Add menu items and build their recipes. Kitchen, dispatch and shopping read from this list."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.total} active item{stats.total === 1 ? "" : "s"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {stats.withRecipe} with recipe
+                  </span>
+                  {stats.missingPhoto > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {stats.missingPhoto} missing photo{stats.missingPhoto === 1 ? "" : "s"}
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
             <>
               {/* Phase 28 #2: manual refresh. The catalogue loads
@@ -1178,6 +1208,24 @@ function MenuPage() {
           />
           <PageWorkbench />
           <CatalogueOperationsStrip active="menu" />
+
+          {/* Audit 2026-07-02: persistent load-failure state with
+              Retry. Previously toast-only, so a failed load read as
+              an empty catalogue once the toast expired. */}
+          {loadError && (
+            <Card className="bg-rose-50 border-l-4 border-l-rose-500 mb-4">
+              <CardContent className="py-3 px-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-rose-900">Could not load the menu</p>
+                  <p className="text-xs text-rose-800/90">{loadError}</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={load} disabled={loading} className="gap-1.5">
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Stat strip - MNU-B widened to 6 tiles. */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
@@ -1401,19 +1449,19 @@ function MenuPage() {
                           const archived = !!it.deleted_at;
                           const isSelected = selectedIds.has(it.id);
                           return (
-                            <li key={it.id} className={`p-3 sm:p-4 flex items-center gap-3 ${archived ? "opacity-60" : ""} ${isSelected ? "bg-blue-50/40" : ""}`}>
+                            <li key={it.id} className={`p-3 sm:p-4 flex items-center gap-3 ${archived ? "opacity-60" : ""} ${isSelected ? "bg-brand-primary/5" : ""}`}>
                               {/* MNU-B: selection checkbox for bulk
                                   operations. Stays in the gutter so the
                                   layout doesn't shift when toggled. */}
                               <button
                                 type="button"
                                 onClick={() => toggleSelect(it.id)}
-                                className="text-slate-400 hover:text-blue-700 shrink-0"
+                                className="text-slate-400 hover:text-brand-primary shrink-0"
                                 title={isSelected ? "Deselect" : "Select for bulk action"}
                                 aria-label={isSelected ? "Deselect item" : "Select item"}
                               >
                                 {isSelected
-                                  ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                                  ? <CheckSquare className="w-4 h-4 text-brand-primary" />
                                   : <Square className="w-4 h-4" />}
                               </button>
                               {/* MNU-B: drag-drop photo upload onto
@@ -1421,12 +1469,12 @@ function MenuPage() {
                                   set the row's image_url without
                                   opening the edit dialog. */}
                               <div
-                                className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden border-2 border-dashed border-transparent hover:border-blue-300 transition-colors"
-                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-blue-400"); }}
-                                onDragLeave={(e) => { e.currentTarget.classList.remove("border-blue-400"); }}
+                                className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 overflow-hidden border-2 border-dashed border-transparent hover:border-brand-primary/40 transition-colors"
+                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-brand-primary"); }}
+                                onDragLeave={(e) => { e.currentTarget.classList.remove("border-brand-primary"); }}
                                 onDrop={(e) => {
                                   e.preventDefault();
-                                  e.currentTarget.classList.remove("border-blue-400");
+                                  e.currentTarget.classList.remove("border-brand-primary");
                                   const f = e.dataTransfer.files?.[0];
                                   if (f) void handleDropPhoto(it, f);
                                 }}
@@ -1562,7 +1610,7 @@ function MenuPage() {
                                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Cost / serv</div>
                                 {it.cost && it.cost.contributing > 0 ? (
                                   <>
-                                    <div className="font-semibold text-slate-900 tabular-nums">R {it.cost.cost_per_serving.toFixed(2)}</div>
+                                    <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(it.cost.cost_per_serving)}</div>
                                     {(it.cost.free_text > 0 || it.cost.missing_cost > 0) && (
                                       <div className="text-[10px] text-amber-700 inline-flex items-center gap-0.5">
                                         <AlertTriangle className="w-2.5 h-2.5" />
@@ -1576,7 +1624,7 @@ function MenuPage() {
                               </div>
                               <div className="text-right hidden sm:block">
                                 <div className="text-[10px] uppercase tracking-wider text-slate-500">Price / margin</div>
-                                <div className="font-semibold text-slate-900 tabular-nums">R {Number(it.base_price || 0).toFixed(2)}</div>
+                                <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(Number(it.base_price || 0))}</div>
                                 {it.cost && it.cost.contributing > 0 && Number(it.base_price || 0) > 0 ? (() => {
                                   const price = Number(it.base_price || 0);
                                   const cost = it.cost.cost_per_serving;
@@ -1585,7 +1633,7 @@ function MenuPage() {
                                   const tone = pct < 30 ? "text-rose-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
                                   return (
                                     <div className={`text-[10px] tabular-nums font-medium ${tone}`}>
-                                      {margin >= 0 ? "+" : ""}R {margin.toFixed(2)} ({pct.toFixed(0)}%)
+                                      {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(0)}%)
                                     </div>
                                   );
                                 })() : null}
@@ -1709,8 +1757,8 @@ function MenuPage() {
                 {Number(itemDraft.base_price) > 0 && (
                   <p className="text-[11px] text-slate-500">
                     {pricingMode.mode === "inc"
-                      ? `= R${toExVat(Number(itemDraft.base_price), 0.15).toFixed(2)} ex VAT`
-                      : `= R${toIncVat(Number(itemDraft.base_price), 0.15).toFixed(2)} inc VAT`}
+                      ? `= ${formatZAR(toExVat(Number(itemDraft.base_price), 0.15))} ex VAT`
+                      : `= ${formatZAR(toIncVat(Number(itemDraft.base_price), 0.15))} inc VAT`}
                   </p>
                 )}
                 {/* Cost per unit (Skylight finance-visibility rule:
@@ -1742,7 +1790,7 @@ function MenuPage() {
                         : "text-rose-700";
                       return (
                         <p className={`text-[11px] ${tone}`}>
-                          Margin {margin.toFixed(1)}% (R{(price - cost).toFixed(2)} per unit)
+                          Margin {margin.toFixed(1)}% ({formatZAR(price - cost)} per unit)
                         </p>
                       );
                     })()}
@@ -1995,7 +2043,7 @@ function MenuPage() {
                     onClick={() => setItemDraft({ ...itemDraft, fulfilment_type: value })}
                     className={`flex-1 px-3 py-1.5 text-xs font-medium transition border-l first:border-l-0 border-slate-200 ${
                       active
-                        ? "bg-blue-600 text-white"
+                        ? "bg-brand-primary text-white"
                         : "bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                   >
@@ -2203,17 +2251,17 @@ function MenuPage() {
                       <div className="rounded-md bg-brand-primary/10 border border-brand-primary/20 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
                         <span className="text-slate-700">
                           Per-serving cost:{" "}
-                          <span className="font-bold tabular-nums text-slate-900">R {liveCost.cost_per_serving.toFixed(2)}</span>
+                          <span className="font-bold tabular-nums text-slate-900">{formatZAR(liveCost.cost_per_serving)}</span>
                         </span>
                         <span className="text-slate-700">
                           Recipe total:{" "}
-                          <span className="font-bold tabular-nums text-slate-900">R {liveCost.total_cost.toFixed(2)}</span>
+                          <span className="font-bold tabular-nums text-slate-900">{formatZAR(liveCost.total_cost)}</span>
                         </span>
                         {margin != null && pct != null && (
                           <span className={tone}>
                             Margin{" "}
                             <span className="font-bold tabular-nums">
-                              {margin >= 0 ? "+" : ""}R {margin.toFixed(2)} ({pct.toFixed(0)}%)
+                              {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(0)}%)
                             </span>
                           </span>
                         )}

@@ -99,7 +99,8 @@ const STATUS_TONE: Record<string, string> = {
   declined: "bg-rose-50 text-rose-800 border-rose-200",
   en_route: "bg-blue-50 text-blue-800 border-blue-200",
   on_site: "bg-blue-50 text-blue-800 border-blue-200",
-  completed: "bg-brand-primary/10 text-brand-primary border-brand-primary/20",
+  // Status colours stay semantic: emerald = done/good, never brand.
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   cancelled: "bg-slate-50 text-slate-600 border-slate-200",
 };
 
@@ -119,6 +120,11 @@ function ProviderDetail() {
   const [provider, setProvider] = useState<OutsourceProvider | null>(null);
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure + retry nonce. Previously the supabase
+  // responses' .error fields were never checked - an RLS or network
+  // failure rendered as "Provider not found", which reads as data loss.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     if (!providerId || !companyId) return;
@@ -148,18 +154,25 @@ function ProviderDetail() {
             .order("requested_at", { ascending: false })
             .limit(50),
         ]);
+        // Supabase builders resolve with {error} instead of rejecting.
+        if (providerRes?.error) throw providerRes.error;
+        if (assignmentsRes?.error) throw assignmentsRes.error;
         if (!cancelled) {
           setProvider((providerRes?.data as OutsourceProvider | null) || null);
           setAssignments(((assignmentsRes?.data as AssignmentRow[]) || []));
+          setLoadError(null);
         }
       } catch (e: any) {
-        if (!cancelled) toast({ title: "Could not load", description: e?.message, variant: "destructive" });
+        if (!cancelled) {
+          setLoadError(e?.message || "Could not load this provider.");
+          toast({ title: "Could not load", description: e?.message, variant: "destructive" });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [providerId, companyId, toast]);
+  }, [providerId, companyId, toast, reloadNonce]);
 
   // Performance roll-up across the full assignment history.
   const stats = useMemo(() => {
@@ -225,19 +238,50 @@ function ProviderDetail() {
           </Link>
 
           <PortalHeader
+            variant="hero"
             title={provider?.provider_name || "Provider"}
             icon={HardHat}
             subtitle="Booking history, accept rate, response time and billing for this outsource provider."
+            meta={
+              !loading && !loadError && provider ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.total} booking{stats.total === 1 ? "" : "s"} on file
+                  </span>
+                  {stats.acceptRate != null && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {stats.acceptRate}% accept rate
+                    </span>
+                  )}
+                  {stats.completed > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {stats.completed} completed
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
           />
           <PageWorkbench />
+
+          {loadError && !loading && (
+            <div className="mb-5 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load this provider</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={() => setReloadNonce((n) => n + 1)} size="sm" className="bg-brand-primary text-white hover:bg-brand-primary/90">
+                Retry
+              </Button>
+            </div>
+          )}
 
           {loading ? (
             <Card><CardContent className="p-12 text-center text-slate-500">
               <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /> Loading...
             </CardContent></Card>
-          ) : !provider ? (
+          ) : loadError ? null : !provider ? (
             <Card><CardContent className="p-12 text-center text-slate-500">
-              Provider not found.
+              Provider not found. It may have been removed or belongs to another workspace.
             </CardContent></Card>
           ) : (
             <>
@@ -270,7 +314,7 @@ function ProviderDetail() {
                       const days = Math.floor((new Date(pp.insurance_expiry).getTime() - Date.now()) / 86_400_000);
                       if (days >= 30) {
                         return (
-                          <Badge variant="outline" className="text-[10px] bg-brand-primary/10 text-brand-primary border-brand-primary/20">
+                          <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">
                             Insured · expires in {days}d
                           </Badge>
                         );
@@ -340,7 +384,7 @@ function ProviderDetail() {
                 <Card>
                   <CardContent className="p-3 sm:p-4">
                     <p className="text-xs text-slate-600 mb-1">Accept rate</p>
-                    <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stats.acceptRate == null ? "text-slate-500" : stats.acceptRate >= 80 ? "text-brand-primary" : stats.acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}`}>
+                    <p className={`text-xl sm:text-2xl font-bold tabular-nums ${stats.acceptRate == null ? "text-slate-500" : stats.acceptRate >= 80 ? "text-emerald-600" : stats.acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}`}>
                       {stats.acceptRate == null ? "-" : `${stats.acceptRate}%`}
                     </p>
                     <p className="text-[10px] text-slate-500 mt-1">
@@ -508,7 +552,7 @@ function ProviderDetail() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Link
                                   href={withSlug(staffOrderHref(a.order_id, "admin"))}
-                                  className="font-semibold text-slate-900 hover:text-blue-700 hover:underline inline-flex items-center gap-1"
+                                  className="font-semibold text-slate-900 hover:text-brand-primary hover:underline inline-flex items-center gap-1"
                                 >
                                   {orderNumber} <ExternalLink className="w-3 h-3" />
                                 </Link>
@@ -516,7 +560,7 @@ function ProviderDetail() {
                                   {a.status.replace(/_/g, " ")}
                                 </span>
                                 {a.invoice_paid && (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] text-brand-primary">
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600">
                                     <CheckCircle2 className="w-2.5 h-2.5" /> Paid
                                   </span>
                                 )}

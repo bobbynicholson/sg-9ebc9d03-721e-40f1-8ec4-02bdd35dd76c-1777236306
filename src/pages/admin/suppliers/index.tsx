@@ -90,6 +90,10 @@ function SuppliersList() {
 
   const [suppliers, setSuppliers] = useState<SupplierWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure - a toast alone disappears; the page then
+  // looks like "no suppliers" which reads as data loss. Rendered as a
+  // rose recovery card with a Retry button below.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
   const [editing, setEditing] = useState<SupplierWithStats | null>(null);
@@ -130,8 +134,10 @@ function SuppliersList() {
     try {
       const data = await supplierService.listForCompany(companyId);
       setSuppliers(data);
+      setLoadError(null);
     } catch (e: unknown) {
       captureException(e, { tags: { surface: "admin/suppliers", area: "load", tenant: companyId } });
+      setLoadError(e instanceof Error ? e.message : "Could not load suppliers.");
       toast({
         title: "Could not load suppliers",
         description: e instanceof Error ? e.message : "",
@@ -238,9 +244,31 @@ function SuppliersList() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Suppliers"
             icon={Building2}
             subtitle="Every supplier you buy from, what they sell you, and what you've spent."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {totals.active} active of {totals.all}
+                  </span>
+                  {totals.stale > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {totals.stale} stale
+                    </span>
+                  )}
+                  {canSeeFinance && totals.total90 > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      {fmtR(totals.total90)} spent in 90d
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
               <>
               <Button
@@ -261,6 +289,18 @@ function SuppliersList() {
           />
           <PageWorkbench />
           <CatalogueOperationsStrip active="suppliers" />
+
+          {/* Surfaced load failure with a retry path - never a silent
+              empty list. */}
+          {loadError && (
+            <div className="mb-5 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load suppliers</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={reload} size="sm" disabled={loading} className="bg-brand-primary text-white hover:bg-brand-primary/90">
+                Retry
+              </Button>
+            </div>
+          )}
 
           {/* Top stat tiles. Rand tiles are gated behind finance-vis. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -320,17 +360,26 @@ function SuppliersList() {
                   Loading suppliers...
                 </div>
               ) : visible.length === 0 ? (
+                // When the load failed the list being empty is a symptom,
+                // not a truth - don't tempt the operator with an
+                // "add your first supplier" CTA over missing data.
                 <EmptyState
                   inCard
                   icon={Building2}
-                  title={suppliers.length === 0 ? "No suppliers yet" : "No suppliers match this view"}
+                  title={
+                    loadError
+                      ? "Suppliers unavailable"
+                      : suppliers.length === 0 ? "No suppliers yet" : "No suppliers match this view"
+                  }
                   description={
-                    suppliers.length === 0
-                      ? "Add your first supplier to start tracking purchases and spend."
-                      : "Try clearing the search or filter."
+                    loadError
+                      ? "The list could not be loaded. Use Retry above."
+                      : suppliers.length === 0
+                        ? "Add your first supplier to start tracking purchases and spend."
+                        : "Try clearing the search or filter."
                   }
                   cta={
-                    suppliers.length === 0
+                    !loadError && suppliers.length === 0
                       ? { label: "Add supplier", onClick: () => setAdding(true) }
                       : undefined
                   }
@@ -359,7 +408,7 @@ function SuppliersList() {
                             <tr key={s.id} className={`border-b border-slate-100 hover:bg-slate-50 ${s.is_active === false ? "opacity-60" : ""}`}>
                               <td className="py-3 pl-4 pr-2">
                                 <Link href={withSlug(`/admin/suppliers/${s.id}`)} className="block group">
-                                  <div className="font-semibold text-slate-900 group-hover:text-amber-600 inline-flex items-center gap-1.5 flex-wrap">
+                                  <div className="font-semibold text-slate-900 group-hover:text-brand-primary inline-flex items-center gap-1.5 flex-wrap">
                                     {s.supplier_name}
                                     <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                     {flags.reliance >= 3 && (
@@ -574,7 +623,7 @@ function SuppliersList() {
           <p className="mt-4 text-xs text-slate-500">
             Looking for per-event service providers (on-site chefs, florists,
             photographers)?{" "}
-            <Link href={withSlug("/admin/outsource-providers")} className="text-amber-700 underline hover:text-amber-800">
+            <Link href={withSlug("/admin/outsource-providers")} className="text-brand-primary underline hover:opacity-80">
               Open outsource providers
             </Link>
           </p>
@@ -1043,7 +1092,7 @@ function MergeSupplierDialog({
               {ranked.slice(0, 25).map(({ c, score }) => (
                 <label
                   key={c.id}
-                  className={`flex items-center gap-2 p-2.5 cursor-pointer hover:bg-slate-50 ${targetId === c.id ? "bg-amber-50" : ""}`}
+                  className={`flex items-center gap-2 p-2.5 cursor-pointer hover:bg-slate-50 ${targetId === c.id ? "bg-brand-primary/10" : ""}`}
                 >
                   <input
                     type="radio"

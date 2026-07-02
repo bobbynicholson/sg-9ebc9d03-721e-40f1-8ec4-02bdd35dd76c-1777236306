@@ -164,6 +164,9 @@ function ProvidersList() {
   const { withSlug } = useTenantHref();
   const [providers, setProviders] = useState<OutsourceProviderWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure - a toast alone vanishes and the page then
+  // reads as "no providers yet". Rendered as a recovery card + Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -190,6 +193,10 @@ function ProvidersList() {
         supabase.from("suppliers").select("id, supplier_name").eq("company_id", companyId).is("deleted_at", null).order("supplier_name"),
       ]);
       if (cancelled) return;
+      // Dropdown data is best-effort (the page still works without a
+      // region filter) but failures shouldn't stay invisible.
+      if (regRes.error) captureException(regRes.error, { tags: { surface: "admin/outsource-providers", area: "regions-load" } });
+      if (supRes.error) captureException(supRes.error, { tags: { surface: "admin/outsource-providers", area: "suppliers-load" } });
       setRegions(((regRes.data || []) as Array<{ id: string; name: string }>));
       setSupplierOptions(((supRes.data || []) as Array<{ id: string; supplier_name: string }>)
         .map((s) => ({ id: s.id, name: s.supplier_name })));
@@ -203,7 +210,10 @@ function ProvidersList() {
     try {
       const rows = await outsourceProviderService.listForCompany(companyId);
       setProviders(rows);
+      setLoadError(null);
     } catch (e: any) {
+      captureException(e, { tags: { surface: "admin/outsource-providers", area: "load", tenant: companyId } });
+      setLoadError(e?.message || "Could not load providers.");
       toast({ title: "Could not load providers", description: e?.message, variant: "destructive" });
     } finally {
       setLoading(false);
@@ -504,9 +514,29 @@ function ProvidersList() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Outsource providers"
             icon={HardHat}
             subtitle="Per-event service providers: on-site chefs, florists, photographers, sound, security."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {providers.filter((p) => p.is_active).length} active of {providers.length}
+                  </span>
+                  {(() => {
+                    const bookings = providers.reduce((s, p) => s + Number(p.assignment_count || 0), 0);
+                    if (bookings <= 0) return null;
+                    return (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        {bookings} booking{bookings === 1 ? "" : "s"} on file
+                      </span>
+                    );
+                  })()}
+                </>
+              ) : undefined
+            }
             actions={
               <>
               <Button variant="outline" onClick={() => setImportOpen(true)} title="Import providers from CSV">
@@ -569,18 +599,30 @@ function ProvidersList() {
                 type="checkbox"
                 checked={activeOnly}
                 onChange={(e) => setActiveOnly(e.target.checked)}
-                className="accent-blue-600"
+                className="accent-brand-primary"
               />
               Active only
             </label>
           </div>
+
+          {/* Surfaced load failure with a retry path - never a silent
+              empty list. */}
+          {loadError && !loading && (
+            <div className="mb-4 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load providers</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={() => void load()} size="sm" className="bg-brand-primary text-white hover:bg-brand-primary/90">
+                Retry
+              </Button>
+            </div>
+          )}
 
           {/* List */}
           {loading ? (
             <Card><CardContent className="p-12 text-center text-slate-500">
               <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /> Loading...
             </CardContent></Card>
-          ) : providers.length === 0 ? (
+          ) : loadError ? null : providers.length === 0 ? (
             <Card className="border-2 border-dashed">
               <CardContent className="p-12 text-center">
                 <HardHat className="w-14 h-14 mx-auto text-slate-300 mb-3" />
@@ -615,9 +657,12 @@ function ProvidersList() {
                       <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
+                            {/* withSlug was missing here - every other
+                                internal link carries ?company_slug; this
+                                one dropped it and lost tenant context. */}
                             <Link
-                              href={`/admin/outsource-providers/${p.id}`}
-                              className="text-lg font-semibold text-slate-900 hover:text-blue-700 hover:underline"
+                              href={withSlug(`/admin/outsource-providers/${p.id}`)}
+                              className="text-lg font-semibold text-slate-900 hover:text-brand-primary hover:underline"
                             >
                               {p.provider_name}
                             </Link>
@@ -705,8 +750,9 @@ function ProvidersList() {
                             return (
                               <div className="text-[11px] text-slate-500 mt-0.5 space-y-0.5">
                                 <p>{p.assignment_count} booking{p.assignment_count === 1 ? "" : "s"} on file</p>
+                                {/* Status colour stays semantic: emerald good, amber mid, rose poor. */}
                                 {acceptRate != null && (
-                                  <p className={acceptRate >= 80 ? "text-brand-primary" : acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}>
+                                  <p className={acceptRate >= 80 ? "text-emerald-600" : acceptRate >= 50 ? "text-amber-700" : "text-rose-700"}>
                                     {acceptRate}% accept
                                   </p>
                                 )}
@@ -816,7 +862,7 @@ function ProvidersList() {
                       onClick={() => toggleRole(r.value)}
                       className={`text-xs px-2.5 py-1 rounded-full border transition ${
                         active
-                          ? "bg-blue-600 text-white border-blue-600"
+                          ? "bg-brand-primary text-white border-brand-primary"
                           : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
                       }`}
                     >

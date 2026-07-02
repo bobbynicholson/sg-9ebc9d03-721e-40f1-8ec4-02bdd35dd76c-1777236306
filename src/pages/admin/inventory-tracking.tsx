@@ -1,10 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/router";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { toLocalISO } from "@/lib/localDate";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { notificationService } from "@/services/notificationService";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
@@ -40,12 +44,29 @@ import { AddInventoryItemDialog } from "@/components/admin/inventory-tracking/Ad
 import { StockMovementDialog } from "@/components/admin/inventory-tracking/StockMovementDialog";
 import type { InventoryItem, Supplier, StockMovement } from "@/components/admin/inventory-tracking/types";
 
-export default function InventoryTracking() {
+// Audit 2026-07-02: same INV-C class bug /admin/inventory had. This
+// page shipped with NO route guard, so any authenticated role
+// (kitchen, cleaning, even client-portal users) could open it and
+// hit the add / move / delete mutations, gated only by RLS. Wrap in
+// the same allow-list the other inventory surfaces use.
+export default function ProtectedInventoryTrackingPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+      <InventoryTracking />
+    </ProtectedRoute>
+  );
+}
+
+function InventoryTracking() {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   // Wave 24: tenant currency on the Total Value tile.
   const tenantCurrency = useTenantCurrency(profile?.company_id ?? null);
   const [loading, setLoading] = useState(true);
+  // Audit 2026-07-02: persistent load-failure state with Retry.
+  // Toast-only errors left the page reading as an empty store room.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
@@ -104,9 +125,27 @@ export default function InventoryTracking() {
     }
   }, [profile]);
 
+  // Audit 2026-07-02: honour ?itemId=<id>. The CommandPalette deep-
+  // links inventory hits to /admin/inventory-tracking?itemId=... but
+  // the page ignored the param, so every jump landed unfiltered.
+  // Once the list loads, pre-fill the search with the item's name.
+  const [didFocusFromQuery, setDidFocusFromQuery] = useState(false);
+  useEffect(() => {
+    if (didFocusFromQuery) return;
+    if (!router.isReady || inventoryItems.length === 0) return;
+    const id = typeof router.query.itemId === "string" ? router.query.itemId : "";
+    if (!id) return;
+    const target = inventoryItems.find((i) => i.id === id);
+    if (!target) return;
+    setDidFocusFromQuery(true);
+    setSearchTerm(target.item_name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.itemId, inventoryItems.length]);
+
   const loadInventory = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const { data, error } = await supabase
         .from("inventory_items")
         .select(`
@@ -116,6 +155,11 @@ export default function InventoryTracking() {
           )
         `)
         .eq("company_id", profile?.company_id)
+        // Audit 2026-07-02: /admin/inventory soft-deletes items
+        // (deleted_at). This page ignored the flag and kept showing
+        // deleted rows, so the two surfaces disagreed on counts and
+        // total value.
+        .is("deleted_at", null)
         .order("item_name");
 
       if (error) throw error;
@@ -128,6 +172,7 @@ export default function InventoryTracking() {
       setInventoryItems(items);
     } catch (error: any) {
       console.error("Error loading inventory:", error);
+      setLoadError(error?.message || "Failed to load inventory items.");
       toast({
         title: "Error",
         description: "Failed to load inventory items",
@@ -258,33 +303,48 @@ export default function InventoryTracking() {
 
       if (updateError) throw updateError;
 
-      // Record movement
+      // Record movement. Audit 2026-07-02: quantity is now SIGNED
+      // (usage stores a negative number) to match the canonical
+      // inventoryService.adjustStock convention - /admin/inventory's
+      // movement history renders the raw sign, so an unsigned usage
+      // row from this page displayed as "+5" stock added.
       const { error: movementError } = await supabase
         .from("inventory_transactions")
         .insert([{
           company_id: profile?.company_id,
           inventory_item_id: selectedItem.id,
           transaction_type: stockMovementData.transaction_type,
-          quantity: stockMovementData.quantity,
+          quantity: stockMovementData.transaction_type === 'purchase'
+            ? Math.abs(stockMovementData.quantity)
+            : -Math.abs(stockMovementData.quantity),
           notes: stockMovementData.notes,
           performed_by: profile?.id
         }]);
 
       if (movementError) throw movementError;
 
-      // Check if low stock and create notification
-      if (newStock <= selectedItem.minimum_stock) {
-        await supabase
-          .from("notifications")
-          .insert([{
-            company_id: profile?.company_id,
-            user_id: profile?.id,
+      // Check if low stock and notify the people who can act on it.
+      // Audit 2026-07-02: this used to insert a notification for the
+      // CURRENT user only - the person who just moved the stock and
+      // already knows. Broadcast (deduped, best-effort) to admins +
+      // shopping staff instead.
+      if (newStock <= selectedItem.minimum_stock && profile?.company_id) {
+        try {
+          await notificationService.broadcastNotification({
+            companyId: profile.company_id,
             type: 'stock_low',
             title: 'Low Stock Alert',
-            message: `${selectedItem.item_name} is low on stock (${newStock} ${selectedItem.unit_of_measure} remaining)`,
-            related_entity_type: 'inventory_item',
-            related_entity_id: selectedItem.id
-          }]);
+            message: `${selectedItem.item_name} is low on stock (${newStock} ${selectedItem.unit_of_measure} remaining).`,
+            targetRoles: [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN, UserRole.SHOPPING_STAFF],
+            priority: "normal",
+            link: "/admin/inventory",
+            relatedEntityType: 'inventory_item',
+            relatedEntityId: selectedItem.id,
+            dedup: true,
+          });
+        } catch (notifyErr) {
+          console.warn("[admin/inventory-tracking] low-stock notification failed:", notifyErr);
+        }
       }
 
       toast({
@@ -315,9 +375,13 @@ export default function InventoryTracking() {
     if (!confirm(`Are you sure you want to delete "${itemName}"?`)) return;
 
     try {
-      const { error } = await supabase
+      // Audit 2026-07-02: soft delete (deleted_at) instead of a hard
+      // DELETE. /admin/inventory soft-deletes so history and FK'd
+      // transactions survive; a hard delete here either orphaned or
+      // failed on the FK depending on the constraint.
+      const { error } = await (supabase as any)
         .from("inventory_items")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq("id", itemId);
 
       if (error) throw error;
@@ -376,23 +440,52 @@ export default function InventoryTracking() {
     try {
       const listId = await getOrCreateShoppingList();
 
-      const shoppingListItems = lowStockItems.map(item => ({
-        shopping_list_id: listId,
-        user_id: profile?.id,
-        item_id: item.id,
-        name: item.item_name,
-        quantity: item.maximum_stock - item.current_stock,
-        unit: item.unit_of_measure,
-        category: item.category,
-        estimated_cost: (item.maximum_stock - item.current_stock) * item.cost_per_unit,
-        purchased: false
-      }));
+      // Audit 2026-07-02: guard items without a par level. max = 0
+      // used to produce NEGATIVE buy quantities and costs; fall back
+      // to topping up to 1.5x the reorder point, minimum 1.
+      const shoppingListItems = lowStockItems.map(item => {
+        const qty = item.maximum_stock > 0
+          ? Math.max(1, item.maximum_stock - item.current_stock)
+          : Math.max(1, Math.ceil(item.minimum_stock * 1.5 - item.current_stock));
+        return {
+          shopping_list_id: listId,
+          user_id: profile?.id,
+          item_id: item.id,
+          name: item.item_name,
+          quantity: qty,
+          unit: item.unit_of_measure,
+          category: item.category,
+          estimated_cost: qty * item.cost_per_unit,
+          purchased: false
+        };
+      });
 
       const { error } = await supabase
         .from("shopping_list_items")
         .insert(shoppingListItems);
 
       if (error) throw error;
+
+      // Best-effort: tell the shopping team a run is ready. Deduped
+      // broadcast; a notification failure never blocks the list.
+      if (profile?.company_id) {
+        try {
+          await notificationService.broadcastNotification({
+            companyId: profile.company_id,
+            type: "shopping_list_created",
+            title: "New shopping list ready",
+            message: `A low-stock shopping list with ${lowStockItems.length} item${lowStockItems.length === 1 ? "" : "s"} was generated. Open the Buy list to start ticking items off.`,
+            targetRoles: [UserRole.SHOPPING_STAFF],
+            priority: "normal",
+            link: "/team-portal/shopping/dashboard",
+            relatedEntityType: "shopping_list",
+            relatedEntityId: listId,
+            dedup: true,
+          });
+        } catch (notifyErr) {
+          console.warn("[admin/inventory-tracking] shopping-list notification failed:", notifyErr);
+        }
+      }
 
       toast({
         title: "Success",
@@ -410,8 +503,10 @@ export default function InventoryTracking() {
 
   const getStockStatus = (item: InventoryItem) => {
     if (item.current_stock === 0) return { label: "Out of Stock", color: "bg-rose-500", icon: XCircle };
-    if (item.current_stock <= item.minimum_stock) return { label: "Low Stock", color: "bg-orange-500", icon: AlertTriangle };
-    if (item.current_stock >= item.maximum_stock) return { label: "Overstocked", color: "bg-blue-500", icon: TrendingUp };
+    if (item.current_stock <= item.minimum_stock) return { label: "Low Stock", color: "bg-amber-500", icon: AlertTriangle };
+    // Audit 2026-07-02: guard maximum_stock > 0. Items with no par
+    // level set (max = 0) were all flagged "Overstocked".
+    if (item.maximum_stock > 0 && item.current_stock >= item.maximum_stock) return { label: "Overstocked", color: "bg-blue-500", icon: TrendingUp };
     return { label: "In Stock", color: "bg-brand-primary", icon: CheckCircle };
   };
 
@@ -448,15 +543,17 @@ export default function InventoryTracking() {
 
   if (loading) {
     return (
-      <div className="admin-page-shell">
+      <>
         <AdminNav />
-        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-          <div className="text-center">
-            <Package className="h-12 w-12 animate-spin mx-auto mb-4 text-slate-600" />
-            <p className="text-slate-600">Loading inventory...</p>
+        <div className="admin-page-shell">
+          <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+            <div className="text-center">
+              <Package className="h-12 w-12 animate-spin mx-auto mb-4 text-slate-600" />
+              <p className="text-slate-600">Loading inventory...</p>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -466,9 +563,32 @@ export default function InventoryTracking() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title="Inventory tracking"
             icon={Package}
             subtitle="Live stock levels with low-stock alerts. Generate a shopping list from the gap between what you have and what upcoming events will need."
+            meta={
+              !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {inventoryItems.length} item{inventoryItems.length === 1 ? "" : "s"}
+                  </span>
+                  {lowStockCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      {lowStockCount} low stock
+                    </span>
+                  )}
+                  {outOfStockCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      {outOfStockCount} out of stock
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
             actions={
             <>
             {/* Phase 28 #5: manual refresh. Stock counts change
@@ -516,7 +636,8 @@ export default function InventoryTracking() {
                     esc(it.supplier_name || ""),
                   ].join(","));
                 }
-                const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                // UTF-8 BOM so Excel-ZA renders currency + accents.
+                const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
@@ -547,6 +668,22 @@ export default function InventoryTracking() {
           />
           <PageWorkbench />
 
+        {/* Audit 2026-07-02: persistent load-failure state with Retry. */}
+        {loadError && (
+          <Card className="bg-rose-50 border-l-4 border-l-rose-500 mb-6">
+            <CardContent className="py-3 px-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-rose-900">Could not load inventory</p>
+                <p className="text-xs text-rose-800/90">{loadError}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => { loadInventory(); loadStockMovements(); }} disabled={loading} className="gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5" /> Retry
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
@@ -562,7 +699,7 @@ export default function InventoryTracking() {
               <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">Low Stock <InfoTooltip content={"Items sitting at or below their minimum level. Time to reorder."} /></CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-orange-600">{lowStockCount}</div>
+              <div className="text-3xl font-bold text-amber-600">{lowStockCount}</div>
             </CardContent>
           </Card>
           <Card>
@@ -669,10 +806,19 @@ export default function InventoryTracking() {
                             <span className="font-semibold">{item.current_stock} {item.unit_of_measure}</span>
                           </div>
                           <div className="w-full bg-slate-200 rounded-full h-2">
+                            {/* Audit 2026-07-02: guard divide-by-zero.
+                                max = 0 produced NaN/Infinity widths;
+                                fall back to the same 2x-reorder par
+                                proxy /admin/inventory uses. */}
                             <div
                               className={`h-2 rounded-full ${status.color}`}
                               style={{
-                                width: `${Math.min((item.current_stock / item.maximum_stock) * 100, 100)}%`
+                                width: `${(() => {
+                                  const par = item.maximum_stock > 0
+                                    ? item.maximum_stock
+                                    : Math.max(item.minimum_stock * 2, 1);
+                                  return Math.min(Math.max((item.current_stock / par) * 100, 0), 100);
+                                })()}%`
                               }}
                             />
                           </div>
@@ -685,11 +831,11 @@ export default function InventoryTracking() {
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>
                             <span className="text-slate-600">Cost/Unit:</span>
-                            <span className="ml-1 font-medium">R{item.cost_per_unit}</span>
+                            <span className="ml-1 font-medium">{tenantCurrency.format(item.cost_per_unit)}</span>
                           </div>
                           <div>
                             <span className="text-slate-600">Value:</span>
-                            <span className="ml-1 font-medium">R{(item.current_stock * item.cost_per_unit).toFixed(2)}</span>
+                            <span className="ml-1 font-medium">{tenantCurrency.format(item.current_stock * item.cost_per_unit)}</span>
                           </div>
                         </div>
 
@@ -762,7 +908,17 @@ export default function InventoryTracking() {
               <CardContent>
                 <div className="space-y-2">
                   {stockMovements.map(movement => {
-                    const isAdd = ['purchase', 'return', 'transfer'].includes(movement.transaction_type);
+                    // Audit 2026-07-02: 'transfer' was hard-coded as an
+                    // addition, but transfers OUT are removals. Purchase
+                    // and return always add, usage and waste always
+                    // remove; for the ambiguous types trust the sign of
+                    // the stored quantity.
+                    const qty = Number(movement.quantity || 0);
+                    const isAdd = ['purchase', 'return'].includes(movement.transaction_type)
+                      ? true
+                      : ['usage', 'waste'].includes(movement.transaction_type)
+                        ? false
+                        : qty > 0;
                     return (
                     <div key={movement.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
@@ -778,7 +934,7 @@ export default function InventoryTracking() {
                         <div>
                           <div className="font-medium">{movement.item_name}</div>
                           <div className="text-sm text-slate-600 capitalize">
-                            {movement.transaction_type}: {movement.quantity} units
+                            {movement.transaction_type}: {Math.abs(qty)} units
                           </div>
                           {movement.notes && (
                             <div className="text-xs text-slate-500">Notes: {movement.notes}</div>

@@ -149,7 +149,8 @@ const STATUS_META: Record<string, { label: string; tone: string; rank: number }>
   shortfall:     { label: "Shortfall",     tone: "bg-rose-100 text-rose-700 border-rose-200",       rank: 0 },
   below_minimum: { label: "Below par",     tone: "bg-amber-100 text-amber-800 border-amber-200", rank: 1 },
   low:           { label: "Low",           tone: "bg-yellow-100 text-yellow-800 border-yellow-200", rank: 2 },
-  ok:            { label: "OK",            tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20", rank: 3 },
+  // Status tones stay semantic (emerald = healthy), never brand.
+  ok:            { label: "OK",            tone: "bg-emerald-100 text-emerald-700 border-emerald-200", rank: 3 },
 };
 
 const VALID_TABS = new Set(["buy_now", "plan", "supplier", "receipts"]);
@@ -244,6 +245,12 @@ function SmartShoppingPage() {
   const [demand, setDemand] = useState<DemandLine[]>([]);
   const [suppliers, setSuppliers] = useState<Record<string, Supplier>>({});
   const [loading, setLoading] = useState(true);
+  // Surfaced load failure + retry nonce. The big Promise.all below
+  // previously ignored every response's .error - a failed outlook
+  // query rendered the "No inventory configured yet" empty state over
+  // real data. Critical legs now surface a recovery card with Retry.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [openSupplier, setOpenSupplier] = useState<string | null>(null);
@@ -324,6 +331,22 @@ function SmartShoppingPage() {
           .gte("receipt_date", ytdStartISO),
       ]);
       if (cancelled) return;
+      // Critical legs: without outlook/details/demand/suppliers the
+      // page's numbers are fiction. Surface and stop rather than
+      // painting an empty-but-healthy view.
+      const critical =
+        outlookRes.error || invRes.error || demandRes.error || (supRes as any).error;
+      if (critical) {
+        captureException(critical, { tags: { surface: "admin/shopping", area: "load", tenant: companyId } });
+        setLoadError((critical as any)?.message || "Could not load procurement data.");
+        setLoading(false);
+        return;
+      }
+      setLoadError(null);
+      // Best-effort legs: chips and history degrade gracefully but the
+      // failure still gets logged.
+      if ((linksRes as any)?.error) captureException((linksRes as any).error, { tags: { surface: "admin/shopping", area: "supplier-links" } });
+      if ((receiptsRes as any)?.error) captureException((receiptsRes as any).error, { tags: { surface: "admin/shopping", area: "receipt-history" } });
       setOutlook((outlookRes.data || []) as OutlookRow[]);
       const dMap: Record<string, InvDetail> = {};
       (invRes.data || []).forEach((r: any) => { dMap[r.id] = r as InvDetail; });
@@ -361,7 +384,7 @@ function SmartShoppingPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [companyId, refreshSignal]);
+  }, [companyId, refreshSignal, reloadNonce]);
 
   // Earliest event_date per inventory item - drives buy-by date
   const earliestEvent: Record<string, string> = useMemo(() => {
@@ -1138,6 +1161,7 @@ function SmartShoppingPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2 flex-wrap">
                 Smart Shopping
@@ -1146,6 +1170,34 @@ function SmartShoppingPage() {
             }
             icon={ShoppingCart}
             subtitle="Live procurement brain. Knows what to buy, when to buy it, and which supplier handles it."
+            meta={
+              !loading && !loadError && outlook.length > 0 ? (
+                <>
+                  {(() => {
+                    const shortfalls = enriched.filter((r) => r.status === "shortfall").length;
+                    return (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        <span className={`h-1.5 w-1.5 rounded-full ${shortfalls > 0 ? "bg-rose-400" : "bg-emerald-400"}`} />
+                        {shortfalls} shortfall{shortfalls === 1 ? "" : "s"}
+                      </span>
+                    );
+                  })()}
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {buyNow.length} item{buyNow.length === 1 ? "" : "s"} to buy now
+                  </span>
+                  {(() => {
+                    const urgent = enriched.filter((r) => r.isUrgent && r.status !== "ok").length;
+                    if (urgent === 0) return null;
+                    return (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        {urgent} urgent (2d)
+                      </span>
+                    );
+                  })()}
+                </>
+              ) : undefined
+            }
             actions={
             <>
               {/* Phase 20 #1: shopping CSV export. Procurement
@@ -1229,19 +1281,21 @@ function SmartShoppingPage() {
                 <Printer className="w-3.5 h-3.5" /> Print today
               </Button>
               {pickedCount > 0 && (
-                <Card className="bg-brand-primary/10 px-4 py-2 flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-brand-primary" />
+                // Glass chip treatment: the pill sits on the dark hero
+                // band, so no slate-900 text (unreadable on slate-950).
+                <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/10 px-4 py-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                   <div>
-                    <p className="text-xs text-brand-primary">In your PO list</p>
-                    <p className="font-bold text-slate-900">
+                    <p className="text-xs text-white/70">In your PO list</p>
+                    <p className="font-bold text-white">
                       {pickedCount} item{pickedCount === 1 ? "" : "s"}
                       {canSeeFinanceAggregate ? ` - ${fmtMoney.format(pickedTotal)}` : ""}
                     </p>
                   </div>
-                  <Button size="sm" onClick={markPurchased} className="ml-2 gap-1">
+                  <Button size="sm" onClick={markPurchased} className="ml-2 gap-1 bg-brand-primary text-white hover:bg-brand-primary/90">
                     <Truck className="w-3.5 h-3.5" /> Mark purchased
                   </Button>
-                </Card>
+                </div>
               )}
             </>
             }
@@ -1350,11 +1404,21 @@ function SmartShoppingPage() {
             manualMode
           />
 
+          {loadError && !loading && (
+            <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load procurement data</h2>
+              <p className="text-sm text-slate-600 mb-3">{loadError}</p>
+              <Button onClick={() => setReloadNonce((n) => n + 1)} size="sm" className="bg-brand-primary text-white hover:bg-brand-primary/90">
+                Retry
+              </Button>
+            </div>
+          )}
+
           {loading ? (
             <Card><CardContent className="py-16 flex items-center justify-center text-slate-500 gap-2">
               <Loader2 className="w-5 h-5 animate-spin" /> Loading procurement brain...
             </CardContent></Card>
-          ) : outlook.length === 0 ? (
+          ) : loadError ? null : outlook.length === 0 ? (
             <Card><CardContent className="py-16 text-center text-slate-500">
               <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
               <p className="font-semibold text-slate-700">No inventory configured yet</p>
@@ -1521,7 +1585,7 @@ function SmartShoppingPage() {
                   <CardContent className="p-0">
                     {buyNow.length === 0 ? (
                       <div className="py-12 text-center">
-                        <CheckCircle2 className="w-10 h-10 mx-auto text-brand-primary/90 mb-2" />
+                        <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500 mb-2" />
                         <p className="font-semibold text-slate-700">All stocked up</p>
                         <p className="text-xs text-slate-500">Nothing to buy right now. Check back tomorrow.</p>
                       </div>
@@ -2057,7 +2121,7 @@ function SmartShoppingPage() {
               <Button
                 onClick={() => sendOrderVia("gmail")}
                 disabled={!orderDialog?.supplierEmail || orderDialog?.lines.every((l) => !l.included)}
-                className="bg-rose-600 hover:bg-rose-700 text-white gap-1.5"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-white gap-1.5"
                 title="Opens Gmail compose in a new tab"
               >
                 <Mail className="w-4 h-4" /> Gmail
