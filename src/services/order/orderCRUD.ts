@@ -48,6 +48,14 @@ export async function duplicateOrder(
       "confirmed_at", "completed_at", "delivered_at", "cancelled_at",
       "deposit_paid_at", "balance_paid_at", "amount_paid", "balance_due",
       "payment_status", "deposit_payment_id", "balance_payment_id",
+      // Boolean payment + fulfilment flags: the clone is a fresh unpaid
+      // "pending" order. Carrying deposit_paid/balance_paid over showed
+      // the clone as already paid despite amount_paid being null (money
+      // inconsistency); carrying inventory_deducted_at over made the
+      // deduction guard treat the clone as already-deducted, so the real
+      // new event NEVER pulled stock. Strip them.
+      "deposit_paid", "balance_paid", "inventory_deducted_at",
+      "cancellation_reason",
       "public_token", "public_token_issued_at",
       "assigned_driver_id", "assigned_chef_id", "assigned_vehicle_id",
       "pod_photo_url", "pod_signature_url", "pod_recipient_name", "pod_captured_at",

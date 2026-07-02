@@ -262,9 +262,14 @@ export const invoiceService = {
           total: subscription.amount
         }
       ],
-      subtotal: subscription.amount,
-      vatAmount: subscription.amount * 0.15,
-      total: subscription.amount * 1.15,
+      // subscription.amount is what PayFast actually charges the tenant,
+      // and SA subscription prices are quoted VAT-inclusive. The old code
+      // added 15% ON TOP, so the tax invoice showed a total (amount * 1.15)
+      // the tenant was never charged. Back-compute an inclusive 15% split
+      // so the document total equals the real charge.
+      subtotal: Math.round((subscription.amount / 1.15) * 100) / 100,
+      vatAmount: Math.round((subscription.amount - subscription.amount / 1.15) * 100) / 100,
+      total: subscription.amount,
       currency: subscription.currency || "R",
       paymentTerms: "Payment due within 30 days of invoice date"
     };

@@ -45,11 +45,11 @@ export function ProtectedRoute({
         typeof window !== "undefined" &&
         (window.location.hostname === "localhost" ||
          window.location.hostname === "127.0.0.1");
-      const hasDevQueryFlag =
-        typeof window !== "undefined" &&
-        window.location.search.includes("dev=true");
-
-      const isDevEnvironment = !isProd && (isLocalhostHost || hasDevQueryFlag);
+      // The ?dev=true bypass is only honoured on localhost, mirroring
+      // middleware.ts. Previously hasDevQueryFlag alone (on any non-prod
+      // host, e.g. a staging deploy with NODE_ENV!=production) skipped
+      // the client guard; now the dev bypass requires localhost too.
+      const isDevEnvironment = !isProd && isLocalhostHost;
 
       if (isDevEnvironment) {
         console.log("🔧 DEV MODE: Bypassing ProtectedRoute auth check");

@@ -95,6 +95,9 @@ function DriverDashboardInner() {
   // dashboard tile was the last hardcoded "R" in the driver portal.
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  // Counted separately from `jobs`: the jobs queries only load in-flight
+  // statuses, so a derived completed count over `jobs` is structurally 0.
+  const [completedTodayCount, setCompletedTodayCount] = useState(0);
   const [loading, setLoading] = useState(true);
   // Command-centre restructure (2026-07-02): every data load on this
   // page now surfaces failures with a Retry card instead of silently
@@ -353,6 +356,23 @@ function DriverDashboardInner() {
 
       setJobs(uniqueJobs);
 
+      // Today's completed/delivered count. The two queries above only
+      // load in-flight statuses, so it must come from its own query or
+      // "Completed today" is stuck at 0.
+      try {
+        const { count: doneCount } = await supabase
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", user.company_id)
+          .is("deleted_at", null)
+          .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
+          .in("status", ["delivered", "completed"])
+          .eq("event_date", todayISO);
+        setCompletedTodayCount(doneCount || 0);
+      } catch (countErr) {
+        console.warn("[driver dashboard] completed-today count failed:", countErr);
+      }
+
       // Auto-acknowledge any unacked assignments. Opening the driver
       // app IS the acknowledgement - the audit gap was "admin doesn't
       // know if driver saw the dispatch". Loading the dashboard is
@@ -529,7 +549,9 @@ function DriverDashboardInner() {
   const todaysJobs = jobs.filter(
     (j) => j.event_date === toLocalISO(new Date())
   );
-  const completedToday = todaysJobs.filter((j) => j.status === "completed" || j.status === "delivered").length;
+  // Sourced from its own count query (see loadDriverJobs); the in-flight
+  // `jobs` list never contains completed/delivered rows.
+  const completedToday = completedTodayCount;
   // Wave 70.12 - Potential earnings now includes THREE components:
   //   1. Per-delivery callout fee (one flat charge per job)
   //   2. Per-delivery round-trip distance pay (km x rate)

@@ -96,8 +96,11 @@ export const supplierService = {
       .is("deleted_at", null)
       .order("supplier_name", { ascending: true });
     if (suppErr) {
+      // Throw (not return []) so the suppliers page shows its Retry card
+      // instead of masking a transient RLS/PostgREST failure as a
+      // legitimate "No suppliers yet" empty state.
       console.error("supplierService.listForCompany:", suppErr);
-      return [];
+      throw suppErr;
     }
 
     if (!suppliers || suppliers.length === 0) return [];

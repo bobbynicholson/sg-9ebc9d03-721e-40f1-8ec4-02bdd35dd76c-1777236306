@@ -98,7 +98,10 @@ function ShoppingInvoicesPageInner() {
     const totalSpend = completed.reduce((s, l) => s + Number(l.actual_total || 0), 0);
     const completedCount = completed.length;
     const withReceipt = items.filter((l) => l.receipt_url).length;
-    const variance = items.reduce((s, l) => s + (Number(l.actual_total || 0) - Number(l.estimated_total || 0)), 0);
+    // Only completed lists have both an actual_total and an estimated_total.
+    // Reducing over all items let drafts (estimated set, actual 0) drag the
+    // variance falsely negative. Restrict to completed to match totalSpend.
+    const variance = completed.reduce((s, l) => s + (Number(l.actual_total || 0) - Number(l.estimated_total || 0)), 0);
     return { totalSpend, completedCount, withReceipt, variance };
   }, [items]);
 
