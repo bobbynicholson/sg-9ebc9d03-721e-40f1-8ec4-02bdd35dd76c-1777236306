@@ -83,6 +83,9 @@ export function KitchenNav(_: KitchenNavProps = {}) {
     brandIcon: ChefHat,
     // Tenant brand palette via brand-* CSS vars. See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
+    // Match the company-admin rail: the kitchen portal should wear the
+    // tenant's own white-label colours, not the neutral app sidebar.
+    appearance: "brand",
     searchHint: "Search recipes, prep...",
     dashboardHref: "/team-portal/kitchen/today",
     mobileQuickActions: [

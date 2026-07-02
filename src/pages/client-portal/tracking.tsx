@@ -394,6 +394,7 @@ function ClientTrackingInner() {
               title="Live tracking"
               subtitle="Watch your driver as they roll out."
               icon={MapPin}
+              variant="hero"
             />
             <PageWorkbench />
             <PortalOverview
@@ -442,6 +443,7 @@ function ClientTrackingInner() {
               title="Live tracking"
               subtitle="Watch your driver as they roll out."
               icon={MapPin}
+              variant="hero"
             />
             <PageWorkbench />
             <PortalOverview
@@ -488,6 +490,7 @@ function ClientTrackingInner() {
               title="Live tracking"
               subtitle="Track deliveries and equipment collections while a driver is on the road."
               icon={MapPin}
+              variant="hero"
             />
             <PageWorkbench />
             <PortalOverview
@@ -546,11 +549,12 @@ function ClientTrackingInner() {
             title="Live tracking"
             subtitle="Real-time delivery and collection tracking with driver pin and ETA."
             icon={MapPin}
+            variant="hero"
             actions={
               <Button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="bg-brand-primary hover:opacity-90 text-white"
+                className="border border-white/20 bg-white/10 text-white hover:bg-white/15"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
                 Refresh

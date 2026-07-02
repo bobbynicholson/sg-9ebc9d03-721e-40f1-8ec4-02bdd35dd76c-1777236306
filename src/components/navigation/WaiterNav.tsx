@@ -15,6 +15,9 @@ const config: PortalSidebarConfig = {
   brandIcon: Sparkles,
   ...BRAND_PORTAL_PALETTE,
   leadToken: "primary",
+  // Match the company-admin rail: waiter staff should see the tenant's
+  // own white-label colours, not the neutral app sidebar.
+  appearance: "brand",
   searchHint: "Search service work...",
   dashboardHref: "/team-portal/waiter/dashboard",
   mobileQuickActions: [

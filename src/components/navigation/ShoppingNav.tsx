@@ -89,6 +89,9 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
     brandIcon: ShoppingCart,
     // Tenant brand palette via brand-* CSS vars. See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
+    // Match the company-admin rail: the shopping portal should wear the
+    // tenant's own white-label colours, not the neutral app sidebar.
+    appearance: "brand",
     searchHint: "Search items, suppliers, lists...",
     dashboardHref: "/team-portal/shopping/dashboard",
     // Static fallback. The smart renderer below normally takes over.

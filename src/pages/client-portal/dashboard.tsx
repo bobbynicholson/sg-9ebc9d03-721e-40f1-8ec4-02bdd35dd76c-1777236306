@@ -1033,12 +1033,13 @@ function ClientPortalDashboardInner() {
             title={`${greeting}, ${firstName}`}
             subtitle={companyName}
             icon={companyLogo ? undefined : ChefHat}
+            variant="hero"
             actions={
               <>
                 {orders.length > 0 && (
                   <Badge
                     variant="outline"
-                    className="bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs"
+                    className="border-white/20 bg-white/12 text-white text-xs"
                   >
                     {orders.length} event{orders.length === 1 ? "" : "s"} on file
                   </Badge>
@@ -1052,7 +1053,7 @@ function ClientPortalDashboardInner() {
                         : null;
                       el?.scrollIntoView({ behavior: "smooth", block: "start" });
                     }}
-                    className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-primary hover:bg-brand-primary/10 transition-colors duration-150"
+                    className="inline-flex min-h-9 items-center rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-150 hover:bg-white/15"
                   >
                     Rate a recent event
                   </button>

@@ -454,7 +454,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           <div className={cn(
             "pt-4 border-t",
             forceBrand ? "border-white/15" : "border-slate-100 dark:border-slate-800",
-          )}><SignOutButton /></div>
+          )}>
+            <SignOutButton
+              className={forceBrand ? "border-white/15 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white" : undefined}
+            />
+          </div>
         )}
       </div>
     </ScrollArea>
@@ -544,7 +548,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                   )}
                   style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))" }}
                 >
-                  <SignOutButton />
+                  <SignOutButton
+                    className={forceBrand ? "border-white/15 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white" : undefined}
+                  />
                 </div>
               </SheetContent>
             </Sheet>
@@ -671,7 +677,10 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               forceBrand ? "border-white/15" : "border-slate-200 dark:border-slate-700",
             )}
           >
-            <SignOutButton collapsed={isCollapsed} />
+            <SignOutButton
+              collapsed={isCollapsed}
+              className={forceBrand ? "border-white/15 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white" : undefined}
+            />
             <Button
               variant="ghost"
               className={cn(

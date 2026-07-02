@@ -17,6 +17,9 @@ export function ClientNav() {
     mobileSubtitle: "Quotes, bookings, invoices",
     brandIcon: User,
     ...BRAND_PORTAL_PALETTE,
+    // Client-facing pages must feel like the catering company's portal,
+    // not CateringMS. Use the same brand-painted rail as tenant admin.
+    appearance: "brand",
     searchHint: "Search bookings, invoices...",
     dashboardHref: "/client-portal/dashboard",
     mobileQuickActions: [

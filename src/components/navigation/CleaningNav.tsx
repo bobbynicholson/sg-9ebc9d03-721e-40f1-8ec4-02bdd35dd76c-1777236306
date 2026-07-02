@@ -101,6 +101,9 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     // Tenant brand palette via brand-* CSS vars. See portalPalette.ts.
     ...BRAND_PORTAL_PALETTE,
     leadToken: "primary",
+    // Match the company-admin rail: the cleaning portal should wear the
+    // tenant's own white-label colours, not the neutral app sidebar.
+    appearance: "brand",
     searchHint: "Search handovers, equipment, supplies...",
     dashboardHref: "/team-portal/cleaning/dashboard",
     // Static fallback mobile quick actions - only used if the smart

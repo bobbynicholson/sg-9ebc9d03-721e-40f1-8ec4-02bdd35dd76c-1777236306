@@ -269,6 +269,7 @@ function MyOrdersInner() {
             title="Your bookings"
             subtitle="Every confirmed booking, active or completed. Open one to track delivery, request a change, view the invoice, or rebook."
             icon={Package}
+            variant="hero"
           />
           <PageWorkbench />
 

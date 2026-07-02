@@ -195,6 +195,7 @@ function ClientQuotesPageInner() {
             title="Your quotes"
             subtitle={`Every quote ${companyName} has sent through. Tap one to open the full quote, accept it, or request changes.`}
             icon={FileText}
+            variant="hero"
           />
           <PageWorkbench />
 

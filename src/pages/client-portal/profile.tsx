@@ -352,6 +352,7 @@ function ClientProfilePageInner() {
             title="Your profile"
             subtitle="Update how the catering team gets in touch with you. Email is locked to the address you signed in with."
             icon={UserIcon}
+            variant="hero"
           />
           <PageWorkbench />
 

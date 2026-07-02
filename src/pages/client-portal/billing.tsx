@@ -419,6 +419,7 @@ function ClientBillingPageInner() {
             title="Billing & invoices"
             subtitle="Pay balances, check due dates, open invoice details, and download receipts for completed payments."
             icon={Receipt}
+            variant="hero"
           />
           <PageWorkbench />
 

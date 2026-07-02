@@ -174,11 +174,12 @@ function ClientNotificationsPageInner() {
             title="Notifications"
             subtitle="Quote updates, driver alerts, payment confirmations - everything the team has sent you."
             icon={Bell}
+            variant="hero"
             actions={
               unreadCount > 0 ? (
                 <Button
                   onClick={onMarkAllRead}
-                  className="bg-brand-primary hover:opacity-90 text-white rounded-lg gap-1.5"
+                  className="gap-1.5 rounded-lg border border-white/20 bg-white/10 text-white hover:bg-white/15"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   Mark all read
