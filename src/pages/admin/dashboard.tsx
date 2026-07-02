@@ -632,17 +632,37 @@ function AdminDashboardPage() {
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
 
-          {/* Header + date range, date controls every metric below */}
+          {/* Header + date range, date controls every metric below.
+              Hero band: same command-centre treatment as the platform
+              area, washed in THIS tenant's brand colours via the
+              --brand-*-rgb vars (never a hard-coded palette). */}
           <PortalHeader
-            title="Admin Dashboard"
+            variant="hero"
+            title="Dashboard"
             icon={LayoutDashboard}
             subtitle={
               <>
                 Live metrics for events in{" "}
-                <span className="font-semibold text-slate-900 dark:text-white">{range.label}</span>
+                <span className="font-semibold text-white">{range.label}</span>.
+                Every number below follows the selected date range.
+              </>
+            }
+            meta={
+              <>
+                {!loading && !error && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {stats.activeOrders} active order{stats.activeOrders === 1 ? "" : "s"}
+                  </span>
+                )}
+                {!loading && !error && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {stats.upcomingEvents} upcoming event{stats.upcomingEvents === 1 ? "" : "s"}
+                  </span>
+                )}
                 {tenantTimezone && (
-                  <span className="ml-2 inline-flex items-center gap-1 text-[11px] text-slate-500 align-middle">
-                    <Clock className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
+                    <Clock className="h-3 w-3" />
                     <span className="font-mono">{effectiveTenantTimezone}</span>
                   </span>
                 )}

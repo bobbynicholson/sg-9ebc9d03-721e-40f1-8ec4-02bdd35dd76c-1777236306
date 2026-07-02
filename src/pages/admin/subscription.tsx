@@ -43,7 +43,7 @@ type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
 
 export default function ProtectedSubscriptionPage() {
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN]}>
       <SubscriptionPage />
     </ProtectedRoute>
   );

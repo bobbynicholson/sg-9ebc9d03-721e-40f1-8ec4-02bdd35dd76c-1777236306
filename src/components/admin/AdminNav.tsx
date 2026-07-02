@@ -198,15 +198,6 @@ export function AdminNav(_: AdminNavProps = {}) {
             : null,
         },
         {
-          title: "All orders",
-          href: "/admin/orders",
-          icon: Package,
-          description: "Full order book",
-          liveDescription: () => liveCounts.eventsToday > 0
-            ? `${liveCounts.eventsToday} today`
-            : "Search bookings",
-        },
-        {
           title: "Calendar",
           href: "/admin/calendar",
           icon: Calendar,
@@ -238,7 +229,15 @@ export function AdminNav(_: AdminNavProps = {}) {
             ? { text: `${liveCounts.quotesOverdue} overdue`, tone: "warning" as const }
             : null,
         },
-        { title: "Orders",        href: "/admin/orders",        icon: Package,          description: "Booked events" },
+        {
+          title: "Orders",
+          href: "/admin/orders",
+          icon: Package,
+          description: "Booked events",
+          liveDescription: () => liveCounts.eventsToday > 0
+            ? `${liveCounts.eventsToday} today`
+            : "Booked events",
+        },
         {
           title: "Invoices",
           href: "/admin/invoices",
@@ -269,6 +268,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       defaultOpen: false,
       items: [
         { title: "Finance overview", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue and margin" },
+        { title: "Recurring invoices", href: "/admin/recurring-invoices", icon: Receipt, description: "Repeat billing schedules" },
         { title: "Cashflow",         href: "/admin/cashflow-dashboard",  icon: TrendingUp, description: "30-day forecast" },
         { title: "Balances",         href: "/admin/outstanding-balances", icon: Wallet, description: "Client money due" },
         { title: "Payables",         href: "/admin/payables",      icon: FileText,   description: "Supplier invoices" },
@@ -344,6 +344,7 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
         { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Routing and opt-ins" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
+        { title: "Subscription",          href: "/admin/subscription",          icon: CreditCard,    description: "Your CateringMS plan and billing" },
         { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General settings" },
       ],
     } as PortalSidebarSection] : []),

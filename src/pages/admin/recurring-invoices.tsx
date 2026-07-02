@@ -45,6 +45,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pause, Play, Trash2, RefreshCw, Repeat, ArrowLeft, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { useToast } from "@/hooks/use-toast";
@@ -73,7 +75,19 @@ type Template = {
   end_date: string | null;
 };
 
+// Route-level guard added when this page joined the Finance section of
+// the sidebar: same role set as /admin/invoices (it generates invoices)
+// including OWNER. Previously the page had no ProtectedRoute at all, so
+// any signed-in staff role could open the billing-schedule editor by URL.
 export default function RecurringInvoicesPage() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+      <RecurringInvoicesPageInner />
+    </ProtectedRoute>
+  );
+}
+
+function RecurringInvoicesPageInner() {
   const { user } = useAuth() as any;
   const { toast } = useToast();
   const [rows, setRows] = useState<Template[]>([]);
