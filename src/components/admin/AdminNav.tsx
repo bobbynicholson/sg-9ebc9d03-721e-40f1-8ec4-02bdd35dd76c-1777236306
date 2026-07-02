@@ -37,7 +37,6 @@ import {
   Package,
   Building2,
   Banknote,
-  Search,
   Clock,
   TrendingUp,
   Bell,
@@ -247,7 +246,6 @@ export function AdminNav(_: AdminNavProps = {}) {
             ? { text: "overdue", tone: "critical" as const }
             : null,
         },
-        { title: "Client search", href: "/admin/client-search", icon: Search,           description: "Find any client" },
         { title: "Reviews",       href: "/admin/reviews",       icon: Star,             description: "Client ratings + comments" },
       ],
     },

@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, X } from "lucide-react";
+import { Search, Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Filter, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, X, Package, Receipt } from "lucide-react";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
@@ -153,8 +153,15 @@ const STATUS_META: Record<ClientStatus, {
 // not rendered, so imported clients with no leads/orders (which fall through
 // to status="won") were invisible to every filter - making "All=604" while
 // the visible pills summed to 2.
-const FILTERS: Array<{ id: "all" | ClientStatus; label: string }> = [
+// "clients" is a source filter, not a lifecycle status: rows backed by a
+// clients-table record (clientId != null). It absorbs the retired
+// /admin/client-search page, whose whole job was "show me registered
+// clients"; that route now redirects to ?filter=clients here.
+type ContactFilter = "all" | "clients" | ClientStatus;
+
+const FILTERS: Array<{ id: ContactFilter; label: string }> = [
   { id: "all",       label: "All" },
+  { id: "clients",   label: "Clients" },
   { id: "hot_lead",  label: "Hot leads" },
   { id: "quoted",    label: "Quoted" },
   { id: "won",       label: "Won" },
@@ -226,7 +233,7 @@ function ClientsCRM() {
   // (first 500 rows) so "All" does not blow up first paint.
   // ?clientId / ?q deep-links also resolve to "all" in their own
   // effects so a row jump still finds the target.
-  const [filter, setFilter] = useState<"all" | ClientStatus>("all");
+  const [filter, setFilter] = useState<ContactFilter>("all");
   // Wave 70.75: full URL persistence. Pre-fix only ?q= was read
   // on mount and never written back, so a refresh lost the
   // search and filter chip every time. Now: ?q + ?filter hydrate
@@ -242,13 +249,13 @@ function ClientsCRM() {
       setDebouncedSearch(q);
     }
     const f = typeof router.query.filter === "string" ? router.query.filter : "";
-    // Cheap validation: filter must match a known status or "all".
-    const ALLOWED: Array<"all" | ClientStatus> = [
-      "all", "hot_lead", "quoted", "won", "active", "returning",
+    // Cheap validation: filter must match a known status, "clients", or "all".
+    const ALLOWED: Array<ContactFilter> = [
+      "all", "clients", "hot_lead", "quoted", "won", "active", "returning",
       "vip", "quiet", "cold", "imported", "lost",
     ];
     if (f && (ALLOWED as string[]).includes(f)) {
-      setFilter(f as "all" | ClientStatus);
+      setFilter(f as ContactFilter);
     }
   }, [router.isReady, router.query]);
   useEffect(() => {
@@ -284,7 +291,7 @@ function ClientsCRM() {
   interface SavedContactView {
     id: string;
     name: string;
-    filter: "all" | ClientStatus;
+    filter: ContactFilter;
     search: string;
     tags: string[];
   }
@@ -1026,8 +1033,13 @@ function ClientsCRM() {
   }, []);
 
   const counts = useMemo(() => {
-    const n = { all: contacts.length } as Record<string, number>;
-    for (const c of contacts) n[c.status] = (n[c.status] || 0) + 1;
+    const n = { all: contacts.length, clients: 0 } as Record<string, number>;
+    for (const c of contacts) {
+      n[c.status] = (n[c.status] || 0) + 1;
+      // Registered clients (rows backed by a clients-table record) power
+      // the "Clients" chip that replaced /admin/client-search.
+      if (c.clientId) n.clients += 1;
+    }
     return n;
   }, [contacts]);
 
@@ -1080,7 +1092,10 @@ function ClientsCRM() {
   // (Phase 9 #4) layers on top - a contact passes if it carries at
   // least one of the selected tags.
   const statusFiltered = useMemo(() => {
-    let base = filter === "all" ? contacts : contacts.filter((c) => c.status === filter);
+    let base =
+      filter === "all" ? contacts
+      : filter === "clients" ? contacts.filter((c) => c.clientId != null)
+      : contacts.filter((c) => c.status === filter);
     if (tagFilter.size > 0) {
       base = base.filter((c) => c.tags.some((t) => tagFilter.has(t)));
     }
@@ -1454,7 +1469,9 @@ function ClientsCRM() {
             <Filter className="w-4 h-4 text-slate-400" />
             {FILTERS.map((f) => {
               const c = counts[f.id] ?? 0;
-              const meta = f.id !== "all" ? STATUS_META[f.id as ClientStatus] : null;
+              // "all" and "clients" are scope chips, not lifecycle
+              // statuses, so they have no STATUS_META entry.
+              const meta = f.id !== "all" && f.id !== "clients" ? STATUS_META[f.id as ClientStatus] : null;
               const active = filter === f.id;
               return (
                 <button
@@ -1884,6 +1901,35 @@ function ClientsCRM() {
                                     <FileText className="w-3.5 h-3.5" />
                                     {c.quoteIds.length > 0 ? "Open quote" : "New quote"}
                                   </Button>
+                                )}
+                                {/* Ported from the retired /admin/client-search
+                                    page: per-row deep links into the order book
+                                    and invoice list filtered to this client.
+                                    Only registered clients (clientId set) have
+                                    rows behind those filters. */}
+                                {c.clientId && (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => router.push(withSlug(`/admin/orders?clientId=${c.clientId}`))}
+                                      className="h-8 w-8 p-0"
+                                      aria-label={`Orders for ${c.name}`}
+                                      title="View this client's orders"
+                                    >
+                                      <Package className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => router.push(withSlug(`/admin/invoices?clientId=${c.clientId}`))}
+                                      className="h-8 w-8 p-0"
+                                      aria-label={`Invoices for ${c.name}`}
+                                      title="View this client's invoices"
+                                    >
+                                      <Receipt className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </>
                                 )}
                                 <Button
                                   variant="outline"
@@ -2675,7 +2721,11 @@ export default function ClientsPage() {
     // CTS-C (CTS-5): sales_admin is the contact-page primary user
     // (chase quotes, log calls). Middleware already gates /admin/*
     // to them; matching the component-level rule.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN]}>
+    // REGION_ADMIN added when /admin/client-search folded in here: that
+    // page admitted branch managers and its redirect must not 403 them.
+    // The route map already granted region_admin /admin/contacts; this
+    // guard was the stricter of the two. OWNER rides the same fix.
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
       <ClientsCRM />
     </ProtectedRoute>
   );

@@ -82,6 +82,10 @@ export const ROLE_ROUTES: Record<UserRole, string[]> = {
     "/admin/quotes",
     "/admin/quotes/*",
     "/admin/orders",
+    // Contacts was missing here even though its ProtectedRoute admits
+    // ADMIN, and /admin/client-search (which ADMIN could reach) now
+    // redirects into Contacts. Route map and page guard now agree.
+    "/admin/contacts",
     "/admin/calendar",
     "/admin/inventory",
     "/admin/inventory-tracking",

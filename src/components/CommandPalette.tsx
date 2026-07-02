@@ -259,7 +259,9 @@ export function CommandPalette() {
             label,
             sublabel,
             badge: "Inventory",
-            href: `/admin/inventory-tracking?itemId=${i.id}`,
+            // Inventory tracking retired into /admin/inventory (which
+            // expands + scrolls to ?id=); the old page is a redirect stub.
+            href: `/admin/inventory?id=${i.id}`,
             haystack: [i.item_name, i.name, i.category, i.sku, i.location].filter(Boolean).join(" "),
           });
         });
@@ -302,7 +304,9 @@ export function CommandPalette() {
     // them here so Cmd-K finds anything the user can see in the nav.
     { id: "go-contacts",    label: "Contacts",            icon: Users,        href: "/admin/contacts",            group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["crm","client"] },
     { id: "go-refunds",     label: "Refunds",             icon: CreditCard,   href: "/admin/refunds",             group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["refund","cancel"] },
-    { id: "go-client-srch", label: "Client Search",       icon: Users,        href: "/admin/client-search",       group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["find","search","client"] },
+    // Client search folded into Contacts; the entry stays so muscle
+    // memory ("client search") still lands somewhere useful.
+    { id: "go-client-srch", label: "Client Search",       icon: Users,        href: "/admin/contacts?filter=clients", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["find","search","client"] },
     { id: "go-menu",        label: "Menu",                icon: FileText,     href: "/admin/menu",                group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["recipe","food","catalog"] },
     { id: "go-equipment",   label: "Equipment",           icon: Package,      href: "/admin/equipment",           group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["catalog","chair","table","chafing"] },
     // Hire-in is reachable as both /admin/equipment/hire-orders (legacy

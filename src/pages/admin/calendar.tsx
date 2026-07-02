@@ -1947,12 +1947,15 @@ function AdminCalendar() {
                 )}
 
                 {dayEvents.length === 0 && dayQuotes.length === 0 ? (
-                  <Link href={withSlug("/admin/order-assignments")} className="block">
+                  // "Book an event" used to land on the dispatch queue
+                  // (order-assignments), which cannot create anything.
+                  // The quote builder is where a booking actually starts.
+                  <Link href={withSlug("/admin/quotes/new")} className="block">
                     <Card className="border-2 border-dashed border-slate-200 hover:border-slate-300 transition-colors">
                       <CardContent className="py-8 text-center">
                         <Plus className="w-8 h-8 mx-auto text-slate-400 mb-2" />
                         <p className="text-sm font-semibold text-slate-700">Book an event</p>
-                        <p className="text-xs text-slate-500 mt-1">No bookings on this day.</p>
+                        <p className="text-xs text-slate-500 mt-1">No bookings on this day. Start a quote to lock it in.</p>
                       </CardContent>
                     </Card>
                   </Link>
