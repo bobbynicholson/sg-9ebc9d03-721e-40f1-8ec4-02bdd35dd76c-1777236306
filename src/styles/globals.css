@@ -417,7 +417,6 @@
    for backwards compatibility. */
 @media (min-width: 1024px) {
   html[data-sidebar-collapsed="true"] .admin-page-shell,
-  html[data-sidebar-collapsed="true"] .internal-footer-shell,
   html[data-sidebar-collapsed="true"] .lg\:pl-64,
   html[data-sidebar-collapsed="true"] .lg\:pl-72,
   html[data-sidebar-collapsed="true"] .xl\:pl-72,
@@ -426,8 +425,7 @@
   }
 
   html[data-sidebar-collapsed="true"] .internal-footer-shell {
-    left: 5rem !important;
-    padding-left: 0 !important;
+    margin-left: 5rem !important;
   }
 }
 

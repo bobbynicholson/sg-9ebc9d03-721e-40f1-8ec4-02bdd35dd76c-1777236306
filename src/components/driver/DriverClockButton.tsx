@@ -51,6 +51,25 @@ const fmtElapsed = (startIso: string): string => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
+const STALE_OPEN_SHIFT_HOURS = 18;
+
+const hoursSince = (startIso: string): number => {
+  const start = new Date(startIso).getTime();
+  if (!Number.isFinite(start)) return 0;
+  return Math.max(0, (Date.now() - start) / 3_600_000);
+};
+
+const fmtShiftStart = (startIso: string): string => {
+  const d = new Date(startIso);
+  if (Number.isNaN(d.getTime())) return "the saved clock-in time";
+  return d.toLocaleString("en-ZA", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 export function DriverClockButton({
   driverId,
   companyId,
@@ -204,26 +223,35 @@ export function DriverClockButton({
   }
 
   if (openShift) {
+    const elapsedHours = hoursSince(openShift.actual_start);
+    const staleOpenShift = elapsedHours >= STALE_OPEN_SHIFT_HOURS;
     return (
-      <Card className="border-brand-primary/20 bg-brand-primary/5">
+      <Card className={staleOpenShift ? "border-amber-300 bg-amber-50" : "border-brand-primary/20 bg-brand-primary/5"}>
         <CardContent className="p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-brand-primary/10 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-brand-primary animate-pulse" />
+          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+            staleOpenShift ? "bg-amber-100" : "bg-brand-primary/10"
+          }`}>
+            <Clock className={`w-5 h-5 ${staleOpenShift ? "text-amber-800" : "text-brand-primary animate-pulse"}`} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-brand-primary">On shift</p>
-            <p className="text-xs text-slate-700 tabular-nums">
-              {fmtElapsed(openShift.actual_start)} since clock in
+            <p className={`text-sm font-semibold ${staleOpenShift ? "text-amber-950" : "text-brand-primary"}`}>
+              {staleOpenShift ? "Clock-out review needed" : "On shift"}
+            </p>
+            <p className={`text-xs tabular-nums ${staleOpenShift ? "text-amber-900" : "text-slate-700"}`}>
+              {staleOpenShift
+                ? `Open since ${fmtShiftStart(openShift.actual_start)} (${fmtElapsed(openShift.actual_start)}). Correct with admin if this was a missed clock-out.`
+                : `${fmtElapsed(openShift.actual_start)} since clock in`}
             </p>
           </div>
           <Button
             size="sm"
             onClick={clockOut}
             disabled={busy}
-            className="bg-brand-primary hover:bg-brand-primary/90 text-white shrink-0"
+            className={`text-white shrink-0 ${staleOpenShift ? "bg-amber-700 hover:bg-amber-800" : "bg-brand-primary hover:bg-brand-primary/90"}`}
+            title={staleOpenShift ? "Clock out now only if this shift is genuinely still running." : undefined}
           >
             {busy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Square className="w-4 h-4 mr-1" />}
-            Clock out
+            {staleOpenShift ? "Clock out now" : "Clock out"}
           </Button>
         </CardContent>
       </Card>

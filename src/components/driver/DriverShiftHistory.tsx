@@ -41,6 +41,15 @@ const hoursOf = (start: string | null, end: string | null): number => {
   return (e - s) / 3_600_000;
 };
 
+const STALE_OPEN_SHIFT_HOURS = 18;
+
+const openHoursOf = (start: string | null): number => {
+  if (!start) return 0;
+  const s = new Date(start).getTime();
+  if (!Number.isFinite(s)) return 0;
+  return Math.max(0, (Date.now() - s) / 3_600_000);
+};
+
 export function DriverShiftHistory({ driverId }: { driverId: string | null | undefined }) {
   const [rows, setRows] = useState<ShiftRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +109,7 @@ export function DriverShiftHistory({ driverId }: { driverId: string | null | und
             {rows.map((s) => {
               const h = hoursOf(s.actual_start, s.actual_end);
               const isOpen = !s.actual_end;
+              const isStaleOpen = isOpen && openHoursOf(s.actual_start) >= STALE_OPEN_SHIFT_HOURS;
               const mult = Number(s.rate_multiplier ?? 1);
               return (
                 <li key={s.id} className="py-2 flex items-start justify-between gap-2">
@@ -107,14 +117,14 @@ export function DriverShiftHistory({ driverId }: { driverId: string | null | und
                     <p className="text-sm text-slate-900 tabular-nums">
                       {fmtTime(s.actual_start)}
                       {!isOpen && (
-                        <span className="text-slate-500"> → {fmtTime(s.actual_end)}</span>
+                        <span className="text-slate-500"> - {fmtTime(s.actual_end)}</span>
                       )}
                     </p>
                     <div className="flex flex-wrap items-center gap-1 mt-0.5">
                       {isOpen ? (
                         <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] gap-1">
                           <AlertCircle className="w-3 h-3" />
-                          Open - still clocked in
+                          {isStaleOpen ? "Open - review needed" : "Open - still clocked in"}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-[10px] tabular-nums">
@@ -123,7 +133,7 @@ export function DriverShiftHistory({ driverId }: { driverId: string | null | und
                       )}
                       {mult > 1 && (
                         <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
-                          ×{mult}
+                          x{mult}
                         </Badge>
                       )}
                     </div>

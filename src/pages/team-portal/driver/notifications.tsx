@@ -266,7 +266,7 @@ export default function DriverNotificationsPage() {
                       className={`w-full p-4 ${
                         n.is_read
                           ? ""
-                          : "border-brand-primary/40 bg-brand-primary/5 dark:bg-brand-primary/10"
+                          : "border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
                       }`}
                     >
                         <div className="flex items-start gap-3">

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Truck, MapPin, Calendar, CheckCircle2, Clock, Package, Loader2, Search, Navigation, ExternalLink,
+  Phone, MessageCircle, Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -353,7 +354,8 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                             reason: "driver outbound call for active delivery",
                           })}
                         >
-                          📞 Call
+                          <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                          Call
                         </a>
                         <a
                           href={`https://wa.me/${String(o.client_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
@@ -371,7 +373,8 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                             reason: "driver outbound WhatsApp for active delivery",
                           })}
                         >
-                          💬 WhatsApp
+                          <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                          WhatsApp
                         </a>
                       </>
                     )}
@@ -388,7 +391,8 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                           reason: "driver outbound email for active delivery",
                         })}
                       >
-                        ✉️ Email
+                        <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                        Email
                       </a>
                     )}
                   </div>
@@ -417,7 +421,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                       {menu.slice(0, 8).map((m: any, i: number) => (
                         <Badge key={`m_${i}`} variant="secondary" className="text-xs">
                           {m.item_name || m.name}
-                          {m.quantity ? ` × ${m.quantity}` : ""}
+                          {m.quantity ? ` x ${m.quantity}` : ""}
                         </Badge>
                       ))}
                       {menu.length > 8 && (
@@ -463,7 +467,7 @@ function DeliveryList({ orders }: { orders: DriverOrder[] }) {
                               )}
                             </span>
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-shrink-0 tabular-nums">
-                              × {Number(eq.quantity) || 0}
+                              x {Number(eq.quantity) || 0}
                             </span>
                           </li>
                         );

@@ -64,9 +64,8 @@ function classifyRoute(pathname: string): "marketing" | "internal" {
  * requires (Privacy + Terms). That's it.
  *
  * No big slate-gradient block, no contact details, no resources list.
- * Single calm hairline divider, slate-500 text. On desktop it pins to the
- * viewport below the sidebar; on mobile it stays in normal document flow so it
- * cannot cover scrollable page content.
+ * Single calm hairline divider, slate-500 text. It stays in normal document
+ * flow on every viewport so it never covers scrollable page content.
  */
 export function SlimInternalFooter({
   displayName,
@@ -76,13 +75,9 @@ export function SlimInternalFooter({
   isWhiteLabeled: boolean;
 }) {
   const currentYear = new Date().getFullYear();
-  // Desktop: pinned to the bottom of the viewport so short admin pages do not
-  // leave a dead band before the footer. Mobile: normal flow. A fixed mobile
-  // footer covered filters and list rows on long pages because it floated over
-  // the viewport while the page kept scrolling underneath.
   return (
     <footer
-      className="internal-footer-shell border-t border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95 lg:fixed lg:bottom-0 lg:left-72 lg:right-0 lg:z-30 xl:left-80"
+      className="internal-footer-shell border-t border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95 lg:ml-72 xl:ml-80"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="px-4 py-2">

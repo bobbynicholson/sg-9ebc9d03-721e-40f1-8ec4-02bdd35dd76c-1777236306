@@ -289,7 +289,7 @@ export default function DriverRoutes() {
       // wants to see "trip ran 1h 23m" in the completed summary.
       trip.stop();
       toast({
-        title: "Excellent Work! 🎊",
+        title: "Trip completed",
         description: `Trip completed in ${trip.elapsedLabel}. Earnings recorded.`,
       });
 
@@ -360,7 +360,7 @@ export default function DriverRoutes() {
               { label: "Stops", value: 0, helper: "Assigned today", icon: RouteIcon, tone: "neutral" },
               { label: "Trip clock", value: "Off", helper: "Starts with shift", icon: Clock, tone: "neutral" },
               { label: "Map", value: "Waiting", helper: "Needs route", icon: Map, tone: "neutral" },
-              { label: "Action", value: "Contact dispatch", helper: "No stops loaded", icon: AlertCircle, tone: "warning" },
+              { label: "Action", value: "Dispatch", helper: "Contact dispatch if this looks wrong", icon: AlertCircle, tone: "warning" },
             ]}
           />
         }
@@ -675,9 +675,9 @@ export default function DriverRoutes() {
                                   driver wants to glance at the venue
                                   contact / equipment / special notes
                                   without leaving the routes page. */}
-                              {(currentStop as any).id && (
+                              {currentStop.order_id && (
                                 <Link
-                                  href={withSlug(staffOrderHref((currentStop as any).id, "driver"))}
+                                  href={withSlug(staffOrderHref(currentStop.order_id, "driver"))}
                                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors duration-150 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                                   title="Open the full driver brief for this order"
                                 >
