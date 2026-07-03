@@ -760,6 +760,67 @@ export const kitchenPrepService = {
     return out;
   },
 
+  // ── Assignment (manager dispatch) ───────────────────────────────────────
+  // The kitchen manager assigns each prep task to a specific team member
+  // (or themselves - managers work the line too). assigned_chef_id existed
+  // in the schema + the display joins from day one but nothing ever wrote
+  // it; this is the writer. Requested 2026-07-04.
+
+  /** Kitchen team members (profiles) who can be assigned prep tasks. */
+  async listKitchenTeam(companyId: string): Promise<Array<{ id: string; full_name: string; role: string }>> {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .eq("company_id", companyId)
+      .in("role", ["kitchen_manager", "kitchen_staff"])
+      .eq("is_active", true)
+      .order("full_name");
+    if (error) {
+      console.error("[kitchenPrepService] kitchen team fetch failed:", error);
+      return [];
+    }
+    return (data || []) as any[];
+  },
+
+  /**
+   * Assign (or unassign with null) a prep task to a kitchen team member.
+   * Notifies the assignee unless they assigned it to themselves.
+   */
+  async assignTask(taskId: string, assigneeId: string | null, assignedById?: string | null): Promise<void> {
+    const { data: task, error } = await (supabase as any)
+      .from("kitchen_prep_tasks")
+      .update({ assigned_chef_id: assigneeId })
+      .eq("id", taskId)
+      .select("order_id, company_id, menu_item_name, task_type")
+      .single();
+    if (error) throw error;
+
+    if (assigneeId && assigneeId !== assignedById) {
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        const { data: ord } = await (supabase as any)
+          .from("orders")
+          .select("order_number")
+          .eq("id", (task as any).order_id)
+          .maybeSingle();
+        await notificationService.createNotification({
+          company_id: (task as any).company_id,
+          recipient_id: assigneeId,
+          user_id: assigneeId,
+          notification_type: "kitchen_task_assigned",
+          title: "Prep task assigned to you",
+          message: `${(task as any).task_type || "Task"}${(task as any).menu_item_name ? ` · ${(task as any).menu_item_name}` : ""} on order ${(ord as any)?.order_number || ""} was assigned to you.`,
+          priority: "normal",
+          link: `/order/${(task as any).order_id}?role=kitchen`,
+          related_entity_type: "order",
+          related_entity_id: (task as any).order_id,
+        } as any);
+      } catch (notifyErr) {
+        console.warn("[kitchenPrepService] assignee notification failed (non-blocking):", notifyErr);
+      }
+    }
+  },
+
   // ── Tick-off ──────────────────────────────────────────────────────────────
 
   async startTask(taskId: string, performedBy: string): Promise<boolean> {

@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { ClipboardCheck, Loader2, Check, Play, Clock, MapPin, RefreshCw } from "lucide-react";
+import { ClipboardCheck, Loader2, Check, Play, Clock, MapPin, RefreshCw, UserCheck } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalCard, StatTile } from "@/components/portal/ui";
 import { CleaningPageShell, CLEANING_HERO_CHIP } from "@/components/cleaning/CleaningPageShell";
@@ -39,12 +39,24 @@ const statusTone: Record<string, string> = {
   skipped:     "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
 };
 
+// Manager dispatch (2026-07-04): who may assign tasks to team members.
+const ASSIGNER_ROLES = new Set<string>([
+  UserRole.CLEANING_MANAGER,
+  UserRole.COMPANY_ADMIN,
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+  UserRole.REGION_ADMIN,
+].map(String));
+
 function CleaningTasksPageInner() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
 
   const [tasks, setTasks] = useState<Schedule[]>([]);
+  const [team, setTeam] = useState<Array<{ id: string; full_name: string }>>([]);
+  const [teamNames, setTeamNames] = useState<Map<string, string>>(new Map());
+  const canAssign = ASSIGNER_ROLES.has(String((user as any)?.role || ""));
   const [loading, setLoading] = useState(true);
   // Command-centre restructure (2026-07-02): a failed read used to
   // toast once and leave the board looking empty ("everything is
@@ -64,6 +76,58 @@ function CleaningTasksPageInner() {
     if (!user?.company_id) return;
     load();
   }, [user?.company_id, filter]);
+
+  // Cleaning team members for the manager's assign dropdown + assignee
+  // name display on rows. Staff also need the name map to read "For X".
+  useEffect(() => {
+    if (!user?.company_id) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("company_id", user.company_id)
+        .in("role", ["cleaning_manager", "cleaning_staff"])
+        .eq("is_active", true)
+        .order("full_name");
+      const rows = (data || []) as Array<{ id: string; full_name: string }>;
+      setTeam(rows);
+      setTeamNames(new Map(rows.map((r) => [r.id, r.full_name])));
+    })();
+  }, [user?.company_id]);
+
+  const assign = async (t: Schedule, assigneeId: string) => {
+    if (!user?.company_id) return;
+    const value = assigneeId || null;
+    setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, assigned_to: value } : x)));
+    try {
+      const { error } = await supabase.from("cleaning_schedules")
+        .update({ assigned_to: value, updated_at: new Date().toISOString() })
+        .eq("id", t.id).eq("company_id", user.company_id);
+      if (error) throw error;
+      // Tell the assignee - unless the manager grabbed it for themselves.
+      if (value && value !== user.id) {
+        try {
+          const { notificationService } = await import("@/services/notificationService");
+          await notificationService.createNotification({
+            company_id: user.company_id,
+            recipient_id: value,
+            user_id: value,
+            notification_type: "cleaning_task_assigned",
+            title: "Cleaning task assigned to you",
+            message: `${t.area_name || "A cleaning task"}${t.scheduled_date ? ` on ${t.scheduled_date}` : ""} was assigned to you.`,
+            priority: "normal",
+            link: "/team-portal/cleaning/tasks",
+          } as any);
+        } catch (notifyErr) {
+          console.warn("[cleaning/tasks] assignee notification failed (non-blocking):", notifyErr);
+        }
+      }
+      toast({ title: value ? "Task assigned" : "Task unassigned", description: value ? `${teamNames.get(value) || "Team member"} has been notified.` : undefined });
+    } catch (e: any) {
+      toast({ title: "Could not assign", description: e?.message ?? undefined, variant: "destructive" });
+      void load();
+    }
+  };
 
   useEffect(() => {
     if (!user?.company_id) return;
@@ -296,6 +360,31 @@ function CleaningTasksPageInner() {
                         {t.scheduled_date && <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-slate-400 dark:text-slate-500" />{t.scheduled_date}</span>}
                         {t.scheduled_time && <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />{t.scheduled_time.slice(0, 5)}</span>}
                       </div>
+                      {/* Assignment: manager picks the team member; staff see
+                          who the task is for. */}
+                      {canAssign && t.status !== "completed" ? (
+                        <label className="mt-1.5 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
+                          <UserCheck className="h-3 w-3 text-brand-primary flex-shrink-0" />
+                          <select
+                            value={t.assigned_to || ""}
+                            onChange={(e) => assign(t, e.target.value)}
+                            className="text-xs border border-slate-200 dark:border-slate-700 rounded px-1 py-0.5 bg-white dark:bg-slate-900 max-w-[180px]"
+                            aria-label="Assign task to team member"
+                          >
+                            <option value="">Unassigned</option>
+                            {team.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.full_name}{m.id === user?.id ? " (me)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : t.assigned_to ? (
+                        <p className={"mt-1 flex items-center gap-1 text-xs " + (t.assigned_to === user?.id ? "text-brand-primary font-semibold" : "text-slate-500 dark:text-slate-400")}>
+                          <UserCheck className="h-3 w-3 flex-shrink-0" />
+                          {t.assigned_to === user?.id ? "Assigned to you" : `For ${teamNames.get(t.assigned_to) || "team member"}`}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       {t.status === "in_progress" ? (

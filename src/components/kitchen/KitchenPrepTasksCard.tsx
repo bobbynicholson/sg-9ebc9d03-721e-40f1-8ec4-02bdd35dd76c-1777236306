@@ -14,12 +14,13 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Play, Loader2, Clock } from "lucide-react";
+import { CheckCircle2, Play, Loader2, Clock, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
+import { UserRole } from "@/types/app";
 
 interface PrepTaskRow {
   id: string;
@@ -31,7 +32,17 @@ interface PrepTaskRow {
   menu_item_name: string | null;
   start_at: string | null;
   duration_min: number | null;
+  assigned_chef_id: string | null;
 }
+
+// Manager dispatch (2026-07-04): who may assign tasks to team members.
+const ASSIGNER_ROLES = new Set<string>([
+  UserRole.KITCHEN_MANAGER,
+  UserRole.COMPANY_ADMIN,
+  UserRole.ADMIN,
+  UserRole.SUPER_ADMIN,
+  UserRole.REGION_ADMIN,
+].map(String));
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -44,19 +55,25 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
   const [names, setNames] = useState<Map<string, string>>(new Map());
+  const [team, setTeam] = useState<Array<{ id: string; full_name: string }>>([]);
+  const [mineOnly, setMineOnly] = useState(false);
+
+  const canAssign = ASSIGNER_ROLES.has(String((user as any)?.role || ""));
 
   const load = useCallback(async () => {
     if (!orderId) return;
     let query = (supabase as any)
       .from("kitchen_prep_tasks")
-      .select("id, task_type, status, started_at, completed_at, completed_by, menu_item_name, start_at, duration_min")
+      .select("id, task_type, status, started_at, completed_at, completed_by, menu_item_name, start_at, duration_min, assigned_chef_id")
       .eq("order_id", orderId)
       .is("deleted_at", null);
     if (companyId) query = query.eq("company_id", companyId);
     const { data } = await query.order("start_at", { ascending: true, nullsFirst: false });
     const rows = dedupeKitchenPrepTasks((data || []) as PrepTaskRow[]);
     setTasks(rows);
-    const ids = Array.from(new Set(rows.map((r) => r.completed_by).filter(Boolean))) as string[];
+    const ids = Array.from(new Set(
+      rows.flatMap((r) => [r.completed_by, r.assigned_chef_id]).filter(Boolean),
+    )) as string[];
     if (ids.length > 0) {
       const { data: profs } = await (supabase as any).from("profiles").select("id, full_name").in("id", ids);
       const m = new Map<string, string>();
@@ -65,6 +82,25 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
     }
     setLoading(false);
   }, [orderId, companyId]);
+
+  // Assignable team members - only fetched for roles that can assign.
+  useEffect(() => {
+    if (!canAssign || !companyId) return;
+    void kitchenPrepService.listKitchenTeam(companyId).then(setTeam);
+  }, [canAssign, companyId]);
+
+  const onAssign = async (taskId: string, assigneeId: string) => {
+    const value = assigneeId || null;
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, assigned_chef_id: value } : t)));
+    try {
+      await kitchenPrepService.assignTask(taskId, value, user?.id);
+      const who = value ? (team.find((m) => m.id === value)?.full_name || "team member") : null;
+      toast({ title: value ? "Task assigned" : "Task unassigned", description: who ? `${who} has been notified.` : undefined });
+    } catch (e: any) {
+      toast({ title: "Could not assign", description: e?.message, variant: "destructive" });
+      void load();
+    }
+  };
 
   useEffect(() => { void load(); }, [load]);
 
@@ -120,15 +156,33 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
   if (loading || tasks.length === 0) return null;
   const doneCount = tasks.filter((t) => t.status === "done" || t.status === "completed").length;
   const allDone = doneCount === tasks.length;
+  const myCount = tasks.filter((t) => t.assigned_chef_id === user?.id).length;
+  const visibleTasks = mineOnly ? tasks.filter((t) => t.assigned_chef_id === user?.id) : tasks;
 
   return (
     <div className="no-print rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 mb-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-brand-primary">Prep tasks - tick as you go</h3>
-        <span className="text-xs font-semibold text-brand-primary tabular-nums">{doneCount}/{tasks.length} done</span>
+        <div className="flex items-center gap-2">
+          {myCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setMineOnly((v) => !v)}
+              className={
+                "text-[11px] font-semibold px-2 py-1 rounded-full border transition-colors " +
+                (mineOnly
+                  ? "bg-brand-primary text-white border-brand-primary"
+                  : "bg-white text-brand-primary border-brand-primary/30 hover:bg-brand-primary/10")
+              }
+            >
+              My tasks ({myCount})
+            </button>
+          )}
+          <span className="text-xs font-semibold text-brand-primary tabular-nums">{doneCount}/{tasks.length} done</span>
+        </div>
       </div>
       <ul className="space-y-1.5">
-        {tasks.map((t) => {
+        {visibleTasks.map((t) => {
           const doneish = t.status === "done" || t.status === "completed";
           const inProgress = t.status === "in_progress";
           const isActing = acting === t.id;
@@ -152,6 +206,31 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
                 {inProgress && t.started_at && (
                   <p className="text-[11px] text-brand-primary">Started · {fmt(t.started_at)}</p>
                 )}
+                {/* Assignment row: managers pick the team member; everyone
+                    else sees who the task is for. */}
+                {canAssign && !doneish ? (
+                  <label className="mt-1 flex items-center gap-1 text-[11px] text-slate-600">
+                    <UserCheck className="w-3 h-3 text-brand-primary flex-shrink-0" />
+                    <select
+                      value={t.assigned_chef_id || ""}
+                      onChange={(e) => onAssign(t.id, e.target.value)}
+                      className="text-[11px] border border-slate-200 rounded px-1 py-0.5 bg-white max-w-[160px]"
+                      aria-label="Assign task to team member"
+                    >
+                      <option value="">Unassigned</option>
+                      {team.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.full_name}{m.id === user?.id ? " (me)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : t.assigned_chef_id ? (
+                  <p className={"text-[11px] mt-0.5 flex items-center gap-1 " + (t.assigned_chef_id === user?.id ? "text-brand-primary font-semibold" : "text-slate-500")}>
+                    <UserCheck className="w-3 h-3 flex-shrink-0" />
+                    {t.assigned_chef_id === user?.id ? "Assigned to you" : `For ${names.get(t.assigned_chef_id) || "team member"}`}
+                  </p>
+                ) : null}
               </div>
               {!doneish ? (
                 <div className="flex items-center gap-1 flex-shrink-0">
