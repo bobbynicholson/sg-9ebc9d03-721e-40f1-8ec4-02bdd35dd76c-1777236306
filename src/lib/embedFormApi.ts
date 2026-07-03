@@ -223,6 +223,7 @@ export function validateSubmission(
 export interface MappedLead {
   contact_name?: string;
   client_name?: string;
+  company_name?: string;
   email?: string;
   client_email?: string;
   phone?: string;
@@ -233,6 +234,7 @@ export interface MappedLead {
   venue_address?: string;
   notes?: string;
   budget?: number;
+  special_requests?: string;
 }
 
 export function mapPayloadToLead(
@@ -292,11 +294,18 @@ export function mapPayloadToLead(
         if (!Number.isNaN(num)) lead.budget = num;
         break;
       }
+      case "company": {
+        // Mirrors the admin lead page's "Company / organisation" field so
+        // corporate enquiries arrive as complete as a manual entry.
+        lead.company_name = String(value).slice(0, 200);
+        break;
+      }
       case "dietary": {
-        const formatted = Array.isArray(value)
-          ? `Dietary: ${value.join(", ")}`
-          : `Dietary: ${value}`;
-        notesParts.push(formatted);
+        // leads.special_requests is where the admin lead page puts
+        // "Special requests / dietary" - land in the same column so the
+        // detail shows in the lead drawer, not buried in notes.
+        const formatted = Array.isArray(value) ? value.join(", ") : String(value);
+        lead.special_requests = formatted.slice(0, 2000);
         break;
       }
       default:

@@ -252,6 +252,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     venue_address: mapped.venue_address || null,
     notes: mapped.notes || null,
     budget: mapped.budget ?? null,
+    // Parity with the admin lead page (Company / organisation +
+    // Special requests / dietary land in the same columns).
+    company_name: mapped.company_name || null,
+    special_requests: mapped.special_requests || null,
     source: "embed",
     status: "new",
   };
