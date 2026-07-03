@@ -1004,12 +1004,46 @@ export const quoteService = {
     // independently so a later cascade failure doesn't roll back a
     // legitimate new client. The resolved id is folded into the
     // payload below.
-    const { data: rpcOrder, error: rpcError } = await db.rpc("convert_quote_to_order", {
+    let { data: rpcOrder, error: rpcError } = await db.rpc("convert_quote_to_order", {
       p_quote_id:      quoteId,
       p_company_id:    q.company_id,
       p_actor_user_id: quote.user_id ?? null,
       p_order_payload: orderData,
     });
+
+    // Prod-drift recovery (2026-07-04): some deployments run an older
+    // convert_quote_to_order body that back-links the order
+    // (converted_to_order_id) WITHOUT also flipping status to 'accepted'.
+    // A draft quote then trips the quotes_draft_implies_no_conversion
+    // CHECK and the whole conversion rolls back - "Mark accepted" fails on
+    // any draft. The canonical fix is re-applying the current RPC (see
+    // supabase/migrations/20260704100000_*), but until that DDL lands we
+    // recover here: pre-flip the quote off 'draft' to 'accepted' (the state
+    // the RPC would leave it in anyway) and retry once. Idempotent against
+    // the fixed RPC, which sets status='accepted' regardless.
+    const isDraftConversionBlock =
+      (rpcError?.message || "").includes("quotes_draft_implies_no_conversion") &&
+      String((quote as any).status) === "draft";
+    if (isDraftConversionBlock) {
+      const { error: preflipErr } = await db
+        .from("quotes")
+        .update({ status: "accepted", accepted_at: (quote as any).accepted_at || new Date().toISOString() })
+        .eq("id", quoteId)
+        .is("converted_to_order_id", null);
+      if (!preflipErr) {
+        ({ data: rpcOrder, error: rpcError } = await db.rpc("convert_quote_to_order", {
+          p_quote_id:      quoteId,
+          p_company_id:    q.company_id,
+          p_actor_user_id: quote.user_id ?? null,
+          p_order_payload: orderData,
+        }));
+        // If the retry still failed, roll the status back so we don't
+        // leave an 'accepted' quote with no order behind us.
+        if (rpcError || !rpcOrder) {
+          await db.from("quotes").update({ status: "draft", accepted_at: (quote as any).accepted_at || null }).eq("id", quoteId).is("converted_to_order_id", null);
+        }
+      }
+    }
 
     if (rpcError || !rpcOrder) {
       console.error("Error converting quote to order:", rpcError);
