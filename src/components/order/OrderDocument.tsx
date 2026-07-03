@@ -454,6 +454,35 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   // but a client shouldn't see the sections at all.
   const isClient = mode === "client" || role === UserRole.CLIENT;
 
+  // ODOC role-relevance (driver feedback 2026-07-04, Pic 81): each
+  // staff role sees only the sections that carry information they act
+  // on - a driver doesn't need the shopping shortfall list or the
+  // cleaning queue on their run sheet. Admin keeps the full document;
+  // client keeps the existing tight summary (header / timeline / menu /
+  // feedback) via the isClient gates. Header + status timeline are
+  // universal and always render.
+  const staffAllowed: ReadonlySet<string> | null = useMemo(() => {
+    if (isClient || primary === "admin") return null;
+    const STAFF_SECTIONS: Record<string, ReadonlySet<string>> = {
+      // Driver: the run sheet (driver) + who's working the floor (waiter).
+      driver: new Set(["driver", "waiter"]),
+      // Waiter: their service panel + the menu they'll be serving.
+      waiter: new Set(["waiter", "kitchen"]),
+      // Kitchen: prep + what's short (shopping) + the driver handover,
+      // plus attachments (dietary forms, briefs live there).
+      kitchen: new Set(["kitchen", "shopping", "driver", "attachments"]),
+      // Shopping: the list itself + the menu that drives it.
+      shopping: new Set(["shopping", "kitchen"]),
+      // Cleaning: their queue + the driver return trip that feeds it.
+      cleaning: new Set(["cleaning", "driver"]),
+    };
+    return STAFF_SECTIONS[primary] ?? null;
+  }, [isClient, primary]);
+  const showFor = useCallback(
+    (key: string) => !staffAllowed || staffAllowed.has(key),
+    [staffAllowed],
+  );
+
   const load = useCallback(async () => {
     if (!orderId) return;
     setLoading(true);
@@ -598,23 +627,27 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     const items: Array<{ id: string; label: string; icon: any; key: ViewerSection | "header" | "timeline" | "admin" | "history" }> = [
       { id: "section-header", label: "Order", icon: FileText, key: "header" },
       { id: "section-timeline", label: "Status", icon: Activity, key: "timeline" },
-      ...(!isClient ? [{ id: "section-history", label: "History", icon: History, key: "history" as const }] : []),
-      { id: "section-kitchen", label: "Kitchen", icon: ChefHat, key: "kitchen" },
-      { id: "section-shopping", label: "Shopping", icon: ShoppingCart, key: "shopping" },
-      { id: "section-driver", label: "Driver", icon: Truck, key: "driver" },
-      { id: "section-waiter", label: "Service", icon: Sparkles, key: "waiter" },
-      { id: "section-cleaning", label: "Cleaning", icon: Droplets, key: "cleaning" },
+      // History is admin-tier context; staff roles work off the status
+      // timeline, so the audit chip is noise on their run sheets.
+      ...(!isClient && showFor("history") ? [{ id: "section-history", label: "History", icon: History, key: "history" as const }] : []),
     ];
+    // Chips mirror the role-relevance gates below so no chip ever
+    // scrolls to a section that isn't mounted for this viewer.
+    if (showFor("kitchen")) items.push({ id: "section-kitchen", label: "Kitchen", icon: ChefHat, key: "kitchen" });
+    if (!isClient && showFor("shopping")) items.push({ id: "section-shopping", label: "Shopping", icon: ShoppingCart, key: "shopping" });
+    if (!isClient && showFor("driver")) items.push({ id: "section-driver", label: "Driver", icon: Truck, key: "driver" });
+    if (!isClient && showFor("waiter")) items.push({ id: "section-waiter", label: "Service", icon: Sparkles, key: "waiter" });
+    if (!isClient && showFor("cleaning")) items.push({ id: "section-cleaning", label: "Cleaning", icon: Droplets, key: "cleaning" });
     if (canSeeFinance) items.push({ id: "section-admin", label: "Finance", icon: Wallet, key: "admin" });
     // Feedback chip only shows on delivered orders. The section
     // itself returns null otherwise so the chip would scroll to
     // nothing - safer to omit when not delivered.
     const isDelivered = !!order && (order.status === "delivered" || order.status === "completed" || !!order.delivered_at);
-    if (isDelivered) items.push({ id: "section-feedback", label: "Feedback", icon: Star, key: "history" as any });
+    if (isDelivered && showFor("feedback")) items.push({ id: "section-feedback", label: "Feedback", icon: Star, key: "history" as any });
     if (canSeeFinance) items.push({ id: "section-comms", label: "Comms", icon: MessageSquare, key: "history" as any });
-    items.push({ id: "section-attachments", label: "Files", icon: Paperclip, key: "history" as any });
+    if (!isClient && showFor("attachments")) items.push({ id: "section-attachments", label: "Files", icon: Paperclip, key: "history" as any });
     return items;
-  }, [canSeeFinance, isClient, order]);
+  }, [canSeeFinance, isClient, order, showFor]);
 
   if (loading) {
     return (
@@ -713,13 +746,19 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         </nav>
       )}
 
-      <OrderTrackingOverview
-        order={order}
-        primary={primary}
-        isClient={isClient}
-        lastLoadedAt={lastLoadedAt}
-        scrollToSection={scrollToSection}
-      />
+      {/* Stage-strip overview: admin + client only. Staff roles have the
+          Status timeline card for the same information - showing both was
+          confusing on mobile, and the strip lagged behind the working
+          timeline (driver feedback 2026-07-04, Pic 80). */}
+      {!staffAllowed && (
+        <OrderTrackingOverview
+          order={order}
+          primary={primary}
+          isClient={isClient}
+          lastLoadedAt={lastLoadedAt}
+          scrollToSection={scrollToSection}
+        />
+      )}
 
       {/* ODOC H.4: admin quick-action chip strip. Mirrors what the
           old OrderDetailsModal toolbar carried so the row-click
@@ -781,7 +820,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           forceOpen={forceAll}
           defaultOpen={true /* timeline is universal context */}
         />
-        {!isClient && (
+        {!isClient && showFor("history") && (
           <HistorySection
             orderId={order.id}
             companyId={order.company_id}
@@ -790,54 +829,66 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           />
         )}
         {/* ODOC: Kitchen section is the canonical menu + equipment +
-            prep view for every role. Default open across the board
-            so the menu isn't hidden behind a tap. Kitchen role still
-            gets the highlight ring. */}
-        <KitchenSection
-          orderId={order.id}
-          companyId={order.company_id}
-          orderNumber={order.order_number}
-          orderStatus={order.status}
-          collectionTime={order.collection_time}
-          eventDate={order.event_date}
-          eventTime={order.event_time}
-          forceOpen={forceAll}
-          defaultOpen={true}
-          highlight={primary === "kitchen"}
-        />
-        {/* Internal operational sections - staff only. A client never
-            sees the shopping list, driver dispatch, waiter staffing or
-            cleaning handover (internal workflow + actions). */}
+            prep view. Default open so the menu isn't hidden behind a
+            tap. Role-gated: drivers get their own load list on the run
+            sheet and cleaning works from their queue, so neither needs
+            the prep view. Kitchen role still gets the highlight ring. */}
+        {showFor("kitchen") && (
+          <KitchenSection
+            orderId={order.id}
+            companyId={order.company_id}
+            orderNumber={order.order_number}
+            orderStatus={order.status}
+            collectionTime={order.collection_time}
+            eventDate={order.event_date}
+            eventTime={order.event_time}
+            forceOpen={forceAll}
+            defaultOpen={true}
+            highlight={primary === "kitchen"}
+          />
+        )}
+        {/* Internal operational sections - staff only, and only the
+            roles that act on them (role-relevance map above). A client
+            never sees the shopping list, driver dispatch, waiter
+            staffing or cleaning handover (internal workflow + actions). */}
         {!isClient && (
           <>
-            <ShoppingSection
-              orderId={order.id}
-              companyId={order.company_id}
-              forceOpen={forceAll}
-              defaultOpen={primary === "shopping" || primary === "kitchen"}
-              highlight={primary === "shopping" || primary === "kitchen"}
-            />
-            <DriverSection
-              order={order}
-              forceOpen={forceAll}
-              defaultOpen={primary === "driver"}
-              highlight={primary === "driver"}
-            />
-            <WaiterSection
-              orderId={order.id}
-              companyId={order.company_id}
-              serviceRequired={!!(order.requires_waiter || order.waiter_service_required)}
-              forceOpen={forceAll}
-              defaultOpen={primary === "waiter"}
-              highlight={primary === "waiter"}
-            />
-            <CleaningSection
-              orderId={order.id}
-              companyId={order.company_id}
-              forceOpen={forceAll}
-              defaultOpen={primary === "cleaning"}
-              highlight={primary === "cleaning"}
-            />
+            {showFor("shopping") && (
+              <ShoppingSection
+                orderId={order.id}
+                companyId={order.company_id}
+                forceOpen={forceAll}
+                defaultOpen={primary === "shopping" || primary === "kitchen"}
+                highlight={primary === "shopping" || primary === "kitchen"}
+              />
+            )}
+            {showFor("driver") && (
+              <DriverSection
+                order={order}
+                forceOpen={forceAll}
+                defaultOpen={primary === "driver"}
+                highlight={primary === "driver"}
+              />
+            )}
+            {showFor("waiter") && (
+              <WaiterSection
+                orderId={order.id}
+                companyId={order.company_id}
+                serviceRequired={!!(order.requires_waiter || order.waiter_service_required)}
+                forceOpen={forceAll}
+                defaultOpen={primary === "waiter" || primary === "driver"}
+                highlight={primary === "waiter"}
+              />
+            )}
+            {showFor("cleaning") && (
+              <CleaningSection
+                orderId={order.id}
+                companyId={order.company_id}
+                forceOpen={forceAll}
+                defaultOpen={primary === "cleaning"}
+                highlight={primary === "cleaning"}
+              />
+            )}
           </>
         )}
         {/* ODOC: Finance section is permission-gated at render time.
@@ -855,13 +906,15 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         {/* ODOC Wave E: customer feedback - only mounts post-delivery.
             Section returns null when not delivered so the doc stays
             tight for pre-event orders. */}
-        <FeedbackSection
-          orderId={order.id}
-          companyId={order.company_id}
-          delivered={order.status === "delivered" || order.status === "completed" || !!order.delivered_at}
-          forceOpen={forceAll}
-          defaultOpen={false}
-        />
+        {showFor("feedback") && (
+          <FeedbackSection
+            orderId={order.id}
+            companyId={order.company_id}
+            delivered={order.status === "delivered" || order.status === "completed" || !!order.delivered_at}
+            forceOpen={forceAll}
+            defaultOpen={false}
+          />
+        )}
         {/* ODOC Wave F: communications log - admin-only, unified
             feed of notifications + outgoing emails for this order. */}
         {canSeeFinance && (
@@ -874,15 +927,13 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         )}
         {/* ODOC Wave F: file attachments - contracts, dietary forms,
             venue maps, etc. Visible to all staff (RLS handles scope). */}
-        {!isClient && (
-          <>
-            <AttachmentsSection
-              orderId={order.id}
-              companyId={order.company_id}
-              forceOpen={forceAll}
-              defaultOpen={false}
-            />
-          </>
+        {!isClient && showFor("attachments") && (
+          <AttachmentsSection
+            orderId={order.id}
+            companyId={order.company_id}
+            forceOpen={forceAll}
+            defaultOpen={false}
+          />
         )}
       </div>
     </div>

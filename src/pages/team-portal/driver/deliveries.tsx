@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -562,68 +561,58 @@ function DeliveryList({
                 the quote, it persisted through the quote -> order
                 conversion, the kitchen sees it on prep-list, the
                 driver sees it here. */}
+            {/* Driver feedback 2026-07-04 (Pic 82): one clean load list.
+                Food and equipment render as identical rows (name left,
+                quantity right) in a single column - no chip/list mix, no
+                side-by-side columns on desktop, no full food list hidden
+                behind "+N more". Ownership (OWNED / HIRE-IN split) and
+                category metadata are back-office concerns; the driver
+                only needs what to load and how many. */}
             {(equipment.length > 0 || menu.length > 0) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 {menu.length > 0 && (
                   <div>
                     <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
                       Food on board ({menu.length})
                     </p>
-                    <div className="flex flex-wrap gap-1">
-                      {menu.slice(0, 8).map((m, i) => (
-                        <Badge key={`m_${i}`} variant="secondary" className="text-xs">
-                          {m.item_name || m.name}
-                          {m.quantity ? ` x ${m.quantity}` : ""}
-                        </Badge>
+                    <ul className="space-y-1">
+                      {menu.map((m, i) => (
+                        <li
+                          key={`m_${i}`}
+                          className="flex items-center justify-between gap-2 text-sm bg-slate-50 border border-slate-200 rounded px-2 py-1.5 dark:bg-slate-800/50 dark:border-slate-700"
+                        >
+                          <span className="text-slate-800 dark:text-slate-200 min-w-0 flex-1 truncate">
+                            {m.item_name || m.name || "(unnamed)"}
+                          </span>
+                          {m.quantity ? (
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-shrink-0 tabular-nums">
+                              x {Number(m.quantity)}
+                            </span>
+                          ) : null}
+                        </li>
                       ))}
-                      {menu.length > 8 && (
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 self-center">
-                          +{menu.length - 8} more
-                        </span>
-                      )}
-                    </div>
+                    </ul>
                   </div>
                 )}
                 {equipment.length > 0 && (
                   <div>
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
                       Equipment to load ({equipment.length})
                     </p>
                     <ul className="space-y-1">
-                      {equipment.map((eq, i) => {
-                        const fromStock = Number(eq.from_stock_qty);
-                        const fromHire = Number(eq.from_hire_qty);
-                        const hasSplit =
-                          Number.isFinite(fromStock) &&
-                          Number.isFinite(fromHire) &&
-                          (fromStock > 0 || fromHire > 0);
-                        return (
-                          <li
-                            key={`eq_${i}`}
-                            className="flex flex-wrap items-center justify-between gap-2 text-sm bg-slate-50 border border-slate-200 rounded px-2 py-1.5 dark:bg-slate-800/50 dark:border-slate-700"
-                          >
-                            <span className="text-slate-800 dark:text-slate-200 min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
-                              <span className="truncate">{eq.name || "(unnamed)"}</span>
-                              {eq.category && (
-                                <span className="text-[11px] text-slate-500 dark:text-slate-400">{eq.category}</span>
-                              )}
-                              {hasSplit && fromStock > 0 && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-primary/15 text-brand-primary border border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30">
-                                  {fromStock} OWNED
-                                </span>
-                              )}
-                              {hasSplit && fromHire > 0 && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900">
-                                  {fromHire} HIRE-IN
-                                </span>
-                              )}
-                            </span>
-                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-shrink-0 tabular-nums">
-                              x {Number(eq.quantity) || 0}
-                            </span>
-                          </li>
-                        );
-                      })}
+                      {equipment.map((eq, i) => (
+                        <li
+                          key={`eq_${i}`}
+                          className="flex items-center justify-between gap-2 text-sm bg-slate-50 border border-slate-200 rounded px-2 py-1.5 dark:bg-slate-800/50 dark:border-slate-700"
+                        >
+                          <span className="text-slate-800 dark:text-slate-200 min-w-0 flex-1 truncate">
+                            {eq.name || "(unnamed)"}
+                          </span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-shrink-0 tabular-nums">
+                            x {Number(eq.quantity) || 0}
+                          </span>
+                        </li>
+                      ))}
                     </ul>
                   </div>
                 )}

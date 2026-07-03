@@ -278,21 +278,19 @@ export const driverConfirmationService = {
   },
 
   /**
-   * Driver confirms arrival at venue.
-   *
-   * Flow audit Leg E P0-5: previously the POD args were never
-   * accepted by this path (DriverConfirmationPanel calls it without
-   * POD), so every delivery confirmed via the canonical driver tap
-   * landed with NULL pod_*, tripping the POD-missing admin alert
-   * and leaving no proof on disputed drops. Now accepts optional
-   * POD artefacts and stamps them BEFORE the status flip so the
-   * delivered branch's POD-missing check passes.
+   * Driver confirms arrival at venue. Arrival is now a plain
+   * checkpoint (driver feedback 2026-07-04, Pic 83): the tap inserts
+   * the at_venue confirmation (the DB trigger stamps
+   * orders.arrived_at_venue_at) and notifies dispatch + the client,
+   * but the POD capture and the delivered flip moved to
+   * completeSetupWithPod() - proof of delivery can only be signed
+   * once everything is offloaded AND set up, not the moment the
+   * truck pulls in.
    */
   async confirmAtVenue(
     orderId: string,
     driverId: string,
     location?: { lat: number; lng: number },
-    pod?: { photoUrl?: string; signatureUrl?: string; recipientName?: string; notes?: string },
   ) {
     const { data, error } = await (supabase as any)
       .from('driver_confirmations')
@@ -302,7 +300,6 @@ export const driverConfirmationService = {
         confirmation_type: 'at_venue',
         location_lat: location?.lat,
         location_lng: location?.lng,
-        notes: pod?.notes,
         confirmed_at: new Date().toISOString()
       }])
       .select()
@@ -310,34 +307,68 @@ export const driverConfirmationService = {
 
     if (error) throw error;
 
-    // Persist POD on the orders row up front (before the delivered
-    // transition runs its POD-missing check).
-    if (pod && (pod.photoUrl || pod.signatureUrl || pod.recipientName)) {
-      const podUpdate: any = { pod_captured_at: new Date().toISOString() };
-      if (pod.photoUrl) podUpdate.pod_photo_url = pod.photoUrl;
-      if (pod.signatureUrl) podUpdate.pod_signature_url = pod.signatureUrl;
-      if (pod.recipientName) podUpdate.pod_recipient_name = pod.recipientName;
-      try {
-        await (supabase as any).from("orders").update(podUpdate).eq("id", orderId);
-      } catch (podErr) {
-        console.warn("[confirmAtVenue] POD stamp failed (non-blocking):", podErr);
-      }
-    }
-
     await this.notifyAdminOfConfirmation(orderId, driverId, 'at_venue');
 
     // Send WhatsApp to client
     await this.sendWhatsAppNotification(orderId, 'driver_arrived');
 
-    // Advance order status to delivered. updateOrderStatus now fires
-    // the full cascade: inventory deduction (Leg D), POD-missing alert
-    // (skipped if POD was just persisted above), cleaning rows,
+    return data as DriverConfirmation;
+  },
+
+  /**
+   * Driver taps "Setup completed" and captures the POD in the same
+   * step (driver feedback 2026-07-04, Pic 83). This is the moment the
+   * drop is provably done - food offloaded, equipment rigged, a
+   * recipient signing for it - so THIS is where the POD lands and the
+   * order flips to delivered (previously both happened on arrival).
+   *
+   * Order of operations matters: POD columns are stamped BEFORE the
+   * delivered transition so updateOrderStatus's POD-missing alert
+   * check passes.
+   */
+  async completeSetupWithPod(
+    orderId: string,
+    driverId: string,
+    location?: { lat: number; lng: number },
+    pod?: { photoUrl?: string; signatureUrl?: string; recipientName?: string; notes?: string },
+  ) {
+    // Audit row + orders.setup_started_at stamp + dispatch ping.
+    const data = await _stampPostArrivalEvent({
+      orderId,
+      driverId,
+      location,
+      confirmationType: "setup_started",
+      orderColumn: "setup_started_at",
+    });
+
+    // Persist POD on the orders row up front (before the delivered
+    // transition runs its POD-missing check). pod_* columns are in the
+    // driver whitelist, so this write is legal for the driver role.
+    if (pod && (pod.photoUrl || pod.signatureUrl || pod.recipientName)) {
+      const podUpdate: any = { pod_captured_at: new Date().toISOString() };
+      if (pod.photoUrl) podUpdate.pod_photo_url = pod.photoUrl;
+      if (pod.signatureUrl) podUpdate.pod_signature_url = pod.signatureUrl;
+      if (pod.recipientName) podUpdate.pod_recipient_name = pod.recipientName;
+      const { error: podErr } = await (supabase as any)
+        .from("orders")
+        .update(podUpdate)
+        .eq("id", orderId);
+      if (podErr) {
+        // Surface this one - a POD the driver captured but that never
+        // landed is exactly the dispute-time gap the feature exists for.
+        throw podErr;
+      }
+    }
+
+    // Advance order status to delivered. updateOrderStatus fires the
+    // full cascade: inventory deduction (Leg D), POD-missing alert
+    // (skipped - POD was just persisted above), cleaning rows,
     // collection scheduler, pending_reviews queue, after-sales.
     try {
       const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
       await updateOrderStatus(orderId, "delivered" as any, driverId);
     } catch (statusErr) {
-      console.warn("[confirmAtVenue] order status flip failed (non-blocking):", statusErr);
+      console.warn("[completeSetupWithPod] order status flip failed (non-blocking):", statusErr);
     }
 
     // Close the driver's auto-shift. Flow audit Leg E P0-4: the
@@ -357,26 +388,10 @@ export const driverConfirmationService = {
         await (driverPayService as any).autoClockOut({ companyId, driverId, orderId });
       }
     } catch (shiftErr) {
-      console.warn("[confirmAtVenue] autoClockOut failed (non-blocking):", shiftErr);
+      console.warn("[completeSetupWithPod] autoClockOut failed (non-blocking):", shiftErr);
     }
 
     return data as DriverConfirmation;
-  },
-
-  /**
-   * Wave 49 B2 - driver taps "Setup started" once rigging at the
-   * venue has begun. Stamps orders.setup_started_at + driver_confirmations
-   * audit row. Non-blocking on every sub-step so a failed mirror
-   * never blocks the tap.
-   */
-  async markSetupStarted(orderId: string, driverId: string, location?: { lat: number; lng: number }) {
-    return _stampPostArrivalEvent({
-      orderId,
-      driverId,
-      location,
-      confirmationType: "setup_started",
-      orderColumn: "setup_started_at",
-    });
   },
 
   /**

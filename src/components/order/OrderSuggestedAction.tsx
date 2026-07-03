@@ -109,7 +109,7 @@ export function OrderSuggestedAction({ order }: Props) {
     } else if (order.arrived_at_venue_at && !order.delivered_at) {
       candidates.push({
         weight: 90,
-        text: "You're on site - hand the order over and stamp delivered.",
+        text: "You're on site - offload and set up, then capture the POD to mark delivered.",
         tone: "amber",
       });
     } else if (order.picked_up_at && !order.arrived_at_venue_at && collectionDt) {

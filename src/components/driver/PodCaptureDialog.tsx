@@ -20,11 +20,12 @@ interface Props {
    * Optional capture handler. When supplied, the dialog uploads the
    * photo + signature and hands the URLs back to the caller instead of
    * doing its own orders update + delivered flip. Used by the driver
-   * "Arrived at venue" flow, where the write must route through
-   * confirmAtVenue() so the at_venue driver_confirmation is inserted
-   * (that's what stamps arrived_at_venue_at) AND the POD is recorded AND
-   * the status flips to delivered - all in one consistent path. Without
-   * this prop the dialog keeps its original self-contained behaviour.
+   * "Setup completed" flow, where the write must route through
+   * completeSetupWithPod() so the setup_started driver_confirmation is
+   * inserted (that's what stamps setup_started_at) AND the POD is
+   * recorded AND the status flips to delivered - all in one consistent
+   * path. Without this prop the dialog keeps its original
+   * self-contained behaviour.
    */
   onCapture?: (pod: { photoUrl: string; signatureUrl: string | null; recipientName: string }) => Promise<void>;
   /** Header verb override - e.g. "Arrived at venue" vs "Confirm delivery". */

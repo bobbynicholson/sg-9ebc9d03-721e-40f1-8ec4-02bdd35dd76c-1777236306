@@ -304,12 +304,18 @@ export function NotificationBell() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        side="right"
-        align="start"
+        side="bottom"
+        align="end"
         collisionPadding={12}
         avoidCollisions
         className={cn(
-          // Opens to the RIGHT of the bell so it sits clear of the sidebar.
+          // Opens BELOW the bell. The old side="right" placement was built
+          // for the sidebar bell, but the portal headers put the bell in
+          // the top-right corner - on a phone Radix flipped it to the left
+          // where a 420px panel can't fit and hung it half off-screen
+          // (driver feedback 2026-07-04, Pic 79). With side="bottom" the
+          // horizontal overflow sits on the ALIGN axis, which
+          // avoidCollisions can correct in both header and sidebar slots.
           // Strong shadow + rounded corners + ring so it reads as a distinct
           // floating panel hovering above the dashboard, not something laid
           // flat over the content. overflow-hidden keeps the rounded corners

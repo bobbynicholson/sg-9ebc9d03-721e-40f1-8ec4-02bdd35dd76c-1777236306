@@ -57,11 +57,12 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   const [venueCoords, setVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [autoArrivalDist, setAutoArrivalDist] = useState<number | null>(null);
   const autoFiredRef = useRef(false);
-  // POD-on-arrival: the "Arrived at venue" tap now requires proof of
-  // delivery. Opening this dialog (manual tap OR geofence auto-detect)
-  // captures photo + signature + recipient, then routes the write
-  // through confirmAtVenue() so arrival is stamped, POD recorded, and
-  // status flipped to delivered in one path.
+  // POD-on-setup-complete (driver feedback 2026-07-04): arrival is a
+  // plain checkpoint; the POD is captured on the "Setup completed"
+  // step instead, because proof can only be signed once everything is
+  // offloaded AND rigged. The dialog routes through
+  // completeSetupWithPod() so the setup stamp, the POD and the
+  // delivered flip happen in one path.
   const [podOpen, setPodOpen] = useState(false);
 
   useEffect(() => {
@@ -146,10 +147,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         setAutoArrivalDist(dist);
         if (dist <= GEOFENCE_RADIUS_M && !autoFiredRef.current && !isConfirmed("at_venue")) {
           autoFiredRef.current = true;
-          // POD is required to confirm arrival, so GPS can't silently
-          // stamp it - prompt the driver to capture proof instead.
-          toast({ title: "📍 You're at the venue", description: "Capture proof of delivery to confirm arrival." });
-          setPodOpen(true);
+          // Arrival is a plain checkpoint again (POD moved to the
+          // Setup completed step), so the geofence can auto-stamp it.
+          toast({ title: "📍 You're at the venue", description: "Arrival checked in automatically." });
+          void handleConfirm("at_venue");
         }
       },
       (err) => console.warn("[DriverConfirmationPanel] geofence watch error:", err?.message),
@@ -165,7 +166,6 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
       | 'at_kitchen'
       | 'departed_kitchen'
       | 'at_venue'
-      | 'setup_started'
       | 'service_started'
       | 'departed_venue',
   ) => {
@@ -196,9 +196,6 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           break;
         case 'at_venue':
           result = await driverConfirmationService.confirmAtVenue(orderId, user.id, geoLocation || undefined);
-          break;
-        case 'setup_started':
-          result = await (driverConfirmationService as any).markSetupStarted(orderId, user.id, geoLocation || undefined);
           break;
         case 'service_started':
           result = await (driverConfirmationService as any).markServiceStarted(orderId, user.id, geoLocation || undefined);
@@ -357,26 +354,30 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </Badge>
           ) : (
             <Button
-              onClick={() => setPodOpen(true)}
+              onClick={() => handleConfirm('at_venue')}
               disabled={loading || !isConfirmed('departed_kitchen')}
               size="sm"
             >
-              Capture POD
+              Confirm
             </Button>
           )}
         </div>
 
-        {/* Wave 49 B2 - new post-arrival stamps. Setup -> service ->
-            depart. Each writes orders.<column>_at and a
-            driver_confirmations audit row, fires a dispatch ping.
-            Pre-Wave-49 these moments were invisible to the system. */}
+        {/* Post-arrival stamps: setup complete -> service -> depart.
+            Each writes orders.<column>_at and a driver_confirmations
+            audit row, fires a dispatch ping. */}
 
-        {/* Setup started */}
+        {/* Setup completed + POD capture. Driver feedback 2026-07-04:
+            the POD can only be signed once everything is delivered AND
+            set up, so the capture button lives on this step (it was on
+            "Arrived at venue"). The tap opens the POD dialog; saving it
+            stamps setup_started_at, records the POD and flips the order
+            to delivered in one path. */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
             <Package className={`h-5 w-5 ${isConfirmed('setup_started') ? 'text-brand-primary' : 'text-gray-400'}`} />
             <div>
-              <p className="font-medium">Setup started</p>
+              <p className="font-medium">Setup completed</p>
               {isConfirmed('setup_started') && (
                 <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('setup_started')}</p>
               )}
@@ -389,11 +390,11 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             </Badge>
           ) : (
             <Button
-              onClick={() => handleConfirm('setup_started')}
+              onClick={() => setPodOpen(true)}
               disabled={loading || !isConfirmed('at_venue')}
               size="sm"
             >
-              Tap when rigging begins
+              Capture POD
             </Button>
           )}
         </div>
@@ -592,18 +593,18 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         )}
       </CardContent>
 
-      {/* POD-on-arrival: capturing proof IS how arrival is confirmed.
-          The write routes through confirmAtVenue so the at_venue
-          confirmation (which stamps arrived_at_venue_at), the POD, and
-          the delivered flip all happen together. */}
+      {/* POD-on-setup-complete: capturing proof IS how setup is marked
+          complete. The write routes through completeSetupWithPod so the
+          setup_started confirmation (which stamps setup_started_at),
+          the POD, and the delivered flip all happen together. */}
       {user && (
         <PodCaptureDialog
           open={podOpen}
           onOpenChange={setPodOpen}
           orderId={orderId}
-          title="Arrived at venue"
+          title="Setup completed"
           onCapture={async (pod) => {
-            await driverConfirmationService.confirmAtVenue(
+            await (driverConfirmationService as any).completeSetupWithPod(
               orderId,
               user.id,
               geoLocation || undefined,
@@ -611,7 +612,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
             );
           }}
           onSaved={async () => {
-            toast({ title: "✅ Arrived + POD captured", description: "Delivery confirmed with proof." });
+            toast({ title: "✅ Setup complete + POD captured", description: "Delivery confirmed with proof." });
             await loadConfirmations();
           }}
         />
