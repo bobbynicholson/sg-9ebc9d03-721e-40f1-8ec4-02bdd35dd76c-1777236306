@@ -301,8 +301,32 @@ export function ReceiptDialog({
     .filter(Boolean)
     .join(", ");
 
-  const handlePrint = () => {
-    if (typeof window !== "undefined") window.print();
+  const [downloading, setDownloading] = useState(false);
+
+  // Download the clean react-pdf receipt (no browser print chrome /
+  // page breaks) from the server endpoint. Falls back to window.print()
+  // if the render endpoint is unreachable so the client is never stuck.
+  // (2026-07-04 - PDF hygiene sweep across all document types.)
+  const handlePrint = async () => {
+    if (!invoiceId) { if (typeof window !== "undefined") window.print(); return; }
+    setDownloading(true);
+    try {
+      const resp = await fetch(`/api/invoices/${invoiceId}/receipt-pdf`);
+      if (!resp.ok) throw new Error(`Receipt request failed (${resp.status})`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${documentLabel.replace(/\s+/g, "-")}-${invoice?.invoice_number || invoiceId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch {
+      if (typeof window !== "undefined") window.print();
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -548,9 +572,9 @@ export function ReceiptDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-            <Button onClick={handlePrint} className="bg-brand-primary hover:bg-brand-primary/90">
+            <Button onClick={handlePrint} disabled={downloading} className="bg-brand-primary hover:bg-brand-primary/90">
               <Printer className="w-4 h-4 mr-2" />
-              Print / Save as PDF
+              {downloading ? "Preparing..." : "Download PDF"}
             </Button>
           </div>
         )}

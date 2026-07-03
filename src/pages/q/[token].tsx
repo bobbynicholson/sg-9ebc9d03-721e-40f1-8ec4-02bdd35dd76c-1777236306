@@ -95,6 +95,35 @@ export default function PublicQuotePage() {
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Download the REAL generated PDF (clean react-pdf: no browser
+  // header/footer, controlled page breaks) instead of window.print()
+  // which stamped the browser's date/URL/page-number chrome onto the
+  // output. Streams from the public token-gated endpoint. (2026-07-04)
+  const downloadPdf = async () => {
+    if (!token || downloadingPdf) return;
+    setDownloadingPdf(true);
+    try {
+      const resp = await fetch(`/api/public/quotes/${token}/pdf`);
+      if (!resp.ok) throw new Error(`PDF request failed (${resp.status})`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Quote-${quote?.quote_number || token}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch {
+      // Fall back to the browser print dialog if the render endpoint is
+      // unreachable, so the client is never left with no way to save.
+      try { window.print(); } catch { /* ignore */ }
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   // Wave 21 audit: Decline flow. Used to be missing entirely - the
   // client could only Accept or Request changes; saying "no thanks"
@@ -505,11 +534,12 @@ export default function PublicQuotePage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.print()}
+              onClick={downloadPdf}
+              disabled={downloadingPdf}
               className="gap-1.5"
             >
               <Printer className="w-4 h-4" />
-              Download PDF
+              {downloadingPdf ? "Preparing..." : "Download PDF"}
             </Button>
           </div>
 
@@ -941,11 +971,12 @@ export default function PublicQuotePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.print()}
+                      onClick={downloadPdf}
+                      disabled={downloadingPdf}
                       className="gap-1.5 text-stone-700"
                     >
                       <Printer className="w-4 h-4" />
-                      Save a copy of this quote
+                      {downloadingPdf ? "Preparing..." : "Save a copy of this quote"}
                     </Button>
                     {/* Post-acceptance, the "tweak something" path is
                         the primary interaction left - catering plans

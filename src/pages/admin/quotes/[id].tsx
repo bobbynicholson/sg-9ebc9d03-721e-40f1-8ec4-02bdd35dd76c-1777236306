@@ -1381,7 +1381,10 @@ function AdminQuoteDetailInner() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              window.open(`${window.location.origin}/q/${(quote as any).public_token}?print=1`, "_blank", "noopener");
+                              // Clean react-pdf download (no browser
+                              // print chrome / bad page breaks), same
+                              // endpoint the quotes list uses. 2026-07-04.
+                              window.open(`/api/admin/quote-pdf?id=${quote.id}`, "_blank", "noopener");
                             }}
                             className="gap-1.5 text-slate-600"
                           >
