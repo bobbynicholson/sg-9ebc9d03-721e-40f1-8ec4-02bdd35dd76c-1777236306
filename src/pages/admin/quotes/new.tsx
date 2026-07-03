@@ -2389,6 +2389,35 @@ function NewQuotePage() {
               same conditions + copy. empty:hidden collapses the wrapper
               (and its margin) when no banner is active. */}
           <div className="mb-6 space-y-2 empty:hidden">
+                {/* Live-order warning (2026-07-04): a converted quote IS
+                    a live order. Editing it mirrors straight onto that
+                    order. This was only surfaced once the operator toggled
+                    "revise" mode; drivers/admins kept editing the booking
+                    thinking they were on a fresh quote. Always-on, top of
+                    the form, unmissable. */}
+                {isConvertedQuote && (
+                  <div className="p-3 rounded-lg border border-amber-300 bg-amber-50 text-sm text-amber-900 flex items-start gap-2.5">
+                    <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0 text-amber-600" />
+                    <div>
+                      <strong className="font-semibold">
+                        This is a live order{linkedOrderNumber ? ` (${linkedOrderNumber})` : ""}, not a fresh quote.
+                      </strong>{" "}
+                      Any change you save here updates the booking itself, re-plans kitchen prep and re-syncs equipment.
+                      To book a <strong>separate event</strong> for this client, go to <em>Quotes → New Quote</em> and start a new one.
+                      {linkedOrderId && (
+                        <>
+                          {" "}
+                          <a
+                            href={withSlug(`/admin/orders?orderId=${linkedOrderId}`)}
+                            className="underline font-medium whitespace-nowrap"
+                          >
+                            Open order
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {/* Hydrate-failure banner: the quote being edited did
                     NOT load. Everything below is a blank form, so stop
                     the operator before they retype (and duplicate) it. */}
