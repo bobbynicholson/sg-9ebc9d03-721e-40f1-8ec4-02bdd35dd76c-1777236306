@@ -40,17 +40,23 @@ Spit Braai's live data.
 data.** Test data created here can be stripped later with
 `node scripts/fresh-start-cleanup.mjs` (keeps clients/leads/catalogue).
 
-### Lead-capture form links (Spit Braai's token)
+### Lead-capture form links (Spit Braai's token) - REAL, submitting forms
+
+Hosted at /embed/form.html - real configured fields, real lead creation:
 
 - Quick Card:
-  <https://cateringms.com/embed/demo.html?token=e877e365-d5b7-4839-b386-d5253f0c1141&slug=quick-card-3gg6&template=quick-card>
+  <https://cateringms.com/embed/form.html?token=e877e365-d5b7-4839-b386-d5253f0c1141&slug=quick-card-3gg6>
 - Detailed Multi-Step:
-  <https://cateringms.com/embed/demo.html?token=e877e365-d5b7-4839-b386-d5253f0c1141&slug=detailed-multi-step-qbvs&template=detailed-multi-step>
-- Pricing Calculator:
-  <https://cateringms.com/embed/demo.html?token=e877e365-d5b7-4839-b386-d5253f0c1141&slug=pricing-calculator-gozm&template=pricing-calculator>
+  <https://cateringms.com/embed/form.html?token=e877e365-d5b7-4839-b386-d5253f0c1141&slug=detailed-multi-step-qbvs>
+- Pricing Calculator (live estimate from real tiers Essential/Classic/Premium):
+  <https://cateringms.com/embed/form.html?token=e877e365-d5b7-4839-b386-d5253f0c1141&slug=pricing-calculator-gozm>
+
+NOTE: /embed/demo.html is the ADMIN PREVIEW - it renders placeholder
+fields and never submits. Only form.html (or the snippet on a real
+website) creates leads.
 
 Forms are managed at Admin -> Integrations -> Embed (snippet for any
-website, per-form view/submission stats, token rotation).
+website, per-form view/submission stats, token rotation, pricing tiers).
 
 ### Open all portals logged in (one window per user)
 

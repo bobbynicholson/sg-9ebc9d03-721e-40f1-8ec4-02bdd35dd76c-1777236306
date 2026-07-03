@@ -61,7 +61,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { data: company, error: companyErr } = await (supabase as any)
     .from("companies")
     .select(
-      "id, company_name, primary_color, secondary_color, logo_url, is_active, deleted_at, embed_token"
+      "id, company_name, primary_color, secondary_color, logo_url, is_active, deleted_at, embed_token, embed_pricing_tiers, currency"
     )
     .eq("embed_token", token)
     .maybeSingle();
@@ -129,9 +129,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     formId: form.id,
     slug: form.slug,
     templateId: form.template_id,
+    // loader.js reads config.template (fallbackConfig uses that key);
+    // ship both so the template resolves without the override attr.
+    template: form.template_id,
     name: form.name,
     fields: form.fields || [],
     theme: form.theme || {},
+    // Live pricing tiers for the calculator/estimator templates. Without
+    // this the templates silently fell back to hardcoded placeholder
+    // tiers (Basic/Standard/Premium R250-450) even when the tenant had
+    // configured real tiers - and the placeholder tier ids then missed
+    // in the /estimate lookup ("No pricing configured").
+    tiers: Array.isArray((company as any).embed_pricing_tiers)
+      ? (company as any).embed_pricing_tiers
+      : [],
+    currency: (company as any).currency || "ZAR",
     successMessage:
       form.success_message || "Thanks, we'll be in touch shortly.",
     redirectUrl: form.redirect_url || null,
