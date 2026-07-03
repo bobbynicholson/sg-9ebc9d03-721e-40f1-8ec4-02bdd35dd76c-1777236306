@@ -67,20 +67,31 @@ export interface ReceiptPdfRenderOptions {
 }
 
 /**
- * Hide the require behind eval so the bundler doesn't see it. Same
- * pattern as emailService -> nodemailer. Returns the @react-pdf
- * `pdf` factory.
+ * Load @react-pdf/renderer at runtime, server-side only.
+ *
+ * v4 of @react-pdf/renderer is an ES Module. The previous
+ * eval("require")(...) did a CommonJS require() of it, which throws
+ * ERR_REQUIRE_ESM in the Vercel Node runtime - silently breaking EVERY
+ * server-generated PDF (quote / invoice / receipt) in production
+ * (found 2026-07-04). A native dynamic import() handles ESM correctly.
+ *
+ * webpackIgnore keeps webpack from re-processing the specifier, so it
+ * stays a real runtime import from node_modules (never bundled into the
+ * client, matching the old eval-require intent). The package is still
+ * traced into the serverless function because the Document components
+ * import it statically.
  */
-function loadReactPdf(): any {
+async function loadReactPdf(): Promise<any> {
   if (typeof window !== "undefined") {
     throw new Error(
       "renderPdf can only run server-side - @react-pdf/renderer's " +
         "Node stream pipeline isn't available in the browser.",
     );
   }
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const getRequire = () => eval("require");
-  return getRequire()("@react-pdf/renderer");
+  const mod = await import(/* webpackIgnore: true */ "@react-pdf/renderer");
+  // ESM namespace or interop default - normalise so callers get the
+  // module object that carries `pdf`.
+  return (mod as any)?.pdf ? mod : ((mod as any)?.default ?? mod);
 }
 
 /**
@@ -139,7 +150,7 @@ export async function renderQuotePdf(
     });
   }
 
-  const reactPdf = loadReactPdf();
+  const reactPdf = await loadReactPdf();
   const instance = reactPdf.pdf(React.createElement(QuoteDocument, { data }));
   const result = await instance.toBuffer();
   const buffer = await streamToBuffer(result);
@@ -185,7 +196,7 @@ export async function renderInvoicePdf(
     });
   }
 
-  const reactPdf = loadReactPdf();
+  const reactPdf = await loadReactPdf();
   const instance = reactPdf.pdf(React.createElement(InvoiceDocument, { data }));
   const result = await instance.toBuffer();
   const buffer = await streamToBuffer(result);
@@ -235,7 +246,7 @@ export async function renderReceiptPdf(
     });
   }
 
-  const reactPdf = loadReactPdf();
+  const reactPdf = await loadReactPdf();
   const instance = reactPdf.pdf(React.createElement(ReceiptDocument, { data }));
   const result = await instance.toBuffer();
   const buffer = await streamToBuffer(result);
