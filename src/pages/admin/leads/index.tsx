@@ -337,6 +337,22 @@ function templateForLeadAction(
       : `your enquiry`;
   const sig = `\n\nBest,\n${fromName || "the team"}`;
 
+  // Only ask for details the lead is actually missing (2026-07-04): the
+  // reply/touch-base copy used to hardcode "confirm guest numbers and
+  // venue" even when the lead already had 99 guests captured - asking the
+  // client to re-supply what we already know reads as sloppy. Build the
+  // ask from whatever is genuinely absent; when we have it all, offer to
+  // proceed instead of asking.
+  const missingBits: string[] = [];
+  if (!(Number(lead.guest_count) > 0)) missingBits.push("rough guest numbers");
+  if (!String(lead.venue_address || "").trim()) missingBits.push("the venue or area");
+  if (!lead.event_date) missingBits.push("your event date");
+  const detailAsk = missingBits.length
+    ? `Could you confirm ${missingBits.length === 1
+        ? missingBits[0]
+        : `${missingBits.slice(0, -1).join(", ")} and ${missingBits[missingBits.length - 1]}`} when you have a sec?`
+    : `I'll get a draft across to you shortly.`;
+
   // 1. Override path - silent fallback to default when no customisation.
   const overrideKey = LEAD_ACTION_TO_REGISTRY[kind];
   if (overrideKey) {
@@ -366,12 +382,12 @@ function templateForLeadAction(
     case "reply_email":
       return {
         subject: `Thanks for reaching out about ${eventLine}`,
-        body: `Hi ${first},\n\nThanks for getting in touch about ${eventLine}. I have everything I need on this side to put a draft quote together for you. Could you confirm guest numbers and venue when you have a sec?\n\nHappy to walk through menu options if it would help.${sig}`,
+        body: `Hi ${first},\n\nThanks for getting in touch about ${eventLine}. ${detailAsk}\n\nHappy to walk through menu options if it would help.${sig}`,
       };
     case "touch_base":
       return {
         subject: `Quick check-in on ${eventLine}`,
-        body: `Hi ${first},\n\nJust circling back on ${eventLine}. Did anything come up that I can help with on the catering side? Happy to share menu ideas before you commit to anything.${sig}`,
+        body: `Hi ${first},\n\nJust circling back on ${eventLine}. Did anything come up that I can help with on the catering side?${missingBits.length ? ` ${detailAsk}` : ""} Happy to share menu ideas before you commit to anything.${sig}`,
       };
     case "follow_up":
       return {
