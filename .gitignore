@@ -59,3 +59,7 @@ screenshots/
 
 # Local browser profiles for manual multi-account testing
 .browser-profiles/
+
+backups-local/
+build-verify.log
+next-dev-*.log
