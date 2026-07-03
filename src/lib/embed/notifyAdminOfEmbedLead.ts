@@ -89,25 +89,43 @@ export async function notifyAdminOfEmbedLead(
   const leadLink = `${appOrigin}/admin/leads?leadId=${encodeURIComponent(leadId)}`;
   const summary = formName ? `from "${formName}"` : "from your embedded form";
 
-  // ── 1. In-portal notification to the owner ───────────────────────
+  // ── 1. In-portal notification to every admin-tier user ───────────
+  // Previously only the company OWNER got the bell ping, so an
+  // admin/sales_admin working the leads pipeline stayed blind to new
+  // enquiries unless the owner forwarded them (driver-feedback session
+  // 2026-07-04). Fan out to the whole admin tier, deduped, owner
+  // included even if their profile row is missing a role.
   try {
-    await supabase.from("notifications").insert([{
+    const { data: adminProfiles } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("company_id", companyId)
+      .in("role", ["company_admin", "admin", "sales_admin", "region_admin"]);
+    const recipientIds = new Set(
+      ((adminProfiles || []) as Array<{ id: string }>).map((p) => p.id),
+    );
+    if (ownerUserId) recipientIds.add(ownerUserId);
+    const message = `${clientName} just enquired ${summary}` +
+      (guestCount ? ` (${guestCount} guests` : "") +
+      (eventDate !== "TBD" ? `, event ${eventDate}` : "") +
+      (guestCount ? ")" : "");
+    const rows = [...recipientIds].map((rid) => ({
       company_id: companyId,
-      user_id: ownerUserId,
-      recipient_id: ownerUserId,
+      user_id: rid,
+      recipient_id: rid,
       // Semantically a fresh lead, not a sent quote. The leads UI
       // listens for new-lead types specifically.
       notification_type: "lead_received",
       title: "🎉 New lead from your website",
-      message: `${clientName} just enquired ${summary}` +
-        (guestCount ? ` (${guestCount} guests` : "") +
-        (eventDate !== "TBD" ? `, event ${eventDate}` : "") +
-        (guestCount ? ")" : ""),
+      message,
       priority: "urgent",
       link: `/admin/leads?leadId=${encodeURIComponent(leadId)}`,
-    }]);
+    }));
+    if (rows.length > 0) {
+      await supabase.from("notifications").insert(rows);
+    }
   } catch (err) {
-    console.warn("[embed/lead-notify] in-portal owner notification failed", err);
+    console.warn("[embed/lead-notify] in-portal admin notification failed", err);
   }
 
   // ── 1b. Region-manager fan-out (when the form is region-scoped) ──
