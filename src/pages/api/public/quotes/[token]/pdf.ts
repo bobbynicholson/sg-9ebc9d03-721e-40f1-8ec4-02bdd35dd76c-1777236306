@@ -134,7 +134,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).send(pdfBuffer);
   } catch (err: any) {
     console.error("[public/quote-pdf] crashed:", err);
-    return res.status(500).json({ error: dbErrorMessage(err) || "PDF render failed" });
+    // Surface the real error so the render failure can be diagnosed
+    // (temporary - the generic dbErrorMessage masked the true cause).
+    return res.status(500).json({
+      error: err?.message || dbErrorMessage(err) || "PDF render failed",
+      name: err?.name,
+      stack: String(err?.stack || "").split("\n").slice(0, 6).join(" | "),
+    });
   }
 }
 
