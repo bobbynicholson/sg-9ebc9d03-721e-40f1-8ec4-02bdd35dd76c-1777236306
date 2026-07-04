@@ -248,6 +248,18 @@ function AdminUsersPage() {
     return normalized ? roleConfig.find((role) => role.value === normalized) : undefined;
   };
 
+  // A manager's base `role` column is still the legacy team enum
+  // (kitchen_staff / cleaning_staff) while their real role sits in
+  // active_role. Without collapsing, a Kitchen Manager rendered BOTH
+  // "Kitchen Team" and "Kitchen Manager" - you couldn't tell at a glance
+  // who the manager was, and the manager was double-counted in the team
+  // headcount. When the user holds a manager role, suppress the matching
+  // team badge so they read clearly as just "Kitchen Manager".
+  const MANAGER_SUPPRESSES_TEAM: Partial<Record<UserRole, UserRole>> = {
+    [UserRole.KITCHEN_MANAGER]: UserRole.KITCHEN_STAFF,
+    [UserRole.CLEANING_MANAGER]: UserRole.CLEANING_STAFF,
+  };
+
   const userAccessRoles = (targetUser: UserWithDepartments): UserRole[] => {
     const baseRole = normalizeRoleValue(targetUser.role as string | null | undefined);
     const activeRole = normalizeRoleValue(targetUser.active_role, baseRole);
@@ -259,7 +271,13 @@ function AdminUsersPage() {
       ...(targetUser.departments || []).map((role) => normalizeRoleValue(role as string | null | undefined, fallbackRole)),
     ]
       .filter((role): role is UserRole => Boolean(role));
-    return Array.from(new Set(roles));
+    const deduped = Array.from(new Set(roles));
+    const suppressed = new Set<UserRole>();
+    for (const role of deduped) {
+      const teamRole = MANAGER_SUPPRESSES_TEAM[role];
+      if (teamRole) suppressed.add(teamRole);
+    }
+    return deduped.filter((role) => !suppressed.has(role));
   };
 
   // USR-D: group labels + intro copy for the picker. Pure data so
