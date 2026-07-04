@@ -22,7 +22,7 @@ import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
-import { canSeeOtherStaffPay } from "@/lib/authGuards";
+import { canSeeOrderFinance } from "@/lib/authGuards";
 import { captureException } from "@/lib/observability";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -441,9 +441,14 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     [user?.role, userRoles, forceSection],
   );
   const role = user?.role as UserRole | undefined;
-  // ODOC: finance gate. Client mode + staff roles never see Finance,
-  // ever, regardless of toggle state. Data isn't even fetched.
-  const canSeeFinance = mode !== "client" && canSeeOtherStaffPay(role);
+  // ODOC: finance gate. Customer billing (total / paid / outstanding /
+  // payments) is admin-tier order data, so every ADMIN_ROLES role -
+  // including branch admin, region_admin, sales_admin - sees it. Client
+  // mode + operational staff (kitchen / driver / etc.) never do, and the
+  // data isn't even fetched for them. See canSeeOrderFinance: this used
+  // to reuse canSeeOtherStaffPay (a payroll-privacy gate) which wrongly
+  // hid paid/outstanding from branch admins running the order.
+  const canSeeFinance = mode !== "client" && canSeeOrderFinance(role);
   // ODOC: client read-only view. A client opening their own order
   // (/order/[id]?role=client) should see a tight, read-only summary -
   // their event details, status timeline, the menu they ordered, and

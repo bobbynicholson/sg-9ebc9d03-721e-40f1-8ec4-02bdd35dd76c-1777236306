@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ODOC: finance section - rand values, totals, deposits, payments,
- * invoice link. Only rendered when canSeeOtherStaffPay(role) is true
- * (super_admin / owner / company_admin). Staff roles + magic-link
+ * invoice link. Only rendered when canSeeOrderFinance(role) is true
+ * (any ADMIN_ROLES role: super_admin / owner / company_admin /
+ * region_admin / sales_admin / admin). Operational staff + magic-link
  * client mode never mount this component, so the network response
  * never carries the money fields.
  */

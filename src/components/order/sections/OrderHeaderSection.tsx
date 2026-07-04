@@ -21,7 +21,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { canSeeOtherStaffPay } from "@/lib/authGuards";
+import { canSeeOrderFinance } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import {
   Calendar as CalendarIcon, Clock, MapPin, Users, User, Mail, Phone, FileText,
@@ -96,8 +96,8 @@ interface RegionLink {
 
 export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
   const { user } = useAuth();
-  const canSeeFinance = canSeeOtherStaffPay(user?.role as UserRole | undefined);
-  const isAdminTier = canSeeFinance; // proxy - admins see internal_notes
+  const canSeeFinance = canSeeOrderFinance(user?.role as UserRole | undefined);
+  const isAdminTier = canSeeFinance; // admin-tier roles see internal_notes
 
   const [history, setHistory] = useState<ClientHistory | null>(null);
   const [quote, setQuote] = useState<QuoteLink | null>(null);

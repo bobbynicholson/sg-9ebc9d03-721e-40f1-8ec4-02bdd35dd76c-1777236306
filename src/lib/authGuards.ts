@@ -395,6 +395,30 @@ export function canSeeOtherStaffPay(userRole: UserRole | null | undefined): bool
 }
 
 /**
+ * Can this role see an ORDER's customer billing - total, amount paid,
+ * outstanding balance, the payment list, invoice link - and the order
+ * comms log?
+ *
+ * This is accounts-receivable against the CUSTOMER (what the client
+ * paid and still owes on their event), NOT private staff payroll -
+ * that's canSeeOtherStaffPay, a separate, tighter gate. Every
+ * admin-tier role runs orders day to day and needs to know where the
+ * money stands, so this mirrors ADMIN_ROLES (super_admin, owner,
+ * company_admin, region_admin, sales_admin, admin). Operational staff
+ * (kitchen / driver / shopping / cleaning / waiter) and the magic-link
+ * client view are excluded - the client sees their own billing through
+ * the client portal instead.
+ *
+ * Before this gate existed the order document reused canSeeOtherStaffPay
+ * (a payroll-privacy check), which wrongly hid paid/outstanding from
+ * branch admins who legitimately run those orders.
+ */
+export function canSeeOrderFinance(userRole: UserRole | null | undefined): boolean {
+  if (!userRole) return false;
+  return ADMIN_ROLES.includes(userRole);
+}
+
+/**
  * Check if user has full company access (including finance)
  */
 export function hasFullCompanyAccess(userRole: UserRole): boolean {
