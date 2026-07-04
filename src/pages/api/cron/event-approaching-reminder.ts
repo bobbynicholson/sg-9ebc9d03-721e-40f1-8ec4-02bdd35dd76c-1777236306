@@ -246,13 +246,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // for tenants without a dedicated shopper.
       if (shoppingPending && daysUntil >= 0 && daysUntil <= SHOPPING_LEAD_DAYS) {
         const dayLabel = daysUntil === 0 ? "today" : daysUntil === 1 ? "tomorrow" : `in ${daysUntil} days`;
+        const shopMsg = `${eventName}${venue ? ` at ${venue}` : ""} is ${dayLabel} and shopping isn't done (${shop.purchased}/${shop.total} bought). Get to the market so stock's in before prep.`;
         const sent = await notificationService.broadcastNotification(
           {
             companyId: o.company_id,
             regionId: o.region_id || null,
-            targetRoles: ["shopping_staff" as any, "kitchen_manager" as any, "kitchen_staff" as any],
+            // Raj 2026-07-05: admin needs the shopping nudge too, not just
+            // the shopping/kitchen crew - so an owner can chase it.
+            targetRoles: ["company_admin" as any, "admin" as any, "owner" as any, "shopping_staff" as any, "kitchen_manager" as any, "kitchen_staff" as any],
             title: `🛒 Shop for ${orderLabel}`,
-            message: `${eventName}${venue ? ` at ${venue}` : ""} is ${dayLabel} and shopping isn't done (${shop.purchased}/${shop.total} bought). Get to the market so stock's in before prep.`,
+            message: shopMsg,
             type: TYPE_SHOPPING_LEAD,
             priority: daysUntil <= 1 ? "high" : "normal",
             link: o.event_date ? `/admin/shopping?date=${o.event_date}` : "/admin/shopping",
@@ -265,6 +268,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           sb,
         );
         if ((sent || 0) > 0) shoppingPings += 1;
+        // ...and the same "please do the shopping" nudge as an EMAIL to
+        // admin + shopping + kitchen (waiters excluded). Deduped per day.
+        emailPings += await queueStaffReminderEmails(
+          sb,
+          o.company_id,
+          o.id,
+          ["company_admin", "admin", "owner", "shopping_staff", "kitchen_manager", "kitchen_staff"],
+          "event_shopping_lead_email",
+          `🛒 Please do the shopping: ${orderLabel}`,
+          `${shopMsg}\n\nOpen the shopping list to see what's outstanding for ${orderLabel}.`,
+          ["waiter"],
+        );
       }
 
       // Beyond the day-before, only the shopping lead applies - prep and
