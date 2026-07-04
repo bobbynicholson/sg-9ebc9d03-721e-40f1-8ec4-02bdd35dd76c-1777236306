@@ -782,7 +782,15 @@ export const notificationService = {
             message: params.message,
             link: params.link || null,
             priority: params.priority || "normal",
-            target_role: profile.role as UserRole,
+            // Stamp the recipient's ACTIVE role, not the base role. The
+            // bell (getNotifications + realtime) filters rows by the
+            // viewer's active_role, but staff whose active_role differs
+            // from their base role (a kitchen_manager / cleaning_manager
+            // / waiter is stored with base role kitchen_staff/cleaning_
+            // staff) would then never match a base-role stamp and silently
+            // miss every broadcast. active_role is what the UI reads, so
+            // stamp that. Falls back to base role when active_role is null.
+            target_role: (profile.active_role || profile.role) as UserRole,
             is_read: false,
           };
           // Populate the enum column when the type matches a known
