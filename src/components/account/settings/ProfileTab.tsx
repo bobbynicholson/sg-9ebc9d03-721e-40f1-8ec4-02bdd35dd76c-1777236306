@@ -166,14 +166,24 @@ export function ProfileTab({
               <Label className="dark:text-slate-200">Email Address</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                {/* Read-only: this is the login identity. Editing it here only
+                    wrote profiles.email and never touched the auth email, so a
+                    "change" silently desynced the two (you'd still sign in with
+                    the old address while notifications went to the new one).
+                    Changing a login email needs a verified auth flow, not a
+                    profile field. */}
                 <Input
-                  className="pl-10 dark:bg-slate-700 dark:text-white dark:border-slate-600"
+                  className="pl-10 bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => onFormChange("email", e.target.value)}
+                  disabled
+                  readOnly
                   placeholder="john@example.com"
                 />
               </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                This is your login email. To change it, contact your administrator.
+              </p>
             </div>
 
             <div className="space-y-2">

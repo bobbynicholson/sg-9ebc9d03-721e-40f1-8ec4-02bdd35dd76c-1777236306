@@ -175,7 +175,15 @@ function ProfileSettingsPage() {
     setSaved(false);
 
     try {
-      await updateProfile(formData);
+      // Persist only the personally-editable fields. email is the login
+      // identity (read-only in the UI, changing it needs an auth flow), and
+      // company_name is handled below via the canonical companies row, so
+      // neither belongs in the personal profile write.
+      await updateProfile({
+        full_name: formData.full_name,
+        phone_number: formData.phone_number,
+        avatar_url: formData.avatar_url,
+      });
 
       // Owners + super_admins are allowed to rename the company itself.
       // We update the canonical companies row (which every other surface
