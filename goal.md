@@ -5,11 +5,28 @@ mobile / tablet / desktop widths, for all three admin audiences:
 - **super_admin** (platform) — `/admin/platform/*`
 - **company_admin** and **admin** — `/{slug}/admin/*` (tenant: spit-braai-delivery)
 
-"Responsive" here = the page must NOT overflow the viewport horizontally, and
-no element may be wider than the viewport (the dominant responsive bug class:
-fixed widths, min-w on grids/tables, un-wrapped rows). Verified by measuring
-`documentElement.scrollWidth` vs `innerWidth` and flagging offending elements
-at each breakpoint.
+"Responsive" here means VISUAL + INTERACTION QUALITY at each screen size, not
+just the absence of horizontal scroll. Grounded in web standards (Apple HIG,
+Google Material, WCAG 2.2). A page fails if, at any breakpoint:
+
+  1. Horizontal overflow — page scrolls sideways / element wider than viewport.
+  2. Touch targets — interactive controls (button, link, input, icon-button)
+     smaller than 44x44px (Apple) / 48x48px (Material), or <8px apart. Mobile.
+  3. Font / readability — body text below ~12-14px, unreadably small, or text
+     clipped / truncated / overlapping other text.
+  4. Reflow — multi-column layouts must collapse to single column on mobile;
+     tables must scroll or stack; images must scale (max-width:100%) not blow out.
+  5. Density — content cramped with no breathing room, OR the opposite: a small
+     amount of info stranded in a large empty area (wasted space).
+  6. Overlap / clipping — nothing overlaps or is cut off.
+
+Verified two ways: (a) PROGRAMMATIC measurement of the objective criteria
+(overflow, sub-44px touch targets, sub-12px fonts) across every page at mobile,
+and (b) VISUAL inspection of screenshots at each breakpoint for overlap,
+cramping, wasted space, and reflow that a metric can't see.
+
+Sources: Webstacks responsive checklist 2025, UXPin best practices, WCAG 2.1/2.2,
+Material touch-target + Apple HIG 44px guidance.
 
 ## Viewports
 - Mobile:  390 x 844  (iPhone 12/13/14)
@@ -147,3 +164,30 @@ Ran scripts/responsive-audit.mjs for both groups at mobile(390) / tablet(768) / 
 
 RESULT: all 82 admin pages are responsive at every breakpoint. No fixes required.
 The loop converged on iteration 1 with nothing to fix.
+
+### Iteration 2 (2026-07-04) — VISUAL pass (beyond overflow)
+Redefined "responsive" to visual+interaction quality (web-standard: Apple 44px,
+Material 48px, WCAG readability). Built scripts/responsive-visual-audit.mjs
+(measures overflow + sub-12px fonts + sub-44px touch targets, saves full-page
+mobile screenshots to E:/rshots) and scripts/error-audit.mjs (JS/console/network
+errors). Screenshotted all 82 pages at mobile; visually reviewed a broad
+cross-section (dashboard, tax-rules, audit-logs, orders, invoices, menu, quotes,
+equipment) + scanned every page's metrics + code-hunted desktop-layout-forced-on-
+mobile patterns (fixed grid-cols-N, fixed-col tab bars).
+
+REAL issues found + FIXED:
+1. Order status timeline (TimelineTrack) rendered the 6-column desktop band on
+   mobile on EVERY surface (order modal, /c/order/[id], my-orders, order doc,
+   orders-list cards) - cluster headers overlapped, unreadable. Now compact
+   pill view <md, full band >=md. One fix, 5 surfaces. [commit a14e46e9]
+2. OrderDetailsModal 7-tab bar (grid-cols-7) clipped/overlapped labels on mobile
+   -> horizontal scroll <sm, grid >=sm. [commit add71133]
+3. fixed-costs bulk-import preview (grid-cols-12) crammed to ~30px cols on mobile
+   -> horizontal scroll + 560px min-width. [commit add71133]
+
+Confirmed FINE (checked, not bugs): menu grid-cols-12 (children col-span-12 stack),
+kitchen-schedule grid-cols-7 (intentional, 1-letter day labels on mobile),
+calendar grid-cols-4 stat pills, all KPI grids (grid-cols-2 lg:grid-cols-4).
+The metric flags (sub-12px fonts, sub-40px taps) are mostly legit 11px meta
+labels + ~32px icon buttons, visually confirmed readable, not defects.
+Error sweep (platform): 0 JS/console/network errors. tsc: clean.

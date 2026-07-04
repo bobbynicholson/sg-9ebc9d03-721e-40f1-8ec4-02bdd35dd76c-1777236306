@@ -1,0 +1,1485 @@
+[
+  {
+    "page": "/admin/platform/dashboard",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 13,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 active companies"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 total tenants"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 0 MRR"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "SaaS Revenue (active)"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active Customers"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Monthly Recurring Revenue"
+      }
+    ],
+    "smallTargetCount": 12,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 140,
+        "h": 36,
+        "tag": "button",
+        "label": "All Time"
+      },
+      {
+        "w": 50,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 84,
+        "h": 28,
+        "tag": "button",
+        "label": "Overview"
+      },
+      {
+        "w": 91,
+        "h": 28,
+        "tag": "button",
+        "label": "Customers"
+      },
+      {
+        "w": 57,
+        "h": 28,
+        "tag": "button",
+        "label": "Plans"
+      },
+      {
+        "w": 94,
+        "h": 28,
+        "tag": "button",
+        "label": "Geography"
+      }
+    ],
+    "flags": [
+      "tinyFont:13",
+      "smallTap:12"
+    ]
+  },
+  {
+    "page": "/admin/platform/company-database",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 9,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 company"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 active"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total Companies"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "On Trial"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total Users"
+      }
+    ],
+    "smallTargetCount": 18,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "button",
+        "label": "All Statuses"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "button",
+        "label": "Add Company"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 70,
+        "h": 16,
+        "tag": "button",
+        "label": "Company"
+      },
+      {
+        "w": 54,
+        "h": 16,
+        "tag": "button",
+        "label": "Owner"
+      }
+    ],
+    "flags": [
+      "tinyFont:9",
+      "smallTap:18"
+    ]
+  },
+  {
+    "page": "/admin/platform/user-management",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 12,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 accounts"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 active"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 platform admins"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Accounts"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Invite pending"
+      }
+    ],
+    "smallTargetCount": 11,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 121,
+        "h": 36,
+        "tag": "button",
+        "label": "Add user"
+      },
+      {
+        "w": 86,
+        "h": 32,
+        "tag": "button",
+        "label": "Clear filters"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "button",
+        "label": "All statuses"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "button",
+        "label": "All roles"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "button",
+        "label": "All companies"
+      }
+    ],
+    "flags": [
+      "tinyFont:12",
+      "smallTap:11"
+    ]
+  },
+  {
+    "page": "/admin/platform/subscription-management",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 active"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 on trial"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 0,00 MRR"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Total Subscriptions"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Active"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "In Trial"
+      }
+    ],
+    "smallTargetCount": 22,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 99,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:22"
+    ]
+  },
+  {
+    "page": "/admin/platform/pricing-management",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 5,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Loading"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "ZAR primary currency"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 CateringMS."
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 6,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 200,
+        "h": 38,
+        "tag": "a",
+        "label": "See your COGS at this pr"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 28,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:5",
+      "smallTap:6"
+    ]
+  },
+  {
+    "page": "/admin/platform/trial-management",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 11,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 active trial"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 expiring within 7 days"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 expired"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total Trials"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Within 7 days"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Within 3 days"
+      }
+    ],
+    "smallTargetCount": 15,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 164,
+        "h": 36,
+        "tag": "button",
+        "label": "Run expiry check"
+      },
+      {
+        "w": 105,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 71,
+        "h": 16,
+        "tag": "button",
+        "label": "Company"
+      },
+      {
+        "w": 89,
+        "h": 16,
+        "tag": "button",
+        "label": "Owner Email"
+      },
+      {
+        "w": 71,
+        "h": 32,
+        "tag": "button",
+        "label": "Expiry Date"
+      },
+      {
+        "w": 47,
+        "h": 32,
+        "tag": "button",
+        "label": "Days Left"
+      }
+    ],
+    "flags": [
+      "tinyFont:11",
+      "smallTap:15"
+    ]
+  },
+  {
+    "page": "/admin/platform/currency-monitoring",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 9,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "ZAR 16.22 per USD"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 unresolved alerts"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "-2.17% over 90 days"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Current Rate"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "90-Day Change"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active Alerts"
+      }
+    ],
+    "smallTargetCount": 5,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 157,
+        "h": 36,
+        "tag": "button",
+        "label": "Run Check Now"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 28,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:9",
+      "smallTap:5"
+    ]
+  },
+  {
+    "page": "/admin/platform/financial-dashboard",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 20,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 active"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 on trial"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 tenants total"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Monthly recurring revenue"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Annual recurring revenue"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total subscription revenue"
+      }
+    ],
+    "smallTargetCount": 9,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 105,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 64,
+        "h": 20,
+        "tag": "button",
+        "label": "Company"
+      },
+      {
+        "w": 48,
+        "h": 20,
+        "tag": "button",
+        "label": "Status"
+      },
+      {
+        "w": 62,
+        "h": 20,
+        "tag": "button",
+        "label": "Currency"
+      },
+      {
+        "w": 51,
+        "h": 20,
+        "tag": "button",
+        "label": "Joined"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      }
+    ],
+    "flags": [
+      "tinyFont:20",
+      "smallTap:9"
+    ]
+  },
+  {
+    "page": "/admin/platform/tenant-health",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 tenants tracked"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 stuck in onboarding"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 dormant"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Stuck onboarding"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Dormant"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "No payment gateway"
+      }
+    ],
+    "smallTargetCount": 4,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 28,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:4"
+    ]
+  },
+  {
+    "page": "/admin/platform/tech-costs",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 41,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 tenant scenario"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "ZAR 1 149 / month"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "ZAR 851 margin / tenant"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Monthly platform cost"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Cost per tenant"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Margin per tenant"
+      }
+    ],
+    "smallTargetCount": 32,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 129,
+        "h": 36,
+        "tag": "a",
+        "label": "Pricing tiers"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      }
+    ],
+    "flags": [
+      "tinyFont:41",
+      "smallTap:32"
+    ]
+  },
+  {
+    "page": "/admin/platform/messaging-templates",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 39,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "10 platform templates"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 customised"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Global defaults"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Customised"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "(1)"
+      },
+      {
+        "fs": 10,
+        "tag": "div",
+        "txt": "Automatic"
+      }
+    ],
+    "smallTargetCount": 16,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 36,
+        "h": 20,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 69,
+        "h": 32,
+        "tag": "button",
+        "label": "Edit"
+      },
+      {
+        "w": 69,
+        "h": 32,
+        "tag": "button",
+        "label": "Edit"
+      },
+      {
+        "w": 69,
+        "h": 32,
+        "tag": "button",
+        "label": "Edit"
+      },
+      {
+        "w": 69,
+        "h": 32,
+        "tag": "button",
+        "label": "Edit"
+      }
+    ],
+    "flags": [
+      "tinyFont:39",
+      "smallTap:16"
+    ]
+  },
+  {
+    "page": "/admin/platform/cms-blog",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 6,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 published"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 drafts"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 posts total"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 CateringMS."
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 16,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 105,
+        "h": 28,
+        "tag": "button",
+        "label": "AI Writer"
+      },
+      {
+        "w": 137,
+        "h": 28,
+        "tag": "button",
+        "label": "Manage Posts"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      }
+    ],
+    "flags": [
+      "tinyFont:6",
+      "smallTap:16"
+    ]
+  },
+  {
+    "page": "/admin/platform/cms-pages",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 pages"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 published"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 drafts"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Pages"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Published"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Drafts"
+      }
+    ],
+    "smallTargetCount": 8,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 164,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform dashboard"
+      },
+      {
+        "w": 164,
+        "h": 32,
+        "tag": "button",
+        "label": "Platform dashboard"
+      },
+      {
+        "w": 126,
+        "h": 36,
+        "tag": "button",
+        "label": "New page"
+      },
+      {
+        "w": 114,
+        "h": 32,
+        "tag": "button",
+        "label": "Create first page"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 28,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:8"
+    ]
+  },
+  {
+    "page": "/admin/platform/tax-rules",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 115,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "48 rules total"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "48 active"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "48 in view"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total rules"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Deductible"
+      }
+    ],
+    "smallTargetCount": 102,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 101,
+        "h": 36,
+        "tag": "button",
+        "label": "Add rule"
+      },
+      {
+        "w": 32,
+        "h": 32,
+        "tag": "button",
+        "label": "Edit"
+      },
+      {
+        "w": 32,
+        "h": 32,
+        "tag": "button",
+        "label": "Delete"
+      },
+      {
+        "w": 32,
+        "h": 32,
+        "tag": "button",
+        "label": "Edit"
+      },
+      {
+        "w": 32,
+        "h": 32,
+        "tag": "button",
+        "label": "Delete"
+      }
+    ],
+    "flags": [
+      "tinyFont:115",
+      "smallTap:102"
+    ]
+  },
+  {
+    "page": "/admin/platform/audit-logs",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 161,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "152 rows match filters"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Page 1 of 4"
+      },
+      {
+        "fs": 10,
+        "tag": "label",
+        "txt": "Tenant"
+      },
+      {
+        "fs": 10,
+        "tag": "label",
+        "txt": "Entity type"
+      },
+      {
+        "fs": 10,
+        "tag": "label",
+        "txt": "Action contains"
+      },
+      {
+        "fs": 10,
+        "tag": "label",
+        "txt": "Entity id (exact)"
+      }
+    ],
+    "smallTargetCount": 13,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 87,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "button",
+        "label": "All tenants"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "button",
+        "label": "All types"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      }
+    ],
+    "flags": [
+      "tinyFont:161",
+      "smallTap:13"
+    ]
+  },
+  {
+    "page": "/admin/platform/settings",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 3,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 CateringMS."
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 4,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 28,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:3",
+      "smallTap:4"
+    ]
+  },
+  {
+    "page": "/admin/platform/running-todo",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 11,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "180 shipped"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "4 in progress"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "557 items total"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total items"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Shipped"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Todo"
+      }
+    ],
+    "smallTargetCount": 18,
+    "smallTargets": [
+      {
+        "w": 161,
+        "h": 32,
+        "tag": "a",
+        "label": "Platform Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 82,
+        "h": 32,
+        "tag": "button",
+        "label": "Expand all"
+      },
+      {
+        "w": 88,
+        "h": 32,
+        "tag": "button",
+        "label": "Collapse all"
+      },
+      {
+        "w": 209,
+        "h": 30,
+        "tag": "a",
+        "label": "1. Foundation, What's al"
+      },
+      {
+        "w": 298,
+        "h": 30,
+        "tag": "a",
+        "label": "2. Audit findings, Phase"
+      },
+      {
+        "w": 192,
+        "h": 30,
+        "tag": "a",
+        "label": "3. Pre-launch, Integrati"
+      },
+      {
+        "w": 177,
+        "h": 30,
+        "tag": "a",
+        "label": "4. Pre-launch, Testing +"
+      }
+    ],
+    "flags": [
+      "tinyFont:11",
+      "smallTap:18"
+    ]
+  }
+]

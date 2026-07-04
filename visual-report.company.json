@@ -1,0 +1,5737 @@
+[
+  {
+    "page": "/admin/dashboard",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 46,
+    "tinyFonts": [
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Today's events"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "In transit"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Drivers on shift"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Kitchen prep"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Paid today"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Booked Revenue"
+      }
+    ],
+    "smallTargetCount": 66,
+    "smallTargets": [
+      {
+        "w": 90,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 154,
+        "h": 36,
+        "tag": "button",
+        "label": "This month"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:46",
+      "smallTap:66"
+    ]
+  },
+  {
+    "page": "/admin/dispatch",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 19,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 141,
+        "h": 36,
+        "tag": "select",
+        "label": "Next 14 daysNext 30 days"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 141,
+        "h": 32,
+        "tag": "button",
+        "label": "Bulk assign (0)"
+      },
+      {
+        "w": 115,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 137,
+        "h": 32,
+        "tag": "button",
+        "label": "Print run sheet"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:19"
+    ]
+  },
+  {
+    "page": "/admin/live-operations",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 events today"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 in transit"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Today"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "At risk"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "In transit"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "In kitchen"
+      }
+    ],
+    "smallTargetCount": 17,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 122,
+        "h": 36,
+        "tag": "a",
+        "label": "All orders"
+      },
+      {
+        "w": 122,
+        "h": 36,
+        "tag": "button",
+        "label": "All orders"
+      },
+      {
+        "w": 157,
+        "h": 36,
+        "tag": "button",
+        "label": "Today 0"
+      },
+      {
+        "w": 157,
+        "h": 36,
+        "tag": "button",
+        "label": "All live 2"
+      },
+      {
+        "w": 324,
+        "h": 38,
+        "tag": "a",
+        "label": "Full order book"
+      },
+      {
+        "w": 175,
+        "h": 28,
+        "tag": "button",
+        "label": "Map View (0)"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:17"
+    ]
+  },
+  {
+    "page": "/admin/calendar",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 42,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 upcoming events"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 booked days in the next 30"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 winnable day"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Upcoming events"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "July events"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Booked days"
+      }
+    ],
+    "smallTargetCount": 22,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 86,
+        "h": 32,
+        "tag": "button",
+        "label": "Today"
+      },
+      {
+        "w": 93,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 128,
+        "h": 32,
+        "tag": "button",
+        "label": "Export month"
+      },
+      {
+        "w": 112,
+        "h": 32,
+        "tag": "button",
+        "label": "Export iCal"
+      },
+      {
+        "w": 128,
+        "h": 36,
+        "tag": "a",
+        "label": "New Event"
+      },
+      {
+        "w": 128,
+        "h": 36,
+        "tag": "button",
+        "label": "New Event"
+      }
+    ],
+    "flags": [
+      "tinyFont:42",
+      "smallTap:22"
+    ]
+  },
+  {
+    "page": "/admin/contacts",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 31,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "4 contacts"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Contacts"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Hot leads"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Lifetime spend"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Outstanding"
+      },
+      {
+        "fs": 10,
+        "tag": "div",
+        "txt": "#1"
+      }
+    ],
+    "smallTargetCount": 25,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 109,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 132,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 153,
+        "h": 36,
+        "tag": "button",
+        "label": "Import clients"
+      },
+      {
+        "w": 141,
+        "h": 36,
+        "tag": "button",
+        "label": "Add contact"
+      },
+      {
+        "w": 107,
+        "h": 32,
+        "tag": "a",
+        "label": "Contacts"
+      },
+      {
+        "w": 107,
+        "h": 32,
+        "tag": "button",
+        "label": "Contacts"
+      }
+    ],
+    "flags": [
+      "tinyFont:31",
+      "smallTap:25"
+    ]
+  },
+  {
+    "page": "/admin/leads",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 12,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 in pipeline"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 new"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 won"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total leads"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "New"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Qualified"
+      }
+    ],
+    "smallTargetCount": 23,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 108,
+        "h": 20,
+        "tag": "a",
+        "label": "Contacts inbox"
+      },
+      {
+        "w": 142,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 119,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 130,
+        "h": 36,
+        "tag": "a",
+        "label": "Add Lead"
+      },
+      {
+        "w": 130,
+        "h": 36,
+        "tag": "button",
+        "label": "Add Lead"
+      },
+      {
+        "w": 86,
+        "h": 36,
+        "tag": "button",
+        "label": "Active1"
+      }
+    ],
+    "flags": [
+      "tinyFont:12",
+      "smallTap:23"
+    ]
+  },
+  {
+    "page": "/admin/quotes",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 11,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total quotes"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Action needed"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Won this month"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total value"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "R11k"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "R1.0k"
+      }
+    ],
+    "smallTargetCount": 21,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 119,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 142,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 161,
+        "h": 36,
+        "tag": "button",
+        "label": "This month"
+      },
+      {
+        "w": 157,
+        "h": 32,
+        "tag": "button",
+        "label": "List"
+      },
+      {
+        "w": 157,
+        "h": 32,
+        "tag": "button",
+        "label": "Pipeline"
+      },
+      {
+        "w": 135,
+        "h": 36,
+        "tag": "button",
+        "label": "Open7R11k"
+      }
+    ],
+    "flags": [
+      "tinyFont:11",
+      "smallTap:21"
+    ]
+  },
+  {
+    "page": "/admin/orders",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 5,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Africa/Johannesburg"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 21,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 92,
+        "h": 32,
+        "tag": "button",
+        "label": "Kanban"
+      },
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "button",
+        "label": "Timeline"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh orders"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "More actions"
+      },
+      {
+        "w": 114,
+        "h": 36,
+        "tag": "a",
+        "label": "New Quote"
+      },
+      {
+        "w": 114,
+        "h": 36,
+        "tag": "button",
+        "label": "New Quote"
+      }
+    ],
+    "flags": [
+      "tinyFont:5",
+      "smallTap:21"
+    ]
+  },
+  {
+    "page": "/admin/invoices",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 27,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 3023.18 outstanding"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 unpaid invoices"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Africa/Johannesburg"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "(catering cycle)"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Pre-event"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "2 invoices"
+      }
+    ],
+    "smallTargetCount": 49,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 119,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 142,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 134,
+        "h": 36,
+        "tag": "button",
+        "label": "Recurring"
+      },
+      {
+        "w": 148,
+        "h": 36,
+        "tag": "button",
+        "label": "New invoice"
+      },
+      {
+        "w": 208,
+        "h": 36,
+        "tag": "button",
+        "label": "Send overdue reminders"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:27",
+      "smallTap:49"
+    ]
+  },
+  {
+    "page": "/admin/reviews",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 9,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 reviews"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total reviews"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Average rating"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Promoters (4-5)"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Open follow-ups"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      }
+    ],
+    "smallTargetCount": 11,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 41,
+        "h": 32,
+        "tag": "button",
+        "label": "All"
+      },
+      {
+        "w": 140,
+        "h": 32,
+        "tag": "button",
+        "label": "Needs follow-up"
+      },
+      {
+        "w": 108,
+        "h": 32,
+        "tag": "button",
+        "label": "Followed up"
+      },
+      {
+        "w": 97,
+        "h": 32,
+        "tag": "a",
+        "label": "View orders"
+      }
+    ],
+    "flags": [
+      "tinyFont:9",
+      "smallTap:11"
+    ]
+  },
+  {
+    "page": "/admin/route-planning",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 8,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Unassigned orders"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Active drivers"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Optimised routes"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Total distance"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      }
+    ],
+    "smallTargetCount": 14,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 119,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:8",
+      "smallTap:14"
+    ]
+  },
+  {
+    "page": "/admin/vehicles",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 16,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "6 vehicles on the roster"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 refrigerated"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Total fleet"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Company"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Driver-owned"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Refrigerated"
+      }
+    ],
+    "smallTargetCount": 25,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 103,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 119,
+        "h": 32,
+        "tag": "button",
+        "label": "Add vehicle"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 70,
+        "h": 28,
+        "tag": "button",
+        "label": "Roster"
+      },
+      {
+        "w": 90,
+        "h": 28,
+        "tag": "button",
+        "label": "Utilisation"
+      }
+    ],
+    "flags": [
+      "tinyFont:16",
+      "smallTap:25"
+    ]
+  },
+  {
+    "page": "/admin/regions",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 21,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 active branch"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "4 open quotes"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "HQ Africa/Johannesburg"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Africa/Johannesburg"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "ZAR"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Active branches"
+      }
+    ],
+    "smallTargetCount": 25,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 119,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 134,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 139,
+        "h": 36,
+        "tag": "button",
+        "label": "Add Branch"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:21",
+      "smallTap:25"
+    ]
+  },
+  {
+    "page": "/admin/tracking",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 events today"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 in transit"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Today"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "At risk"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "In transit"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "In kitchen"
+      }
+    ],
+    "smallTargetCount": 17,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 122,
+        "h": 36,
+        "tag": "a",
+        "label": "All orders"
+      },
+      {
+        "w": 122,
+        "h": 36,
+        "tag": "button",
+        "label": "All orders"
+      },
+      {
+        "w": 157,
+        "h": 36,
+        "tag": "button",
+        "label": "Today 0"
+      },
+      {
+        "w": 157,
+        "h": 36,
+        "tag": "button",
+        "label": "All live 2"
+      },
+      {
+        "w": 324,
+        "h": 38,
+        "tag": "a",
+        "label": "Full order book"
+      },
+      {
+        "w": 175,
+        "h": 28,
+        "tag": "button",
+        "label": "Map View (0)"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:17"
+    ]
+  },
+  {
+    "page": "/admin/order-assignments",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 19,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 141,
+        "h": 36,
+        "tag": "select",
+        "label": "Next 14 daysNext 30 days"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 141,
+        "h": 32,
+        "tag": "button",
+        "label": "Bulk assign (0)"
+      },
+      {
+        "w": 115,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 137,
+        "h": 32,
+        "tag": "button",
+        "label": "Print run sheet"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:19"
+    ]
+  },
+  {
+    "page": "/admin/dispatch-queue",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 19,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 141,
+        "h": 36,
+        "tag": "select",
+        "label": "Next 14 daysNext 30 days"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 141,
+        "h": 32,
+        "tag": "button",
+        "label": "Bulk assign (0)"
+      },
+      {
+        "w": 115,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 137,
+        "h": 32,
+        "tag": "button",
+        "label": "Print run sheet"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:19"
+    ]
+  },
+  {
+    "page": "/admin/financial-dashboard",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 5,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:5"
+    ]
+  },
+  {
+    "page": "/admin/recurring-invoices",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 6,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 templates"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 active"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 9,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 132,
+        "h": 20,
+        "tag": "a",
+        "label": "Back to invoices"
+      },
+      {
+        "w": 119,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 163,
+        "h": 36,
+        "tag": "button",
+        "label": "New template"
+      },
+      {
+        "w": 141,
+        "h": 32,
+        "tag": "button",
+        "label": "New template"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      }
+    ],
+    "flags": [
+      "tinyFont:6",
+      "smallTap:9"
+    ]
+  },
+  {
+    "page": "/admin/cashflow-dashboard",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 5,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:5"
+    ]
+  },
+  {
+    "page": "/admin/outstanding-balances",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 24,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 3023.18 owed"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 invoices in view"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total outstanding"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Overdue"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Due in 7 days"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Clients owing"
+      }
+    ],
+    "smallTargetCount": 12,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 134,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 324,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 182,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 182,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 150,
+        "h": 36,
+        "tag": "button",
+        "label": "Overdue only"
+      },
+      {
+        "w": 38,
+        "h": 32,
+        "tag": "a",
+        "label": "Pay link"
+      }
+    ],
+    "flags": [
+      "tinyFont:24",
+      "smallTap:12"
+    ]
+  },
+  {
+    "page": "/admin/payables",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 6,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 pending invoices"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 0.00 owed"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 11,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 149,
+        "h": 20,
+        "tag": "a",
+        "label": "Cashflow dashboard"
+      },
+      {
+        "w": 144,
+        "h": 36,
+        "tag": "button",
+        "label": "Bulk import"
+      },
+      {
+        "w": 153,
+        "h": 36,
+        "tag": "button",
+        "label": "Add payable"
+      },
+      {
+        "w": 332,
+        "h": 36,
+        "tag": "input",
+        "label": "Search payables"
+      },
+      {
+        "w": 332,
+        "h": 36,
+        "tag": "button",
+        "label": "Filter by status"
+      },
+      {
+        "w": 190,
+        "h": 32,
+        "tag": "button",
+        "label": "Add your first payable"
+      }
+    ],
+    "flags": [
+      "tinyFont:6",
+      "smallTap:11"
+    ]
+  },
+  {
+    "page": "/admin/fixed-costs",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 20,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "4 active costs"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 8 600.00 / month"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "A high annual count means lu"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Next 30d"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "31 to 60d"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "61 to 90d"
+      }
+    ],
+    "smallTargetCount": 25,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 149,
+        "h": 20,
+        "tag": "a",
+        "label": "Cashflow dashboard"
+      },
+      {
+        "w": 144,
+        "h": 36,
+        "tag": "button",
+        "label": "Bulk import"
+      },
+      {
+        "w": 162,
+        "h": 36,
+        "tag": "button",
+        "label": "Add fixed cost"
+      },
+      {
+        "w": 133,
+        "h": 16,
+        "tag": "button",
+        "label": "Group by category"
+      },
+      {
+        "w": 79,
+        "h": 24,
+        "tag": "button",
+        "label": "Vodacom"
+      },
+      {
+        "w": 36,
+        "h": 20,
+        "tag": "button",
+        "label": "Pause Vodacom"
+      }
+    ],
+    "flags": [
+      "tinyFont:20",
+      "smallTap:25"
+    ]
+  },
+  {
+    "page": "/admin/refunds",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 5,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 pending refunds"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 15,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 134,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 111,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 66,
+        "h": 36,
+        "tag": "button",
+        "label": "All0"
+      },
+      {
+        "w": 213,
+        "h": 36,
+        "tag": "button",
+        "label": "Auto-processed (PayFast)"
+      },
+      {
+        "w": 127,
+        "h": 36,
+        "tag": "button",
+        "label": "Store credits0"
+      },
+      {
+        "w": 151,
+        "h": 36,
+        "tag": "button",
+        "label": "Pending refunds0"
+      }
+    ],
+    "flags": [
+      "tinyFont:5",
+      "smallTap:15"
+    ]
+  },
+  {
+    "page": "/admin/tax-purchases",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 slips in window"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 0.00 deductible"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "No comparable spend last yea"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "15/115 of standard-rated ded"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "Independent of window above"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "Tap a category to filter sli"
+      }
+    ],
+    "smallTargetCount": 16,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 148,
+        "h": 32,
+        "tag": "a",
+        "label": "Manage receipts"
+      },
+      {
+        "w": 148,
+        "h": 32,
+        "tag": "button",
+        "label": "Manage receipts"
+      },
+      {
+        "w": 91,
+        "h": 28,
+        "tag": "button",
+        "label": "This month"
+      },
+      {
+        "w": 95,
+        "h": 28,
+        "tag": "button",
+        "label": "This quarter"
+      },
+      {
+        "w": 110,
+        "h": 28,
+        "tag": "button",
+        "label": "Calendar year"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:16"
+    ]
+  },
+  {
+    "page": "/admin/money-health",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 6,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 111,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:6"
+    ]
+  },
+  {
+    "page": "/admin/offering",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 23,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "27 menu items"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "8 equipment items"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "35 catalogue gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "27 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      }
+    ],
+    "smallTargetCount": 41,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 43,
+        "h": 24,
+        "tag": "button",
+        "label": "30d"
+      },
+      {
+        "w": 43,
+        "h": 24,
+        "tag": "button",
+        "label": "60d"
+      },
+      {
+        "w": 43,
+        "h": 24,
+        "tag": "button",
+        "label": "90d"
+      },
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 133,
+        "h": 32,
+        "tag": "a",
+        "label": "Manage menu"
+      }
+    ],
+    "flags": [
+      "tinyFont:23",
+      "smallTap:41"
+    ]
+  },
+  {
+    "page": "/admin/menu",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 76,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "27 active items"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "26 with recipe"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "27 missing photos"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "27 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      }
+    ],
+    "smallTargetCount": 123,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 119,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 142,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 173,
+        "h": 36,
+        "tag": "button",
+        "label": "Add menu item"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:76",
+      "smallTap:123"
+    ]
+  },
+  {
+    "page": "/admin/stock",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 11,
+    "tinyFonts": [
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "27 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "8 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "button",
+        "txt": "7d"
+      },
+      {
+        "fs": 10,
+        "tag": "button",
+        "txt": "14d"
+      }
+    ],
+    "smallTargetCount": 23,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 127,
+        "h": 22,
+        "tag": "a",
+        "label": "14 need attention"
+      },
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 143,
+        "h": 32,
+        "tag": "a",
+        "label": "Manage"
+      },
+      {
+        "w": 143,
+        "h": 32,
+        "tag": "button",
+        "label": "Manage"
+      },
+      {
+        "w": 167,
+        "h": 32,
+        "tag": "button",
+        "label": "Auto-list"
+      }
+    ],
+    "flags": [
+      "tinyFont:11",
+      "smallTap:23"
+    ]
+  },
+  {
+    "page": "/admin/inventory",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 90,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "80 items"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "23 below reorder"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "27 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "8 gaps"
+      }
+    ],
+    "smallTargetCount": 188,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 107,
+        "h": 32,
+        "tag": "button",
+        "label": "New item"
+      },
+      {
+        "w": 78,
+        "h": 32,
+        "tag": "button",
+        "label": "More"
+      },
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "button",
+        "label": "Receive"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:90",
+      "smallTap:188"
+    ]
+  },
+  {
+    "page": "/admin/equipment",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 64,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "18 catalogue items"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "10 hidden from quotes"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "27 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "8 gaps"
+      }
+    ],
+    "smallTargetCount": 92,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 174,
+        "h": 36,
+        "tag": "button",
+        "label": "Add equipment"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 175,
+        "h": 24,
+        "tag": "button",
+        "label": "Catalog"
+      },
+      {
+        "w": 175,
+        "h": 24,
+        "tag": "button",
+        "label": "Availability"
+      },
+      {
+        "w": 175,
+        "h": 24,
+        "tag": "button",
+        "label": "Shortages"
+      },
+      {
+        "w": 175,
+        "h": 24,
+        "tag": "button",
+        "label": "Hire-in orders"
+      }
+    ],
+    "flags": [
+      "tinyFont:64",
+      "smallTap:92"
+    ]
+  },
+  {
+    "page": "/admin/suppliers",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 12,
+    "tinyFonts": [
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "27 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "8 gaps"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active suppliers"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Stale suppliers"
+      }
+    ],
+    "smallTargetCount": 11,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 144,
+        "h": 36,
+        "tag": "button",
+        "label": "Import CSV"
+      },
+      {
+        "w": 151,
+        "h": 36,
+        "tag": "button",
+        "label": "Add supplier"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 332,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 13,
+        "h": 13,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 156,
+        "h": 17,
+        "tag": "a",
+        "label": "Open outsource providers"
+      }
+    ],
+    "flags": [
+      "tinyFont:12",
+      "smallTap:11"
+    ]
+  },
+  {
+    "page": "/admin/outsource-providers",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 21,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "1 active of 1"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "27 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "8 gaps"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active providers"
+      }
+    ],
+    "smallTargetCount": 20,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 114,
+        "h": 36,
+        "tag": "button",
+        "label": "Import CSV"
+      },
+      {
+        "w": 155,
+        "h": 36,
+        "tag": "button",
+        "label": "Add provider"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 296,
+        "h": 16,
+        "tag": "button",
+        "label": "Test outsource crons (dr"
+      },
+      {
+        "w": 332,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 332,
+        "h": 36,
+        "tag": "button",
+        "label": "All roles"
+      }
+    ],
+    "flags": [
+      "tinyFont:21",
+      "smallTap:20"
+    ]
+  },
+  {
+    "page": "/admin/shopping",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 15,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 shortfalls"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 items to buy now"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "27 gaps"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "10 low"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "8 gaps"
+      }
+    ],
+    "smallTargetCount": 13,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 144,
+        "h": 32,
+        "tag": "button",
+        "label": "Export buy-now"
+      },
+      {
+        "w": 114,
+        "h": 32,
+        "tag": "button",
+        "label": "Print today"
+      },
+      {
+        "w": 91,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:15",
+      "smallTap:13"
+    ]
+  },
+  {
+    "page": "/admin/packages",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 3,
+    "smallTargets": [
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:3"
+    ]
+  },
+  {
+    "page": "/admin/teams",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 6,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:6"
+    ]
+  },
+  {
+    "page": "/admin/users",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 22,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "9 active"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Staff logins"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Inactive"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Pending invites"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Founder / shareholder. Full "
+      }
+    ],
+    "smallTargetCount": 38,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 123,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 100,
+        "h": 32,
+        "tag": "button",
+        "label": "Add user"
+      },
+      {
+        "w": 103,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 324,
+        "h": 32,
+        "tag": "button",
+        "label": "Name (A to Z)"
+      },
+      {
+        "w": 185,
+        "h": 16,
+        "tag": "button",
+        "label": "admin@spitbraaidelivery."
+      }
+    ],
+    "flags": [
+      "tinyFont:22",
+      "smallTap:38"
+    ]
+  },
+  {
+    "page": "/admin/teams/kitchen",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 jobs today"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Clocked 0/2"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active team"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Hours this week"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Jobs today"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Prep tasks done"
+      }
+    ],
+    "smallTargetCount": 11,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "a",
+        "label": "All teams"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "All teams"
+      },
+      {
+        "w": 130,
+        "h": 32,
+        "tag": "button",
+        "label": "Send prep list"
+      },
+      {
+        "w": 75,
+        "h": 32,
+        "tag": "button",
+        "label": "Print"
+      },
+      {
+        "w": 100,
+        "h": 17,
+        "tag": "a",
+        "label": "/admin/tracking"
+      },
+      {
+        "w": 90,
+        "h": 17,
+        "tag": "a",
+        "label": "/admin/wages"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:11"
+    ]
+  },
+  {
+    "page": "/admin/teams/drivers",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 assignments today"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Clocked 0/2"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active drivers"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Hours this week"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Assignments today"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Unassigned today"
+      }
+    ],
+    "smallTargetCount": 10,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "a",
+        "label": "All teams"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "All teams"
+      },
+      {
+        "w": 100,
+        "h": 17,
+        "tag": "a",
+        "label": "/admin/tracking"
+      },
+      {
+        "w": 167,
+        "h": 17,
+        "tag": "a",
+        "label": "/admin/order-assignments"
+      },
+      {
+        "w": 90,
+        "h": 17,
+        "tag": "a",
+        "label": "/admin/wages"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:10"
+    ]
+  },
+  {
+    "page": "/admin/teams/cleaning",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 9,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "a",
+        "label": "All teams"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "All teams"
+      },
+      {
+        "w": 134,
+        "h": 17,
+        "tag": "a",
+        "label": "Open the full schedule"
+      },
+      {
+        "w": 346,
+        "h": 33,
+        "tag": "a",
+        "label": "the team portal"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:9"
+    ]
+  },
+  {
+    "page": "/admin/teams/shopping",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 lists today"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 slips this week"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active staff"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Lists today"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Overdue lists"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Slips this week"
+      }
+    ],
+    "smallTargetCount": 7,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "a",
+        "label": "All teams"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "All teams"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:7"
+    ]
+  },
+  {
+    "page": "/admin/driver-schedule",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 30,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 drivers"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 shifts this week"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0.0h rostered"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Drivers"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Shifts this week"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Hours rostered"
+      }
+    ],
+    "smallTargetCount": 24,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 85,
+        "h": 32,
+        "tag": "button",
+        "label": "This week"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 76,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      }
+    ],
+    "flags": [
+      "tinyFont:30",
+      "smallTap:24"
+    ]
+  },
+  {
+    "page": "/admin/hr-solutions",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 11,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "10 active"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "0h this week"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 clocked now"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active staff"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Hours this week"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Clocked now"
+      }
+    ],
+    "smallTargetCount": 28,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 89,
+        "h": 27,
+        "tag": "a",
+        "label": "10 active"
+      },
+      {
+        "w": 110,
+        "h": 27,
+        "tag": "a",
+        "label": "0h this week"
+      },
+      {
+        "w": 72,
+        "h": 20,
+        "tag": "a",
+        "label": "Kitchen"
+      },
+      {
+        "w": 83,
+        "h": 20,
+        "tag": "a",
+        "label": "Cleaning"
+      },
+      {
+        "w": 68,
+        "h": 20,
+        "tag": "a",
+        "label": "Drivers"
+      }
+    ],
+    "flags": [
+      "tinyFont:11",
+      "smallTap:28"
+    ]
+  },
+  {
+    "page": "/admin/public-holidays",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 100,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "13 holidays in 2026"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Total"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Gazetted"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Company"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Recurring"
+      },
+      {
+        "fs": 10,
+        "tag": "div",
+        "txt": "Mon"
+      }
+    ],
+    "smallTargetCount": 376,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 117,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 140,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 219,
+        "h": 36,
+        "tag": "button",
+        "label": "Add company holiday"
+      },
+      {
+        "w": 55,
+        "h": 30,
+        "tag": "button",
+        "label": "2026"
+      },
+      {
+        "w": 54,
+        "h": 30,
+        "tag": "button",
+        "label": "2027"
+      },
+      {
+        "w": 55,
+        "h": 30,
+        "tag": "button",
+        "label": "2028"
+      }
+    ],
+    "flags": [
+      "tinyFont:100",
+      "smallTap:376"
+    ]
+  },
+  {
+    "page": "/admin/onboarding",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 6,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Step 1 of 9"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "5 of 7 sections complete"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 8,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 316,
+        "h": 36,
+        "tag": "button",
+        "label": "Resume at next step"
+      },
+      {
+        "w": 316,
+        "h": 38,
+        "tag": "button",
+        "label": "I have data to import fi"
+      },
+      {
+        "w": 301,
+        "h": 16,
+        "tag": "button",
+        "label": "Skip the wizard, take me"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:6",
+      "smallTap:8"
+    ]
+  },
+  {
+    "page": "/admin/wages",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 15,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 0 this week"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 staff in range"
+      },
+      {
+        "fs": 10,
+        "tag": "div",
+        "txt": "Period total"
+      },
+      {
+        "fs": 10,
+        "tag": "div",
+        "txt": "Kitchen + drivers + shopping"
+      },
+      {
+        "fs": 10,
+        "tag": "div",
+        "txt": "Overtime split"
+      },
+      {
+        "fs": 10,
+        "tag": "div",
+        "txt": "0.0h, 0% of total"
+      }
+    ],
+    "smallTargetCount": 19,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 128,
+        "h": 32,
+        "tag": "a",
+        "label": "Manage staff"
+      },
+      {
+        "w": 128,
+        "h": 32,
+        "tag": "button",
+        "label": "Manage staff"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 117,
+        "h": 24,
+        "tag": "button",
+        "label": "All"
+      },
+      {
+        "w": 117,
+        "h": 24,
+        "tag": "button",
+        "label": "Kitchen"
+      }
+    ],
+    "flags": [
+      "tinyFont:15",
+      "smallTap:19"
+    ]
+  },
+  {
+    "page": "/admin/staff",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 44,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "5 active staff"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "4 missing a rate"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active staff"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Missing rate"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Portal logins"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Archived"
+      }
+    ],
+    "smallTargetCount": 46,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 190,
+        "h": 36,
+        "tag": "a",
+        "label": "Wage dashboard"
+      },
+      {
+        "w": 190,
+        "h": 36,
+        "tag": "button",
+        "label": "Wage dashboard"
+      },
+      {
+        "w": 119,
+        "h": 36,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 142,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 128,
+        "h": 36,
+        "tag": "button",
+        "label": "Add staff"
+      }
+    ],
+    "flags": [
+      "tinyFont:44",
+      "smallTap:46"
+    ]
+  },
+  {
+    "page": "/admin/staff-hours",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 6,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 staff clocked in this peri"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0.0h worked"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 22,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 146,
+        "h": 24,
+        "tag": "a",
+        "label": "Wages dashboard"
+      },
+      {
+        "w": 134,
+        "h": 36,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:6",
+      "smallTap:22"
+    ]
+  },
+  {
+    "page": "/admin/driver-settlement",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 29,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 of 2 drivers with pay"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "R 0.00 this period"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2026-06-04 to 2026-07-04"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Grand total"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Hourly pay"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Distance pay"
+      }
+    ],
+    "smallTargetCount": 10,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 103,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 136,
+        "h": 32,
+        "tag": "button",
+        "label": "Mark all paid"
+      },
+      {
+        "w": 123,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 176,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 176,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      }
+    ],
+    "flags": [
+      "tinyFont:29",
+      "smallTap:10"
+    ]
+  },
+  {
+    "page": "/admin/kitchen-settlement",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 9,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Staff with hours"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total hours"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Base pay"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "OT + premium"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Total pay"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      }
+    ],
+    "smallTargetCount": 13,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 148,
+        "h": 32,
+        "tag": "button",
+        "label": "Issue all payslips"
+      },
+      {
+        "w": 156,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 156,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 93,
+        "h": 32,
+        "tag": "button",
+        "label": "Last 7 days"
+      }
+    ],
+    "flags": [
+      "tinyFont:9",
+      "smallTap:13"
+    ]
+  },
+  {
+    "page": "/admin/kitchen-schedule",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 18,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 chefs on the roster"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 shifts in view"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 events booked"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Chefs on roster"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Shifts in view"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Planned hours"
+      }
+    ],
+    "smallTargetCount": 12,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 77,
+        "h": 28,
+        "tag": "button",
+        "label": "Week"
+      },
+      {
+        "w": 83,
+        "h": 28,
+        "tag": "button",
+        "label": "Month"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 85,
+        "h": 32,
+        "tag": "button",
+        "label": "This week"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      }
+    ],
+    "flags": [
+      "tinyFont:18",
+      "smallTap:12"
+    ]
+  },
+  {
+    "page": "/admin/cleaning-schedule",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 29,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 cleaning team members"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 shifts this week"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Cleaning staff"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Shifts this week"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Planned hours"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Missed shifts"
+      }
+    ],
+    "smallTargetCount": 24,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 85,
+        "h": 32,
+        "tag": "button",
+        "label": "This week"
+      },
+      {
+        "w": 42,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 113,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 98,
+        "h": 32,
+        "tag": "button",
+        "label": "BUTTON"
+      }
+    ],
+    "flags": [
+      "tinyFont:29",
+      "smallTap:24"
+    ]
+  },
+  {
+    "page": "/admin/kitchen-duty-tracking",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 4,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Terms"
+      }
+    ],
+    "smallTargetCount": 3,
+    "smallTargets": [
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:4",
+      "smallTap:3"
+    ]
+  },
+  {
+    "page": "/admin/company-profile",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 10,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Saved 7h ago"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Setup 7/7 required"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Most SA banks accept the uni"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Shown under the bank details"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Auto-filled from address pic"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Saved values flow into Admin"
+      }
+    ],
+    "smallTargetCount": 50,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 139,
+        "h": 36,
+        "tag": "button",
+        "label": "Save profile"
+      },
+      {
+        "w": 179,
+        "h": 26,
+        "tag": "button",
+        "label": "Peak season (optional)"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 316,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 316,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      }
+    ],
+    "flags": [
+      "tinyFont:10",
+      "smallTap:50"
+    ]
+  },
+  {
+    "page": "/admin/white-label",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 7,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Custom branding active"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Fonts: Poppins / Work Sans"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Primary #2F05FF"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      }
+    ],
+    "smallTargetCount": 28,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 177,
+        "h": 23,
+        "tag": "a",
+        "label": "Back to Settings"
+      },
+      {
+        "w": 177,
+        "h": 36,
+        "tag": "button",
+        "label": "Back to Settings"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 145,
+        "h": 32,
+        "tag": "button",
+        "label": "Reset to default"
+      },
+      {
+        "w": 86,
+        "h": 32,
+        "tag": "button",
+        "label": "Saved"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:7",
+      "smallTap:28"
+    ]
+  },
+  {
+    "page": "/admin/kitchen-settings",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 8,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Auto prep tasks on"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "30 min safety buffer"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Overtime warning after 9h"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Set to 0 to surface every di"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      }
+    ],
+    "smallTargetCount": 21,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 318,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 318,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 318,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      }
+    ],
+    "flags": [
+      "tinyFont:8",
+      "smallTap:21"
+    ]
+  },
+  {
+    "page": "/admin/email-settings",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 12,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "CateringMS default"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 of 100 sent today"
+      },
+      {
+        "fs": 10,
+        "tag": "p",
+        "txt": "Last 7 days"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "Optional upgrade"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "Active default"
+      },
+      {
+        "fs": 10,
+        "tag": "span",
+        "txt": "Coming soon"
+      }
+    ],
+    "smallTargetCount": 26,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 86,
+        "h": 32,
+        "tag": "button",
+        "label": "Saved"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Pricing"
+      },
+      {
+        "w": 316,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:12",
+      "smallTap:26"
+    ]
+  },
+  {
+    "page": "/admin/integrations",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 45,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 active keys"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 live webhooks"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active API keys"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Live webhooks"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Failing webhooks"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Last delivery"
+      }
+    ],
+    "smallTargetCount": 63,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 144,
+        "h": 36,
+        "tag": "a",
+        "label": "Open Zapier"
+      },
+      {
+        "w": 144,
+        "h": 36,
+        "tag": "button",
+        "label": "Open Zapier"
+      },
+      {
+        "w": 290,
+        "h": 16,
+        "tag": "a",
+        "label": "Open Xero in Zapier"
+      },
+      {
+        "w": 140,
+        "h": 36,
+        "tag": "a",
+        "label": "Connect Xero"
+      },
+      {
+        "w": 190,
+        "h": 36,
+        "tag": "a",
+        "label": "Connect QuickBooks"
+      }
+    ],
+    "flags": [
+      "tinyFont:45",
+      "smallTap:63"
+    ]
+  },
+  {
+    "page": "/admin/integrations/embed",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 22,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "3 forms"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "10 submissions"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "52.6% conversion"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Total forms"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Views"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Submissions"
+      }
+    ],
+    "smallTargetCount": 17,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 123,
+        "h": 36,
+        "tag": "button",
+        "label": "New form"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 332,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      }
+    ],
+    "flags": [
+      "tinyFont:22",
+      "smallTap:17"
+    ]
+  },
+  {
+    "page": "/admin/email-templates",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 250,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "2 customised templates"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "7 sent (30d)"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 failed (30d)"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Customised templates"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Emails sent"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Send failures"
+      }
+    ],
+    "smallTargetCount": 90,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 175,
+        "h": 24,
+        "tag": "button",
+        "label": "Templates"
+      },
+      {
+        "w": 175,
+        "h": 24,
+        "tag": "button",
+        "label": "Sent Log"
+      },
+      {
+        "w": 175,
+        "h": 24,
+        "tag": "button",
+        "label": "Automation"
+      },
+      {
+        "w": 175,
+        "h": 24,
+        "tag": "button",
+        "label": "Settings"
+      },
+      {
+        "w": 256,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 39,
+        "h": 28,
+        "tag": "button",
+        "label": "All"
+      }
+    ],
+    "flags": [
+      "tinyFont:250",
+      "smallTap:90"
+    ]
+  },
+  {
+    "page": "/admin/notification-settings",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 7,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "11 of 14 alerts on"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Email 3/4"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "WhatsApp 4/4"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      },
+      {
+        "fs": 11,
+        "tag": "a",
+        "txt": "Privacy"
+      }
+    ],
+    "smallTargetCount": 23,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 36,
+        "h": 20,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 36,
+        "h": 20,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 36,
+        "h": 20,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 36,
+        "h": 20,
+        "tag": "button",
+        "label": "BUTTON"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      }
+    ],
+    "flags": [
+      "tinyFont:7",
+      "smallTap:23"
+    ]
+  },
+  {
+    "page": "/admin/audit-logs",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 17,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "7 matching rows"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "0 days of history"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Matching rows"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "History retained"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Actors on page"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Flagged on page"
+      }
+    ],
+    "smallTargetCount": 36,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 123,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 103,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 316,
+        "h": 36,
+        "tag": "button",
+        "label": "Last 7 days"
+      },
+      {
+        "w": 316,
+        "h": 36,
+        "tag": "button",
+        "label": "All entity types"
+      },
+      {
+        "w": 316,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      },
+      {
+        "w": 316,
+        "h": 36,
+        "tag": "input",
+        "label": "INPUT"
+      }
+    ],
+    "flags": [
+      "tinyFont:17",
+      "smallTap:36"
+    ]
+  },
+  {
+    "page": "/admin/subscription",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 0,
+    "tinyFonts": [],
+    "smallTargetCount": 3,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 185,
+        "h": 36,
+        "tag": "button",
+        "label": "View pricing plans"
+      }
+    ],
+    "flags": [
+      "smallTap:3"
+    ]
+  },
+  {
+    "page": "/admin/settings",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 15,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "ZAR · VAT 15%"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Deposit 50%"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "companies"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "companies"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "companies.kitchen_settings"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "email_provider_settings"
+      }
+    ],
+    "smallTargetCount": 38,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 86,
+        "h": 32,
+        "tag": "button",
+        "label": "Saved"
+      },
+      {
+        "w": 79,
+        "h": 32,
+        "tag": "a",
+        "label": "Open"
+      },
+      {
+        "w": 79,
+        "h": 32,
+        "tag": "a",
+        "label": "Open"
+      },
+      {
+        "w": 79,
+        "h": 32,
+        "tag": "a",
+        "label": "Open"
+      },
+      {
+        "w": 79,
+        "h": 32,
+        "tag": "a",
+        "label": "Open"
+      }
+    ],
+    "flags": [
+      "tinyFont:15",
+      "smallTap:38"
+    ]
+  },
+  {
+    "page": "/admin/payment-gateways",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 8,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Gateways configured"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Active gateway"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Mode"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Last verified"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "© 2026 Spit Braai Delivery."
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "Powered by CateringMS"
+      }
+    ],
+    "smallTargetCount": 6,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 147,
+        "h": 17,
+        "tag": "a",
+        "label": "Powered by CateringMS"
+      },
+      {
+        "w": 40,
+        "h": 17,
+        "tag": "a",
+        "label": "Privacy"
+      },
+      {
+        "w": 34,
+        "h": 17,
+        "tag": "a",
+        "label": "Terms"
+      }
+    ],
+    "flags": [
+      "tinyFont:8",
+      "smallTap:6"
+    ]
+  },
+  {
+    "page": "/admin/notifications",
+    "vw": 390,
+    "overflow": 0,
+    "tinyFontCount": 11,
+    "tinyFonts": [
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "9 in inbox"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "8 unread"
+      },
+      {
+        "fs": 11,
+        "tag": "span",
+        "txt": "8 urgent or high"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "In inbox"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Unread"
+      },
+      {
+        "fs": 11,
+        "tag": "p",
+        "txt": "Urgent or high"
+      }
+    ],
+    "smallTargetCount": 52,
+    "smallTargets": [
+      {
+        "w": 95,
+        "h": 32,
+        "tag": "a",
+        "label": "Admin"
+      },
+      {
+        "w": 36,
+        "h": 36,
+        "tag": "button",
+        "label": "Theme switching"
+      },
+      {
+        "w": 16,
+        "h": 16,
+        "tag": "button",
+        "label": "More info"
+      },
+      {
+        "w": 103,
+        "h": 32,
+        "tag": "button",
+        "label": "Refresh"
+      },
+      {
+        "w": 137,
+        "h": 32,
+        "tag": "button",
+        "label": "Mark all read"
+      },
+      {
+        "w": 123,
+        "h": 32,
+        "tag": "button",
+        "label": "Export CSV"
+      },
+      {
+        "w": 128,
+        "h": 32,
+        "tag": "button",
+        "label": "Delete read"
+      },
+      {
+        "w": 123,
+        "h": 32,
+        "tag": "button",
+        "label": "Clear stale"
+      }
+    ],
+    "flags": [
+      "tinyFont:11",
+      "smallTap:52"
+    ]
+  }
+]
