@@ -191,3 +191,29 @@ calendar grid-cols-4 stat pills, all KPI grids (grid-cols-2 lg:grid-cols-4).
 The metric flags (sub-12px fonts, sub-40px taps) are mostly legit 11px meta
 labels + ~32px icon buttons, visually confirmed readable, not defects.
 Error sweep (platform): 0 JS/console/network errors. tsc: clean.
+
+### Iteration 3 (2026-07-04) — STAFF + CLIENT PORTALS
+Extended the audit to every non-admin portal via scripts/portal-audit.mjs
+(logs in per role, overflow at 3 viewports + mobile screenshots to E:/rshots).
+Created a waiter.demo@spitbraaidelivery.co.za test account (role kitchen_staff /
+active_role waiter; profiles_role_check blocks 'waiter' as base role, so it
+mirrors how managers are stored) since no waiter user existed.
+
+Coverage (54 pages, 0 overflow-FAIL, 0 ERROR across all):
+- Kitchen (as kitchen manager): 11 pages
+- Cleaning (as cleaning manager): 10 pages
+- Driver: 9 pages
+- Waiter: 3 pages
+- Shopping: 12 pages
+- Client portal: 9 pages
+(kitchen/cleaning staff use the same routes as their managers - identical
+responsive layout, manager view is the superset, so tested as manager.)
+
+Visual review (mobile): driver dashboard, kitchen today, cleaning dashboard,
+waiter dashboard, client my-orders - all excellent, mobile-first by design
+(big tap targets, stacked cards, day-grid calendars, clean empty states).
+The order timeline on client my-orders/tracking now uses the compact view
+fixed in iteration 2. No portal issues found.
+
+GRAND TOTAL audited: 82 admin + 54 portal = 136 pages. Overflow-clean
+everywhere; 3 real mobile visual bugs fixed (all on admin/order surfaces).

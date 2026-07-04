@@ -1,0 +1,332 @@
+[
+  {
+    "page": "/team-portal/kitchen",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 72
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 72
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 72
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 72
+  },
+  {
+    "page": "/team-portal/kitchen/dashboard",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1423
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1428
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1806
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 1423
+  },
+  {
+    "page": "/team-portal/kitchen/today",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1419
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1424
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1786
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 1419
+  },
+  {
+    "page": "/team-portal/kitchen/duty",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 283
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 911
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1289
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 283
+  },
+  {
+    "page": "/team-portal/kitchen/handovers",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1419
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1424
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1786
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 1419
+  },
+  {
+    "page": "/team-portal/kitchen/menu",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 3801
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 3806
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 4169
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 3801
+  },
+  {
+    "page": "/team-portal/kitchen/notifications",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1206
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1211
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1587
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 1206
+  },
+  {
+    "page": "/team-portal/kitchen/prep-list",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 750
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 755
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 1116
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 750
+  },
+  {
+    "page": "/team-portal/kitchen/production",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 625
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 630
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 991
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 625
+  },
+  {
+    "page": "/team-portal/kitchen/settings",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 95
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 95
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 95
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 95
+  },
+  {
+    "page": "/team-portal/kitchen/stock",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 5847
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 5864
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "textLen": 6225
+      }
+    },
+    "status": "pass",
+    "http": 200,
+    "redirected": null,
+    "textLen": 5847
+  }
+]
