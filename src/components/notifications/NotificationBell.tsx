@@ -19,47 +19,80 @@ import { useTenantHref } from "@/lib/tenantUrl";
 
 /** Fallback chime, synthesised with WebAudio so it works even if the
  *  audio asset fails to load. Stays silent if the AudioContext can't be
- *  constructed (older Safari, locked autoplay policy). */
-function chime() {
+ *  constructed (older Safari, locked autoplay policy). Varies by tier so
+ *  the fallback still signals urgency: urgent = 3 insistent beeps, high =
+ *  bright double-ding, else = soft descending two-note. */
+function chime(tier: "urgent" | "high" | "default" = "default") {
   try {
     const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.value = 0.05;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.18);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
-    osc.stop(ctx.currentTime + 0.25);
-    setTimeout(() => ctx.close(), 400);
+    const beep = (freq: number, at: number, len: number, vol: number, type: OscillatorType = "sine") => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + at);
+      gain.gain.exponentialRampToValueAtTime(vol, ctx.currentTime + at + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + at + len);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + at);
+      osc.stop(ctx.currentTime + at + len + 0.02);
+    };
+    if (tier === "urgent") {
+      beep(988, 0.0, 0.12, 0.06, "square");
+      beep(988, 0.17, 0.12, 0.06, "square");
+      beep(988, 0.34, 0.16, 0.07, "square");
+      setTimeout(() => ctx.close(), 700);
+    } else if (tier === "high") {
+      beep(1047, 0.0, 0.16, 0.05);
+      beep(1568, 0.09, 0.22, 0.055);
+      setTimeout(() => ctx.close(), 500);
+    } else {
+      beep(880, 0.0, 0.2, 0.05);
+      beep(1319, 0.1, 0.22, 0.05);
+      setTimeout(() => ctx.close(), 500);
+    }
   } catch {
     // Best-effort - silent failure is fine.
   }
 }
 
 // Raj 2026-07-05: staff wanted to HEAR notifications land, not just see
-// the badge. Play a real chime asset for every new notification; fall back
-// to the synthesised tone if the file can't load or autoplay is blocked.
-// The <audio> element is cached + rewound so rapid notifications each ring.
-let notifAudio: HTMLAudioElement | null = null;
-function playNotifSound() {
+// the badge - and a DIFFERENT sound per urgency so they can tell an urgent
+// one apart without looking. Play a real chime asset for every new
+// notification; fall back to the synthesised tone if the file can't load
+// or autoplay is blocked. Each <audio> is cached + rewound so rapid
+// notifications each ring.
+//   urgent -> urgent.wav (insistent triple beep)
+//   high   -> high.wav   (brighter double-ding)
+//   else   -> notification.wav (soft two-note bell)
+const SOUND_SRC: Record<string, string> = {
+  urgent: "/sounds/urgent.wav",
+  high: "/sounds/high.wav",
+  default: "/sounds/notification.wav",
+};
+const soundCache: Record<string, HTMLAudioElement> = {};
+function soundTier(priority?: string | null): "urgent" | "high" | "default" {
+  return priority === "urgent" ? "urgent" : priority === "high" ? "high" : "default";
+}
+function playNotifSound(priority?: string | null) {
+  const tier = soundTier(priority);
   try {
     if (typeof window === "undefined") return;
-    if (!notifAudio) {
-      notifAudio = new Audio("/sounds/notification.wav");
-      notifAudio.volume = 0.45;
-      notifAudio.preload = "auto";
+    let audio = soundCache[tier];
+    if (!audio) {
+      audio = new Audio(SOUND_SRC[tier]);
+      audio.volume = tier === "urgent" ? 0.6 : 0.45;
+      audio.preload = "auto";
+      soundCache[tier] = audio;
     }
-    notifAudio.currentTime = 0;
-    const p = notifAudio.play();
-    if (p && typeof (p as any).catch === "function") (p as Promise<void>).catch(() => chime());
+    audio.currentTime = 0;
+    const p = audio.play();
+    if (p && typeof (p as any).catch === "function") (p as Promise<void>).catch(() => chime(tier));
   } catch {
-    chime();
+    chime(tier);
   }
 }
 
@@ -117,8 +150,8 @@ export function NotificationBell() {
         // pop-up toast still fires only for high/urgent so we don't spam
         // the screen for routine items - the sound + badge cover those.
         if (claimToast(notification.id)) {
-          playNotifSound();
           const priority = (notification.priority || "").toLowerCase();
+          playNotifSound(priority);
           if (priority === "urgent" || priority === "high") {
             toast({
               title: notification.title || "New notification",
