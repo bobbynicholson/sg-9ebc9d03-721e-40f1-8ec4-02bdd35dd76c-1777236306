@@ -1191,15 +1191,33 @@ function WageDashboardPage() {
               ) : isDriversTab ? (
                 <DriverSummaryView rows={driverRows} totals={driverTotals} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
               ) : (
-                <KitchenSummaryView
-                  chartData={chartData}
-                  topFive={topFive}
-                  publicHolidayLines={publicHolidayLines}
-                  staffRows={staffRows}
-                  totalWage={kitchenTotals.total_wage}
-                  fmtZAR={fmtZAR}
-                  fmtZARDetailed={fmtZARDetailed}
-                />
+                // "All" tab: the grand total already includes driver pay, so
+                // the breakdown must show drivers too - otherwise a tenant
+                // with only driver pay saw "No shifts" under a non-zero total
+                // (money that didn't sum on the surface). Render the kitchen
+                // ledger when it has rows AND the driver ledger when it has
+                // rows; single-department tabs keep kitchen-only.
+                <div className="space-y-6">
+                  {staffRows.length > 0 && (
+                    <KitchenSummaryView
+                      chartData={chartData}
+                      topFive={topFive}
+                      publicHolidayLines={publicHolidayLines}
+                      staffRows={staffRows}
+                      totalWage={kitchenTotals.total_wage}
+                      fmtZAR={fmtZAR}
+                      fmtZARDetailed={fmtZARDetailed}
+                    />
+                  )}
+                  {department === "all" && driverRows.length > 0 && (
+                    <div className="space-y-3">
+                      {staffRows.length > 0 && (
+                        <h3 className="text-sm font-semibold text-slate-700">Drivers</h3>
+                      )}
+                      <DriverSummaryView rows={driverRows} totals={driverTotals} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
+                    </div>
+                  )}
+                </div>
               )}
             </TabsContent>
 
@@ -1218,7 +1236,21 @@ function WageDashboardPage() {
               ) : isDriversTab ? (
                 <DriverByPersonTable rows={driverRows} fmtZAR={fmtZAR} withSlug={withSlug} />
               ) : (
-                <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
+                // "All" tab: show clocked-shift staff AND drivers so the
+                // per-person list reconciles with the grand total.
+                <div className="space-y-6">
+                  {sortedByPerson.length > 0 && (
+                    <KitchenByPersonTable rows={sortedByPerson} totals={kitchenTotals} weeklyByStaff={weeklyByStaff} fmtZAR={fmtZAR} fmtZARDetailed={fmtZARDetailed} />
+                  )}
+                  {department === "all" && driverRows.length > 0 && (
+                    <div className="space-y-3">
+                      {sortedByPerson.length > 0 && (
+                        <h3 className="text-sm font-semibold text-slate-700">Drivers</h3>
+                      )}
+                      <DriverByPersonTable rows={driverRows} fmtZAR={fmtZAR} withSlug={withSlug} />
+                    </div>
+                  )}
+                </div>
               )}
             </TabsContent>
           </Tabs>
