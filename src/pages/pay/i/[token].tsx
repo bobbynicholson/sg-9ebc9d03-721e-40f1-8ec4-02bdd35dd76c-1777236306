@@ -234,6 +234,32 @@ export default function InvoicePaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Download the clean react-pdf tax invoice (no browser print chrome /
+  // page breaks) instead of window.print(). Falls back to the print
+  // dialog if the render endpoint is unreachable. (2026-07-04)
+  const downloadInvoicePdf = async () => {
+    if (!token || downloadingPdf) return;
+    setDownloadingPdf(true);
+    try {
+      const resp = await fetch(`/api/public/invoices/${token}/pdf`);
+      if (!resp.ok) throw new Error(`Invoice PDF failed (${resp.status})`);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Invoice-${(invoice as any)?.invoice_number || token}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch {
+      try { window.print(); } catch { /* ignore */ }
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
   // Wave 29.2: store-credit support on the public magic-link pay
   // page. Mirrors PaymentModal - fetch balance via the
   // credit-balance endpoint (token-bearer auth), default the toggle
@@ -582,9 +608,9 @@ export default function InvoicePaymentPage() {
                 {dueChipLabel}
               </Badge>
             ) : <span />}
-            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={downloadInvoicePdf} disabled={downloadingPdf} className="gap-1.5">
               <Printer className="w-4 h-4" />
-              Save as PDF
+              {downloadingPdf ? "Preparing..." : "Save as PDF"}
             </Button>
           </div>
 
