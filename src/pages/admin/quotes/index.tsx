@@ -179,6 +179,8 @@ const PIPELINE_COLUMNS: Array<{
   { bucket: "action_needed",      title: "Action needed",      tone: "border-rose-300 bg-rose-50",       Icon: Flame },
   { bucket: "in_play",            title: "In play",            tone: "border-brand-primary/30 bg-brand-primary/10",       Icon: Sparkles },
   { bucket: "stale",              title: "Stale",              tone: "border-amber-300 bg-amber-50",     Icon: Clock },
+  // Accepted / booked but no deposit received yet - chase for money.
+  { bucket: "accepted_awaiting_deposit", title: "Awaiting deposit", tone: "border-rose-300 bg-rose-50",  Icon: Clock },
   { bucket: "won",                title: "Won",                tone: "border-brand-primary/30 bg-brand-primary/10", Icon: Crown },
   // TIGHTEN I.62: distinct bucket so "won then cancelled" isn't
   // silently lumped in with either Won (overstating conversion) or
@@ -465,6 +467,9 @@ function AdminQuotesInner() {
     /** Wave 70.32: actual order status so badge + caption tell the
      *  truth instead of saying a blanket "booked". */
     status: string | null;
+    /** 2026-07-04: has a deposit/payment actually landed on the linked
+     *  order? Drives the Won-vs-Awaiting-deposit split. */
+    depositReceived: boolean;
   }>>(new Map());
 
   // Deep-link target from notifications + email links: clicking a
@@ -523,17 +528,34 @@ function AdminQuotesInner() {
           || orderStatus === "completed"
           || orderStatus === "paid"
         ) {
-          // Defensive: a confirmed-and-onward order means the quote
-          // is definitively won, regardless of what quote.status
-          // says. (Most flows already mark accepted but some imports
-          // skip the step.)
+          // A delivered / completed / paid order is definitively won,
+          // regardless of what quote.status says.
           intelligence = {
             ...baseIntel,
             bucket: "won",
             tone: "neutral",
-            label: "Won + booked",
+            label: "Won + paid",
             reason: `Linked order ${resolved?.orderNumber || ""} is ${orderStatus}`,
           };
+        } else if (baseIntel.bucket === "won") {
+          // "Won" now means money received (Raj, 2026-07-04, option C).
+          // deriveQuoteIntelligence marks any accepted / converted quote
+          // as "won"; downgrade to "accepted_awaiting_deposit" until a
+          // deposit actually lands, so the Won bucket only ever holds
+          // paid bookings and the team can chase the unpaid ones.
+          if (resolved?.depositReceived) {
+            intelligence = { ...baseIntel, bucket: "won", label: "Won - deposit paid", tone: "neutral" };
+          } else {
+            intelligence = {
+              ...baseIntel,
+              bucket: "accepted_awaiting_deposit",
+              tone: "urgent",
+              label: (q as any).converted_to_order_id ? "Chase deposit" : "Convert + collect deposit",
+              reason: (q as any).converted_to_order_id
+                ? "Accepted and booked, but no deposit received yet"
+                : "Accepted, no order or deposit yet",
+            };
+          }
         }
         const autoEmail =
           autoMap.get(q.id) || { queued: 0, sent: 0, latest: null };
@@ -604,7 +626,7 @@ function AdminQuotesInner() {
   // counts alone don't answer that. Same regionFilteredRows source as
   // counts so the numbers always agree with the pill counts.
   const revenueByBucket = useMemo(() => {
-    const sums: Record<string, number> = { all: 0, action_needed: 0, in_play: 0, stale: 0, won: 0, expired: 0, lost: 0 };
+    const sums: Record<string, number> = { all: 0, action_needed: 0, in_play: 0, stale: 0, accepted_awaiting_deposit: 0, won: 0, won_then_cancelled: 0, expired: 0, lost: 0 };
     for (const r of regionFilteredRows) {
       const t = Number((r.quote as any).total ?? (r.quote as any).subtotal ?? 0);
       if (!Number.isFinite(t)) continue;
@@ -859,7 +881,9 @@ function AdminQuotesInner() {
           // Wave 70.32: pull status too so the badge can show the
           // accurate state of the linked order, not a blanket "booked"
           // word that's wrong when the order is still pending.
-          .select("id, order_number, event_date, event_name, guest_count, total_amount, venue_name, status")
+          // 2026-07-04: pull payment fields so "Won" means money received
+          // (deposit paid), not just accepted - see rowStates override.
+          .select("id, order_number, event_date, event_name, guest_count, total_amount, venue_name, status, deposit_paid, balance_paid, payment_status")
           .eq("company_id", companyId)
           .in("id", orderIds);
         const byOrderId = new Map<string, any>();
@@ -870,6 +894,13 @@ function AdminQuotesInner() {
           if (!oid) continue;
           const o = byOrderId.get(oid);
           if (!o) continue;
+          // Deposit received? Any of: the deposit_paid flag, a payment_status
+          // that implies money in, or a fully-paid order.
+          const payStatus = String((o as any).payment_status || "").toLowerCase();
+          const depositReceived =
+            (o as any).deposit_paid === true ||
+            (o as any).balance_paid === true ||
+            ["partial", "partially_paid", "deposit_paid", "paid", "completed"].includes(payStatus);
           next.set(q.id, {
             sourceOrderId: o.id,
             orderNumber: o.order_number ?? null,
@@ -879,6 +910,7 @@ function AdminQuotesInner() {
             totalAmount: o.total_amount ?? null,
             venueName: o.venue_name ?? null,
             status: o.status ?? null,
+            depositReceived,
           });
         }
         if (!cancelled) setResolvedByQuoteId(next);
@@ -1699,6 +1731,8 @@ function AdminQuotesInner() {
               { id: "action_needed",  label: "Action needed", icon: Flame,          tone: "bg-rose-100 text-rose-700 border-rose-200" },
               { id: "in_play",        label: "In play",       icon: Sparkles,       tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20" },
               { id: "stale",          label: "Stale",         icon: Clock,          tone: "bg-amber-100 text-amber-700 border-amber-200" },
+              // Accepted / booked but no deposit received yet - chase for money (Raj, 2026-07-04).
+              { id: "accepted_awaiting_deposit", label: "Awaiting deposit", icon: Clock, tone: "bg-rose-100 text-rose-700 border-rose-200" },
               { id: "won",                label: "Won",                  icon: Crown,         tone: "bg-brand-primary/15 text-brand-primary border-brand-primary/20" },
               // TIGHTEN I.62: dedicated pill for won-then-cancelled
               // so operators can see at a glance how many deals
@@ -1728,7 +1762,7 @@ function AdminQuotesInner() {
                   count={count}
                   helper={revenue && revenue > 0 ? `${C}${fmtCompact(revenue)}` : undefined}
                   tone={
-                    pill.id === "action_needed" ? "rose"
+                    pill.id === "action_needed" || pill.id === "accepted_awaiting_deposit" ? "rose"
                     : pill.id === "stale" || pill.id === "expired" || pill.id === "won_then_cancelled" ? "amber"
                     : pill.id === "in_play" || pill.id === "won" ? "brand"
                     : "slate"

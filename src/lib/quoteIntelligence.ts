@@ -25,7 +25,8 @@ export type QuoteBucket =
   | "action_needed"        // draft (manual + client request), expiring within 3d
   | "in_play"              // sent + viewed_at, waiting on the client
   | "stale"                // sent > 7d ago, no reply
-  | "won"                  // accepted (with or without converted order)
+  | "accepted_awaiting_deposit" // accepted/booked but NO deposit received yet - chase for money (2026-07-04, Raj)
+  | "won"                  // deposit/payment received - the booking is truly won
   | "won_then_cancelled"   // accepted + order later cancelled - own outcome
   | "lost"                 // rejected (client said no, never converted)
   | "expired";             // expired
@@ -441,6 +442,7 @@ export interface BucketCounts {
   action_needed: number;
   in_play: number;
   stale: number;
+  accepted_awaiting_deposit: number;
   won: number;
   won_then_cancelled: number;
   lost: number;
@@ -453,6 +455,7 @@ export function countByBucket(rows: QuoteRowState[]): BucketCounts {
     action_needed: 0,
     in_play: 0,
     stale: 0,
+    accepted_awaiting_deposit: 0,
     won: 0,
     won_then_cancelled: 0,
     lost: 0,
