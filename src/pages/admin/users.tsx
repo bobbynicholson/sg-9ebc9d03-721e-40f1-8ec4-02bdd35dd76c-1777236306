@@ -1092,7 +1092,7 @@ function AdminUsersPage() {
                       const activity = loginActivityBucket(targetUser.last_sign_in_at);
                       return (
                         <div key={targetUser.id} className="p-4 transition-colors hover:bg-slate-50/70">
-                          <div className="grid gap-4 xl:grid-cols-[minmax(200px,1.05fr)_minmax(200px,1fr)_150px_minmax(170px,auto)] xl:items-start">
+                          <div className="grid gap-4 xl:grid-cols-[minmax(190px,1.1fr)_minmax(180px,1fr)_130px_176px] xl:items-start">
                             <div className="min-w-0">
                               <div className="flex min-w-0 items-center gap-3">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
