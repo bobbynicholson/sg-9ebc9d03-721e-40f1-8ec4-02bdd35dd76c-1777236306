@@ -688,8 +688,7 @@ export function TimelineTrack({
   );
 
   // --- Compact / mobile view ---
-  if (compact) {
-    return (
+  const compactView = (
       <div className="space-y-2">
         <NowCard stage={currentStage} withSlug={withSlug} disableSourceLinks={disableSourceLinks} />
         <TimelineColourLegend compact />
@@ -744,10 +743,9 @@ export function TimelineTrack({
         )}
       </div>
     );
-  }
 
   // --- Full desktop view ---
-  return (
+  const fullView = (
     <div className="space-y-2.5">
       {!hideOperatorBanner && currentStage && (() => {
         const isBlocked = currentStage.status === "blocked";
@@ -859,5 +857,20 @@ export function TimelineTrack({
         {timeline.completedCount} of {timeline.applicableCount} stages complete
       </div>
     </div>
+  );
+
+  // A caller can force the compact view everywhere by passing `compact`.
+  // Otherwise render RESPONSIVELY: the compact cluster-pill view on phones
+  // (where the 6-column desktop band's headers overlap and read as broken)
+  // and the full dot-band from md (768px) up. Previously every caller
+  // rendered the full band unconditionally, so the timeline looked crammed
+  // and unreadable on mobile on every surface (order modal, /c/order/[id],
+  // my-orders, order document, orders list rows). One switch fixes them all.
+  if (compact) return compactView;
+  return (
+    <>
+      <div className="md:hidden">{compactView}</div>
+      <div className="hidden md:block">{fullView}</div>
+    </>
   );
 }
