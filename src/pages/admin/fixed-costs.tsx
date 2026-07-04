@@ -1023,8 +1023,8 @@ function FixedCostsPage() {
               )}
             </div>
             {bulkPreview && (
-              <div className="border rounded-md overflow-hidden text-xs">
-                <div className="bg-slate-50 px-3 py-2 grid grid-cols-12 gap-2 font-semibold text-slate-700">
+              <div className="border rounded-md overflow-x-auto text-xs">
+                <div className="bg-slate-50 px-3 py-2 grid grid-cols-12 gap-2 font-semibold text-slate-700 min-w-[560px]">
                   <div className="col-span-1">#</div>
                   <div className="col-span-3">Label</div>
                   <div className="col-span-2">Amount</div>
@@ -1032,7 +1032,7 @@ function FixedCostsPage() {
                   <div className="col-span-2">Next due</div>
                   <div className="col-span-2">Category</div>
                 </div>
-                <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+                <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 min-w-[560px]">
                   {bulkPreview.map((r) => (
                     <div
                       key={r.line}

@@ -1219,7 +1219,10 @@ return (
         }}
         className="mt-6"
       >
-        <TabsList className="grid w-full grid-cols-7">
+        {/* 7 tabs in grid-cols-7 clipped + overlapped the labels ("Menu
+            Items", "Cancellations") at phone width. Scroll horizontally on
+            mobile (tabs keep full labels, shrink-0), grid from sm up. */}
+        <TabsList className="flex w-full justify-start overflow-x-auto [&>*]:shrink-0 sm:grid sm:grid-cols-7">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="menu">Menu Items</TabsTrigger>
           <TabsTrigger value="equipment">Equipment</TabsTrigger>
