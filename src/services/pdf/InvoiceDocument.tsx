@@ -114,13 +114,17 @@ const fmtMoney = (n: number | null | undefined, currency?: string | null): strin
   const code = (currency || "ZAR").toUpperCase();
   const locale = CURRENCY_LOCALE[code] || "en-ZA";
   try {
+    // An invoice is a tax document - it must show exact cents. Previously
+    // this rounded to whole units (R98.99 -> "R 99"), which is wrong on a
+    // financial/SARS document and made line items not sum to the total.
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: code,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(v);
   } catch {
-    return `${CURRENCY_FALLBACK_SYMBOL[code] || ""}${Math.round(v)}`;
+    return `${CURRENCY_FALLBACK_SYMBOL[code] || ""}${v.toFixed(2)}`;
   }
 };
 
@@ -203,6 +207,14 @@ const buildStyles = (primary: string) =>
       fontSize: 22,
       fontFamily: "Times-Bold",
       color: "#1c1917",
+    },
+    invoiceNumberUnderTitle: {
+      fontSize: 10,
+      fontFamily: "Helvetica-Bold",
+      color: primary,
+      marginTop: 2,
+      marginBottom: 2,
+      letterSpacing: 0.3,
     },
     statusPill: {
       fontSize: 9,
@@ -476,6 +488,10 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 {company.company_name || "Your caterer"}
               </Text>
               <Text style={styles.title}>{heading}</Text>
+              {/* Invoice number: bold, small, directly under the title
+                  (owner request, Pic 77 - 2026-07-04). Removed from the
+                  meta row below so it isn't duplicated. */}
+              <Text style={styles.invoiceNumberUnderTitle}>{data.invoice_number}</Text>
               {company.registration_number ? (
                 <Text style={styles.vatLine}>
                   Reg No: {company.registration_number}
@@ -485,10 +501,6 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 <Text style={styles.vatLine}>VAT Reg No: {vatNumber}</Text>
               ) : null}
               <View style={styles.metaRow}>
-                <View style={styles.metaCell}>
-                  <Text style={styles.metaLabel}>Invoice no.</Text>
-                  <Text style={styles.metaValue}>{data.invoice_number}</Text>
-                </View>
                 {invoiceDate ? (
                   <View style={styles.metaCell}>
                     <Text style={styles.metaLabel}>Date</Text>

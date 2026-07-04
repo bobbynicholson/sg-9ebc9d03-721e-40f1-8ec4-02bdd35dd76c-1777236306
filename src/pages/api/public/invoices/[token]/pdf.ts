@@ -79,18 +79,41 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch { logoUrl = null; }
     } else if (logoUrl && !/^data:/i.test(logoUrl)) logoUrl = null;
 
-    // Line items from invoice_data (the itemised breakdown shown on the
-    // pay page). Tolerate either key shape.
+    // Line items from invoice_data. invoice_data splits food + equipment
+    // into separate arrays (menuItems / equipmentItems); combine BOTH so
+    // the PDF isn't missing the equipment lines (bug found 2026-07-04:
+    // only the food showed, so lines didn't sum to the total). Fall back
+    // to a flat line_items/items array for older invoices.
     const idata = (inv as any).invoice_data || {};
-    const rawItems = Array.isArray(idata.line_items) ? idata.line_items
-      : Array.isArray(idata.items) ? idata.items : [];
-    const line_items = rawItems.map((it: any) => ({
+    const mapItem = (it: any) => ({
       name: it.description || it.name || it.item_name || "Item",
       description: it.detail || null,
       quantity: it.quantity ?? it.qty ?? null,
       unit_price: it.unitPrice ?? it.unit_price ?? null,
-      total: it.total ?? it.line_total ?? null,
-    }));
+      total: Number(it.total ?? it.line_total ?? 0),
+    });
+    let line_items: any[] = [];
+    if (Array.isArray(idata.menuItems) || Array.isArray(idata.equipmentItems)) {
+      line_items = [
+        ...(Array.isArray(idata.menuItems) ? idata.menuItems.map(mapItem) : []),
+        ...(Array.isArray(idata.equipmentItems) ? idata.equipmentItems.map(mapItem) : []),
+      ];
+    } else {
+      const raw = Array.isArray(idata.line_items) ? idata.line_items : Array.isArray(idata.items) ? idata.items : [];
+      line_items = raw.map(mapItem);
+    }
+    // Surge / discount adjustment: if the line totals don't reconcile to
+    // the subtotal, add a single adjustment line so the itemised list
+    // always sums to the total shown (the pay page does the same).
+    const itemsSum = line_items.reduce((s, l) => s + (Number(l.total) || 0), 0);
+    const subtotalNum = Number((inv as any).subtotal || 0);
+    const adjustment = Math.round((subtotalNum - itemsSum) * 100) / 100;
+    if (Math.abs(adjustment) >= 0.01) {
+      line_items.push({
+        name: adjustment < 0 ? "Discount / adjustment" : "Surge / adjustment",
+        description: null, quantity: null, unit_price: null, total: adjustment,
+      });
+    }
 
     const clientAddress = [client.billing_address_line1, client.billing_address_line2, client.billing_city, client.billing_postal_code].filter(Boolean).join(", ") || null;
 
