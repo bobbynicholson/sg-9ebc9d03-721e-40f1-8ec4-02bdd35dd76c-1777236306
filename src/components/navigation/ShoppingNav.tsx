@@ -45,6 +45,7 @@ import {
   ShoppingCart,
   Camera,
   Warehouse,
+  PackagePlus,
   Users,
   ChefHat,
   Wallet,
@@ -188,6 +189,12 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
         defaultOpen: false,
         items: [
           { title: "Inventory", href: "/team-portal/shopping/inventory", icon: Warehouse, description: "Stock + par levels" },
+          {
+            title: "Restock",
+            href: "/team-portal/shopping/restock",
+            icon: PackagePlus,
+            description: "Top up low stock, no order",
+          },
           { title: "Suppliers", href: "/team-portal/shopping/suppliers", icon: Users,     description: "Contacts + pricing" },
         ],
       },
