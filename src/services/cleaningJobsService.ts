@@ -299,18 +299,26 @@ export async function createJob(
 export async function startJob(
   supabase: SupabaseClient,
   jobId: string,
+  userId?: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   const { error } = await (supabase as any)
     .from("cleaning_jobs")
     .update({ status: "in_progress", actual_start: new Date().toISOString() })
     .eq("id", jobId);
   if (error) return { ok: false, error: error.message };
+  // Track WHO cleaned, credited to the order(s) this equipment served.
+  // Best-effort - the RPC no-ops if not deployed yet.
+  if (userId) {
+    try { await (supabase as any).rpc("record_cleaning_contributor", { p_job_id: jobId, p_user_id: userId }); }
+    catch { /* best-effort contributor tracking */ }
+  }
   return { ok: true };
 }
 
 export async function completeJob(
   supabase: SupabaseClient,
   jobId: string,
+  userId?: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   // CLN2-A (cleaning deep audit, CLN2-26, P0):
   //
@@ -339,6 +347,13 @@ export async function completeJob(
     .eq("id", jobId)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
+
+  // Track WHO cleaned, credited to the order(s) this equipment served.
+  // Best-effort - the RPC no-ops if not deployed yet.
+  if (userId) {
+    try { await sb.rpc("record_cleaning_contributor", { p_job_id: jobId, p_user_id: userId }); }
+    catch { /* best-effort contributor tracking */ }
+  }
 
   // 2. Mark complete.
   const { error: completeErr } = await sb

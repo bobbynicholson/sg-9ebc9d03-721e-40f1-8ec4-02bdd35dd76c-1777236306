@@ -29,6 +29,7 @@ import { kitchenPrepService } from "@/services/kitchenPrepService";
 import { canAccessDriverWidgets } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { OrderContributors } from "../OrderContributors";
 import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
 import { RecipeDialog } from "./RecipeDialog";
 import { SectionSkeleton } from "./SectionSkeleton";
@@ -347,6 +348,7 @@ export function KitchenSection({
       forceOpen={forceOpen}
       highlight={highlight}
     >
+      <OrderContributors orderId={orderId} area="kitchen" label="Helped by" />
       {collectionLabel && (
         <div className="flex items-start gap-2 mb-4 p-3 rounded-md bg-orange-50/80 border border-orange-200">
           <Clock className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />

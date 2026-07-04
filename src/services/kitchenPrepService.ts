@@ -846,6 +846,11 @@ export const kitchenPrepService = {
     // doesn't overwrite the original timestamp.
     const orderId = (updated as any)?.order_id as string | undefined;
     if (orderId) {
+      // Track WHO worked this order's kitchen, so the order shows who
+      // helped. Best-effort - the RPC no-ops if not deployed yet.
+      try {
+        await (supabase as any).rpc("record_order_contributor", { p_order_id: orderId, p_user_id: performedBy, p_area: "kitchen" });
+      } catch { /* best-effort contributor tracking */ }
       try {
         // Atomic first-start detection: only the call that flips
         // prep_started_at from null wins the .is(null) update, so exactly
@@ -939,6 +944,10 @@ export const kitchenPrepService = {
     // /admin/orders.
     const orderId = (updated as any)?.order_id as string | undefined;
     if (orderId) {
+      // Track WHO completed kitchen work on this order (best-effort).
+      try {
+        await (supabase as any).rpc("record_order_contributor", { p_order_id: orderId, p_user_id: performedBy, p_area: "kitchen" });
+      } catch { /* best-effort contributor tracking */ }
       try {
         await this.checkPrepCompleteForOrder(orderId, performedBy);
       } catch (e) {

@@ -10,6 +10,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { Droplets, Loader2, CheckCircle2, Clock } from "lucide-react";
+import { OrderContributors } from "../OrderContributors";
 
 interface Props {
   orderId: string;
@@ -137,6 +138,7 @@ export function CleaningSection({ orderId, companyId, defaultOpen, forceOpen, hi
       forceOpen={forceOpen}
       highlight={highlight}
     >
+      <OrderContributors orderId={orderId} area="cleaning" label="Cleaned by" />
       {loading ? (
         <div className="flex items-center justify-center py-6 text-slate-500">
           <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading cleaning queue...

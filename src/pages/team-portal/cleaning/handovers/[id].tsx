@@ -131,7 +131,7 @@ function HandoverDetailInner() {
   const handleStartJob = async (jobId: string) => {
     if (!canManageCleaning) return;
     setBusyJobId(jobId);
-    const r = await startJob(supabase as any, jobId);
+    const r = await startJob(supabase as any, jobId, user?.id || null);
     setBusyJobId(null);
     if (!r.ok) {
       toast({ title: "Couldn't start", description: r.error, variant: "destructive" });
@@ -143,7 +143,7 @@ function HandoverDetailInner() {
   const handleCompleteJob = async (jobId: string) => {
     if (!canManageCleaning) return;
     setBusyJobId(jobId);
-    const r = await completeJob(supabase as any, jobId);
+    const r = await completeJob(supabase as any, jobId, user?.id || null);
     setBusyJobId(null);
     if (!r.ok) {
       toast({ title: "Couldn't complete", description: r.error, variant: "destructive" });

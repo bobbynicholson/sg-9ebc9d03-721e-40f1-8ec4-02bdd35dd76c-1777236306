@@ -101,7 +101,7 @@ export function CleaningJobsQueue() {
 
   const onStart = async (jobId: string) => {
     setBusyId(jobId);
-    const r = await startJob(supabase as any, jobId);
+    const r = await startJob(supabase as any, jobId, user?.id || null);
     setBusyId(null);
     if (!r.ok) {
       toast({ title: "Couldn't start", description: r.error, variant: "destructive" });
@@ -112,7 +112,7 @@ export function CleaningJobsQueue() {
 
   const onComplete = async (jobId: string) => {
     setBusyId(jobId);
-    const r = await completeJob(supabase as any, jobId);
+    const r = await completeJob(supabase as any, jobId, user?.id || null);
     setBusyId(null);
     if (!r.ok) {
       toast({ title: "Couldn't complete", description: r.error, variant: "destructive" });
