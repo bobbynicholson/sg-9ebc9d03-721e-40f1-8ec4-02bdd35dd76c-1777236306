@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { driverPayService } from "@/services/driverPayService";
+import { recordOrderContributor } from "@/services/order/orderContributors";
 
 /**
  * Driver Delivery Management Module
@@ -86,6 +87,10 @@ export async function updateDeliveryStatus(
     // notes left for caller to stamp via order_status_history if
     // needed; updateOrderStatus inserts the canonical row itself.
 
+    // Credit this driver on the order's "who helped" list so the order
+    // doc shows who ran the delivery. Best-effort.
+    await recordOrderContributor(orderId, driverId, "driver");
+
     // Auto shift bookkeeping (Stage 4 of driver hourly-rate build).
     // in_transit -> open shift. delivered/completed -> close it.
     if (status === "in_transit") {
@@ -167,6 +172,8 @@ export async function confirmDelivery(
     const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
     const result = await updateOrderStatus(orderId, "delivered", driverId);
     if (!result.success) return { success: false, error: (result as any).error };
+    // Credit this driver on the order's "who helped" list. Best-effort.
+    await recordOrderContributor(orderId, driverId, "driver");
     if (notes) {
       // Persist driver-provided notes to the history row.
       try {

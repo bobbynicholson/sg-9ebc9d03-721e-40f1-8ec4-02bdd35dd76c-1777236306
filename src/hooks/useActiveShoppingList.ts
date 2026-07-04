@@ -24,6 +24,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { updateShoppingListWithReceiptStatus } from "@/lib/shopping/receiptStatus";
 import { notificationService } from "@/services/notificationService";
 import { recordShoppingCostVariance } from "@/services/shoppingCompletionService";
+import { recordOrderContributor } from "@/services/order/orderContributors";
 import { UserRole } from "@/types/app";
 
 export interface ActiveListItem {
@@ -395,6 +396,16 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       }
     }
 
+    // Credit the shopper on the SOURCE ORDER's "who helped" list, so an
+    // order-driven shortfall item shows "Shopped by ...". Only the flip
+    // winner, only on a purchase (not an un-tick), and only when the line
+    // is tied to an order (free-text ad-hoc buys have no source_order_id).
+    // Best-effort - never block the tick.
+    const sourceOrderId = (target as any)?.source_order_id as string | null | undefined;
+    if (iOwnTheFlip && nextValue && sourceOrderId && userId) {
+      void recordOrderContributor(sourceOrderId, userId, "shopping");
+    }
+
     // SHP2-C (SHP2-23): cross-tab signal. Admin /admin/shopping +
     // /admin/inventory + cashflow forecast all want to know. Generic
     // event payload so listeners can decide whether to refetch.
@@ -406,7 +417,7 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       } catch { /* old browsers without CustomEvent polyfill */ }
     }
     return true;
-  }, [items]);
+  }, [items, userId]);
 
   // Create a fresh list.
   //

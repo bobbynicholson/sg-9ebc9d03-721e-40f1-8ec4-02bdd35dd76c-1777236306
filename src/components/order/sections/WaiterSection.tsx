@@ -11,6 +11,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { UserRole } from "@/types/app";
+import { OrderContributors } from "../OrderContributors";
+import { recordOrderContributor } from "@/services/order/orderContributors";
 import { Sparkles, Loader2, CheckCircle2, Clock, Package, UserPlus, XCircle, AlertCircle } from "lucide-react";
 
 interface Props {
@@ -159,6 +161,9 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
           });
         if (error) throw error;
       }
+      // Credit this waiter on the order's "who helped" list so the order
+      // doc shows who worked service. Best-effort - never block the stamp.
+      void recordOrderContributor(orderId, user.id, "waiter");
       toast({ title: PHASE_LABEL_BY_KEY[phase as string] || "Stamped", description: "Saved" });
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "stampWaiterPhase", phase: phase as string, orderId, companyId } });
@@ -419,6 +424,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
           })}
         </ul>
       )}
+      <OrderContributors orderId={orderId} area="waiter" label="Served by" />
     </CollapsibleSection>
   );
 }

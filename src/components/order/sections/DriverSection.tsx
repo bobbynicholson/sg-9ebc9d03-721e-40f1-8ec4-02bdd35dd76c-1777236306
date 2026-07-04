@@ -24,6 +24,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { OrderContributors } from "../OrderContributors";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
@@ -627,6 +628,7 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
           )}
         </div>
       )}
+      <OrderContributors orderId={order.id} area="driver" label="Delivered by" />
     </CollapsibleSection>
   );
 }

@@ -4,6 +4,7 @@ import { notificationService } from "./notificationService";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
+import { recordOrderContributor } from "@/services/order/orderContributors";
 
 // Admin-side roles that should receive dispatch / driver-status pings.
 // Audit (May 2026) found notifyAdminOfConfirmation + sendEnRouteAlert
@@ -207,6 +208,9 @@ export const driverConfirmationService = {
       console.warn("[confirmDepartedKitchen] order status flip failed (non-blocking):", statusErr);
     }
 
+    // Credit this driver on the order's "who helped" list. Best-effort.
+    await recordOrderContributor(orderId, driverId, "driver");
+
     // Keep the driver_assignments row in sync. The driver run sheet
     // (this service) and the driver tracking page update different tables -
     // the tracking page reads driver_assignments.status and only shows the
@@ -370,6 +374,9 @@ export const driverConfirmationService = {
     } catch (statusErr) {
       console.warn("[completeSetupWithPod] order status flip failed (non-blocking):", statusErr);
     }
+
+    // Credit this driver on the order's "who helped" list. Best-effort.
+    await recordOrderContributor(orderId, driverId, "driver");
 
     // Close the driver's auto-shift. Flow audit Leg E P0-4: the
     // autoClockOut hook used to live only in deliveryManagement, so

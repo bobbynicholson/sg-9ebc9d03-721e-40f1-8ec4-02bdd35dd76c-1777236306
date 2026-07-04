@@ -29,7 +29,7 @@ export function OrderContributors({ orderId, area, label = "Helped by" }: Props)
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       try {
         const { data: rows, error } = await (supabase as any)
           .from("order_work_contributors")
@@ -58,8 +58,23 @@ export function OrderContributors({ orderId, area, label = "Helped by" }: Props)
       } catch {
         if (!cancelled) setPeople([]);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+    void load();
+
+    // Live-refresh so a contributor credited while the order doc is open
+    // (a driver marks delivered, another chef starts a task) shows up
+    // without a manual reload. Random channel suffix + removeChannel
+    // cleanup so a remount never lands on an already-subscribed channel
+    // (the "cannot add postgres_changes after subscribe()" white-screen).
+    const channel = supabase
+      .channel(`order-contributors-${orderId}-${area}-${Math.random().toString(36).slice(2, 10)}`)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "order_work_contributors", filter: `order_id=eq.${orderId}` }, () => { void load(); })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(channel);
+    };
   }, [orderId, area]);
 
   if (people.length === 0) return null;
