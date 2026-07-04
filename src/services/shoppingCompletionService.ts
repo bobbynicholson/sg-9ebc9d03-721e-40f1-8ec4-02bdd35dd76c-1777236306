@@ -18,9 +18,19 @@ export async function recordShoppingCostVariance(args: {
   listTitle?: string | null;
   estimatedTotal: number | null | undefined;
   actualTotal: number | null | undefined;
+  /** Per-company alert threshold as a whole percent (e.g. 15 = 15%).
+   *  Falls back to the built-in 15% when omitted. */
+  varianceAlertPct?: number | null;
+  /** When false, still writes the audit log but skips the admin push
+   *  (company chose not to be pinged on variance). Defaults to true. */
+  notifyAdmin?: boolean;
 }): Promise<boolean> {
   if (!args.companyId) return false;
-  const variance = getShoppingCostVariance(args.estimatedTotal, args.actualTotal);
+  const thresholdFraction =
+    typeof args.varianceAlertPct === "number" && Number.isFinite(args.varianceAlertPct) && args.varianceAlertPct > 0
+      ? args.varianceAlertPct / 100
+      : null;
+  const variance = getShoppingCostVariance(args.estimatedTotal, args.actualTotal, thresholdFraction);
   if (!variance?.shouldFlag) return false;
 
   const varianceLabel = formatShoppingVariance(variance);
@@ -41,13 +51,17 @@ export async function recordShoppingCostVariance(args: {
         actual_total: variance.actual,
         difference: variance.difference,
         variance_percent: variance.percent,
-        threshold_percent: SHOPPING_VARIANCE_THRESHOLD,
+        threshold_percent: thresholdFraction ?? SHOPPING_VARIANCE_THRESHOLD,
         direction: variance.direction,
       },
     });
   } catch (auditErr) {
     console.warn("[shoppingCompletionService] cost variance audit failed:", auditErr);
   }
+
+  // Company can opt out of the admin push while still keeping the audit
+  // trail above. Default (undefined) stays on.
+  if (args.notifyAdmin === false) return true;
 
   try {
     await notificationService.broadcastNotification({

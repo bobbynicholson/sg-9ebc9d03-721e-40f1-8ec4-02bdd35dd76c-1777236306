@@ -20,11 +20,21 @@ export function parseMoneyInput(value: string): number | undefined {
 export function getShoppingCostVariance(
   estimatedTotal: number | null | undefined,
   actualTotal: number | null | undefined,
+  /** Fractional threshold (e.g. 0.15 = 15%). Defaults to the built-in
+   *  15% when the caller has no per-company setting. Values <= 0 are
+   *  ignored and fall back to the default so a mis-typed 0 can't flag
+   *  every single run. */
+  thresholdFraction?: number | null,
 ): ShoppingCostVariance | null {
   const estimated = Number(estimatedTotal);
   const actual = Number(actualTotal);
   if (!Number.isFinite(estimated) || estimated <= 0) return null;
   if (!Number.isFinite(actual) || actual < 0) return null;
+
+  const threshold =
+    typeof thresholdFraction === "number" && Number.isFinite(thresholdFraction) && thresholdFraction > 0
+      ? thresholdFraction
+      : SHOPPING_VARIANCE_THRESHOLD;
 
   const difference = actual - estimated;
   const percent = difference / estimated;
@@ -36,7 +46,7 @@ export function getShoppingCostVariance(
     percent,
     absPercent,
     direction: difference >= 0 ? "over" : "under",
-    shouldFlag: absPercent > SHOPPING_VARIANCE_THRESHOLD,
+    shouldFlag: absPercent > threshold,
   };
 }
 

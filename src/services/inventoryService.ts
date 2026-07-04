@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { toLocalISO } from "@/lib/localDate";
+import { getShoppingSettings } from "@/services/shopping/shoppingSettingsService";
 
 export type Inventory = Tables<"inventory_items">;
 
@@ -970,6 +971,12 @@ export const inventoryService = {
         .eq("is_preferred", true)
         .maybeSingle();
       leadTime = Number((link as { lead_time_days: number | null } | null)?.lead_time_days || 0) || 0;
+      // No supplier lead time on file: fall back to the company's
+      // default lead time from shopping settings (was a hardcoded 0).
+      if (!leadTime) {
+        const { settings } = await getShoppingSettings(supabase, companyId);
+        leadTime = settings.defaultLeadTimeDays;
+      }
     }
     const horizon = leadTime + safetyDays;
     const projected = avgDaily * horizon;
@@ -1013,7 +1020,13 @@ export const inventoryService = {
         .eq("inventory_item_id", itemId)
         .eq("is_preferred", true)
         .maybeSingle();
-      leadTime = Number((link as { lead_time_days: number | null } | null)?.lead_time_days || 0) || 3;
+      leadTime = Number((link as { lead_time_days: number | null } | null)?.lead_time_days || 0) || 0;
+      // No supplier lead time on file: fall back to the company's
+      // default lead time from shopping settings (was a hardcoded 3).
+      if (!leadTime) {
+        const { settings } = await getShoppingSettings(supabase, companyId);
+        leadTime = settings.defaultLeadTimeDays;
+      }
     }
     const min = Math.max(1, Math.ceil(avgDaily * leadTime));
     const max = Math.max(min + 1, Math.ceil(min * 2.5));

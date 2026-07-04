@@ -24,6 +24,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { updateShoppingListWithReceiptStatus } from "@/lib/shopping/receiptStatus";
 import { notificationService } from "@/services/notificationService";
 import { recordShoppingCostVariance } from "@/services/shoppingCompletionService";
+import { getShoppingSettings } from "@/services/shopping/shoppingSettingsService";
 import { recordOrderContributor } from "@/services/order/orderContributors";
 import { UserRole } from "@/types/app";
 
@@ -548,7 +549,19 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     const sb = supabase as any;
     const receiptUrl = options?.receiptUrl ?? list.receipt_url ?? null;
     const noReceiptReason = (options?.noReceiptReason ?? "").trim();
-    if (!receiptUrl && !noReceiptReason) {
+
+    // Per-company policy. receiptRequiredOnComplete makes a receipt
+    // mandatory (a no-receipt reason won't do); otherwise a receipt OR a
+    // reason is enough. Fetched fresh so a policy change made on another
+    // device is honoured immediately. Falls back to defaults if the
+    // settings table isn't migrated yet.
+    const { settings } = await getShoppingSettings(sb, companyId);
+    if (settings.receiptRequiredOnComplete) {
+      if (!receiptUrl) {
+        setError("A receipt is required to close a list. Attach the receipt before completing.");
+        return false;
+      }
+    } else if (!receiptUrl && !noReceiptReason) {
       setError("Attach a receipt or enter a no-receipt reason before closing the list.");
       return false;
     }
@@ -578,6 +591,8 @@ export function useActiveShoppingList(): UseActiveShoppingList {
       listTitle: list.title,
       estimatedTotal: list.estimated_total,
       actualTotal,
+      varianceAlertPct: settings.varianceAlertPct,
+      notifyAdmin: settings.notifyAdminOnVariance,
     });
     // SHP2-E (shopping deep audit, SHP2-30): when the shopper records
     // an actual spend, write a matching supplier_payables row so the
