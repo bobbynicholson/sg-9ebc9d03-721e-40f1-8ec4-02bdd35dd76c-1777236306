@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { inventoryService } from "@/services/inventoryService";
 import { toLocalISO } from "@/lib/localDate";
 import { toExVat } from "@/lib/vatMath";
+import { orderDisplayName } from "@/lib/orderDisplayName";
 
 // SHOP-F (ReceiptsTab ts-nocheck removal, 2026-05-24): exported so
 // the ReceiptsTab can type its rescan-result state instead of using
@@ -142,10 +143,16 @@ export function ReconcileSlipDrawer({
   // suggestion quality on every fresh slip.
   const [pastVendors, setPastVendors] = useState<string[]>([]);
   const [pastDescriptions, setPastDescriptions] = useState<string[]>([]);
+  // Optional order this slip was bought for. Nullable - a generic stock
+  // buy stays unattached. When set, the receipt (+ its scan outcome)
+  // surfaces on that order's doc for admins. Chosen from recent orders.
+  const [orderId, setOrderId] = useState<string>("");
+  const [orderOptions, setOrderOptions] = useState<Array<{ id: string; label: string }>>([]);
 
   // Seed form state whenever the drawer opens.
   useEffect(() => {
     if (!open) return;
+    setOrderId("");
     if (manualMode || !mappedData) {
       // Manual mode (or no extraction available): blank slate, one
       // empty line ready for input.
@@ -193,7 +200,7 @@ export function ReconcileSlipDrawer({
     if (!open || !companyId) return;
     let cancelled = false;
     (async () => {
-      const [invRes, rulesRes, vendorsRes, descsRes] = await Promise.all([
+      const [invRes, rulesRes, vendorsRes, descsRes, ordersRes] = await Promise.all([
         supabase
           .from("inventory_items")
           .select("id, item_name, unit_of_measure, current_stock")
@@ -224,6 +231,16 @@ export function ReconcileSlipDrawer({
           .is("purchase_receipts.deleted_at", null)
           .order("created_at", { ascending: false })
           .limit(300),
+        // Recent orders for the optional "attach to order" picker. Most
+        // recent event first so the slip the shopper just bought for is
+        // near the top.
+        (supabase as any)
+          .from("orders")
+          .select("id, order_number, event_name, client_name, event_date")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .order("event_date", { ascending: false })
+          .limit(60),
       ]);
       if (cancelled) return;
       const inv = (invRes.data || []) as InventoryRef[];
@@ -237,6 +254,14 @@ export function ReconcileSlipDrawer({
       const descSet = new Set<string>();
       (descsRes.data || []).forEach((r: any) => { if (r.description) descSet.add(r.description); });
       setPastDescriptions(Array.from(descSet).slice(0, 100));
+
+      // Build the order picker options. orderDisplayName handles the
+      // literal "Untitled" event-name trap; suffix with the date so two
+      // orders for the same client are distinguishable.
+      setOrderOptions((ordersRes?.data || []).map((o: any) => ({
+        id: o.id as string,
+        label: `${orderDisplayName(o)}${o.order_number ? ` · ${o.order_number}` : ""}${o.event_date ? ` · ${new Date(o.event_date).toLocaleDateString("en-ZA", { day: "2-digit", month: "short" })}` : ""}`,
+      })));
 
       // Resolve AI-suggested tax_category_code -> rule id, and try to
       // fuzzy-match each line's description to an inventory item --
@@ -428,39 +453,88 @@ export function ReconcileSlipDrawer({
 
       // 2) Create or update the receipt row depending on mode.
       const totalNum = total ? Number(total) : null;
+      const keptLineCount = lines.filter((l) => l.keep).length;
+      // Scan outcome, stored on the permanent receipt so admins can see
+      // at a glance whether the slip read cleanly. Manual entry -> manual;
+      // an AI scan that produced supplier + total + lines -> ok; anything
+      // thinner -> partial (operator had to fill gaps).
+      const scanStatus: string = manualMode
+        ? "manual"
+        : (vendor.trim() && totalNum != null && totalNum > 0 && keptLineCount > 0)
+          ? "ok"
+          : "partial";
+      // Compact snapshot of what the scan produced, so the order doc can
+      // render the outcome without re-reading import_rows.
+      const scanResult = {
+        mode: manualMode ? "manual" : "ai",
+        supplier: vendor.trim() || null,
+        total: totalNum,
+        receipt_date: receiptDate || null,
+        receipt_number: receiptNumber.trim() || null,
+        line_item_count: keptLineCount,
+        source_filename: sourceData?.filename || null,
+        vat: mappedData?.vat ?? null,
+      };
+      const orderIdOrNull = orderId || null;
+      // The order_id / scan_status / scan_result columns land in migration
+      // 20260705140000. Detect a pre-migration DB (PostgREST reports the
+      // column missing) so we can retry without those fields - saving a
+      // receipt must never break just because the migration isn't in yet.
+      const isMissingNewCols = (err: any): boolean =>
+        /order_id|scan_status|scan_result|PGRST204|schema cache|does not exist/i.test(
+          `${err?.message || ""} ${err?.code || ""} ${err?.details || ""}`,
+        );
+      const newCols = { order_id: orderIdOrNull, scan_status: scanStatus, scan_result: scanResult };
       let receiptId: string;
       if (existingReceiptId) {
         // Rescan flow: update the existing row's header fields and
         // reuse its id. Don't touch image_path/url - the original
-        // image is what we just rescanned.
-        const { error: updErr } = await supabase
+        // image is what we just rescanned. Refresh scan outcome + the
+        // order link (a rescan may now read cleanly, or the operator may
+        // have picked the order this time).
+        const baseUpdate = {
+          vendor: vendor.trim() || null,
+          supplier_id: supplierId,
+          receipt_date: receiptDate || null,
+          total: totalNum,
+          notes: notes.trim() || null,
+        };
+        let { error: updErr } = await supabase
           .from("purchase_receipts")
-          .update({
-            vendor: vendor.trim() || null,
-            supplier_id: supplierId,
-            receipt_date: receiptDate || null,
-            total: totalNum,
-            notes: notes.trim() || null,
-          })
+          .update({ ...baseUpdate, ...newCols } as any)
           .eq("id", existingReceiptId);
+        if (updErr && isMissingNewCols(updErr)) {
+          ({ error: updErr } = await supabase
+            .from("purchase_receipts")
+            .update(baseUpdate as any)
+            .eq("id", existingReceiptId));
+        }
         if (updErr) throw new Error(updErr.message);
         receiptId = existingReceiptId;
       } else {
-        const { data: receipt, error: rcptErr } = await supabase
+        const baseInsert = {
+          company_id: companyId,
+          uploaded_by: userId,
+          vendor: vendor.trim() || null,
+          supplier_id: supplierId,
+          receipt_date: receiptDate || null,
+          total: totalNum,
+          notes: notes.trim() || null,
+          image_path: imagePath,
+          image_url: imageUrl,
+        };
+        let { data: receipt, error: rcptErr } = await supabase
           .from("purchase_receipts")
-          .insert({
-            company_id: companyId,
-            uploaded_by: userId,
-            vendor: vendor.trim() || null,
-            supplier_id: supplierId,
-            receipt_date: receiptDate || null,
-            total: totalNum,
-            notes: notes.trim() || null,
-            image_path: imagePath,
-            image_url: imageUrl,
-          })
+          .insert({ ...baseInsert, ...newCols } as any)
           .select()
           .single();
+        if (rcptErr && isMissingNewCols(rcptErr)) {
+          ({ data: receipt, error: rcptErr } = await supabase
+            .from("purchase_receipts")
+            .insert(baseInsert as any)
+            .select()
+            .single());
+        }
         if (rcptErr || !receipt) throw new Error(rcptErr?.message || "Couldn't create receipt");
         receiptId = (receipt as any).id as string;
       }
@@ -688,6 +762,22 @@ export function ReconcileSlipDrawer({
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">Total (R)</label>
               <Input type="number" inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} className="mt-1" />
+            </div>
+            {/* Attach this slip to the order it was bought for (optional).
+                Surfaces the receipt + its scan outcome on that order's doc
+                for admins. Leave as "Not linked" for generic stock buys. */}
+            <div className="sm:col-span-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-700">For order (optional)</label>
+              <select
+                value={orderId}
+                onChange={(e) => setOrderId(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                <option value="">Not linked to an order</option>
+                {orderOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
             </div>
           </CardContent>
         </Card>

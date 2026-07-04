@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { OrderContributors } from "../OrderContributors";
+import { OrderReceiptsAdmin } from "../OrderReceiptsAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { useAuth } from "@/contexts/AuthContext";
@@ -276,6 +277,7 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
         </div>
       )}
       <OrderContributors orderId={orderId} area="shopping" label="Shopped by" />
+      <OrderReceiptsAdmin orderId={orderId} />
     </CollapsibleSection>
   );
 }
