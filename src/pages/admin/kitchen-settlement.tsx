@@ -108,15 +108,20 @@ function KitchenSettlementPage() {
       // both jobs in one shift - pay once, not twice. The
       // kitchen_payslips table is keyed by (company, staff,
       // period) so it's role-agnostic anyway.
+      // Match staff by base role OR active_role. A kitchen/cleaning
+      // MANAGER carries role=kitchen_staff/cleaning_staff with
+      // active_role=kitchen_manager/cleaning_manager, so filtering on
+      // `role` alone happened to catch today's managers but would drop
+      // any future manager provisioned with a manager base role. The
+      // OR on active_role makes that impossible. (kitchen_manager /
+      // cleaning_manager / owner are all valid user_role enum labels
+      // now - the old "owner breaks the filter" note is stale.)
+      const KITCHEN_PAY_ROLES = "kitchen_staff,cleaning_staff,kitchen_manager,cleaning_manager,company_admin,admin,owner";
       const { data: staffRes, error: staffResError } = await (supabase as any)
         .from("profiles")
-        .select("id, full_name, email, hourly_rate, role")
+        .select("id, full_name, email, hourly_rate, role, active_role")
         .eq("company_id", companyId)
-        // Wave 64.5 - "owner" was in this filter but isn't a valid
-        // user_role enum label, so PostgREST rejected the whole
-        // query and the settlement table silently came back empty.
-        // Same trap as kitchen-schedule + vehicles. Valid roles only.
-        .in("role", ["kitchen_staff", "cleaning_staff", "company_admin", "admin"])
+        .or(`role.in.(${KITCHEN_PAY_ROLES}),active_role.in.(${KITCHEN_PAY_ROLES})`)
         .is("deleted_at", null)
         .order("full_name", { ascending: true });
       if (staffResError) {
@@ -390,8 +395,10 @@ function KitchenSettlementPage() {
             icon={Wallet}
             subtitle={
               <>
-                Pay for kitchen and cleaning staff over the selected period, with
-                overtime and Sunday multipliers, ready to issue as payslips.{" "}
+                Pay for everyone who works kitchen or cleaning shifts (team,
+                their managers, plus any admin or owner who logs shifts) over the
+                selected period, with overtime and Sunday multipliers, ready to
+                issue as payslips.{" "}
                 <span className="font-semibold text-white">{periodStart}</span> to{" "}
                 <span className="font-semibold text-white">{periodEnd}</span>.
               </>
