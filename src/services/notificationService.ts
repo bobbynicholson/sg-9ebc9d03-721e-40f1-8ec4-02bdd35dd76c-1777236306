@@ -104,6 +104,16 @@ interface BroadcastNotificationParams {
    */
   dedup?: boolean;
   dedupWindowMinutes?: number;
+  /**
+   * Optional active_role exclusion. Some staff share a BASE role with a
+   * different job: a waiter is stored with role='kitchen_staff' but
+   * active_role='waiter' (the profiles_role_check CHECK blocks 'waiter'
+   * as a base role - see two-staff-tables). So a kitchen-targeted
+   * broadcast (targetRoles kitchen_staff) would wrongly reach waiters,
+   * who don't cook. Pass excludeActiveRoles: ["waiter"] to drop anyone
+   * whose active_role is in the list. Omit for unchanged behaviour.
+   */
+  excludeActiveRoles?: string[];
 }
 
 interface CleanupOptions {
@@ -676,7 +686,7 @@ export const notificationService = {
     try {
       const { data: profiles, error: profileError } = await sb
         .from("profiles")
-        .select("id, role, region_id, regions_covered")
+        .select("id, role, active_role, region_id, regions_covered")
         .eq("company_id", params.companyId);
 
       if (profileError) {
@@ -696,8 +706,15 @@ export const notificationService = {
       ]);
       const regionScope = params.regionId ?? null;
 
+      const excludeActive = new Set((params.excludeActiveRoles || []).map((r) => String(r)));
       const roleAndRegionFiltered = profiles
         .filter(profile => {
+          // Drop staff whose active_role is explicitly excluded (e.g. a
+          // waiter stored under base role kitchen_staff must not receive
+          // kitchen-crew broadcasts).
+          if (excludeActive.size > 0 && excludeActive.has(String((profile as any).active_role || ""))) {
+            return false;
+          }
           if (!params.targetRoles || params.targetRoles.length === 0) {
             // No role restriction; still apply region scoping below.
           } else if (!params.targetRoles.includes(profile.role as UserRole)) {

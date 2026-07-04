@@ -78,15 +78,23 @@ async function queueStaffReminderEmails(
   triggerEvent: string,
   subject: string,
   body: string,
+  excludeActiveRoles: string[] = [],
 ): Promise<number> {
   try {
     const { data: profs } = await sb
       .from("profiles")
-      .select("email, full_name, role")
+      .select("email, full_name, role, active_role")
       .eq("company_id", companyId)
       .in("role", roles)
       .not("email", "is", null);
     if (!profs || profs.length === 0) return 0;
+    // Drop staff whose active_role is excluded (e.g. waiters under base
+    // role kitchen_staff must not get the kitchen prep email).
+    const excludeActive = new Set(excludeActiveRoles.map((r) => String(r)));
+    const eligible = excludeActive.size > 0
+      ? (profs as any[]).filter((p) => !excludeActive.has(String(p.active_role || "")))
+      : (profs as any[]);
+    if (eligible.length === 0) return 0;
 
     // Dedup: skip anyone already queued/sent this exact reminder for this
     // order inside the dedup window (mirrors the in-app dedup).
@@ -103,7 +111,7 @@ async function queueStaffReminderEmails(
 
     const rows: any[] = [];
     const seen = new Set<string>();
-    for (const p of profs as any[]) {
+    for (const p of eligible) {
       const em = String(p.email || "").toLowerCase();
       if (!em || already.has(em) || seen.has(em)) continue;
       seen.add(em);
@@ -252,6 +260,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             relatedEntityId: o.id,
             dedup: true,
             dedupWindowMinutes: DEDUP_MIN,
+            excludeActiveRoles: ["waiter"],
           },
           sb,
         );
@@ -312,6 +321,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               relatedEntityId: o.id,
               dedup: true,
               dedupWindowMinutes: DEDUP_MIN,
+              // Waiters share base role kitchen_staff - they don't cook,
+              // so keep them off the prep ping.
+              excludeActiveRoles: ["waiter"],
             },
             sb,
           );
@@ -326,6 +338,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             `${eventName}${venue ? ` at ${venue}` : ""} is tomorrow.\n\n` +
               `Get prep started so everything is ready in time.\n\n` +
               `Open the kitchen portal to see the prep list for ${orderLabel}.`,
+            ["waiter"],
           );
         }
         if ((adminSent || 0) > 0 || (kitchenSent || 0) > 0) tomorrowPings += 1;
@@ -357,6 +370,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             relatedEntityId: o.id,
             dedup: true,
             dedupWindowMinutes: DEDUP_MIN,
+            excludeActiveRoles: ["waiter"],
           },
           sb,
         );
