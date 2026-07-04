@@ -67,19 +67,25 @@ function ShoppingNotificationsPageInner() {
   }, [user?.id, user?.company_id, tab, refreshKey]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    // Unique per-mount suffix: a fixed channel name collides when the
-    // page remounts fast (recurring realtime bug class in this repo).
+    if (!user?.id || !user?.company_id) return;
+    // The list shows rows matched by recipient_id OR user_id OR
+    // target_role=shopping_staff (see load()), but the sub previously
+    // only fired on recipient_id inserts - so a role-targeted or
+    // user_id-targeted notification (the common case for team broadcasts)
+    // never refreshed live. Subscribe on company_id instead: every
+    // notification for this company nudges a refresh and load() re-applies
+    // the who-can-see-it filter. Unique per-mount suffix per the repo's
+    // channel-reuse rule.
     const channel = supabase
       .channel(`notif-page-${user.id}-${Math.random().toString(36).slice(2, 8)}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` },
+        { event: "*", schema: "public", table: "notifications", filter: `company_id=eq.${user.company_id}` },
         () => setRefreshKey((k) => k + 1),
       )
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [user?.id]);
+  }, [user?.id, user?.company_id]);
 
   const load = async () => {
     if (!user?.id || !user?.company_id) return;

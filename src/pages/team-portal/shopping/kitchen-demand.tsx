@@ -13,6 +13,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { UserRole } from "@/types/app";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,32 @@ function ShoppingKitchenDemandPageInner() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [companyId, todayStr, horizonStr, regionFilterId]);
+
+  // Realtime: kitchen demand is derived from confirmed orders and their
+  // items, netted against inventory. It was mount/param-only, so a new
+  // order, an edited order line, or a stock movement (a shopper buying an
+  // ingredient) left the shortfall numbers stale until a manual reload -
+  // exactly the moment a shopper is deciding what to buy. Subscribe to
+  // orders + order_items + inventory_items and re-derive on any change.
+  // order_items has no company_id (hangs off order_id) so it can't be
+  // row-filtered; the getAggregatedDemand refetch is company-scoped, so
+  // that only costs an extra recompute, never a cross-tenant leak.
+  useEffect(() => {
+    if (!companyId) return;
+    const channel = supabase
+      .channel(`kitchen-demand-${companyId}-${Math.random().toString(36).slice(2, 10)}`)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, () => { void load(); })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "order_items" }, () => { void load(); })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` }, () => { void load(); })
+      .subscribe();
+    const onLocal = () => { void load(); };
+    if (typeof window !== "undefined") window.addEventListener("cateringms:shopping-updated", onLocal);
+    return () => {
+      void supabase.removeChannel(channel);
+      if (typeof window !== "undefined") window.removeEventListener("cateringms:shopping-updated", onLocal);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, todayStr, horizonStr, regionFilterId]);
 
   // ── Filtering ─────────────────────────────────────────────────────────
 

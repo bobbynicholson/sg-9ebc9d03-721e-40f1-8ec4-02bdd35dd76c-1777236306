@@ -2,6 +2,14 @@
 const nextConfig = {
   reactStrictMode: true,
   devIndicators: false,
+  // Build-output directory, env-overridable. Default `.next` for dev +
+  // prod. The commit watchdog (E:\Catering\watchdog) runs `next build`
+  // against this same working tree on every commit; when a `next dev`
+  // server is also running here, both processes write `.next` and
+  // corrupt each other (MODULE_NOT_FOUND / missing-manifest 500s on every
+  // page). The watchdog now sets NEXT_DIST_DIR=.next-verify so its build
+  // uses a separate folder and can never clobber the live dev server.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   images: {
     remotePatterns: [
       {

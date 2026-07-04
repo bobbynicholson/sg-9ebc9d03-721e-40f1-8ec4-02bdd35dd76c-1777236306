@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
+import { supabase } from "@/integrations/supabase/client";
 import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { UserRole } from "@/types/app";
@@ -92,6 +93,35 @@ function ShoppingInventoryPageInner() {
   useEffect(() => {
     if (!user?.company_id) return;
     loadInventory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
+
+  // Realtime: the hero + subheading promise "Live stock levels", but the
+  // page used to be mount-only, so a shopper ticking an item (which bumps
+  // inventory_items) or an admin adjusting stock left this table stale
+  // until a manual reload. Subscribe to inventory_items for this company
+  // so every stock movement reflects here without a refresh. Also catch
+  // the same-tab shopper-tick custom event (the inventory bump is async
+  // and can land after our own realtime frame). Random channel suffix per
+  // the repo channel-reuse rule.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    const channel = supabase
+      .channel(`shopping-inventory-${companyId}-${Math.random().toString(36).slice(2, 10)}`)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` },
+        () => { void loadInventory(); },
+      )
+      .subscribe();
+    const onLocal = () => { void loadInventory(); };
+    if (typeof window !== "undefined") window.addEventListener("cateringms:shopping-updated", onLocal);
+    return () => {
+      void supabase.removeChannel(channel);
+      if (typeof window !== "undefined") window.removeEventListener("cateringms:shopping-updated", onLocal);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 

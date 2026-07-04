@@ -26,6 +26,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { getShoppingCostVariance, formatShoppingVariance, parseMoneyInput } from "@/lib/shopping/completionRules";
 import { updateShoppingListWithReceiptStatus } from "@/lib/shopping/receiptStatus";
 import { recordShoppingCostVariance } from "@/services/shoppingCompletionService";
+import { getShoppingSettings, SHOPPING_SETTINGS_DEFAULTS, type ShoppingSettings } from "@/services/shopping/shoppingSettingsService";
 
 interface ShoppingList {
   id: string;
@@ -96,6 +97,10 @@ function ShoppingOrdersPageInner() {
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [upcomingOrders, setUpcomingOrders] = useState<Order[]>([]);
+  // Per-company shopping policy, kept in sync with the settings page so
+  // this completion surface enforces the SAME receipt + variance rules as
+  // the dashboard hook (no data inconsistency across surfaces).
+  const [shopSettings, setShopSettings] = useState<ShoppingSettings>(SHOPPING_SETTINGS_DEFAULTS);
   const [loading, setLoading] = useState(true);
   // Command-centre restructure (2026-07-02): PostgREST errors from the
   // two primary reads were never checked (Promise.all doesn't throw on
@@ -129,9 +134,39 @@ function ShoppingOrdersPageInner() {
     load();
   }, [user?.company_id, refreshSignal]);
 
+  // Realtime: this board used to refetch only on the cross-tab order
+  // signal, so a shopping list created or claimed on another device (or
+  // an order flipping into a procurement-ready status) never surfaced
+  // without a manual action. Subscribe to shopping_lists + orders for
+  // this company so the board stays live. Random channel suffix per the
+  // repo channel-reuse rule.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    const channel = supabase
+      .channel(`shopping-orders-${companyId}-${Math.random().toString(36).slice(2, 10)}`)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "shopping_lists", filter: `company_id=eq.${companyId}` },
+        () => { void load(); },
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [user?.company_id]);
+
   const load = async () => {
     if (!user?.company_id) return;
     setLoading(true);
+    // Refresh the company policy alongside the board (cheap, and keeps
+    // the receipt/variance gates honest if an admin just changed them).
+    void getShoppingSettings(supabase, user.company_id).then((r) => setShopSettings(r.settings));
     try {
       const [listsRes, ordersRes] = await Promise.all([
         supabase
@@ -205,17 +240,28 @@ function ShoppingOrdersPageInner() {
 
   const claimList = async (id: string) => {
     // Busy guard: a double tap on Claim would fire two updates.
-    if (!user?.id || claimingId) return;
+    if (!user?.id || !user?.company_id || claimingId) return;
     setClaimingId(id);
     try {
-      // The update result carries the error as a value - the old bare
-      // await never threw, so a failed claim still toasted "List claimed".
-      const { error } = await supabase.from("shopping_lists").update({
-        shopper_id: user.id,
-        status: "in_progress",
-      }).eq("id", id);
+      // Tenant guard (.eq company_id) so a claim can never touch another
+      // company's row even if an id leaked, plus a compare-and-set on
+      // shopper_id: only claim while the list is still unassigned. When
+      // two shoppers tap Claim at once exactly one UPDATE matches the
+      // `shopper_id IS NULL` predicate - the other returns zero rows and
+      // is told the list was just taken, instead of silently stealing it.
+      const { data: claimed, error } = await supabase
+        .from("shopping_lists")
+        .update({ shopper_id: user.id, status: "in_progress" })
+        .eq("id", id)
+        .eq("company_id", user.company_id)
+        .is("shopper_id", null)
+        .select("id");
       if (error) throw error;
-      toast({ title: "List claimed" });
+      if (!claimed || claimed.length === 0) {
+        toast({ title: "Already claimed", description: "Another shopper just picked up this list.", variant: "destructive" });
+      } else {
+        toast({ title: "List claimed" });
+      }
       load();
     } catch (e: any) {
       toast({ title: "Could not claim", description: e?.message ?? undefined, variant: "destructive" });
@@ -253,6 +299,7 @@ function ShoppingOrdersPageInner() {
   const completionVariance = getShoppingCostVariance(
     completingList?.estimated_total,
     parsedActualTotal,
+    shopSettings.varianceAlertPct / 100,
   );
   const completeList = async () => {
     if (!completingId) return;
@@ -261,7 +308,18 @@ function ShoppingOrdersPageInner() {
       toast({ title: "Enter a valid total", variant: "destructive" });
       return;
     }
-    if (!receiptFile && !completingList?.receipt_url && !reason) {
+    const hasReceipt = !!receiptFile || !!completingList?.receipt_url;
+    // Honour the company policy: when a receipt is mandatory a no-receipt
+    // reason won't do; otherwise a receipt OR a reason is enough.
+    if (shopSettings.receiptRequiredOnComplete && !hasReceipt) {
+      toast({
+        title: "Receipt required",
+        description: "This company requires a receipt to close a list. Attach the till slip.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!hasReceipt && !reason) {
       toast({
         title: "Receipt status required",
         description: "Attach a receipt photo or enter a no-receipt reason.",
@@ -307,6 +365,8 @@ function ShoppingOrdersPageInner() {
         listTitle: completingList?.title || "Shopping list",
         estimatedTotal: completingList?.estimated_total,
         actualTotal: parsedActualTotal,
+        varianceAlertPct: shopSettings.varianceAlertPct,
+        notifyAdmin: shopSettings.notifyAdminOnVariance,
       });
       toast({
         title: "List completed",
@@ -386,7 +446,7 @@ function ShoppingOrdersPageInner() {
               icon={Receipt}
             />
             <StatTile
-              label={<span className="flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed or pending orders happening today or later." /></span>}
+              label={<span className="flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed orders (including preparing or ready) happening today or later that may need procurement." /></span>}
               value={stats.upcoming}
               icon={Calendar}
             />
@@ -610,7 +670,9 @@ function ShoppingOrdersPageInner() {
           <DialogHeader>
             <DialogTitle>Complete shopping list</DialogTitle>
             <DialogDescription>
-              Snap the till slip and capture the actual amount paid. A receipt or no-receipt reason is required.
+              Snap the till slip and capture the actual amount paid. {shopSettings.receiptRequiredOnComplete
+                ? "A receipt is required to close this list."
+                : "A receipt or no-receipt reason is required."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -628,9 +690,12 @@ function ShoppingOrdersPageInner() {
             {completionVariance?.shouldFlag && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
                 <div className="flex items-start gap-2">
-                  <InfoTooltip content="Admins are notified because the actual spend is more than 15% away from the estimate." />
+                  <InfoTooltip content={`This list breaches the company variance threshold of ${shopSettings.varianceAlertPct}%.`} />
                   <p>
-                    Actual spend is {formatShoppingVariance(completionVariance)} estimate; admins will be notified when this list closes.
+                    Actual spend is {formatShoppingVariance(completionVariance)} estimate (over the {shopSettings.varianceAlertPct}% threshold)
+                    {shopSettings.notifyAdminOnVariance
+                      ? "; admins will be notified when this list closes."
+                      : "; this will be logged for the record."}
                   </p>
                 </div>
               </div>
@@ -676,7 +741,7 @@ function ShoppingOrdersPageInner() {
                 Required unless a no-receipt reason is entered. Goes into the imports bucket and surfaces on the list as a receipt-attached badge.
               </p>
             </div>
-            {!receiptFile && !completingList?.receipt_url && (
+            {!shopSettings.receiptRequiredOnComplete && !receiptFile && !completingList?.receipt_url && (
               <div>
                 <Label htmlFor="orders_no_receipt_reason">No receipt reason</Label>
                 <Textarea

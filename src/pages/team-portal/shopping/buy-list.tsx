@@ -157,6 +157,13 @@ function ShoppingBuyListPageInner() {
     const sb = supabase as any;
     // Unique per-mount suffix: a fixed channel name collides when the
     // page remounts fast (recurring realtime bug class in this repo).
+    // order_items has no company_id column (it hangs off order_id), so we
+    // can't row-filter this stream by tenant - the loadRows refetch is
+    // itself company-scoped, so cross-tenant churn only costs an extra
+    // refetch, never a data leak. inventory_items DOES carry company_id:
+    // a stock edit (shopper tick, admin adjust, supplier intake) changes
+    // the demand outlook, and without this sub it only surfaced on the
+    // 60s poll. Filter it to this company.
     const channel = sb
       .channel(`buy-list:${companyId}:${Math.random().toString(36).slice(2)}`)
       .on(
@@ -164,7 +171,18 @@ function ShoppingBuyListPageInner() {
         { event: "*", schema: "public", table: "order_items" },
         () => { void loadRows(); },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "inventory_items", filter: `company_id=eq.${companyId}` },
+        () => { void loadRows(); },
+      )
       .subscribe();
+
+    // Same-tab shopper ticks bump inventory asynchronously and dispatch a
+    // custom event - refetch on it so the buy list reflects the buy
+    // immediately without waiting for the realtime frame or the poll.
+    const onLocal = () => { void loadRows(); };
+    if (typeof window !== "undefined") window.addEventListener("cateringms:shopping-updated", onLocal);
 
     // Polled fallback every 60s for cases where realtime is mid-
     // reconnect or the row mutated server-side without a channel
@@ -174,6 +192,7 @@ function ShoppingBuyListPageInner() {
     return () => {
       cancelled = true;
       sb.removeChannel(channel);
+      if (typeof window !== "undefined") window.removeEventListener("cateringms:shopping-updated", onLocal);
       clearInterval(t);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

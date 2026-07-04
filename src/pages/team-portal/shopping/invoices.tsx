@@ -53,6 +53,26 @@ function ShoppingInvoicesPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.company_id]);
 
+  // Realtime: spend history is the set of shopping_lists for this company.
+  // A run completed on another device (actual_total + receipt) should show
+  // up here live rather than only on a manual Refresh. Random channel
+  // suffix per the repo channel-reuse rule.
+  useEffect(() => {
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    const channel = supabase
+      .channel(`shopping-spend-${companyId}-${Math.random().toString(36).slice(2, 10)}`)
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "shopping_lists", filter: `company_id=eq.${companyId}` },
+        () => { void load(); },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.company_id]);
+
   const load = async () => {
     if (!user?.company_id) return;
     // Skeleton only before the first successful load; a retry keeps the
