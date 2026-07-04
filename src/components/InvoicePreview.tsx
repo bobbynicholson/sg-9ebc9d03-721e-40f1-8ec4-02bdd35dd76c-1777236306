@@ -130,7 +130,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
             </h1>
             {/* Invoice number: bold, small, on its own line under the
                 title (owner request Pic 77, 2026-07-04). */}
-            <p className="block text-xs font-bold text-brand-primary mt-1 tracking-wider">
+            <p className="block text-xs font-bold text-brand-primary mt-1 tracking-wider whitespace-nowrap">
               {props.invoiceNumber}
             </p>
             <p className="text-sm text-stone-600 mt-1.5">

@@ -640,7 +640,7 @@ export default function InvoicePaymentPage() {
                 </h1>
                 {/* Invoice number: bold, small, on its own line directly
                     under the title (owner request Pic 77, 2026-07-04). */}
-                <p className="block text-xs font-bold text-brand-primary mt-1 tracking-wider">
+                <p className="block text-xs font-bold text-brand-primary mt-1 tracking-wider whitespace-nowrap">
                   {invoice.invoice_number}
                 </p>
                 <p className="text-sm text-stone-600 mt-1.5">
