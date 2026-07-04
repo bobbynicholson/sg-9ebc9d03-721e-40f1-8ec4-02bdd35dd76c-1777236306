@@ -217,3 +217,30 @@ fixed in iteration 2. No portal issues found.
 
 GRAND TOTAL audited: 82 admin + 54 portal = 136 pages. Overflow-clean
 everywhere; 3 real mobile visual bugs fixed (all on admin/order surfaces).
+
+### Iteration 4 (2026-07-04) — FULL VISUAL sweep, all 136 screenshots
+Fanned out 6 vision agents to review EVERY mobile screenshot (company x2,
+platform, kitchen+cleaning, driver+waiter, shopping+client) against the full
+visual checklist (overlap, truncation, cramping, wasted space, reflow) - not
+just the overflow metric. This caught what the metric missed: content clipped
+INSIDE scroll/flex containers (page overflow reads 0, but it looks cut off).
+
+8 flags triaged:
+FIXED (3 real bugs) [commit 38d769c2]:
+1. admin/outsource-providers - provider card name overlapped the rate block
+   on mobile -> header stacks vertically <sm.
+2. team-portal/cleaning/equipment - rows crammed name+badge+qty+icon+Verify on
+   one line, names truncated to "Stainl..." -> name full-width line on mobile.
+3. team-portal/driver/deliveries - filter tabs min-w-[120px]x3 overflowed the
+   card, "Completed" clipped -> min-w-0 so flex-1 fits all three.
+NOT BUGS (2): admin/packages + admin/kitchen-duty-tracking are redirect stubs
+   (-> /admin/orders and /admin/kitchen-schedule); blank is the pre-redirect frame.
+ACCEPTABLE / noted (3): platform company-database, trial-management,
+   financial-dashboard wide tables are inside overflow-x-auto (scroll to see
+   all columns - standard pattern, data reachable). Super-admin-only surface;
+   could convert to stacked cards on mobile if desired, left as-is for now.
+
+GRAND TOTAL: 136 pages (82 admin + 54 portal) across all 10 roles, fully
+visually reviewed. All real mobile visual defects fixed (6 total across the
+whole effort: timeline, order-modal tabs, fixed-costs, outsource, cleaning
+equipment, driver tabs). Everything else is clean or acceptable-by-design.
