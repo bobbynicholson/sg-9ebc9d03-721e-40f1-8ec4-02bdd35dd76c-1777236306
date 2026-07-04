@@ -62,6 +62,77 @@ const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready", "in_trans
 // the cron ticks every 15 min (shopping then repeats the next day until done).
 const DEDUP_MIN = 18 * 60;
 
+// Queue branded reminder EMAILS to staff (admin / kitchen) alongside the
+// in-app ping, so a role that isn't staring at the bell still hears about
+// tomorrow's event. Company + role scoped, deduped per order+type over the
+// same window as the in-app dedup so the 15-min tick never re-sends. Rows
+// go in as status='queued' scheduled now; process-email-queue drains them
+// and emailService auto-wraps the plain body in the tenant's branded shell
+// (so we pass plain text here, no HTML). Best-effort: a queue failure must
+// never break the in-app path, so callers ignore the return on error.
+async function queueStaffReminderEmails(
+  sb: any,
+  companyId: string,
+  orderId: string,
+  roles: string[],
+  triggerEvent: string,
+  subject: string,
+  body: string,
+): Promise<number> {
+  try {
+    const { data: profs } = await sb
+      .from("profiles")
+      .select("email, full_name, role")
+      .eq("company_id", companyId)
+      .in("role", roles)
+      .not("email", "is", null);
+    if (!profs || profs.length === 0) return 0;
+
+    // Dedup: skip anyone already queued/sent this exact reminder for this
+    // order inside the dedup window (mirrors the in-app dedup).
+    const since = new Date(Date.now() - DEDUP_MIN * 60 * 1000).toISOString();
+    const { data: existing } = await sb
+      .from("outgoing_email_queue")
+      .select("to_email")
+      .eq("trigger_ref_id", orderId)
+      .eq("trigger_event", triggerEvent)
+      .gte("created_at", since);
+    const already = new Set(
+      (existing || []).map((r: any) => String(r.to_email || "").toLowerCase()),
+    );
+
+    const rows: any[] = [];
+    const seen = new Set<string>();
+    for (const p of profs as any[]) {
+      const em = String(p.email || "").toLowerCase();
+      if (!em || already.has(em) || seen.has(em)) continue;
+      seen.add(em);
+      rows.push({
+        company_id: companyId,
+        to_email: p.email,
+        to_name: p.full_name || null,
+        subject,
+        body,
+        trigger_event: triggerEvent,
+        trigger_ref_id: orderId,
+        status: "queued",
+        scheduled_for: new Date().toISOString(),
+        template_type: triggerEvent,
+      });
+    }
+    if (rows.length === 0) return 0;
+    const { error } = await sb.from("outgoing_email_queue").insert(rows);
+    if (error) {
+      console.warn("[cron/event-approaching-reminder] email queue insert failed:", error.message);
+      return 0;
+    }
+    return rows.length;
+  } catch (e: any) {
+    console.warn("[cron/event-approaching-reminder] email queue crashed (non-blocking):", e?.message || String(e));
+    return 0;
+  }
+}
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -127,6 +198,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let tomorrowPings = 0;
   let kitchenPings = 0;
   let driverPings = 0;
+  let emailPings = 0;
   let skipped = 0;
   const errors: string[] = [];
 
@@ -209,6 +281,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           },
           sb,
         );
+        // Same message as an EMAIL to admin/owner (Raj 2026-07-05: staff
+        // who aren't watching the bell should still hear about tomorrow).
+        emailPings += await queueStaffReminderEmails(
+          sb,
+          o.company_id,
+          o.id,
+          ["company_admin", "admin", "owner"],
+          "event_tomorrow_admin_email",
+          `🗓️ Event tomorrow: ${orderLabel}`,
+          `${eventName}${venue ? ` at ${venue}` : ""} is tomorrow.\n\n` +
+            `Please make sure prep, equipment and the driver run are all lined up.\n\n` +
+            `Log in to your CateringMS dashboard to review ${orderLabel}.`,
+        );
         // Kitchen prep heads-up - only if prep hasn't started. Shopping has
         // its own reminder above, so this is purely about cooking.
         let kitchenSent = 0;
@@ -229,6 +314,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               dedupWindowMinutes: DEDUP_MIN,
             },
             sb,
+          );
+          // ...and the same prep heads-up as an EMAIL to the kitchen crew.
+          emailPings += await queueStaffReminderEmails(
+            sb,
+            o.company_id,
+            o.id,
+            ["kitchen_manager", "kitchen_staff"],
+            "event_tomorrow_kitchen_email",
+            `👩‍🍳 Prep for tomorrow: ${orderLabel}`,
+            `${eventName}${venue ? ` at ${venue}` : ""} is tomorrow.\n\n` +
+              `Get prep started so everything is ready in time.\n\n` +
+              `Open the kitchen portal to see the prep list for ${orderLabel}.`,
           );
         }
         if ((adminSent || 0) > 0 || (kitchenSent || 0) > 0) tomorrowPings += 1;
@@ -308,6 +405,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     tomorrowPings,
     kitchenPings,
     driverPings,
+    emailPings,
     skipped,
     errors_count: errors.length,
   });
@@ -319,6 +417,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     tomorrowPings,
     kitchenPings,
     driverPings,
+    emailPings,
     skipped,
     errors: errors.length > 0 ? errors.slice(0, 20) : undefined,
   });

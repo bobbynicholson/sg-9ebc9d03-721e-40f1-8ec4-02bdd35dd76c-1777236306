@@ -17,11 +17,9 @@ import { useToast } from "@/hooks/use-toast";
 import { effectivePriority } from "@/lib/notificationDisplay";
 import { useTenantHref } from "@/lib/tenantUrl";
 
-/** Phase 7 #5: short emoji-free chime so an urgent notification
- *  doesn't get lost while the operator is heads-down in another
- *  tab. WebAudio so we don't ship an MP3 asset. Stays silent if
- *  the AudioContext can't be constructed (older Safari, locked
- *  autoplay policy) - toast still fires either way. */
+/** Fallback chime, synthesised with WebAudio so it works even if the
+ *  audio asset fails to load. Stays silent if the AudioContext can't be
+ *  constructed (older Safari, locked autoplay policy). */
 function chime() {
   try {
     const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -41,6 +39,27 @@ function chime() {
     setTimeout(() => ctx.close(), 400);
   } catch {
     // Best-effort - silent failure is fine.
+  }
+}
+
+// Raj 2026-07-05: staff wanted to HEAR notifications land, not just see
+// the badge. Play a real chime asset for every new notification; fall back
+// to the synthesised tone if the file can't load or autoplay is blocked.
+// The <audio> element is cached + rewound so rapid notifications each ring.
+let notifAudio: HTMLAudioElement | null = null;
+function playNotifSound() {
+  try {
+    if (typeof window === "undefined") return;
+    if (!notifAudio) {
+      notifAudio = new Audio("/sounds/notification.wav");
+      notifAudio.volume = 0.45;
+      notifAudio.preload = "auto";
+    }
+    notifAudio.currentTime = 0;
+    const p = notifAudio.play();
+    if (p && typeof (p as any).catch === "function") (p as Promise<void>).catch(() => chime());
+  } catch {
+    chime();
   }
 }
 
@@ -92,18 +111,21 @@ export function NotificationBell() {
           if (prev.some((n) => n.id === notification.id)) return prev;
           return [notification, ...prev];
         });
-        // Phase 7 #5: surface high-signal notifications immediately
-        // so an admin watching another tab still notices a new urgent
-        // item land. Medium / low stay quiet - the bell badge is
-        // enough for those.
-        const priority = (notification.priority || "").toLowerCase();
-        if ((priority === "urgent" || priority === "high") && claimToast(notification.id)) {
-          chime();
-          toast({
-            title: notification.title || "New notification",
-            description: notification.message || undefined,
-            variant: priority === "urgent" ? "destructive" : "default",
-          });
+        // Alert on every new notification, deduped across the 2-3 bell
+        // mounts (desktop / collapsed / mobile). Raj 2026-07-05: play the
+        // sound for ALL new notifications so staff hear them land. The
+        // pop-up toast still fires only for high/urgent so we don't spam
+        // the screen for routine items - the sound + badge cover those.
+        if (claimToast(notification.id)) {
+          playNotifSound();
+          const priority = (notification.priority || "").toLowerCase();
+          if (priority === "urgent" || priority === "high") {
+            toast({
+              title: notification.title || "New notification",
+              description: notification.message || undefined,
+              variant: priority === "urgent" ? "destructive" : "default",
+            });
+          }
         }
       },
       activeRole,
