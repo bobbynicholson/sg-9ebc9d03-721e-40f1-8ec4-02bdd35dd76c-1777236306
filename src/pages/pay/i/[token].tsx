@@ -636,9 +636,14 @@ export default function InvoicePaymentPage() {
                   </p>
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 leading-tight">
-                  {docTitle} {invoice.invoice_number}
+                  {docTitle}
                 </h1>
-                <p className="text-sm text-stone-600 mt-2">
+                {/* Invoice number: bold, smaller, directly under the title
+                    (owner request Pic 77, 2026-07-04). */}
+                <p className="text-sm font-bold text-brand-primary mt-0.5 tracking-wide">
+                  {invoice.invoice_number}
+                </p>
+                <p className="text-sm text-stone-600 mt-1.5">
                   Issued {format(new Date(invoice.invoice_date), "d MMMM yyyy")} · viewed {today}
                 </p>
                 {vatRegistered && company.vat_number && (

@@ -126,9 +126,14 @@ export function InvoicePreview(props: InvoicePreviewProps) {
               </p>
             </div>
             <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 leading-tight">
-              {docTitle} {props.invoiceNumber}
+              {docTitle}
             </h1>
-            <p className="text-sm text-stone-600 mt-2">
+            {/* Invoice number: bold, smaller, under the title (owner
+                request Pic 77, 2026-07-04). */}
+            <p className="text-sm font-bold text-brand-primary mt-0.5 tracking-wide">
+              {props.invoiceNumber}
+            </p>
+            <p className="text-sm text-stone-600 mt-1.5">
               Issued {safeDate(props.invoiceDate, today)} · due {safeDate(props.dueDate)}
             </p>
             {props.companyRegistration && (
