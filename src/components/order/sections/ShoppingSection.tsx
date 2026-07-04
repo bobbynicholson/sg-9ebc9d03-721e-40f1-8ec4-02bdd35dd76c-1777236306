@@ -24,6 +24,10 @@ interface Props {
   defaultOpen?: boolean;
   forceOpen?: boolean;
   highlight?: boolean;
+  /** Lifts "there are ingredient shortfalls" up so the order-doc
+   *  suggested-action banner can nudge "shop first" without recomputing
+   *  the demand view. Fires once demand has loaded. */
+  onOutstandingChange?: (outstanding: boolean) => void;
 }
 
 interface DemandRow {
@@ -35,7 +39,7 @@ interface DemandRow {
   shortfall: number;
 }
 
-export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, highlight }: Props) {
+export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, highlight, onOutstandingChange }: Props) {
   const { user, userRoles } = useAuth();
   const { toast } = useToast();
   const [demand, setDemand] = useState<DemandRow[]>([]);
@@ -178,6 +182,14 @@ export function ShoppingSection({ orderId, companyId, defaultOpen, forceOpen, hi
 
   const short = demand.filter((d) => Number(d.shortfall || 0) > 0);
   const ok = demand.length - short.length;
+
+  // Lift the shortfall signal up once demand has resolved, so the
+  // suggested-action banner can rank "shop first" ahead of prep/driver.
+  useEffect(() => {
+    if (loading) return;
+    onOutstandingChange?.(short.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, short.length]);
   const summary = loading
     ? "Loading..."
     : demand.length === 0

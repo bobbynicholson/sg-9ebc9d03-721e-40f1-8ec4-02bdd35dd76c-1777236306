@@ -46,6 +46,10 @@ interface OrderShape {
 
 interface Props {
   order: OrderShape;
+  /** True when the order has ingredient shortfalls not yet covered
+   *  (lifted from ShoppingSection). Lets the admin banner rank "shop
+   *  first" ahead of prep + driver in the operational sequence. */
+  shoppingOutstanding?: boolean;
 }
 
 function combineDateTime(date: string, time: string | null): Date | null {
@@ -56,7 +60,7 @@ function combineDateTime(date: string, time: string | null): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-export function OrderSuggestedAction({ order }: Props) {
+export function OrderSuggestedAction({ order, shoppingOutstanding }: Props) {
   const { user, userRoles } = useAuth();
   const { withSlug } = useTenantHref();
   const [dismissed, setDismissed] = useState(false);
@@ -195,11 +199,46 @@ export function OrderSuggestedAction({ order }: Props) {
 
   // === Admin / dispatch candidates ===
   if (isAdminTier) {
-    if (order.status === "confirmed" && !order.assigned_driver_id && hoursToEvent != null && hoursToEvent < 48) {
+    // Operational sequence: shopping -> prep -> driver, so the banner
+    // points admin at the EARLIEST unfinished step instead of jumping
+    // ahead to the driver. One exception (urgency override): an imminent
+    // event with no driver is a real fire and jumps the whole queue.
+    const noDriver = order.status === "confirmed" && !order.assigned_driver_id && hoursToEvent != null;
+    // Imminent + no driver is a fire and jumps the queue - but shopping is
+    // the deeper blocker (no ingredients = no event), so it still yields to
+    // outstanding shopping.
+    const imminentNoDriver = noDriver && (hoursToEvent as number) < 18 && !shoppingOutstanding;
+
+    if (imminentNoDriver) {
       candidates.push({
-        weight: 90,
-        text: `Event in ${Math.round(hoursToEvent)}h and no driver assigned. Pick one now.`,
+        weight: 96,
+        text: `Event in ${Math.max(0, Math.round(hoursToEvent as number))}h and no driver assigned. Assign one now.`,
         tone: "rose",
+      });
+    }
+    // 1. Shopping first - can't cook what you haven't bought.
+    if (order.status === "confirmed" && shoppingOutstanding) {
+      candidates.push({
+        weight: 88,
+        text: "Ingredients are short - do the shopping first, before prep.",
+        cta: { label: "Shopping", href: withSlug("/admin/shopping") },
+        tone: "amber",
+      });
+    }
+    // 2. Prep next, once the stock is in.
+    if (order.status === "confirmed" && !order.prep_started_at && !shoppingOutstanding) {
+      candidates.push({
+        weight: 84,
+        text: "Stock's in - kitchen prep hasn't started. Kick it off next.",
+        tone: "amber",
+      });
+    }
+    // 3. Driver after prep (non-imminent - imminent handled above).
+    if (noDriver && !imminentNoDriver && (hoursToEvent as number) < 48) {
+      candidates.push({
+        weight: 80,
+        text: `No driver assigned yet (event in ${Math.round(hoursToEvent as number)}h). Lock one in after prep.`,
+        tone: "amber",
       });
     }
     if (order.requires_two_drivers && !order.secondary_driver_id && hoursToEvent != null && hoursToEvent < 72) {

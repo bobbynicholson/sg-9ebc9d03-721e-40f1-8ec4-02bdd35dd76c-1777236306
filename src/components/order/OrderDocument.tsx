@@ -434,6 +434,9 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   const [order, setOrder] = useState<OrderHead | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Lifted from ShoppingSection so the suggested-action banner can rank
+  // "shop first" ahead of prep/driver when ingredients are short.
+  const [shoppingOutstanding, setShoppingOutstanding] = useState(false);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
   const primary = useMemo(
@@ -807,7 +810,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
       {/* ODOC Wave F: role-aware suggested next action. One-line
           rule-based nudge that picks the highest-value thing the
           viewer can do for this order right now. Dismissible. */}
-      <OrderSuggestedAction order={order} />
+      <OrderSuggestedAction order={order} shoppingOutstanding={shoppingOutstanding} />
 
       {/* ODOC Wave B: top-of-document alert banners - countdown +
           cancellation + postponement + comms-paused + cold-chain +
@@ -865,6 +868,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 forceOpen={forceAll}
                 defaultOpen={primary === "shopping" || primary === "kitchen"}
                 highlight={primary === "shopping" || primary === "kitchen"}
+                onOutstandingChange={setShoppingOutstanding}
               />
             )}
             {showFor("driver") && (
