@@ -128,9 +128,9 @@ export function InvoicePreview(props: InvoicePreviewProps) {
             <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 leading-tight">
               {docTitle}
             </h1>
-            {/* Invoice number: bold, smaller, under the title (owner
-                request Pic 77, 2026-07-04). */}
-            <p className="text-sm font-bold text-brand-primary mt-0.5 tracking-wide">
+            {/* Invoice number: bold, small, on its own line under the
+                title (owner request Pic 77, 2026-07-04). */}
+            <p className="block text-xs font-bold text-brand-primary mt-1 tracking-wider">
               {props.invoiceNumber}
             </p>
             <p className="text-sm text-stone-600 mt-1.5">

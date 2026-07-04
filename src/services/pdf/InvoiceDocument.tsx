@@ -209,12 +209,12 @@ const buildStyles = (primary: string) =>
       color: "#1c1917",
     },
     invoiceNumberUnderTitle: {
-      fontSize: 10,
+      fontSize: 8,
       fontFamily: "Helvetica-Bold",
       color: primary,
-      marginTop: 2,
+      marginTop: 3,
       marginBottom: 2,
-      letterSpacing: 0.3,
+      letterSpacing: 0.4,
     },
     statusPill: {
       fontSize: 9,
