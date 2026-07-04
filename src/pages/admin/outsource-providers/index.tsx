@@ -715,7 +715,10 @@ function ProvidersList() {
                 return (
                   <Card key={p.id} className={`${p.is_active ? "" : "opacity-60"} hover:shadow-sm transition`}>
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-4 flex-wrap">
+                      {/* Stack name / rate / actions vertically on mobile -
+                          side-by-side they collided (the provider name
+                          overlapped the "R x per event" block at phone width). */}
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             {/* withSlug was missing here - every other
@@ -784,7 +787,7 @@ function ProvidersList() {
                             )}
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-left sm:text-right shrink-0">
                           {canSeeFinance && (
                             <>
                               <p className="text-sm font-semibold text-slate-900 tabular-nums">{rateDisplay}</p>

@@ -356,19 +356,19 @@ function DriverDeliveriesInner() {
                 <TabsList className="mb-4 flex w-full gap-1 overflow-x-auto">
                   <TabsTrigger
                     value="all"
-                    className="flex-1 justify-center min-w-[120px] whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
+                    className="flex-1 justify-center min-w-0 whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
                   >
                     All ({filteredOrders.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="upcoming"
-                    className="flex-1 justify-center min-w-[120px] whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
+                    className="flex-1 justify-center min-w-0 whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
                   >
                     Upcoming ({upcomingFiltered.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="completed"
-                    className="flex-1 justify-center min-w-[120px] whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
+                    className="flex-1 justify-center min-w-0 whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
                   >
                     Completed ({completedFiltered.length})
                   </TabsTrigger>

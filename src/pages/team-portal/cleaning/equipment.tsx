@@ -321,7 +321,11 @@ function CleaningEquipmentPageInner() {
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-800">
               {filtered.map((i) => (
-                <li key={i.id} className="p-4 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                // Stack name above the controls on mobile - on one line the
+                // condition badge + qty + SOP link + Verify button crowded the
+                // name so hard it truncated to "Stainl...". Full width on
+                // phones, single row from sm up.
+                <li key={i.id} className="p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-slate-900 dark:text-white truncate">{i.name}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3">
