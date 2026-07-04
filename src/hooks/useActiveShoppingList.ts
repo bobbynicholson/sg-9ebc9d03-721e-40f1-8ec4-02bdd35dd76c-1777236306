@@ -336,40 +336,58 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: nextValue } : i));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
-    const { error: updErr } = await sb
-      .from("shopping_list_items")
-      .update({ purchased: nextValue })
-      .eq("id", itemId);
+    // CONCURRENCY: compare-and-set. Only flip the row if it isn't already
+    // at nextValue, so when two shoppers tick the SAME item at once exactly
+    // ONE call "wins" the flip - and only the winner applies the inventory
+    // delta below. Without this both callers saw it unticked, both flipped
+    // it true, and both bumped stock (+qty twice). The .eq(id) is unique so
+    // the UPDATE row-locks; the winner is whoever the DB serialises first.
+    let q = sb.from("shopping_list_items").update({ purchased: nextValue }).eq("id", itemId);
+    q = nextValue ? q.not("purchased", "is", true) : q.eq("purchased", true);
+    const { data: flipped, error: updErr } = await q.select("id");
     if (updErr) {
       // Rollback on failure.
       setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: !nextValue } : i));
       setError(updErr.message || "Could not save");
       return false;
     }
+    // We own the flip only if this call actually changed the row. If it
+    // was already at nextValue (someone else just ticked it, realtime not
+    // yet in), the end state is still correct - skip the stock bump so we
+    // don't double-count.
+    const iOwnTheFlip = Array.isArray(flipped) && flipped.length > 0;
 
-    // Inventory bump - non-blocking on the user-visible toggle. If
-    // this fails, the tick still stuck (the row is updated) and we
-    // log a warning rather than rolling back, because the tick is
-    // the source of truth and inventory can be reconciled later.
-    if (target && target.item_id && Number.isFinite(Number(target.quantity))) {
+    // Inventory bump - only the flip winner, and done atomically so
+    // concurrent ticks on different items (or the same inventory line)
+    // compose instead of clobbering. Non-blocking on the visible tick.
+    if (iOwnTheFlip && target && target.item_id && Number.isFinite(Number(target.quantity))) {
       const qty = Number(target.quantity);
       const delta = nextValue ? qty : -qty;
       try {
-        const { data: invRow, error: readErr } = await sb
-          .from("inventory_items")
-          .select("current_stock")
-          .eq("id", target.item_id)
-          .maybeSingle();
-        if (readErr || !invRow) {
-          console.warn("[useActiveShoppingList] inventory read failed:", readErr);
-        } else {
-          const newStock = Number(invRow.current_stock || 0) + delta;
-          const { error: writeErr } = await sb
+        // Atomic increment via RPC (current_stock = current_stock + delta
+        // in one statement - no lost updates). Falls back to the legacy
+        // read-modify-write if the RPC isn't deployed yet, so shopping
+        // keeps working before the migration is applied.
+        const { error: rpcErr } = await sb.rpc("adjust_inventory_stock", {
+          p_item_id: target.item_id,
+          p_delta: delta,
+        });
+        if (rpcErr) {
+          const missing = /function .*adjust_inventory_stock.* does not exist|PGRST202|404/i.test(
+            `${rpcErr.message || ""} ${rpcErr.code || ""}`,
+          );
+          if (!missing) console.warn("[useActiveShoppingList] atomic stock adjust failed:", rpcErr);
+          // Legacy fallback (pre-migration): read-modify-write.
+          const { data: invRow } = await sb
             .from("inventory_items")
-            .update({ current_stock: newStock, updated_at: new Date().toISOString() })
-            .eq("id", target.item_id);
-          if (writeErr) {
-            console.warn("[useActiveShoppingList] inventory bump failed:", writeErr);
+            .select("current_stock")
+            .eq("id", target.item_id)
+            .maybeSingle();
+          if (invRow) {
+            await sb
+              .from("inventory_items")
+              .update({ current_stock: Number(invRow.current_stock || 0) + delta, updated_at: new Date().toISOString() })
+              .eq("id", target.item_id);
           }
         }
       } catch (e) {
