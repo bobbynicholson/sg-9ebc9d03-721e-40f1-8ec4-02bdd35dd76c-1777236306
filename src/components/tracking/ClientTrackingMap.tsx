@@ -191,8 +191,24 @@ export function ClientTrackingMap({
 
     setLiveDriverLocation(driverLocation);
 
+    // Shared patch used by both realtime sources below.
+    const applyFix = (lat: number, lng: number, ts?: string) => {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      setLiveDriverLocation((prev) => ({
+        lat,
+        lng,
+        driver_name: prev?.driver_name || driverLocation?.driver_name || "Your Driver",
+        driver_phone: prev?.driver_phone || driverLocation?.driver_phone,
+        last_updated: ts || new Date().toISOString(),
+      }));
+      onLocationUpdate?.({ lat, lng });
+    };
+
     const channel = supabase
       .channel(`client-tracking-${orderId}-${driverId}`)
+      // gps_tracking append-only history. Kept for when GPS history is
+      // published/repaired; today it does not fire (table not in the
+      // realtime publication + a legacy insert trigger rejects rows).
       .on(
         "postgres_changes",
         {
@@ -204,17 +220,26 @@ export function ClientTrackingMap({
         (payload: any) => {
           const row = payload?.new;
           if (!row) return;
-          const lat = Number(row.latitude);
-          const lng = Number(row.longitude);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-          setLiveDriverLocation((prev) => ({
-            lat,
-            lng,
-            driver_name: prev?.driver_name || driverLocation?.driver_name || "Your Driver",
-            driver_phone: prev?.driver_phone || driverLocation?.driver_phone,
-            last_updated: row.timestamp || new Date().toISOString(),
-          }));
-          onLocationUpdate?.({ lat, lng });
+          applyFix(Number(row.latitude), Number(row.longitude), row.timestamp);
+        },
+      )
+      // driver_locations is the current-state row the pinger UPSERTs on
+      // every fix - this is the real instant path. Requires the table to
+      // be a member of the supabase_realtime publication (migration
+      // 20260705200000). Listens to INSERT (first fix) + UPDATE (each
+      // subsequent fix). Poll below still covers backgrounded tabs.
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "driver_locations",
+          filter: `driver_id=eq.${driverId}`,
+        },
+        (payload: any) => {
+          const row = payload?.new;
+          if (!row) return;
+          applyFix(Number(row.latitude), Number(row.longitude), row.updated_at);
         },
       )
       .subscribe();
@@ -267,9 +292,12 @@ export function ClientTrackingMap({
     };
 
     // Fetch the driver's pin IMMEDIATELY so the dot shows on open instead
-    // of staying blank until the first 15s tick, then keep it warm.
+    // of staying blank until the first tick, then keep it warm. 5s cadence
+    // so the pin feels live even when the realtime publication isn't
+    // carrying driver_locations yet (the instant path above); it's a
+    // single-row PK read so the extra frequency is cheap.
     void pollOnce();
-    const interval = setInterval(pollOnce, 15000);
+    const interval = setInterval(pollOnce, 5000);
 
     return () => { active = false; clearInterval(interval); };
   }, [driverId, onLocationUpdate, trackDriver]);
