@@ -183,7 +183,11 @@ export const whatsappIntegrationService = {
         connectionCompanyId = (profile as any)?.company_id || null;
       }
       if (!connectionCompanyId) {
-        throw new Error("WhatsApp send: company_id could not be resolved.");
+        // Not an error condition worth throwing: a missing company just
+        // means we can't route the message. Return a soft failure so a
+        // status transition / notification fan-out is never broken by it.
+        console.warn("[whatsapp] send skipped: company_id could not be resolved.");
+        return false;
       }
 
       const { data: integration, error: integrationErr } = await supabase
@@ -196,7 +200,12 @@ export const whatsappIntegrationService = {
       if (integrationErr) console.error("[whatsappIntegrationService/sendWhatsAppMessage] integrations lookup failed:", integrationErr);
 
       if (!integration) {
-        throw new Error("WhatsApp integration not connected");
+        // The tenant simply hasn't connected WhatsApp. This is the
+        // common case, NOT an error - it must never bubble up and break
+        // the caller (e.g. an order status transition firing customer
+        // notifications). Soft no-op.
+        console.log("[whatsapp] send skipped: integration not connected for this company.");
+        return false;
       }
 
       const credentials = integration.credentials as any;
