@@ -140,6 +140,15 @@ const BASELINE_PHANTOM_TABLES = new Set([
   // baseline entry as a marker that the table is intentionally
   // optional.
   "src/pages/api/admin/resend/verify-domain.ts::onboarding_steps",
+
+  // order_work_contributors: created by migration 20260705135000,
+  // which is NOT yet applied in prod (PostgREST probe returned 404
+  // on 2026-07-06). The component is written for exactly this
+  // window: the query error makes it render nothing, so the order
+  // doc never breaks pre-migration. Once the migration is pasted
+  // in the SQL editor, MOVE the table into KNOWN_TABLES and drop
+  // this entry.
+  "src/components/order/OrderContributors.tsx::order_work_contributors",
 ]);
 
 
@@ -188,7 +197,11 @@ const KNOWN_TABLES = new Set([
   "billing_history","blocked_contacts","blog_posts","booking_packages",
   "cancellation_requests","chat_messages","chat_sessions","cleaning_duty_logs","cleaning_event_checklists","cleaning_event_handovers","cleaning_jobs","cleaning_machines",
   "cleaning_schedules","client_access_log","client_access_tokens","clients","cms_pages",
-  "companies","company_number_settings","company_number_settings_audit","complaints",
+  "companies","company_number_settings","company_number_settings_audit",
+  // Shopping portal settings (migration 20260705130000). Verified live in
+  // prod via PostgREST on 2026-07-06.
+  "company_shopping_settings",
+  "complaints",
   "currency_fluctuation_alerts","deliveries","delivery_crates","delivery_feedback",
   "delivery_route_stops","delivery_routes","dispatch_messages","driver_assignments",
   "driver_confirmations","driver_locations","driver_payouts","driver_rest_logs","driver_shifts",
