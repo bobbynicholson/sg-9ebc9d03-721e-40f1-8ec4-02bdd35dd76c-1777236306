@@ -1,5 +1,5 @@
-import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { IMG, Photo } from "./shared";
+import { Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { IMG, Photo, SectionHeader } from "./shared";
 
 const GALLERY = [
   { img: IMG.gallery[0], alt: "A table laid with a variety of catered dishes", gradient: "from-rose-200 to-amber-200", span: "md:col-span-2 md:row-span-2" },
@@ -12,14 +12,10 @@ const GALLERY = [
 export function GallerySection() {
   return (
     <section id="gallery" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-20 md:py-28">
-      <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-        <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
-          Beautiful events, flawlessly run
-        </h2>
-        <p className="mt-4 text-balance text-lg text-stone-600">
-          The setups, the plating, the moments - powered behind the scenes by CateringMS.
-        </p>
-      </Reveal>
+      <SectionHeader
+        title="Beautiful events, flawlessly run"
+        copy="The setups, the plating, the moments - powered behind the scenes by CateringMS."
+      />
 
       <Stagger className="grid auto-rows-[200px] grid-cols-2 gap-4 md:grid-cols-4">
         {GALLERY.map((g, index) => (

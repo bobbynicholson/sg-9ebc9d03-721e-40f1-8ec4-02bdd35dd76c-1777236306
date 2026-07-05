@@ -1,5 +1,6 @@
 import { FileText, Calendar, ChefHat, Truck, RefreshCw } from "lucide-react";
-import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { SectionHeader } from "./shared";
 
 const WORKFLOW = [
   { icon: FileText, step: "Enquiry & Quote", description: "Capture every lead and build itemised, menu-based quotes in minutes. Send a branded quote your client can accept online." },
@@ -13,15 +14,10 @@ export function ProcessSection() {
   return (
     <section className="bg-stone-100 py-20 md:py-28">
       <div className="mx-auto max-w-7xl px-4">
-        <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-          <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
-            From first enquiry to repeat booking
-          </h2>
-          <p className="mt-4 text-balance text-lg text-stone-600">
-            Every function follows the same path. CateringMS runs each stage for you,
-            so nothing slips between the quote and the invoice.
-          </p>
-        </Reveal>
+        <SectionHeader
+          title="From first enquiry to repeat booking"
+          copy="Every function follows the same path. CateringMS runs each stage for you, so nothing slips between the quote and the invoice."
+        />
 
         {/* A genuine ordered sequence (the numbers carry the order, which the
             reader needs). Solid ink icons, no gradient chips; the hairline

@@ -8,6 +8,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import { EASE, btnPress } from "@/components/motion/marketing";
+import { Reveal } from "@/components/motion/Reveal";
 
 // Phone number (mirrors the JSON-LD contactPoint) - wired for click-to-call.
 export const PHONE_DISPLAY = "+27 83 652 5755";
@@ -57,6 +58,37 @@ export const IMG = {
     linda: u("1573497491765-dccce02b29df", 240, "&h=240&crop=faces"),
   },
 };
+
+/**
+ * Split editorial section header: heading left under a short amber rule,
+ * supporting copy right, bottom-aligned. One consistent header voice for
+ * every section (replaces the old all-centered stacks).
+ */
+export function SectionHeader({
+  title,
+  copy,
+  dark = false,
+  className = "",
+}: {
+  title: string;
+  copy: React.ReactNode;
+  dark?: boolean;
+  className?: string;
+}) {
+  return (
+    <Reveal className={`mb-14 flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-12 ${className}`}>
+      <div className="max-w-xl">
+        <span aria-hidden className="mb-5 block h-1 w-12 rounded-full bg-amber-500" />
+        <h2 className={`text-balance font-display text-3xl font-medium tracking-tight md:text-5xl ${dark ? "text-white" : "text-stone-900"}`}>
+          {title}
+        </h2>
+      </div>
+      <p className={`max-w-md text-balance text-lg md:pb-1.5 md:text-right ${dark ? "text-stone-300" : "text-stone-600"}`}>
+        {copy}
+      </p>
+    </Reveal>
+  );
+}
 
 /**
  * Graceful image slot. Renders a warm gradient immediately and layers the

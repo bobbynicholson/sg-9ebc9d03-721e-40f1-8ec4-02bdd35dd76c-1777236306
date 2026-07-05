@@ -19,7 +19,8 @@ export const FAQS = [
 export function FaqSection() {
   return (
     <section className="mx-auto max-w-4xl px-4 py-20 md:py-28">
-      <Reveal className="mb-14 text-center">
+      <Reveal className="mb-14">
+        <span aria-hidden className="mb-5 block h-1 w-12 rounded-full bg-amber-500" />
         <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
           Everything you need to know
         </h2>

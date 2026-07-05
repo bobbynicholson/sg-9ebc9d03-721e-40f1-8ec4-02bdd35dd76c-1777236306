@@ -1,5 +1,6 @@
 import { Zap, Users, Clock, Sparkles, Leaf, Shield, Award, Heart } from "lucide-react";
-import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { Stagger, StaggerItem } from "@/components/motion/Reveal";
+import { SectionHeader } from "./shared";
 
 const REASONS = [
   {
@@ -34,14 +35,10 @@ const TRUST_CHIPS = [
 export function WhySection() {
   return (
     <section className="mx-auto max-w-7xl px-4 py-20 md:py-28">
-      <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-        <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
-          The difference is in the details
-        </h2>
-        <p className="mt-4 text-balance text-lg text-stone-600">
-          The unseen work that makes your service look effortless - finally handled.
-        </p>
-      </Reveal>
+      <SectionHeader
+        title="The difference is in the details"
+        copy="The unseen work that makes your service look effortless - finally handled."
+      />
 
       {/* Hairline-divided editorial pairs, not cloned tiles: a solid ink
           icon leads each reason; hierarchy comes from the heading weight. */}

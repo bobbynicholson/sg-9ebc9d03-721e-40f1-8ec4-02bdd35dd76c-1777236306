@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Star, ArrowRight } from "lucide-react";
 import { Reveal, Stagger, StaggerItem } from "@/components/motion/Reveal";
-import { IMG, Photo, warmCard } from "./shared";
+import { IMG, Photo, SectionHeader, warmCard } from "./shared";
 
 const DISHES = [
   { name: "Seared Beef Fillet", tag: "Signature Mains", img: IMG.menu.beef, gradient: "from-rose-300 to-amber-300", popular: true },
@@ -16,15 +16,10 @@ export function MenuSection() {
   return (
     <section id="menu" className="scroll-mt-24 bg-stone-100 py-20 md:py-28">
       <div className="mx-auto max-w-7xl px-4">
-        <Reveal className="mx-auto mb-14 max-w-3xl text-center">
-          <h2 className="text-balance font-display text-3xl font-medium tracking-tight text-stone-900 md:text-5xl">
-            Menus worth showing off
-          </h2>
-          <p className="mt-4 text-balance text-lg text-stone-600">
-            Build, cost and send beautiful menus in minutes. Your clients see this -
-            you keep the margins.
-          </p>
-        </Reveal>
+        <SectionHeader
+          title="Menus worth showing off"
+          copy="Build, cost and send beautiful menus in minutes. Your clients see this - you keep the margins."
+        />
 
         <Stagger className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {DISHES.map((dish, index) => (
