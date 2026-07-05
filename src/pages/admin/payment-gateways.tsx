@@ -62,6 +62,21 @@ import {
 
 type ProviderEntry = ReturnType<typeof paymentGatewayService.getProviderCatalogue>[number];
 
+// The REAL webhook targets the runtime listens on, per provider. These
+// are what the operator must paste into the provider dashboard - the
+// old free-text Notify URL field suggested a route that doesn't exist
+// and was never read by the payment runtime.
+const WEBHOOK_PATHS: Record<string, string> = {
+  payfast: "/api/webhooks/payment-confirmation",
+  yoco: "/api/webhooks/yoco-confirmation",
+  stripe: "/api/webhooks/stripe-confirmation",
+};
+
+function webhookEndpointFor(provider: string): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://cateringms.com";
+  return `${origin}${WEBHOOK_PATHS[provider] || "/api/webhooks/payment-confirmation"}`;
+}
+
 function statusForCard(config: PaymentGatewayConfigDTO | undefined): {
   label: string;
   tone: "muted" | "info" | "success" | "live";
@@ -106,7 +121,6 @@ function PaymentGatewaysPage() {
   const [editIsTest, setEditIsTest] = useState(true);
   const [editSuccessUrl, setEditSuccessUrl] = useState("");
   const [editCancelUrl, setEditCancelUrl] = useState("");
-  const [editNotifyUrl, setEditNotifyUrl] = useState("");
   const [editCredentials, setEditCredentials] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -180,9 +194,10 @@ function PaymentGatewaysPage() {
     setEditIsTest(existing ? existing.is_test : true);
     setEditSuccessUrl(existing?.success_url || "");
     setEditCancelUrl(existing?.cancel_url || "");
-    setEditNotifyUrl(existing?.notify_url || "");
-    // Always start with blank credential inputs. Write-once policy;
-    // operator types the full set every time they update.
+    // Always start with blank credential inputs - secrets never come
+    // back to the browser. For an EXISTING config a blank field means
+    // "keep the stored value" (the server merges), so operators can
+    // rotate one key or flip test mode without re-typing everything.
     const blank: Record<string, string> = {};
     for (const f of entry.fields) blank[f.key] = "";
     setEditCredentials(blank);
@@ -197,14 +212,19 @@ function PaymentGatewaysPage() {
 
   const handleSave = async () => {
     if (!editProvider) return;
-    // Validate required fields client-side for a faster feedback loop;
-    // the API also enforces.
-    const missing = editProvider.fields
-      .filter((f) => f.required && !(editCredentials[f.key] || "").trim())
-      .map((f) => f.label);
-    if (missing.length) {
-      setEditError(`Missing required: ${missing.join(", ")}`);
-      return;
+    // Required fields are only enforced for a brand-new config. When a
+    // config already exists, blank fields keep the stored secrets (the
+    // server merges over the existing blob). The API enforces the same
+    // rule server-side.
+    const hasExistingConfig = configs.some((c) => c.provider === editProvider.provider);
+    if (!hasExistingConfig) {
+      const missing = editProvider.fields
+        .filter((f) => f.required && !(editCredentials[f.key] || "").trim())
+        .map((f) => f.label);
+      if (missing.length) {
+        setEditError(`Missing required: ${missing.join(", ")}`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -218,7 +238,9 @@ function PaymentGatewaysPage() {
           is_test: editIsTest,
           success_url: editSuccessUrl.trim() || null,
           cancel_url: editCancelUrl.trim() || null,
-          notify_url: editNotifyUrl.trim() || null,
+          // Store the real webhook target so the DB row reflects what
+          // the provider dashboard must be configured with.
+          notify_url: webhookEndpointFor(editProvider.provider),
           credentials: editCredentials,
           // Super_admin: include the picked tenant. Server ignores
           // for tenant admins (their company is on the profile).
@@ -267,8 +289,11 @@ function PaymentGatewaysPage() {
         [gatewayId]: { ok: !!j.ok, message: j.message },
       }));
       if (j.ok) {
-        setSavedToast(`${providerName} credentials verified.`);
-        setTimeout(() => setSavedToast(null), 3000);
+        // Only claim "verified" when the provider was actually contacted
+        // (the API stamps verified_at in that case). PayFast's check is
+        // local-only and returns an honest message instead.
+        setSavedToast(j.verified_at ? `${providerName} credentials verified.` : (j.message || `${providerName} check passed.`));
+        setTimeout(() => setSavedToast(null), 4000);
         await load();
       }
     } catch (e: any) {
@@ -667,7 +692,7 @@ function PaymentGatewaysPage() {
                   <div>
                     <p className="font-medium">Webhook URL on the provider side</p>
                     <p className="text-sm text-muted-foreground">
-                      Some providers need a callback URL pasted into their dashboard. Use the Notify URL you save here.
+                      Paste the webhook endpoint shown in each provider's configure dialog into that provider's dashboard. Payment confirmations arrive there - without it, payments succeed at the provider but orders never mark as paid.
                     </p>
                   </div>
                 </div>
@@ -683,7 +708,7 @@ function PaymentGatewaysPage() {
           <DialogHeader>
             <DialogTitle>Configure {editProvider?.name}</DialogTitle>
             <DialogDescription>
-              Credentials are saved encrypted-at-rest and never read back into this dialog. Re-enter the full set when you update.
+              Credentials are saved encrypted-at-rest and never read back into this dialog. When updating an existing config, leave a field blank to keep its stored value.
             </DialogDescription>
           </DialogHeader>
 
@@ -742,14 +767,36 @@ function PaymentGatewaysPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="notify_url">Notify (webhook) URL</Label>
-                  <Input
-                    id="notify_url"
-                    type="url"
-                    value={editNotifyUrl}
-                    onChange={(e) => setEditNotifyUrl(e.target.value)}
-                    placeholder="https://yourdomain.co.za/api/payment/webhook"
-                  />
+                  <Label htmlFor="notify_url">Webhook endpoint (paste into the {editProvider.name} dashboard)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="notify_url"
+                      type="url"
+                      readOnly
+                      value={webhookEndpointFor(editProvider.provider)}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => {
+                        try {
+                          navigator.clipboard.writeText(webhookEndpointFor(editProvider.provider));
+                          setSavedToast("Webhook endpoint copied.");
+                          setTimeout(() => setSavedToast(null), 2000);
+                        } catch {
+                          /* clipboard unavailable - value is selectable */
+                        }
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This is where {editProvider.name} sends payment confirmations. It is fixed by the platform, not editable.
+                  </p>
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
 
 import { GetServerSideProps } from "next";
 import { cmsService } from "@/services/cmsService";
+import { renderCmsMarkdown } from "@/lib/cmsMarkdown";
 import type { CMSPage } from "@/types/cms";
 import Head from "next/head";
 import { Header } from "@/components/Header";
@@ -31,7 +32,7 @@ export default function DynamicPage({ page }: PageProps) {
   return (
     <>
       <Head>
-        <title>{page.meta_title || `${page.title} - CateringMS`}</title>
+        <title>{`${page.title} - CateringMS`}</title>
         <meta name="description" content={page.meta_description || ""} />
         {page.meta_keywords && <meta name="keywords" content={page.meta_keywords} />}
         {/* OpenGraph for share cards, the header image doubles as
@@ -56,7 +57,10 @@ export default function DynamicPage({ page }: PageProps) {
               />
             )}
             <h1>{page.title}</h1>
-            <div dangerouslySetInnerHTML={{ __html: page.content }} />
+            {/* Same escape-then-markdown pipeline as the editor preview -
+                raw HTML is never executed (marketing-site XSS surface),
+                and what the operator previewed is what publishes. */}
+            <div dangerouslySetInnerHTML={{ __html: renderCmsMarkdown(page.content) }} />
           </article>
         </main>
         <Footer />

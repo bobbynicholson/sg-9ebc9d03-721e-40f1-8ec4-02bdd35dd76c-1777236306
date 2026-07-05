@@ -82,9 +82,25 @@ function staticPostToProps(slug: string) {
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   const slug = params?.slug as string;
 
-  let post = null;
+  let post: any = null;
   try {
+    // publishedOnly (the default) - drafts must never render publicly.
     post = await cmsService.getBlogPostBySlug(slug);
+    if (post) {
+      // Normalise nullable DB columns: tags/content arrive as null (not
+      // undefined) so component defaults don't apply and .split/.length
+      // would crash the page. featured_image is the real DB column; the
+      // component prop is coverImage.
+      post = {
+        ...post,
+        content: post.content ?? "",
+        excerpt: post.excerpt ?? "",
+        tags: post.tags ?? [],
+        category: post.category ?? "General",
+        author: post.author ?? "CateringMS",
+        cover_image: post.featured_image ?? null,
+      };
+    }
   } catch {
     // DB unavailable at request time - the static fallback below still serves.
   }

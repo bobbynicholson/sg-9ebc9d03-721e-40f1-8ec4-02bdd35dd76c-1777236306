@@ -22,7 +22,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Sparkles, FileText, Eye, Save, Trash2, Loader2, CheckCircle2, Wand2, Search, TrendingUp, MessageSquare, Code, Link, Newspaper } from "lucide-react";
+import { Sparkles, FileText, Eye, Save, Trash2, Loader2, CheckCircle2, Wand2, Search, TrendingUp, MessageSquare, Code, Link, Newspaper, Pencil, Globe } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { cmsService } from "@/services/cmsService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -98,6 +107,21 @@ function CMSBlogPage() {
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Edit dialog state. Posts used to be create-and-delete only: a typo
+  // meant delete and regenerate, and drafts could never be published.
+  const [editTarget, setEditTarget] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    excerpt: "",
+    content: "",
+    category: "General",
+    tags: "",
+    meta_description: "",
+    featured_image: "",
+    is_published: true,
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
   // Live counts for the hero chips, derived straight from loaded posts.
   const publishedCount = posts.filter((p) => p?.is_published).length;
   const draftCount = posts.length - publishedCount;
@@ -119,7 +143,10 @@ function CMSBlogPage() {
   const loadPosts = async () => {
     setLoadingPosts(true);
     try {
-      const data = await cmsService.getAllBlogPosts();
+      // false = include drafts. The default (published only) silently hid
+      // drafts from Manage Posts, so the draft chip always read 0 and a
+      // draft could never be opened or deleted from the UI.
+      const data = await cmsService.getAllBlogPosts(false);
       setPosts(data);
     } catch (error) {
       console.error("Error loading posts:", error);
@@ -198,7 +225,11 @@ function CMSBlogPage() {
     }
   };
 
-  const handlePublish = async () => {
+  // Trim leading/trailing hyphens - "Scale Up!" used to become "scale-up-".
+  const slugify = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+  const handlePublish = async (publish: boolean = true) => {
     if (!generated) return;
 
     setSaving(true);
@@ -206,11 +237,11 @@ function CMSBlogPage() {
     try {
       await cmsService.createBlogPost({
         title: generated.title,
-        slug: generated.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+        slug: slugify(generated.title),
         excerpt: generated.excerpt,
         content: generated.content,
         meta_description: generated.metaDescription,
-        is_published: true,
+        is_published: publish,
         author: user?.full_name || user?.email || "Admin",
         published_date: new Date().toISOString(),
         last_updated: new Date().toISOString(),
@@ -219,8 +250,10 @@ function CMSBlogPage() {
       });
 
       toast({
-        title: "Published!",
-        description: "Your blog post is now live",
+        title: publish ? "Published!" : "Draft saved",
+        description: publish
+          ? "Your blog post is now live"
+          : "Saved as a draft - publish it from Manage Posts when ready.",
       });
 
       setGenerated(null);
@@ -236,15 +269,88 @@ function CMSBlogPage() {
         includeInternalLinks: true,
       });
       setActiveTab("manage");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error publishing:", error);
+      const isSlugCollision = error?.code === "23505" || /duplicate key/i.test(String(error?.message || ""));
       toast({
         title: "Publish Failed",
-        description: "Failed to publish blog post",
+        description: isSlugCollision
+          ? "A post with this slug already exists. Change the title (the slug is derived from it) or delete the old post first."
+          : "Failed to publish blog post",
         variant: "destructive",
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openEdit = (post: any) => {
+    setEditTarget(post);
+    setEditForm({
+      title: post.title || "",
+      excerpt: post.excerpt || "",
+      content: post.content || "",
+      category: post.category || "General",
+      tags: Array.isArray(post.tags) ? post.tags.join(", ") : "",
+      meta_description: post.meta_description || "",
+      featured_image: post.featured_image || "",
+      is_published: !!post.is_published,
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editTarget) return;
+    if (!editForm.title.trim() || !editForm.content.trim()) {
+      toast({ title: "Missing fields", description: "Title and content are required.", variant: "destructive" });
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const updated = await cmsService.updateBlogPost(editTarget.id, {
+        title: editForm.title.trim(),
+        excerpt: editForm.excerpt.trim(),
+        content: editForm.content,
+        category: editForm.category,
+        tags: editForm.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        meta_description: editForm.meta_description.trim(),
+        featured_image: editForm.featured_image.trim() || null,
+        is_published: editForm.is_published,
+        // First publish of a draft stamps the date; re-saving a
+        // published post keeps the original.
+        ...(editForm.is_published && !editTarget.published_date
+          ? { published_date: new Date().toISOString() }
+          : {}),
+      } as any);
+      setPosts((prev) => prev.map((p) => (p.id === editTarget.id ? updated : p)));
+      setEditTarget(null);
+      toast({
+        title: "Post saved",
+        description: updated.is_published ? "Changes are live on the blog." : "Saved. The post is a draft (not publicly visible).",
+      });
+    } catch (error: any) {
+      console.error("Error saving post:", error);
+      toast({ title: "Save failed", description: error?.message || "Could not save the post.", variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleTogglePublish = async (post: any) => {
+    try {
+      const updated = await cmsService.updateBlogPost(post.id, {
+        is_published: !post.is_published,
+        ...(!post.is_published && !post.published_date ? { published_date: new Date().toISOString() } : {}),
+      } as any);
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? updated : p)));
+      toast({
+        title: updated.is_published ? "Published" : "Unpublished",
+        description: updated.is_published
+          ? `"${post.title}" is now live on the blog.`
+          : `"${post.title}" is hidden from the public blog.`,
+      });
+    } catch (error: any) {
+      console.error("Error toggling publish:", error);
+      toast({ title: "Update failed", description: error?.message || "Could not update the post.", variant: "destructive" });
     }
   };
 
@@ -680,16 +786,16 @@ function CMSBlogPage() {
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-3 pt-4 border-t">
+                    <div className="flex flex-wrap gap-3 pt-4 border-t">
                       <Button
-                        onClick={handlePublish}
+                        onClick={() => handlePublish(true)}
                         disabled={saving}
                         className=""
                       >
                         {saving ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Publishing...
+                            Saving...
                           </>
                         ) : (
                           <>
@@ -697,6 +803,15 @@ function CMSBlogPage() {
                             Publish Post
                           </>
                         )}
+                      </Button>
+
+                      <Button
+                        variant="secondary"
+                        onClick={() => handlePublish(false)}
+                        disabled={saving}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        Save as draft
                       </Button>
 
                       <Button
@@ -770,12 +885,32 @@ function CMSBlogPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.open(`/blog/${post.slug}`, "_blank", "noopener,noreferrer")}
-                            title="View the public post in a new tab"
+                            onClick={() => openEdit(post)}
+                            title="Edit post"
                           >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTogglePublish(post)}
+                            title={post.is_published ? "Hide from the public blog" : "Publish to the public blog"}
+                          >
+                            <Globe className="w-4 h-4 mr-2" />
+                            {post.is_published ? "Unpublish" : "Publish"}
+                          </Button>
+                          {post.is_published && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(`/blog/${post.slug}`, "_blank", "noopener,noreferrer")}
+                              title="View the public post in a new tab"
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -794,6 +929,122 @@ function CMSBlogPage() {
             </PortalCard>
           </TabsContent>
         </Tabs>
+
+        {/* Edit post dialog */}
+        <Dialog open={!!editTarget} onOpenChange={(o) => !o && !savingEdit && setEditTarget(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit post</DialogTitle>
+              <DialogDescription>
+                Changes save to the same post (slug stays {editTarget?.slug ? `"${editTarget.slug}"` : "unchanged"}).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1">
+                <Label htmlFor="edit-title">Title</Label>
+                <Input
+                  id="edit-title"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-excerpt">Excerpt</Label>
+                <Textarea
+                  id="edit-excerpt"
+                  rows={2}
+                  value={editForm.excerpt}
+                  onChange={(e) => setEditForm((f) => ({ ...f, excerpt: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-content">Content</Label>
+                <Textarea
+                  id="edit-content"
+                  rows={14}
+                  className="font-mono text-sm"
+                  value={editForm.content}
+                  onChange={(e) => setEditForm((f) => ({ ...f, content: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Category</Label>
+                  <Select
+                    value={editForm.category}
+                    onValueChange={(v) => setEditForm((f) => ({ ...f, category: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="General">General</SelectItem>
+                      <SelectItem value="Catering Tips">Catering Tips</SelectItem>
+                      <SelectItem value="Business Growth">Business Growth</SelectItem>
+                      <SelectItem value="Event Planning">Event Planning</SelectItem>
+                      <SelectItem value="Recipes">Recipes</SelectItem>
+                      <SelectItem value="Industry News">Industry News</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="edit-tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="edit-tags"
+                    value={editForm.tags}
+                    onChange={(e) => setEditForm((f) => ({ ...f, tags: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-meta">Meta description</Label>
+                <Textarea
+                  id="edit-meta"
+                  rows={2}
+                  value={editForm.meta_description}
+                  onChange={(e) => setEditForm((f) => ({ ...f, meta_description: e.target.value }))}
+                />
+                <p className="text-xs text-slate-500">{editForm.meta_description.length}/160 characters</p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-image">Featured image URL</Label>
+                <Input
+                  id="edit-image"
+                  type="url"
+                  placeholder="https://..."
+                  value={editForm.featured_image}
+                  onChange={(e) => setEditForm((f) => ({ ...f, featured_image: e.target.value }))}
+                />
+                <p className="text-xs text-slate-500">Shown on the blog index card and at the top of the post.</p>
+              </div>
+              <div className="flex items-center justify-between rounded-md border border-slate-200 dark:border-slate-700 px-3 py-2">
+                <div>
+                  <Label className="text-sm">Published</Label>
+                  <p className="text-xs text-muted-foreground">Off = draft, hidden from the public blog.</p>
+                </div>
+                <Switch
+                  checked={editForm.is_published}
+                  onCheckedChange={(v) => setEditForm((f) => ({ ...f, is_published: v }))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditTarget(null)} disabled={savingEdit}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={savingEdit}>
+                {savingEdit ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete confirmation */}
         <AlertDialog

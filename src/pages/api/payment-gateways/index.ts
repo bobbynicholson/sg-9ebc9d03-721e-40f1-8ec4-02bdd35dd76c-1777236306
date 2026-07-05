@@ -11,13 +11,17 @@
  *
  * Body:
  *   {
- *     provider: 'payfast'|'yoco'|'peach',
+ *     provider: 'payfast'|'yoco'|'stripe',
  *     is_test:  boolean,
  *     success_url?: string|null,
  *     cancel_url?:  string|null,
  *     notify_url?:  string|null,
  *     credentials:  { [key: string]: string }
  *   }
+ *
+ * Credentials semantics: blank/omitted fields KEEP the stored value
+ * (the service merges over the existing blob). Required fields are
+ * enforced server-side only for a brand-new provider config.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
@@ -71,6 +75,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: msg });
     }
 
+    // Super_admin override must point at a real company - otherwise a
+    // typo'd id surfaces as an FK-violation 500 on POST or a silently
+    // empty list on GET.
+    if (role === "super_admin" && companyId !== (profile as any)?.company_id) {
+      const svc = getServiceSupabase();
+      const { data: companyRow } = await svc
+        .from("companies")
+        .select("id")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!companyRow) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+    }
+
     if (req.method === "GET") {
       // Use the enriched server-only method so each gateway returns
       // last-4 hints for its credentials. Real values stay on the
@@ -94,13 +113,45 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // objects or numbers in the JSONB blob.
       const cleanCreds: Record<string, string> = {};
       for (const [k, v] of Object.entries(credentials)) {
-        if (typeof v === "string" && v.trim().length > 0) cleanCreds[k] = v;
+        if (typeof v === "string" && v.trim().length > 0) cleanCreds[k] = v.trim();
       }
-      if (Object.keys(cleanCreds).length === 0) {
-        return res.status(400).json({ error: "At least one credential field is required" });
+
+      // Validate against the provider catalogue - previously the
+      // required-fields rule lived only client-side, so a direct API
+      // call could save a PayFast config with no merchantKey that then
+      // failed at payment time.
+      const catalogueEntry = paymentGatewayService
+        .getProviderCatalogue()
+        .find((c) => c.provider === provider);
+      const allowedKeys = new Set((catalogueEntry?.fields || []).map((f) => f.key));
+      for (const k of Object.keys(cleanCreds)) {
+        if (!allowedKeys.has(k)) {
+          return res.status(400).json({ error: `Unknown credential field "${k}" for ${provider}` });
+        }
       }
 
       const sb = getServiceSupabase();
+
+      // Blank fields keep the stored value (the service merges), so the
+      // full required set is only enforced when there is no existing
+      // config to merge into. This also permits settings-only updates
+      // (test-mode flip, URLs) without re-typing every secret.
+      const { data: existingRow } = await sb
+        .from("payment_gateways")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("provider", provider)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (!existingRow) {
+        const missing = (catalogueEntry?.fields || [])
+          .filter((f) => f.required && !cleanCreds[f.key])
+          .map((f) => f.label);
+        if (missing.length > 0) {
+          return res.status(400).json({ error: `Missing required credential${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}` });
+        }
+      }
+
       const result = await paymentGatewayService.upsertWithCredentials(
         companyId,
         user.id,

@@ -24,12 +24,17 @@ export const cmsService = {
     return data as BlogPost[];
   },
 
-  async getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
-    const { data, error } = await supabase
+  async getBlogPostBySlug(slug: string, publishedOnly: boolean = true): Promise<BlogPost | null> {
+    // publishedOnly guards the PUBLIC renderer: without it, anyone with
+    // the slug could read drafts (and ISR would cache them).
+    let query = supabase
       .from("blog_posts")
       .select("*")
-      .eq("slug", slug)
-      .single();
+      .eq("slug", slug);
+    if (publishedOnly) {
+      query = query.eq("is_published", true);
+    }
+    const { data, error } = await query.single();
 
     if (error) {
       if (error.code === "PGRST116") {

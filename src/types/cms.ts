@@ -29,7 +29,8 @@ export interface CMSPage {
   slug: string;
   title: string;
   content: string;
-  meta_title?: string | null;
+  // NOTE: cms_pages has NO meta_title column in the live DB - the page
+  // <title> derives from `title`. (blog_posts does have meta_title.)
   meta_description?: string | null;
   meta_keywords?: string | null;
   /** Hero image URL displayed above the post title. */

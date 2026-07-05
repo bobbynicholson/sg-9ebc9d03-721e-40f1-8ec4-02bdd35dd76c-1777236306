@@ -66,6 +66,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const provider = found.gateway.provider;
     const creds = found.credentials;
     let result: { ok: boolean; message?: string };
+    // PayFast has no credential-validation API, so its "test" is only a
+    // local well-formedness check. Being honest about that matters: we
+    // must not stamp last_verified_at (the UI presents that as "keys
+    // confirmed working") on a check that would pass any non-empty junk.
+    let verifiedRemotely = true;
 
     if (provider === "payfast") {
       result = pingPayFastCredentials({
@@ -73,21 +78,50 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         merchantKey: creds.merchantKey || "",
         passphrase: creds.passphrase || "",
       });
+      verifiedRemotely = false;
+      if (result.ok) {
+        result.message =
+          "Credentials look well-formed. PayFast has no test endpoint, so they are only fully verified by the first sandbox payment.";
+      }
     } else if (provider === "yoco") {
       const ping = await pingYocoCredentials(creds.secretKey || "");
       result = { ok: ping.ok, message: ping.message };
     } else if (provider === "stripe") {
-      result = await pingStripeCredentials(creds.secretKey || "");
+      // Sanity-check the OTHER credentials too - the balance ping only
+      // proves the secret key. A typo'd publishable key or webhook
+      // signing secret otherwise reads "verified" and only surfaces
+      // when live checkout / webhooks fail.
+      const pk = String(creds.publishableKey || "");
+      const whsec = String(creds.webhookSigningSecret || "");
+      if (pk && !pk.startsWith("pk_")) {
+        result = { ok: false, message: "Publishable key should start with pk_ - check for a paste mixup." };
+      } else if (whsec && !whsec.startsWith("whsec_")) {
+        result = { ok: false, message: "Webhook signing secret should start with whsec_ - check for a paste mixup." };
+      } else if (found.gateway.is_test && String(creds.secretKey || "").startsWith("sk_live_")) {
+        result = { ok: false, message: "Test mode is ON but the secret key is a LIVE key (sk_live_). Flip test mode off or use sk_test_ keys." };
+      } else if (!found.gateway.is_test && String(creds.secretKey || "").startsWith("sk_test_")) {
+        result = { ok: false, message: "Test mode is OFF but the secret key is a TEST key (sk_test_). Real payments would fail." };
+      } else {
+        result = await pingStripeCredentials(creds.secretKey || "");
+      }
     } else {
       return res.status(400).json({ error: `Unsupported provider: ${provider}` });
     }
 
     if (result.ok) {
-      const stamp = await paymentGatewayService.markVerified(gatewayId, sb);
+      if (verifiedRemotely) {
+        const stamp = await paymentGatewayService.markVerified(gatewayId, sb);
+        return res.status(200).json({
+          ok: true,
+          provider,
+          verified_at: stamp.verified_at,
+          message: result.message,
+        });
+      }
       return res.status(200).json({
         ok: true,
         provider,
-        verified_at: stamp.verified_at,
+        message: result.message,
       });
     }
     return res.status(200).json({

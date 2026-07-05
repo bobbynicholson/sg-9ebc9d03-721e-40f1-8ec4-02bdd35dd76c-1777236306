@@ -1105,7 +1105,7 @@ const tooltipAuditCards: SprintCard[] = [
       { title: "CMS blog AI generation is a setTimeout mock", detail: "generateContent / generateSampleContent / generateFAQs / generateSchema return sample boilerplate after a 2-second delay. Not wired to OpenAI/Claude. Either implement against Anthropic API or remove the AI generation buttons.", status: "todo", ref: "src/pages/admin/platform/cms-blog.tsx:118-119" },
       { title: "Recipes are hardcoded RECIPE_MAPPINGS constant", detail: "/admin/inventory-recipes is driven by a constant in inventoryDeductionService.ts, not a database table. Editing a recipe requires a code change + redeploy. Move to a recipes table with recipe_ingredients join.", status: "todo", ref: "src/services/inventoryDeductionService.ts" },
       { title: "Notification settings save to localStorage only", detail: "All toggles (SMS, push, daily summary, etc.) write to localStorage. Page text says 'changes take effect immediately' but no consumer reads them and no server stores them. Move to companies.notification_settings JSONB or a notification_preferences table.", status: "todo", ref: "src/pages/admin/notification-settings.tsx:64-77" },
-      { title: "Payment gateway config localStorage only", detail: "Entire gateway config persists to localStorage('payment_gateway_config'). No Supabase table. PayFast / SnapScan / Yoco credentials need a server-side encrypted store.", status: "todo", ref: "src/pages/admin/payment-gateways.tsx:88-92,131-132" },
+      { title: "Payment gateway config localStorage only", detail: "SHIPPED: gateway config now lives in payment_gateways + payment_gateway_credentials (service-role only, RLS deny-all on the vault) with per-provider test pings and credential merge on save.", status: "shipped", ref: "src/pages/admin/payment-gateways.tsx + src/services/paymentGatewayService.ts" },
       { title: "Email templates localStorage only", detail: "Template CRUD writes to localStorage('email_templates'). Move to email_templates table with company_id RLS so all staff see the same templates.", status: "todo", ref: "src/pages/admin/email-templates.tsx:322-330" },
       { title: "SMTP config + automation rules localStorage only", detail: "emailConfig and automationRules saved to localStorage. Not wired to a real send engine, /admin/email-automation-dashboard reads the same localStorage queues from lib/afterSalesAutomation. Wire to a real ESP (Resend / Postmark) and persist rules in DB.", status: "todo", ref: "src/pages/admin/email-automation-settings.tsx:162,177 + src/pages/admin/email-automation-dashboard.tsx" },
       { title: "Route planning is pure MOCK_ORDERS / MOCK_DRIVERS", detail: "Entire orders + drivers list is hardcoded. UI is a demo until wired to Supabase. Pull orders from orders.event_date in window + drivers from profiles.role='driver' scoped by company_id.", status: "todo", ref: "src/pages/admin/route-planning.tsx:32-145,167" },
@@ -1666,8 +1666,13 @@ function CardAccordion({ card }: { card: SprintCard }) {
   );
 }
 
-function GroupSection({ group, expandAll, collapseAll }: { group: Group; expandAll: number; collapseAll: number }) {
-  // Re-render trigger: expandAll/collapseAll count changes force CardAccordion re-mount via key
+type BulkToggle = { action: "expand" | "collapse" | null; nonce: number };
+
+function GroupSection({ group, bulk }: { group: Group; bulk: BulkToggle }) {
+  // The nonce in the key re-mounts every CardAccordion on each bulk
+  // click; the last-clicked action alone decides open/closed. (The old
+  // two-counter compare reverted to card defaults whenever the counters
+  // tied, so Expand-then-Collapse left default-open cards open.)
   return (
     <section id={group.id} className="space-y-3">
       <div className="border-l-4 border-slate-300 dark:border-slate-600 pl-4 mb-4">
@@ -1675,7 +1680,7 @@ function GroupSection({ group, expandAll, collapseAll }: { group: Group; expandA
         <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{group.description}</p>
       </div>
       {group.cards.map((card) => (
-        <CardAccordion key={`${card.id}-${expandAll}-${collapseAll}`} card={{ ...card, defaultOpen: expandAll > collapseAll ? true : (collapseAll > expandAll ? false : card.defaultOpen) }} />
+        <CardAccordion key={`${card.id}-${bulk.nonce}`} card={{ ...card, defaultOpen: bulk.action === null ? card.defaultOpen : bulk.action === "expand" }} />
       ))}
     </section>
   );
@@ -1694,8 +1699,7 @@ function flatStats(allCards: SprintCard[]) {
 }
 
 function AdminRunningTodoPage() {
-  const [expandAll, setExpandAll] = useState(0);
-  const [collapseAll, setCollapseAll] = useState(0);
+  const [bulk, setBulk] = useState<BulkToggle>({ action: null, nonce: 0 });
 
   const allCards = groups.flatMap((g) => g.cards);
   const stats = flatStats(allCards);
@@ -1762,8 +1766,8 @@ function AdminRunningTodoPage() {
                 </div>
               </div>
               <div className="flex gap-2 flex-shrink-0">
-                <Button size="sm" variant="outline" onClick={() => setExpandAll((n) => n + 1)}>Expand all</Button>
-                <Button size="sm" variant="outline" onClick={() => setCollapseAll((n) => n + 1)}>Collapse all</Button>
+                <Button size="sm" variant="outline" onClick={() => setBulk((b) => ({ action: "expand", nonce: b.nonce + 1 }))}>Expand all</Button>
+                <Button size="sm" variant="outline" onClick={() => setBulk((b) => ({ action: "collapse", nonce: b.nonce + 1 }))}>Collapse all</Button>
               </div>
             </div>
           </PortalCard>
@@ -1778,7 +1782,7 @@ function AdminRunningTodoPage() {
 
           <div className="space-y-10">
             {groups.map((group) => (
-              <GroupSection key={group.id} group={group} expandAll={expandAll} collapseAll={collapseAll} />
+              <GroupSection key={group.id} group={group} bulk={bulk} />
             ))}
           </div>
 

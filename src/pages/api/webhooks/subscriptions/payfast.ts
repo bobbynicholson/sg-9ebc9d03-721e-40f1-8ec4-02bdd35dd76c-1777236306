@@ -257,10 +257,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // via user_id. The old insert (company_id + null user_id) failed silently
     // (unchecked await), so the ledger never populated. Resolve the owner and
     // surface the error.
-    if (paymentStatus === "COMPLETE" || paymentStatus === "FAILED") {
+    let ownerId: string | null = null;
+    if (paymentStatus === "COMPLETE" || paymentStatus === "FAILED" || paymentStatus === "CANCELLED") {
       const { data: ownerRow } = await sb
         .from("companies").select("owner_id").eq("id", companyId).maybeSingle();
-      const ownerId = (ownerRow as any)?.owner_id;
+      ownerId = (ownerRow as any)?.owner_id ?? null;
+    }
+    if (paymentStatus === "COMPLETE" || paymentStatus === "FAILED") {
       if (!ownerId) {
         console.error("[subscriptions/payfast] no owner_id for company; skipping billing_history", companyId);
       } else {
@@ -272,6 +275,56 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           payment_method: "payfast",
         } as any);
         if (bhErr) console.error("[subscriptions/payfast] billing_history insert failed:", bhErr);
+      }
+    }
+
+    // Billing emails - the templates edited on
+    // /admin/platform/messaging-templates (subscription_started,
+    // payment_succeeded, payment_failed) had no live send path until
+    // now. Best-effort: an email failure never fails the ITN.
+    if (ownerId) {
+      try {
+        const { billingEmailService } = await import("@/services/billingEmailService");
+        const paidAmount = Number(body.amount_gross || body.amount || 0);
+        const cycleRaw = (body.custom_str3 || "").toLowerCase();
+        const billingCycle = cycleRaw.includes("annual") || cycleRaw.includes("year") ? "yearly" : "monthly";
+        const plan = planFromCustom ? getPlanById(planFromCustom) : null;
+        const nowIso = new Date().toISOString();
+        if (paymentStatus === "COMPLETE" && isFirstPayment) {
+          await billingEmailService.notifySubscriptionStarted(ownerId, {
+            plan_name: plan?.name || planFromCustom || "your plan",
+            amount: paidAmount,
+            currency: "ZAR",
+            billing_cycle: billingCycle,
+            next_billing_date: body.billing_date || null,
+          });
+        }
+        if (paymentStatus === "COMPLETE") {
+          await billingEmailService.notifyPaymentSucceeded(ownerId, {
+            amount: paidAmount,
+            currency: "ZAR",
+            paid_at: nowIso,
+            transaction_id: body.pf_payment_id || null,
+            billing_period_start: nowIso,
+            billing_period_end: body.billing_date || nowIso,
+            next_billing_date: body.billing_date || null,
+          });
+        } else if (paymentStatus === "FAILED") {
+          await billingEmailService.notifyPaymentFailed(ownerId, {
+            amount: paidAmount,
+            currency: "ZAR",
+            created_at: nowIso,
+            failed_reason: "PayFast reported the payment as failed",
+          });
+        } else if (paymentStatus === "CANCELLED") {
+          await billingEmailService.notifySubscriptionCancelled(ownerId, {
+            plan_name: plan?.name || planFromCustom || "your plan",
+            cancelled_at: nowIso,
+            current_period_end: body.billing_date || nowIso,
+          }, "cancelled");
+        }
+      } catch (emailErr) {
+        console.warn("[subscriptions/payfast] billing email failed:", emailErr);
       }
     }
 

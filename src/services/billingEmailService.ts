@@ -1,8 +1,26 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { emailService } from "./emailService";
 import { resolveEmailTemplate } from "./email/templateResolver";
+import { getTemplateDefinition } from "@/lib/messageTemplates/registry";
 import { buildTenantHref } from "@/lib/tenantUrl";
+
+// Server context resolution, same pattern as emailNotificationService /
+// orderWorkflow: the notify* methods are invoked from webhooks and crons
+// where the imported browser anon client has no session, so every
+// profiles SELECT silently failed RLS and the emails no-opped. Pick the
+// service-role client on the server, browser anon in the browser.
+function resolveServerClient(): any {
+  if (typeof window !== "undefined") return browserSupabase;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+    return getServiceSupabase();
+  } catch {
+    return browserSupabase;
+  }
+}
+const supabase: any = resolveServerClient();
 
 // camelCase -> snake_case so the variable bag the tenant edits in
 // /admin/messaging-templates uses the same names as the registry
@@ -389,15 +407,44 @@ export class BillingEmailService {
   // fallback for any tenant that hasn't customised yet.
   async sendBillingEmail(to: string, type: string, data: Record<string, any>, companyId: string, client?: any): Promise<boolean> {
     try {
-      const fallback = this.getEmailTemplate(type, data);
+      const sb = client || supabase;
       const variables = dualCaseVariables(data);
+
+      // The registry chip {{company_name}} used to substitute to "" in
+      // every real send because no notify* bag carried the tenant name.
+      // Resolve it centrally so all billing templates can use it.
+      if (!variables.company_name && companyId) {
+        try {
+          const { data: companyRow } = await sb
+            .from("companies")
+            .select("company_name")
+            .eq("id", companyId)
+            .maybeSingle();
+          if (companyRow?.company_name) {
+            variables.company_name = companyRow.company_name;
+            if (!variables.tenant_name) variables.tenant_name = companyRow.company_name;
+          }
+        } catch {
+          /* non-fatal - the token just blanks like before */
+        }
+      }
+
+      // Fallback = the registry default the platform editor SHOWS as
+      // "Default", so what a super_admin previews is what actually sends
+      // when no DB override exists. The legacy inline HTML only backs
+      // types with no registry definition (none today).
+      const def = getTemplateDefinition(type);
+      const legacy = this.getEmailTemplate(type, data);
+      const fallback = def?.defaultSubject && def.defaultBody
+        ? { subject: def.defaultSubject, bodyHtml: def.defaultBody }
+        : { subject: legacy.subject, bodyHtml: legacy.body };
 
       const resolved = await resolveEmailTemplate({
         companyId,
         templateType: type,
         variables,
-        fallback: { subject: fallback.subject, bodyHtml: fallback.body },
-        client,
+        fallback,
+        client: sb,
       });
 
       return await emailService.sendEmail({
@@ -405,7 +452,7 @@ export class BillingEmailService {
         to,
         subject: resolved.subject,
         body: resolved.bodyHtml,
-        ...(client ? { _client: client } : {}),
+        _client: sb,
       } as any);
     } catch (error) {
       console.error("Error sending billing email:", error);

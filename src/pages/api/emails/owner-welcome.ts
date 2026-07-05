@@ -21,6 +21,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import * as React from "react";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { sendBrandedEmail } from "@/server/emails/sendBrandedEmail";
+import { resolveEmailTemplate } from "@/services/email/templateResolver";
+import { emailService } from "@/services/emailService";
 import OwnerWelcomeEmail from "@/emails/OwnerWelcomeEmail";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -89,6 +91,41 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const origin = req.headers.origin || `https://${req.headers.host}`;
   const onboardingUrl = `${origin}/${slug || ""}/admin/onboarding`.replace("//admin", "/admin");
   const firstName = ownerName.split(" ")[0] || ownerName;
+
+  // Honour the platform "Owner welcome" template when a super_admin has
+  // customised it in /admin/platform/messaging-templates. Before this,
+  // edits saved fine but the real signup email was always the hardcoded
+  // React component - edit-and-ignore. The component stays the default
+  // (source === "fallback") because its layout is richer than plain text.
+  try {
+    const resolved = await resolveEmailTemplate({
+      companyId,
+      templateType: "owner_welcome",
+      variables: {
+        first_name: firstName,
+        owner_name: ownerName,
+        company_name: companyName,
+        portal_link: onboardingUrl,
+        link_expiry: "",
+        from_name: process.env.PLATFORM_BRAND_NAME || "CateringMS",
+      },
+      fallback: { subject: "", bodyHtml: "" },
+      client: sb,
+    });
+    if (resolved.source === "db" && resolved.subject && resolved.bodyHtml) {
+      const ok = await emailService.sendEmail({
+        companyId,
+        to: recipient,
+        subject: resolved.subject,
+        body: resolved.bodyHtml,
+        allowPlatformFallback: true,
+        _client: sb,
+      } as any);
+      return res.status(ok ? 200 : 502).json({ ok, via: "template" });
+    }
+  } catch (e) {
+    console.warn("[emails/owner-welcome] template resolve failed, using component:", e);
+  }
 
   const result = await sendBrandedEmail({
     component: React.createElement(OwnerWelcomeEmail, {

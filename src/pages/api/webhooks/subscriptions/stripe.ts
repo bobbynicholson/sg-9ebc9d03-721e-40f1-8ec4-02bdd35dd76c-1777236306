@@ -225,6 +225,39 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             } as any,
             { onConflict: "stripe_subscription_id" },
           );
+        // Lifecycle emails using the platform-editable templates
+        // (subscription_started / subscription_cancelled). Trial-created
+        // subs stay silent until they convert. Best-effort.
+        const isStartedEvent = event.type === "customer.subscription.created" && status === "active";
+        const isCancelledEvent = event.type === "customer.subscription.deleted";
+        if (isStartedEvent || isCancelledEvent) {
+          try {
+            const { data: ownerRow } = await sb
+              .from("companies").select("owner_id").eq("id", companyId).maybeSingle();
+            const ownerId = (ownerRow as any)?.owner_id as string | undefined;
+            if (ownerId) {
+              const { billingEmailService } = await import("@/services/billingEmailService");
+              const planName = (sub.items?.data?.[0]?.price?.lookup_key ?? "your plan") as string;
+              if (isStartedEvent) {
+                await billingEmailService.notifySubscriptionStarted(ownerId, {
+                  plan_name: planName,
+                  amount: (sub.items?.data?.[0]?.price?.unit_amount ?? 0) / 100,
+                  currency: (sub.currency || "zar").toUpperCase(),
+                  billing_cycle: (sub.items?.data?.[0]?.price?.recurring?.interval === "year" ? "yearly" : "monthly"),
+                  next_billing_date: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
+                });
+              } else {
+                await billingEmailService.notifySubscriptionCancelled(ownerId, {
+                  plan_name: planName,
+                  cancelled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : new Date().toISOString(),
+                  current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : new Date().toISOString(),
+                }, "cancelled");
+              }
+            }
+          } catch (emailErr) {
+            console.warn("[subscriptions/stripe] lifecycle email failed:", emailErr);
+          }
+        }
         break;
       }
       case "invoice.payment_succeeded":
@@ -250,6 +283,44 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             .from("companies")
             .update({ subscription_status: "past_due" })
             .eq("id", companyId);
+        }
+        // Billing emails to the owner - the payment_succeeded /
+        // payment_failed templates on /admin/platform/messaging-templates
+        // had no live send path until now. Best-effort: never fails the
+        // webhook (a 500 here would make Stripe retry a processed event).
+        try {
+          const { data: ownerRow } = await sb
+            .from("companies").select("owner_id").eq("id", companyId).maybeSingle();
+          const ownerId = (ownerRow as any)?.owner_id as string | undefined;
+          if (ownerId) {
+            const { billingEmailService } = await import("@/services/billingEmailService");
+            const amount = (inv.amount_paid ?? inv.amount_due ?? 0) / 100;
+            const currency = (inv.currency || "zar").toUpperCase();
+            const line = inv.lines?.data?.[0];
+            const periodStart = line?.period?.start ? new Date(line.period.start * 1000).toISOString() : new Date().toISOString();
+            const periodEnd = line?.period?.end ? new Date(line.period.end * 1000).toISOString() : new Date().toISOString();
+            if (event.type === "invoice.payment_succeeded") {
+              await billingEmailService.notifyPaymentSucceeded(ownerId, {
+                amount,
+                currency,
+                paid_at: new Date().toISOString(),
+                transaction_id: inv.id || null,
+                billing_period_start: periodStart,
+                billing_period_end: periodEnd,
+                next_billing_date: periodEnd,
+                invoice_pdf_url: inv.hosted_invoice_url || null,
+              });
+            } else {
+              await billingEmailService.notifyPaymentFailed(ownerId, {
+                amount,
+                currency,
+                created_at: new Date().toISOString(),
+                failed_reason: "Stripe could not collect the payment",
+              });
+            }
+          }
+        } catch (emailErr) {
+          console.warn("[subscriptions/stripe] billing email failed:", emailErr);
         }
         break;
       }

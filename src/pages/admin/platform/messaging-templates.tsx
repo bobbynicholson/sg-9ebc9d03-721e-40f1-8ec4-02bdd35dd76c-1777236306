@@ -58,6 +58,19 @@ import {
   type PlatformMergedTemplate,
 } from "@/services/platformTemplateService";
 
+// Templates whose send path is NOT implemented yet - the badge must say
+// so instead of "Automatic", or a super_admin edits wording that never
+// reaches anyone. Wired today: owner_welcome (signup API),
+// subscription_started / payment_succeeded / payment_failed /
+// subscription_cancelled (PayFast + Stripe subscription webhooks),
+// trial_ending_soon (expire-trials cron, 3-day + 1-day marks).
+const NOT_YET_WIRED_KEYS: ReadonlySet<string> = new Set([
+  "subscription_expiring",
+  "price_change_notification",
+  "subscription_reactivated",
+  "account_deletion_scheduled",
+]);
+
 export default function PlatformMessagingTemplatesPage() {
   return (
     <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
@@ -236,9 +249,15 @@ function PlatformTemplatesPanel() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-slate-900 dark:text-white">{row.label}</p>
-                          <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-0 text-[10px] gap-1">
-                            <Zap className="w-3 h-3" /> Automatic
-                          </Badge>
+                          {NOT_YET_WIRED_KEYS.has(row.key) ? (
+                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-0 text-[10px] gap-1">
+                              <AlertCircle className="w-3 h-3" /> Not yet wired
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-0 text-[10px] gap-1">
+                              <Zap className="w-3 h-3" /> Automatic
+                            </Badge>
+                          )}
                           {row.isCustomised ? (
                             <Badge className="bg-brand-primary/15 text-brand-primary border-0 text-[10px] gap-1">
                               <CheckCircle2 className="w-3 h-3" /> Customised

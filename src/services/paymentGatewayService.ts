@@ -254,15 +254,28 @@ export const paymentGatewayService = {
     // Credentials - one row per gateway_id (UNIQUE constraint).
     const { data: existingCreds, error: credReadErr } = await serviceClient
       .from(CREDS_TABLE)
-      .select("id")
+      .select("id, credentials")
       .eq("gateway_id", gatewayRow.id)
       .maybeSingle();
     if (credReadErr) return { ok: false, error: credReadErr.message };
 
     if (existingCreds?.id) {
+      // MERGE over the existing blob instead of replacing it. The edit
+      // dialog blanks every field and the API strips empties, so a
+      // replace silently dropped any secret the operator didn't re-type
+      // - most dangerously the Yoco webhookSecret (optional in the form),
+      // after which the webhook handler rejects every payment
+      // confirmation in live. Leaving a field blank now means "keep the
+      // stored value".
+      const merged = {
+        ...(existingCreds.credentials && typeof existingCreds.credentials === "object"
+          ? (existingCreds.credentials as Record<string, string>)
+          : {}),
+        ...input.credentials,
+      };
       const { error: credErr } = await serviceClient
         .from(CREDS_TABLE)
-        .update({ credentials: input.credentials })
+        .update({ credentials: merged })
         .eq("id", existingCreds.id);
       if (credErr) return { ok: false, error: credErr.message };
     } else {
@@ -384,7 +397,7 @@ export const paymentGatewayService = {
         fields: [
           { key: "secretKey", label: "Secret Key", type: "password", required: true },
           { key: "publicKey", label: "Public Key", type: "text", required: true },
-          { key: "webhookSecret", label: "Webhook Secret (optional)", type: "password", required: false },
+          { key: "webhookSecret", label: "Webhook Secret (required for live payments)", type: "password", required: false },
         ],
       },
       {

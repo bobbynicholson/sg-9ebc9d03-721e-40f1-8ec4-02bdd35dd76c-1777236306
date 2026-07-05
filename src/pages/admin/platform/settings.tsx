@@ -125,8 +125,11 @@ function PlatformSettingsPage() {
       if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
       setSavedKey(key);
       setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 2500);
-      // Drop the local edit so dirty() returns false post-save
+      // Drop the local edit so dirty() returns false post-save - but only
+      // if the field still holds the value we just saved; keystrokes typed
+      // during the request must not be wiped.
       setEdits((prev) => {
+        if (prev[key] !== value) return prev;
         const next = { ...prev };
         delete next[key];
         return next;

@@ -58,10 +58,55 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: selErr.message });
     }
 
+    // Trial-ending-soon reminder emails (the platform-editable
+    // trial_ending_soon template previously had NO producer anywhere).
+    // Fires at exactly 3 days and 1 day remaining - the cron runs daily,
+    // so each threshold sends once per company without a dedup table.
+    let trialReminders = 0;
+    if (!dryRun) {
+      try {
+        const in3DaysIso = new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString();
+        const { data: endingSoon } = await sb
+          .from("companies")
+          .select("id, owner_id, trial_ends_at")
+          .eq("subscription_status", "trial")
+          .not("trial_ends_at", "is", null)
+          .gt("trial_ends_at", nowIso)
+          .lte("trial_ends_at", in3DaysIso)
+          .is("deleted_at", null)
+          .limit(500);
+        const { billingEmailService } = await import("@/services/billingEmailService");
+        for (const c of (endingSoon as any[]) || []) {
+          try {
+            const daysRemaining = Math.ceil(
+              (new Date(c.trial_ends_at).getTime() - Date.now()) / (24 * 3600 * 1000),
+            );
+            if (daysRemaining !== 3 && daysRemaining !== 1) continue;
+            if (!c.owner_id) continue;
+            const [clients, quotes, orders] = await Promise.all([
+              sb.from("clients").select("id", { count: "exact", head: true }).eq("company_id", c.id),
+              sb.from("quotes").select("id", { count: "exact", head: true }).eq("company_id", c.id),
+              sb.from("orders").select("id", { count: "exact", head: true }).eq("company_id", c.id),
+            ]);
+            await billingEmailService.notifyTrialEnding(c.owner_id, daysRemaining, c.trial_ends_at, {
+              clients: clients.count || 0,
+              quotes: quotes.count || 0,
+              orders: orders.count || 0,
+            });
+            trialReminders++;
+          } catch (perCoErr) {
+            console.warn("[expire-trials] trial reminder failed for company", c.id, perCoErr);
+          }
+        }
+      } catch (reminderErr) {
+        console.warn("[expire-trials] trial reminder sweep crashed (non-blocking):", reminderErr);
+      }
+    }
+
     const ids = ((lapsed as any[]) || []).map((r) => r.id);
     if (ids.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: 0 });
-      return res.status(200).json({ ok: true, expired: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: 0, trial_reminders: trialReminders });
+      return res.status(200).json({ ok: true, expired: 0, trial_reminders: trialReminders });
     }
 
     if (dryRun) {
@@ -110,8 +155,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[expire-trials] notification cascade crashed (non-blocking):", notifyErr);
     }
 
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: ids.length });
-    return res.status(200).json({ ok: true, expired: ids.length });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, expired: ids.length, trial_reminders: trialReminders });
+    return res.status(200).json({ ok: true, expired: ids.length, trial_reminders: trialReminders });
   } catch (e: any) {
     console.error("[expire-trials] crashed:", e);
     await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: e?.message || "crash" });

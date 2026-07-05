@@ -111,15 +111,16 @@ export async function pingYocoCredentials(secretKey: string): Promise<{
       method: "GET",
       headers: { "Authorization": `Bearer ${secretKey}` },
     });
-    // 200/204/401/403 all indicate Yoco received the request and made an
-    // auth decision. Anything else (5xx, network) is a transient issue.
     if (response.status === 401 || response.status === 403) {
       return { ok: false, status: response.status, message: "Yoco rejected the key" };
     }
-    if (response.status >= 200 && response.status < 500) {
+    // Only a 2xx proves the key authenticated against a real endpoint.
+    // The old `< 500` window passed 404/405 responses too, which say
+    // nothing about the key (a wrong base URL would read as "verified").
+    if (response.status >= 200 && response.status < 300) {
       return { ok: true, status: response.status };
     }
-    return { ok: false, status: response.status, message: `Yoco returned ${response.status}` };
+    return { ok: false, status: response.status, message: `Yoco returned ${response.status} - key not confirmed` };
   } catch (e: any) {
     return { ok: false, status: 0, message: e?.message || "Yoco ping failed" };
   }

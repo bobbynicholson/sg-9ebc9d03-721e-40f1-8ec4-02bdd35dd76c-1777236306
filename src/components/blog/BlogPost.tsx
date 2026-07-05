@@ -79,13 +79,23 @@ export function BlogPost({
 
   const theme = CATEGORY_THEMES[category as keyof typeof CATEGORY_THEMES] || CATEGORY_THEMES.General;
 
+  // Guard nullable DB columns: prop defaults only cover undefined, but
+  // rows can carry null content/tags and a null published_date.
+  const safeContent = content || "";
+  const publishedLabel = (() => {
+    const d = publishedDate ? new Date(publishedDate) : null;
+    return d && !Number.isNaN(d.getTime())
+      ? d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+      : null;
+  })();
+
   // Calculate reading time (average 200 words per minute)
-  const wordCount = content.split(/\s+/).length;
+  const wordCount = safeContent.split(/\s+/).length;
   const readingTime = Math.ceil(wordCount / 200);
 
   // Extract headings for Table of Contents
   useEffect(() => {
-    const headings = content.match(/^#{2,3}\s+(.+)$/gm) || [];
+    const headings = safeContent.match(/^#{2,3}\s+(.+)$/gm) || [];
     const toc = headings.map((heading, index) => {
       const level = heading.match(/^#+/)?.[0].length || 2;
       const title = heading.replace(/^#+\s+/, "");
@@ -93,7 +103,7 @@ export function BlogPost({
       return { id, title, level };
     });
     setTableOfContents(toc);
-  }, [content]);
+  }, [safeContent]);
 
   // Track scroll progress
   useEffect(() => {
@@ -136,7 +146,7 @@ export function BlogPost({
   // Render markdown content with IDs for headings
   const renderContent = () => {
     let sectionIndex = 0;
-    const lines = content.split("\n");
+    const lines = safeContent.split("\n");
     
     return lines.map((line, index) => {
       // Handle headings
@@ -246,14 +256,12 @@ export function BlogPost({
               <User className="w-4 h-4" />
               <span>{author}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span>{new Date(publishedDate).toLocaleDateString("en-US", { 
-                year: "numeric", 
-                month: "long", 
-                day: "numeric" 
-              })}</span>
-            </div>
+            {publishedLabel && (
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                <span>{publishedLabel}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
               <span>{readingTime} min read</span>
@@ -321,15 +329,25 @@ export function BlogPost({
           {/* Main Content */}
           <div className="lg:col-span-3">
             <Card className="p-8 lg:p-12">
+              {/* Featured image - the prop existed but was never rendered,
+                  so the editor's image field was a dead end. */}
+              {coverImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={coverImage}
+                  alt={title}
+                  className="mb-8 w-full max-h-[420px] rounded-xl object-cover"
+                />
+              )}
               <article className="prose prose-lg max-w-none">
                 {renderContent()}
               </article>
 
               {/* Tags */}
-              {tags.length > 0 && (
+              {(tags || []).length > 0 && (
                 <div className="mt-12 pt-8 border-t">
                   <div className="flex flex-wrap gap-2">
-                    {tags.map((tag) => (
+                    {(tags || []).map((tag) => (
                       <Badge key={tag} variant="outline" className="text-sm">
                         {tag}
                       </Badge>

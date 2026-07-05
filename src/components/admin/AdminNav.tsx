@@ -344,7 +344,13 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Routing and opt-ins" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
         ...(profile && canAccessFinance(profile.role as UserRole)
-          ? [{ title: "Subscription", href: "/admin/subscription", icon: CreditCard, description: "Your CateringMS plan and billing" }]
+          ? [
+              { title: "Subscription", href: "/admin/subscription", icon: CreditCard, description: "Your CateringMS plan and billing" },
+              // Payment gateways had NO tenant nav entry - the page
+              // worked but only if the operator typed the URL, and the
+              // Yoco webhook error message even pointed here.
+              { title: "Payment gateways", href: "/admin/payment-gateways", icon: CreditCard, description: "PayFast, Yoco, Stripe credentials" },
+            ]
           : []),
         { title: "System",                href: "/admin/settings",              icon: Settings,      description: "General settings" },
       ],

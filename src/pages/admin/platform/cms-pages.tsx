@@ -38,6 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { renderCmsMarkdown } from "@/lib/cmsMarkdown";
 import { EmptyState } from "@/components/ui/empty-state";
 
 interface DraftRequest {
@@ -287,26 +288,9 @@ function CMSPageManagement() {
     };
   }, [pages]);
 
-  // Lightweight markdown preview - handles ##, **, line breaks.
-  const previewHtml = useMemo(() => {
-    const md = formData.content || "";
-    const escaped = md
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    return escaped
-      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-      .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-      .replace(/^- (.+)$/gm, "<li>$1</li>")
-      .replace(/(<li>[\s\S]+?<\/li>)/g, "<ul>$1</ul>")
-      .replace(/\n\n/g, "</p><p>")
-      .replace(/^(?!<[hu1-3])/gm, "<p>")
-      .replace(/<p>(<h[1-3]>)/g, "$1")
-      .replace(/<p>(<ul>)/g, "$1");
-  }, [formData.content]);
+  // Markdown preview - the SAME pipeline the public /page/[slug]
+  // renderer uses, so preview and published output cannot diverge.
+  const previewHtml = useMemo(() => renderCmsMarkdown(formData.content || ""), [formData.content]);
 
   // Always-visible scope banner, rendered under the hero in both modes.
   const scopeBanner = (
@@ -615,7 +599,7 @@ function CMSPageManagement() {
                           className="font-mono text-sm"
                         />
                         <p className="text-[11px] text-slate-500 mt-1">
-                          ## Heading · **bold** · *italic* · - bullet · [link](url) · HTML allowed
+                          ## Heading · **bold** · *italic* · - bullet · [link](https://url) · raw HTML is escaped, markdown only
                         </p>
                       </div>
                     </div>
