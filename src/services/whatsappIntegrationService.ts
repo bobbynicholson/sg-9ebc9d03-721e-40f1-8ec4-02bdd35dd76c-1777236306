@@ -253,6 +253,39 @@ export const whatsappIntegrationService = {
    * fan-out, after-sales drips, anything that should survive a
    * network blip or a queued retry.
    */
+  /**
+   * Is WhatsApp actually connected for this tenant?
+   *
+   * enqueueWhatsAppMessage always writes a pending row and returns an
+   * id regardless of connection - the drain cron then soft-no-ops when
+   * the tenant has no active integration (sendWhatsAppMessage above,
+   * "integration not connected"). So an enqueue "success" does NOT mean
+   * the message will ever deliver. UIs that broadcast (e.g. the kitchen
+   * prep-list) should call this first so they can warn the operator
+   * honestly instead of reporting "Queued N messages" for a channel
+   * that will silently drop them.
+   */
+  async isWhatsAppConnected(companyId: string): Promise<boolean> {
+    if (!companyId) return false;
+    try {
+      const { data, error } = await supabase
+        .from("integrations")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("integration_type", "whatsapp")
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) {
+        console.error("[whatsapp/isWhatsAppConnected] lookup failed:", error);
+        return false;
+      }
+      return !!data;
+    } catch (e) {
+      console.error("[whatsapp/isWhatsAppConnected] threw:", e);
+      return false;
+    }
+  },
+
   async enqueueWhatsAppMessage(args: {
     companyId: string;
     recipientPhone: string;

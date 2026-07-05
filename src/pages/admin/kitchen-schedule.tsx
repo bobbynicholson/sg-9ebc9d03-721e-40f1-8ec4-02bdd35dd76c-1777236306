@@ -40,7 +40,7 @@ import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDate";
-import { LogKitchenShiftModal } from "@/components/admin/LogKitchenShiftModal";
+import { LogKitchenShiftModal, type EditableShift } from "@/components/admin/LogKitchenShiftModal";
 import { ShiftTasksChips } from "@/components/admin/ShiftTasksChips";
 import { AddShiftTaskModal } from "@/components/admin/AddShiftTaskModal";
 import {
@@ -181,6 +181,9 @@ function KitchenScheduleGrid() {
   // shift the roster day (same pattern as the admin dashboard).
   const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
   const [logTarget, setLogTarget] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
+  // Audit fix (2026-07-05): edit / remove an existing rostered shift.
+  // Before this the page could only create; a wrong roster was stuck.
+  const [editTarget, setEditTarget] = useState<{ staffId: string; staffName: string; date: string; shift: EditableShift } | null>(null);
   // Wave 41 Phase 3: per-shift task chips (kitchen / cleaning /
   // delivery / shopping / waitering / setup / breakdown / admin).
   // Indexed by shift_id for O(1) cell render lookup.
@@ -860,7 +863,23 @@ function KitchenScheduleGrid() {
                                                     : "border-slate-200 bg-slate-50"
                                               }`}
                                             >
-                                              <div className="flex items-center justify-between gap-1">
+                                              <button
+                                                type="button"
+                                                onClick={() => setEditTarget({
+                                                  staffId: p.id,
+                                                  staffName: p.full_name || p.email,
+                                                  date: iso,
+                                                  shift: {
+                                                    id: s.id,
+                                                    planned_start: s.planned_start,
+                                                    planned_end: s.planned_end,
+                                                    rate_multiplier: s.rate_multiplier,
+                                                    notes: s.notes,
+                                                  },
+                                                })}
+                                                title="Edit or remove this shift"
+                                                className="flex w-full items-center justify-between gap-1 hover:opacity-80"
+                                              >
                                                 <span className={`text-xs font-semibold tabular-nums ${
                                                   isMissed ? "text-rose-900" :
                                                   hasActual ? "text-brand-primary" :
@@ -873,7 +892,7 @@ function KitchenScheduleGrid() {
                                                     x{Number(s.rate_multiplier ?? 1)}
                                                   </Badge>
                                                 )}
-                                              </div>
+                                              </button>
                                               {hasActual ? (
                                                 <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
                                                   Actual {aHours.toFixed(1)}h
@@ -1083,6 +1102,21 @@ function KitchenScheduleGrid() {
           defaultDate={logTarget.date}
           actorUserId={user?.id ?? null}
           onCreated={() => { setLogTarget(null); void load(); }}
+        />
+      )}
+
+      {/* Edit / remove an existing rostered shift (audit fix 2026-07-05). */}
+      {editTarget && companyId && (
+        <LogKitchenShiftModal
+          open={!!editTarget}
+          onOpenChange={(o) => !o && setEditTarget(null)}
+          companyId={companyId}
+          staffId={editTarget.staffId}
+          staffName={editTarget.staffName}
+          defaultDate={editTarget.date}
+          existingShift={editTarget.shift}
+          actorUserId={user?.id ?? null}
+          onCreated={() => { setEditTarget(null); void load(); }}
         />
       )}
 

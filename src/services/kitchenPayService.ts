@@ -123,7 +123,16 @@ export async function summariseStaffPay(
   // duty shift_end is a timestamptz, so it must be resolved to the same
   // tenant day (not the server's UTC day) or the premium silently misses.
   const tenantTz = (company as any)?.timezone as string | null | undefined;
-  const overtimeAfter = Number(companyTyped?.kitchen_settings?.overtimeAfterHours ?? DEFAULT_OT_AFTER_HOURS);
+  // The panel persists this jsonb key snake_case (overtime_after_hours);
+  // the old camelCase read (overtimeAfterHours) always missed, so the pay
+  // engine silently used DEFAULT_OT_AFTER_HOURS regardless of the tenant's
+  // setting - the duty board (which reads it correctly) and the payslip
+  // then disagreed. Read snake_case first, fall back to camelCase for any
+  // legacy rows, then the platform default.
+  const ks = companyTyped?.kitchen_settings ?? {};
+  const overtimeAfter = Number(
+    ks.overtime_after_hours ?? ks.overtimeAfterHours ?? DEFAULT_OT_AFTER_HOURS,
+  );
 
   // Pull every clocked-out duty shift in the window.
   // Window: shift_end falls between periodStart 00:00 local and

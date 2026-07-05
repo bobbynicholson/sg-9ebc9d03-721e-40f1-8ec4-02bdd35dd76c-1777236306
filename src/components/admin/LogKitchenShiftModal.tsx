@@ -14,6 +14,13 @@
  * means a re-roster of the same chef on the same day surfaces a
  * UNIQUE violation; we catch it and tell the operator to edit the
  * existing row.
+ *
+ * Audit fix (2026-07-05): the schedule page previously had NO way to
+ * edit or remove a rostered shift (the 23505 message literally said
+ * "edit the existing row instead" with no such UI). This modal now
+ * doubles as the edit surface: pass `existingShift` to switch it into
+ * edit mode (update-in-place + soft-delete). It also now notifies the
+ * rostered staffer on create / update / remove (was silent before).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
@@ -30,8 +37,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CalendarClock, Loader2, Check } from "lucide-react";
+import { AlertCircle, CalendarClock, Loader2, Check, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+
+/** Existing shift to edit. When present the modal switches to edit mode. */
+export interface EditableShift {
+  id: string;
+  planned_start: string | null;
+  planned_end: string | null;
+  rate_multiplier: number | null;
+  notes: string | null;
+}
 
 interface Props {
   open: boolean;
@@ -51,6 +67,12 @@ interface Props {
    * kitchen + cleaning in one shift use 'kitchen_and_cleaning'.
    */
   shiftType?: "kitchen" | "cleaning" | "kitchen_and_cleaning" | "general";
+  /**
+   * When set, the modal edits this existing shift (update + remove)
+   * instead of creating a new one. Date is locked in edit mode to
+   * avoid colliding with the (staff_id, shift_date) unique index.
+   */
+  existingShift?: EditableShift | null;
 }
 
 export function LogKitchenShiftModal({
@@ -63,29 +85,77 @@ export function LogKitchenShiftModal({
   onCreated,
   actorUserId,
   shiftType = "kitchen",
+  existingShift = null,
 }: Props) {
   const { toast } = useToast();
+  const isEdit = !!existingShift;
   const [shiftDate, setShiftDate] = useState(defaultDate);
   const [plannedStart, setPlannedStart] = useState("08:00");
   const [plannedEnd, setPlannedEnd] = useState("17:00");
   const [notes, setNotes] = useState("");
   const [multiplier, setMultiplier] = useState<"1" | "1.5" | "2">("1");
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (open) {
       setShiftDate(defaultDate);
-      setPlannedStart("08:00");
-      setPlannedEnd("17:00");
-      setNotes("");
-      setMultiplier("1");
+      setPlannedStart(existingShift?.planned_start ?? "08:00");
+      setPlannedEnd(existingShift?.planned_end ?? "17:00");
+      setNotes(existingShift?.notes ?? "");
+      const m = existingShift?.rate_multiplier;
+      setMultiplier(m === 1.5 ? "1.5" : m === 2 ? "2" : "1");
       setBusy(false);
+      setDeleting(false);
       setError(null);
       setDone(false);
     }
-  }, [open, defaultDate]);
+  }, [open, defaultDate, existingShift]);
+
+  const teamLabel = shiftType === "cleaning" ? "cleaning" : "kitchen";
+
+  // Best-effort notify of the rostered staffer. A notify failure must
+  // never fail the write. Skip self-roster (operator managing their own
+  // shift doesn't need a ping). staffId is the profile/user id (the
+  // roster reads profiles), so it's a valid notification recipient.
+  const notifyStaffer = async (
+    action: "rostered" | "updated" | "removed",
+    shiftId?: string,
+  ) => {
+    if (!staffId || staffId === actorUserId) return;
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      const copy = {
+        rostered: {
+          title: "You've been rostered",
+          message: `You're on the ${teamLabel} roster for ${shiftDate}, ${plannedStart} to ${plannedEnd}.`,
+        },
+        updated: {
+          title: "Your shift was updated",
+          message: `Your ${teamLabel} shift on ${shiftDate} is now ${plannedStart} to ${plannedEnd}.`,
+        },
+        removed: {
+          title: "A shift was removed",
+          message: `Your ${teamLabel} shift on ${shiftDate} has been removed.`,
+        },
+      }[action];
+      await notificationService.createNotification({
+        company_id: companyId,
+        recipient_id: staffId,
+        type: `shift_${action}`,
+        title: copy.title,
+        message: copy.message,
+        priority: "normal",
+        related_entity_type: "kitchen_shift",
+        related_entity_id: shiftId ?? existingShift?.id ?? undefined,
+        dedup: true,
+      }, supabase);
+    } catch (notifyErr) {
+      console.warn(`[LogKitchenShiftModal] ${action} notify failed:`, notifyErr);
+    }
+  };
 
   // Preview hours so the operator sees the rostered length before save.
   const previewHours = (() => {
@@ -103,7 +173,31 @@ export function LogKitchenShiftModal({
     setError(null);
     setBusy(true);
     try {
-      const { error: insErr } = await (supabase as any)
+      const rateMultiplier = multiplier === "1" ? null : Number(multiplier);
+      if (isEdit && existingShift) {
+        // Edit mode: update the planned window / multiplier / notes in
+        // place. Date + staff are locked so the unique index can't be
+        // violated. Actual clock-in stamps stay untouched.
+        const { error: updErr } = await (supabase as any)
+          .from("kitchen_shifts")
+          .update({
+            planned_start: plannedStart,
+            planned_end: plannedEnd,
+            rate_multiplier: rateMultiplier,
+            notes: notes.trim() || null,
+          })
+          .eq("id", existingShift.id)
+          .eq("company_id", companyId);
+        if (updErr) throw new Error(updErr.message);
+        await notifyStaffer("updated", existingShift.id);
+        setDone(true);
+        if (onCreated) onCreated();
+        toast({ title: "Shift updated", description: `${staffName} - ${plannedStart} to ${plannedEnd}` });
+        setTimeout(() => onOpenChange(false), 700);
+        return;
+      }
+
+      const { data: inserted, error: insErr } = await (supabase as any)
         .from("kitchen_shifts")
         .insert({
           company_id: companyId,
@@ -114,28 +208,57 @@ export function LogKitchenShiftModal({
           planned_end: plannedEnd,
           status: "scheduled",
           source: "manual",
-          rate_multiplier: multiplier === "1" ? null : Number(multiplier),
+          rate_multiplier: rateMultiplier,
           notes: notes.trim() || null,
           created_by_user_id: actorUserId ?? null,
-        });
+        })
+        .select("id")
+        .single();
       if (insErr) {
         // Unique-constraint violation = there's already a shift for
         // this chef on this day. Surface a useful message instead of
         // the raw 23505 message PostgREST surfaces.
         if (insErr.code === "23505") {
-          setError(`${staffName} is already rostered for ${shiftDate}. Edit the existing row instead.`);
+          setError(`${staffName} is already rostered for ${shiftDate}. Click that shift to edit it instead.`);
           return;
         }
         throw new Error(insErr.message);
       }
+      await notifyStaffer("rostered", (inserted as any)?.id);
       setDone(true);
       if (onCreated) onCreated();
       toast({ title: "Shift rostered", description: `${staffName} - ${plannedStart} to ${plannedEnd}` });
       setTimeout(() => onOpenChange(false), 700);
     } catch (e: any) {
-      setError(e?.message || "Failed to roster shift");
+      setError(e?.message || "Failed to save shift");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!existingShift) return;
+    if (!window.confirm(`Remove ${staffName}'s shift on ${shiftDate}? This can't be undone.`)) return;
+    setError(null);
+    setDeleting(true);
+    try {
+      // Soft-delete: the schedule query filters `deleted_at IS NULL`,
+      // so stamping deleted_at drops the row from the roster while
+      // keeping it for any pay/audit history that references it.
+      const { error: delErr } = await (supabase as any)
+        .from("kitchen_shifts")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", existingShift.id)
+        .eq("company_id", companyId);
+      if (delErr) throw new Error(delErr.message);
+      await notifyStaffer("removed", existingShift.id);
+      if (onCreated) onCreated();
+      toast({ title: "Shift removed", description: `${staffName} - ${shiftDate}` });
+      onOpenChange(false);
+    } catch (e: any) {
+      setError(e?.message || "Failed to remove shift");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -145,11 +268,12 @@ export function LogKitchenShiftModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="w-5 h-5 text-brand-primary" />
-            Roster shift - {staffName}
+            {isEdit ? "Edit shift" : "Roster shift"} - {staffName}
           </DialogTitle>
           <DialogDescription>
-            Plan upcoming hours. The actual clock-in time gets stamped automatically
-            when the chef opens the kitchen duty page and clicks Clock in.
+            {isEdit
+              ? "Adjust the planned window, pay multiplier or notes. Any clocked-in actual time is kept."
+              : "Plan upcoming hours. The actual clock-in time gets stamped automatically when the chef opens the kitchen duty page and clicks Clock in."}
           </DialogDescription>
         </DialogHeader>
 
@@ -163,7 +287,9 @@ export function LogKitchenShiftModal({
         {done && (
           <Alert className="border-brand-primary/20 bg-brand-primary/10">
             <Check className="h-4 w-4 text-brand-primary" />
-            <AlertDescription className="text-brand-primary text-sm">Shift rostered.</AlertDescription>
+            <AlertDescription className="text-brand-primary text-sm">
+              {isEdit ? "Shift updated." : "Shift rostered."}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -176,7 +302,13 @@ export function LogKitchenShiftModal({
               value={shiftDate}
               onChange={(e) => setShiftDate(e.target.value)}
               className="mt-1"
+              disabled={isEdit}
             />
+            {isEdit && (
+              <p className="text-[11px] text-slate-500 mt-1">
+                To move this shift to another day, remove it and roster a new one.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -234,18 +366,31 @@ export function LogKitchenShiftModal({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            onClick={submit}
-            disabled={busy || previewHours === null}
-            className="bg-brand-primary hover:bg-brand-primary/90"
-          >
-            {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-            Roster shift
-          </Button>
+        <DialogFooter className="gap-2 sm:justify-between">
+          {isEdit ? (
+            <Button
+              variant="outline"
+              onClick={remove}
+              disabled={busy || deleting}
+              className="border-rose-200 text-rose-700 hover:bg-rose-50"
+            >
+              {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Remove
+            </Button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy || deleting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submit}
+              disabled={busy || deleting || previewHours === null}
+              className="bg-brand-primary hover:bg-brand-primary/90"
+            >
+              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+              {isEdit ? "Save changes" : "Roster shift"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

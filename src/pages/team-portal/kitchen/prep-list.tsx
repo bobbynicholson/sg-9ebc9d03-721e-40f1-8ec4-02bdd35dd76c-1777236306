@@ -219,7 +219,7 @@ function KitchenPrepListPageInner() {
       // "orders exist but no recipes attached". Best-effort; skips
       // soft-deleted orders so a cancelled-and-removed booking can't
       // trigger the "orders booked but no demand" banner.
-      const { count, error: countError } = await supabase
+      let countQuery = supabase
         .from("orders")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
@@ -227,6 +227,13 @@ function KitchenPrepListPageInner() {
         .gte("event_date", todayStr)
         .lte("event_date", horizon)
         .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
+      // Match the region scoping the demand rows use above (branch rows +
+      // null/legacy rows) so the "N orders booked" count can't disagree
+      // with the per-order cards when a branch filter is active.
+      if (regionFilterId) {
+        countQuery = countQuery.or(`region_id.eq.${regionFilterId},region_id.is.null`);
+      }
+      const { count, error: countError } = await countQuery;
       if (stale()) return;
       if (countError) {
         captureException(countError, {

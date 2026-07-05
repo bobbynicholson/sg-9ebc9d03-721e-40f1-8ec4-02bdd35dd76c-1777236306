@@ -47,8 +47,6 @@ export interface KitchenSettings {
   overtime_after_hours: number;
   meal_break_after_hours: number;
   max_hot_hold_min: number;
-  // Dietary alerts
-  dietary_alert_high_severity_threshold: number;
 }
 
 export const KITCHEN_RULES_DEFAULTS: KitchenSettings = {
@@ -59,7 +57,6 @@ export const KITCHEN_RULES_DEFAULTS: KitchenSettings = {
   overtime_after_hours: 9,
   meal_break_after_hours: 5,
   max_hot_hold_min: 90,
-  dietary_alert_high_severity_threshold: 1,
 };
 
 // KS-B (task #220, 2026-05-25): per-field clamp bounds. Each row is
@@ -73,7 +70,6 @@ const BOUNDS: Record<keyof Omit<KitchenSettings, "auto_generate_prep_tasks">, [n
   overtime_after_hours:      [1, 24],    // BCEA ordinary day is 9
   meal_break_after_hours:    [1, 12],    // BCEA s14 is 5h
   max_hot_hold_min:          [0, 240],   // SA food-safety ceiling 4h
-  dietary_alert_high_severity_threshold: [0, 5],
 };
 const clamp = (key: keyof typeof BOUNDS, raw: number): number => {
   const [min, max] = BOUNDS[key];
@@ -141,10 +137,6 @@ export function KitchenRulesPanel({ contextNote }: Props) {
         overtime_after_hours:      clamp("overtime_after_hours",      Number(raw.overtime_after_hours      ?? KITCHEN_RULES_DEFAULTS.overtime_after_hours)),
         meal_break_after_hours:    clamp("meal_break_after_hours",    Number(raw.meal_break_after_hours    ?? KITCHEN_RULES_DEFAULTS.meal_break_after_hours)),
         max_hot_hold_min:          clamp("max_hot_hold_min",          Number(raw.max_hot_hold_min          ?? KITCHEN_RULES_DEFAULTS.max_hot_hold_min)),
-        dietary_alert_high_severity_threshold: clamp(
-          "dietary_alert_high_severity_threshold",
-          Number(raw.dietary_alert_high_severity_threshold ?? KITCHEN_RULES_DEFAULTS.dietary_alert_high_severity_threshold),
-        ),
       });
       setLoading(false);
       setDirty(false);
@@ -182,9 +174,26 @@ export function KitchenRulesPanel({ contextNote }: Props) {
     if (loadError) return;
     setSaving(true);
     try {
+      // Read-merge-write. The old code wrote `settings` (only the known
+      // interface keys) straight over the jsonb, which erased any
+      // out-of-band key not on the form - e.g. prep_parallelism, set
+      // directly in SQL and read by kitchenPrepService for the batch cap.
+      // Merge over the current value so unknown keys survive a save.
+      // Mirrors kitchenPrepService.updateKitchenSettings (the service path).
+      const { data: current, error: readErr } = await (supabase as any)
+        .from("companies")
+        .select("kitchen_settings")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (readErr) throw readErr;
+      const existing =
+        current?.kitchen_settings && typeof current.kitchen_settings === "object"
+          ? current.kitchen_settings
+          : {};
+      const merged = { ...existing, ...settings };
       const { error } = await (supabase as any)
         .from("companies")
-        .update({ kitchen_settings: settings })
+        .update({ kitchen_settings: merged })
         .eq("id", companyId);
       if (error) throw error;
 
@@ -392,32 +401,6 @@ export function KitchenRulesPanel({ contextNote }: Props) {
                     onChange={(e) => updateNumber("meal_break_after_hours", e.target.value)}
                   />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Dietary alerts */}
-          <Card className="border-0 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-600" />
-                Dietary alert thresholds
-              </CardTitle>
-              <p className="text-xs text-slate-500 mt-1">
-                Surface dietary flags loudly when an order has at least this many high-severity tags (allergen / strict halal / strict kosher).
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1.5 max-w-xs">
-                <Label className="text-xs uppercase tracking-wide text-slate-700">High-severity flag count</Label>
-                <Input
-                  type="number" min={BOUNDS.dietary_alert_high_severity_threshold[0]} max={BOUNDS.dietary_alert_high_severity_threshold[1]} step="1"
-                  value={settings.dietary_alert_high_severity_threshold}
-                  onChange={(e) => updateNumber("dietary_alert_high_severity_threshold", e.target.value)}
-                />
-                <p className="text-[11px] text-slate-500">
-                  Set to 0 to surface every dietary flag. Set to 1 (default) to only flag when at least one allergen / strict-religious tag is present.
-                </p>
               </div>
             </CardContent>
           </Card>

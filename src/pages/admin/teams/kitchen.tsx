@@ -171,7 +171,7 @@ function KitchenTeamPage() {
     const channel = supabase
       .channel(`teams-kitchen:${companyId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_departments", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_prep_tasks", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, bump)
@@ -1074,6 +1074,22 @@ function PrepBroadcastDialog({
   // which reads as a data problem, not a fetch failure.
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Audit fix (2026-07-05): enqueue always "succeeds" even when the
+  // tenant has no WhatsApp integration; the drain cron then silently
+  // drops those rows. Probe the real connection so the operator is
+  // told the truth instead of "Queued N messages" for a dead channel.
+  // null = still checking.
+  const [waConnected, setWaConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!open || !companyId) { setWaConnected(null); return; }
+    let cancelled = false;
+    (async () => {
+      const ok = await whatsappIntegrationService.isWhatsAppConnected(companyId);
+      if (!cancelled) setWaConnected(ok);
+    })();
+    return () => { cancelled = true; };
+  }, [open, companyId]);
 
   useEffect(() => {
     if (!open || !companyId) { setRecipients([]); return; }
@@ -1146,12 +1162,23 @@ function PrepBroadcastDialog({
       );
       const queued = results.filter((id) => !!id).length;
       const refused = results.length - queued;
-      toast({
-        title: `Queued ${queued} message${queued === 1 ? "" : "s"}`,
-        description: refused > 0
-          ? `${refused} refused by the comms guard. Drain cron sends the rest within 5 min.`
-          : "Drain cron sends them within 5 min.",
-      });
+      if (waConnected === false) {
+        // The rows are written but the drain cron will soft-no-op them
+        // because there's no active WhatsApp integration. Don't claim
+        // they'll "send within 5 min" - that would be a lie.
+        toast({
+          title: "WhatsApp isn't connected",
+          description: `${queued} message${queued === 1 ? "" : "s"} saved but they won't send until WhatsApp is connected in Settings > Integrations.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: `Queued ${queued} message${queued === 1 ? "" : "s"}`,
+          description: refused > 0
+            ? `${refused} refused by the comms guard. Drain cron sends the rest within 5 min.`
+            : "Drain cron sends them within 5 min.",
+        });
+      }
       onClose();
     } catch (err) {
       captureException(err, { tags: { surface: "admin/teams/kitchen", area: "prep-broadcast", companyId } });
@@ -1178,6 +1205,14 @@ function PrepBroadcastDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          {waConnected === false && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <span>
+                WhatsApp isn&apos;t connected for this company, so these messages will be saved but won&apos;t actually send. Connect it under Settings &gt; Integrations first.
+              </span>
+            </div>
+          )}
           <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
             {loadingRoster ? (
               <span className="inline-flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Loading roster...</span>
