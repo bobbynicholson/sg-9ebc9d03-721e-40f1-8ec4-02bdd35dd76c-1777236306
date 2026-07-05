@@ -1947,7 +1947,7 @@ async function sendStatusNotifications(order: any) {
         related_entity_id: order.id,
         dedup: true,
         dedupWindowMinutes: 5,
-      });
+      }, supabase);
       // createNotification returns null when the dedup probe hit.
       // Track the client-recipient outcome so the email branch can
       // mirror it.

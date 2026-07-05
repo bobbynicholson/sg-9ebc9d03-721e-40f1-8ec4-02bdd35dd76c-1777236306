@@ -30,15 +30,39 @@ export async function resolveClientUserId(
     .eq("id", orderClientId)
     .maybeSingle();
   if (clientRowErr) console.error("[resolveClientUserId] clients lookup failed:", clientRowErr);
-  if (!clientRow) return null;
-  if (clientRow.user_id) return clientRow.user_id as string;
-  const email = (clientRow.email || "").toLowerCase().trim();
-  if (!email) return null;
-  const { data: profileMatch, error: profileMatchErr } = await ssr
-    .from("profiles")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
-  if (profileMatchErr) console.error("[resolveClientUserId] profiles fallback lookup failed:", profileMatchErr);
-  return (profileMatch as any)?.id || null;
+  if (clientRow?.user_id) return clientRow.user_id as string;
+  if (clientRow && !clientRow.user_id) {
+    const email = (clientRow.email || "").toLowerCase().trim();
+    if (email) {
+      const { data: profileMatch, error: profileMatchErr } = await ssr
+        .from("profiles")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+      if (profileMatchErr) console.error("[resolveClientUserId] profiles fallback lookup failed:", profileMatchErr);
+      if ((profileMatch as any)?.id) return (profileMatch as any).id;
+    }
+  }
+  // RLS fallback: a null clientRow means the caller (e.g. a kitchen/admin
+  // STAFF session flipping order status from the browser) is not allowed
+  // to SELECT the clients table, so the direct read above returned
+  // nothing even though the row exists. Without this, every client-facing
+  // notification on a staff-triggered status change is silently dropped.
+  // resolve_client_user_id is a SECURITY DEFINER function that returns
+  // ONLY the auth uid (no PII) and only to a caller entitled to it
+  // (same-company staff, the client themselves, or the service role).
+  // See migration 20260705200000_resolve_client_user_id_fn.sql.
+  try {
+    const { data: rpcId, error: rpcErr } = await ssr.rpc("resolve_client_user_id", {
+      p_client_id: orderClientId,
+    });
+    if (rpcErr) {
+      console.error("[resolveClientUserId] rpc fallback failed:", rpcErr);
+      return null;
+    }
+    return (rpcId as string) || null;
+  } catch (e) {
+    console.error("[resolveClientUserId] rpc fallback threw:", e);
+    return null;
+  }
 }
