@@ -863,11 +863,30 @@ export const kitchenPrepService = {
     // doesn't overwrite the original timestamp.
     const orderId = (updated as any)?.order_id as string | undefined;
     if (orderId) {
-      // Track WHO worked this order's kitchen, so the order shows who
-      // helped. Best-effort - the RPC no-ops if not deployed yet.
-      try {
-        await (supabase as any).rpc("record_order_contributor", { p_order_id: orderId, p_user_id: performedBy, p_area: "kitchen" });
-      } catch { /* best-effort contributor tracking */ }
+      // Resolve the actor once: their role + (for managers) whether they've
+      // opted in to Working. "Kitchen labor" = staff, or a manager who is
+      // actually Working. An admin/owner - or a managing-only manager - who
+      // merely KICKS OFF prep is dispatching, not cooking, so they must not
+      // be credited as a cook nor auto-clocked-in; the assigned crew is.
+      const { isManagerWorkingNow } = await import("@/services/managerWorkModeService");
+      const { data: actor } = await supabase
+        .from("profiles")
+        .select("role, active_role, manager_working, manager_working_since")
+        .eq("id", performedBy)
+        .maybeSingle();
+      const actorRole = String((actor as any)?.active_role || (actor as any)?.role || "");
+      const isKitchenLabor =
+        actorRole === "kitchen_staff" ||
+        (actorRole === "kitchen_manager" && isManagerWorkingNow(actor as any));
+
+      // Track WHO cooked this order's kitchen work - only real cooks, never an
+      // admin/owner starting on their behalf. Best-effort - RPC no-ops if not
+      // deployed yet.
+      if (isKitchenLabor) {
+        try {
+          await (supabase as any).rpc("record_order_contributor", { p_order_id: orderId, p_user_id: performedBy, p_area: "kitchen" });
+        } catch { /* best-effort contributor tracking */ }
+      }
       try {
         // Atomic first-start detection: only the call that flips
         // prep_started_at from null wins the .is(null) update, so exactly
@@ -889,13 +908,7 @@ export const kitchenPrepService = {
         // it themselves we skip (they already know). The reverse leg
         // (kitchen done -> admins) rides the all-tasks-done -> order 'ready'
         // -> sendStatusNotifications path.
-        const { data: actor } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", performedBy)
-          .maybeSingle();
-        const actorRole = String((actor as any)?.role || "");
-        if (wasFirstStart && (ord as any)?.company_id && actorRole && actorRole !== "kitchen_staff") {
+        if (wasFirstStart && (ord as any)?.company_id && !isKitchenLabor) {
           const { notificationService } = await import("@/services/notificationService");
           const { UserRole } = await import("@/types/app");
           await notificationService.broadcastNotification({
@@ -905,6 +918,9 @@ export const kitchenPrepService = {
             message: `Prep has been kicked off for order ${(ord as any).order_number || ""}. Open the order and start cooking, then mark each task done.`,
             targetRoles: [UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF],
             excludeActiveRoles: ["waiter"],
+            // Dispatch signal: the manager must get this to assign the crew,
+            // even when they're managing-only.
+            managerDispatch: true,
             priority: "high",
             link: `/order/${orderId}?role=kitchen`,
             relatedEntityType: "order",
@@ -913,14 +929,14 @@ export const kitchenPrepService = {
             dedupWindowMinutes: 120,
           });
         }
-        // Auto clock-in: when a CHEF starts a prep task and isn't already
-        // on a duty shift, open one so their time is tracked from the
-        // moment they actually start cooking - no separate "Start duty"
-        // step. Without this the duty/time view stayed empty even though
-        // the kitchen was working. Admins starting on behalf don't clock
-        // in (they aren't kitchen staff); the chef clocks in when they
-        // pick up the task. Best-effort - never block the task start.
-        if (actorRole === "kitchen_staff") {
+        // Auto clock-in: when kitchen LABOR starts a prep task and isn't
+        // already on a duty shift, open one so their time is tracked from the
+        // moment they actually start cooking - no separate "Start duty" step.
+        // Labor = staff OR a Working manager (a manager who opted in to do
+        // hands-on work). Admins starting on behalf, and managing-only
+        // managers, don't clock in (they aren't cooking); the assigned crew
+        // clocks in when they pick up the task. Best-effort.
+        if (isKitchenLabor) {
           try {
             const { kitchenDutyService } = await import("@/services/kitchenDutyService");
             const active = await kitchenDutyService.getCurrentDutyShift(performedBy);
@@ -961,9 +977,23 @@ export const kitchenPrepService = {
     // /admin/orders.
     const orderId = (updated as any)?.order_id as string | undefined;
     if (orderId) {
-      // Track WHO completed kitchen work on this order (best-effort).
+      // Credit WHO cooked - only real kitchen labor (staff, or a Working
+      // manager), never an admin/owner or managing-only manager completing on
+      // their behalf. Best-effort.
       try {
-        await (supabase as any).rpc("record_order_contributor", { p_order_id: orderId, p_user_id: performedBy, p_area: "kitchen" });
+        const { isManagerWorkingNow } = await import("@/services/managerWorkModeService");
+        const { data: actor } = await supabase
+          .from("profiles")
+          .select("role, active_role, manager_working, manager_working_since")
+          .eq("id", performedBy)
+          .maybeSingle();
+        const actorRole = String((actor as any)?.active_role || (actor as any)?.role || "");
+        const isKitchenLabor =
+          actorRole === "kitchen_staff" ||
+          (actorRole === "kitchen_manager" && isManagerWorkingNow(actor as any));
+        if (isKitchenLabor) {
+          await (supabase as any).rpc("record_order_contributor", { p_order_id: orderId, p_user_id: performedBy, p_area: "kitchen" });
+        }
       } catch { /* best-effort contributor tracking */ }
       try {
         await this.checkPrepCompleteForOrder(orderId, performedBy);
