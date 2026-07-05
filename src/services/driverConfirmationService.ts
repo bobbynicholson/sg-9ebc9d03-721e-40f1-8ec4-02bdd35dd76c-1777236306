@@ -5,6 +5,7 @@ import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 import { recordOrderContributor } from "@/services/order/orderContributors";
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 
 // Admin-side roles that should receive dispatch / driver-status pings.
 // Audit (May 2026) found notifyAdminOfConfirmation + sendEnRouteAlert
@@ -313,7 +314,42 @@ export const driverConfirmationService = {
 
     await this.notifyAdminOfConfirmation(orderId, driverId, 'at_venue');
 
-    // Send WhatsApp to client
+    // In-app notification to the CLIENT that their driver has arrived.
+    // Previously arrival only pinged dispatch + a WhatsApp (which is a
+    // no-op when the tenant hasn't connected WhatsApp), so a client
+    // watching the portal saw "on the way" but never "your driver has
+    // arrived". orders.client_id is a clients.id FK, not an auth uid, so
+    // resolve the real auth user first (skip on null). Best-effort +
+    // dedup so a double-tap doesn't double-notify.
+    try {
+      const { data: ord } = await (supabase as any)
+        .from('orders')
+        .select('order_number, company_id, client_id')
+        .eq('id', orderId)
+        .maybeSingle();
+      const clientUid = ord ? await resolveClientUserId(supabase, (ord as any).client_id) : null;
+      if (ord && clientUid && (ord as any).company_id) {
+        const orderLabel = (ord as any).order_number || String(orderId).slice(0, 8);
+        await notificationService.createNotification({
+          company_id: (ord as any).company_id,
+          recipient_id: clientUid,
+          user_id: clientUid,
+          notification_type: "driver_arrived",
+          title: "Your driver has arrived",
+          message: `Your driver has arrived at the venue with order ${orderLabel}. They'll offload and set up shortly.`,
+          priority: "high",
+          link: `/client-portal/tracking?orderId=${orderId}`,
+          related_entity_type: "order",
+          related_entity_id: orderId,
+          dedup: true,
+          dedupWindowMinutes: 30,
+        }, supabase);
+      }
+    } catch (e) {
+      console.warn("[confirmAtVenue] client arrival notification failed (non-fatal):", e);
+    }
+
+    // Send WhatsApp to client (no-op when WhatsApp isn't connected).
     await this.sendWhatsAppNotification(orderId, 'driver_arrived');
 
     return data as DriverConfirmation;

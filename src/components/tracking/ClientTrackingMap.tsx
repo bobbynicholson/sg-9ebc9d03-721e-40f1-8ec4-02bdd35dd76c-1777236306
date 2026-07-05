@@ -226,7 +226,7 @@ export function ClientTrackingMap({
       // driver_locations is the current-state row the pinger UPSERTs on
       // every fix - this is the real instant path. Requires the table to
       // be a member of the supabase_realtime publication (migration
-      // 20260705200000). Listens to INSERT (first fix) + UPDATE (each
+      // 20260705210000). Listens to INSERT (first fix) + UPDATE (each
       // subsequent fix). Poll below still covers backgrounded tabs.
       .on(
         "postgres_changes",
