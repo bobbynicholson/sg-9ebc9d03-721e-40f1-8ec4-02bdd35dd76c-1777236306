@@ -197,7 +197,7 @@ export default function InventoryManagementPage() {
           <Reveal className="mt-12 text-center">
             <p className="text-stone-600">
               Learn more about{" "}
-              <Link href="/blog/inventory-management-catering" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              <Link href="/blog/managing-equipment-like-a-pro" className="font-medium text-amber-700 underline-offset-2 hover:underline">
                 inventory management best practices
               </Link>
             </p>

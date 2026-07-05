@@ -200,7 +200,7 @@ export default function LeadManagementPage() {
           <Reveal className="mt-12 text-center">
             <p className="text-stone-600">
               See how other catering businesses are{" "}
-              <Link href="/blog/improve-quote-conversion-rates" className="font-medium text-amber-700 underline-offset-2 hover:underline">improving their quote conversion rates</Link>
+              <Link href="/blog/maximizing-catering-profits" className="font-medium text-amber-700 underline-offset-2 hover:underline">improving their quote conversion rates</Link>
             </p>
           </Reveal>
         </section>

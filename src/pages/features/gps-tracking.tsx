@@ -204,7 +204,7 @@ export default function GPSTrackingPage() {
           <Reveal className="mt-12 text-center">
             <p className="text-stone-600">
               Read about{" "}
-              <Link href="/blog/gps-tracking-catering-delivery" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              <Link href="/blog/delivery-and-logistics-nightmares" className="font-medium text-amber-700 underline-offset-2 hover:underline">
                 GPS tracking benefits for catering businesses
               </Link>
             </p>

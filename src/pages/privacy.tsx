@@ -92,7 +92,7 @@ export default function PrivacyPage() {
                 <CardTitle className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900">Privacy Policy</CardTitle>
                 <p className="text-sm text-slate-500">Last updated: {new Date().toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}</p>
                 <p className="text-sm text-slate-600">
-                  Learn about our <Link href="/features" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">secure platform features</Link> or read about <Link href="/blog/catering-management-software-benefits" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">software benefits</Link> on our blog.
+                  Learn about our <Link href="/features" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">secure platform features</Link> or read about <Link href="/blog/common-catering-problems-and-solutions" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">software benefits</Link> on our blog.
                 </p>
               </CardHeader>
             </Reveal>
@@ -191,7 +191,7 @@ export default function PrivacyPage() {
               <Reveal>
                 <section>
                 <h2 className="text-2xl font-semibold mb-4">5. Data Security</h2>
-                <p className="text-slate-700 leading-relaxed mb-3">We implement industry-standard security measures to protect your information. Read more about <Link href="/blog/catering-management-software-benefits" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">security benefits</Link> of our platform, including:</p>
+                <p className="text-slate-700 leading-relaxed mb-3">We implement industry-standard security measures to protect your information. Read more about <Link href="/blog/common-catering-problems-and-solutions" className="text-slate-600 underline decoration-slate-200 underline-offset-2 transition-colors duration-150 hover:text-slate-700 hover:decoration-slate-400">security benefits</Link> of our platform, including:</p>
                 <ul className="list-disc pl-6 space-y-2 text-slate-700">
                   <li>Encryption of data in transit (HTTPS/TLS)</li>
                   <li>Encryption of sensitive data at rest</li>

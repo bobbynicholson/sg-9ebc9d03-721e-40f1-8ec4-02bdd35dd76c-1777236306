@@ -210,7 +210,7 @@ export default function EmailAutomationPage() {
           <Reveal className="mt-12 text-center">
             <p className="text-base text-stone-600">
               Read about{" "}
-              <Link href="/blog/email-automation-for-catering" className="font-medium text-amber-700 underline-offset-2 hover:underline">email automation strategies</Link>
+              <Link href="/blog/automating-client-communication" className="font-medium text-amber-700 underline-offset-2 hover:underline">email automation strategies</Link>
             </p>
           </Reveal>
         </section>

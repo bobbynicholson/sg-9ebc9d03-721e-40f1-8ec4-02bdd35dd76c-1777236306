@@ -382,7 +382,7 @@ export default function FeaturesPage() {
               Hover or tap on any feature to see detailed benefits and real-world impact
             </p>
             <p className="mt-3 text-base text-stone-600">
-              Read more about <Link href="/blog/catering-management-software-benefits" className="font-medium text-amber-700 underline-offset-2 hover:underline">software benefits</Link> and <Link href="/blog/automate-catering-operations" className="font-medium text-amber-700 underline-offset-2 hover:underline">automation strategies</Link> on our blog.
+              Read more about <Link href="/blog/common-catering-problems-and-solutions" className="font-medium text-amber-700 underline-offset-2 hover:underline">software benefits</Link> and <Link href="/blog/automating-client-communication" className="font-medium text-amber-700 underline-offset-2 hover:underline">automation strategies</Link> on our blog.
             </p>
           </Reveal>
 
@@ -545,7 +545,7 @@ export default function FeaturesPage() {
                 Your entire operation flows from lead to delivery to follow-up automatically.
               </p>
               <p className="mt-3 text-sm text-stone-400 sm:text-base">
-                Learn about <Link href="/blog/gps-tracking-catering-delivery" className="font-medium text-amber-300 underline-offset-2 hover:underline">GPS tracking benefits</Link> and <Link href="/blog/inventory-management-catering" className="font-medium text-amber-300 underline-offset-2 hover:underline">inventory best practices</Link>.
+                Learn about <Link href="/blog/delivery-and-logistics-nightmares" className="font-medium text-amber-300 underline-offset-2 hover:underline">GPS tracking benefits</Link> and <Link href="/blog/managing-equipment-like-a-pro" className="font-medium text-amber-300 underline-offset-2 hover:underline">inventory best practices</Link>.
               </p>
 
               <div className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
@@ -596,7 +596,7 @@ export default function FeaturesPage() {
                 The impact on your business
               </h2>
               <p className="mt-4 text-base text-stone-600">
-                See how our platform helps with <Link href="/blog/improve-catering-profit-margins" className="font-medium text-amber-700 underline-offset-2 hover:underline">improving margins</Link> and <Link href="/blog/scale-catering-business" className="font-medium text-amber-700 underline-offset-2 hover:underline">scaling your business</Link>.
+                See how our platform helps with <Link href="/blog/maximizing-catering-profits" className="font-medium text-amber-700 underline-offset-2 hover:underline">improving margins</Link> and <Link href="/blog/data-driven-catering" className="font-medium text-amber-700 underline-offset-2 hover:underline">scaling your business</Link>.
               </p>
             </Reveal>
 
