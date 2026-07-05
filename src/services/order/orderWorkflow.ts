@@ -281,8 +281,17 @@ export async function updateOrderStatus(
       }
     }
 
-    // Send notifications based on status
-    await sendStatusNotifications(order);
+    // Send notifications based on status. Best-effort: the status change
+    // is ALREADY persisted above, so a notification-channel failure (e.g.
+    // WhatsApp "integration not connected", a Resend outage, an RLS hiccup)
+    // must never surface as an error to the actor who moved the order -
+    // that would break a driver's "Departed kitchen" tap with an
+    // unhandled runtime error even though the transition succeeded.
+    try {
+      await sendStatusNotifications(order);
+    } catch (notifyErr) {
+      console.warn("[updateOrderStatus] status notifications failed (non-blocking):", notifyErr);
+    }
 
     // Kitchen prep lead-hours warning on confirm. Audit Kitchen G5:
     // a 2-hour-from-event confirm with a 4-hour recipe is structurally
