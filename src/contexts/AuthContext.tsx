@@ -236,6 +236,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // failures are non-fatal (the renderers fall back to
             // hardcoded defaults).
             prewarmCompanyTemplates(userProfile.company_id).catch(() => {});
+          } else {
+            // Clients (and other company-less profiles) carry NO
+            // profiles.company_id - they belong to a tenant through the
+            // `clients` table, not `profiles`. Without a resolved company
+            // the entire client portal (my-orders, dashboard, billing,
+            // tracking, quotes, ...) gates out on `company?.id` and shows
+            // the customer NOTHING, even though their orders exist and RLS
+            // would return them. Resolve the tenant from the client's own
+            // clients row so the portal can scope its queries.
+            //
+            // Multi-tenant clients (same email across catering companies)
+            // are disambiguated by the slug they signed in through
+            // (user_metadata.last_company_slug, written by the auth
+            // callback). Clients currently cannot SELECT the companies
+            // table under RLS, so we fall back to a minimal company
+            // context built from what they CAN read (their clients row) +
+            // that slug - `id` is all the portal needs to scope orders;
+            // full branding fills in once the client-read companies policy
+            // (migration 20260705190000) is applied in prod.
+            try {
+              const { data: clientRows } = await supabase
+                .from("clients")
+                .select("company_id")
+                .eq("user_id", session.user.id);
+              const companyIds = Array.from(
+                new Set((clientRows || []).map((r: any) => r.company_id).filter(Boolean)),
+              ) as string[];
+              if (companyIds.length > 0) {
+                const wantSlug = String(
+                  (session.user.user_metadata as any)?.last_company_slug || "",
+                );
+                // Try the real rows first (works for staff-visible tenants
+                // and once the companies client-read policy lands).
+                const { data: companyRows } = await supabase
+                  .from("companies")
+                  .select("*")
+                  .in("id", companyIds);
+                let chosen: any = null;
+                if (companyRows && companyRows.length > 0) {
+                  chosen =
+                    (wantSlug && companyRows.find((c: any) => c.slug === wantSlug)) ||
+                    companyRows[0];
+                }
+                if (!chosen) {
+                  chosen = {
+                    id: companyIds[0],
+                    slug: wantSlug || undefined,
+                    company_name: undefined,
+                  } as unknown as Company;
+                }
+                userCompany = chosen;
+              }
+            } catch (clientCompanyErr) {
+              console.error(
+                "[AuthContext] client tenant resolve failed:",
+                clientCompanyErr,
+              );
+            }
           }
 
           const { data: departmentRows, error: departmentError } = await supabase

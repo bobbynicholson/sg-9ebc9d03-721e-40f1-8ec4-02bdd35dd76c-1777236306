@@ -8,8 +8,8 @@
  * one item each, wasting hierarchy on quiet items.
  *
  * Now:
- *   LIVE NOW    - Today (was Overview), Routes, Current Delivery
- *   HISTORY     - All Deliveries, Earnings, Schedule
+ *   LIVE NOW    - Today, Clock, Routes, Current Stop, All Deliveries, Calendar
+ *   HISTORY     - Earnings
  *   Footer      - Notifications, Profile
  *
  * Digital clock + skip-to-content land for free via PortalSidebar.
@@ -67,18 +67,22 @@ const config: PortalSidebarConfig = {
         // and /tracking redirects there, so "Current Stop" deep-links to the
         // in-progress card instead of a duplicate page.
         { title: "Current Stop", href: "/team-portal/driver/routes#current", icon: MapPin,   description: "Brief, manifest and status" },
+        // "All Deliveries" is a primary destination (every job assigned to the
+        // driver, plus the per-leg confirmation panel) - it was buried in a
+        // collapsed History section, so it now sits in Live now for one-tap
+        // access alongside the other core views.
+        { title: "All Deliveries", href: "/team-portal/driver/deliveries", icon: Truck,     description: "Every job, upcoming and past" },
         { title: "Calendar",     href: "/team-portal/driver/calendar",  icon: Calendar,        description: "Bookings, open jobs and your schedule" },
       ],
     },
     {
       id: "history",
       title: "History",
-      defaultOpen: false,
+      defaultOpen: true,
       items: [
         // "Schedule" was a read-only subset of Calendar (which also shows
         // claimable jobs) and Deliveries (which adds history + comms), so the
         // page now redirects to Calendar and the nav row is gone.
-        { title: "All Deliveries", href: "/team-portal/driver/deliveries", icon: Truck,      description: "Past trips" },
         { title: "Earnings",       href: "/team-portal/driver/earnings",   icon: Banknote, description: "Hours + pay" },
       ],
     },

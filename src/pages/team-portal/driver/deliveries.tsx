@@ -12,7 +12,7 @@ import { staffOrderHref } from "@/lib/orderUrls";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
-import { PortalCard, PortalCardHeader, PortalOverview, StatTile } from "@/components/portal/ui";
+import { PortalCard, PortalCardHeader, PortalOverview } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
@@ -311,13 +311,6 @@ function DriverDeliveriesInner() {
         />
       }
     >
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-        <StatTile label="All deliveries" value={stats.total} icon={Truck} hint="Past and upcoming" />
-        <StatTile label="Upcoming" value={stats.upcoming} icon={Clock} hint="Still to do" />
-        <StatTile label="Completed" value={stats.completed} icon={CheckCircle2} hint="Finished and signed off" />
-        <StatTile label="Total guests served" value={stats.totalGuests} icon={Package} hint="Across every delivery" />
-      </div>
-
       {error && (
         <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm dark:border-rose-900 dark:bg-slate-900">
           <h2 className="text-base font-bold text-rose-900 dark:text-rose-300 mb-1">Couldn&apos;t load your deliveries</h2>
