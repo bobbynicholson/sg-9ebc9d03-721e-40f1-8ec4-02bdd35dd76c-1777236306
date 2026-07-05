@@ -1473,7 +1473,7 @@ function ClientPortalDashboardInner() {
                   See all
                 </Link>
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {pastOrders.map((o) => (
                   <PastEventTile
                     key={o.id}
@@ -2032,7 +2032,7 @@ function PastEventTile({
   const date = new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
   const myOrdersHref = `${slugPrefix}/client-portal/my-orders?orderId=${order.id}`;
   return (
-    <div className="snap-start flex-shrink-0 w-[260px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 transition-[box-shadow,border-color] duration-200 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)]">
+    <div className="w-full h-full flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 transition-[box-shadow,border-color] duration-200 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-18px_rgba(15,23,42,0.22)]">
       {/*
         The whole card is browseable, the inner Link wraps just the
         summary so a click on the Rebook button at the bottom doesn't
@@ -2058,7 +2058,8 @@ function PastEventTile({
           </span>
         </div>
       </Link>
-      <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+      <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+        <div className="min-h-11 flex items-center">
         {order.rating ? (
           <div className="flex items-center gap-1" title={`You rated ${order.rating} out of 5`}>
             {[1, 2, 3, 4, 5].map((n) => (
@@ -2111,7 +2112,8 @@ function PastEventTile({
             })}
           </div>
         )}
-        <div className="flex items-center gap-3">
+        </div>
+        <div className="flex items-center justify-between gap-1 flex-wrap">
           <button
             type="button"
             onClick={(e) => {
