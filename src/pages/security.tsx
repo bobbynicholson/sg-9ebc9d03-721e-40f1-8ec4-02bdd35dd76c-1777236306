@@ -146,8 +146,7 @@ export default function SecurityPage() {
 
                 <StaggerItem>
                   <h1 className="text-balance font-display text-4xl font-semibold leading-[1.08] tracking-tight text-stone-900 sm:text-5xl lg:text-6xl">
-                    Your Data Security is Our{" "}
-                    <span className="text-amber-700">Top Priority</span>
+                    Your data security is our top priority
                   </h1>
                 </StaggerItem>
 

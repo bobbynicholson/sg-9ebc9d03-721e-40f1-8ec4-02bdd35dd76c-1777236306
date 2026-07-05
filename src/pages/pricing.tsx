@@ -134,8 +134,7 @@ export default function PricingPage() {
           <Stagger className="mx-auto max-w-3xl text-center" gap={0.07}>
             <StaggerItem>
               <h1 className="text-balance font-display text-4xl font-semibold tracking-tight text-stone-900 sm:text-5xl lg:text-6xl">
-                Simple, transparent{" "}
-                <span className="text-amber-700">pricing</span>
+                Simple, transparent pricing
               </h1>
             </StaggerItem>
 
@@ -174,7 +173,7 @@ export default function PricingPage() {
           </button>
           <span className={`flex items-center ${billingCycle === "annually" ? "font-semibold text-stone-900" : "text-stone-500"}`}>
             Annually
-            <Badge variant="outline" className="ml-2 border-brand-primary/30 bg-brand-primary/10 text-brand-primary">
+            <Badge variant="outline" className="ml-2 border-amber-600/30 bg-amber-600/10 text-amber-700">
               Save 15%
             </Badge>
           </span>
@@ -220,7 +219,7 @@ export default function PricingPage() {
                       <span className="text-stone-500">/month</span>
                     </div>
                     {billingCycle === "annually" && (
-                      <p className="mt-2 text-sm font-medium text-brand-primary">
+                      <p className="mt-2 text-sm font-medium text-amber-700">
                         Save {formatPrice(annualSavings.savings, currency)} per year
                       </p>
                     )}

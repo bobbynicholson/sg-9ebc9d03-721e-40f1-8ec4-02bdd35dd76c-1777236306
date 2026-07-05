@@ -354,7 +354,7 @@ export default function LoginPage() {
             </Button>
           </div>
         )}
-        <Card className="w-full border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
+        <Card className="w-full border border-stone-200/70 shadow-2xl shadow-stone-200/60 rounded-2xl">
           <CardContent className="p-6 sm:p-8">
             <div className="mb-7">
               <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Welcome back</h1>
@@ -384,11 +384,11 @@ export default function LoginPage() {
                 })()}
 
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-slate-700 font-medium text-sm">
+                  <Label htmlFor="email" className="text-stone-700 font-medium text-sm">
                     Email address
                   </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                    <Mail className="absolute left-3 top-3.5 h-5 w-5 text-stone-400" />
                     <Input
                       id="email"
                       type="email"
@@ -403,11 +403,19 @@ export default function LoginPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-slate-700 font-medium text-sm">
-                    Password
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-stone-700 font-medium text-sm">
+                      Password
+                    </Label>
+                    <Link
+                      href="/auth/reset-password"
+                      className="text-xs font-medium text-amber-700 hover:text-amber-800"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-400" />
+                    <Lock className="absolute left-3 top-3.5 h-5 w-5 text-stone-400" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
@@ -422,7 +430,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 disabled:pointer-events-none disabled:opacity-50"
+                      className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-stone-400 hover:bg-stone-100 hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 disabled:pointer-events-none disabled:opacity-50"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                       aria-pressed={showPassword}
                       disabled={loading}
@@ -448,16 +456,16 @@ export default function LoginPage() {
                 </Button>
 
                 <div className="mt-2 text-center space-y-3">
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-stone-500">
                     Don't have an account?{" "}
                     <Link href="/company-signup" className="text-amber-700 hover:text-amber-800 font-medium">
                       Sign up for free
                     </Link>
                   </p>
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <p className="text-xs text-stone-400 leading-relaxed">
                     Tip: bookmark the URL in your browser bar after you sign in. It includes your company name and takes you straight to the right portal next time.
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-stone-400">
                     Need help?{" "}
                     <Link href="/support" className="text-amber-700 hover:text-amber-800 font-medium">
                       Contact support

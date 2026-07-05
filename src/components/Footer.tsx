@@ -1,19 +1,11 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { Button } from "@/components/ui/button";
-import {
-  Sparkles,
-  Mail,
-  Phone,
-  MapPin,
-  Building2,
-  Users,
-  ArrowRight,
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { isWhiteLabelRow } from "@/lib/branding/applyBranding";
 import { useAuth } from "@/contexts/AuthContext";
+import { LandingFooter } from "@/components/landing/LandingFooter";
 
 /**
  * Wave 70.23 - route classification. The Footer is mounted on every
@@ -116,7 +108,6 @@ export function Footer() {
   // version returned the slim footer early BEFORE the auth/ref/
   // state/effect hooks ran, which the linter correctly rejected.
   // Now: run every hook first, decide which variant to render last.
-  const currentYear = new Date().getFullYear();
   const branding = useBrandingRow();
   const isWhiteLabeled = isWhiteLabelRow(branding);
   const router = useRouter();
@@ -184,16 +175,10 @@ export function Footer() {
   const displayName = branding?.companyName || "CateringMS";
   const displayLogo = branding?.logoUrl;
 
-  const quickLinks = [
-    { name: "About", href: "/about" },
-    { name: "Features", href: "/features" },
-    { name: "Pricing", href: "/pricing" },
-    { name: "Security", href: "/security" },
-    { name: "Blog", href: "/blog" },
-    { name: "Contact", href: "/contact" },
-    { name: "Support", href: "/support" }
-  ];
-
+  // The marketing footer IS the warm landing footer - one voice across the
+  // whole public site. The old slate-gradient block (gradient wordmark,
+  // placeholder contact details, links to pages that never existed and a
+  // bulky sign-in card grid) is gone.
   return (
     <>
       {/* Pushes the footer below the visible viewport on short signed-in
@@ -203,180 +188,13 @@ export function Footer() {
       {isSignedIn && spacerHeight > 0 && (
         <div aria-hidden style={{ height: spacerHeight }} />
       )}
-    <footer ref={footerRef} className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white mt-20">
-      <div className="container mx-auto px-4 py-12 max-w-7xl">
-        {/*
-          Sign-in CTA card. Only shown to UNAUTHENTICATED visitors --
-          on every authenticated dashboard the team already has their
-          own nav, so the old six-portal grid was just noise.
-          Two clean entry points:
-            1. Catering business -> /auth/login + /company-signup
-            2. Event customer    -> log in via the link in their
-                                    booking email (their company
-                                    portal lives at /{slug}/client/login
-                                    which they shouldn't have to type)
-        */}
-        {!isSignedIn && (
-          <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-2xl p-8 mb-12 border border-slate-600">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Catering company CTA */}
-              <div className="bg-slate-900/50 border border-slate-600 rounded-xl p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 rounded-lg bg-slate-900/30 text-slate-300">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-lg font-semibold text-white">Catering business</h4>
-                </div>
-                <p className="text-sm text-slate-300 mb-4">
-                  Sign in to manage quotes, orders, kitchen prep, drivers and clients.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Link href="/auth/login">
-                    <Button size="sm" className="bg-brand-primary text-white hover:opacity-90">
-                      Sign in
-                      <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                    </Button>
-                  </Link>
-                  <Link href="/company-signup">
-                    <Button size="sm" variant="outline" className="border-slate-500 text-slate-200 hover:text-white hover:bg-slate-800">
-                      Sign up free
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Event customer CTA */}
-              <div className="bg-slate-900/50 border border-slate-600 rounded-xl p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 rounded-lg bg-blue-900/30 text-blue-300">
-                    <Users className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-lg font-semibold text-white">Booked an event?</h4>
-                </div>
-                <p className="text-sm text-slate-300 mb-4">
-                  Open the "Track your event" link in your booking confirmation email, it takes you straight to your portal.
-                </p>
-                <p className="text-xs text-slate-400">
-                  Lost the email? Reply to your last quote and the catering team will resend it.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Main Footer Content */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          <div className="col-span-1 md:col-span-2">
-            {displayLogo ? (
-              <img
-                src={displayLogo}
-                alt={displayName}
-                className="h-12 object-contain mb-4"
-              />
-            ) : (
-              <h3 className="text-2xl font-bold bg-brand-primary bg-clip-text text-transparent mb-4">
-                {displayName}
-              </h3>
-            )}
-            <p className="text-slate-300 mb-6 max-w-md">
-              {isWhiteLabeled
-                ? `Complete catering management solution powered by advanced technology.`
-                : `Complete solution for South African catering businesses. Automate your operations, increase profitability, and deliver exceptional service.`}
-            </p>
-            <div className="space-y-2 text-sm text-slate-300">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                <span>Cape Town, South Africa</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                <span>+27 (0) 21 123 4567</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                <span>support@cateringplatform.co.za</span>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-semibold mb-4 text-slate-200">Quick Links</h4>
-            <ul className="space-y-2">
-              {quickLinks.map((link) => (
-                <li key={link.name}>
-                  <Link href={link.href}>
-                    <span className="text-slate-300 hover:text-white transition-colors text-sm">
-                      {link.name}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-semibold mb-4 text-slate-200">Resources</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link href="/blog">
-                  <span className="text-slate-300 hover:text-white transition-colors text-sm">
-                    Blog
-                  </span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/help">
-                  <span className="text-slate-300 hover:text-white transition-colors text-sm">
-                    Help Center
-                  </span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/documentation">
-                  <span className="text-slate-300 hover:text-white transition-colors text-sm">
-                    Documentation
-                  </span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/tutorials">
-                  <span className="text-slate-300 hover:text-white transition-colors text-sm">
-                    Video Tutorials
-                  </span>
-                </Link>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Bottom Bar with CateringMS Attribution */}
-        <div className="border-t border-slate-700 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-sm text-slate-400 text-center md:text-left">
-              <p>© {currentYear} {displayName}. All rights reserved.</p>
-              {isWhiteLabeled && (
-                <p className="mt-2">
-                  <Link href="https://cateringms.com" target="_blank" rel="noopener noreferrer">
-                    <span className="inline-flex items-center gap-2 text-slate-500 hover:text-white transition-colors">
-                      <Sparkles className="w-4 h-4" />
-                      <span>Powered by CateringMS - Catering Management & Process Solutions</span>
-                    </span>
-                  </Link>
-                </p>
-              )}
-            </div>
-            <div className="flex gap-6 text-sm text-slate-400">
-              <Link href="/privacy">
-                <span className="hover:text-white transition-colors">Privacy Policy</span>
-              </Link>
-              <Link href="/terms">
-                <span className="hover:text-white transition-colors">Terms of Service</span>
-              </Link>
-            </div>
-          </div>
-        </div>
+      <div ref={footerRef as React.RefObject<HTMLDivElement>} className="mt-20">
+        <LandingFooter
+          displayName={displayName}
+          logoUrl={displayLogo || null}
+          isWhiteLabeled={isWhiteLabeled}
+        />
       </div>
-    </footer>
     </>
   );
 }

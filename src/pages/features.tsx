@@ -338,8 +338,7 @@ export default function FeaturesPage() {
             <Stagger className="mx-auto max-w-3xl text-center" gap={0.07}>
               <StaggerItem>
                 <h1 className="text-balance font-display text-4xl font-semibold leading-[1.06] tracking-tight text-stone-900 sm:text-5xl lg:text-[3.75rem]">
-                  Every feature you need to run a{" "}
-                  <span className="text-amber-700">profitable catering business</span>
+                  Every feature you need to run a profitable catering business
                 </h1>
               </StaggerItem>
 

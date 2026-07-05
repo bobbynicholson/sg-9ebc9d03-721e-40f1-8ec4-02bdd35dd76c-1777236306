@@ -46,7 +46,13 @@ export const getStaticProps: GetStaticProps = async () => {
         title: r.title,
         author: r.author || "CateringMS Team",
         date: r.published_date || r.created_at || new Date().toISOString(),
-        image: r.cover_image || FALLBACK_COVER,
+        // featured_image is the real blog_posts column; cover_image never
+        // existed, so every CMS post showed the same fallback photo.
+        image: r.featured_image || FALLBACK_COVER,
+        // Carry the category the operator picked in the CMS - the index
+        // used to re-derive it from title keywords, so filtering by the
+        // chosen category was impossible.
+        category: r.category || undefined,
         content: [
           { type: "paragraph", text: r.excerpt || plain.slice(0, 300) },
           ...(plain ? [{ type: "paragraph", text: plain }] : []),
@@ -75,7 +81,11 @@ export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: 
     return firstParagraph?.text?.substring(0, 150) + "..." || post.title;
   };
 
-  const getCategory = (title: string): string => {
+  // CMS posts carry the category the operator picked; static launch
+  // posts fall back to the title-keyword heuristic.
+  const getCategory = (post: BlogPost): string => {
+    if ((post as any).category) return (post as any).category as string;
+    const title = post.title;
     if (title.toLowerCase().includes("cost") || title.toLowerCase().includes("profit")) return "Cost Management";
     if (title.toLowerCase().includes("automat")) return "Automation";
     if (title.toLowerCase().includes("kitchen")) return "Kitchen Management";
@@ -96,7 +106,7 @@ export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: 
   };
 
   const posts = allPosts.filter((post) => {
-    if (activeCategory !== "All" && getCategory(post.title) !== activeCategory) return false;
+    if (activeCategory !== "All" && getCategory(post) !== activeCategory) return false;
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase();
     const body = post.content.map((b) => `${b.text || ""} ${b.question || ""} ${b.answer || ""}`).join(" ").toLowerCase();
@@ -128,7 +138,9 @@ export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: 
     }))
   };
 
-  const categories = ["All", "Cost Management", "Automation", "Kitchen Management", "Logistics", "Inventory", "Client Relations"];
+  // Chips reflect the categories actually present (CMS picks included),
+  // so a filter can never be a dead end.
+  const categories = ["All", ...Array.from(new Set(allPosts.map((p) => getCategory(p)))).sort()];
 
   const [featured, ...rest] = posts;
 
@@ -168,8 +180,7 @@ export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: 
 
             <Reveal className="max-w-3xl" delay={0.05}>
               <h1 className="text-balance font-display text-4xl font-medium leading-[1.05] tracking-tight text-stone-900 sm:text-5xl lg:text-6xl">
-                Catering Business{" "}
-                <span className="text-amber-700">Blog</span>
+                The catering business blog
               </h1>
               <p className="mt-6 max-w-[60ch] text-pretty text-lg leading-relaxed text-stone-700 sm:text-xl">
                 Expert insights on automation, profitability, and growth for catering businesses
@@ -235,7 +246,7 @@ export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: 
                       </div>
                       <div className="flex flex-col justify-center p-7 md:p-9">
                         <Badge variant="secondary" className="mb-3 w-fit bg-amber-100 text-amber-800">
-                          {getCategory(featured.title)}
+                          {getCategory(featured)}
                         </Badge>
                         <h2 className={`text-balance font-display text-2xl font-semibold leading-snug tracking-tight text-stone-900 transition-colors duration-200 ${EASE} group-hover:text-amber-800 md:text-3xl`}>
                           {featured.title}
@@ -277,7 +288,7 @@ export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: 
                             className={`transition-transform duration-500 ${EASE} group-hover:scale-[1.04]`}
                           />
                           <span className="absolute left-3 top-3 rounded-full bg-stone-900/85 px-3 py-1 text-xs font-medium text-stone-50">
-                            {getCategory(post.title)}
+                            {getCategory(post)}
                           </span>
                         </div>
                         <h3 className={`text-balance font-display text-xl font-semibold leading-snug tracking-tight text-stone-900 transition-colors duration-200 ${EASE} group-hover:text-amber-800`}>
@@ -311,17 +322,30 @@ export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: 
                 <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
                   <h2 className="font-display text-lg font-semibold text-stone-900">Popular Topics</h2>
                   <ul className="mt-4 divide-y divide-stone-200">
-                    {[
-                      { label: "Cost Reduction", count: "5 posts" },
-                      { label: "Kitchen Management", count: "3 posts" },
-                      { label: "Logistics", count: "2 posts" },
-                      { label: "Equipment", count: "3 posts" },
-                    ].map((topic) => (
-                      <li key={topic.label} className="flex items-center justify-between py-2.5 text-sm">
-                        <span className="text-stone-700">{topic.label}</span>
-                        <span className="text-stone-500">{topic.count}</span>
-                      </li>
-                    ))}
+                    {/* Real counts from the live post list (the old
+                        hardcoded "5 posts" style numbers were fiction).
+                        Clicking filters the grid. */}
+                    {Array.from(
+                      allPosts.reduce((m, p) => {
+                        const c = getCategory(p);
+                        m.set(c, (m.get(c) || 0) + 1);
+                        return m;
+                      }, new Map<string, number>()),
+                    )
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 5)
+                      .map(([label, count]) => (
+                        <li key={label}>
+                          <button
+                            type="button"
+                            onClick={() => setActiveCategory(label)}
+                            className="flex w-full items-center justify-between py-2.5 text-sm hover:text-amber-800"
+                          >
+                            <span className="text-stone-700">{label}</span>
+                            <span className="text-stone-500">{count} post{count === 1 ? "" : "s"}</span>
+                          </button>
+                        </li>
+                      ))}
                   </ul>
                 </div>
               </Reveal>
@@ -355,11 +379,14 @@ export default function BlogPage({ posts: allPosts = blogPosts as BlogPost[] }: 
                   <p className="mt-3 max-w-[42ch] text-sm leading-relaxed text-stone-700">
                     Get weekly tips on catering business automation and profitability
                   </p>
-                  <div className="mt-4 space-y-3">
-                    <Input placeholder="Your email" type="email" className="rounded-full border-stone-300 bg-white" />
-                    <Button className={`w-full rounded-full bg-amber-600 font-semibold text-white shadow-sm hover:bg-amber-700 ${btnPress}`}>
-                      Subscribe
-                      <ArrowRight className="h-4 w-4" />
+                  <div className="mt-4">
+                    {/* No newsletter backend exists yet - an email input
+                        feeding nothing is worse than a plain CTA. */}
+                    <Button asChild className={`w-full rounded-full bg-amber-600 font-semibold text-white shadow-sm hover:bg-amber-700 ${btnPress}`}>
+                      <Link href="/contact">
+                        Get in touch
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
                     </Button>
                   </div>
                 </div>
