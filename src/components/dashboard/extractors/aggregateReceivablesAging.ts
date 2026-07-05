@@ -54,6 +54,14 @@ const BUCKET_DEFS: Array<{ key: AgingBucketKey; label: string; shortLabel: strin
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Only genuinely-open invoices count toward receivables. Use a POSITIVE
+// allowlist (matches InvoiceAgingCard + outstanding-balances) instead of a
+// terminal-status blocklist: the old blocklist checked "void"/"cancelled",
+// spellings that don't exist in the schema (real terminals are paid,
+// voided, written_off), so written-off/voided/draft balances leaked into
+// the total and disagreed with every other surface.
+const OPEN_STATUSES = new Set(["sent", "partially_paid", "overdue"]);
+
 const daysBetween = (from: Date, to: Date): number => {
   // Floor to UTC midnight on both sides so DST shifts don't smear the
   // bucket boundaries.
@@ -77,7 +85,7 @@ export function aggregateReceivablesAging(
   let worstSingle: { balance: number; daysOverdue: number } | null = null;
 
   for (const inv of invoices) {
-    if (inv.status === "paid" || inv.status === "void" || inv.status === "cancelled") continue;
+    if (!OPEN_STATUSES.has(String(inv.status || ""))) continue;
     if (!inv.due_date) continue;
     const balance = Number(inv.balance_due) || 0;
     if (balance <= 0) continue;

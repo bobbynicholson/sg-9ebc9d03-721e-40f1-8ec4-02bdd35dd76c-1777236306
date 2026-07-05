@@ -28,6 +28,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { emailService } from "@/services/emailService";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { notificationService } from "@/services/notificationService";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -64,6 +66,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .from("invoices")
       .select("id, invoice_number, total_amount, balance_due, due_date, public_token, order_id, client_id, status")
       .eq("company_id", companyId)
+      // Never chase a soft-deleted invoice. The client/order lookups below
+      // already filter deleted_at; without this guard on the driving query a
+      // deleted invoice still in a sent/partial/overdue state gets emailed.
+      .is("deleted_at", null)
       .in("status", ["sent", "partially_paid", "overdue"] as any)
       .order("due_date", { ascending: true });
     if (scope === "overdue") {
@@ -215,6 +221,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         } as any);
         if (ok) sent += 1;
         else failed += 1;
+
+        // Notify the client in-app too (standing "notify relevant users"
+        // rule) so the reminder shows in their portal bell, not just email.
+        // Best-effort: resolveClientUserId returns null for un-linked
+        // portal-token clients - skip rather than insert an unreadable row.
+        if (ok) {
+          try {
+            const clientUid = await resolveClientUserId(ssr, inv.client_id || null);
+            if (clientUid) {
+              await notificationService.createNotification({
+                company_id: companyId,
+                recipient_id: clientUid,
+                user_id: clientUid,
+                notification_type: "balance_reminder",
+                title: "Payment reminder",
+                message: `A friendly reminder: invoice ${inv.invoice_number || ""} has ${sym} ${balance.toFixed(2)} outstanding (due ${due}).`,
+                priority: "normal",
+                link: `/client-portal/billing?invoiceId=${inv.id}`,
+                related_entity_type: "invoice",
+                related_entity_id: inv.id,
+              }, ssr);
+            }
+          } catch (notifyErr) {
+            console.warn("[bulk-remind] client in-app notify failed:", inv.id, notifyErr);
+          }
+        }
       } catch (e) {
         console.warn("[bulk-remind] per-invoice send failed:", inv.id, e);
         failed += 1;

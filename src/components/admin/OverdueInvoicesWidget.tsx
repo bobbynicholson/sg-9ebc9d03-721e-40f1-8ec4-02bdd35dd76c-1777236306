@@ -29,6 +29,7 @@ interface InvoiceRow {
   id: string;
   invoice_number: string | null;
   total_amount: number | null;
+  balance_due: number | null;
   status: string | null;
   due_date: string | null;
   orders: {
@@ -63,15 +64,20 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
         const { data, error } = await (supabase as any)
           .from("invoices")
           .select(`
-            id, invoice_number, total_amount, status, due_date,
+            id, invoice_number, total_amount, balance_due, status, due_date,
             orders ( order_number, client_name )
           `)
           .eq("company_id", companyId)
           .is("deleted_at", null)
           // The real terminal invoice states are paid, written_off and
-          // voided. All three are excluded so the widget only surfaces
-          // genuinely-open invoices past their due date.
-          .not("status", "in", '("paid","voided","written_off")')
+          // voided. Also exclude draft (never issued to the client). So the
+          // widget only surfaces genuinely-open invoices past their due date.
+          .not("status", "in", '("paid","voided","written_off","draft")')
+          // Only chase money actually still owed. Without this an invoice
+          // whose balance is settled but not yet flipped to paid shows here,
+          // and the amount below must be the OUTSTANDING balance, not the
+          // full total (partially-paid invoices were overstated).
+          .gt("balance_due", 0)
           .lt("due_date", today)
           .order("due_date", { ascending: true })
           .limit(5);
@@ -154,7 +160,7 @@ export function OverdueInvoicesWidget({ companyId }: { companyId: string | null 
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-bold tabular-nums text-rose-800">
-                      {tenantCurrency.format(Number(r.total_amount || 0), 0)}
+                      {tenantCurrency.format(Number(r.balance_due ?? r.total_amount ?? 0), 0)}
                     </span>
                   </Link>
                 </li>

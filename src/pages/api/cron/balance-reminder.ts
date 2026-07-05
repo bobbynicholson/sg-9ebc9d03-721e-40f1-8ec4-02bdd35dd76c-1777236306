@@ -76,7 +76,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Pull order + client details for the email.
         const { data: order } = await (sb as any)
           .from("orders")
-          .select("id, client_email, client_name, order_number, event_name, event_date")
+          .select("id, client_id, client_email, client_name, order_number, event_name, event_date")
           .eq("id", inv.order_id)
           .maybeSingle();
         if (!order || !(order as any).client_email) continue;
@@ -148,6 +148,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           _client: sb,
         } as any);
         queued += 1;
+
+        // Also surface the reminder in the client's portal bell (email +
+        // in-app, same as the manual bulk-remind path). Best-effort:
+        // resolveClientUserId returns null for un-linked portal-token
+        // clients - skip rather than insert a row no auth user can read.
+        try {
+          const { resolveClientUserId } = await import("@/services/lifecycle/resolveClientUserId");
+          const { notificationService } = await import("@/services/notificationService");
+          const clientUid = await resolveClientUserId(sb, (order as any).client_id || null);
+          if (clientUid) {
+            await notificationService.createNotification({
+              company_id: inv.company_id,
+              recipient_id: clientUid,
+              user_id: clientUid,
+              notification_type: "balance_reminder",
+              title: "Payment reminder",
+              message: `A friendly reminder: the balance for ${variables.event_name} is ${formattedAmount}, due ${variables.due_date}.`,
+              priority: "normal",
+              link: `/client-portal/billing?invoiceId=${inv.id}`,
+              related_entity_type: "invoice",
+              related_entity_id: inv.id,
+            }, sb);
+          }
+        } catch (notifyErr: any) {
+          console.warn("[balance-reminder] client in-app notify failed:", inv.id, notifyErr?.message || notifyErr);
+        }
       } catch (e: any) {
         errors.push(`invoice ${inv.id}: ${e?.message || e}`);
       }
