@@ -140,8 +140,10 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     };
   }, [open, invoice?.id, publicToken]);
 
+  // Show exact cents: the client is about to be charged this figure, so a
+  // rounded "R1,235" for a R1,234.56 balance is a money-display mismatch.
   const fmtCurrency = (n: number) =>
-    `${invoice.currency}${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    `${invoice.currency}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const netAmount = applyCredit
     ? Math.max(0, invoice.amount - creditMaxApplicable)
     : invoice.amount;
