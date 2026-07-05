@@ -27,6 +27,14 @@ const customJestConfig = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '<rootDir>/src/pages/',
+    // Build output dirs mirror the pages tree, so the compiled copies of
+    // API routes named test.ts (e.g. payment-gateways/[id]/test.js) land
+    // here and Jest greedily discovers them -> "your test suite must
+    // contain at least one test". .next-verify/ is the commit watchdog's
+    // build output; .next/ is the normal dev/build output. Neither holds
+    // real tests.
+    '<rootDir>/.next/',
+    '<rootDir>/.next-verify/',
     // impeccable/ is a separate skill toolkit with Bun-runtime tests
     // (import 'bun:test'); Jest can't load them and they aren't part of
     // the app test suite. Exclude so `test:ci` stays green.
