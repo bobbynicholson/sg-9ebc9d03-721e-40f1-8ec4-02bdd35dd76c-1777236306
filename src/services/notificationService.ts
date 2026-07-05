@@ -115,6 +115,16 @@ interface BroadcastNotificationParams {
    * whose active_role is in the list. Omit for unchanged behaviour.
    */
   excludeActiveRoles?: string[];
+  /**
+   * Dispatch signal. A "managing only" kitchen_manager / cleaning_manager is
+   * normally dropped from CREW broadcasts (see the filter) - they don't do
+   * hands-on work, so routine crew chatter shouldn't ping them. But a
+   * "work has arrived, assign your team" broadcast (prep plan ready, cleaning
+   * needed) IS a manager's cue to dispatch, so it must reach them even when
+   * they're managing-only. Set managerDispatch: true on those. Working
+   * managers receive everything regardless.
+   */
+  managerDispatch?: boolean;
 }
 
 interface CleanupOptions {
@@ -722,7 +732,7 @@ export const notificationService = {
           // (targetRoles that name the manager role but NOT the staff role).
           // A "Working" manager falls through and is treated like staff.
           const activeRole = String((profile as any).active_role || "");
-          if (isManagerRole(activeRole) && !isManagerWorkingNow(profile as any)) {
+          if (isManagerRole(activeRole) && !isManagerWorkingNow(profile as any) && !params.managerDispatch) {
             const crewRole = crewRoleForManager(activeRole);
             const targets = (params.targetRoles || []).map((r) => String(r));
             const isCrewBroadcast = !!crewRole && targets.includes(crewRole);

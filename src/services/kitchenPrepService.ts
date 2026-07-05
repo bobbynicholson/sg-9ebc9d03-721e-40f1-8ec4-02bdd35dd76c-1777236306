@@ -677,6 +677,10 @@ export const kitchenPrepService = {
         message: `${rows.length} prep task${rows.length === 1 ? "" : "s"} scheduled. Open the order to start prep and tick tasks off.`,
         targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
         excludeActiveRoles: ["waiter"],
+        // Work-arrived dispatch signal: a managing-only manager must still
+        // get this so they can assign the team, even though they're not
+        // doing hands-on prep themselves.
+        managerDispatch: true,
         priority: "normal",
         // Link to the ORDER's kitchen view (Start/Done buttons live there),
         // NOT /kitchen/prep-list which is the ingredient pull/shortfall list
@@ -767,11 +771,18 @@ export const kitchenPrepService = {
   // in the schema + the display joins from day one but nothing ever wrote
   // it; this is the writer. Requested 2026-07-04.
 
-  /** Kitchen team members (profiles) who can be assigned prep tasks. */
+  /**
+   * Kitchen team members (profiles) who can be ASSIGNED prep tasks. Staff are
+   * always assignable; a kitchen_manager is only an assignable target while
+   * they've opted in to "Working" (managing-only managers oversee, they don't
+   * take hands-on tasks). A manager who wants a task flips their work toggle
+   * on first. See managerWorkModeService.
+   */
   async listKitchenTeam(companyId: string): Promise<Array<{ id: string; full_name: string; role: string }>> {
+    const { isManagerRole, isManagerWorkingNow } = await import("@/services/managerWorkModeService");
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, role")
+      .select("id, full_name, role, active_role, manager_working, manager_working_since")
       .eq("company_id", companyId)
       .in("role", ["kitchen_manager", "kitchen_staff"])
       .eq("is_active", true)
@@ -780,7 +791,13 @@ export const kitchenPrepService = {
       console.error("[kitchenPrepService] kitchen team fetch failed:", error);
       return [];
     }
-    return (data || []) as any[];
+    const now = Date.now();
+    return ((data || []) as any[]).filter((p) => {
+      const activeRole = String(p.active_role || p.role || "");
+      // Managing-only managers are excluded from the assignable pool.
+      if (isManagerRole(activeRole) && !isManagerWorkingNow(p, now)) return false;
+      return true;
+    });
   },
 
   /**
