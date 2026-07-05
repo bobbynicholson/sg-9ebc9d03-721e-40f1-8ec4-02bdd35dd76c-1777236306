@@ -310,7 +310,14 @@ export function ClientTrackingMap({
     );
   }
 
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  // Function DECLARATION (hoisted) on purpose: the map-center useEffect
+  // above calls this, but the early `return`s between here and there mean
+  // a `const` arrow would still be in its temporal dead zone when that
+  // effect fires on the first (loading) render - crashing the whole map
+  // with "Cannot access 'calculateDistance' before initialization" the
+  // moment an order has BOTH a geocoded venue and a live driver (i.e. a
+  // real dispatched delivery). Hoisting removes the TDZ.
+  function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371; // Earth's radius in km
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
     const dLng = ((lng2 - lng1) * Math.PI) / 180;
@@ -322,7 +329,7 @@ export function ClientTrackingMap({
         Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
-  };
+  }
 
   const getRouteColor = () => {
     switch (orderStatus) {
