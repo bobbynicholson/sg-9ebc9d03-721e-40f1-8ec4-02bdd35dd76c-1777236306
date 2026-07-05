@@ -78,24 +78,32 @@ export async function listPlatformTemplates(): Promise<PlatformMergedTemplate[]>
 
   // No platform templates are WhatsApp today, but mirror the read so
   // future platform-scoped WhatsApp templates (e.g. tenant-billing
-  // ping) light up automatically.
-  try {
-    const { data, error } = await (supabase as any)
-      .from("whatsapp_templates")
-      .select("template_key, template_content, is_enabled")
-      .is("company_id", null)
-      .in("template_key", keys);
-    if (error) console.error("[platformTemplateService] whatsapp_templates lookup failed:", error);
-    for (const r of (data || []) as any[]) {
-      if (!r.template_key) continue;
-      overrideByKey.set(r.template_key, {
-        subject: null,
-        body: r.template_content ?? "",
-        isActive: r.is_enabled !== false,
-      });
+  // ping) light up automatically. Only fill WhatsApp overrides for keys
+  // that are actually WhatsApp templates in the registry - otherwise a
+  // stray whatsapp_templates row (subject:null) would clobber a real
+  // email override for the same key and blank its subject in the editor.
+  const whatsappKeys = new Set(
+    platformDefs.filter((d) => d.channel === "whatsapp").map((d) => d.key),
+  );
+  if (whatsappKeys.size > 0) {
+    try {
+      const { data, error } = await (supabase as any)
+        .from("whatsapp_templates")
+        .select("template_key, template_content, is_enabled")
+        .is("company_id", null)
+        .in("template_key", Array.from(whatsappKeys));
+      if (error) console.error("[platformTemplateService] whatsapp_templates lookup failed:", error);
+      for (const r of (data || []) as any[]) {
+        if (!r.template_key || !whatsappKeys.has(r.template_key)) continue;
+        overrideByKey.set(r.template_key, {
+          subject: null,
+          body: r.template_content ?? "",
+          isActive: r.is_enabled !== false,
+        });
+      }
+    } catch (err) {
+      console.warn("[platformTemplateService] whatsapp_templates read failed", err);
     }
-  } catch (err) {
-    console.warn("[platformTemplateService] whatsapp_templates read failed", err);
   }
 
   return platformDefs.map((def) => {
