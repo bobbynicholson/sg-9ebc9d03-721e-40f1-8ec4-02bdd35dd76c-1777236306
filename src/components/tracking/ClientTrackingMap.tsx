@@ -21,9 +21,12 @@ interface ClientTrackingMapProps {
     driver_phone?: string;
     last_updated: string;
   };
+  // Venue coords can be null when the delivery address was never geocoded.
+  // The map still runs in a driver-only mode in that case (see below), so
+  // lat/lng are nullable rather than hard-required.
   venueLocation: {
-    lat: number;
-    lng: number;
+    lat: number | null | undefined;
+    lng: number | null | undefined;
     address: string;
   };
   orderStatus: string;
@@ -93,6 +96,9 @@ function FitBounds({
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
     } else if (venue) {
       map.setView([venue.lat, venue.lng], 14);
+    } else if (driver) {
+      // Driver-only mode (venue not geocoded): keep the driver framed.
+      map.setView([driver.lat, driver.lng], 15);
     }
   }, [driver?.lat, driver?.lng, venue?.lat, venue?.lng, map]);
   return null;
@@ -152,6 +158,11 @@ export function ClientTrackingMap({
       else setMapZoom(12);
     } else if (venueLocation.lat && venueLocation.lng) {
       setMapCenter([venueLocation.lat, venueLocation.lng]);
+      setMapZoom(14);
+    } else if (liveDriverLocation && Number.isFinite(Number(liveDriverLocation.lat)) && Number.isFinite(Number(liveDriverLocation.lng))) {
+      // Driver-only mode: no geocoded venue, but we have a live GPS fix.
+      // Follow the driver so the customer still sees the vehicle moving.
+      setMapCenter([Number(liveDriverLocation.lat), Number(liveDriverLocation.lng)]);
       setMapZoom(14);
     }
   }, [liveDriverLocation, venueLocation]);
@@ -284,9 +295,12 @@ export function ClientTrackingMap({
     );
   }
 
-  // No usable destination - show a graceful fallback rather than asking
-  // Leaflet to project a null lat/lng (which crashes the page).
-  if (!venueOk) {
+  // Nothing to plot at all - no geocoded venue AND no live driver GPS.
+  // Only then show the graceful fallback rather than asking Leaflet to
+  // project a null lat/lng (which crashes the page). When the venue is
+  // missing but the driver's GPS is live we still render below in
+  // driver-only mode so the customer sees the vehicle moving.
+  if (!venueOk && !driverOk) {
     return (
       <div className="h-full flex items-center justify-center bg-slate-100 rounded-lg">
         <p className="text-slate-500 text-sm text-center px-4">
@@ -336,23 +350,25 @@ export function ClientTrackingMap({
         venue={venueOk ? { lat: Number(venueLocation.lat), lng: Number(venueLocation.lng) } : null}
       />
       
-      {/* Venue marker (destination) */}
-      <Marker
-        position={[Number(venueLocation.lat), Number(venueLocation.lng)]}
-        icon={venueIcon}
-      >
-        <Popup>
-          <div className="p-2">
-            <h3 className="font-semibold text-sm mb-1">📍 Your Delivery Location</h3>
-            <p className="text-xs text-slate-600">{venueLocation.address}</p>
-            {estimatedArrival && (
-              <p className="text-xs text-brand-primary font-medium mt-2">
-                ETA: {new Date(estimatedArrival).toLocaleTimeString()}
-              </p>
-            )}
-          </div>
-        </Popup>
-      </Marker>
+      {/* Venue marker (destination) - only when the address is geocoded. */}
+      {venueOk && (
+        <Marker
+          position={[Number(venueLocation.lat), Number(venueLocation.lng)]}
+          icon={venueIcon}
+        >
+          <Popup>
+            <div className="p-2">
+              <h3 className="font-semibold text-sm mb-1">📍 Your Delivery Location</h3>
+              <p className="text-xs text-slate-600">{venueLocation.address}</p>
+              {estimatedArrival && (
+                <p className="text-xs text-brand-primary font-medium mt-2">
+                  ETA: {new Date(estimatedArrival).toLocaleTimeString()}
+                </p>
+              )}
+            </div>
+          </Popup>
+        </Marker>
+      )}
 
       {/* Live driver marker - only when we have valid GPS coords. */}
       {driverOk && liveDriverLocation && (
@@ -378,8 +394,9 @@ export function ClientTrackingMap({
       )}
 
       {/* Route line from driver to destination - both ends must have
-          valid coords or Leaflet's projection crashes the whole map. */}
-      {driverOk && liveDriverLocation && (
+          valid coords or Leaflet's projection crashes the whole map.
+          Skipped in driver-only mode (no geocoded venue). */}
+      {driverOk && venueOk && liveDriverLocation && (
         <Polyline
           positions={[
             [Number(liveDriverLocation.lat), Number(liveDriverLocation.lng)],

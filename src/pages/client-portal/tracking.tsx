@@ -634,7 +634,10 @@ function ClientTrackingInner() {
                     </Badge>
                   )}
                 </div>
-                {selectedOrder && selectedOrder.venue_lat && selectedOrder.venue_lng ? (
+                {selectedOrder && (
+                  (selectedOrder.venue_lat && selectedOrder.venue_lng) ||
+                  (isLiveTrip(selectedOrder) && driverLocation)
+                ) ? (
                   <div className="h-[500px] relative">
                     <ClientTrackingMap
                       orderId={selectedOrder.id}
