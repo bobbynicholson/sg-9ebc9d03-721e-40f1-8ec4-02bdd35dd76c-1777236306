@@ -51,6 +51,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (channel !== "email" && channel !== "whatsapp") {
       return res.status(400).json({ error: "channel must be email or whatsapp" });
     }
+    // Email overrides need a non-empty subject: the resolver only applies
+    // a row when BOTH subject and body are truthy, so an empty subject
+    // saved "Customised" here would be silently skipped at send time and
+    // the fallback would go out - the surface disagreeing with reality.
+    if (channel === "email" && (!subject || typeof subject !== "string" || !subject.trim())) {
+      return res.status(400).json({ error: "Subject is required for email templates" });
+    }
 
     const def = TEMPLATE_REGISTRY.find((t) => t.key === key);
     if (!def) {
