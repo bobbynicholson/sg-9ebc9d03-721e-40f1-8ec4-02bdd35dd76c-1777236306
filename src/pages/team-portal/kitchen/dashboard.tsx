@@ -24,6 +24,7 @@ import { CleaningScheduleDialog } from "@/components/kitchen/CleaningScheduleDia
 import { ChatBot } from "@/components/ChatBot";
 import { KitchenServiceFAB } from "@/components/kitchen/KitchenServiceFAB";
 import { KitchenStaffTileBoard } from "@/components/kitchen/KitchenStaffTileBoard";
+import { ManagerWorkModeCard } from "@/components/portal/ManagerWorkModeCard";
 import { TaskCompletionButtons } from "@/components/kitchen/TaskCompletionButtons";
 // KIT2-L (kitchen deep audit, KIT2-41): per-task countdown chips
 // over kitchen_prep_tasks. Lives on every preparing-column card,
@@ -1287,6 +1288,13 @@ function KitchenDashboardInner() {
               </Button>
             </div>
           )}
+
+          {/* Manager work-mode: renders only for kitchen_manager. Lets a
+              manager opt in to "Working" (crew task alerts + on the floor)
+              vs managing-only oversight. Null for staff. */}
+          <div className="mb-6 sm:mb-8">
+            <ManagerWorkModeCard />
+          </div>
 
           {/* Phase 5C: tile board replaces the per-user Start/End Duty
               widget. One login on the tablet, one tap per staff member. */}

@@ -193,6 +193,17 @@ export const timeClockService = {
 
     if (updateError) throw updateError;
 
+    // A manager who was "Working" reverts to managing-only when they clock
+    // out (the "resets on clock-out" guarantee). Best-effort + safe for any
+    // role: non-managers never had the flag set, so this is a no-op for them.
+    const { error: workModeErr } = await supabase
+      .from("profiles")
+      .update({ manager_working: false, manager_working_since: null } as any)
+      .eq("id", staffId);
+    if (workModeErr) {
+      console.error("[timeClockService.clockOut] manager work-mode reset failed:", workModeErr);
+    }
+
     return { entry, session: updatedSession };
   },
 

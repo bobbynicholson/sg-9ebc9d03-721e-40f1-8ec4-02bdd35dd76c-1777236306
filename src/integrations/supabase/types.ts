@@ -7877,6 +7877,8 @@ export type Database = {
           id: string
           id_number: string | null
           is_active: boolean | null
+          manager_working: boolean | null
+          manager_working_since: string | null
           last_sign_in_at: string | null
           max_jobs_per_shift: number | null
           mobile_number: string | null
@@ -7927,6 +7929,8 @@ export type Database = {
           phone_verified?: boolean | null
           region?: string | null
           region_id?: string | null
+          manager_working?: boolean | null
+          manager_working_since?: string | null
           regions_covered?: string[] | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
@@ -7966,6 +7970,8 @@ export type Database = {
           phone?: string | null
           phone_number?: string | null
           phone_verified?: boolean | null
+          manager_working?: boolean | null
+          manager_working_since?: string | null
           region?: string | null
           region_id?: string | null
           regions_covered?: string[] | null

@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import type { UserRole } from "@/types/app";
+import { isManagerRole, crewRoleForManager, isManagerWorkingNow } from "@/services/managerWorkModeService";
 
 export type Notification = Tables<"notifications">;
 
@@ -686,7 +687,7 @@ export const notificationService = {
     try {
       const { data: profiles, error: profileError } = await sb
         .from("profiles")
-        .select("id, role, active_role, region_id, regions_covered")
+        .select("id, role, active_role, region_id, regions_covered, manager_working, manager_working_since")
         .eq("company_id", params.companyId);
 
       if (profileError) {
@@ -714,6 +715,18 @@ export const notificationService = {
           // kitchen-crew broadcasts).
           if (excludeActive.size > 0 && excludeActive.has(String((profile as any).active_role || ""))) {
             return false;
+          }
+          // Managing-only managers: a kitchen_manager / cleaning_manager who
+          // has NOT opted in to "Working" is oversight-only and must not
+          // receive crew task pings. They stay on manager-directed broadcasts
+          // (targetRoles that name the manager role but NOT the staff role).
+          // A "Working" manager falls through and is treated like staff.
+          const activeRole = String((profile as any).active_role || "");
+          if (isManagerRole(activeRole) && !isManagerWorkingNow(profile as any)) {
+            const crewRole = crewRoleForManager(activeRole);
+            const targets = (params.targetRoles || []).map((r) => String(r));
+            const isCrewBroadcast = !!crewRole && targets.includes(crewRole);
+            if (isCrewBroadcast) return false;
           }
           if (!params.targetRoles || params.targetRoles.length === 0) {
             // No role restriction; still apply region scoping below.

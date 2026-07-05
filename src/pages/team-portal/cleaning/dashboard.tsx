@@ -12,6 +12,7 @@ import { captureException } from "@/lib/observability";
 import { useToast } from "@/hooks/use-toast";
 import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { CleaningPageShell, CLEANING_HERO_CHIP } from "@/components/cleaning/CleaningPageShell";
+import { ManagerWorkModeCard } from "@/components/portal/ManagerWorkModeCard";
 import { CleaningDutyWidget } from "@/components/cleaning/CleaningDutyWidget";
 import { CleaningJobsQueue } from "@/components/cleaning/CleaningJobsQueue";
 import { CleaningEventBoard } from "@/components/cleaning/CleaningEventBoard";
@@ -355,6 +356,13 @@ function CleaningDashboardInner() {
           ) : undefined
         }
       >
+          {/* Manager work-mode: renders only for cleaning_manager. Opt in to
+              "Working" (crew task alerts + on the floor) vs managing-only
+              oversight. Null for staff. */}
+          <div className="mb-6">
+            <ManagerWorkModeCard />
+          </div>
+
           {/* Recovery card: the equipment read failed. Keep any
               last-good board below, but never dress a failure up as
               an all-clear day. */}
