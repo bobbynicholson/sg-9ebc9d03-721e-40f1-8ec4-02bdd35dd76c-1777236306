@@ -174,7 +174,11 @@ function ShoppingInventoryPageInner() {
 
   const stats = useMemo(() => {
     const total = items.length;
-    const below = items.filter((i) => Number(i.current_stock || 0) <= Number(i.minimum_stock || 0)).length;
+    // "Below par" must match what Draft-reorder actually drafts (and
+    // getLowStockItems): require a real par (min > 0), else 0/0 seed rows
+    // inflate the count and the "Draft reorder (N)" button no-ops with
+    // "0 items on the list". current <= min AND min > 0.
+    const below = items.filter((i) => Number(i.minimum_stock || 0) > 0 && Number(i.current_stock || 0) <= Number(i.minimum_stock || 0)).length;
     const out = items.filter((i) => Number(i.current_stock || 0) <= 0).length;
     const valueR = items.reduce((sum, i) => sum + (Number(i.current_stock || 0) * Number(i.cost_per_unit || 0)), 0);
     return { total, below, out, valueR };

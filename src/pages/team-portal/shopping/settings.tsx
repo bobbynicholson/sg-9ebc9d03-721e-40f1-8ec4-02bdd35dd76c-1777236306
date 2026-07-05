@@ -19,13 +19,15 @@ import {
   saveShoppingSettings,
 } from "@/services/shopping/shoppingSettingsService";
 
-/** Roles allowed to WRITE settings (matches the table RLS). Everyone
- *  else in the shopping portal gets a read-only view. */
+/** Roles allowed to WRITE settings. MUST match the company_shopping_settings
+ *  INSERT/UPDATE RLS, which allows only owner/company_admin/admin/super_admin
+ *  (migration 20260705130000). REGION_ADMIN was here but is NOT in the RLS, so
+ *  it got an editable form + Save button whose upsert RLS silently rejected -
+ *  "Could not save", changes lost. Everyone else gets a read-only view. */
 const EDITOR_ROLES = new Set<string>([
   UserRole.SUPER_ADMIN,
   UserRole.OWNER,
   UserRole.COMPANY_ADMIN,
-  UserRole.REGION_ADMIN,
   UserRole.ADMIN,
 ]);
 

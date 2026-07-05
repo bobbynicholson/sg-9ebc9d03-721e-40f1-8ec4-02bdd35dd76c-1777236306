@@ -118,11 +118,15 @@ function ShoppingInvoicesPageInner() {
     const totalSpend = completed.reduce((s, l) => s + Number(l.actual_total || 0), 0);
     const completedCount = completed.length;
     const withReceipt = items.filter((l) => l.receipt_url).length;
-    // Only completed lists have both an actual_total and an estimated_total.
-    // Reducing over all items let drafts (estimated set, actual 0) drag the
-    // variance falsely negative. Restrict to completed to match totalSpend.
-    const variance = completed.reduce((s, l) => s + (Number(l.actual_total || 0) - Number(l.estimated_total || 0)), 0);
-    return { totalSpend, completedCount, withReceipt, variance };
+    // Variance is only meaningful for lists that actually captured an
+    // estimate. Most lists have estimated_total = NULL (no live path sets
+    // it), and treating NULL as 0 made variance == totalSpend, so the tile
+    // announced the ENTIRE spend as "over estimate" with a red dot. Only
+    // include completed lists with a real (> 0) estimate; expose the count
+    // so the UI can hide the tile entirely when nothing has an estimate.
+    const estimated = completed.filter((l) => Number(l.estimated_total || 0) > 0);
+    const variance = estimated.reduce((s, l) => s + (Number(l.actual_total || 0) - Number(l.estimated_total || 0)), 0);
+    return { totalSpend, completedCount, withReceipt, variance, varianceBasis: estimated.length };
   }, [items]);
 
   const showSkeleton = loading && !loaded;
@@ -157,10 +161,12 @@ function ShoppingInvoicesPageInner() {
               <FileText className="h-3 w-3" />
               {stats.withReceipt} receipt{stats.withReceipt === 1 ? "" : "s"} on file
             </span>
-            <span className={SHOPPING_HERO_CHIP}>
-              <span className={cn("h-1.5 w-1.5 rounded-full", stats.variance > 0 ? "bg-rose-400" : "bg-emerald-400")} />
-              {stats.variance > 0 ? `${tenantCurrency.format(stats.variance, 0)} over estimate` : "On or under estimate"}
-            </span>
+            {stats.varianceBasis > 0 && (
+              <span className={SHOPPING_HERO_CHIP}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", stats.variance > 0 ? "bg-rose-400" : "bg-emerald-400")} />
+                {stats.variance > 0 ? `${tenantCurrency.format(stats.variance, 0)} over estimate` : "On or under estimate"}
+              </span>
+            )}
           </>
         ) : undefined
       }
@@ -202,9 +208,13 @@ function ShoppingInvoicesPageInner() {
           label={<span className="flex items-center gap-1">Estimate variance <InfoTooltip content="What you actually spent against what you estimated, across every run.\n\nA positive number means you went over budget." /></span>}
           value={
             chipsReady ? (
-              <span className={stats.variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-brand-primary dark:text-brand-primary"}>
-                {stats.variance >= 0 ? "+" : ""}{tenantCurrency.format(stats.variance, 0)}
-              </span>
+              stats.varianceBasis > 0 ? (
+                <span className={stats.variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-brand-primary dark:text-brand-primary"}>
+                  {stats.variance >= 0 ? "+" : ""}{tenantCurrency.format(stats.variance, 0)}
+                </span>
+              ) : (
+                <span className="text-slate-400 dark:text-slate-500 text-base font-normal">No estimates</span>
+              )
             ) : "--"
           }
         />

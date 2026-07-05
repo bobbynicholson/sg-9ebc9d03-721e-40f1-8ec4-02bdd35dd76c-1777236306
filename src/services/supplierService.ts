@@ -335,7 +335,11 @@ export const supplierService = {
       })
       .select()
       .single();
-    if (error) { console.error("supplierService.create:", error); return null; }
+    // Throw (don't swallow -> null) so the caller's try/catch fires. The
+    // suppliers page awaited this and always toasted "Supplier added" even
+    // when the insert was rejected by RLS/constraint, silently losing the
+    // row. update()/softDelete() already throw; match them.
+    if (error) { console.error("supplierService.create:", error); throw error; }
     return data as Supplier;
   },
 

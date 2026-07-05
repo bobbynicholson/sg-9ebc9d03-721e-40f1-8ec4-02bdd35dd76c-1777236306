@@ -13,6 +13,15 @@ import { withApiLogging } from "@/lib/withApiLogging";
 
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
+// Shopping staff drive the receipt scanner, which polls GET /api/imports/[id]
+// to read back the extracted rows before reconciling. They were previously
+// 403'd here, so after a successful scan they saw "nothing could be read" and
+// could never save the slip. Grant them READ only; PATCH/DELETE of import
+// jobs stays owner/admin-only.
+const ALLOWED_READ_ROLES = new Set([
+  ...ALLOWED_CALLER_ROLES,
+  "shopping_staff", "shopping",
+]);
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -33,8 +42,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.error("[imports/[id]/index] profiles fetch failed:", profileErr);
     }
     const role = (profile?.active_role || profile?.role || "") as string;
-    if (!ALLOWED_CALLER_ROLES.has(role)) {
-      return res.status(403).json({ error: "Only owners / admins can view imports" });
+    // Read is open to shopping staff (receipt scanner); mutations are not.
+    const allowedRoles = req.method === "GET" ? ALLOWED_READ_ROLES : ALLOWED_CALLER_ROLES;
+    if (!allowedRoles.has(role)) {
+      return res.status(403).json({ error: "You don't have access to this import" });
     }
     const companyId = profile?.company_id as string | null;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });

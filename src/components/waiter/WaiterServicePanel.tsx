@@ -203,6 +203,39 @@ export function WaiterServicePanel() {
         if (error) throw error;
       }
       toast({ title: PHASE_LABELS[phase], description: "Stamped now" });
+
+      // Communication: the office was previously never told when a waiter
+      // ran an event - tapping "Event complete" pinged nobody and (unlike
+      // the driver flow) doesn't flip the order status. Broadcast the
+      // milestone phases to admins/owner so they know service is
+      // progressing / done. Best-effort + dedup; never fails the stamp.
+      const MILESTONE_PHASES: Phase[] = [
+        "arrived_at", "service_started_at", "event_complete_at", "equipment_returned_at",
+      ];
+      if (MILESTONE_PHASES.includes(phase)) {
+        try {
+          const ord = orders.find((o) => o.id === orderId);
+          const label = ord ? orderDisplayName(ord as any) : "an event";
+          const who = (user as any)?.full_name || (user as any)?.email || "A waiter";
+          const { notificationService } = await import("@/services/notificationService");
+          const { UserRole } = await import("@/types/app");
+          await notificationService.broadcastNotification({
+            companyId: user.company_id,
+            type: "waiter_service_update",
+            title: `${PHASE_LABELS[phase]} - ${label}`,
+            message: `${who} marked "${PHASE_LABELS[phase]}" for ${label}.`,
+            targetRoles: [UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN],
+            priority: phase === "event_complete_at" ? "high" : "normal",
+            relatedEntityType: "order",
+            relatedEntityId: orderId,
+            dedup: true,
+            dedupWindowMinutes: 10,
+          } as any, supabase);
+        } catch (notifyErr) {
+          console.warn("[WaiterServicePanel] milestone notify failed:", notifyErr);
+        }
+      }
+
       load();
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "stampPhase", phase, orderId, companyId: user.company_id } });
