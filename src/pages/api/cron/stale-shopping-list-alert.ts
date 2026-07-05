@@ -73,7 +73,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .select("id", { count: "exact", head: true })
           .eq("user_id", companyId)
           .eq("template_type", TEMPLATE_TYPE)
-          .gte("sent_at", dedupSinceIso);
+          // created_at, not sent_at: logEmailSent leaves sent_at NULL.
+          .gte("created_at", dedupSinceIso);
 
         if (recentCount && recentCount > 0) {
           skipped += 1;

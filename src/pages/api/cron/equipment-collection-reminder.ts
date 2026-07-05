@@ -185,7 +185,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .select("id", { count: "exact", head: true })
           .eq("order_id", a.order_id)
           .eq("template_type", "equipment_collection_reminder")
-          .gte("sent_at", yesterdayIso);
+          // created_at, not sent_at: logEmailSent leaves sent_at NULL.
+          .gte("created_at", yesterdayIso);
         if (recentCount && recentCount > 0) continue;
 
         const variables: Record<string, string> = {

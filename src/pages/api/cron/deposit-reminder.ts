@@ -103,7 +103,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .select("id", { count: "exact", head: true })
           .eq("order_id", order.id)
           .eq("template_type", TEMPLATE_TYPE)
-          .gte("sent_at", dedupCutoff);
+          // created_at, not sent_at: logEmailSent leaves sent_at NULL.
+          .gte("created_at", dedupCutoff);
         if (recentCount && recentCount > 0) { skipped += 1; continue; }
 
         // Pacing gate 2: lifetime cap.

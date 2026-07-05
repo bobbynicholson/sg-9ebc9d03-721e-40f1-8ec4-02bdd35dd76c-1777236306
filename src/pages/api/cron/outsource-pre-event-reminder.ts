@@ -137,7 +137,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .eq("order_id", a.order_id)
           .eq("recipient_email", providerEmail)
           .eq("template_type", "outsource_pre_event_reminder")
-          .gte("sent_at", yesterdayIso);
+          // created_at, not sent_at: logEmailSent leaves sent_at NULL.
+          .gte("created_at", yesterdayIso);
         if (recentCount && recentCount > 0) {
           skipped += 1;
           continue;
