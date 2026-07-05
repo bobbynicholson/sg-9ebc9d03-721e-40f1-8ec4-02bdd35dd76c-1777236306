@@ -8,6 +8,7 @@ import { MenuSection } from "@/components/landing/home/MenuSection";
 import { WhySection } from "@/components/landing/home/WhySection";
 import { TestimonialsSection } from "@/components/landing/home/TestimonialsSection";
 import { GallerySection } from "@/components/landing/home/GallerySection";
+import { StatementSection } from "@/components/landing/home/StatementSection";
 import { ProcessSection } from "@/components/landing/home/ProcessSection";
 import { FaqSection, FAQS } from "@/components/landing/home/FaqSection";
 import { FinalCtaSection } from "@/components/landing/home/FinalCtaSection";
@@ -96,6 +97,7 @@ export default function HomePage() {
         <WhySection />
         <TestimonialsSection />
         <GallerySection />
+        <StatementSection />
         <ProcessSection />
         <FaqSection />
         <FinalCtaSection />

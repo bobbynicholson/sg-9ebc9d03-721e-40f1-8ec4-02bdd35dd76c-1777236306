@@ -94,22 +94,30 @@ export function HeroSection() {
             </StaggerItem>
           </Stagger>
 
-          {/* Rating block: quiet, hairline-topped, right-hand column */}
+          {/* Right column: framed food photography with an overlapping
+              rating card - fills the fold with the product of the product. */}
           <Stagger className="hidden lg:col-span-4 lg:block" gap={0.08}>
             <StaggerItem>
-              <div className="border-t border-white/15 pt-6">
-                <div className="flex items-center gap-2">
-                  <span className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                    ))}
-                  </span>
-                  <span className="font-display text-2xl font-medium text-white">4.9</span>
+              <div className="relative ml-auto max-w-sm pb-8 pl-6">
+                <Photo
+                  src={IMG.heroCard}
+                  alt="Overhead view of a table laid with shared catered dishes"
+                  gradient="from-amber-800 via-stone-800 to-stone-900"
+                  className="aspect-[4/5] w-full rounded-3xl shadow-2xl ring-1 ring-white/15"
+                />
+                <div className="absolute bottom-0 left-0 max-w-[260px] rounded-2xl border border-white/10 bg-stone-900 p-5 shadow-2xl">
+                  <div className="flex items-center gap-2">
+                    <span className="flex">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      ))}
+                    </span>
+                    <span className="font-display text-2xl font-medium text-white">4.9</span>
+                  </div>
+                  <p className="mt-2 text-sm leading-snug text-stone-300">
+                    From 127 reviews by South African catering teams.
+                  </p>
                 </div>
-                <p className="mt-2 text-sm leading-relaxed text-stone-300">
-                  Rated 4.9 out of 5 from 127 reviews by South African catering
-                  teams running their whole operation on CateringMS.
-                </p>
               </div>
             </StaggerItem>
           </Stagger>

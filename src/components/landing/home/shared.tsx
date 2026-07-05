@@ -30,6 +30,8 @@ export const u = (id: string, w: number, extra = "") =>
 
 export const IMG = {
   hero: u("1511795409834-ef04bbd61622", 2000),
+  heroCard: u("1504674900247-0877df9cc836", 900, "&h=1200"),
+  why: u("1577219491135-ce391730fb2c", 900, "&h=1200"),
   cta: u("1463183547458-6a2c760d0912", 1800),
   services: {
     weddings: u("1606660023296-81d67734170a", 800),
