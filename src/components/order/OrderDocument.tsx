@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Printer, ArrowLeft, RefreshCw,
   FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History, Star,
-  MessageSquare, Paperclip, ArrowRight,
+  MessageSquare, Paperclip, ArrowRight, Utensils,
 } from "lucide-react";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import { computeOrderTimeline, type OrderTimelineStage } from "@/services/order/orderTimeline";
@@ -45,6 +45,8 @@ import { OrderTimelineSection } from "./sections/OrderTimelineSection";
 import { KitchenSection } from "./sections/KitchenSection";
 import { ShoppingSection } from "./sections/ShoppingSection";
 import { DriverSection } from "./sections/DriverSection";
+import { ClientDeliverySection } from "./sections/ClientDeliverySection";
+import { ClientMenuSection } from "./sections/ClientMenuSection";
 import { WaiterSection } from "./sections/WaiterSection";
 import { CleaningSection } from "./sections/CleaningSection";
 import { FinanceSection } from "./sections/FinanceSection";
@@ -641,7 +643,9 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     ];
     // Chips mirror the role-relevance gates below so no chip ever
     // scrolls to a section that isn't mounted for this viewer.
-    if (showFor("kitchen")) items.push({ id: "section-kitchen", label: "Kitchen", icon: ChefHat, key: "kitchen" });
+    // Client-only Delivery chip -> the ClientDeliverySection.
+    if (isClient) items.push({ id: "section-delivery", label: "Delivery", icon: Truck, key: "client" });
+    if (showFor("kitchen")) items.push({ id: "section-kitchen", label: isClient ? "Menu" : "Kitchen", icon: isClient ? Utensils : ChefHat, key: "kitchen" });
     if (!isClient && showFor("shopping")) items.push({ id: "section-shopping", label: "Shopping", icon: ShoppingCart, key: "shopping" });
     if (!isClient && showFor("driver")) items.push({ id: "section-driver", label: "Driver", icon: Truck, key: "driver" });
     if (!isClient && showFor("waiter")) items.push({ id: "section-waiter", label: "Service", icon: Sparkles, key: "waiter" });
@@ -836,12 +840,41 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             defaultOpen={true}
           />
         )}
+        {/* ODOC: client-facing delivery + driver card. The staff
+            DriverSection (dispatch run-sheet + POD + actions) stays hidden
+            from clients; this is the read-only customer slice - who's
+            driving, when, which vehicle, live-track link, delivery proof. */}
+        {isClient && (
+          <ClientDeliverySection
+            order={order}
+            forceOpen={forceAll}
+            defaultOpen={true}
+            highlight={primary === "client"}
+          />
+        )}
+        {/* ODOC: client-facing menu card. Clients get a clean, read-only
+            "your menu" slice (items + included crockery) - NOT the staff
+            KitchenSection, which leaks prep-task schedules, a cleaning
+            queue, recipe/equipment deep links and internal framing. */}
+        {isClient && (
+          <ClientMenuSection
+            orderId={order.id}
+            companyId={order.company_id}
+            collectionTime={order.collection_time}
+            eventDate={order.event_date}
+            eventTime={order.event_time}
+            forceOpen={forceAll}
+            defaultOpen={true}
+            highlight={primary === "client"}
+          />
+        )}
         {/* ODOC: Kitchen section is the canonical menu + equipment +
             prep view. Default open so the menu isn't hidden behind a
             tap. Role-gated: drivers get their own load list on the run
             sheet and cleaning works from their queue, so neither needs
-            the prep view. Kitchen role still gets the highlight ring. */}
-        {showFor("kitchen") && (
+            the prep view. Kitchen role still gets the highlight ring.
+            Hidden from clients - they get ClientMenuSection above. */}
+        {!isClient && showFor("kitchen") && (
           <KitchenSection
             orderId={order.id}
             companyId={order.company_id}
