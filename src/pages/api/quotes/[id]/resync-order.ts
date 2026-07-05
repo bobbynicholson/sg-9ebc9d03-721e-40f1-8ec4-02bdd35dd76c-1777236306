@@ -38,6 +38,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { ensureVenueCoords } from "@/lib/geo/ensureVenueCoords";
 
 
 const POST_DISPATCH_STATUSES = new Set([
@@ -189,6 +190,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   } catch (e: any) {
     receipt.errors.push(`order_update_crashed: ${e?.message || e}`);
+  }
+
+  // Geocode-on-save backstop: the headline patch above copies the quote's
+  // venue_lat/lng, but those are frequently NULL (address typed by hand,
+  // imported, or the operator never picked a Places suggestion). When the
+  // order has an address but no coords, resolve them server-side so live
+  // tracking gets its destination pin, route line and ETA. Best-effort;
+  // never fails the resync.
+  try {
+    if (((quote as any).venue_address || "").trim() &&
+        ((quote as any).venue_lat == null || (quote as any).venue_lng == null)) {
+      await ensureVenueCoords({
+        sb,
+        table: "orders",
+        id: receipt.orderId!,
+        address: (quote as any).venue_address,
+      });
+    }
+  } catch (e: any) {
+    console.warn("[quotes/resync-order] venue geocode failed (non-fatal):", e?.message || e);
   }
 
   // 2. Rebuild order_items from quote.menu_items. Hard delete + insert

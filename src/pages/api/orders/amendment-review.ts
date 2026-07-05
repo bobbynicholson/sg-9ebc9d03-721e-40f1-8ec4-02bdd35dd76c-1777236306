@@ -27,6 +27,7 @@ import { emailService } from "@/services/emailService";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { textMentionsWaiterService } from "@/lib/waiterRequest";
+import { ensureVenueCoords } from "@/lib/geo/ensureVenueCoords";
 
 
 /**
@@ -797,12 +798,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[amendment-review] staff broadcast failed:", notifyErr);
     }
 
-    // Venue change can't be auto-geocoded server-side (the maps service is
-    // browser-only), so delivery_distance_km / delivery_fee / venue_lat,lng and
-    // the driver ETA/route stay on the OLD address. Rather than leave that
-    // silently stale, alert admins to recompute the distance + fee so the
-    // customer total and the driver route are corrected. Best-effort + dedup'd.
+    // Venue change: geocode-on-save so live tracking's destination pin,
+    // route line and ETA follow the move (best-effort, server-side via
+    // Nominatim - the browser Google key is referrer-restricted and can't
+    // be used here). The delivery DISTANCE/FEE and driver route still need
+    // an operator recompute, so we keep alerting admins for that.
     if (Object.keys(toApply).includes("venue_address")) {
+      let venueGeocoded = false;
+      try {
+        const admin = getServiceSupabase();
+        const point = await ensureVenueCoords({
+          sb: admin,
+          table: "orders",
+          id: (request as any).order_id,
+          address: (toApply as any).venue_address,
+          force: true,
+        });
+        venueGeocoded = !!point;
+      } catch (geoErr) {
+        console.warn("[amendment-review] venue geocode failed (non-fatal):", geoErr);
+      }
       try {
         const { data: ordRow2 } = await ssr
           .from("orders")
@@ -815,7 +830,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           companyId: (request as any).company_id,
           type: "amendment_approved",
           title: "Venue changed - review delivery distance & fee",
-          message: `Order ${orderLabel2} moved to a new venue. The delivery distance, fee and driver route were NOT auto-recalculated - please re-open the order and confirm the distance/fee so the customer total and route are correct.`,
+          message: `Order ${orderLabel2} moved to a new venue. ${venueGeocoded ? "The map pin was auto-updated, but the" : "The"} delivery distance, fee and driver route were NOT auto-recalculated - please re-open the order and confirm the distance/fee so the customer total and route are correct.`,
           targetRoles: ["company_admin", "admin", "owner", "super_admin"] as any,
           priority: "high",
           link: `/admin/orders?orderId=${(request as any).order_id}`,

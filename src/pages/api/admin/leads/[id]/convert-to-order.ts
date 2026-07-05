@@ -319,6 +319,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const newOrder: any = Array.isArray(rpcOrder) ? rpcOrder[0] : rpcOrder;
 
+    // 6b. Geocode-on-save backstop. The order inherited the quote's
+    // venue_lat/lng, but those are often NULL (hand-typed / imported
+    // address). Fill them server-side so live tracking gets its
+    // destination pin + ETA. Best-effort; the order is already booked.
+    try {
+      if ((q.venue_address || "").trim() && (q.venue_lat == null || q.venue_lng == null)) {
+        const { ensureVenueCoords } = await import("@/lib/geo/ensureVenueCoords");
+        await ensureVenueCoords({ sb: svc, table: "orders", id: newOrder.id, address: q.venue_address });
+      }
+    } catch (e: any) {
+      console.warn("[leads/convert-to-order] venue geocode failed (non-fatal):", e?.message || e);
+    }
+
     // 7. Stamp the lead's converted_to_client_id if it isn't already.
     if (!(lead as any).converted_to_client_id && resolvedClientId) {
       const { error: stampErr } = await svc
