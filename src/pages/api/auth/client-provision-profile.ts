@@ -160,9 +160,46 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // the clients row may have been added AFTER first signup, so
       // clients.user_id needs catching up.
       await runEmailRelink();
+
+      // Self-heal: older client profiles were provisioned before this
+      // endpoint stamped company_id (or created via a path that left it
+      // null). A NEW client insert below always sets company_id, so an
+      // existing client profile with a null company_id is drift, not
+      // design. Backfill it to THIS tenant, but only when the user has
+      // exactly one clients row under this company (unambiguous) and the
+      // profile still belongs to a client of this same company - never
+      // overwrite a non-null company_id, and never re-tenant a profile
+      // that resolves to a different company.
+      let healed = existing;
+      if (!existing.company_id && existing.role === "client") {
+        try {
+          const { data: ownClients } = await admin
+            .from("clients")
+            .select("id")
+            .eq("company_id", company.id)
+            .eq("user_id", user.id);
+          if (Array.isArray(ownClients) && ownClients.length > 0) {
+            const { data: updated, error: healErr } = await admin
+              .from("profiles")
+              .update({ company_id: company.id })
+              .eq("id", user.id)
+              .is("company_id", null)
+              .select("id, role, company_id, full_name, email")
+              .maybeSingle();
+            if (healErr) {
+              console.error("[auth/client-provision-profile] company_id backfill failed:", healErr);
+            } else if (updated) {
+              healed = updated;
+            }
+          }
+        } catch (healEx) {
+          console.error("[auth/client-provision-profile] company_id backfill crashed:", healEx);
+        }
+      }
+
       return res.status(200).json({
         ok: true,
-        profile: existing,
+        profile: healed,
         recovered: false,
       });
     }
