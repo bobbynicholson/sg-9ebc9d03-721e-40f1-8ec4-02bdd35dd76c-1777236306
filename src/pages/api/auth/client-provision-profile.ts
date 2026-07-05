@@ -79,35 +79,76 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // was still null.
     const runEmailRelink = async () => {
       try {
-        // Audit (May 2026, Item 5): ambiguity guard. If more than
-        // one clients row matches this email under the tenant, do
-        // NOT auto-relink - a shared corporate inbox or two people
-        // legitimately using the same email could end up with the
-        // wrong person's quotes attached. Surface it for admin
-        // review rather than guessing.
+        // Fetch every clients row matching this email under the tenant,
+        // regardless of user_id. Two claimable shapes:
+        //   - user_id IS NULL: the classic unclaimed row.
+        //   - user_id points at a DIFFERENT auth user whose own email
+        //     does NOT match the row's email: a provably-wrong link
+        //     (bad backfill / seeding stamped the creator's uid). The
+        //     signer just proved ownership of this email via the magic
+        //     link, so the row is theirs - reclaim it. Without this,
+        //     one poisoned link locks the real client out forever
+        //     (the null-only relink never fires again).
         const { data: candidates, error: candidatesErr } = await admin
           .from("clients")
-          .select("id")
+          .select("id, user_id, email")
           .eq("company_id", company.id)
-          .eq("email", (user.email || "").toLowerCase())
-          .is("user_id", null);
+          .eq("email", (user.email || "").toLowerCase());
         if (candidatesErr) {
           console.error("[auth/client-provision-profile] clients fetch failed:", candidatesErr);
         }
-        const candidateCount = Array.isArray(candidates) ? candidates.length : 0;
-        if (candidateCount > 1) {
+        const rows = Array.isArray(candidates) ? candidates : [];
+        const claimable: string[] = [];
+        for (const row of rows as any[]) {
+          if (!row.user_id) {
+            claimable.push(row.id);
+            continue;
+          }
+          if (row.user_id === user.id) continue; // already ours
+          // Linked to someone else - only reclaim when that link is
+          // provably wrong (the linked account's email differs from
+          // the row's email). If we can't resolve the linked account's
+          // email, leave the row alone - never steal on a guess.
+          try {
+            const { data: linkedProfile } = await admin
+              .from("profiles")
+              .select("email")
+              .eq("id", row.user_id)
+              .maybeSingle();
+            let linkedEmail = String((linkedProfile as any)?.email || "").toLowerCase().trim();
+            if (!linkedEmail) {
+              const { data: linkedAuth } = await admin.auth.admin.getUserById(row.user_id);
+              linkedEmail = String(linkedAuth?.user?.email || "").toLowerCase().trim();
+            }
+            const rowEmail = String(row.email || "").toLowerCase().trim();
+            if (linkedEmail && rowEmail && linkedEmail !== rowEmail) {
+              claimable.push(row.id);
+            } else if (linkedEmail && rowEmail && linkedEmail === rowEmail) {
+              console.warn("[client-provision-profile] clients row linked to another account with the same email - not reclaiming", {
+                clientRowId: row.id,
+                companyId: company.id,
+              });
+            }
+          } catch (linkedErr) {
+            console.warn("[client-provision-profile] linked-account lookup failed, skipping reclaim:", linkedErr);
+          }
+        }
+        // Ambiguity guard (May 2026, Item 5): (company_id, lower(email))
+        // is unique so this should never trigger, but if legacy dupes
+        // exist we bail rather than guess which row is theirs.
+        if (claimable.length > 1) {
           console.warn("[client-provision-profile] ambiguous email relink", {
             companyId: company.id,
             email: user.email,
-            candidateCount,
+            candidateCount: claimable.length,
           });
           return; // bail out of relink + subsequent quote attach
         }
-        if (candidateCount === 1) {
+        if (claimable.length === 1) {
           await admin
             .from("clients")
             .update({ user_id: user.id })
-            .eq("id", (candidates as any[])[0].id);
+            .eq("id", claimable[0]);
         }
       } catch {
         /* non-fatal */

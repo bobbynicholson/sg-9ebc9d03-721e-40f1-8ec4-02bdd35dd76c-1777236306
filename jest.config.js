@@ -40,6 +40,17 @@ const customJestConfig = {
     // the app test suite. Exclude so `test:ci` stays green.
     '<rootDir>/impeccable/',
   ],
+  // Keep jest-haste-map out of directories full of non-source files it
+  // can't even lstat: .browser-profiles-local/ holds live Chrome
+  // profiles (locked .tmp files -> EPERM crash while the logged-in
+  // test browsers from scripts/open-all-users-local.mjs are running),
+  // and .next-dev/ is the dev server's build output.
+  modulePathIgnorePatterns: [
+    '<rootDir>/.browser-profiles-local/',
+    '<rootDir>/.next-dev/',
+    '<rootDir>/.next/',
+    '<rootDir>/.next-verify/',
+  ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',

@@ -216,7 +216,105 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userProfile) {
           // Fetch company if user has company_id
           let userCompany = null;
-          if (userProfile.company_id) {
+
+          // Clients belong to tenants through the `clients` table, not
+          // profiles.company_id - that column only records the FIRST
+          // company the client ever signed in through (and is null for
+          // older client accounts). The same person can be a customer
+          // of several catering companies, so for client profiles we
+          // resolve the tenant from their own clients rows FIRST,
+          // preferring the slug they signed in through
+          // (user_metadata.last_company_slug, written by the auth
+          // callback). Without this, a client of company A clicking
+          // company B's magic link got company A's portal context and
+          // saw none of B's orders. Falls through to the plain
+          // company_id branch when nothing resolves.
+          const isClientProfile = String(userProfile.role) === "client";
+          if (isClientProfile) {
+            try {
+              const { data: clientRows } = await supabase
+                .from("clients")
+                .select("company_id")
+                .eq("user_id", session.user.id);
+              const companyIds = Array.from(
+                new Set((clientRows || []).map((r: any) => r.company_id).filter(Boolean)),
+              ) as string[];
+              if (companyIds.length > 0) {
+                const wantSlug = String(
+                  (session.user.user_metadata as any)?.last_company_slug || "",
+                );
+                // Try the real rows first (works for staff-visible
+                // tenants and once the companies client-read policy
+                // lands in prod).
+                const { data: companyRows } = await supabase
+                  .from("companies")
+                  .select("*")
+                  .in("id", companyIds);
+                let chosen: any =
+                  (wantSlug &&
+                    (companyRows || []).find((c: any) => c.slug === wantSlug)) ||
+                  null;
+                // The sign-in slug didn't resolve to a readable row.
+                // Map slug -> id via the SECURITY DEFINER branding RPC
+                // and verify membership, so the portal scopes to the
+                // right tenant even while clients can't SELECT
+                // companies under RLS - and never picks an arbitrary
+                // company when the client belongs to several.
+                if (!chosen && wantSlug) {
+                  const { data: brandData } = await (supabase.rpc as any)(
+                    "get_company_branding",
+                    { p_slug: wantSlug },
+                  );
+                  const brand = Array.isArray(brandData) ? brandData[0] : brandData;
+                  if (brand?.id && companyIds.includes(brand.id)) {
+                    chosen = {
+                      id: brand.id,
+                      slug: brand.slug || wantSlug,
+                      company_name: brand.company_name,
+                      logo_url: brand.logo_url,
+                      primary_color: brand.primary_color,
+                      secondary_color: brand.secondary_color,
+                    } as unknown as Company;
+                  }
+                }
+                // No sign-in slug to honour (or it isn't one of their
+                // memberships): prefer the profile's own company when
+                // it is a membership, then any readable row.
+                if (!chosen) {
+                  chosen =
+                    (userProfile.company_id &&
+                      (companyRows || []).find(
+                        (c: any) => c.id === userProfile.company_id,
+                      )) ||
+                    (companyRows || [])[0] ||
+                    null;
+                }
+                // Last resort: minimal context - `id` is all the portal
+                // needs to scope orders. Only pair the sign-in slug
+                // with the id when the client has exactly one tenant
+                // (otherwise the slug/id pairing could be wrong).
+                if (!chosen) {
+                  const fallbackId =
+                    userProfile.company_id && companyIds.includes(userProfile.company_id)
+                      ? userProfile.company_id
+                      : companyIds[0];
+                  chosen = {
+                    id: fallbackId,
+                    slug: companyIds.length === 1 && wantSlug ? wantSlug : undefined,
+                    company_name: undefined,
+                  } as unknown as Company;
+                }
+                userCompany = chosen;
+              }
+            } catch (clientCompanyErr) {
+              console.error(
+                "[AuthContext] client tenant resolve failed:",
+                clientCompanyErr,
+              );
+            }
+          }
+
+          if (!userCompany && userProfile.company_id) {
             const { data: companyData, error: companyError } = await supabase
               .from("companies")
               .select("*")
@@ -236,25 +334,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // failures are non-fatal (the renderers fall back to
             // hardcoded defaults).
             prewarmCompanyTemplates(userProfile.company_id).catch(() => {});
-          } else {
-            // Clients (and other company-less profiles) carry NO
-            // profiles.company_id - they belong to a tenant through the
-            // `clients` table, not `profiles`. Without a resolved company
-            // the entire client portal (my-orders, dashboard, billing,
-            // tracking, quotes, ...) gates out on `company?.id` and shows
-            // the customer NOTHING, even though their orders exist and RLS
-            // would return them. Resolve the tenant from the client's own
-            // clients row so the portal can scope its queries.
-            //
-            // Multi-tenant clients (same email across catering companies)
-            // are disambiguated by the slug they signed in through
-            // (user_metadata.last_company_slug, written by the auth
-            // callback). Clients currently cannot SELECT the companies
-            // table under RLS, so we fall back to a minimal company
-            // context built from what they CAN read (their clients row) +
-            // that slug - `id` is all the portal needs to scope orders;
-            // full branding fills in once the client-read companies policy
-            // (migration 20260705190000) is applied in prod.
+          } else if (!userCompany) {
+            // Company-less profiles that didn't take the client branch
+            // above (e.g. role drift where the profile row isn't marked
+            // client but the person only exists as a customer). Same
+            // clients-table resolution, kept as a safety net so the
+            // portal never gates out on `company?.id` when RLS would
+            // return their orders.
             try {
               const { data: clientRows } = await supabase
                 .from("clients")

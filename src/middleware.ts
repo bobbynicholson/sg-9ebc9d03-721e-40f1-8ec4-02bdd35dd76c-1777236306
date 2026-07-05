@@ -492,21 +492,62 @@ export async function middleware(request: NextRequest) {
   // We already resolved userCompanySlug above (from cache or the
   // companies.select earlier) - compare against that instead of
   // re-querying.
+  //
+  // Clients are the exception to the profiles.company_id rule: a client
+  // belongs to tenants through the `clients` table (clients.user_id), and
+  // the same person can be a customer of several catering companies. Their
+  // profile carries at most the FIRST company they ever signed in through
+  // (often null for older accounts). So when the profile-based comparison
+  // fails for a client, we verify membership against the clients table
+  // before denying - otherwise every magic-link sign-in from a second
+  // caterer (or any client with a null profiles.company_id) bounces to
+  // the wrong portal with ?error=tenant_mismatch / no_company.
   if (companySlug && profileRole && !isSuperAdmin) {
-    if (!profileCompanyId) {
-      mwLog("DENY", "no_company", { role: profileRole, path: pathname });
-      const url = request.nextUrl.clone();
-      url.pathname = roleLandingPage ?? "/auth/login";
-      url.searchParams.set("error", "no_company");
-      return NextResponse.redirect(url);
-    }
-    if (!userCompanySlug || userCompanySlug !== companySlug) {
-      mwLog("DENY", "tenant_mismatch", { role: profileRole, company: profileCompanyId ?? undefined, path: pathname });
-      console.log(`[Middleware] Tenant mismatch: ${profileRole} (company=${profileCompanyId}) tried ${pathname}`);
-      const url = request.nextUrl.clone();
-      url.pathname = roleLandingPage ?? "/auth/login";
-      url.searchParams.set("error", "tenant_mismatch");
-      return NextResponse.redirect(url);
+    const slugMatchesProfile =
+      !!profileCompanyId && !!userCompanySlug && userCompanySlug === companySlug;
+    if (!slugMatchesProfile) {
+      let clientMembership = false;
+      if (profileRoles.includes("client")) {
+        try {
+          // Slug -> company id via the SECURITY DEFINER branding RPC
+          // (same one the login/callback pages use - callable for any
+          // session, returns id + safe branding fields only).
+          const { data: brandData } = await supabase.rpc("get_company_branding", {
+            p_slug: companySlug,
+          });
+          const brand = Array.isArray(brandData) ? brandData[0] : brandData;
+          const targetCompanyId = (brand as { id?: string } | null)?.id;
+          if (targetCompanyId) {
+            // clients RLS permits user_id = auth.uid() reads, so this
+            // works with the client's own session.
+            const { data: membershipRows } = await supabase
+              .from("clients")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("company_id", targetCompanyId)
+              .limit(1);
+            clientMembership = !!membershipRows && membershipRows.length > 0;
+          }
+        } catch (error) {
+          console.error("[Middleware] client tenant membership check failed:", error);
+        }
+      }
+      if (clientMembership) {
+        mwLog("AUTH", "client_membership_ok", { role: profileRole, path: pathname, tenant: companySlug });
+      } else if (!profileCompanyId) {
+        mwLog("DENY", "no_company", { role: profileRole, path: pathname });
+        const url = request.nextUrl.clone();
+        url.pathname = roleLandingPage ?? "/auth/login";
+        url.searchParams.set("error", "no_company");
+        return NextResponse.redirect(url);
+      } else {
+        mwLog("DENY", "tenant_mismatch", { role: profileRole, company: profileCompanyId ?? undefined, path: pathname });
+        console.log(`[Middleware] Tenant mismatch: ${profileRole} (company=${profileCompanyId}) tried ${pathname}`);
+        const url = request.nextUrl.clone();
+        url.pathname = roleLandingPage ?? "/auth/login";
+        url.searchParams.set("error", "tenant_mismatch");
+        return NextResponse.redirect(url);
+      }
     }
   }
 

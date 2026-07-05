@@ -51,6 +51,14 @@ const USERS = [
     ],
   },
   {
+    role: "waiter",
+    email: "waiter.demo@spitbraaidelivery.co.za",
+    prefix: `/${SLUG}`,
+    routes: [
+      "/team-portal/waiter/dashboard", "/team-portal/waiter/notifications",
+    ],
+  },
+  {
     role: "driver",
     email: "driver@spitbraaidelivery.co.za",
     prefix: `/${SLUG}`,
