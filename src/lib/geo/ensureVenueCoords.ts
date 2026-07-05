@@ -48,7 +48,27 @@ export async function ensureVenueCoords(opts: {
     }
 
     const point = await geocodeAddressServer(address, { country: opts.country });
-    if (!point) return null;
+    if (!point) {
+      // Force re-geocode failed: the venue ADDRESS changed but we couldn't
+      // resolve the new one. Leaving the old coords would point the live
+      // tracking map at the PREVIOUS venue while venue_address shows the
+      // new one - a confidently-wrong destination pin. Null the coords so
+      // tracking degrades to a driver-only view instead. (Non-force calls
+      // just leave the empty coords empty.)
+      if (opts.force && hasCoords) {
+        const { error: nullErr } = await opts.sb
+          .from(opts.table)
+          .update({ venue_lat: null, venue_lng: null })
+          .eq("id", opts.id);
+        if (nullErr) {
+          console.warn(
+            `[ensureVenueCoords] ${opts.table} ${opts.id} coord null-out failed (non-fatal):`,
+            nullErr.message,
+          );
+        }
+      }
+      return null;
+    }
 
     const { error } = await opts.sb
       .from(opts.table)

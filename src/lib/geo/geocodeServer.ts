@@ -32,7 +32,11 @@ export interface GeoPoint {
 // within that. A tight timeout keeps a slow geocoder from stalling saves.
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const USER_AGENT = "CateringMS/1.0 (+https://cateringms.com)";
-const TIMEOUT_MS = 6000;
+// Callers await this on the response path of order create/edit endpoints
+// (after the save has already committed), so cap it tight: a slow
+// Nominatim must not add noticeable latency to a user-facing save. On
+// timeout we return null and the row keeps empty coords - best-effort.
+const TIMEOUT_MS = 3500;
 
 /**
  * Geocode a free-text address into { lat, lng }, or null if it can't be

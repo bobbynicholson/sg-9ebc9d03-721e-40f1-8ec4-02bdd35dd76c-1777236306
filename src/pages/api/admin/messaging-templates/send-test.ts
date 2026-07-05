@@ -143,10 +143,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const testBody = `[TEST] ${body}`;
 
     const { whatsappIntegrationService } = await import("@/services/whatsappIntegrationService");
-    await (whatsappIntegrationService as any).sendWhatsAppMessage(
+    // sendWhatsAppMessage returns false (no longer throws) when WhatsApp
+    // isn't connected / the number is blocked / the send is refused. Honour
+    // that so the admin's "Send test" doesn't show a green success while
+    // nothing actually went out.
+    const sent = await (whatsappIntegrationService as any).sendWhatsAppMessage(
       { to: phone, type: "text", text: { body: testBody } },
       { companyId },
     );
+    if (sent === false) {
+      return res.status(400).json({
+        error:
+          "WhatsApp test could not be sent - the WhatsApp integration isn't connected for this company (or the number is blocked). Connect WhatsApp under Integrations, then try again.",
+      });
+    }
     return res.status(200).json({ success: true, channel: "whatsapp", to: phone });
   } catch (err: any) {
     console.error("[send-test] crashed:", err);

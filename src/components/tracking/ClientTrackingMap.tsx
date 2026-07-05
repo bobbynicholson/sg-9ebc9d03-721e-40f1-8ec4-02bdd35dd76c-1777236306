@@ -119,6 +119,18 @@ export function ClientTrackingMap({
   const subscriptionRef = useRef<any>(null);
   const [driverId, setDriverId] = useState<string | null>(null);
 
+  // Keep the latest callback + parent-provided location in refs so the
+  // realtime + polling effects below can depend ONLY on stable values
+  // ([orderId, driverId, trackDriver]). Without this, the un-memoized
+  // onLocationUpdate and the per-poll-new driverLocation object sat in the
+  // effect deps, tearing down and re-subscribing the driver_locations
+  // realtime channel every ~5s - which defeated the instant path and
+  // snapped the pin back to a staler prop (visible flicker).
+  const onLocationUpdateRef = useRef(onLocationUpdate);
+  const driverLocationRef = useRef(driverLocation);
+  useEffect(() => { onLocationUpdateRef.current = onLocationUpdate; }, [onLocationUpdate]);
+  useEffect(() => { driverLocationRef.current = driverLocation; }, [driverLocation]);
+
   // Fetch driver ID for the order. Catering orders may use
   // assigned_driver_id (current dispatch flow) or driver_id (legacy),
   // so we read both and prefer the current column.
@@ -189,19 +201,23 @@ export function ClientTrackingMap({
   useEffect(() => {
     if (!driverId || !trackDriver) return;
 
-    setLiveDriverLocation(driverLocation);
+    // Seed from the parent's location only when it actually has one, so a
+    // (re)subscribe never clears a pin the child already resolved.
+    if (driverLocationRef.current) setLiveDriverLocation(driverLocationRef.current);
 
-    // Shared patch used by both realtime sources below.
+    // Shared patch used by both realtime sources below. Reads name/phone
+    // + the callback from refs so this effect stays subscribed across
+    // parent re-renders (deps: orderId/driverId/trackDriver only).
     const applyFix = (lat: number, lng: number, ts?: string) => {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
       setLiveDriverLocation((prev) => ({
         lat,
         lng,
-        driver_name: prev?.driver_name || driverLocation?.driver_name || "Your Driver",
-        driver_phone: prev?.driver_phone || driverLocation?.driver_phone,
+        driver_name: prev?.driver_name || driverLocationRef.current?.driver_name || "Your Driver",
+        driver_phone: prev?.driver_phone || driverLocationRef.current?.driver_phone,
         last_updated: ts || new Date().toISOString(),
       }));
-      onLocationUpdate?.({ lat, lng });
+      onLocationUpdateRef.current?.({ lat, lng });
     };
 
     const channel = supabase
@@ -251,10 +267,13 @@ export function ClientTrackingMap({
         supabase.removeChannel(subscriptionRef.current);
       }
     };
-  }, [orderId, driverId, driverLocation, onLocationUpdate, trackDriver]);
+    // Deps are intentionally only the stable identifiers: driverLocation +
+    // onLocationUpdate are read through refs so the channel isn't torn down
+    // and re-created on every parent render / poll tick.
+  }, [orderId, driverId, trackDriver]);
 
   // Fallback polling. Realtime drops on backgrounded mobile tabs, so
-  // we still pull driver_locations every 15s to keep the pin warm.
+  // we still pull driver_locations every 5s to keep the pin warm.
   useEffect(() => {
     if (!driverId || !trackDriver) return;
     let active = true;
@@ -287,7 +306,7 @@ export function ClientTrackingMap({
           last_updated: pin.updated_at || new Date().toISOString(),
         };
         setLiveDriverLocation(newLocation);
-        onLocationUpdate?.({ lat, lng });
+        onLocationUpdateRef.current?.({ lat, lng });
       }
     };
 
@@ -300,7 +319,8 @@ export function ClientTrackingMap({
     const interval = setInterval(pollOnce, 5000);
 
     return () => { active = false; clearInterval(interval); };
-  }, [driverId, onLocationUpdate, trackDriver]);
+    // onLocationUpdate read via ref so the 5s poll isn't reset every render.
+  }, [driverId, trackDriver]);
 
   // Coord guard. Leaflet's projection blows up on null / undefined / NaN
   // and we've seen orders without a geocoded venue reach this component.
