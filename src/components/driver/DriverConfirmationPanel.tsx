@@ -50,6 +50,11 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   // (returns equipment + autoClockOut). Only renders when there's an
   // active collection assignment for this driver on this order.
   const [collectionAssignment, setCollectionAssignment] = useState<any | null>(null);
+  // Local-only: the "arrived to collect" ping is notify-only (no DB
+  // checkpoint - confirmation_type has a CHECK constraint), so track the
+  // tapped state here to flip the button to a badge. Client-side dedup on
+  // the notification covers a reload-and-retap.
+  const [collectionArrived, setCollectionArrived] = useState(false);
   // Geofence auto-arrival: once the driver has left the kitchen, we watch
   // their GPS and auto-stamp "Arrived at venue" when they come within
   // GEOFENCE_RADIUS_M of the venue coords. Manual tap still works (and is
@@ -501,6 +506,43 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                   }}
                 >
                   Start
+                </Button>
+              )}
+            </div>
+            {/* Step 1b: driver arrived at the venue to collect. Notify-only
+                (client in-app + email + dispatch) so the client sees the
+                driver actually turn up for the pickup, mirroring the delivery
+                "driver arrived" ping. */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Arrived to collect</p>
+                <p className="text-xs text-muted-foreground">Notifies the client you're at the venue</p>
+              </div>
+              {collectionArrived || collectionAssignment.status === "picked_up" || collectionAssignment.status === "completed" ? (
+                <Badge variant="default" className="bg-brand-primary">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Arrived
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={loading || collectionAssignment.status !== "en_route"}
+                  onClick={async () => {
+                    if (!user) return;
+                    setLoading(true);
+                    try {
+                      await (driverConfirmationService as any).notifyCollectionArrival(orderId, user.id);
+                      setCollectionArrived(true);
+                      toast({ title: "Client notified", description: "We've told the client you've arrived to collect." });
+                    } catch (e: any) {
+                      toast({ title: "Could not notify", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Arrived
                 </Button>
               )}
             </div>

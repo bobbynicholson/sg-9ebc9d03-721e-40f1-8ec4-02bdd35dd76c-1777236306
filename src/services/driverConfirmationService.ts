@@ -468,6 +468,102 @@ export const driverConfirmationService = {
   },
 
   /**
+   * Driver taps "Arrived to collect" once back at the venue for the
+   * post-event equipment pickup. This is the collection-leg equivalent of
+   * confirmAtVenue on the delivery leg: previously the collection trip
+   * jumped straight from "on the way to collect" to "collected, all done",
+   * so a client watching the portal never saw the driver actually turn up
+   * to fetch the gear.
+   *
+   * Notify-only (client in-app + email + dispatch). It intentionally does
+   * NOT write a driver_confirmations checkpoint row - confirmation_type has
+   * a DB CHECK constraint with no 'collection' arrival value, and adding one
+   * would need a manual migration. The client ping is the deliverable; the
+   * driver UI tracks the tapped state locally. Dedup (type collection_arrived
+   * + 60 min) means a double-tap or a reload-and-retap won't re-ping.
+   *
+   * Best-effort throughout; a notify failure never blocks the driver.
+   */
+  async notifyCollectionArrival(orderId: string, driverId: string) {
+    try {
+      const { data: ord } = await supabase
+        .from("orders")
+        .select("company_id, order_number, client_id, client_email, client_name, venue_name, venue_address, event_name")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!ord) return false;
+      const o = ord as any;
+      const venue = o.venue_name || (o.venue_address ? String(o.venue_address).split(",")[0] : "the venue");
+      const eventName = o.event_name && o.event_name !== "Untitled" ? o.event_name : "your event";
+
+      // Dispatch/admin ping (best-effort).
+      try {
+        await this.notifyAdminOfConfirmation(orderId, driverId, "collection_at_venue");
+      } catch (e) {
+        console.warn("[notifyCollectionArrival] admin ping failed (non-blocking):", e);
+      }
+
+      // Client in-app (resolve the client's auth uid; skip on null).
+      try {
+        if (o.client_id && o.company_id) {
+          const clientUid = await resolveClientUserId(supabase, o.client_id);
+          if (clientUid) {
+            await notificationService.createNotification({
+              company_id: o.company_id,
+              recipient_id: clientUid,
+              user_id: clientUid,
+              notification_type: "collection_arrived",
+              title: "Driver arrived to collect equipment",
+              message: `Our driver has arrived at ${venue} to collect the catering equipment for ${eventName}. We'll have it packed up shortly.`,
+              priority: "normal",
+              link: `/client-portal/tracking?orderId=${orderId}`,
+              related_entity_type: "order",
+              related_entity_id: orderId,
+              dedup: true,
+              dedupWindowMinutes: 60,
+            } as any);
+          }
+        }
+      } catch (e) {
+        console.warn("[notifyCollectionArrival] client in-app notify failed (non-blocking):", e);
+      }
+
+      // Client email (best-effort; no-ops cleanly without a provider key).
+      if (o.client_email) {
+        try {
+          const { emailService } = await import("@/services/emailService");
+          const firstName = String(o.client_name || "there").trim().split(/\s+/)[0] || "there";
+          await emailService.sendEmail({
+            companyId: o.company_id,
+            to: o.client_email,
+            template: "collection_arrived",
+            subject: `Driver arrived to collect - ${eventName}`,
+            body:
+              `Hi {{first_name}},\n\n` +
+              `Our driver has arrived at {{venue}} to collect the catering equipment for {{event_name}}. ` +
+              `We'll have it packed up shortly - no action needed from you.\n\n` +
+              `Thanks!`,
+            variables: {
+              first_name: firstName,
+              client_name: o.client_name || "",
+              event_name: eventName,
+              venue,
+              order_number: o.order_number || "",
+            },
+            orderId,
+          } as any);
+        } catch (emailErr) {
+          console.warn("[notifyCollectionArrival] client email failed (non-blocking):", emailErr);
+        }
+      }
+      return true;
+    } catch (e) {
+      console.warn("[notifyCollectionArrival] failed (non-blocking):", e);
+      return false;
+    }
+  },
+
+  /**
    * Driver marks the equipment as physically collected at the venue
    * (status en_route -> picked_up). This is the moment the CLIENT'S part
    * of the collection is finished: their gear is handed over and gone.
@@ -1157,6 +1253,7 @@ export const driverConfirmationService = {
       'at_kitchen': `📍 ${driver.full_name} has arrived at kitchen for Order #${order.order_number}`,
       'departed_kitchen': `📦 ${driver.full_name} has departed kitchen with Order #${order.order_number}`,
       'at_venue': `✅ ${driver.full_name} has arrived at venue for Order #${order.order_number}`,
+      'collection_at_venue': `📦 ${driver.full_name} has arrived to collect equipment for Order #${order.order_number}`,
       'completed': `🎉 ${driver.full_name} has completed delivery of Order #${order.order_number}`
     };
 
