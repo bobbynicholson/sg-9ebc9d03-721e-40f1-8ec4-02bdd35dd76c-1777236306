@@ -68,7 +68,7 @@ function CleaningSuppliesPageInner() {
     if (!user?.company_id) return;
     if (!loaded) setLoading(true);
     try {
-      const all = await inventoryService.getInventoryPublic(user.company_id);
+      const all = await inventoryService.getInventoryPublic(user.company_id, { throwOnError: true });
       const cleaning = (all || []).filter((i) => {
         const cat = (i.category ?? "").toLowerCase();
         const name = (i.item_name ?? "").toLowerCase();
@@ -92,7 +92,9 @@ function CleaningSuppliesPageInner() {
       if (belowParOnly) {
         const stock = Number(i.current_stock || 0);
         const min = Number(i.minimum_stock || 0);
-        if (stock > min) return false;
+        // Only a real par (min > 0) makes an item "low"; a 0/0 item with
+        // no par set is not low stock, it just has no reorder point yet.
+        if (!(min > 0 && stock <= min)) return false;
       }
       return true;
     });
@@ -111,7 +113,10 @@ function CleaningSuppliesPageInner() {
 
   const stats = useMemo(() => {
     const total = items.length;
-    const below = items.filter((i) => Number(i.current_stock || 0) <= Number(i.minimum_stock || 0)).length;
+    const below = items.filter((i) => {
+      const min = Number(i.minimum_stock || 0);
+      return min > 0 && Number(i.current_stock || 0) <= min;
+    }).length;
     const out = items.filter((i) => Number(i.current_stock || 0) <= 0).length;
     return { total, below, out };
   }, [items]);
@@ -138,10 +143,16 @@ function CleaningSuppliesPageInner() {
     const newStock = Math.max(0, current - qty);
     setSaving(true);
     try {
+      // Respect the cleaning setting: if the team turned off the shopping
+      // low-stock ping, suppress it for cleaning-supply usage.
+      const { getCleaningSettings } = await import("@/services/cleaningSettingsService");
+      const { settings } = await getCleaningSettings(user.company_id);
       await inventoryService.adjustStock(
         usingItem.id, newStock, user.id,
         usedNotes || `Cleaning used ${qty} ${usingItem.unit_of_measure}`,
         "usage",
+        user.company_id,
+        !settings.notifyShoppingOnLowStock,
       );
       toast({ title: "Logged", description: `${usingItem.item_name}: -${qty} ${usingItem.unit_of_measure}` });
       closeUse();

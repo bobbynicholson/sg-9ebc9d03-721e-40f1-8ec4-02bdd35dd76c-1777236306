@@ -86,6 +86,8 @@ function HandoverDetailInner() {
     UserRole.ADMIN,
     UserRole.CLEANING_MANAGER,
     UserRole.CLEANING_STAFF,
+    UserRole.OWNER,
+    UserRole.REGION_ADMIN,
   ].includes(user?.role as UserRole);
   // Damage flagged on this order, keyed by equipment_id, so each job row
   // can show "which item isn't fine" at a glance (count + types).
@@ -180,7 +182,16 @@ function HandoverDetailInner() {
     if (!confirm("Mark this entire handover complete? Any unfinished cleaning jobs stay open underneath.")) return;
     setCompleting(true);
     try {
-      const totalReturned = jobs.reduce((sum, j) => sum + Number(j.quantity || 0), 0);
+      // Only completed jobs count as "returned to stock". A force-complete
+      // over unfinished jobs must NOT claim those units are back - only
+      // per-job completeJob bumps equipment.available_quantity, so summing
+      // every job here would overstate the count and tell kitchen stock is
+      // available when it isn't.
+      const isDone = (s: string) => s === "complete" || s === "completed";
+      const openJobs = jobs.filter((j) => !isDone(j.status) && j.status !== "cancelled").length;
+      const totalReturned = jobs
+        .filter((j) => isDone(j.status))
+        .reduce((sum, j) => sum + Number(j.quantity || 0), 0);
       const r = await completeHandover(supabase as any, handover.id, {
         totalReturned,
         notes: notes.trim() || undefined,
@@ -204,7 +215,9 @@ function HandoverDetailInner() {
           companyId: (handover as any).company_id,
           targetRoles: ["kitchen_manager", "kitchen_staff", "company_admin", "admin", "owner"] as any,
           title: "Cleaning handover complete",
-          message: `Cleaning team signed off ${handover.order_number ? `order ${handover.order_number}` : "an event"}. ${totalReturned} item${totalReturned === 1 ? "" : "s"} verified - equipment is back in stock.`,
+          message: openJobs > 0
+            ? `Cleaning team signed off ${handover.order_number ? `order ${handover.order_number}` : "an event"}. ${totalReturned} item${totalReturned === 1 ? "" : "s"} verified back in stock; ${openJobs} job${openJobs === 1 ? "" : "s"} still open.`
+            : `Cleaning team signed off ${handover.order_number ? `order ${handover.order_number}` : "an event"}. ${totalReturned} item${totalReturned === 1 ? "" : "s"} verified - equipment is back in stock.`,
           type: "delivered" as any,
           priority: "normal",
           link: `/team-portal/cleaning/handovers/${handover.id}`,

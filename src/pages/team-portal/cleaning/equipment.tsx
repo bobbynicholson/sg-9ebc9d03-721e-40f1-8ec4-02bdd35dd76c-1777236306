@@ -181,12 +181,24 @@ function CleaningEquipmentPageInner() {
 
       const conditionNeedsDamageRow = verifyCondition === "poor" || verifyCondition === "damaged";
       if (missing > 0 || damageNotes.trim() || conditionNeedsDamageRow) {
+        // Write the canonical damage-row shape so admin cost analytics
+        // (getDamageCostBreakdown sums total_cost/quantity_damaged) and
+        // RecentDamagesStrip (renders x{quantity_damaged}) both work.
+        // Missing units are "lost" at replacement cost; a condition-only
+        // flag counts the units that came back not-good (expected - verified).
+        const unitCost = Number(verifyItem.replacement_cost || 0);
+        const qtyDamaged = missing > 0 ? missing : Math.max(1, expected - verified);
+        const totalCost = unitCost * qtyDamaged;
         const { error: damageError } = await supabase.from("equipment_damages").insert([{
           company_id: user.company_id,
           equipment_id: verifyItem.id,
           damage_type: missing > 0 ? "lost" : "damaged",
+          damage_stage: "cleaning",
+          quantity_damaged: qtyDamaged,
+          unit_cost: unitCost,
+          total_cost: totalCost,
           notes: damageNotes.trim() || (missing > 0 ? `${missing} missing on verification` : `Condition marked ${verifyCondition} during verification`),
-          repair_cost: missing * Number(verifyItem.replacement_cost || 0),
+          repair_cost: totalCost,
           reported_by: user.id,
           resolved: false,
         }] as never);

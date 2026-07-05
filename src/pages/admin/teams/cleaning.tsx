@@ -160,7 +160,7 @@ function CleaningTeamPage() {
       timer = setTimeout(() => setRefreshTick((n) => n + 1), 1500);
     };
     const channel = supabase
-      .channel(`teams-cleaning:${companyId}`)
+      .channel(`teams-cleaning:${companyId}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `company_id=eq.${companyId}` }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_departments" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, bump)
@@ -497,8 +497,18 @@ function CleaningTeamPage() {
     return () => { cancelled = true; };
   }, [companyId, regionFilterId, refreshTick]);
 
+  // A cleaning_manager can't open the cross-department admin surfaces
+  // (/admin/staff, /admin/staff-hours, /admin/calendar) - their route map
+  // is cleaning-scoped for data-privacy, so linking there just bounces
+  // them to an unauthorized page. Point their tiles at cleaning-allowed
+  // routes; admins keep the rich drill-downs.
+  const isCleaningMgr = userRole === UserRole.CLEANING_MANAGER;
+  const staffHref = isCleaningMgr ? "/admin/cleaning-schedule" : "/admin/staff?department=cleaning";
+  const hoursHref = isCleaningMgr ? "/admin/cleaning-schedule" : "/admin/staff-hours?department=cleaning";
+  const eventsHref = isCleaningMgr ? "/team-portal/cleaning/dashboard" : `/admin/calendar?date=${toLocalISO(new Date())}`;
+
   const tiles = [
-    { href: "/admin/staff?department=cleaning", icon: Users, label: "Staff directory", sub: "People, rates and availability", bg: "from-slate-50 to-rose-50", iconColor: "text-slate-600" },
+    { href: staffHref, icon: Users, label: "Staff directory", sub: "People, rates and availability", bg: "from-slate-50 to-rose-50", iconColor: "text-slate-600" },
     { href: "/admin/cleaning-schedule", icon: ClipboardList, label: "Shift roster", sub: "Staff shifts, duties and handovers", bg: "from-rose-50 from-slate-50", iconColor: "text-rose-600" },
     { href: "/team-portal/cleaning/damage", icon: AlertTriangle, label: "Damages ledger", sub: "Per-event report and history", bg: "from-amber-50 to-orange-50", iconColor: "text-amber-600" },
     { href: "/team-portal/cleaning/supplies", icon: Wrench, label: "Supplies", sub: "Detergent, gloves, cloths", bg: "from-brand-primary/10 to-brand-secondary/10", iconColor: "text-brand-primary" },
@@ -590,7 +600,7 @@ function CleaningTeamPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <Link href={withSlug("/admin/staff?department=cleaning")} className="block">
+              <Link href={withSlug(staffHref)} className="block">
                 <StatTile
                   label="Active team"
                   value={stats.active}
@@ -598,7 +608,7 @@ function CleaningTeamPage() {
                   hint="Cleaning-bucket staff"
                 />
               </Link>
-              <Link href={withSlug("/admin/staff-hours?department=cleaning")} className="block">
+              <Link href={withSlug(hoursHref)} className="block">
                 <StatTile
                   label="Hours this week"
                   value={`${stats.hoursWeek}h`}
@@ -606,7 +616,7 @@ function CleaningTeamPage() {
                   hint="From duty logs, Monday to now"
                 />
               </Link>
-              <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)} className="block">
+              <Link href={withSlug(eventsHref)} className="block">
                 <StatTile
                   label="Events today"
                   value={stats.jobsToday}
@@ -675,7 +685,7 @@ function CleaningTeamPage() {
                   const overtime = hrs > 45;
                   const high = hrs > 38;
                   return (
-                    <Link key={m.id} href={withSlug(`/admin/staff-hours?staff=${m.id}`)}>
+                    <Link key={m.id} href={withSlug(isCleaningMgr ? "/admin/cleaning-schedule" : `/admin/staff-hours?staff=${m.id}`)}>
                       <Badge
                         variant="outline"
                         className={`px-2.5 py-1 text-xs tabular-nums cursor-pointer ${
@@ -788,7 +798,7 @@ function CleaningTeamPage() {
             </Link>
 
             {/* Tomorrow's load. */}
-            <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
+            <Link href={withSlug(isCleaningMgr ? "/team-portal/cleaning/dashboard" : `/admin/calendar?date=${toLocalISO(new Date(Date.now() + 24 * 3600 * 1000))}`)}>
               <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">

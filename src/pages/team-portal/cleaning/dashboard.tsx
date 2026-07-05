@@ -48,6 +48,8 @@ function CleaningDashboardInner() {
     UserRole.COMPANY_ADMIN,
     UserRole.ADMIN,
     UserRole.SUPER_ADMIN,
+    UserRole.OWNER,
+    UserRole.REGION_ADMIN,
   ].includes(user?.role as UserRole);
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);

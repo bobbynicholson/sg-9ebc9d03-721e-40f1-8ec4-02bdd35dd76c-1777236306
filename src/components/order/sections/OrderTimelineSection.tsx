@@ -486,7 +486,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
   useEffect(() => {
     if (!order.id) return;
     const ch = supabase
-      .channel(`order-timeline-cleaning:${order.id}`)
+      .channel(`order-timeline-cleaning:${order.id}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "cleaning_jobs", filter: `triggered_by_event_id=eq.${order.id}` },
         async () => {

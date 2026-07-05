@@ -41,6 +41,7 @@ export function useCleaningLiveCounts(): CleaningLiveCounts {
   const { user } = useAuth();
   const companyId = (user as { company_id?: string } | null)?.company_id;
   const userId = (user as { id?: string } | null)?.id;
+  const viewerRole = String((user as { role?: string } | null)?.role || "");
 
   const [returnsDue, setReturnsDue] = useState(0);
   const [inProgress, setInProgress] = useState(0);
@@ -96,7 +97,17 @@ export function useCleaningLiveCounts(): CleaningLiveCounts {
               .from("notifications")
               .select("id", { count: "exact", head: true })
               .eq("company_id", companyId)
-              .or(`recipient_id.eq.${userId},user_id.eq.${userId},target_role.eq.cleaning_staff,target_role.eq.cleaning_manager`)
+              // Match the /notifications page scope: staff never count
+              // manager-only broadcasts, so the badge agrees with the list.
+              .or(
+                [
+                  `recipient_id.eq.${userId}`,
+                  `user_id.eq.${userId}`,
+                  ...(viewerRole === "cleaning_staff"
+                    ? ["target_role.eq.cleaning_staff"]
+                    : ["target_role.eq.cleaning_manager", "target_role.eq.cleaning_staff"]),
+                ].join(","),
+              )
               .eq("is_read", false)
           : Promise.resolve({ count: 0 }),
       ]);
@@ -115,7 +126,7 @@ export function useCleaningLiveCounts(): CleaningLiveCounts {
     } finally {
       setLoading(false);
     }
-  }, [companyId, userId]);
+  }, [companyId, userId, viewerRole]);
 
   // Initial fetch + interval refresh.
   useEffect(() => {

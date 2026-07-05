@@ -457,12 +457,17 @@ function CleaningScheduleGrid() {
                 ) : staff.length === 0 ? (
                   <div className="text-center py-12 text-slate-500 text-sm">
                     <p>No cleaning staff assigned yet. Add a cleaner or assign a cleaning department.</p>
-                    <Link href={withSlug("/admin/users")}>
-                      <Button variant="outline" size="sm" className="mt-3 gap-1.5">
-                        <Users className="w-3.5 h-3.5" />
-                        Open Users
-                      </Button>
-                    </Link>
+                    {/* User provisioning is admin-only; a cleaning_manager
+                        can't open /admin/users, so don't dangle a button
+                        that just bounces them. */}
+                    {userRole !== UserRole.CLEANING_MANAGER && (
+                      <Link href={withSlug("/admin/users")}>
+                        <Button variant="outline" size="sm" className="mt-3 gap-1.5">
+                          <Users className="w-3.5 h-3.5" />
+                          Open Users
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">

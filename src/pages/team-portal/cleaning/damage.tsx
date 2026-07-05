@@ -278,23 +278,32 @@ function CleaningDamagePageInner() {
       // value that already carries the same kitchen-impact semantic
       // (no new enum migration required).
       try {
-        const eqLabel = equipmentId
-          ? (equipment.find((e) => e.id === equipmentId)?.name || "an item")
-          : "an item";
-        const costLabel = parsedRepairCost ? ` Repair estimate ${formatZAR(parsedRepairCost)}.` : "";
-        await notificationService.broadcastNotification({
-          companyId: user.company_id,
-          targetRoles: ["company_admin", "admin", "owner"] as any,
-          title: `Equipment damage logged: ${damageType}`,
-          message: `Cleaning reported ${damageType} on ${eqLabel}.${costLabel} ${notes.trim().slice(0, 120)}`,
-          type: "equipment_shortage" as any,
-          priority: "high",
-          link: "/admin/equipment?tab=shortages",
-          relatedEntityType: "equipment_damage",
-          relatedEntityId: (inserted as any)?.id || null,
-          dedup: true,
-          dedupWindowMinutes: 60,
-        });
+        // Respect the cleaning settings: notify admins whenever damage is
+        // logged (notifyAdminOnDamage), and always escalate when the repair
+        // cost is at/above the damageThresholdR floor even if the toggle is
+        // off. Threshold breaches ride at high priority.
+        const { getCleaningSettings } = await import("@/services/cleaningSettingsService");
+        const { settings } = await getCleaningSettings(user.company_id);
+        const overThreshold = parsedRepairCost >= Number(settings.damageThresholdR || 0) && parsedRepairCost > 0;
+        if (settings.notifyAdminOnDamage || overThreshold) {
+          const eqLabel = equipmentId
+            ? (equipment.find((e) => e.id === equipmentId)?.name || "an item")
+            : "an item";
+          const costLabel = parsedRepairCost ? ` Repair estimate ${formatZAR(parsedRepairCost)}.` : "";
+          await notificationService.broadcastNotification({
+            companyId: user.company_id,
+            targetRoles: ["company_admin", "admin", "owner"] as any,
+            title: `Equipment damage logged: ${damageType}`,
+            message: `Cleaning reported ${damageType} on ${eqLabel}.${costLabel} ${notes.trim().slice(0, 120)}`,
+            type: "equipment_shortage" as any,
+            priority: overThreshold ? "high" : "normal",
+            link: "/admin/equipment?tab=shortages",
+            relatedEntityType: "equipment_damage",
+            relatedEntityId: (inserted as any)?.id || null,
+            dedup: true,
+            dedupWindowMinutes: 60,
+          });
+        }
       } catch (notifErr) {
         // Non-fatal: the damage row is the source of truth, the
         // notification is the heads-up. Log + continue.
@@ -318,7 +327,13 @@ function CleaningDamagePageInner() {
       // failed update can't toast "Marked resolved".
       const { error } = await supabase
         .from("equipment_damages")
-        .update({ resolved: true })
+        // Cast: generated types.ts lags the live schema (resolved_at /
+        // resolved_by_user_id exist in prod), same as the insert above.
+        .update({
+          resolved: true,
+          resolved_at: new Date().toISOString(),
+          resolved_by_user_id: user.id,
+        } as never)
         .eq("id", id)
         .eq("company_id", user.company_id);
       if (error) throw error;

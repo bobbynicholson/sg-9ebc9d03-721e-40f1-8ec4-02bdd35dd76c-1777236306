@@ -69,6 +69,19 @@ function CleaningSchedulesPageInner() {
     load();
   }, [user?.company_id]);
 
+  // Prefill the new-schedule time from the cleaning settings default so
+  // the "Default daily start time" toggle actually does something.
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    void (async () => {
+      const { getCleaningSettings } = await import("@/services/cleaningSettingsService");
+      const { settings } = await getCleaningSettings(user.company_id);
+      if (!cancelled && settings.defaultDailyTime) setScheduledTime(settings.defaultDailyTime);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.company_id]);
+
   useEffect(() => {
     if (!user?.company_id) return;
     // Unique per-mount suffix: a fixed channel name collides when the

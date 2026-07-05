@@ -99,11 +99,24 @@ function CleaningNotificationsPageInner() {
     // refreshes swap the data in place without blanking the list.
     if (!loaded) setLoading(true);
     try {
+      // Scope role-targeted broadcasts to what the VIEWER may see: a plain
+      // cleaner must not receive manager-only dispatches. Managers/admins
+      // oversee the crew so they see both role streams.
+      const viewerRole = String((user as { role?: string }).role || "");
+      const roleTargets =
+        viewerRole === "cleaning_staff"
+          ? ["cleaning_staff"]
+          : ["cleaning_manager", "cleaning_staff"];
+      const orClause = [
+        `recipient_id.eq.${user.id}`,
+        `user_id.eq.${user.id}`,
+        ...roleTargets.map((r) => `target_role.eq.${r}`),
+      ].join(",");
       let q = supabase
         .from("notifications")
         .select("*")
         .eq("company_id", user.company_id)
-        .or(`recipient_id.eq.${user.id},user_id.eq.${user.id},target_role.eq.cleaning_staff,target_role.eq.cleaning_manager`)
+        .or(orClause)
         .order("created_at", { ascending: false })
         .limit(100);
       if (tab === "unread") q = q.eq("is_read", false);
@@ -173,8 +186,8 @@ function CleaningNotificationsPageInner() {
   // kitchen pattern. One-tap delete of anything older than the
   // shared STALE_NOTIFICATION_DAYS threshold.
   const staleCount = useMemo(
-    () => notifs.filter((n) => isStaleNotification(n.created_at)).length,
-    [notifs],
+    () => visible.filter((n) => isStaleNotification(n.created_at)).length,
+    [visible],
   );
   const onClearStale = async () => {
     if (staleCount === 0 || bulkBusy) return;

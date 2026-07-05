@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ODOC: cleaning section - post-event cleaning jobs queued against
- * the equipment from this order. cleaning_jobs is keyed by
- * equipment_id (not order_id), so we bridge via equipment_bookings
- * to find which jobs belong to this order. Cheap two-hop.
+ * this order. cleaning_jobs carries triggered_by_event_id (= order id),
+ * set by BOTH spawn paths (orderWorkflow delivered-transition +
+ * cleaningHandoverService.generateJobsForHandover), so we scope jobs
+ * to THIS order directly. The old equipment_bookings bridge matched by
+ * equipment_id alone and leaked another order's cleaning jobs whenever
+ * two orders booked the same gear (a glass used on 50 orders showed 50
+ * unrelated rows). Direct + exact.
  */
 import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
@@ -42,35 +46,14 @@ export function CleaningSection({ orderId, companyId, defaultOpen, forceOpen, hi
     (async () => {
       setLoading(true);
       try {
-        // Step 1: equipment_bookings keyed by this order. Yields the
-        // equipment IDs whose cleaning jobs we care about.
-        const { data: bookings, error: bErr } = await (supabase as any)
-          .from("equipment_bookings")
-          .select("equipment_id")
-          .eq("order_id", orderId);
-        if (bErr) throw bErr;
-        const equipmentIds = Array.from(
-          new Set(
-            ((bookings || []) as Array<{ equipment_id: string | null }>)
-              .map((b) => b.equipment_id)
-              .filter((x): x is string => !!x),
-          ),
-        );
-        if (equipmentIds.length === 0) {
-          if (!cancelled) setJobs([]);
-          return;
-        }
-
-        // Step 2: cleaning_jobs scoped to this company + the
-        // equipment booked on this order. Filter to active /
-        // recent jobs - older completed jobs would noise up the
-        // view (a glass that's been used on 50 orders shouldn't
-        // show 50 cleaning rows).
+        // cleaning_jobs scoped to THIS order via triggered_by_event_id.
+        // No equipment bridge - that leaked other orders' jobs for
+        // shared gear. company_id kept as a tenant guard.
         const { data: jobRows, error: jErr } = await (supabase as any)
           .from("cleaning_jobs")
           .select("id, status, planned_start, planned_end, actual_start, actual_end, quantity, method, equipment_id, equipment:equipment_id(name)")
           .eq("company_id", companyId)
-          .in("equipment_id", equipmentIds)
+          .eq("triggered_by_event_id", orderId)
           .is("deleted_at", null)
           .order("planned_start", { ascending: true, nullsFirst: false });
         if (jErr) throw jErr;
@@ -87,30 +70,19 @@ export function CleaningSection({ orderId, companyId, defaultOpen, forceOpen, hi
   // Realtime: cleaning_jobs flip status as cleaners tick rows off.
   useEffect(() => {
     if (!orderId || !companyId) return;
+    // Unique per-mount suffix so a quick unmount/remount (tab revisit)
+    // doesn't have the old channel's teardown race the new subscribe
+    // under a shared name and silently kill the subscription.
     const ch = supabase
-      .channel(`order-doc-cleaning:${orderId}`)
+      .channel(`order-doc-cleaning:${orderId}:${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
-        { event: "*", schema: "public", table: "cleaning_jobs", filter: `company_id=eq.${companyId}` },
+        { event: "*", schema: "public", table: "cleaning_jobs", filter: `triggered_by_event_id=eq.${orderId}` },
         async () => {
-          // Refetch the bridge - covers the case where a new booking
-          // shows up on this order mid-session too.
-          const { data: bookings } = await (supabase as any)
-            .from("equipment_bookings")
-            .select("equipment_id")
-            .eq("order_id", orderId);
-          const equipmentIds = Array.from(
-            new Set(
-              ((bookings || []) as Array<{ equipment_id: string | null }>)
-                .map((b) => b.equipment_id)
-                .filter((x): x is string => !!x),
-            ),
-          );
-          if (equipmentIds.length === 0) { setJobs([]); return; }
           const { data: jobRows } = await (supabase as any)
             .from("cleaning_jobs")
             .select("id, status, planned_start, planned_end, actual_start, actual_end, quantity, method, equipment_id, equipment:equipment_id(name)")
             .eq("company_id", companyId)
-            .in("equipment_id", equipmentIds)
+            .eq("triggered_by_event_id", orderId)
             .is("deleted_at", null)
             .order("planned_start", { ascending: true, nullsFirst: false });
           setJobs((jobRows || []) as CleaningJob[]);

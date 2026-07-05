@@ -46,6 +46,7 @@ const ASSIGNER_ROLES = new Set<string>([
   UserRole.ADMIN,
   UserRole.SUPER_ADMIN,
   UserRole.REGION_ADMIN,
+  UserRole.OWNER,
 ].map(String));
 
 function CleaningTasksPageInner() {

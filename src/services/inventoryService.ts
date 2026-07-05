@@ -64,7 +64,7 @@ export const inventoryService = {
    * Mirrors the listStaffPublic / listStaffWithRates split from Phase 5
    * so the visibility seal is consistent across the app.
    */
-  async getInventoryPublic(companyId: string): Promise<Inventory[]> {
+  async getInventoryPublic(companyId: string, opts?: { throwOnError?: boolean }): Promise<Inventory[]> {
     const { data, error } = await supabase
       .from("inventory_items")
       .select("id, company_id, item_name, category, sku, unit_of_measure, current_stock, minimum_stock, maximum_stock, reorder_quantity, storage_location, storage_instructions, is_perishable, shelf_life_days, region_id, created_at, updated_at, deleted_at, preferred_supplier_id, description")
@@ -74,6 +74,9 @@ export const inventoryService = {
 
     if (error) {
       console.error("Error fetching public inventory:", error);
+      // Callers with a recovery/error UI pass throwOnError so a failed
+      // read surfaces as an error state instead of a misleading empty list.
+      if (opts?.throwOnError) throw error;
       return [];
     }
     return (data || []) as Inventory[];
@@ -175,6 +178,9 @@ export const inventoryService = {
     notes?: string,
     transactionType: "adjustment" | "usage" | "waste" | "transfer" | "return" = "adjustment",
     companyId?: string | null,
+    // Cleaning supplies page passes this from its notifyShoppingOnLowStock
+    // setting; other callers leave it off so their low-stock alerts fire.
+    suppressLowStockNotify?: boolean,
   ): Promise<Inventory | null> {
     const current = await this.getInventoryItem(itemId, companyId);
     if (!current) throw new Error("Inventory item not found");
@@ -227,7 +233,7 @@ export const inventoryService = {
       const minStock = Number((current as any).minimum_stock || 0);
       const crossedBelowPar =
         delta < 0 && previous > minStock && newStock <= minStock && minStock > 0;
-      if (crossedBelowPar && current.company_id) {
+      if (crossedBelowPar && current.company_id && !suppressLowStockNotify) {
         const { notificationService } = await import("@/services/notificationService");
         const itemName = (current as any).item_name || "Item";
         const unit = (current as any).unit_of_measure || "";

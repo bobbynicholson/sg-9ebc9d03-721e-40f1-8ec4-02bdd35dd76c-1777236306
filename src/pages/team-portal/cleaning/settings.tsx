@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, Save, Loader2, Camera, AlertTriangle, ListChecks, MonitorSmartphone } from "lucide-react";
+import { Settings as SettingsIcon, Save, Loader2, Camera, AlertTriangle, ListChecks, MonitorSmartphone, Cloud } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { CleaningPageShell, CLEANING_HERO_CHIP } from "@/components/cleaning/CleaningPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -11,30 +11,12 @@ import { PortalCard } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/types/app";
-
-interface Settings {
-  photoRequiredForVerify: boolean;
-  photoRequiredForDamage: boolean;
-  autoBillMissing: boolean;
-  defaultDailyTime: string;
-  defaultReplacementCostMultiplier: number;
-  notifyAdminOnDamage: boolean;
-  notifyShoppingOnLowStock: boolean;
-  damageThresholdR: number;
-}
-
-const DEFAULTS: Settings = {
-  photoRequiredForVerify: false,
-  photoRequiredForDamage: true,
-  autoBillMissing: true,
-  defaultDailyTime: "09:00",
-  defaultReplacementCostMultiplier: 1.0,
-  notifyAdminOnDamage: true,
-  notifyShoppingOnLowStock: true,
-  damageThresholdR: 500,
-};
-
-const storageKey = (companyId: string) => `cms_cleaning_settings_${companyId}`;
+import {
+  CleaningSettings as Settings,
+  CLEANING_SETTINGS_DEFAULTS as DEFAULTS,
+  getCleaningSettings,
+  saveCleaningSettings,
+} from "@/services/cleaningSettingsService";
 
 function CleaningSettingsPageInner() {
   const { user } = useAuth();
@@ -43,28 +25,37 @@ function CleaningSettingsPageInner() {
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Whether the loaded/saved value lives in the shared DB column (synced
+  // to every device) vs the local cache (pre-migration fallback).
+  const [synced, setSynced] = useState(false);
 
   useEffect(() => {
-    if (!user?.company_id || typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(storageKey(user.company_id));
-      if (raw) setSettings({ ...DEFAULTS, ...JSON.parse(raw) });
-    } catch {
-      /* ignore */
-    }
-    setLoaded(true);
+    if (!user?.company_id) return;
+    let cancelled = false;
+    (async () => {
+      const { settings: loadedSettings, synced: isSynced } = await getCleaningSettings(user.company_id);
+      if (cancelled) return;
+      setSettings(loadedSettings);
+      setSynced(isSynced);
+      setLoaded(true);
+    })();
+    return () => { cancelled = true; };
   }, [user?.company_id]);
 
   const update = <K extends keyof Settings>(k: K, v: Settings[K]) => {
     setSettings((s) => ({ ...s, [k]: v }));
   };
 
-  const save = () => {
+  const save = async () => {
     if (!user?.company_id || saving) return;
     setSaving(true);
     try {
-      localStorage.setItem(storageKey(user.company_id), JSON.stringify(settings));
-      toast({ title: "Settings saved" });
+      const res = await saveCleaningSettings(user.company_id, settings);
+      setSynced(res.synced);
+      toast({
+        title: "Settings saved",
+        description: res.synced ? "Applied for every cleaning device." : "Saved on this device (company sync pending migration).",
+      });
     } catch {
       toast({ title: "Could not save", variant: "destructive" });
     } finally {
@@ -95,8 +86,8 @@ function CleaningSettingsPageInner() {
       meta={
         loaded ? (
           <span className={CLEANING_HERO_CHIP}>
-            <MonitorSmartphone className="h-3 w-3" />
-            Saved on this device
+            {synced ? <Cloud className="h-3 w-3" /> : <MonitorSmartphone className="h-3 w-3" />}
+            {synced ? "Synced company-wide" : "Saved on this device"}
           </span>
         ) : undefined
       }
@@ -199,7 +190,9 @@ function CleaningSettingsPageInner() {
 
           <PortalCard className="bg-slate-50 dark:bg-slate-800/50">
             <p className="text-xs text-slate-600 dark:text-slate-400">
-              Settings stored locally per company until a `companies.cleaning_settings` JSON column is added. Your toggles will persist on this device but won't sync to other staff devices yet, this is on the running todo for Phase 2.
+              {synced
+                ? "Saved to this catering company and applied on every cleaning device. The default schedule time and low-stock / damage notifications read these values live."
+                : "Saved on this device for now. Company-wide sync switches on automatically once the cleaning_settings migration is applied."}
             </p>
           </PortalCard>
         </div>
