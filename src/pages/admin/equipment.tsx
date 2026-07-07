@@ -1049,7 +1049,8 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                                   variant="outline"
                                   className="text-[10px] bg-rose-50 text-rose-700 border-rose-200"
                                   title={canSeeFinance
-                                    ? `${dmg.count} damage${dmg.count === 1 ? "" : "s"} logged in last 90 days, total R ${dmg.totalCost.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`
+                                    // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
+                                    ? `${dmg.count} damage${dmg.count === 1 ? "" : "s"} logged in last 90 days, total R ${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(dmg.totalCost).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}`
                                     : `${dmg.count} damage${dmg.count === 1 ? "" : "s"} logged in last 90 days`}
                                 >
                                   {dmg.count} damages 90d
@@ -1067,7 +1068,7 @@ function CatalogTab({ companyId, addSignal = 0 }: { companyId: string | null; ad
                                 <Badge
                                   variant="outline"
                                   className="text-[10px] bg-amber-50 text-amber-800 border-amber-300"
-                                  title={`Hired in ${spend.hireCount}x in last 90d for R ${spend.totalSpend.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}. Replacement cost R ${(r.replacement_cost as number).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}. You've spent ${rec.multiplier?.toFixed(1)}x what you'd pay to buy.`}
+                                  title={/* Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding. */ `Hired in ${spend.hireCount}x in last 90d for R ${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(spend.totalSpend).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}. Replacement cost R ${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(r.replacement_cost as number).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}. You've spent ${rec.multiplier?.toFixed(1)}x what you'd pay to buy.`}
                                 >
                                   Consider buying
                                 </Badge>

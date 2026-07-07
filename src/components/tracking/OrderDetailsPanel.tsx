@@ -55,7 +55,16 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { orderDisplayName } from "@/lib/orderDisplayName";
 
-const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+// Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
+const fmtMoney = {
+  format: (n: number) =>
+    new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .formatToParts(n || 0).map((p) => {
+        if (p.type === "group") return " ";
+        if (p.type === "decimal") return ".";
+        return p.value.replace(/\s/g, " ");
+      }).join(""),
+};
 
 interface OrderLike {
   id: string;

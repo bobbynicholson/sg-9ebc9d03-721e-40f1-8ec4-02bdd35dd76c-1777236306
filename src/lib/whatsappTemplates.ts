@@ -43,13 +43,21 @@ const fmtMoney = (v: number | null | undefined, code?: string | null): string =>
   const c = (code || "ZAR").toUpperCase();
   const locale = CURRENCY_LOCALE[c] || "en-ZA";
   try {
+    // Consistency (Callum 2026-07-08): exact cents + dot-decimal / space
+    // grouping like formatZAR so a WhatsApp amount matches the quote,
+    // invoice + PDF instead of rounding "R 5 833.86" to "R 5 834".
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: c,
-      maximumFractionDigits: 0,
-    }).format(v);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).formatToParts(v).map((p) => {
+      if (p.type === "group") return " ";
+      if (p.type === "decimal") return ".";
+      return p.value.replace(/\s/g, " ");
+    }).join("");
   } catch {
-    return `${c} ${v.toFixed(0)}`;
+    return `${c} ${v.toFixed(2)}`;
   }
 };
 

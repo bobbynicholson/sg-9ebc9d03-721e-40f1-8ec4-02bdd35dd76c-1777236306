@@ -259,9 +259,25 @@ export default function ClientOrderPage() {
         : "Awaiting payment";
   const eventDate = new Date(order.event_date);
   const daysOut = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-  const fmtMoney = new Intl.NumberFormat("en-ZA", {
-    style: "currency", currency: order.currency || "ZAR", maximumFractionDigits: 0,
-  });
+  // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
+  const fmtMoney = (() => {
+    const build = (code: string) => {
+      const fmt = new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: code,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return (n: number) =>
+        fmt.formatToParts(n || 0).map((p) => {
+          if (p.type === "group") return " ";
+          if (p.type === "decimal") return ".";
+          return p.value.replace(/\s/g, " ");
+        }).join("");
+    };
+    try { return { format: build(order.currency || "ZAR") }; }
+    catch { return { format: build("ZAR") }; }
+  })();
   const equipmentBookings = (Array.isArray((view as any)?.equipment_bookings) ? (view as any).equipment_bookings : [])
     .map((b: any) => ({
       ...b,

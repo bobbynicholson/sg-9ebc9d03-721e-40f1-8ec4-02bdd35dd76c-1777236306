@@ -1559,7 +1559,8 @@ function DispatchQueuePage() {
                           <div>
                             <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Total</p>
                             <p className="text-slate-900 tabular-nums">
-                              {C}{order.total_amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              {/* Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding. */}
+                              {C}{new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(order.total_amount).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}
                             </p>
                           </div>
                         </div>

@@ -116,13 +116,26 @@ const buildFmtMoney = (currency?: string | null) => (n: number | null | undefine
   const code = (currency || "ZAR").toUpperCase();
   const locale = CURRENCY_LOCALE[code] || "en-ZA";
   try {
-    return new Intl.NumberFormat(locale, {
+    // Callum feedback (2026-07-08): the quote PDF must show exact cents,
+    // never rounded rands - the rounded R7.50->"R8" + rounded fees made
+    // the client total disagree with the invoice + emails. Force 2
+    // decimals and normalise separators (space grouping, dot decimal)
+    // exactly like formatZAR so every surface reads identically.
+    const parts = new Intl.NumberFormat(locale, {
       style: "currency",
       currency: code,
-      maximumFractionDigits: 0,
-    }).format(v);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).formatToParts(v);
+    return parts
+      .map((p) => {
+        if (p.type === "group") return " ";
+        if (p.type === "decimal") return ".";
+        return p.value.replace(/\s/g, " ");
+      })
+      .join("");
   } catch {
-    return `${code} ${Math.round(v)}`;
+    return `${code} ${v.toFixed(2)}`;
   }
 };
 

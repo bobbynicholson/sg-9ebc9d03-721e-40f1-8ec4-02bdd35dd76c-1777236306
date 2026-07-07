@@ -139,9 +139,15 @@ export function BookingHeader({
   // do not. Wave 70.42 will additionally strip these from the data
   // payload server-side; today we honour the rule at render time.
   const showMoney = variant === "admin" || variant === "client";
+  // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
   const moneyFormat = currencyCode
-    ? (n: number) => new Intl.NumberFormat("en-ZA", { style: "currency", currency: currencyCode, maximumFractionDigits: 0 }).format(n)
-    : (n: number) => tenantCurrency.format(n, 0);
+    ? (n: number) => new Intl.NumberFormat("en-ZA", { style: "currency", currency: currencyCode, minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        .formatToParts(n).map((p) => {
+          if (p.type === "group") return " ";
+          if (p.type === "decimal") return ".";
+          return p.value.replace(/\s/g, " ");
+        }).join("")
+    : (n: number) => tenantCurrency.format(n, 2);
 
   return (
     <div

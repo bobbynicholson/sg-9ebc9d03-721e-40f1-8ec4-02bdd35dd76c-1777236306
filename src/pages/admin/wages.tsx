@@ -71,15 +71,23 @@ function buildFmtMoney(code: string) {
     f = new Intl.NumberFormat(CURRENCY_LOCALE[code] || "en-ZA", {
       style: "currency",
       currency: code || "ZAR",
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
   } catch {
-    f = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+    f = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
+  // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
+  const norm = (v: number) =>
+    f.formatToParts(v).map((p) => {
+      if (p.type === "group") return " ";
+      if (p.type === "decimal") return ".";
+      return p.value.replace(/\s/g, " ");
+    }).join("");
   return (n: number | null | undefined) => {
     const v = Number(n ?? 0);
-    if (!Number.isFinite(v)) return f.format(0);
-    return f.format(v);
+    if (!Number.isFinite(v)) return norm(0);
+    return norm(v);
   };
 }
 function buildFmtMoneyDetailed(code: string) {

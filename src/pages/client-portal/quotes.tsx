@@ -56,19 +56,32 @@ interface PortalQuote {
 // Wave 18 audit: hardcoded ZAR rendered "R5,000" for non-ZA tenants.
 // Resolve from the loaded company row inside the component instead of
 // a module-scope constant.
-function fmtMoneyFor(currencyCode: string): Intl.NumberFormat {
+// Consistency (Callum 2026-07-08): exact cents + dot-decimal / space
+// grouping like formatZAR so the quote total in the portal list matches
+// the public quote, invoice + PDF instead of rounding "R 5 833.86" to
+// "R 5 834". Returns a { format } wrapper so call sites are unchanged.
+function fmtMoneyFor(currencyCode: string): { format: (n: number) => string } {
+  const build = (code: string) => {
+    const fmt = new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return (n: number) =>
+      fmt
+        .formatToParts(n || 0)
+        .map((p) => {
+          if (p.type === "group") return " ";
+          if (p.type === "decimal") return ".";
+          return p.value.replace(/\s/g, " ");
+        })
+        .join("");
+  };
   try {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: currencyCode || "ZAR",
-      maximumFractionDigits: 0,
-    });
+    return { format: build(currencyCode || "ZAR") };
   } catch {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: "ZAR",
-      maximumFractionDigits: 0,
-    });
+    return { format: build("ZAR") };
   }
 }
 
@@ -362,7 +375,7 @@ function QuoteGroup({
   items: PortalQuote[];
   onRequestEdits?: (q: PortalQuote) => void;
   onDecline?: (q: PortalQuote) => void;
-  fmtMoney: Intl.NumberFormat;
+  fmtMoney: { format: (n: number) => string };
 }) {
   return (
     <section className="w-full">

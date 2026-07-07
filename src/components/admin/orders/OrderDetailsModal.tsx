@@ -2022,8 +2022,9 @@ return (
                   Update quote/invoice instead
                 </Button>
               )}
+              {/* Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding. */}
               <Button onClick={persistSave} disabled={saving}>
-                {saving ? "Saving..." : `Save + scale to ${C}${Number(projectedTotal).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+                {saving ? "Saving..." : `Save + scale to ${C}${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(Number(projectedTotal)).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}`}
               </Button>
             </>
           )}

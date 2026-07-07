@@ -55,6 +55,15 @@ import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 // shows £, USD shows $, EUR shows €, ZAR shows R). Locale is hung
 // off the currency code - en-GB for GBP / EUR works for ZAR too;
 // for USD / AUD we prefer en-US.
+//
+// Callum feedback (2026-07-08): the public quote MUST show exact cents,
+// never rounded rands. The old maximumFractionDigits:0 turned R7.50 into
+// "R 8" and rounded the delivery/collection fees, so the client-facing
+// total (R5 834) disagreed with the invoice + emails (R5 833.86). We now
+// force 2 decimals and normalise the separators to space-grouping +
+// dot-decimal via formatToParts, exactly like formatZAR, so every money
+// surface reads identically. See [[project_money_handling]] +
+// [[feedback_no_data_inconsistency]].
 function fmtMoneyFor(code: string | null | undefined): (n: number) => string {
   const safe = (code && ["ZAR", "USD", "EUR", "GBP", "AUD"].includes(code) ? code : "ZAR") as
     "ZAR" | "USD" | "EUR" | "GBP" | "AUD";
@@ -64,8 +73,29 @@ function fmtMoneyFor(code: string | null | undefined): (n: number) => string {
     safe === "GBP" ? "en-GB" :
     safe === "EUR" ? "en-GB" :
     "en-ZA";
-  const f = new Intl.NumberFormat(locale, { style: "currency", currency: safe, maximumFractionDigits: 0 });
-  return (n: number) => f.format(n || 0);
+  return (n: number) => {
+    const value = n || 0;
+    try {
+      const parts = new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: safe,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).formatToParts(value);
+      return parts
+        .map((p) => {
+          if (p.type === "group") return " ";
+          if (p.type === "decimal") return ".";
+          // ICU emits no-break / narrow-no-break spaces around the
+          // symbol; normalise to plain spaces so output is identical
+          // across ICU builds and matches formatZAR.
+          return p.value.replace(/\s/g, " ");
+        })
+        .join("");
+    } catch {
+      return `R ${value.toFixed(2)}`;
+    }
+  };
 }
 
 /**

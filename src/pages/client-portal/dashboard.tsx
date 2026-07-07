@@ -112,20 +112,33 @@ interface DriverPin {
 // the module-scope constant with a per-currency factory so the
 // component can resolve the tenant currency from the loaded company
 // row at render time. fmtMoneyFor("GBP") -> "£5,000", etc.
-function fmtMoneyFor(currencyCode: string): Intl.NumberFormat {
+// Consistency (Callum 2026-07-08): the client sees their own order /
+// balance amounts here, so show exact cents + dot-decimal / space
+// grouping like formatZAR instead of rounding "R 5 833.86" to "R 5 834".
+// Returns a { format } wrapper so call sites (fmtMoney.format(n)) are
+// unchanged.
+function fmtMoneyFor(currencyCode: string): { format: (n: number) => string } {
+  const build = (code: string) => {
+    const fmt = new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return (n: number) =>
+      fmt
+        .formatToParts(n || 0)
+        .map((p) => {
+          if (p.type === "group") return " ";
+          if (p.type === "decimal") return ".";
+          return p.value.replace(/\s/g, " ");
+        })
+        .join("");
+  };
   try {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: currencyCode || "ZAR",
-      maximumFractionDigits: 0,
-    });
+    return { format: build(currencyCode || "ZAR") };
   } catch {
-    // Bad currency code - fall back to a safe formatter.
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: "ZAR",
-      maximumFractionDigits: 0,
-    });
+    return { format: build("ZAR") };
   }
 }
 
@@ -1671,7 +1684,7 @@ function HeroCard({
   // Wave 18: tenant currency formatter passed down from the parent
   // so the totals render in the actual tenant currency, not a
   // module-scope ZAR constant.
-  fmtMoney: Intl.NumberFormat;
+  fmtMoney: { format: (n: number) => string };
   // CLI-J (CLI-31): unread chat count + open-thread callback.
   unreadCount: number;
   onMessage: () => void;
@@ -2021,7 +2034,7 @@ function PastEventTile({
   onMessage: (o: Order) => void;
   unreadCount: number;
   slugPrefix: string;
-  fmtMoney: Intl.NumberFormat;
+  fmtMoney: { format: (n: number) => string };
   // CLI-I (CLI-30): paid invoice for this order, if any. When
   // present the tile shows a small "Receipt" link in the footer
   // that downloads the receipt PDF for this order's invoice.

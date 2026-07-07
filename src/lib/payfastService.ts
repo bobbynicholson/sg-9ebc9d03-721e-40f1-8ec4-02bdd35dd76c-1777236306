@@ -475,11 +475,19 @@ const CURRENCY_LOCALE: Record<string, string> = {
 };
 export function formatCurrency(amount: number, currency: string = "ZAR"): string {
   try {
+    // Consistency (Callum 2026-07-08): exact cents + dot-decimal / space
+    // grouping like formatZAR so payment amounts match the quote,
+    // invoice + PDF instead of rounding "R 5 833.86" to "R 5 834".
     return new Intl.NumberFormat(CURRENCY_LOCALE[currency] || "en-ZA", {
       style: "currency",
       currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).formatToParts(amount).map((p) => {
+      if (p.type === "group") return " ";
+      if (p.type === "decimal") return ".";
+      return p.value.replace(/\s/g, " ");
+    }).join("");
   } catch {
     // Unknown currency code - fall back to the symbol-less amount so we
     // don't display "$270" for a R5000 subscription via the bogus rate.

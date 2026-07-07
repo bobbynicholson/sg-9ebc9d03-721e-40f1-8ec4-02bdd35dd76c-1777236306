@@ -125,13 +125,20 @@ export default function ClientAccountPage() {
   const { orders, company } = view;
   // Wave 18 audit: hardcoded ZAR rendered "R5,000" for non-ZA tenants on
   // the magic-link account page. Resolve from the company row.
+  // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
   const fmtMoney = (() => {
     const code = (company as any)?.currency || "ZAR";
-    try {
-      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: code, maximumFractionDigits: 0 });
-    } catch {
-      return new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
-    }
+    const build = (c: string) => {
+      const fmt = new Intl.NumberFormat("en-ZA", { style: "currency", currency: c, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return (n: number) =>
+        fmt.formatToParts(n || 0).map((p) => {
+          if (p.type === "group") return " ";
+          if (p.type === "decimal") return ".";
+          return p.value.replace(/\s/g, " ");
+        }).join("");
+    };
+    try { return { format: build(code) }; }
+    catch { return { format: build("ZAR") }; }
   })();
   const upcoming = orders.filter((o: any) => o.event_date >= toLocalISO(new Date()) && o.status !== "cancelled");
   const past     = orders.filter((o: any) => !upcoming.includes(o));

@@ -111,15 +111,21 @@ const QUOTE_REASONS = [
 // Money formatter
 // ----------------------------------------------------------------------
 
+// Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
 const fmtMoney = (n: number, code = "ZAR") => {
   try {
     return new Intl.NumberFormat("en-ZA", {
       style: "currency",
       currency: code,
-      maximumFractionDigits: 0,
-    }).format(n || 0);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).formatToParts(n || 0).map((p) => {
+      if (p.type === "group") return " ";
+      if (p.type === "decimal") return ".";
+      return p.value.replace(/\s/g, " ");
+    }).join("");
   } catch {
-    return `R${(n || 0).toFixed(0)}`;
+    return `R${(n || 0).toFixed(2)}`;
   }
 };
 

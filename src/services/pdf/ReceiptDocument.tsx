@@ -102,13 +102,19 @@ const fmtMoney = (n: number | null | undefined, currency?: string | null): strin
   const code = (currency || "ZAR").toUpperCase();
   const locale = CURRENCY_LOCALE[code] || "en-ZA";
   try {
+    // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: code,
-      maximumFractionDigits: 0,
-    }).format(v);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).formatToParts(v).map((p) => {
+      if (p.type === "group") return " ";
+      if (p.type === "decimal") return ".";
+      return p.value.replace(/\s/g, " ");
+    }).join("");
   } catch {
-    return `${CURRENCY_FALLBACK_SYMBOL[code] || ""}${Math.round(v)}`;
+    return `${CURRENCY_FALLBACK_SYMBOL[code] || ""}${v.toFixed(2)}`;
   }
 };
 

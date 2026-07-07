@@ -40,13 +40,21 @@ export function fmtMoney(amount: number | null | undefined, currencyCode?: strin
   const code = (currencyCode || "ZAR").toUpperCase();
   const locale = CURRENCY_LOCALE[code] || "en-ZA";
   try {
+    // Consistency (Callum 2026-07-08): exact cents + dot-decimal / space
+    // grouping like formatZAR so the subject amount matches the body,
+    // quote, invoice + PDF instead of rounding "R 5 833.86" to "R 5 834".
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: code,
-      maximumFractionDigits: 0,
-    }).format(amount);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).formatToParts(amount).map((p) => {
+      if (p.type === "group") return " ";
+      if (p.type === "decimal") return ".";
+      return p.value.replace(/\s/g, " ");
+    }).join("");
   } catch {
-    return `${code} ${amount.toFixed(0)}`;
+    return `${code} ${amount.toFixed(2)}`;
   }
 }
 

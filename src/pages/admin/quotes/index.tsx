@@ -111,7 +111,16 @@ import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCap
 // QuotesPage scope. The MAIN component shadows this with a tenant-
 // aware version so all in-component fmtMoney.format(x) calls use the
 // correct symbol.
-const fmtMoney = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 });
+// Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
+const fmtMoney = {
+  format: (n: number) =>
+    new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .formatToParts(n || 0).map((p) => {
+        if (p.type === "group") return " ";
+        if (p.type === "decimal") return ".";
+        return p.value.replace(/\s/g, " ");
+      }).join(""),
+};
 
 /**
  * Wave 70.32 - maps the linked order's status to a short pill label
@@ -256,7 +265,8 @@ function PipelineBoard({
                         <div className="flex items-start justify-between gap-2 mb-1">
                           <span className="text-sm font-medium text-slate-900 truncate">{q.client_name || "Unknown"}</span>
                           <span className="text-xs font-semibold text-slate-700 tabular-nums shrink-0">
-                            {currencySymbol}{Number(q.total || 0).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                            {/* Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding. */}
+                            {currencySymbol}{new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(Number(q.total || 0)).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
@@ -301,8 +311,9 @@ function AdminQuotesInner() {
   const C = tenantCurrency.symbol;
   // TIGHTEN I.84: tenant-aware shadow of the prior module-scope
   // fmtMoney so every fmtMoney.format(x) call in toasts / dialogs
+  // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
   // picks up the right currency.
-  const fmtMoney = { format: (n: number) => tenantCurrency.format(n, 0) };
+  const fmtMoney = { format: (n: number) => tenantCurrency.format(n, 2) };
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -1680,7 +1691,7 @@ function AdminQuotesInner() {
             />
             <StatTile
               label="Total value"
-              value={`${C}${tileRows.reduce((sum, q) => sum + ((q.quote as any).total ?? 0), 0).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
+              value={`${C}${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(tileRows.reduce((sum, q) => sum + ((q.quote as any).total ?? 0), 0)).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}`}
               icon={Banknote}
               hint={`Sum of quote totals, ${tileRange.label.toLowerCase()}`}
             />
