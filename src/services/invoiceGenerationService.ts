@@ -504,17 +504,37 @@ export async function generateInvoiceData(
           ? companyBalanceDueDays
           : 30;
     const invoiceDateObj = new Date();
-    const computedDue = new Date(invoiceDateObj.getTime() + termDays * 24 * 60 * 60 * 1000);
-    // Cap at event_date - 1 day so balance lands before the event.
+    // Normalise "today" to start-of-day so date-only comparisons don't
+    // drift with the current clock time.
+    const todayStart = new Date(
+      invoiceDateObj.getFullYear(), invoiceDateObj.getMonth(), invoiceDateObj.getDate(),
+    );
+    const computedDue = new Date(todayStart.getTime() + termDays * 24 * 60 * 60 * 1000);
+    // The balance must NEVER be due after the event - you cater the
+    // event, you want the money by then at the latest. Prefer 1 day
+    // before the event for breathing room, but clamp:
+    //   - never later than the term-based computed due date,
+    //   - never after the event day itself,
+    //   - never before today (a same-day or past event => due today, not
+    //     a date in the past).
+    // Bug fix (owner Callum 2026-07-08): the previous branch bailed out
+    // entirely when event_date - 1 was before today (same-day / imminent
+    // event), leaving the +termDays default which landed AFTER the event
+    // - a same-day function showed "Due in 14 days" instead of today.
     let finalDue = computedDue;
     const eventDateRaw = (orderData as any)?.event_date as string | null | undefined;
     if (eventDateRaw) {
-      const eventDate = new Date(eventDateRaw);
-      if (!Number.isNaN(eventDate.getTime())) {
-        const dueByEvent = new Date(eventDate.getTime() - 24 * 60 * 60 * 1000);
-        if (dueByEvent.getTime() < computedDue.getTime() && dueByEvent.getTime() >= invoiceDateObj.getTime()) {
-          finalDue = dueByEvent;
-        }
+      const ev = new Date(eventDateRaw);
+      if (!Number.isNaN(ev.getTime())) {
+        const eventDay = new Date(ev.getFullYear(), ev.getMonth(), ev.getDate());
+        const dayBeforeEvent = new Date(eventDay.getTime() - 24 * 60 * 60 * 1000);
+        // min(1-day-before-event, term-based due)
+        let capped = dayBeforeEvent.getTime() < computedDue.getTime() ? dayBeforeEvent : computedDue;
+        // never after the event day
+        if (capped.getTime() > eventDay.getTime()) capped = eventDay;
+        // never before today (wins for same-day / past events)
+        if (capped.getTime() < todayStart.getTime()) capped = todayStart;
+        finalDue = capped;
       }
     }
 

@@ -62,6 +62,9 @@ interface InvoiceView {
     vat_registered: boolean | null;
     vat_number: string | null;
     vat_rate: number | null;
+    // SARS: a tax invoice must carry the supplier's company registration
+    // number. Surfaced in the header next to the VAT reg number.
+    registration_number: string | null;
     deposit_percent: number | null;
     primary_color: string | null;
     secondary_color: string | null;
@@ -370,6 +373,23 @@ export default function InvoicePaymentPage() {
   // a part-payment shouldn't propose more than what's left).
   useEffect(() => {
     if (!invoice) return;
+    // When the event is today or already past there's no runway for a
+    // deposit-then-balance plan, so prefill the FULL outstanding balance
+    // rather than the suggested deposit (owner Callum 2026-07-08).
+    const evRaw = invoice.invoice_data?.eventDate;
+    let eventDue = false;
+    if (evRaw) {
+      const d = new Date(evRaw);
+      if (!Number.isNaN(d.getTime())) {
+        const evMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const n = new Date();
+        eventDue = evMs <= new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+      }
+    }
+    if (eventDue) {
+      setPayAmount(String(invoice.balance_due || 0));
+      return;
+    }
     const p = Number(invoice.companies?.deposit_percent);
     const pct = Number.isFinite(p) && p > 0 && p < 100 ? p : 50;
     const suggested = Math.round((invoice.total_amount || 0) * (pct / 100) * 100) / 100;
@@ -552,6 +572,23 @@ export default function InvoicePaymentPage() {
   const depositAmount = Math.round((invoice.total_amount || 0) * (depositPct / 100) * 100) / 100;
   const balanceAmount = Math.round(((invoice.total_amount || 0) - depositAmount) * 100) / 100;
 
+  // Once the event is today or in the past there's no runway for a
+  // staged deposit-then-balance plan - the whole amount is due now. In
+  // that case suppress the deposit/balance advisory split and the "pay
+  // deposit" shortcut (owner Callum 2026-07-08: a same-day function's
+  // invoice must not still advertise a 50% deposit while asking for the
+  // full amount). Derived from the event date on the invoice snapshot.
+  const eventDayMs = (() => {
+    const raw = invoice.invoice_data?.eventDate;
+    if (!raw) return null;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  })();
+  const nowForDue = new Date();
+  const todayMs = new Date(nowForDue.getFullYear(), nowForDue.getMonth(), nowForDue.getDate()).getTime();
+  const fullPaymentDue = eventDayMs != null ? eventDayMs <= todayMs : false;
+
   // Live payment figures driven by the editable "amount to pay now"
   // field: what they're paying and the balance that will remain after.
   const payNow = Math.max(0, Math.min(Number(payAmount) || 0, invoice.balance_due));
@@ -646,8 +683,16 @@ export default function InvoicePaymentPage() {
                 <p className="text-sm text-stone-600 mt-1.5">
                   Issued {format(new Date(invoice.invoice_date), "d MMMM yyyy")} · viewed {today}
                 </p>
-                {vatRegistered && company.vat_number && (
+                {/* SARS: a tax invoice must show the supplier's company
+                    registration number. Rendered above the VAT line to
+                    mirror the PDF + quote layout. */}
+                {company.registration_number && (
                   <p className="text-xs text-stone-500 mt-1">
+                    Reg No: <span className="font-mono">{company.registration_number}</span>
+                  </p>
+                )}
+                {vatRegistered && company.vat_number && (
+                  <p className="text-xs text-stone-500 mt-0.5">
                     VAT Reg No: <span className="font-mono">{company.vat_number}</span>
                   </p>
                 )}
@@ -700,7 +745,7 @@ export default function InvoicePaymentPage() {
                 </div>
               </div>
 
-              {!isPartiallyPaid && !isPaid && (
+              {!isPartiallyPaid && !isPaid && !fullPaymentDue && (
                 <div className="grid grid-cols-2 gap-4 rounded-lg bg-stone-50 p-4">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
@@ -716,6 +761,18 @@ export default function InvoicePaymentPage() {
                     <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(balanceAmount)}</p>
                     <p className="text-[11px] text-stone-500 mt-0.5">Payable before the event</p>
                   </div>
+                </div>
+              )}
+
+              {/* Same-day / past event: the whole amount is due now, so
+                  state it plainly instead of the deposit/balance split. */}
+              {!isPartiallyPaid && !isPaid && fullPaymentDue && (
+                <div className="rounded-lg bg-stone-50 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
+                    Full payment due
+                  </p>
+                  <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(invoice.balance_due)}</p>
+                  <p className="text-[11px] text-stone-500 mt-0.5">The full amount is payable now.</p>
                 </div>
               )}
 
@@ -896,7 +953,7 @@ export default function InvoicePaymentPage() {
                           smaller than what's still owing - once the deposit
                           is paid it equals the full balance, so showing both
                           (same amount) just confuses. */}
-                      {depositAmount < invoice.balance_due - 0.01 && (
+                      {!fullPaymentDue && depositAmount < invoice.balance_due - 0.01 && (
                         <button
                           type="button"
                           onClick={() => setPayAmount(String(Math.min(depositAmount, invoice.balance_due)))}
