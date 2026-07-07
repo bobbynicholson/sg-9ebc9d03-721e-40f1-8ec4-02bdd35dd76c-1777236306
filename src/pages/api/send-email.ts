@@ -155,14 +155,52 @@ async function handler(
     let result: { success: boolean; error?: string; error_code?: string; fix_link?: string; context?: any } = { success: false };
 
     // Handle specific email types with server-side templates
-    if (emailType === 'companyWelcome' && variables) {
-      const { companyName, ownerName } = variables;
-      const welcomeSubject = `Welcome to CateringMS, ${companyName}!`;
+    if (emailType === 'companyWelcome') {
+      // SECURITY (2026-07-08 audit): this branch runs WITHOUT a session
+      // (public signup), so it must NOT trust the caller-supplied
+      // recipient or content. Previously it sent caller-supplied HTML
+      // (`ownerName`/`companyName` interpolated raw) to a caller-supplied
+      // `to` via the tenant's verified sender - an open phishing relay +
+      // HTML-injection vector. Now: the recipient must be a real member
+      // of the named company, and the display names come from the DB and
+      // are HTML-escaped. Only companyId + a company-member recipient are
+      // honoured from the request.
+      const svc = getServiceSupabase();
+      const recipientEmail = String((Array.isArray(to) ? to[0] : to) || "").trim().toLowerCase();
+      if (!recipientEmail) {
+        return res.status(400).json({ error: "Recipient email required" });
+      }
+      const { data: companyRow } = await svc
+        .from("companies")
+        .select("id, company_name")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (!companyRow) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+      // The recipient must belong to this company (the owner just
+      // created during signup). Blocks sending to arbitrary addresses.
+      const { data: memberProfile } = await svc
+        .from("profiles")
+        .select("full_name, email")
+        .eq("company_id", companyId)
+        .ilike("email", recipientEmail)
+        .maybeSingle();
+      if (!memberProfile) {
+        return res.status(403).json({ error: "Welcome email recipient must be a member of this company." });
+      }
+
+      const escapeHtml = (s: unknown): string =>
+        String(s ?? "").replace(/[&<>"']/g, (c) =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+      const safeCompanyName = escapeHtml((companyRow as any).company_name || "your company");
+      const safeOwnerName = escapeHtml((memberProfile as any).full_name || "there");
+      const welcomeSubject = `Welcome to CateringMS, ${(companyRow as any).company_name || "your company"}!`;
       const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/login`;
-      
+
       const welcomeBody = `
-        <h1>Welcome, ${ownerName}!</h1>
-        <p>Your company, <strong>${companyName}</strong>, is now set up on the CateringMS platform.</p>
+        <h1>Welcome, ${safeOwnerName}!</h1>
+        <p>Your company, <strong>${safeCompanyName}</strong>, is now set up on the CateringMS platform.</p>
         <p>You can now log in to your account to start managing your catering business.</p>
         <a href="${loginUrl}" style="background-color: #4f46e5; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
           Log In to Your Dashboard
@@ -179,10 +217,10 @@ async function handler(
       // Pass service-role here.
       result = await emailService.sendEmailDetailed({
         companyId,
-        to,
+        to: (memberProfile as any).email || recipientEmail,
         subject: welcomeSubject,
         body: welcomeBody,
-        _client: getServiceSupabase(),
+        _client: svc,
       } as any);
 
     } else {

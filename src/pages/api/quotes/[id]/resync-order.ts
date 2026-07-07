@@ -100,6 +100,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (role !== "super_admin" && (profile as any).company_id !== (quote as any).company_id) {
     return res.status(403).json({ error: "Wrong tenant" });
   }
+  // Role gate (2026-07-08 audit): resyncing overwrites the linked
+  // order's totals + line items and emails the client, so it must be an
+  // admin/sales action - not any same-tenant profile (driver, cleaner,
+  // waiter, or even a client-role login previously passed the tenant
+  // check above).
+  const RESYNC_ROLES = new Set(["super_admin", "company_admin", "admin", "owner", "sales", "manager"]);
+  if (!RESYNC_ROLES.has(role)) {
+    return res.status(403).json({ error: "Admin or sales role required" });
+  }
 
   // Find the linked order. Pull the fields we compare against the quote
   // so we can decide whether to email the client (Wave 33).
