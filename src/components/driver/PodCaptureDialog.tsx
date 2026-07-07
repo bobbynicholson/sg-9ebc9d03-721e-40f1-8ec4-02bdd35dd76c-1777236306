@@ -224,7 +224,18 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-md max-h-[90vh] overflow-y-auto"
+        // Mobile camera fix (owner Callum): tapping "Take photo" opens
+        // the native camera (capture="environment"); when it returns,
+        // the browser fires a focus/pointer "interact outside" that
+        // Radix treats as a dismiss - so the POD dialog vanished the
+        // instant the photo came back and nothing could be captured.
+        // Block outside-dismiss entirely (the photo + signature are
+        // unsaved work you don't want to lose to a stray tap anyway).
+        // The X, Cancel and Confirm buttons still close it.
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Camera className="w-5 h-5 text-brand-primary" />

@@ -146,32 +146,54 @@ export function DriverClockButton({
       const nowIso = new Date().toISOString();
       const todayIso = nowIso.slice(0, 10);
 
-      // Wave 37: prefer to STAMP onto today's planned shift if one
-      // exists (admin rostered the driver for today), otherwise
-      // INSERT a fresh walk-in shift row. Without this, every
-      // clock-in spawned a second row - the roster row stayed
-      // forever in 'scheduled' state and the schedule grid showed
-      // a phantom no-show next to the actual hours. Mirrors the
-      // pattern Wave 36.1 added on /team-portal/kitchen/duty.
-      const { data: planned } = await (supabase as any)
+      // driver_shifts is a VIEW over kitchen_shifts, which carries a
+      // UNIQUE index (staff_id, shift_date) WHERE deleted_at IS NULL
+      // (kitchen_shifts_one_per_chef_per_day). So a driver can hold at
+      // most ONE shift row per day. Pull today's row(s) up front and
+      // decide what to do, rather than blindly INSERTing - a second
+      // insert after a clock-out crashed with a duplicate-key error
+      // (owner Callum: clock in -> out -> in again = error).
+      const { data: todayRows } = await (supabase as any)
         .from("driver_shifts")
-        .select("id, actual_start, status")
+        .select("id, actual_start, actual_end, status")
         .eq("driver_id", driverId)
         .eq("company_id", companyId)
         .eq("shift_date", todayIso)
         .is("deleted_at", null)
-        .is("actual_start", null)
-        .order("planned_start", { ascending: true })
-        .limit(1);
-      const plannedRow = planned && planned[0];
+        .order("planned_start", { ascending: true });
+      const rows = (todayRows || []) as Array<{
+        id: string; actual_start: string | null; actual_end: string | null;
+      }>;
 
-      if (plannedRow?.id) {
+      // Already on shift (open row) - nothing to do, just resync the UI.
+      const openRow = rows.find((r) => r.actual_start && !r.actual_end);
+      // Rostered-but-unstarted row - stamp actual_start onto it (Wave 37
+      // roster link) so the schedule grid doesn't show a phantom no-show.
+      const unstarted = rows.find((r) => !r.actual_start);
+      // A shift already recorded today (clocked out). The one-per-day
+      // index blocks a second row, so RESUME this one instead of
+      // inserting - the driver picks their shift back up for the day.
+      const completed = rows.find((r) => r.actual_start && r.actual_end);
+
+      if (openRow) {
+        await refresh();
+        return;
+      }
+
+      if (unstarted?.id) {
         const { error } = await (supabase as any)
           .from("driver_shifts")
           .update({ actual_start: nowIso, status: "active" })
-          .eq("id", plannedRow.id);
+          .eq("id", unstarted.id);
         if (error) throw error;
         toast({ title: "Clocked in", description: "Linked to today's rostered shift." });
+      } else if (completed?.id) {
+        const { error } = await (supabase as any)
+          .from("driver_shifts")
+          .update({ actual_end: null, status: "active" })
+          .eq("id", completed.id);
+        if (error) throw error;
+        toast({ title: "Clocked back in", description: "Resumed today's shift." });
       } else {
         const { error } = await (supabase as any)
           .from("driver_shifts")
