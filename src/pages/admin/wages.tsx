@@ -810,7 +810,7 @@ function WageDashboardPage() {
   // otherwise see every staff member's pay rate. Matches the
   // canAccessFinance gate the AdminNav now wraps the Wages section in.
   return (
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.OWNER, UserRole.COMPANY_ADMIN]} denyRoles={[UserRole.SUPER_ADMIN]}>
       <NoIndexMeta />
       <Head><title>Wages - CateringMS</title></Head>
       <AdminNav />

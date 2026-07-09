@@ -119,11 +119,10 @@ export default function ProtectedDriverSettlementPage() {
   // canAccessFinance.
   return (
     <ProtectedRoute allowedRoles={[
-      UserRole.SUPER_ADMIN,
       UserRole.OWNER,
       UserRole.COMPANY_ADMIN,
       UserRole.ADMIN,
-    ]}>
+    ]} denyRoles={[UserRole.SUPER_ADMIN]}>
       <DriverSettlementPage />
     </ProtectedRoute>
   );

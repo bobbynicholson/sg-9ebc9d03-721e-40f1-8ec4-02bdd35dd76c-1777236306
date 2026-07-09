@@ -677,7 +677,7 @@ export default function ProtectedKitchenSettlementPage() {
     // Parity with /admin/driver-settlement: OWNER is in
     // FULL_COMPANY_ACCESS_ROLES and pays the wages; pre-fix the owner
     // was locked out of their own settlement page.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+    <ProtectedRoute allowedRoles={[UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]} denyRoles={[UserRole.SUPER_ADMIN]}>
       <KitchenSettlementPage />
     </ProtectedRoute>
   );

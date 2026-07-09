@@ -41,7 +41,7 @@ export default function ProtectedStaffHoursPage() {
     // visibility rule. Pre-STH-B ADMIN (region_admin + sales_admin)
     // could read the unpaid R amounts here, which leaks pay rates
     // and totals - same gate /admin/wages already uses.
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.COMPANY_ADMIN, UserRole.OWNER]} denyRoles={[UserRole.SUPER_ADMIN]}>
       <StaffHoursPage />
     </ProtectedRoute>
   );

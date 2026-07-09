@@ -13,6 +13,14 @@ import { normalizeRoleValue, uniqueRoles } from "@/lib/roleDerivation";
 interface ProtectedRouteProps {
   children: ReactNode;
   allowedRoles?: UserRole[];
+  /**
+   * Roles that are BLOCKED from this surface even if they would
+   * otherwise be authorised - including super_admin. Enforced before
+   * the super-admin god-mode bypass, so it is the only way to fence
+   * the platform operator out of a tenant-private surface (e.g. a
+   * company's staff payroll, which the platform has no need to see).
+   */
+  denyRoles?: UserRole[];
   requireAuth?: boolean;
   requireAdmin?: boolean;
 }
@@ -20,9 +28,10 @@ interface ProtectedRouteProps {
 /**
  * ProtectedRoute Component - Enforces authentication and role-based access control
  */
-export function ProtectedRoute({ 
-  children, 
-  allowedRoles, 
+export function ProtectedRoute({
+  children,
+  allowedRoles,
+  denyRoles,
   requireAuth = true,
   requireAdmin = false,
 }: ProtectedRouteProps) {
@@ -70,17 +79,27 @@ export function ProtectedRoute({
       }
 
       try {
+        const roleSet = uniqueRoles([
+          ...(userRoles || []),
+          normalizeRoleValue(user?.role),
+          normalizeRoleValue(user?.active_role),
+          normalizeRoleValue(profile.role),
+          normalizeRoleValue(profile.active_role),
+          normalizeRoleValue(activeRole),
+        ]);
+
+        // DENY LIST: enforced BEFORE the super-admin god-mode bypass
+        // below, so it is the one gate god mode cannot walk through.
+        // Used to fence tenant-private surfaces (e.g. staff payroll)
+        // off from the platform operator, who has no need to see them.
+        if (denyRoles && denyRoles.length > 0 && denyRoles.some((r) => roleSet.includes(r))) {
+          setAuthorized(false);
+          setIsChecking(false);
+          return;
+        }
+
         // Check if user has required role
         if (allowedRoles && allowedRoles.length > 0) {
-          const roleSet = uniqueRoles([
-            ...(userRoles || []),
-            normalizeRoleValue(user?.role),
-            normalizeRoleValue(user?.active_role),
-            normalizeRoleValue(profile.role),
-            normalizeRoleValue(profile.active_role),
-            normalizeRoleValue(activeRole),
-          ]);
-
           // GOD MODE: Super Admins bypass all role restrictions
           if (roleSet.includes(UserRole.SUPER_ADMIN)) {
             setAuthorized(true);
@@ -112,7 +131,7 @@ export function ProtectedRoute({
     };
 
     checkAuth();
-  }, [user, profile, allowedRoles, userRoles, activeRole]);
+  }, [user, profile, allowedRoles, denyRoles, userRoles, activeRole]);
 
   // Show loading state
   if (loading || isChecking) {

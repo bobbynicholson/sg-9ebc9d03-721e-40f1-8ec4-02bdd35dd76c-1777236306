@@ -70,7 +70,7 @@ import {
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import { canAccessFinance } from "@/lib/authGuards";
+import { canAccessFinance, canManagePayroll } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { PortalSidebar, type PortalSidebarConfig, type PortalSidebarSection } from "@/components/navigation/PortalSidebar";
 import { BRAND_PORTAL_PALETTE, BRAND_ACCENT } from "@/lib/branding/portalPalette";
@@ -313,8 +313,11 @@ export function AdminNav(_: AdminNavProps = {}) {
           { title: "Holiday calendar", href: "/admin/public-holidays", icon: CalendarHeart, description: "Payroll rate dates" },
         ] : []),
         { title: "Onboarding",    href: "/admin/onboarding",     icon: Wand2,     description: "Import clients and orders" },
-        // Payroll cluster - same finance gate as Money.
-        ...(profile && canAccessFinance(profile.role as UserRole) ? [
+        // Payroll cluster - tighter than the finance gate: excludes
+        // super_admin (the platform operator has no need to see a
+        // tenant's private staff wages). Pages enforce the same via
+        // ProtectedRoute denyRoles, which beats god mode.
+        ...(profile && canManagePayroll(profile.role as UserRole) ? [
           { title: "Wages",            href: "/admin/wages",             icon: Wallet,     description: "Hours, rates, overtime" },
           { title: "Staff rates",      href: "/admin/staff",             icon: Users,      description: "Pay rates" },
           { title: "Staff hours",      href: "/admin/staff-hours",       icon: Clock,      description: "Time worked" },

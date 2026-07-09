@@ -203,6 +203,19 @@ export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
   UserRole.COMPANY_ADMIN,
 ];
 
+// Roles allowed to see and manage a company's staff PAYROLL - the
+// wage roll-up, per-person pay rates, department settlements and the
+// payout ledger. Deliberately EXCLUDES super_admin: the platform
+// operator runs the SaaS and has no need to see a tenant company's
+// private staff wages, and white-label tenants do not expect the
+// platform to. This is intentionally tighter than
+// FULL_COMPANY_ACCESS_ROLES / canAccessFinance, which keep super_admin
+// for platform-support of company billing, subscription and gateways.
+export const PAYROLL_ROLES: UserRole[] = [
+  UserRole.OWNER,
+  UserRole.COMPANY_ADMIN,
+];
+
 // Cross-branch admin roles - they ignore the region filter for read
 // purposes and can switch context freely between branches via the
 // global region dropdown.
@@ -368,6 +381,23 @@ export function canAccessAdminDashboard(userRole: UserRole): boolean {
  */
 export function canAccessFinance(userRole: UserRole): boolean {
   return FULL_COMPANY_ACCESS_ROLES.includes(userRole);
+}
+
+/**
+ * Can this role see and manage a company's staff PAYROLL surfaces -
+ * /admin/wages, /admin/staff-hours, /admin/kitchen-settlement,
+ * /admin/driver-settlement and the per-person pay rates on
+ * /admin/staff.
+ *
+ * Owner + company_admin only. Unlike canAccessFinance this EXCLUDES
+ * super_admin by design: the platform operator has no need to see a
+ * tenant's private staff wages. Enforced at the page via
+ * ProtectedRoute denyRoles={[SUPER_ADMIN]} (which beats god mode) and
+ * in the admin nav so the payroll links never render for them.
+ */
+export function canManagePayroll(userRole: UserRole | null | undefined): boolean {
+  if (!userRole) return false;
+  return PAYROLL_ROLES.includes(userRole);
 }
 
 /**

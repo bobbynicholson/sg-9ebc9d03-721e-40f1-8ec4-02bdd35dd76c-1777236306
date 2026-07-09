@@ -566,7 +566,7 @@ function KitchenStaffPage() {
     // Command-centre audit (2026-07-02): OWNER admitted. The owner
     // persona was the only baseline admin role bounced off their own
     // staff roster (every sibling admin page already admits OWNER).
-    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER]}>
+    <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.COMPANY_ADMIN, UserRole.OWNER]} denyRoles={[UserRole.SUPER_ADMIN]}>
       <Head><title>Staff & rates - CateringMS</title></Head>
       <NoIndexMeta />
       <AdminNav />
