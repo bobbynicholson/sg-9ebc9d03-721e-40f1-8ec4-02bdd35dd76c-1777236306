@@ -89,3 +89,46 @@ describe('computeSessionEarnings', () => {
     expect(computeSessionEarnings('shift', { hours: 8, hourlyRate: 50, shiftRate: null })).toBe(0);
   });
 });
+
+describe('computeSessionEarnings (BCEA hourly context)', () => {
+  it('splits daily overtime at 1.5x over the threshold', () => {
+    // 11h at R100, 9h threshold: 9*100 + 2*100*1.5 = 900 + 300 = 1200.
+    const pay = computeSessionEarnings('hourly', {
+      hours: 11, hourlyRate: 100, overtimeThresholdHours: 9,
+    });
+    expect(pay).toBe(1200);
+  });
+  it('no overtime when under the threshold', () => {
+    expect(computeSessionEarnings('hourly', {
+      hours: 8, hourlyRate: 100, overtimeThresholdHours: 9,
+    })).toBe(800);
+  });
+  it('honours an explicit overtime rate over the 1.5x default', () => {
+    // 10h, threshold 9, explicit OT rate R250: 9*100 + 1*250 = 1150.
+    expect(computeSessionEarnings('hourly', {
+      hours: 10, hourlyRate: 100, overtimeThresholdHours: 9, overtimeRate: 250,
+    })).toBe(1150);
+  });
+  it('pays the whole session at 2x on a Sunday/holiday (default)', () => {
+    // 8h at R100, Sunday: 8 * 200 = 1600. No overtime split applies.
+    expect(computeSessionEarnings('hourly', {
+      hours: 8, hourlyRate: 100, overtimeThresholdHours: 9, isSundayOrHoliday: true,
+    })).toBe(1600);
+  });
+  it('honours an explicit Sunday/holiday rate', () => {
+    expect(computeSessionEarnings('hourly', {
+      hours: 8, hourlyRate: 100, isSundayOrHoliday: true, sundayHolidayRate: 180,
+    })).toBe(1440);
+  });
+  it('falls back to flat hours x rate with no BCEA context', () => {
+    expect(computeSessionEarnings('hourly', { hours: 11, hourlyRate: 100 })).toBe(1100);
+  });
+  it('shift + monthly ignore BCEA context entirely', () => {
+    expect(computeSessionEarnings('shift', {
+      hours: 11, hourlyRate: 100, shiftRate: 450, overtimeThresholdHours: 9, isSundayOrHoliday: true,
+    })).toBe(450);
+    expect(computeSessionEarnings('monthly', {
+      hours: 11, hourlyRate: 100, overtimeThresholdHours: 9, isSundayOrHoliday: true,
+    })).toBe(0);
+  });
+});

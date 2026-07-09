@@ -160,10 +160,16 @@ export const timeClockService = {
     // did.
     let payType: StaffPayType = "hourly";
     let shiftRate = 0;
+    // BCEA rate context for hourly staff (see computeSessionEarnings).
+    // null = fall back to the platform defaults (9h daily cap, 1.5x OT,
+    // 2x Sunday/holiday).
+    let otThresholdHours: number | null = null;
+    let overtimeRate: number | null = null;
+    let sundayHolidayRate: number | null = null;
     {
       const { data: ks, error: ksErr } = await (supabase as any)
         .from("kitchen_staff_members")
-        .select("hourly_rate, pay_type, shift_rate")
+        .select("hourly_rate, pay_type, shift_rate, standard_hours_per_day, overtime_rate, sunday_holiday_rate")
         .eq("linked_profile_id", staffId)
         .maybeSingle();
       if (ksErr) {
@@ -175,6 +181,9 @@ export const timeClockService = {
         if (hourlyRate <= 0 && Number((ks as any).hourly_rate) > 0) {
           hourlyRate = Number((ks as any).hourly_rate);
         }
+        if ((ks as any).standard_hours_per_day != null) otThresholdHours = Number((ks as any).standard_hours_per_day);
+        if ((ks as any).overtime_rate != null) overtimeRate = Number((ks as any).overtime_rate);
+        if ((ks as any).sunday_holiday_rate != null) sundayHolidayRate = Number((ks as any).sunday_holiday_rate);
       }
     }
     // A.20 #4 (2026-05-18 phantom-table sweep): dropped a dead
@@ -194,11 +203,40 @@ export const timeClockService = {
         `[timeClockService.clockOut] no hourly_rate set for staff ${staffId}; earnings recorded as 0. Set a rate on /admin/users so wages compute correctly.`,
       );
     }
-    // Pay-model aware: hourly = hours x rate; shift = one flat
-    // shift_rate for this session; monthly = 0 (salaried staff are paid
-    // via the prorated period payslip on /admin/kitchen-settlement, not
-    // per clock-in - accruing here too would double-pay them).
-    const totalEarnings = computeSessionEarnings(payType, { hours: totalHours, hourlyRate, shiftRate });
+    // BCEA context for hourly staff: is this a Sunday or a public
+    // holiday? Same server-local basis the wage report's splitBCEA uses
+    // (getDay on the shift start), so the two surfaces agree. Only run
+    // the holiday lookup for hourly staff - shift/monthly ignore it.
+    let isSundayOrHoliday = false;
+    if (payType === "hourly") {
+      const isSunday = clockInTime.getDay() === 0;
+      let isHoliday = false;
+      const dateStr = clockInTime.toISOString().slice(0, 10);
+      const { data: hol, error: holErr } = await supabase
+        .from("public_holidays")
+        .select("id")
+        .eq("date", dateStr)
+        .or(`company_id.is.null,company_id.eq.${companyId}`)
+        .limit(1)
+        .maybeSingle();
+      if (holErr) console.error("[timeClockService.clockOut] public_holidays lookup failed:", holErr);
+      isHoliday = !!hol;
+      isSundayOrHoliday = isSunday || isHoliday;
+    }
+    // Pay-model aware: hourly = hours x rate with daily-OT (1.5x) and
+    // Sunday/holiday (2x) premiums; shift = one flat shift_rate for this
+    // session; monthly = 0 (salaried staff are paid via the prorated
+    // period payslip on /admin/kitchen-settlement, not per clock-in -
+    // accruing here too would double-pay them).
+    const totalEarnings = computeSessionEarnings(payType, {
+      hours: totalHours,
+      hourlyRate,
+      shiftRate,
+      overtimeThresholdHours: otThresholdHours,
+      overtimeRate,
+      sundayHolidayRate,
+      isSundayOrHoliday,
+    });
 
     const { data: updatedSession, error: updateError } = await supabase
       .from("staff_work_sessions")
@@ -393,13 +431,17 @@ export const timeClockService = {
       .maybeSingle();
     let hourlyRate = Number((profile as { hourly_rate?: number | null } | null)?.hourly_rate) || 0;
     // Same pay-model resolution as clockOut so a backfilled session
-    // earns the same way a live one would (hourly / shift / monthly).
+    // earns the same way a live one would (hourly / shift / monthly),
+    // including the BCEA overtime + Sunday/holiday premiums.
     let payType: StaffPayType = "hourly";
     let shiftRate = 0;
+    let otThresholdHours: number | null = null;
+    let overtimeRate: number | null = null;
+    let sundayHolidayRate: number | null = null;
     {
       const { data: ks } = await supabase
         .from("kitchen_staff_members")
-        .select("hourly_rate, pay_type, shift_rate")
+        .select("hourly_rate, pay_type, shift_rate, standard_hours_per_day, overtime_rate, sunday_holiday_rate")
         .eq("linked_profile_id", args.staffId)
         .maybeSingle();
       if (ks) {
@@ -407,9 +449,35 @@ export const timeClockService = {
         shiftRate = Number((ks as { shift_rate?: number | null }).shift_rate) || 0;
         const ksRate = Number((ks as { hourly_rate?: number | null }).hourly_rate) || 0;
         if (hourlyRate <= 0 && ksRate > 0) hourlyRate = ksRate;
+        const k = ks as { standard_hours_per_day?: number | null; overtime_rate?: number | null; sunday_holiday_rate?: number | null };
+        if (k.standard_hours_per_day != null) otThresholdHours = Number(k.standard_hours_per_day);
+        if (k.overtime_rate != null) overtimeRate = Number(k.overtime_rate);
+        if (k.sunday_holiday_rate != null) sundayHolidayRate = Number(k.sunday_holiday_rate);
       }
     }
-    const totalEarnings = computeSessionEarnings(payType, { hours: totalHours, hourlyRate, shiftRate });
+    let isSundayOrHoliday = false;
+    if (payType === "hourly") {
+      const clockInDate = new Date(args.clockInIso);
+      const isSunday = clockInDate.getDay() === 0;
+      const dateStr = clockInDate.toISOString().slice(0, 10);
+      const { data: hol } = await supabase
+        .from("public_holidays")
+        .select("id")
+        .eq("date", dateStr)
+        .or(`company_id.is.null,company_id.eq.${args.companyId}`)
+        .limit(1)
+        .maybeSingle();
+      isSundayOrHoliday = isSunday || !!hol;
+    }
+    const totalEarnings = computeSessionEarnings(payType, {
+      hours: totalHours,
+      hourlyRate,
+      shiftRate,
+      overtimeThresholdHours: otThresholdHours,
+      overtimeRate,
+      sundayHolidayRate,
+      isSundayOrHoliday,
+    });
 
     const { data, error } = await supabase
       .from("staff_work_sessions")

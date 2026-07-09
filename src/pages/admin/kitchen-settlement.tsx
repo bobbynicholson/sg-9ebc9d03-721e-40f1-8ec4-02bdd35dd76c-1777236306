@@ -94,6 +94,12 @@ function KitchenSettlementPage() {
   const [summariseFailed, setSummariseFailed] = useState<string[]>([]);
   const [persisting, setPersisting] = useState<string | null>(null);
   const [bulkPersisting, setBulkPersisting] = useState(false);
+  // Active staff on kitchen_staff_members with NO linked profile. They
+  // appear on /admin/wages (the report reads kitchen_staff_members) but
+  // CANNOT be issued a payslip here - kitchen_payslips.staff_id is a
+  // hard FK to profiles, so a profile-less staffer has no valid key.
+  // Surfacing them stops them being silently dropped from settlement.
+  const [unlinkedStaff, setUnlinkedStaff] = useState<Array<{ id: string; full_name: string | null }>>([]);
 
   const periodKey = `${periodStart}__${periodEnd}`;
 
@@ -177,6 +183,18 @@ function KitchenSettlementPage() {
         psMap[r.staff_id] = r;
       }
       setExistingPayslips(psMap);
+
+      // 4) Active staff-member rows with no linked profile. These show
+      // on /admin/wages but can't get a payslip here (profiles FK), so
+      // flag them instead of silently omitting them from settlement.
+      const { data: unlinked } = await (supabase as any)
+        .from("kitchen_staff_members")
+        .select("id, full_name")
+        .eq("company_id", companyId)
+        .is("linked_profile_id", null)
+        .eq("is_active", true)
+        .is("deleted_at", null);
+      setUnlinkedStaff((unlinked || []) as Array<{ id: string; full_name: string | null }>);
     } catch (e: any) {
       setLoadError(e?.message || "Could not load the settlement data. Please try again.");
       toast({ title: "Could not load settlement", description: e?.message || "Try again", variant: "destructive" });
@@ -468,6 +486,21 @@ function KitchenSettlementPage() {
                     <RefreshCw className="w-3.5 h-3.5 mr-2" />
                     Retry
                   </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!loadError && unlinkedStaff.length > 0 && (
+              <Alert className="mb-4 border-amber-300 bg-amber-50">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="flex flex-wrap items-center gap-3 text-amber-900">
+                  <span>
+                    {unlinkedStaff.length} active staff {unlinkedStaff.length === 1 ? "member has" : "members have"} no linked login and can&apos;t be issued a payslip here:{" "}
+                    <span className="font-medium">{unlinkedStaff.map((u) => u.full_name || "Unnamed").join(", ")}</span>.
+                    They still appear on the Wages report. Link them to a profile on{" "}
+                    <Link href={withSlug("/admin/staff")} className="font-semibold underline underline-offset-2">Staff &amp; rates</Link>
+                    {" "}to pay them here, or settle them manually.
+                  </span>
                 </AlertDescription>
               </Alert>
             )}

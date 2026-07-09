@@ -132,13 +132,33 @@ export async function summariseStaffPay(
   // hourly branch existed here.
   const { data: ksm } = await (supabase as any)
     .from("kitchen_staff_members")
-    .select("pay_type, monthly_salary, shift_rate")
+    .select("id, pay_type, monthly_salary, shift_rate")
     .eq("company_id", companyId)
     .eq("linked_profile_id", staffId)
     .maybeSingle();
   const payType = normalizePayType((ksm as any)?.pay_type);
   const monthlySalary = (ksm as any)?.monthly_salary != null ? Number((ksm as any).monthly_salary) : null;
   const shiftRate = (ksm as any)?.shift_rate != null ? Number((ksm as any).shift_rate) : null;
+
+  // For per-shift pay, count shifts from the SAME source the wage
+  // report uses (kitchen_staff_shifts roster, keyed by the staff-member
+  // id), NOT the duty-clock actuals below - otherwise the payslip and
+  // /admin/wages disagree for a rostered staffer who doesn't self-clock.
+  // Only queried for shift staff with a linked staff-member row.
+  let rosterShiftCount: number | null = null;
+  if (payType === "shift" && (ksm as any)?.id) {
+    const endExclusive = new Date(`${periodEnd}T00:00:00.000Z`);
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+    const { count } = await (supabase as any)
+      .from("kitchen_staff_shifts")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("staff_member_id", (ksm as any).id)
+      .gte("shift_start", `${periodStart}T00:00:00.000Z`)
+      .lt("shift_start", endExclusive.toISOString())
+      .is("deleted_at", null);
+    rosterShiftCount = count || 0;
+  }
 
   // Tenant currency + overtime threshold.
   const { data: company } = await (supabase as any)
@@ -266,7 +286,10 @@ export async function summariseStaffPay(
     overtimePay = 0;
     multiplierPay = 0;
   } else if (payType === "shift") {
-    basePay = computeShiftPeriodPay(shiftRate, shifts.length);
+    // Roster count when available (matches the wage report); fall back
+    // to the duty-clock actual count for staff clocked only on the
+    // tablet with no roster rows.
+    basePay = computeShiftPeriodPay(shiftRate, rosterShiftCount ?? shifts.length);
     overtimePay = 0;
     multiplierPay = 0;
   }

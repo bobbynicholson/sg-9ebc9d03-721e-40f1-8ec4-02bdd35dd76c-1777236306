@@ -90,11 +90,30 @@ export function computeShiftPeriodPay(
   return round2((Number(shiftRate) || 0) * (Number(shiftCount) || 0));
 }
 
+export interface SessionRateContext {
+  hours: number | null | undefined;
+  hourlyRate: number | null | undefined;
+  shiftRate?: number | null | undefined;
+  // Optional BCEA context for HOURLY staff. When supplied, hourly pay
+  // splits daily overtime (over the threshold at overtimeRate) and pays
+  // the whole session at the Sunday/public-holiday rate when the day is
+  // one. Omit them all for a flat hours x rate (the back-compatible
+  // default). The weekly 45h ordinary cap is NOT applied per session -
+  // that cross-shift split lives in the wage report; a single clock-out
+  // has no cheap view of week-to-date ordinary minutes.
+  overtimeThresholdHours?: number | null;
+  overtimeRate?: number | null;      // default = hourlyRate * 1.5
+  sundayHolidayRate?: number | null; // default = hourlyRate * 2
+  isSundayOrHoliday?: boolean;
+}
+
 /**
  * Earnings for a SINGLE clocked session, by pay type. Used at
  * clock-out and for manager-backfilled manual sessions.
  *
- * - hourly: hours x rate (unchanged historic behaviour).
+ * - hourly: hours x rate, with an optional BCEA split (see
+ *           SessionRateContext) - daily overtime at 1.5x and
+ *           Sunday/public-holiday at 2x when the context is supplied.
  * - shift:  one flat shift_rate, regardless of the session length -
  *           one clocked session is one shift.
  * - monthly: 0. A salaried staffer is NOT paid per session; their pay
@@ -105,10 +124,29 @@ export function computeShiftPeriodPay(
  */
 export function computeSessionEarnings(
   payType: unknown,
-  args: { hours: number | null | undefined; hourlyRate: number | null | undefined; shiftRate?: number | null | undefined },
+  ctx: SessionRateContext,
 ): number {
   const pt = normalizePayType(payType);
   if (pt === "monthly") return 0;
-  if (pt === "shift") return round2(args.shiftRate);
-  return round2((Number(args.hours) || 0) * (Number(args.hourlyRate) || 0));
+  if (pt === "shift") return round2(ctx.shiftRate);
+
+  const hours = Number(ctx.hours) || 0;
+  const rate = Number(ctx.hourlyRate) || 0;
+
+  // Sunday / public holiday: the whole session pays at the premium rate
+  // (BCEA s16 - default 2x hourly).
+  if (ctx.isSundayOrHoliday) {
+    const sunRate = ctx.sundayHolidayRate != null ? Number(ctx.sundayHolidayRate) : rate * 2;
+    return round2(hours * sunRate);
+  }
+
+  // Daily overtime: hours beyond the threshold pay at overtimeRate
+  // (default 1.5x). No threshold supplied -> flat hours x rate.
+  const threshold = ctx.overtimeThresholdHours != null && Number(ctx.overtimeThresholdHours) > 0
+    ? Number(ctx.overtimeThresholdHours)
+    : Infinity;
+  const baseHours = Math.min(hours, threshold);
+  const otHours = Math.max(0, hours - threshold);
+  const otRate = ctx.overtimeRate != null ? Number(ctx.overtimeRate) : rate * 1.5;
+  return round2(baseHours * rate + otHours * otRate);
 }
