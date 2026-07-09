@@ -26,6 +26,12 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { toZonedISO } from "@/lib/localDate";
+import {
+  type StaffPayType,
+  normalizePayType,
+  computeMonthlyPeriodPay,
+  computeShiftPeriodPay,
+} from "@/lib/payroll/payTypes";
 
 const DEFAULT_OT_AFTER_HOURS = 9;
 const OT_RATE_MULTIPLIER = 1.5;
@@ -56,6 +62,14 @@ export interface PaySummary {
   multiplierPay: number;
   totalPay: number;
   shifts: ShiftLine[];
+  // Pay model this total was computed under. "hourly" = the shift-line
+  // roll-up below; "monthly" = salary prorated to the period; "shift" =
+  // flat rate x shift count. For monthly/shift the shifts[] array is
+  // still populated as an attendance record, but the pay figures come
+  // from the salary / shift rate, not the hourly line totals.
+  payType: StaffPayType;
+  monthlySalary: number | null;
+  shiftRate: number | null;
 }
 
 interface DutyShiftRow {
@@ -109,6 +123,22 @@ export async function summariseStaffPay(
     .maybeSingle();
   const profileTyped = profile as ProfileRow | null;
   const hourlyRate = Number(profileTyped?.hourly_rate) || 0;
+
+  // Pay model lives on kitchen_staff_members (pay_type / monthly_salary
+  // / shift_rate), linked to this profile. profiles has no pay_type, so
+  // a staffer with no linked kitchen_staff_members row is treated as
+  // hourly - the safe historic default. This is the fix for salaried /
+  // per-shift staff previously getting an R0 payslip because only the
+  // hourly branch existed here.
+  const { data: ksm } = await (supabase as any)
+    .from("kitchen_staff_members")
+    .select("pay_type, monthly_salary, shift_rate")
+    .eq("company_id", companyId)
+    .eq("linked_profile_id", staffId)
+    .maybeSingle();
+  const payType = normalizePayType((ksm as any)?.pay_type);
+  const monthlySalary = (ksm as any)?.monthly_salary != null ? Number((ksm as any).monthly_salary) : null;
+  const shiftRate = (ksm as any)?.shift_rate != null ? Number((ksm as any).shift_rate) : null;
 
   // Tenant currency + overtime threshold.
   const { data: company } = await (supabase as any)
@@ -219,9 +249,27 @@ export async function summariseStaffPay(
   }
 
   const totalHours = Math.round(shifts.reduce((s, r) => s + r.hours, 0) * 100) / 100;
-  const basePay = Math.round(shifts.reduce((s, r) => s + r.base_pay, 0) * 100) / 100;
-  const overtimePay = Math.round(shifts.reduce((s, r) => s + r.ot_pay, 0) * 100) / 100;
-  const multiplierPay = Math.round(shifts.reduce((s, r) => s + r.multiplier_pay, 0) * 100) / 100;
+  const hourlyBasePay = Math.round(shifts.reduce((s, r) => s + r.base_pay, 0) * 100) / 100;
+  const hourlyOvertimePay = Math.round(shifts.reduce((s, r) => s + r.ot_pay, 0) * 100) / 100;
+  const hourlyMultiplierPay = Math.round(shifts.reduce((s, r) => s + r.multiplier_pay, 0) * 100) / 100;
+
+  // Pay model drives the payslip total. hourly = the shift-line
+  // roll-up above; monthly = salary prorated to the period; shift =
+  // flat rate x shifts worked. monthly/shift zero out the hourly OT /
+  // multiplier lines since those concepts don't apply to them, but the
+  // shifts[] attendance record is kept for the breakdown.
+  let basePay = hourlyBasePay;
+  let overtimePay = hourlyOvertimePay;
+  let multiplierPay = hourlyMultiplierPay;
+  if (payType === "monthly") {
+    basePay = computeMonthlyPeriodPay(monthlySalary, periodStart, periodEnd);
+    overtimePay = 0;
+    multiplierPay = 0;
+  } else if (payType === "shift") {
+    basePay = computeShiftPeriodPay(shiftRate, shifts.length);
+    overtimePay = 0;
+    multiplierPay = 0;
+  }
   const totalPay = Math.round((basePay + overtimePay + multiplierPay) * 100) / 100;
 
 
@@ -238,6 +286,9 @@ export async function summariseStaffPay(
     multiplierPay,
     totalPay,
     shifts,
+    payType,
+    monthlySalary,
+    shiftRate,
   };
 }
 
@@ -273,7 +324,12 @@ export async function persistPayslip(
       status,
       issued_at: status === "issued" || status === "paid" ? new Date().toISOString() : null,
       paid_at: status === "paid" ? new Date().toISOString() : null,
-      breakdown: { shifts: summary.shifts },
+      breakdown: {
+        shifts: summary.shifts,
+        pay_type: summary.payType,
+        monthly_salary: summary.monthlySalary,
+        shift_rate: summary.shiftRate,
+      },
       created_by_user_id: actorUserId,
     };
     const { data, error } = await (supabase as any)

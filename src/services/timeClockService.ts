@@ -2,6 +2,11 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import {
+  type StaffPayType,
+  normalizePayType,
+  computeSessionEarnings,
+} from "@/lib/payroll/payTypes";
 
 type TimeClockEntry = Database["public"]["Tables"]["time_clock_entries"]["Row"];
 type StaffWorkSession = Database["public"]["Tables"]["staff_work_sessions"]["Row"];
@@ -147,18 +152,29 @@ export const timeClockService = {
     }
 
     let hourlyRate = Number((profile as any)?.hourly_rate) || 0;
-    if (hourlyRate <= 0) {
-      // Walk the role-specific tables that store rate independently.
+    // The pay MODEL (hourly / monthly / shift) + the shift rate live on
+    // kitchen_staff_members, not profiles. Always pull it so a salaried
+    // or per-shift staffer accrues the right per-session earnings
+    // instead of an hourly figure (or R0). No linked row -> hourly, the
+    // safe default. Also serves as the hourly_rate fallback it always
+    // did.
+    let payType: StaffPayType = "hourly";
+    let shiftRate = 0;
+    {
       const { data: ks, error: ksErr } = await (supabase as any)
         .from("kitchen_staff_members")
-        .select("hourly_rate")
+        .select("hourly_rate, pay_type, shift_rate")
         .eq("linked_profile_id", staffId)
         .maybeSingle();
       if (ksErr) {
         console.error("[timeClockService] kitchen_staff_members fetch failed:", ksErr);
       }
-      if (ks && Number((ks as any).hourly_rate) > 0) {
-        hourlyRate = Number((ks as any).hourly_rate);
+      if (ks) {
+        payType = normalizePayType((ks as any).pay_type);
+        shiftRate = Number((ks as any).shift_rate) || 0;
+        if (hourlyRate <= 0 && Number((ks as any).hourly_rate) > 0) {
+          hourlyRate = Number((ks as any).hourly_rate);
+        }
       }
     }
     // A.20 #4 (2026-05-18 phantom-table sweep): dropped a dead
@@ -173,12 +189,16 @@ export const timeClockService = {
     // variance is ever needed for drivers (the way
     // kitchen_staff_members holds a kitchen-specific rate),
     // create a real per-role rates table at that point.
-    if (hourlyRate <= 0) {
+    if (payType === "hourly" && hourlyRate <= 0) {
       console.warn(
         `[timeClockService.clockOut] no hourly_rate set for staff ${staffId}; earnings recorded as 0. Set a rate on /admin/users so wages compute correctly.`,
       );
     }
-    const totalEarnings = totalHours * hourlyRate;
+    // Pay-model aware: hourly = hours x rate; shift = one flat
+    // shift_rate for this session; monthly = 0 (salaried staff are paid
+    // via the prorated period payslip on /admin/kitchen-settlement, not
+    // per clock-in - accruing here too would double-pay them).
+    const totalEarnings = computeSessionEarnings(payType, { hours: totalHours, hourlyRate, shiftRate });
 
     const { data: updatedSession, error: updateError } = await supabase
       .from("staff_work_sessions")
@@ -372,16 +392,24 @@ export const timeClockService = {
       .eq("id", args.staffId)
       .maybeSingle();
     let hourlyRate = Number((profile as { hourly_rate?: number | null } | null)?.hourly_rate) || 0;
-    if (hourlyRate <= 0) {
+    // Same pay-model resolution as clockOut so a backfilled session
+    // earns the same way a live one would (hourly / shift / monthly).
+    let payType: StaffPayType = "hourly";
+    let shiftRate = 0;
+    {
       const { data: ks } = await supabase
         .from("kitchen_staff_members")
-        .select("hourly_rate")
+        .select("hourly_rate, pay_type, shift_rate")
         .eq("linked_profile_id", args.staffId)
         .maybeSingle();
-      const ksRate = Number((ks as { hourly_rate?: number | null } | null)?.hourly_rate) || 0;
-      if (ksRate > 0) hourlyRate = ksRate;
+      if (ks) {
+        payType = normalizePayType((ks as any).pay_type);
+        shiftRate = Number((ks as { shift_rate?: number | null }).shift_rate) || 0;
+        const ksRate = Number((ks as { hourly_rate?: number | null }).hourly_rate) || 0;
+        if (hourlyRate <= 0 && ksRate > 0) hourlyRate = ksRate;
+      }
     }
-    const totalEarnings = totalHours * hourlyRate;
+    const totalEarnings = computeSessionEarnings(payType, { hours: totalHours, hourlyRate, shiftRate });
 
     const { data, error } = await supabase
       .from("staff_work_sessions")

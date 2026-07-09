@@ -593,7 +593,22 @@ function KitchenSettlementPage() {
                                 <div className="text-[11px] text-slate-500 truncate">{s.email}</div>
                               </td>
                               <td className="px-3 py-3 text-right tabular-nums text-slate-700">
-                                {sum?.hourlyRate ? fmtCurrency(sum.hourlyRate, sum.currency) : <span className="text-rose-600 text-[11px]">No rate</span>}
+                                {/* Rate column is pay-model aware: salaried and
+                                    per-shift staff have hourly_rate=0 but are not
+                                    "No rate" - show their salary / shift rate so a
+                                    correctly-configured staffer doesn't read as a
+                                    mistake. */}
+                                {sum && sum.payType === "monthly" ? (
+                                  <span title="Monthly salary, prorated to this period">
+                                    {sum.monthlySalary ? `${fmtCurrency(sum.monthlySalary, sum.currency)}/mo` : <span className="text-rose-600 text-[11px]">No salary</span>}
+                                  </span>
+                                ) : sum && sum.payType === "shift" ? (
+                                  <span title="Flat rate per shift worked">
+                                    {sum.shiftRate ? `${fmtCurrency(sum.shiftRate, sum.currency)}/shift` : <span className="text-rose-600 text-[11px]">No rate</span>}
+                                  </span>
+                                ) : (
+                                  sum?.hourlyRate ? fmtCurrency(sum.hourlyRate, sum.currency) : <span className="text-rose-600 text-[11px]">No rate</span>
+                                )}
                               </td>
                               <td className="px-3 py-3 text-right tabular-nums text-slate-900 font-medium">{sum?.totalHours.toFixed(1) || "0.0"}h</td>
                               <td className="px-3 py-3 text-right tabular-nums text-slate-700">{sum ? fmtCurrency(sum.basePay, sum.currency) : "-"}</td>
