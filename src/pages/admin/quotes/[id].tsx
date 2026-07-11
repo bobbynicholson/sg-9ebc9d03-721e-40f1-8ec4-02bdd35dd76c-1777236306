@@ -168,6 +168,10 @@ function AdminQuoteDetailInner() {
   // Pricing editor state - only used when the quote is in 'draft'.
   const [items, setItems] = useState<MenuItemRow[]>([]);
   const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  // Callum (Pic 90): a client change-request often asks for the
+  // COLLECTION fee to move too, but this page only exposed delivery.
+  // Both fees are now editable here, mirroring the full builder.
+  const [collectionFee, setCollectionFee] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
   const [notes, setNotes] = useState<string>("");
 
@@ -229,6 +233,7 @@ function AdminQuoteDetailInner() {
         })),
       );
       setDeliveryFee(safeNum((data as any)?.delivery_fee));
+      setCollectionFee(safeNum((data as any)?.collection_fee));
       setDiscount(safeNum((data as any)?.discount_amount));
       setNotes((data as any)?.notes ?? "");
       setLoading(false);
@@ -414,7 +419,6 @@ function AdminQuoteDetailInner() {
     ),
     [equipmentRows],
   );
-  const collectionFee = safeNum((quote as any)?.collection_fee);
   const computed = useMemo(() => {
     // Per-line discount honoured: builder-made lines carry
     // discount_pct in the jsonb; ignoring it inflated the recompute.
@@ -473,6 +477,12 @@ function AdminQuoteDetailInner() {
       tax: computed.tax,
       total_amount: computed.total,
       total: computed.total,
+      // Persist the fee columns the totals were computed FROM. The old
+      // payload updated only the totals, so editing the delivery fee
+      // here changed the Total while /q/[token] kept rendering the
+      // stale delivery_fee line - a breakdown that no longer summed.
+      delivery_fee: deliveryFee,
+      collection_fee: collectionFee,
       discount_amount: discount,
       notes: notes || null,
     } as any;
@@ -1036,7 +1046,7 @@ function AdminQuoteDetailInner() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {isDraft && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
                         <label className="text-xs text-slate-600 block mb-1">Delivery fee</label>
                         <div className="relative">
@@ -1047,6 +1057,20 @@ function AdminQuoteDetailInner() {
                             step="0.01"
                             value={deliveryFee || ""}
                             onChange={(e) => setDeliveryFee(safeNum(e.target.value))}
+                            className="h-9 pl-6"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-600 block mb-1">Collection fee</label>
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{tenantCurrency.symbol}</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={collectionFee || ""}
+                            onChange={(e) => setCollectionFee(safeNum(e.target.value))}
                             className="h-9 pl-6"
                           />
                         </div>
@@ -1077,6 +1101,7 @@ function AdminQuoteDetailInner() {
                   {(() => {
                     const incVat = pricingMode.mode === "inc";
                     const liveDelivery = isDraft ? deliveryFee : safeNum((quote as any).delivery_fee);
+                    const liveCollection = isDraft ? collectionFee : safeNum((quote as any).collection_fee);
                     const liveDiscount = isDraft ? discount : safeNum((quote as any).discount_amount);
                     const liveTotal = isDraft
                       ? computed.total
@@ -1102,7 +1127,7 @@ function AdminQuoteDetailInner() {
                       computed.itemsSubtotal
                       + computed.equipmentSubtotal
                       + liveDelivery
-                      + computed.collectionFee
+                      + liveCollection
                       - liveDiscount
                       + (incVat ? 0 : liveTax);
                     const adjustmentDelta = isDraft ? 0 : liveTotal - componentsGross;
@@ -1129,10 +1154,10 @@ function AdminQuoteDetailInner() {
                             <span className="font-medium">{fmtMoney(liveDelivery)}</span>
                           </div>
                         )}
-                        {computed.collectionFee > 0 && (
+                        {liveCollection > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-600">Collection fee</span>
-                            <span className="font-medium">{fmtMoney(computed.collectionFee)}</span>
+                            <span className="font-medium">{fmtMoney(liveCollection)}</span>
                           </div>
                         )}
                         {liveDiscount > 0 && (

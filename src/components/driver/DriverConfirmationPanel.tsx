@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatLocalTime } from "@/lib/localFormat";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
+import { PodCaptureDialog, POD_PENDING_KEY } from "@/components/driver/PodCaptureDialog";
 
 // Auto-arrival fires when the driver is within this many metres of the
 // venue. 200m is forgiving enough for GPS drift + large venues/parking
@@ -69,6 +69,25 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   // completeSetupWithPod() so the setup stamp, the POD and the
   // delivered flip happen in one path.
   const [podOpen, setPodOpen] = useState(false);
+
+  // Interrupted-POD recovery: PodCaptureDialog leaves a localStorage
+  // marker while a capture is in progress (cleared on explicit
+  // close/save). If this panel mounts and the marker belongs to THIS
+  // order and is fresh, the page died mid-capture (Android killing the
+  // tab while the native camera was up) - reopen the dialog so the
+  // driver finishes instead of the POD silently vanishing. The driver
+  // dashboard has the same recovery for its own POD entry point.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(POD_PENDING_KEY);
+      if (!raw) return;
+      const pending = JSON.parse(raw) as { orderId?: string; at?: number };
+      if (pending?.orderId === orderId && pending.at && Date.now() - pending.at <= 15 * 60_000) {
+        setPodOpen(true);
+      }
+    } catch { /* localStorage unavailable - ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
 
   useEffect(() => {
     loadConfirmations();

@@ -10,6 +10,15 @@ import { useToast } from "@/hooks/use-toast";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * localStorage key marking a POD capture in progress. Written when the
+ * dialog opens, cleared on explicit close or successful save. The
+ * driver dashboard reads it on mount to reopen an interrupted capture
+ * (page killed while the native camera was open). Value:
+ * {"orderId": "...", "at": epoch-ms}.
+ */
+export const POD_PENDING_KEY = "cms-pod-pending";
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,7 +69,47 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
     setHasSignature(false);
     // Clear the canvas when re-opening
     setTimeout(() => clearCanvas(), 50);
+    // Camera-return resilience (Callum, Pic 92). Two protections while
+    // a capture is in progress:
+    //  1. window.__cmsHoldSwReload - tells the _app service-worker
+    //     updater "do not auto-reload right now"; a deploy landing
+    //     mid-capture must not eat the photo.
+    //  2. localStorage pending marker - if the page dies anyway (some
+    //     Androids kill the tab while the native camera is open, and a
+    //     hard reload wipes React state), the dashboard finds the
+    //     marker on remount and reopens this dialog so the driver can
+    //     finish instead of discovering the POD silently vanished.
+    // The marker is cleared ONLY on explicit close/save (see
+    // handleOpenChange/handleSave), never in unmount cleanup - an
+    // unmount-while-open is exactly the failure we want to recover.
+    try {
+      (window as unknown as { __cmsHoldSwReload?: boolean }).__cmsHoldSwReload = true;
+      localStorage.setItem(POD_PENDING_KEY, JSON.stringify({ orderId, at: Date.now() }));
+    } catch { /* storage unavailable - degrade to old behaviour */ }
+    return () => {
+      try {
+        (window as unknown as { __cmsHoldSwReload?: boolean }).__cmsHoldSwReload = false;
+      } catch { /* ignore */ }
+    };
   }, [open]);
+
+  const clearPendingMarker = () => {
+    try {
+      const raw = localStorage.getItem(POD_PENDING_KEY);
+      if (raw && JSON.parse(raw)?.orderId === orderId) {
+        localStorage.removeItem(POD_PENDING_KEY);
+      }
+    } catch { /* ignore */ }
+  };
+
+  // All dismiss paths (X, Cancel, Escape) route through here; a
+  // deliberate close means the driver abandoned the capture, so the
+  // resume marker must go too or the dialog would haunt them on the
+  // next reload.
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) clearPendingMarker();
+    onOpenChange(nextOpen);
+  };
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
@@ -212,6 +261,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
       // delivery time, may cascade equipment-cleaning rows. Big
       // delta - ping every listener.
       emitOrderUpdated(orderId, "driver:pod-upload", ["status"]);
+      clearPendingMarker();
       onOpenChange(false);
       onSaved?.();
     } catch (e: any) {
@@ -223,7 +273,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="max-w-md max-h-[90vh] overflow-y-auto"
         // Mobile camera fix (owner Callum): tapping "Take photo" opens

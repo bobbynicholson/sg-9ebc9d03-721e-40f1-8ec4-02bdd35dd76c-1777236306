@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useEffect, useState } from "react";
+import { createContext, useContext, ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { createClient } from "@/lib/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
@@ -67,6 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [activeRole, setActiveRole] = useState<string>(UserRole.ADMIN);
+  // "user id + tenant slug" of the last SUCCESSFUL hydration. Used to
+  // no-op duplicate auth events for the already-hydrated user (token
+  // refresh on tab refocus) so the app never unmounts mid-flow. Null
+  // until first hydration succeeds and after sign-out, so failed
+  // hydrations retry on the next auth event.
+  const hydratedSessionKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     // Dev shortcut. Only honoured outside production builds. The
@@ -205,6 +211,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []); // Only run once on mount
 
   const handleSessionChange = async (session: Session | null) => {
+    // Same-user auth events must be silent. supabase-js emits
+    // TOKEN_REFRESHED / SIGNED_IN whenever a backgrounded tab comes
+    // back to the foreground (driver returning from the native camera
+    // during POD capture, staff switching apps, phone unlock). The old
+    // behaviour re-entered loading=true on every such event, which
+    // makes ProtectedRoute swap the whole page for its spinner -
+    // unmounting the page and destroying live UI state (open dialogs,
+    // half-captured POD photos, form input). If the context is already
+    // hydrated for this exact user + tenant slug, there is nothing to
+    // redo. The key includes last_company_slug so a client following a
+    // DIFFERENT tenant's magic link in the same tab still triggers a
+    // full tenant re-resolution (see client-portal tenant fix).
+    const sessionKey = session?.user?.id
+      ? `${session.user.id}:${String((session.user.user_metadata as any)?.last_company_slug || "")}`
+      : null;
+    if (sessionKey && sessionKey === hydratedSessionKeyRef.current) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -420,6 +445,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCompany(userCompany);
           setUserRoles(derivedRoles.roles);
           setActiveRole(derivedRoles.activeRole);
+          hydratedSessionKeyRef.current = sessionKey;
 
           // Phase 6 follow-up: bind tenant tags to the observability
           // scope so every subsequent captureException carries company
@@ -441,6 +467,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCompany(null);
         setUserRoles([]);
         setActiveRole(UserRole.CLIENT);
+        hydratedSessionKeyRef.current = null;
 
         try {
           const { setGlobalTags } = await import("@/lib/observability");
@@ -497,6 +524,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setCompany(null);
     setUserRoles([]);
+    hydratedSessionKeyRef.current = null;
   };
 
   const updateProfile = async (updates: Partial<DbProfile>) => {

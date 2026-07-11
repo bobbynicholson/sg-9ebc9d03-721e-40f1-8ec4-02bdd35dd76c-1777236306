@@ -23,7 +23,13 @@
  * JS after a deploy.
  */
 
-const CACHE_VERSION = "v1";
+// v2 (2026-07-11): Callum's driver portal kept running a pre-deploy
+// bundle for DAYS - skipWaiting/claim swap the worker but nothing
+// reloads an already-open PWA, so fixes never reached his phone. The
+// version bump drops every v1 cache, and _app.tsx now listens for
+// controllerchange + re-checks for updates on tab focus and reloads
+// once, so future deploys actually land on installed PWAs.
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = `cms-driver-shell-${CACHE_VERSION}`;
 const SHELL_URLS = [
   "/team-portal/driver/dashboard",
@@ -80,11 +86,15 @@ self.addEventListener("fetch", (event) => {
     fetch(req)
       .then((resp) => {
         // Cache successful HTML responses so an offline reload of
-        // the driver dashboard still paints.
-        if (
-          resp.ok &&
-          (req.destination === "document" || req.headers.get("accept")?.includes("text/html"))
-        ) {
+        // the driver dashboard still paints - and the hashed
+        // static assets (JS/CSS) that HTML needs, otherwise the
+        // offline shell painted an HTML page whose chunks 404'd.
+        // Network-first keeps both fresh; the cache is only ever
+        // the offline fallback.
+        const isHtml =
+          req.destination === "document" || req.headers.get("accept")?.includes("text/html");
+        const isStaticAsset = url.pathname.startsWith("/_next/static/");
+        if (resp.ok && (isHtml || isStaticAsset)) {
           const copy = resp.clone();
           caches.open(SHELL_CACHE).then((cache) => cache.put(req, copy));
         }

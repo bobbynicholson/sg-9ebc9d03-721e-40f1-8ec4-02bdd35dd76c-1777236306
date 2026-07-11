@@ -18,7 +18,7 @@ import {
   Route as RouteIcon,
   ExternalLink,
 } from "lucide-react";
-import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
+import { PodCaptureDialog, POD_PENDING_KEY } from "@/components/driver/PodCaptureDialog";
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
 import { RunningLateChips } from "@/components/driver/RunningLateChips";
 import { DriverConfirmationPanel } from "@/components/driver/DriverConfirmationPanel";
@@ -166,6 +166,42 @@ function DriverDashboardInner() {
 
   // Phase 5: POD capture + decline dialogs
   const [podJob, setPodJob] = useState<Job | null>(null);
+
+  // Interrupted-POD recovery (Callum, Pic 92). PodCaptureDialog writes
+  // a localStorage marker while a capture is in progress and clears it
+  // on explicit close/save. If the marker is still there when this
+  // page (re)mounts with jobs loaded, the page died mid-capture (some
+  // Androids kill the tab while the native camera is in the
+  // foreground) - reopen the dialog so the driver finishes the POD
+  // instead of it silently vanishing. 15-minute freshness cap keeps a
+  // marker from a days-old abandoned session from popping the dialog.
+  useEffect(() => {
+    if (podJob || jobs.length === 0) return;
+    try {
+      const raw = localStorage.getItem(POD_PENDING_KEY);
+      if (!raw) return;
+      const pending = JSON.parse(raw) as { orderId?: string; at?: number };
+      if (!pending?.orderId || !pending.at || Date.now() - pending.at > 15 * 60_000) {
+        localStorage.removeItem(POD_PENDING_KEY);
+        return;
+      }
+      const job = jobs.find((j) => j.id === pending.orderId);
+      if (!job) {
+        // Not in the in-flight list any more (delivered via another
+        // surface, reassigned, cancelled) - nothing to resume.
+        localStorage.removeItem(POD_PENDING_KEY);
+        return;
+      }
+      setPodJob(job);
+      toast({
+        title: "Resuming delivery confirmation",
+        description: "The proof-of-delivery window was interrupted. Please retake the photo.",
+      });
+    } catch {
+      /* localStorage unavailable or corrupt marker - ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs]);
   const [declineCtx, setDeclineCtx] = useState<{ assignmentId: string; orderId: string; clientName?: string } | null>(null);
   // Map order_id -> assignment_id so the decline dialog can target the right row
   const [assignmentByOrder, setAssignmentByOrder] = useState<Record<string, string>>({});
