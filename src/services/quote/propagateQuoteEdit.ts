@@ -387,6 +387,7 @@ export async function propagateQuoteEditToOrder(
     const PRICING_FIELDS = new Set([
       "subtotal", "discount_amount", "tax_amount", "tax", "total_amount",
       "delivery_fee", "delivery_distance_km", "delivery_rate_per_km",
+      "collection_fee",
     ]);
     const needsInvoiceRecalc = menuChanged
       || receipt.fieldsChanged.some((f) => PRICING_FIELDS.has(f));
