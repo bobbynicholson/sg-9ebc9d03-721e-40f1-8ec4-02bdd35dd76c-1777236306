@@ -26,6 +26,7 @@ const PUBLIC_ROUTES = [
   "/robots.txt",
   "/uk",
   "/us",
+  "/eu",
   "/page",
   "/pay",
 ];
@@ -138,6 +139,14 @@ const isPublicRoute = (pathname: string) => {
     pathname.startsWith("/blog/") ||
     pathname.startsWith("/uk/") ||
     pathname.startsWith("/us/") ||
+    pathname.startsWith("/eu/") ||
+    // POPIA/CPA: per-caterer T&Cs page linked from every email footer,
+    // quote/invoice/receipt PDF and the client portal. Must be readable
+    // without a session (clients follow it from an email).
+    pathname.startsWith("/terms/") ||
+    // CPA: one-click unsubscribe from email footers - the whole point is
+    // that the recipient has no session.
+    pathname.startsWith("/u/") ||
     pathname.startsWith("/page/") ||
     pathname.startsWith("/pay/invoice/") ||
     pathname.startsWith("/pay/i/") ||
