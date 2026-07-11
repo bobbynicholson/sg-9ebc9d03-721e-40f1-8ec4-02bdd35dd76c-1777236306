@@ -12,6 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import {
+  DEFAULT_CONFIDENTIALITY_NOTICE,
+  MAX_CONFIDENTIALITY_NOTICE_LENGTH,
+} from "@/lib/companyLegal";
 
 interface RefundTier {
   min_days_before_event: number;
@@ -60,6 +64,9 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
   const [error, setError] = useState("");
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_POLICY);
   const [terms, setTerms] = useState<string>("");
+  const [confidentialityNotice, setConfidentialityNotice] = useState<string>(
+    DEFAULT_CONFIDENTIALITY_NOTICE,
+  );
 
   useEffect(() => {
     if (!companyId) { setLoading(false); return; }
@@ -70,7 +77,9 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
     (async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("cancellation_policy, terms_and_conditions" as any)
+        .select(
+          "cancellation_policy, terms_and_conditions, confidentiality_notice" as any,
+        )
         .eq("id", companyId)
         .maybeSingle();
       if (cancelled) return;
@@ -82,6 +91,10 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
         ? { ...DEFAULT_POLICY, ...loaded, deposit_refund_tiers: loaded.deposit_refund_tiers || DEFAULT_POLICY.deposit_refund_tiers }
         : DEFAULT_POLICY);
       setTerms(((data as any)?.terms_and_conditions as string) || "");
+      setConfidentialityNotice(
+        ((data as any)?.confidentiality_notice as string) ||
+          DEFAULT_CONFIDENTIALITY_NOTICE,
+      );
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -127,6 +140,17 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
         return;
       }
     }
+    const cleanNotice = confidentialityNotice.trim();
+    if (!cleanNotice) {
+      setError("Add a confidentiality notice for outgoing emails.");
+      return;
+    }
+    if (cleanNotice.length > MAX_CONFIDENTIALITY_NOTICE_LENGTH) {
+      setError(
+        `The confidentiality notice must be ${MAX_CONFIDENTIALITY_NOTICE_LENGTH.toLocaleString()} characters or fewer.`,
+      );
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -137,6 +161,7 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
         .update({
           cancellation_policy: { ...policy, deposit_refund_tiers: sorted },
           terms_and_conditions: terms,
+          confidentiality_notice: cleanNotice,
         } as any)
         .eq("id", companyId);
       if (error) throw error;
@@ -331,7 +356,7 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
 
       <Card className="border-0 shadow-lg">
         <CardHeader>
-          <CardTitle>Plain-English terms (shown on quote acceptance)</CardTitle>
+          <CardTitle>Client terms &amp; conditions</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-2">
           <Textarea
@@ -340,7 +365,35 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
             value={terms}
             onChange={(e) => setTerms(e.target.value)}
           />
-          <p className="text-xs text-slate-500">This is shown verbatim on quote acceptance and in the booking confirmation email.</p>
+          <p className="text-xs text-slate-500">
+            Published verbatim on the caterer-specific terms page linked from
+            emails, quotes, invoices, receipts and the client portal.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Email confidentiality notice</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-2">
+          <Textarea
+            rows={7}
+            maxLength={MAX_CONFIDENTIALITY_NOTICE_LENGTH}
+            placeholder={DEFAULT_CONFIDENTIALITY_NOTICE}
+            value={confidentialityNotice}
+            onChange={(e) => setConfidentialityNotice(e.target.value)}
+          />
+          <div className="flex items-start justify-between gap-4 text-xs text-slate-500">
+            <p>
+              Appended automatically to every outgoing email. Replace the
+              default with the wording approved for your business.
+            </p>
+            <span className="shrink-0 tabular-nums">
+              {confidentialityNotice.length.toLocaleString()} /{" "}
+              {MAX_CONFIDENTIALITY_NOTICE_LENGTH.toLocaleString()}
+            </span>
+          </div>
         </CardContent>
       </Card>
 

@@ -17,6 +17,10 @@
 import { render } from "@react-email/render";
 import * as React from "react";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import {
+  appendCompanyLegalFooter,
+  appendPlatformLegalFooter,
+} from "@/services/email/legalEmailFooter";
 
 type ServiceRoleClient = ReturnType<typeof getServiceSupabase>;
 
@@ -48,6 +52,14 @@ export interface SendBrandedEmailArgs {
   /** What kind of email this is, for the email_automation_log row. */
   templateType: string;
   recipientName?: string;
+  /**
+   * Who the mandatory legal footer speaks for. Defaults to "tenant" when a
+   * companyId is present (caterer -> staff/client mail carries that
+   * caterer's confidentiality notice + terms link) and "platform"
+   * otherwise. Platform-level sends with a companyId (owner welcome) must
+   * set this explicitly so the caterer isn't linked to their own T&Cs.
+   */
+  legalAudience?: "tenant" | "platform";
 }
 
 interface SendResult {
@@ -68,7 +80,7 @@ const PLATFORM_FROM_NAME = process.env.PLATFORM_BRAND_NAME || "CateringMS";
 const PLATFORM_FROM_EMAIL = process.env.PLATFORM_FROM_EMAIL || "noreply@send.cateringms.com";
 
 export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<SendResult> {
-  const html = await render(args.component);
+  let html = await render(args.component);
   const text = await render(args.component, { plainText: true });
 
   // Resolve tenant provider config if we have a companyId.
@@ -78,6 +90,22 @@ export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<Send
   let tenantSmtp: { host: string; port: number; user: string; password: string } | null = null;
 
   const sb = tryServiceClient();
+
+  // This transport bypasses emailService, so the mandatory legal footer
+  // (confidentiality notice + terms link) has to be applied here too.
+  // Never let footer decoration break an invite/welcome send.
+  try {
+    if (args.legalAudience !== "platform" && args.companyId) {
+      html = await appendCompanyLegalFooter(html, {
+        companyId: args.companyId,
+        client: sb,
+      });
+    } else {
+      html = appendPlatformLegalFooter(html);
+    }
+  } catch (e) {
+    console.warn("[sendBrandedEmail] legal footer failed, sending without it:", e);
+  }
   if (args.companyId && sb) {
     try {
       const { data } = await sb

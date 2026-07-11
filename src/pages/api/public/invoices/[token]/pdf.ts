@@ -51,7 +51,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         notes, invoice_data, updated_at,
         client:client_id ( client_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code ),
         order:order_id ( order_number, event_name, event_date, updated_at ),
-        company:company_id ( company_name, legal_name, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, registration_number, tax_number, currency, updated_at )
+        company:company_id ( id, slug, company_name, legal_name, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, registration_number, tax_number, currency, updated_at )
       `)
       .eq("public_token", token)
       .is("deleted_at", null)
@@ -137,6 +137,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         notes: (inv as any).notes || null,
         payment_terms: null,
         company: {
+          id: company.id, slug: company.slug,
           company_name: company.company_name, legal_name: company.legal_name, logo_url: logoUrl,
           email: company.email, phone: company.phone,
           address_line1: company.address_line1, address_line2: company.address_line2, city: company.city,

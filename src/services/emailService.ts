@@ -2,6 +2,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { buildUnsubscribeUrl } from "@/lib/emailUnsubscribe";
 import { normalizeEmailVariables } from "@/lib/emailVariables";
+import {
+  appendCompanyLegalFooter,
+  appendPlatformLegalFooter,
+} from "@/services/email/legalEmailFooter";
 
 export interface EmailSettings {
   id: string;
@@ -111,6 +115,15 @@ export interface SendEmailPayload {
    * up the brand colours / logo / contact footer automatically.
    */
   skipBrandedShell?: boolean;
+  /**
+   * Who the mandatory legal footer speaks for. "tenant" (default) appends
+   * the caterer's confidentiality notice + a link to that caterer's own
+   * terms page. "platform" is for mail CateringMS itself sends to caterers
+   * (billing, owner welcome) - it carries the standard notice + the
+   * platform /terms link instead, because pointing a caterer at their own
+   * client-facing T&Cs would be the wrong legal document.
+   */
+  legalAudience?: "tenant" | "platform";
 }
 
 export interface EmailLog {
@@ -750,6 +763,31 @@ export const emailService = {
         // and proceed with the unshelled body.
         console.warn("[emailService] branded shell failed, sending plain:", shellErr);
       }
+    }
+
+    // Every outgoing tenant email carries the caterer's confidentiality
+    // notice and a link to that caterer's own T&Cs.  This belongs at the
+    // transport boundary (not in individual templates): quote/invoice
+    // messages, automations, magic links, custom messages and future email
+    // types therefore cannot accidentally omit it.  The helper is
+    // idempotent and falls back to the standard notice + company-id URL if
+    // the optional settings lookup is unavailable, so legal decoration can
+    // never block a service-critical send.
+    try {
+      if (payload.legalAudience === "platform") {
+        finalBody = appendPlatformLegalFooter(finalBody, resolveBaseUrl());
+      } else if (payload.companyId) {
+        finalBody = await appendCompanyLegalFooter(finalBody, {
+          companyId: payload.companyId,
+          client: sb,
+          origin: resolveBaseUrl(),
+        });
+      }
+    } catch (legalFooterErr) {
+      console.warn(
+        "[emailService] legal footer failed, sending without customisation:",
+        legalFooterErr,
+      );
     }
 
     // Unsubscribe-footer adoption (docs/notifications.md follow-up 6.6).

@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { canSeeOrderFinance } from "@/lib/authGuards";
+import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { captureException } from "@/lib/observability";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -976,6 +977,22 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             forceOpen={forceAll}
             defaultOpen={false}
           />
+        )}
+
+        {/* POPIA/CPA: every client-facing document links the caterer's
+            public T&Cs page. The company id is a valid /terms identifier
+            so no extra fetch is needed for the slug. */}
+        {isClient && order.company_id && (
+          <p className="pt-4 text-center text-xs text-slate-500">
+            <a
+              href={buildCompanyTermsPath(order.company_id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-slate-700"
+            >
+              Terms &amp; Conditions
+            </a>
+          </p>
         )}
       </div>
     </div>

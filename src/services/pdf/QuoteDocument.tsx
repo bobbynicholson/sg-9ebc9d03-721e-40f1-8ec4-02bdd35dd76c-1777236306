@@ -24,7 +24,9 @@ import {
   StyleSheet,
   Image,
   Font,
+  Link,
 } from "@react-pdf/renderer";
+import { buildCompanyTermsUrl } from "@/lib/companyLegal";
 
 // --- Types -----------------------------------------------------------------
 
@@ -71,6 +73,10 @@ export interface QuotePdfData {
   accepted_at?: string | null;
 
   company: {
+    /** id + slug feed the public /terms/[company] link on the footer -
+     *  slug preferred (pretty URL), id is the stable fallback. */
+    id?: string | null;
+    slug?: string | null;
     company_name?: string | null;
     legal_name?: string | null;
     logo_url?: string | null;
@@ -451,6 +457,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
     company.tax_number ? `Tax ${company.tax_number}` : null,
     company.vat_registered && company.vat_number ? `VAT ${company.vat_number}` : null,
   ]);
+  const companyTermsUrl = (company.slug || company.id)
+    ? buildCompanyTermsUrl(company.slug || company.id)
+    : null;
 
   return (
     <Document
@@ -715,6 +724,11 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           <View style={styles.footerText}>
             {footerLine ? <Text style={styles.footerLine}>{footerLine}</Text> : null}
             {footerLegalLine ? <Text style={styles.footerLegal}>{footerLegalLine}</Text> : null}
+            {companyTermsUrl ? (
+              <Text style={styles.footerLegal}>
+                Terms &amp; Conditions: <Link src={companyTermsUrl}>{companyTermsUrl}</Link>
+              </Text>
+            ) : null}
           </View>
           <Text
             style={styles.footerPage}

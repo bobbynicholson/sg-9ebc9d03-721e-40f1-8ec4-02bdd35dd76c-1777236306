@@ -16,6 +16,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { Resend } from "resend";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { appendPlatformLegalFooter } from "@/services/email/legalEmailFooter";
 
 
 const SUPPORT_INBOX =
@@ -71,6 +72,7 @@ ${body.company ? `<p><strong>Company:</strong> ${escapeHtml(body.company)}</p>` 
 <p><strong>Subject:</strong> ${escapeHtml(body.subject || "general")}</p>
 <hr/>
 <pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(message)}</pre>
+${appendPlatformLegalFooter("")}
 `;
 
     const apiKey = process.env.RESEND_API_KEY;

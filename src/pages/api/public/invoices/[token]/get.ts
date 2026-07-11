@@ -116,7 +116,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       id, public_token, invoice_number, invoice_date, due_date, order_id,
       total_amount, amount_paid, balance_due, status, invoice_data,
       companies:company_id (
-        id, company_name, logo_url, email, phone_number:phone,
+        id, slug, company_name, logo_url, email, phone_number:phone,
         vat_registered, vat_number, vat_rate, deposit_percent, registration_number,
         primary_color, secondary_color, accent_color,
         brand_font_body, brand_font_display

@@ -98,13 +98,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       `-- ${companyName}`;
     const bodyHtml = `<p>${bodyText.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br />")}</p>`;
 
+    // SendEmailPayload only honours `body` - the previous html/text/
+    // template keys were silently ignored, so payslips went out with an
+    // empty message around the attachment.
     const ok = await emailService.sendEmail({
       companyId,
       to: driver_email,
       subject,
-      template: "transactional",
-      html: bodyHtml,
-      text: bodyText,
+      body: bodyHtml,
       attachments: [
         {
           filename: attachment_filename,

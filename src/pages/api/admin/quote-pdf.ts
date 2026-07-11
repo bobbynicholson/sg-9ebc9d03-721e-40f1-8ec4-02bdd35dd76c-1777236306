@@ -71,7 +71,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         delivery_fee, delivery_distance_km, delivery_rate_per_km,
         valid_until, accepted_at, updated_at,
         company:company_id (
-          company_name, legal_name, logo_url, email, phone, website,
+          id, slug, company_name, legal_name, logo_url, email, phone, website,
           address_line1, address_line2, city,
           primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
           registration_number, tax_number, currency,

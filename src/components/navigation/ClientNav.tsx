@@ -4,13 +4,24 @@ import {
   LayoutDashboard,
   MapPin,
   Receipt,
+  ScrollText,
   ShoppingCart,
   User,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "@/components/navigation/PortalSidebar";
 import { BRAND_ACCENT, BRAND_PORTAL_PALETTE } from "@/lib/branding/portalPalette";
+import { useAuth } from "@/contexts/AuthContext";
+import { buildCompanyTermsPath } from "@/lib/companyLegal";
+import { useResolvedTenantSlug } from "@/lib/tenantUrl";
 
 export function ClientNav() {
+  // POPIA/CPA: the client portal must always link the caterer's public
+  // T&Cs. /terms is a GLOBAL_PREFIXES route so withSlug leaves it alone;
+  // the company id keeps the link working when no slug resolves.
+  const slug = useResolvedTenantSlug();
+  const { company } = useAuth();
+  const termsIdentifier = slug || company?.id || "";
+
   const config: PortalSidebarConfig = {
     role: "client",
     title: "Client Portal",
@@ -55,6 +66,14 @@ export function ClientNav() {
         items: [
           { title: "Notifications", href: "/client-portal/notifications", icon: Bell },
           { title: "Profile", href: "/client-portal/profile", icon: User },
+          ...(termsIdentifier
+            ? [{
+                title: "Terms & Conditions",
+                href: buildCompanyTermsPath(termsIdentifier),
+                icon: ScrollText,
+                description: "The caterer's terms",
+              }]
+            : []),
         ],
       },
     ],

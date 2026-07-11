@@ -32,6 +32,7 @@ import {
 import { PayFastService } from "@/lib/payfastService";
 import { formatZAR } from "@/lib/formatters";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
+import { buildCompanyTermsPath } from "@/lib/companyLegal";
 
 // Use the platform's canonical ZAR formatter (space thousands, dot
 // decimal, single "R") instead of raw Intl, which renders a COMMA
@@ -55,6 +56,8 @@ interface InvoiceView {
   payments?: { amount: number; processed_at: string; payment_status: string }[];
   companies: {
     id: string;
+    /** Feeds the public /terms/[company] link (id is the fallback). */
+    slug?: string | null;
     company_name: string;
     logo_url: string | null;
     email: string | null;
@@ -1087,6 +1090,18 @@ export default function InvoicePaymentPage() {
                 )}
               </p>
               <p className="pt-2">Questions? Reach out and they'll come back to you.</p>
+              {(company.slug || company.id) && (
+                <p>
+                  <a
+                    href={buildCompanyTermsPath(company.slug || company.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-stone-700"
+                  >
+                    Terms &amp; Conditions
+                  </a>
+                </p>
+              )}
             </div>
           )}
 

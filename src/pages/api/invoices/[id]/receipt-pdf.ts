@@ -71,7 +71,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           id, order_number, event_name, event_date, updated_at
         ),
         company:company_id (
-          company_name, legal_name, logo_url, email, phone,
+          id, slug, company_name, legal_name, logo_url, email, phone,
           address_line1, address_line2, city, state_province,
           postal_code, country, primary_color, currency,
           vat_registered, vat_number, vat_rate,

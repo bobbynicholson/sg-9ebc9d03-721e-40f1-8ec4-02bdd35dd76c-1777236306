@@ -220,6 +220,7 @@ async function handler(
         to: (memberProfile as any).email || recipientEmail,
         subject: welcomeSubject,
         body: welcomeBody,
+        legalAudience: "platform",
         _client: svc,
       } as any);
 
@@ -262,7 +263,7 @@ async function handler(
               delivery_fee, delivery_distance_km, delivery_rate_per_km,
               valid_until, accepted_at, updated_at,
               company:company_id (
-                company_name, legal_name, logo_url, email, phone, website,
+                id, slug, company_name, legal_name, logo_url, email, phone, website,
                 address_line1, address_line2, city,
                 primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
                 registration_number, tax_number, currency,
@@ -319,7 +320,7 @@ async function handler(
               delivery_fee, delivery_distance_km, delivery_rate_per_km,
               valid_until, accepted_at, updated_at,
               company:company_id (
-                company_name, legal_name, logo_url, email, phone, website,
+                id, slug, company_name, legal_name, logo_url, email, phone, website,
                 address_line1, address_line2, city,
                 primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
                 registration_number, tax_number, currency,
@@ -381,7 +382,7 @@ async function handler(
                 id, order_number, event_name, event_date, discount_amount, updated_at
               ),
               company:company_id (
-                company_name, legal_name, logo_url, email, phone,
+                id, slug, company_name, legal_name, logo_url, email, phone,
                 address_line1, address_line2, city, state_province,
                 postal_code, country, primary_color,
                 vat_registered, vat_number, vat_rate,
@@ -458,6 +459,8 @@ async function handler(
                 notes: invAny.notes || stashed.notes || null,
                 payment_terms: stashed.paymentTerms || company.payment_terms || null,
                 company: {
+                  id: company.id,
+                  slug: company.slug,
                   company_name: company.company_name,
                   legal_name: company.legal_name,
                   logo_url: company.logo_url,

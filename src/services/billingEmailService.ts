@@ -452,6 +452,9 @@ export class BillingEmailService {
         to,
         subject: resolved.subject,
         body: resolved.bodyHtml,
+        // Billing mail is CateringMS -> caterer, so the legal footer must
+        // carry the platform /terms link, not the tenant's client T&Cs.
+        legalAudience: "platform",
         _client: sb,
       } as any);
     } catch (error) {

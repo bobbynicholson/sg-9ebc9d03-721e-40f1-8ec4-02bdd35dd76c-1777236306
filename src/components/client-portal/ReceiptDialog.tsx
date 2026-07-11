@@ -38,6 +38,7 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, Printer, Receipt as ReceiptIcon, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { orderDisplayName } from "@/lib/orderDisplayName";
+import { buildCompanyTermsPath } from "@/lib/companyLegal";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -51,6 +52,8 @@ interface ReceiptDialogProps {
 
 interface CompanyLite {
   id: string;
+  /** Feeds the public /terms/[company] link (id is the fallback). */
+  slug?: string | null;
   company_name: string | null;
   vat_registered: boolean | null;
   vat_number: string | null;
@@ -250,7 +253,7 @@ export function ReceiptDialog({
           const { data: companyData, error: cErr } = await supabase
             .from("companies")
             .select(
-              "id, company_name, vat_registered, vat_number, email, phone, address_line1, address_line2, city, logo_url, currency",
+              "id, slug, company_name, vat_registered, vat_number, email, phone, address_line1, address_line2, city, logo_url, currency",
             )
             .eq("id", tenantCompanyId)
             .maybeSingle();
@@ -563,6 +566,18 @@ export function ReceiptDialog({
             <p className="text-[11px] text-slate-500 text-center pt-2 border-t border-slate-100">
               {footerNote}
             </p>
+            {company && (
+              <p className="text-[11px] text-slate-500 text-center">
+                <a
+                  href={buildCompanyTermsPath(company.slug || company.id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-slate-700"
+                >
+                  Terms &amp; Conditions
+                </a>
+              </p>
+            )}
           </div>
         )}
 

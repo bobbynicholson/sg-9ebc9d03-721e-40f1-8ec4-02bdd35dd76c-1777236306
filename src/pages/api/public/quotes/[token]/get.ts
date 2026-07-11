@@ -73,7 +73,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       valid_until, sent_at, viewed_at, accepted_at,
       converted_to_order_id,
       company:company_id (
-        id, company_name, logo_url, email, phone, website,
+        id, slug, company_name, logo_url, email, phone, website,
         address_line1, address_line2, city,
         vat_registered, vat_number, vat_rate, pricing_includes_vat,
         registration_number, tax_number,

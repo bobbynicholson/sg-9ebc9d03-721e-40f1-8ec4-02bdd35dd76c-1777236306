@@ -43,6 +43,7 @@ import {
   type PublicQuoteView,
 } from "@/services/publicQuoteService";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
+import { buildCompanyTermsPath } from "@/lib/companyLegal";
 // Wave 28.4: route the Decline button through the new wizard so the
 // client gets the "Tell us why -> Confirm" flow with a note before
 // each action. Quote mode skips the payout step (no money to move).
@@ -1397,6 +1398,18 @@ export default function PublicQuotePage() {
                 {company.phone && <span>{company.phone}</span>}
               </p>
               {companyAddress && <p>{companyAddress}</p>}
+              {(company.slug || company.id) && (
+                <p>
+                  <a
+                    href={buildCompanyTermsPath(company.slug || company.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline text-stone-500 hover:text-stone-700"
+                  >
+                    Terms &amp; Conditions
+                  </a>
+                </p>
+              )}
             </div>
           )}
 

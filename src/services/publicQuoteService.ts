@@ -77,6 +77,8 @@ export interface PublicQuoteView {
   } | null;
   company: {
     id: string;
+    /** Feeds the public /terms/[company] link (id is the fallback). */
+    slug?: string | null;
     company_name: string | null;
     logo_url: string | null;
     email: string | null;

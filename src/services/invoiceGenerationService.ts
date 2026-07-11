@@ -1209,7 +1209,7 @@ async function renderInvoicePdfAttachment(
         id, order_number, event_name, event_date, updated_at
       ),
       company:company_id (
-        company_name, legal_name, logo_url, email, phone,
+        id, slug, company_name, legal_name, logo_url, email, phone,
         address_line1, address_line2, city, state_province,
         postal_code, country, primary_color,
         vat_registered, vat_number, vat_rate,
@@ -1280,6 +1280,8 @@ async function renderInvoicePdfAttachment(
       notes: invAny.notes || fallbackData.notes || null,
       payment_terms: company.payment_terms || fallbackData.paymentTerms || null,
       company: {
+        id: company.id,
+        slug: company.slug,
         company_name: company.company_name,
         legal_name: company.legal_name,
         logo_url: company.logo_url,

@@ -1487,6 +1487,7 @@ export type Database = {
           city: string | null
           cleaning_checklist_template: Json | null
           company_name: string
+          confidentiality_notice: string
           country: string | null
           created_at: string | null
           currency: string | null
@@ -1574,6 +1575,7 @@ export type Database = {
           city?: string | null
           cleaning_checklist_template?: Json | null
           company_name: string
+          confidentiality_notice?: string
           country?: string | null
           created_at?: string | null
           currency?: string | null
@@ -1661,6 +1663,7 @@ export type Database = {
           city?: string | null
           cleaning_checklist_template?: Json | null
           company_name?: string
+          confidentiality_notice?: string
           country?: string | null
           created_at?: string | null
           currency?: string | null

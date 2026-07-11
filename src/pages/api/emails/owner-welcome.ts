@@ -119,6 +119,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         subject: resolved.subject,
         body: resolved.bodyHtml,
         allowPlatformFallback: true,
+        legalAudience: "platform",
         _client: sb,
       } as any);
       return res.status(ok ? 200 : 502).json({ ok, via: "template" });
@@ -139,6 +140,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     companyId,
     templateType: "owner_welcome",
     recipientName: ownerName,
+    legalAudience: "platform",
   });
 
   return res.status(result.ok ? 200 : 502).json(result);
