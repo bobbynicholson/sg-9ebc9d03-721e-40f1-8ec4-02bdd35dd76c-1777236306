@@ -184,6 +184,50 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
   return (
     <div className="space-y-6">
       <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Client terms &amp; conditions</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-2">
+          <Textarea
+            rows={10}
+            placeholder={"Paste your terms and conditions here. The structured cancellation policy below is enforced automatically; this text gives the client the rest of your booking terms in your own words."}
+            value={terms}
+            onChange={(e) => setTerms(e.target.value)}
+          />
+          <p className="text-xs text-slate-500">
+            Published verbatim on the caterer-specific terms page linked from
+            emails, quotes, invoices, receipts and the client portal. Leave it
+            blank and clients see a &quot;contact us for terms&quot; placeholder.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle>Email confidentiality notice</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-2">
+          <Textarea
+            rows={7}
+            maxLength={MAX_CONFIDENTIALITY_NOTICE_LENGTH}
+            placeholder={DEFAULT_CONFIDENTIALITY_NOTICE}
+            value={confidentialityNotice}
+            onChange={(e) => setConfidentialityNotice(e.target.value)}
+          />
+          <div className="flex items-start justify-between gap-4 text-xs text-slate-500">
+            <p>
+              Appended automatically to every outgoing email. Replace the
+              default with the wording approved for your business.
+            </p>
+            <span className="shrink-0 tabular-nums">
+              {confidentialityNotice.length.toLocaleString()} /{" "}
+              {MAX_CONFIDENTIALITY_NOTICE_LENGTH.toLocaleString()}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-0 shadow-lg">
         <CardHeader className="bg-gradient-to-r from-rose-50 to-orange-50 border-b">
           <CardTitle className="flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-rose-600" />
@@ -350,49 +394,6 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
               value={policy.late_cancel_requires_owner_override_days}
               onChange={(e) => setPolicy({ ...policy, late_cancel_requires_owner_override_days: Number(e.target.value) || 0 })}
             />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle>Client terms &amp; conditions</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-2">
-          <Textarea
-            rows={10}
-            placeholder={"Paste your terms and conditions here. The structured policy above is enforced automatically; this text gives the client the rest of your booking terms in your own words."}
-            value={terms}
-            onChange={(e) => setTerms(e.target.value)}
-          />
-          <p className="text-xs text-slate-500">
-            Published verbatim on the caterer-specific terms page linked from
-            emails, quotes, invoices, receipts and the client portal.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle>Email confidentiality notice</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-2">
-          <Textarea
-            rows={7}
-            maxLength={MAX_CONFIDENTIALITY_NOTICE_LENGTH}
-            placeholder={DEFAULT_CONFIDENTIALITY_NOTICE}
-            value={confidentialityNotice}
-            onChange={(e) => setConfidentialityNotice(e.target.value)}
-          />
-          <div className="flex items-start justify-between gap-4 text-xs text-slate-500">
-            <p>
-              Appended automatically to every outgoing email. Replace the
-              default with the wording approved for your business.
-            </p>
-            <span className="shrink-0 tabular-nums">
-              {confidentialityNotice.length.toLocaleString()} /{" "}
-              {MAX_CONFIDENTIALITY_NOTICE_LENGTH.toLocaleString()}
-            </span>
           </div>
         </CardContent>
       </Card>

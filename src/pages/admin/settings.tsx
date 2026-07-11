@@ -495,7 +495,7 @@ function SettingsPage() {
                   <TabsTrigger value="automation" className="whitespace-nowrap text-xs md:text-sm">Automation</TabsTrigger>
                   <TabsTrigger value="inventory" className="whitespace-nowrap text-xs md:text-sm">Inventory</TabsTrigger>
                   <TabsTrigger value="dispatch" className="whitespace-nowrap text-xs md:text-sm">Dispatch</TabsTrigger>
-                  <TabsTrigger value="cancellation" className="whitespace-nowrap text-xs md:text-sm">Cancellation</TabsTrigger>
+                  <TabsTrigger value="cancellation" className="whitespace-nowrap text-xs md:text-sm">Terms &amp; Policies</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="financial">
