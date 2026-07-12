@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Loader2, BookOpen, AlertCircle } from "lucide-react";
+import { recipeBatchesForOrderLine } from "@/lib/recipeScaling";
 
 interface Props {
   open: boolean;
@@ -47,6 +48,9 @@ export function RecipeDialog({ open, onOpenChange, menuItemId, itemName, orderQu
   const [recipe, setRecipe] = useState<RecipeRow | null>(null);
   const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
   const [notFound, setNotFound] = useState(false);
+  // Package items (whole spit braai) sell one FULL batch per order unit,
+  // so the chef must not see the ingredients divided by base servings.
+  const [soldAsPackage, setSoldAsPackage] = useState(false);
 
   useEffect(() => {
     if (!open || !menuItemId) return;
@@ -56,7 +60,14 @@ export function RecipeDialog({ open, onOpenChange, menuItemId, itemName, orderQu
       setNotFound(false);
       setRecipe(null);
       setIngredients([]);
+      setSoldAsPackage(false);
       try {
+        const { data: mi } = await (supabase as any)
+          .from("menu_items")
+          .select("sold_as_package")
+          .eq("id", menuItemId)
+          .maybeSingle();
+        if (!cancelled) setSoldAsPackage(!!mi?.sold_as_package);
         const { data: rec, error: recErr } = await (supabase as any)
           .from("recipes")
           .select("id, recipe_name, base_servings, prep_time_minutes, cook_time_minutes, instructions")
@@ -84,9 +95,14 @@ export function RecipeDialog({ open, onOpenChange, menuItemId, itemName, orderQu
   }, [open, menuItemId]);
 
   // Scale factor - how many "base-servings batches" we need to make
-  // to cover this order line.
-  const scale = recipe && recipe.base_servings > 0
-    ? orderQuantity / recipe.base_servings
+  // to cover this order line. Package items count whole batches per
+  // ordered unit (1 x spit braai = 1 whole lamb, never 1/25th).
+  const scale = recipe
+    ? recipeBatchesForOrderLine({
+        orderQuantity,
+        baseServings: recipe.base_servings,
+        soldAsPackage,
+      }) || 1
     : 1;
   const showScaling = recipe && recipe.base_servings > 0 && Math.abs(scale - 1) > 0.0001;
 

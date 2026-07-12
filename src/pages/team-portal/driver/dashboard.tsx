@@ -18,10 +18,15 @@ import {
   Route as RouteIcon,
   ExternalLink,
 } from "lucide-react";
-import { PodCaptureDialog, POD_PENDING_KEY } from "@/components/driver/PodCaptureDialog";
+import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
+import {
+  clearPendingPodCapture,
+  POD_PENDING_MAX_AGE_MS,
+  pendingPodRecoveryFlow,
+  readPendingPodCapture,
+} from "@/lib/podCaptureRecovery";
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
 import { RunningLateChips } from "@/components/driver/RunningLateChips";
-import { DriverConfirmationPanel } from "@/components/driver/DriverConfirmationPanel";
 import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MessageCircle } from "lucide-react";
@@ -34,6 +39,7 @@ import { WaiterServicePanel } from "@/components/waiter/WaiterServicePanel";
 import { UserRole } from "@/types/app";
 import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { DriverClockButton } from "@/components/driver/DriverClockButton";
+import { DriverStatusDialog } from "@/components/driver/DriverStatusDialog";
 import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,6 +60,7 @@ import { driverPayService } from "@/services/driverPayService";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { formatLocalTime } from "@/lib/localFormat";
 import { toLocalISO } from "@/lib/localDate";
+import { sumDriverShiftMilliseconds } from "@/lib/driverClock";
 
 type Order = Tables<"orders">;
 type DriverAssignment = Tables<"driver_assignments">;
@@ -143,16 +150,12 @@ function DriverDashboardInner() {
         setHoursError(error.message || "We couldn't load your clocked hours for today.");
         return;
       }
-      const now = new Date();
-      let totalMs = 0;
-      for (const s of (data || []) as Array<{ actual_start: string | null; actual_end: string | null; status: string }>) {
-        if (!s.actual_start) continue;
-        const start = new Date(s.actual_start).getTime();
-        const end = s.actual_end ? new Date(s.actual_end).getTime() : now.getTime();
-        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-          totalMs += (end - start);
-        }
-      }
+      // Split shifts are separate immutable rows. Sum each session rather
+      // than stretching the first clock-in to the final clock-out, which
+      // would pay the off-duty gap between them.
+      const totalMs = sumDriverShiftMilliseconds(
+        (data || []) as Array<{ actual_start: string | null; actual_end: string | null }>,
+      );
       setHoursError(null);
       setHoursLoaded(true);
       setHoursWorkedToday(totalMs / 3_600_000);
@@ -166,6 +169,10 @@ function DriverDashboardInner() {
 
   // Phase 5: POD capture + decline dialogs
   const [podJob, setPodJob] = useState<Job | null>(null);
+  // DRV-H (driver deep audit, DRV-34 / DRV-49): "Status step" dialog.
+  // This state must exist before interrupted-POD recovery below: a nested
+  // Status capture owns its marker and must never be replaced by podJob.
+  const [confirmJob, setConfirmJob] = useState<Job | null>(null);
 
   // Interrupted-POD recovery (Callum, Pic 92). PodCaptureDialog writes
   // a localStorage marker while a capture is in progress and clears it
@@ -176,23 +183,27 @@ function DriverDashboardInner() {
   // instead of it silently vanishing. 15-minute freshness cap keeps a
   // marker from a days-old abandoned session from popping the dialog.
   useEffect(() => {
-    if (podJob || jobs.length === 0) return;
+    if (confirmJob || podJob || jobs.length === 0) return;
     try {
-      const raw = localStorage.getItem(POD_PENDING_KEY);
-      if (!raw) return;
-      const pending = JSON.parse(raw) as { orderId?: string; at?: number };
-      if (!pending?.orderId || !pending.at || Date.now() - pending.at > 15 * 60_000) {
-        localStorage.removeItem(POD_PENDING_KEY);
+      const pending = readPendingPodCapture();
+      if (!pending?.orderId || !pending.at || Date.now() - pending.at > POD_PENDING_MAX_AGE_MS) {
+        clearPendingPodCapture();
         return;
       }
       const job = jobs.find((j) => j.id === pending.orderId);
       if (!job) {
         // Not in the in-flight list any more (delivered via another
         // surface, reassigned, cancelled) - nothing to resume.
-        localStorage.removeItem(POD_PENDING_KEY);
+        clearPendingPodCapture();
         return;
       }
-      setPodJob(job);
+      // The marker records which dialog owned the native-camera round trip.
+      // Never replace a nested Setup-completed capture with the top-level
+      // Confirm-delivery dialog: that remount discards the File object and
+      // changes the write cascade. Untagged pre-deploy markers came from the
+      // reported Status flow, so recover them there as the safe default.
+      if (pendingPodRecoveryFlow(pending) === "direct") setPodJob(job);
+      else setConfirmJob(job);
       toast({
         title: "Resuming delivery confirmation",
         description: "The proof-of-delivery window was interrupted. Please retake the photo.",
@@ -201,20 +212,12 @@ function DriverDashboardInner() {
       /* localStorage unavailable or corrupt marker - ignore */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs]);
+  }, [jobs, confirmJob, podJob]);
   const [declineCtx, setDeclineCtx] = useState<{ assignmentId: string; orderId: string; clientName?: string } | null>(null);
   // Map order_id -> assignment_id so the decline dialog can target the right row
   const [assignmentByOrder, setAssignmentByOrder] = useState<Record<string, string>>({});
   // Phase 5B: chat dialog
   const [chatJob, setChatJob] = useState<Job | null>(null);
-  // DRV-H (driver deep audit, DRV-34 / DRV-49): "Status step" dialog
-  // that surfaces the full DriverConfirmationPanel (4-stage flow:
-  // en route to kitchen / at kitchen / departed / at venue) one tap
-  // from the home screen. The panel lives at
-  // /team-portal/driver/deliveries today, so the driver couldn't
-  // confirm en-route + arrived from the dashboard without
-  // navigating away.
-  const [confirmJob, setConfirmJob] = useState<Job | null>(null);
   // Kitchen origin: driver's region kitchen if set, otherwise company HQ
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
 
@@ -1267,24 +1270,7 @@ function DriverDashboardInner() {
           at venue" from the home screen without navigating to
           /deliveries. The panel does its own GPS + write workflow
           via driverConfirmationService. */}
-      <Dialog open={!!confirmJob} onOpenChange={(open) => !open && setConfirmJob(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-brand-primary dark:text-brand-primary" />
-              Status - {confirmJob?.client_name}
-            </DialogTitle>
-          </DialogHeader>
-          {confirmJob && (
-            <DriverConfirmationPanel
-              orderId={confirmJob.id}
-              orderNumber={confirmJob.order_number}
-              eventTime={confirmJob.event_time}
-              venueAddress={confirmJob.venue_address}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <DriverStatusDialog job={confirmJob} onClose={() => setConfirmJob(null)} />
 
       {/* AI Chatbot */}
       <ChatBot userRole="driver" companyId={user?.company_id} />

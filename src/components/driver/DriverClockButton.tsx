@@ -23,13 +23,17 @@
  * a single tap so it gets used in the moment.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, Play, Square, Loader2 } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
+import {
+  decideDriverClockIn,
+  type DriverClockShiftRow,
+} from "@/lib/driverClock";
 
 interface OpenShift {
   id: string;
@@ -83,6 +87,10 @@ export function DriverClockButton({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [tick, setTick] = useState(0);
+  // React state does not update synchronously. A ref closes the tiny window
+  // where a fast double tap can start two requests before `disabled={busy}`
+  // reaches the DOM.
+  const actionInFlight = useRef(false);
 
   // Tick once a minute so the elapsed label stays roughly current.
   useEffect(() => {
@@ -146,76 +154,55 @@ export function DriverClockButton({
   const fetchTodayRows = async (todayIso: string) => {
     const { data, error } = await (supabase as any)
       .from("driver_shifts")
-      .select("id, actual_start, actual_end, status")
+        .select("id, planned_start, actual_start, actual_end, status")
       .eq("driver_id", driverId)
       .eq("company_id", companyId)
       .eq("shift_date", todayIso)
       .is("deleted_at", null)
       .order("planned_start", { ascending: true });
     if (error) throw new Error(`Could not check today's shift: ${error.message}`);
-    return (data || []) as Array<{
-      id: string; actual_start: string | null; actual_end: string | null;
-    }>;
+    return (data || []) as DriverClockShiftRow[];
   };
 
-  // Stamp or resume an existing row for today. Returns true when a row
-  // was handled, false when there was nothing to act on (caller then
-  // inserts a walk-in row). Updates go through .select() so an
+  // Reuse only a still-open row or an unstarted roster row. Completed
+  // sessions are immutable: reopening one would erase its first clock-out
+  // and count the off-duty gap as paid hours. Returns true when an existing
+  // row was handled, false when the caller must insert a fresh session.
+  // Updates go through .select() so an
   // RLS-silenced 0-row update surfaces as an honest error instead of a
   // fake "Clocked in" toast.
-  const stampOrResume = async (
-    rows: Array<{ id: string; actual_start: string | null; actual_end: string | null }>,
+  const handleExistingRow = async (
+    rows: DriverClockShiftRow[],
     nowIso: string,
   ): Promise<boolean> => {
-    // Already on shift (open row) - nothing to do, just resync the UI.
-    const openRow = rows.find((r) => r.actual_start && !r.actual_end);
-    // Rostered-but-unstarted row - stamp actual_start onto it (Wave 37
-    // roster link) so the schedule grid doesn't show a phantom no-show.
-    const unstarted = rows.find((r) => !r.actual_start);
-    // A shift already recorded today (clocked out). The one-per-day
-    // index blocks a second row, so RESUME this one instead of
-    // inserting - the driver picks their shift back up for the day.
-    const completed = rows.find((r) => r.actual_start && r.actual_end);
+    const decision = decideDriverClockIn(rows);
+    if (decision.kind === "already_open") return true;
 
-    if (openRow) return true;
-
-    if (unstarted?.id) {
+    if (decision.kind === "start_rostered") {
       const { data, error } = await (supabase as any)
         .from("driver_shifts")
         .update({ actual_start: nowIso, status: "active" })
-        .eq("id", unstarted.id)
+        .eq("id", decision.shift.id)
+        // If another tab stamped the roster after our read, do not overwrite
+        // its clock-in time. The 0-row result is resolved as a race below.
+        .is("actual_start", null)
         .select("id");
       if (error) throw error;
-      if (!data || data.length === 0) throw new Error("Shift update was blocked. Ask your admin to check your account.");
+      if (!data || data.length === 0) {
+        const racedRows = await fetchTodayRows(toLocalISO(new Date()));
+        if (decideDriverClockIn(racedRows).kind === "already_open") return true;
+        throw new Error("Shift update was blocked. Ask your admin to check your account.");
+      }
       toast({ title: "Clocked in", description: "Linked to today's rostered shift." });
       return true;
     }
-
-    if (completed?.id) {
-      // Admin-logged shifts can carry a FUTURE actual_start (a manager
-      // pre-logging "11:30-12:30 today"). Resuming one of those with
-      // its future start intact would produce a negative hours_worked
-      // on the next clock-out, so pull the start back to now.
-      const startInFuture =
-        completed.actual_start && new Date(completed.actual_start).getTime() > Date.now();
-      const patch: Record<string, unknown> = { actual_end: null, status: "active" };
-      if (startInFuture) patch.actual_start = nowIso;
-      const { data, error } = await (supabase as any)
-        .from("driver_shifts")
-        .update(patch)
-        .eq("id", completed.id)
-        .select("id");
-      if (error) throw error;
-      if (!data || data.length === 0) throw new Error("Shift update was blocked. Ask your admin to check your account.");
-      toast({ title: "Clocked back in", description: "Resumed today's shift." });
-      return true;
-    }
-
     return false;
   };
 
   const clockIn = async () => {
     if (!driverId || !companyId) return;
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       const nowIso = new Date().toISOString();
@@ -227,15 +214,12 @@ export function DriverClockButton({
       // planned-shift lookup in refresh() already use the local date.
       const todayIso = toLocalISO(new Date());
 
-      // driver_shifts is a VIEW over kitchen_shifts, which carries a
-      // UNIQUE index (staff_id, shift_date) WHERE deleted_at IS NULL
-      // (kitchen_shifts_one_per_chef_per_day). So a driver can hold at
-      // most ONE shift row per day. Pull today's row(s) up front and
-      // decide what to do, rather than blindly INSERTing - a second
-      // insert after a clock-out crashed with a duplicate-key error
-      // (owner Callum: clock in -> out -> in again = error).
+      // Pull today's row(s) up front so an open row is idempotent and a
+      // roster row gets its actual clock-in stamp. Completed rows are not
+      // reopened: a same-day second clock-in inserts another session so
+      // payroll preserves the first clock-out and excludes the break.
       const rows = await fetchTodayRows(todayIso);
-      if (await stampOrResume(rows, nowIso)) {
+      if (await handleExistingRow(rows, nowIso)) {
         await refresh();
         return;
       }
@@ -248,48 +232,69 @@ export function DriverClockButton({
           actual_start: nowIso,
           shift_date: todayIso,
           status: "active",
+          source: "manual",
         });
       if (error) {
-        // 23505 = the one-per-day unique index rejected the insert even
-        // though the delivery view showed no row. Two known ways in:
-        // a row appeared in a race (another tab / dispatcher), or the
-        // day is occupied by a NON-delivery shift (kitchen / cleaning /
-        // general share the same index and are invisible through this
-        // view). Self-heal the first, name the second honestly instead
-        // of leaking "duplicate key value violates unique constraint".
+        // The database has a partial unique index for one OPEN delivery
+        // session per driver/day. A concurrent tab can win the insert; in
+        // that case re-read and treat its open row as our successful clock.
+        // A completed session never qualifies for that index, so on the
+        // migrated schema it is never reopened merely to hide a 23505.
         const isDuplicateDay = error.code === "23505" || /duplicate key/i.test(error.message || "");
         if (!isDuplicateDay) throw error;
 
         const retryRows = await fetchTodayRows(todayIso);
-        if (await stampOrResume(retryRows, nowIso)) {
+        if (await handleExistingRow(retryRows, nowIso)) {
           await refresh();
           return;
         }
-        const { data: otherTypeRows } = await (supabase as any)
-          .from("kitchen_shifts")
-          .select("shift_type")
-          .eq("staff_id", driverId)
-          .eq("shift_date", todayIso)
-          .is("deleted_at", null)
-          .limit(1);
-        const otherType = otherTypeRows?.[0]?.shift_type;
+        // Deploy-order safety: until migration 20260712120000 lands, the
+        // legacy one-row-per-day index also rejects a second COMPLETED
+        // session. The only clock-in the old schema can represent is the
+        // legacy resume (clear actual_end), so fall back to it rather
+        // than stranding the driver with an error. Post-migration a
+        // completed row never triggers 23505, so this path goes dead.
+        const legacyCompleted = retryRows.find((r) => r.actual_start && r.actual_end);
+        if (legacyCompleted) {
+          const startInFuture =
+            legacyCompleted.actual_start &&
+            new Date(legacyCompleted.actual_start).getTime() > Date.now();
+          const patch: Record<string, unknown> = { actual_end: null, status: "active" };
+          if (startInFuture) patch.actual_start = nowIso;
+          const { data: resumed, error: resumeErr } = await (supabase as any)
+            .from("driver_shifts")
+            .update(patch)
+            .eq("id", legacyCompleted.id)
+            .select("id");
+          if (!resumeErr && resumed && resumed.length > 0) {
+            toast({ title: "Clocked back in", description: "Resumed today's shift." });
+            await refresh();
+            return;
+          }
+        }
         throw new Error(
-          otherType && otherType !== "delivery"
-            ? `You already have a ${otherType} shift for today. Only one shift per day is allowed - ask your admin to adjust it.`
-            : "A shift already exists for today but could not be resumed. Ask your admin to check today's roster.",
+          "A second shift could not be started. Refresh once; if it continues, ask support to check the driver clock migration.",
         );
       }
-      toast({ title: "Clocked in", description: "Walk-in shift started (no roster on file)." });
+      toast({
+        title: rows.some((row) => Boolean(row.actual_end)) ? "Clocked back in" : "Clocked in",
+        description: rows.some((row) => Boolean(row.actual_end))
+          ? "A new shift session was started; your earlier hours remain saved."
+          : "Walk-in shift started (no roster on file).",
+      });
       await refresh();
     } catch (e: any) {
       toast({ title: "Could not clock in", description: e?.message || "Try again", variant: "destructive" });
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   };
 
   const clockOut = async () => {
     if (!openShift) return;
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
     setBusy(true);
     try {
       const nowIso = new Date().toISOString();
@@ -305,6 +310,7 @@ export function DriverClockButton({
     } catch (e: any) {
       toast({ title: "Could not clock out", description: e?.message || "Try again", variant: "destructive" });
     } finally {
+      actionInFlight.current = false;
       setBusy(false);
     }
   };

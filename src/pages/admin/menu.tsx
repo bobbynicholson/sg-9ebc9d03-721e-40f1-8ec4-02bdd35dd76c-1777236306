@@ -5,6 +5,7 @@ import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortMenu } from "@/components/ui/sort-menu";
 import { toLocalISO } from "@/lib/localDate";
 import { formatZAR } from "@/lib/formatters";
+import { recipeCostPerSoldUnit } from "@/lib/recipeScaling";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -87,6 +88,10 @@ interface ItemDraft {
   // dashboard counts menu-item units instead of recipe ingredients.
   is_buy_and_sell: boolean;
   linked_inventory_item_id: string | null;
+  // Package pricing: one sold unit IS one full recipe batch (a whole
+  // spit-braai for base_servings people), not one serving. Drives the
+  // shopping demand view + recipe scaling + the cost preview below.
+  sold_as_package: boolean;
   // Wave 67 Phase C: outsource fulfilment. When fulfilment_type is
   // 'outsourced' or 'hybrid', the menu item is partly/fully fulfilled
   // by an external provider on the day. Drives auto-assignment of
@@ -123,6 +128,7 @@ const EMPTY_ITEM: ItemDraft = {
   is_available: true,
   is_buy_and_sell: false,
   linked_inventory_item_id: null,
+  sold_as_package: false,
   fulfilment_type: "in_house",
   default_outsource_provider_id: null,
   outsource_unit_cost: "",
@@ -700,6 +706,7 @@ function MenuPage() {
       is_available: it.is_available !== false,
       is_buy_and_sell: !!(it as any).is_buy_and_sell,
       linked_inventory_item_id: (it as any).linked_inventory_item_id ?? null,
+      sold_as_package: !!(it as any).sold_as_package,
       // Wave 67 Phase C - seed outsource fields off the menu_item row.
       fulfilment_type: ((it as any).fulfilment_type as ItemDraft["fulfilment_type"]) || "in_house",
       default_outsource_provider_id: (it as any).default_outsource_provider_id ?? null,
@@ -944,6 +951,10 @@ function MenuPage() {
         linked_inventory_item_id: itemDraft.is_buy_and_sell
           ? itemDraft.linked_inventory_item_id
           : null,
+        // Package pricing only means something for recipe items; a
+        // buy-and-sell flip must not leave a stale package flag that
+        // would silently multiply shopping demand later.
+        sold_as_package: itemDraft.is_buy_and_sell ? false : itemDraft.sold_as_package,
         // Wave 67 Phase C - outsource fulfilment persistence.
         // Setting fulfilment_type back to 'in_house' clears the
         // provider link so a future outsourced flip doesn't inherit
@@ -2219,6 +2230,29 @@ function MenuPage() {
                   </div>
                 </div>
 
+                {/* Package pricing (Callum Pics 93-96): a spit-braai style
+                    item sells as ONE unit covering the whole recipe batch.
+                    Without this flag the shopping list divides the whole
+                    lamb by base servings ("need 0.04 unit") and the cost
+                    preview compares a package price to a per-serving cost. */}
+                <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div>
+                    <Label className="flex items-center gap-1">
+                      Sold as whole package
+                      <InfoTooltip content="On: one unit of this item on a quote/order is the FULL recipe batch (e.g. a whole spit braai for the base servings above), so shopping needs the complete ingredient list per unit and the price covers the whole package. Off (default): one unit is one serving and ingredients scale by quantity divided by base servings." />
+                    </Label>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {itemDraft.sold_as_package
+                        ? `1 unit = the full recipe (feeds ${recipeDraft.base_servings || "?"}). Shopping needs the whole ingredient list per unit.`
+                        : "1 unit = 1 serving. Ingredients scale by quantity ÷ base servings."}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={itemDraft.sold_as_package}
+                    onCheckedChange={(v) => setItemDraft({ ...itemDraft, sold_as_package: v })}
+                  />
+                </div>
+
                 <div className="space-y-1.5">
                   <Label>Cooking notes</Label>
                   <Textarea
@@ -2258,7 +2292,17 @@ function MenuPage() {
                       ) : null;
                     }
                     const price = Number(itemDraft.base_price) || 0;
-                    const margin = price > 0 ? price - liveCost.cost_per_serving : null;
+                    // Compare price against the cost of what ONE UNIT
+                    // actually sells: the whole batch for package items,
+                    // one serving otherwise. Comparing a package price to
+                    // a per-serving cost made this preview disagree with
+                    // the stored-cost margin above (Callum Pics 95/96).
+                    const unitCost = recipeCostPerSoldUnit({
+                      totalCost: liveCost.total_cost,
+                      costPerServing: liveCost.cost_per_serving,
+                      soldAsPackage: itemDraft.sold_as_package,
+                    });
+                    const margin = price > 0 ? price - unitCost : null;
                     const pct = price > 0 ? (margin! / price) * 100 : null;
                     const tone = pct == null ? "text-slate-700"
                       : pct < 30 ? "text-rose-700"
@@ -2267,8 +2311,8 @@ function MenuPage() {
                     return (
                       <div className="rounded-md bg-brand-primary/10 border border-brand-primary/20 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
                         <span className="text-slate-700">
-                          Per-serving cost:{" "}
-                          <span className="font-bold tabular-nums text-slate-900">{formatZAR(liveCost.cost_per_serving)}</span>
+                          {itemDraft.sold_as_package ? "Per-package cost:" : "Per-serving cost:"}{" "}
+                          <span className="font-bold tabular-nums text-slate-900">{formatZAR(unitCost)}</span>
                         </span>
                         <span className="text-slate-700">
                           Recipe total:{" "}

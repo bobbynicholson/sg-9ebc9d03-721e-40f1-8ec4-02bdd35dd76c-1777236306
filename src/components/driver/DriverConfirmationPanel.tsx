@@ -9,7 +9,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatLocalTime } from "@/lib/localFormat";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { PodCaptureDialog, POD_PENDING_KEY } from "@/components/driver/PodCaptureDialog";
+import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
+import {
+  hasFreshPendingPodCapture,
+  readPendingPodCapture,
+} from "@/lib/podCaptureRecovery";
 
 // Auto-arrival fires when the driver is within this many metres of the
 // venue. 200m is forgiving enough for GPS drift + large venues/parking
@@ -79,10 +83,14 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   // dashboard has the same recovery for its own POD entry point.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(POD_PENDING_KEY);
-      if (!raw) return;
-      const pending = JSON.parse(raw) as { orderId?: string; at?: number };
-      if (pending?.orderId === orderId && pending.at && Date.now() - pending.at <= 15 * 60_000) {
+      const pending = readPendingPodCapture();
+      // Legacy markers predate flow ownership; the reported interrupted
+      // camera path was this Status -> Setup completed workflow, so recover
+      // untagged markers here for backwards compatibility.
+      if (
+        hasFreshPendingPodCapture(orderId) &&
+        pending?.flow !== "direct"
+      ) {
         setPodOpen(true);
       }
     } catch { /* localStorage unavailable - ignore */ }
@@ -664,6 +672,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           onOpenChange={setPodOpen}
           orderId={orderId}
           title="Setup completed"
+          recoveryFlow="status"
           onCapture={async (pod) => {
             await (driverConfirmationService as any).completeSetupWithPod(
               orderId,

@@ -6042,6 +6042,7 @@ export type Database = {
           prep_time_minutes: number | null
           recipe_name: string | null
           requires_advance_notice_hours: number | null
+          sold_as_package: boolean
           updated_at: string | null
         }
         Insert: {
@@ -6074,6 +6075,7 @@ export type Database = {
           prep_time_minutes?: number | null
           recipe_name?: string | null
           requires_advance_notice_hours?: number | null
+          sold_as_package?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -6106,6 +6108,7 @@ export type Database = {
           prep_time_minutes?: number | null
           recipe_name?: string | null
           requires_advance_notice_hours?: number | null
+          sold_as_package?: boolean
           updated_at?: string | null
         }
         Relationships: [

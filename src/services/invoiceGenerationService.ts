@@ -1,6 +1,7 @@
 import { supabase as defaultSupabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { PayFastService } from "@/lib/payfastService";
+import { calculateInvoiceDueDate } from "@/lib/invoiceDateRules";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
@@ -504,12 +505,6 @@ export async function generateInvoiceData(
           ? companyBalanceDueDays
           : 30;
     const invoiceDateObj = new Date();
-    // Normalise "today" to start-of-day so date-only comparisons don't
-    // drift with the current clock time.
-    const todayStart = new Date(
-      invoiceDateObj.getFullYear(), invoiceDateObj.getMonth(), invoiceDateObj.getDate(),
-    );
-    const computedDue = new Date(todayStart.getTime() + termDays * 24 * 60 * 60 * 1000);
     // The balance must NEVER be due after the event - you cater the
     // event, you want the money by then at the latest. Prefer 1 day
     // before the event for breathing room, but clamp:
@@ -521,22 +516,12 @@ export async function generateInvoiceData(
     // entirely when event_date - 1 was before today (same-day / imminent
     // event), leaving the +termDays default which landed AFTER the event
     // - a same-day function showed "Due in 14 days" instead of today.
-    let finalDue = computedDue;
     const eventDateRaw = (orderData as any)?.event_date as string | null | undefined;
-    if (eventDateRaw) {
-      const ev = new Date(eventDateRaw);
-      if (!Number.isNaN(ev.getTime())) {
-        const eventDay = new Date(ev.getFullYear(), ev.getMonth(), ev.getDate());
-        const dayBeforeEvent = new Date(eventDay.getTime() - 24 * 60 * 60 * 1000);
-        // min(1-day-before-event, term-based due)
-        let capped = dayBeforeEvent.getTime() < computedDue.getTime() ? dayBeforeEvent : computedDue;
-        // never after the event day
-        if (capped.getTime() > eventDay.getTime()) capped = eventDay;
-        // never before today (wins for same-day / past events)
-        if (capped.getTime() < todayStart.getTime()) capped = todayStart;
-        finalDue = capped;
-      }
-    }
+    const finalDue = calculateInvoiceDueDate({
+      invoiceDate: invoiceDateObj,
+      termDays,
+      eventDate: eventDateRaw,
+    });
 
     // 6. Build invoice data
     const invoiceData: InvoiceData = {

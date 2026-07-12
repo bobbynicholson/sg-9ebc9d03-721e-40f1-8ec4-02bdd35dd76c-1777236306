@@ -33,6 +33,14 @@ import { PayFastService } from "@/lib/payfastService";
 import { formatZAR } from "@/lib/formatters";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
+import {
+  getInitialInvoicePaymentAmount,
+  getInvoiceDueState,
+  getInvoiceHeaderIdentifiers,
+  isInvoiceFullPaymentDue,
+  parseInvoiceCalendarDate,
+  resolveInvoiceEventDate,
+} from "@/lib/invoiceClientView";
 
 // Use the platform's canonical ZAR formatter (space thousands, dot
 // decimal, single "R") instead of raw Intl, which renders a COMMA
@@ -376,28 +384,13 @@ export default function InvoicePaymentPage() {
   // a part-payment shouldn't propose more than what's left).
   useEffect(() => {
     if (!invoice) return;
-    // When the event is today or already past there's no runway for a
-    // deposit-then-balance plan, so prefill the FULL outstanding balance
-    // rather than the suggested deposit (owner Callum 2026-07-08).
-    const evRaw = invoice.invoice_data?.eventDate;
-    let eventDue = false;
-    if (evRaw) {
-      const d = new Date(evRaw);
-      if (!Number.isNaN(d.getTime())) {
-        const evMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        const n = new Date();
-        eventDue = evMs <= new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
-      }
-    }
-    if (eventDue) {
-      setPayAmount(String(invoice.balance_due || 0));
-      return;
-    }
-    const p = Number(invoice.companies?.deposit_percent);
-    const pct = Number.isFinite(p) && p > 0 && p < 100 ? p : 50;
-    const suggested = Math.round((invoice.total_amount || 0) * (pct / 100) * 100) / 100;
-    const capped = Math.min(suggested || invoice.balance_due, invoice.balance_due);
-    setPayAmount(capped > 0 ? String(capped) : String(invoice.balance_due || 0));
+    const initialAmount = getInitialInvoicePaymentAmount({
+      totalAmount: invoice.total_amount,
+      balanceDue: invoice.balance_due,
+      depositPercent: invoice.companies?.deposit_percent,
+      eventDate: resolveInvoiceEventDate(invoice.invoice_data),
+    });
+    setPayAmount(String(initialAmount));
   }, [invoice]);
 
   async function initiatePayment() {
@@ -537,7 +530,9 @@ export default function InvoicePaymentPage() {
   // settled yet. The client should see "Deposit paid" + how much of the
   // total is still outstanding, not a bare "Awaiting payment".
   const isPartiallyPaid = !isPaid && Number(invoice.amount_paid) > 0;
-  const isOverdue = new Date(invoice.due_date) < new Date() && !isPaid;
+  const nowForInvoice = new Date();
+  const dueState = getInvoiceDueState(invoice.due_date, nowForInvoice);
+  const isOverdue = dueState.isOverdue && !isPaid;
   // Outstanding share of the total, as a percentage, for the "X% still
   // remaining" line. Guard against a zero total.
   const remainingPct =
@@ -546,22 +541,15 @@ export default function InvoicePaymentPage() {
       : 0;
   const vatRegistered = !!company.vat_registered;
   const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
-  const today = format(new Date(), "d MMMM yyyy");
+  const today = format(nowForInvoice, "d MMMM yyyy");
   // Days until / since the due date. Surfaces as a top-bar chip so the
   // payer sees the deadline before they scroll. Hidden once paid.
-  const daysToDue = Math.ceil(
-    (new Date(invoice.due_date).getTime() - Date.now()) / 86_400_000,
-  );
-  const dueChipLabel = isPaid
-    ? null
-    : daysToDue < 0
-    ? `Overdue by ${Math.abs(daysToDue)} day${Math.abs(daysToDue) === 1 ? "" : "s"}`
-    : daysToDue === 0
-    ? "Due today"
-    : daysToDue === 1
-    ? "Due tomorrow"
-    : `Due in ${daysToDue} days`;
-  const dueChipTone = isOverdue ? "overdue" : daysToDue <= 3 ? "soon" : "ok";
+  const dueChipLabel = isPaid ? null : dueState.label;
+  const dueChipTone = isOverdue
+    ? "overdue"
+    : dueState.daysToDue != null && dueState.daysToDue <= 3
+      ? "soon"
+      : "ok";
 
   // Deposit / balance split for the client's payment plan. Uses the
   // caterer's configured deposit_percent (default 50%). Informational
@@ -581,16 +569,12 @@ export default function InvoicePaymentPage() {
   // deposit" shortcut (owner Callum 2026-07-08: a same-day function's
   // invoice must not still advertise a 50% deposit while asking for the
   // full amount). Derived from the event date on the invoice snapshot.
-  const eventDayMs = (() => {
-    const raw = invoice.invoice_data?.eventDate;
-    if (!raw) return null;
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return null;
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  })();
-  const nowForDue = new Date();
-  const todayMs = new Date(nowForDue.getFullYear(), nowForDue.getMonth(), nowForDue.getDate()).getTime();
-  const fullPaymentDue = eventDayMs != null ? eventDayMs <= todayMs : false;
+  const eventDate = resolveInvoiceEventDate(invoice.invoice_data);
+  const fullPaymentDue = isInvoiceFullPaymentDue(eventDate, nowForInvoice);
+  const invoiceDateForDisplay = parseInvoiceCalendarDate(invoice.invoice_date);
+  const dueDateForDisplay = parseInvoiceCalendarDate(invoice.due_date);
+  const eventDateForDisplay = parseInvoiceCalendarDate(eventDate);
+  const headerIdentifiers = getInvoiceHeaderIdentifiers(company);
 
   // Live payment figures driven by the editable "amount to pay now"
   // field: what they're paying and the balance that will remain after.
@@ -684,21 +668,19 @@ export default function InvoicePaymentPage() {
                   {invoice.invoice_number}
                 </p>
                 <p className="text-sm text-stone-600 mt-1.5">
-                  Issued {format(new Date(invoice.invoice_date), "d MMMM yyyy")} · viewed {today}
+                  Issued {invoiceDateForDisplay ? format(invoiceDateForDisplay, "d MMMM yyyy") : invoice.invoice_date} · viewed {today}
                 </p>
                 {/* SARS: a tax invoice must show the supplier's company
                     registration number. Rendered above the VAT line to
                     mirror the PDF + quote layout. */}
-                {company.registration_number && (
-                  <p className="text-xs text-stone-500 mt-1">
-                    Reg No: <span className="font-mono">{company.registration_number}</span>
+                {headerIdentifiers.map((identifier, index) => (
+                  <p
+                    key={identifier.key}
+                    className={`text-xs text-stone-500 ${index === 0 ? "mt-1" : "mt-0.5"}`}
+                  >
+                    {identifier.label}: <span className="font-mono">{identifier.value}</span>
                   </p>
-                )}
-                {vatRegistered && company.vat_number && (
-                  <p className="text-xs text-stone-500 mt-0.5">
-                    VAT Reg No: <span className="font-mono">{company.vat_number}</span>
-                  </p>
-                )}
+                ))}
               </div>
               {isPaid ? (
                 <Badge className="bg-brand-primary text-white border-0 gap-1 px-3 py-1.5 text-sm">
@@ -796,7 +778,7 @@ export default function InvoicePaymentPage() {
                     <div className="mt-2 flex items-center gap-2 text-xs">
                       <Calendar className="w-3 h-3 text-stone-500" />
                       <span className={isOverdue ? "text-rose-600 font-semibold" : "text-stone-500"}>
-                        Due {format(new Date(invoice.due_date), "d MMMM yyyy")}
+                        Due {dueDateForDisplay ? format(dueDateForDisplay, "d MMMM yyyy") : invoice.due_date}
                         {isOverdue && " (overdue)"}
                       </span>
                     </div>
@@ -869,10 +851,10 @@ export default function InvoicePaymentPage() {
               )}
 
               {/* Event details inherited from quote (when present) */}
-              {invoice.invoice_data?.eventDate && (
+              {eventDate && (
                 <div className="rounded-lg bg-stone-50 p-4 text-sm text-stone-700 space-y-1">
                   <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Event details</p>
-                  <p>Date: {format(new Date(invoice.invoice_data.eventDate), "d MMMM yyyy")}</p>
+                  <p>Date: {eventDateForDisplay ? format(eventDateForDisplay, "d MMMM yyyy") : eventDate}</p>
                   {invoice.invoice_data.venue && <p>Venue: {invoice.invoice_data.venue}</p>}
                   {invoice.invoice_data.guestCount && <p>Guests: {invoice.invoice_data.guestCount}</p>}
                 </div>

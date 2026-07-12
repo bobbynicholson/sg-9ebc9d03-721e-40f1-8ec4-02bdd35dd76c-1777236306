@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,10 @@ import { Camera, FileSignature, AlertCircle, X, Eraser } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  clearPendingPodCapture,
+  markPodCapturePending,
+} from "@/lib/podCaptureRecovery";
 
 /**
  * localStorage key marking a POD capture in progress. Written when the
@@ -17,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
  * (page killed while the native camera was open). Value:
  * {"orderId": "...", "at": epoch-ms}.
  */
-export const POD_PENDING_KEY = "cms-pod-pending";
+export { POD_PENDING_KEY } from "@/lib/podCaptureRecovery";
 
 interface Props {
   open: boolean;
@@ -39,6 +43,8 @@ interface Props {
   onCapture?: (pod: { photoUrl: string; signatureUrl: string | null; recipientName: string }) => Promise<void>;
   /** Header verb override - e.g. "Arrived at venue" vs "Confirm delivery". */
   title?: string;
+  /** Keeps interrupted-camera recovery in the workflow that opened it. */
+  recoveryFlow?: "status" | "direct";
 }
 
 /**
@@ -47,7 +53,7 @@ interface Props {
  * pod_signature_url + pod_recipient_name + pod_captured_at on the order
  * row plus marks status delivered.
  */
-export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSaved, onCapture, title }: Props) {
+export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSaved, onCapture, title, recoveryFlow = "direct" }: Props) {
   const { toast } = useToast();
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -84,22 +90,17 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
     // unmount-while-open is exactly the failure we want to recover.
     try {
       (window as unknown as { __cmsHoldSwReload?: boolean }).__cmsHoldSwReload = true;
-      localStorage.setItem(POD_PENDING_KEY, JSON.stringify({ orderId, at: Date.now() }));
+      markPodCapturePending(orderId, Date.now(), undefined, recoveryFlow);
     } catch { /* storage unavailable - degrade to old behaviour */ }
     return () => {
       try {
         (window as unknown as { __cmsHoldSwReload?: boolean }).__cmsHoldSwReload = false;
       } catch { /* ignore */ }
     };
-  }, [open]);
+  }, [open, orderId, recoveryFlow]);
 
   const clearPendingMarker = () => {
-    try {
-      const raw = localStorage.getItem(POD_PENDING_KEY);
-      if (raw && JSON.parse(raw)?.orderId === orderId) {
-        localStorage.removeItem(POD_PENDING_KEY);
-      }
-    } catch { /* ignore */ }
+    clearPendingPodCapture(orderId);
   };
 
   // All dismiss paths (X, Cancel, Escape) route through here; a
@@ -291,9 +292,9 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
             <Camera className="w-5 h-5 text-brand-primary" />
             {title || "Confirm delivery"}{clientName ? ` · ${clientName}` : ""}
           </DialogTitle>
-          <p className="text-sm text-slate-500">
+          <DialogDescription className="text-sm text-slate-500">
             Snap a photo of the drop, get the recipient to sign, then save. Marks the order as delivered.
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

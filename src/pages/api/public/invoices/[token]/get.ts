@@ -146,9 +146,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (invoiceForResponse.order_id) {
     const { data: orderMeta } = await supabase
       .from("orders")
-      .select("id, quote_id, package_id")
+      .select("id, quote_id, package_id, event_date")
       .eq("id", invoiceForResponse.order_id)
       .maybeSingle();
+
+    // Older invoice snapshots did not consistently carry eventDate.
+    // The client view needs it to suppress the deposit offer once the
+    // event is today/past, so hydrate it from the canonical order row.
+    if (!invoiceData.eventDate && !invoiceData.event_date && (orderMeta as any)?.event_date) {
+      invoiceData.eventDate = (orderMeta as any).event_date;
+    }
 
     let quoteMenuItems: any[] = [];
     let quoteEquipmentItems: any[] = [];
