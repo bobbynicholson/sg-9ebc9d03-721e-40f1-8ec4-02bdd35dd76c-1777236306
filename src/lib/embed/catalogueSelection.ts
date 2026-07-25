@@ -72,15 +72,20 @@ export function addCatalogueFields(
       field.id === "venue"
       || field.id === "venue_address"
       || field.mapsTo === "venue";
-    return isVenue
+    const isQuoteOnly = isVenue || field.id === "tier";
+    return isQuoteOnly
       ? {
           ...field,
           conditional: quoteOnlyConditional,
-          placeholder:
-            field.placeholder
-            || "Start with street number and street, then suburb and city",
-          helpText:
-            "Enter the full venue address. We verify it and save the map coordinates when you submit.",
+          ...(isVenue
+            ? {
+                placeholder:
+                  field.placeholder
+                  || "Start with street number and street, then suburb and city",
+                helpText:
+                  "Enter the full venue address. We verify it and save the map coordinates when you submit.",
+              }
+            : {}),
         }
       : field;
   });
@@ -163,6 +168,21 @@ export function selectedIds(value: unknown, max = 50): string[] {
         .filter(Boolean),
     ),
   ).slice(0, max);
+}
+
+export function fieldsForRequestType<T extends { id: string }>(
+  fields: T[],
+  requestType: string,
+): T[] {
+  if (requestType !== "enquiry") return fields;
+  const quoteOnlyIds = new Set([
+    "tier",
+    "venue",
+    "venue_address",
+    EMBED_MENU_FIELD_ID,
+    EMBED_EQUIPMENT_FIELD_ID,
+  ]);
+  return fields.filter((field) => !quoteOnlyIds.has(String(field.id)));
 }
 
 export function buildRequestedCatalogueItems(

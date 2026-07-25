@@ -4,6 +4,7 @@ import { normalizeEmbedSubmitRequest } from "@/lib/embed/normalizeSubmitRequest"
 import {
   addCatalogueFields,
   buildRequestedCatalogueItems,
+  fieldsForRequestType,
   splitRequestedItems,
 } from "@/lib/embed/catalogueSelection";
 import { mapPayloadToLead, validateField } from "@/lib/embedFormApi";
@@ -338,5 +339,40 @@ describe("catalogue-backed website quotes", () => {
         5,
       ),
     ).toMatchObject({ ok: false, error: "Minimum 10" });
+  });
+
+  it("does not require quote-only fields for a quick enquiry", () => {
+    const storedFields = [
+      {
+        id: "email",
+        type: "email" as const,
+        label: "Email",
+        required: true,
+        visible: true,
+        order: 1,
+      },
+      {
+        id: "tier",
+        type: "select" as const,
+        label: "Menu tier",
+        required: true,
+        visible: true,
+        order: 2,
+      },
+      {
+        id: "venue",
+        type: "text" as const,
+        label: "Venue",
+        required: true,
+        visible: true,
+        order: 3,
+      },
+    ];
+    expect(
+      fieldsForRequestType(storedFields, "enquiry").map((field) => field.id),
+    ).toEqual(["email"]);
+    expect(
+      fieldsForRequestType(storedFields, "quote").map((field) => field.id),
+    ).toEqual(["email", "tier", "venue"]);
   });
 });

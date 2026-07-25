@@ -21,6 +21,7 @@ import {
   EMBED_EQUIPMENT_FIELD_ID,
   EMBED_MENU_FIELD_ID,
   EMBED_REQUEST_TYPE_FIELD_ID,
+  fieldsForRequestType,
   selectedIds,
   splitRequestedItems,
   type RequestedCatalogueItem,
@@ -300,9 +301,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   const fields = (form.fields || []) as any[];
+  const requestType = String(payload[EMBED_REQUEST_TYPE_FIELD_ID] || "");
+  if (requestType && requestType !== "enquiry" && requestType !== "quote") {
+    return res.status(400).json({
+      ok: false,
+      message: "Choose either a quick enquiry or a quote request.",
+    });
+  }
 
   // 5) Validate payload against the field config
-  const validation = validateSubmission(fields, payload);
+  // Pricing forms historically store tier as required. Quick enquiry hides
+  // that quote-only control, so it must also be excluded server-side or the
+  // visitor sees an impossible "Menu tier is required" error.
+  const validationFields = fieldsForRequestType(fields, requestType);
+  const validation = validateSubmission(validationFields, payload);
   if (!validation.ok) {
     return res.status(400).json({ ok: false, errors: validation.errors });
   }
@@ -373,13 +385,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // database rows. This prevents a forged payload from creating a discounted
   // or cross-tenant quote.
   let requestedCatalogueItems: RequestedCatalogueItem[] = [];
-  const requestType = String(payload[EMBED_REQUEST_TYPE_FIELD_ID] || "");
-  if (requestType && requestType !== "enquiry" && requestType !== "quote") {
-    return res.status(400).json({
-      ok: false,
-      message: "Choose either a quick enquiry or a quote request.",
-    });
-  }
   const wantsDraftQuote = requestType === "quote" || requestType === "";
   if (
     wantsDraftQuote
