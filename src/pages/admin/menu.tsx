@@ -106,6 +106,15 @@ const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB
 const IMAGE_BUCKET = "menu-images";
 const ALLOWED_IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+function summaryCostPerSoldUnit(item: MenuItemWithRecipeSummary): number {
+  if (!item.cost) return 0;
+  return recipeCostPerSoldUnit({
+    totalCost: item.cost.total_cost,
+    costPerServing: item.cost.cost_per_serving,
+    soldAsPackage: !!(item as any).sold_as_package,
+  });
+}
+
 interface RecipeDraft {
   enabled: boolean;
   base_servings: string;
@@ -404,10 +413,10 @@ function MenuPage() {
     { key: "name",     accessor: (i) => i.item_name,                             type: "string" },
     { key: "category", accessor: (i) => i.category || "",                        type: "string" },
     { key: "price",    accessor: (i) => Number(i.base_price || 0),               type: "number" },
-    { key: "cost",     accessor: (i) => Number((i.cost as any)?.cost_per_serving || 0), type: "number" },
+    { key: "cost",     accessor: (i) => summaryCostPerSoldUnit(i), type: "number" },
     { key: "margin",   accessor: (i) => {
       const price = Number(i.base_price || 0);
-      const cost  = Number((i.cost as any)?.cost_per_serving || 0);
+      const cost = summaryCostPerSoldUnit(i);
       if (price <= 0) return -1;
       return ((price - cost) / price) * 100;
     }, type: "number" },
@@ -450,7 +459,7 @@ function MenuPage() {
     // the median - one R5250 spit-on-site outlier shouldn't drag
     // the whole catalogue's avg from ~40% to 54%.
     const pcts = withMargin
-      .map(i => ((Number(i.base_price || 0) - i.cost!.cost_per_serving) / Number(i.base_price || 1)) * 100)
+      .map(i => ((Number(i.base_price || 0) - summaryCostPerSoldUnit(i)) / Number(i.base_price || 1)) * 100)
       .sort((a, b) => a - b);
     const meanMarginPct = pcts.length === 0 ? null : pcts.reduce((a, b) => a + b, 0) / pcts.length;
     const medianMarginPct = pcts.length === 0 ? null
@@ -462,14 +471,14 @@ function MenuPage() {
     // so the operator knows to check the line is intentional.
     const highMarginItems = withMargin.filter(i => {
       const p = Number(i.base_price || 0);
-      const c = i.cost!.cost_per_serving;
+      const c = summaryCostPerSoldUnit(i);
       return p > 0 && (p - c) / p > 0.85;
     });
     // MNU-B: per-category margin breakdown for the tooltip.
     const marginByCategory: Record<string, { mean: number; n: number }> = {};
     for (const i of withMargin) {
       const cat = (i.category || "Other").trim();
-      const pct = ((Number(i.base_price || 0) - i.cost!.cost_per_serving) / Number(i.base_price || 1)) * 100;
+      const pct = ((Number(i.base_price || 0) - summaryCostPerSoldUnit(i)) / Number(i.base_price || 1)) * 100;
       const cur = marginByCategory[cat] || { mean: 0, n: 0 };
       marginByCategory[cat] = { mean: (cur.mean * cur.n + pct) / (cur.n + 1), n: cur.n + 1 };
     }
@@ -1192,7 +1201,7 @@ function MenuPage() {
                   // name+price.
                   const headers = [
                     "Item", "Category", "Price (ex VAT)", "Price (inc VAT)",
-                    "Cost per serving", "Margin %", "Has recipe",
+                    "Cost per sold unit", "Margin %", "Has recipe",
                     "Allergens reviewed", "Has photo", "Archived",
                   ];
                   const lines = [headers.join(",")];
@@ -1204,7 +1213,7 @@ function MenuPage() {
                     // and a fabricated 100.0% margin, which poisons
                     // the pricing review the CSV exists for.
                     const hasCost = !!(it.cost && it.cost.contributing > 0);
-                    const cost = hasCost ? Number((it.cost as any)?.cost_per_serving || 0) : null;
+                    const cost = hasCost ? summaryCostPerSoldUnit(it) : null;
                     const margin = hasCost && cost != null && price > 0
                       ? (((price - cost) / price) * 100).toFixed(1) : "";
                     // MNU-B: base_price is stored in whichever mode the
@@ -1635,10 +1644,12 @@ function MenuPage() {
                                   so we never accidentally render it on a
                                   shared component. */}
                               <div className="text-right hidden md:block">
-                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Cost / serv</div>
+                                <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                                  {(it as any).sold_as_package ? "Cost / pkg" : "Cost / serv"}
+                                </div>
                                 {it.cost && it.cost.contributing > 0 ? (
                                   <>
-                                    <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(it.cost.cost_per_serving)}</div>
+                                    <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(summaryCostPerSoldUnit(it))}</div>
                                     {(it.cost.free_text > 0 || it.cost.missing_cost > 0) && (
                                       <div className="text-[10px] text-amber-700 inline-flex items-center gap-0.5">
                                         <AlertTriangle className="w-2.5 h-2.5" />
@@ -1655,7 +1666,7 @@ function MenuPage() {
                                 <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(Number(it.base_price || 0))}</div>
                                 {it.cost && it.cost.contributing > 0 && Number(it.base_price || 0) > 0 ? (() => {
                                   const price = Number(it.base_price || 0);
-                                  const cost = it.cost.cost_per_serving;
+                                  const cost = summaryCostPerSoldUnit(it);
                                   const margin = price - cost;
                                   const pct = (margin / price) * 100;
                                   const tone = pct < 30 ? "text-rose-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
