@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServiceSupabase } from "@/lib/supabase/service";
+import { getRequestSupabase } from "@/lib/supabase/service";
 import {
   applyCorsHeaders,
   checkAndIncrementRateLimit,
@@ -39,7 +39,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const token = String(req.query.token || "");
   if (!isUuid(token)) return res.status(404).json({ ok: false });
 
-  const supabase = getServiceSupabase();
+  const supabase = await getRequestSupabase();
   const ip = getClientIp(req as any);
   const ipHash = hashIp(ip);
 

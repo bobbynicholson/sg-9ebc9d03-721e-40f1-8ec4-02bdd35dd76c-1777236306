@@ -24,7 +24,7 @@
  *     pre-conversion / accepted-but-not-yet-converted states).
  */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServiceSupabase } from "@/lib/supabase/service";
+import { getRequestSupabase } from "@/lib/supabase/service";
 import {
   checkAndIncrementRateLimit,
   getClientIp,
@@ -49,7 +49,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(404).json({ ok: false, error: "Not found" });
   }
 
-  const sb = getServiceSupabase() as any;
+  const sb = await getRequestSupabase() as any;
 
   // Same rate limit as the other public quote routes (5/hr per
   // IP+token). The endpoint is cheap but minting tokens isn't free.

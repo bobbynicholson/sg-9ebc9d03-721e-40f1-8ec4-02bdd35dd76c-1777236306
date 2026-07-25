@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 
 let cached: any = null;
 let validatedOnce = false;
+let localDevClientPromise: Promise<any> | null = null;
 
 /**
  * Decode a Supabase JWT (without verifying the signature) and return
@@ -101,4 +102,64 @@ export function getServiceSupabase() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return cached;
+}
+
+/**
+ * Service client for request handlers, with an authenticated local-only
+ * fallback for public-link E2E testing.
+ *
+ * Production never falls back: a missing service key remains a hard error.
+ * In `next dev`, an explicitly configured dev admin signs in through the
+ * normal auth API and remains constrained by that user's RLS policies.
+ */
+export async function getRequestSupabase() {
+  try {
+    return getServiceSupabase();
+  } catch (serviceError) {
+    if (process.env.NODE_ENV === "production") throw serviceError;
+  }
+
+  if (localDevClientPromise) return localDevClientPromise;
+
+  localDevClientPromise = (async () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const email = process.env.SUPABASE_DEV_USER_EMAIL;
+    const password = process.env.NEXT_PUBLIC_DEV_USER_PASSWORD;
+    if (!url || !anonKey || !email || !password) {
+      throw new Error(
+        "Local Supabase fallback missing SUPABASE_DEV_USER_EMAIL or NEXT_PUBLIC_DEV_USER_PASSWORD",
+      );
+    }
+
+    const client = createClient<Database>(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: authData, error: authError } =
+      await client.auth.signInWithPassword({ email, password });
+    if (authError || !authData.user) {
+      throw new Error(`Local Supabase fallback login failed: ${authError?.message || "no user"}`);
+    }
+
+    // Only an administrative dev account may back server-side public-link
+    // handlers. This prevents a mistakenly configured client/staff account
+    // from becoming a misleading partial replacement for service role.
+    const { data: profile, error: profileError } = await client
+      .from("profiles")
+      .select("role, active_role")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    const role = String((profile as any)?.active_role || (profile as any)?.role || "");
+    if (!["super_admin", "company_admin", "admin"].includes(role)) {
+      throw new Error("SUPABASE_DEV_USER_EMAIL must belong to an administrative dev account");
+    }
+
+    return client;
+  })().catch((error) => {
+    localDevClientPromise = null;
+    throw error;
+  });
+
+  return localDevClientPromise;
 }

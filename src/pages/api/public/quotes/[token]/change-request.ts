@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServiceSupabase } from "@/lib/supabase/service";
+import { getRequestSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
 import {
   applyCorsHeaders,
@@ -123,7 +123,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     requestedChanges.equipment_items = sanitiseEquip(rawChanges.equipment_items);
   }
 
-  const supabase = getServiceSupabase();
+  const supabase = await getRequestSupabase();
   const ip = getClientIp(req as any);
   const ipHash = hashIp(ip);
   const userAgent =

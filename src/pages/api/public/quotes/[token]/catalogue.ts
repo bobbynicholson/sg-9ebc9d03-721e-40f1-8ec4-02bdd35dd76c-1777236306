@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServiceSupabase } from "@/lib/supabase/service";
+import { getRequestSupabase } from "@/lib/supabase/service";
 import { applyCorsHeaders, isUuid } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -29,7 +29,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const token = String(req.query.token || "");
   if (!isUuid(token)) return res.status(404).json({ ok: false, error: "Not found" });
 
-  const supabase = getServiceSupabase();
+  const supabase = await getRequestSupabase();
 
   // Resolve the company via the quote token. company_id is derived
   // server-side, never trusted from the caller.

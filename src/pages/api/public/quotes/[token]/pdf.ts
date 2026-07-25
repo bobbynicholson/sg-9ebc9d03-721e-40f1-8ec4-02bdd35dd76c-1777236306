@@ -16,7 +16,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServiceSupabase } from "@/lib/supabase/service";
+import { getRequestSupabase } from "@/lib/supabase/service";
 import {
   applyCorsHeaders,
   checkAndIncrementRateLimit,
@@ -42,7 +42,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const token = String(req.query.token || "");
   if (!isUuid(token)) return res.status(404).json({ error: "Not found" });
 
-  const supabase = getServiceSupabase();
+  const supabase = await getRequestSupabase();
 
   // Rate-limit per IP hash - a share link is public, so cap renderer abuse.
   const ipHash = hashIp(getClientIp(req as any));

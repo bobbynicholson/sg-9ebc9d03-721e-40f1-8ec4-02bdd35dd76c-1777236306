@@ -18,7 +18,7 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServiceSupabase } from "@/lib/supabase/service";
+import { getRequestSupabase } from "@/lib/supabase/service";
 import {
   applyCorsHeaders,
   checkAndIncrementRateLimit,
@@ -45,7 +45,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const token = String(req.query.token || "");
   if (!isUuid(token)) return res.status(404).json({ ok: false, error: "Not found" });
 
-  const supabase = getServiceSupabase() as any;
+  const supabase = await getRequestSupabase() as any;
 
   // Liberal rate limit - polished /q page may reload a few times for
   // a single client session. 120/hr/ip is plenty for legit use, blocks

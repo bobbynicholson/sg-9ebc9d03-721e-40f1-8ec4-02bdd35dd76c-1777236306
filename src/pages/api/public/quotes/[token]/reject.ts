@@ -20,7 +20,7 @@
  *   }
  */
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServiceSupabase } from "@/lib/supabase/service";
+import { getRequestSupabase } from "@/lib/supabase/service";
 import {
   markQuoteAsLost,
   isValidLostReason,
@@ -63,7 +63,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     ? body.lost_reason
     : "no_response";
 
-  const sb = getServiceSupabase();
+  const sb = await getRequestSupabase();
 
   // TIGHTEN I.97: per-IP-per-token rate limit. Legit usage is 1
   // reject; >5/hour from the same client is almost certainly a
