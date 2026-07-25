@@ -194,11 +194,17 @@ export function NotificationBell() {
     // Prime browser audio on the first operator interaction. Without this,
     // realtime notifications received in a background/idle admin tab are
     // visible but are forbidden from making sound by autoplay policy.
-    const unlock = () => {
-      void unlockNotificationSound();
+    const detachUnlockListeners = () => {
       document.removeEventListener("pointerdown", unlock, true);
       document.removeEventListener("keydown", unlock, true);
       document.removeEventListener("touchstart", unlock, true);
+    };
+    const unlock = () => {
+      void unlockNotificationSound().then(() => {
+        // Keep listening when that gesture was rejected so another click
+        // can retry (some Safari/PWA states reject the first resume).
+        if (audioUnlockPromise) detachUnlockListeners();
+      });
     };
     document.addEventListener("pointerdown", unlock, true);
     document.addEventListener("keydown", unlock, true);
@@ -245,9 +251,7 @@ export function NotificationBell() {
     return () => {
       unsubscribe();
       clearInterval(interval);
-      document.removeEventListener("pointerdown", unlock, true);
-      document.removeEventListener("keydown", unlock, true);
-      document.removeEventListener("touchstart", unlock, true);
+      detachUnlockListeners();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeRole, companyId]);
