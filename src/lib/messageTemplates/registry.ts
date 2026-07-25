@@ -1285,6 +1285,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
       `Your deposit invoice {{invoice_number}} is ready. Deposit due: {{amount}}.\n\n` +
       `Pay or download it here: {{invoice_link}}\n\n` +
+      `View your order: {{order_url}}\n\n` +
       `Once the payment clears, your event date is locked in.\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: [
@@ -1296,6 +1297,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       { name: "amount",         description: "Amount on this invoice",       example: "R 4 500" },
       { name: "deposit_amount", description: "Deposit amount",               example: "R 4 500" },
       { name: "invoice_link",   description: "Direct link to the invoice",   example: "https://app.example.com/c/invoice/..." },
+      { name: "order_url",      description: "Secure link to the accepted order", example: "https://cateringms.com/spit-braai-delivery/c/order/..." },
     ],
   },
   {

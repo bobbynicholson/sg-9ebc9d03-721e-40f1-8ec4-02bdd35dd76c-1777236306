@@ -30,6 +30,18 @@ import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapac
 
 const MAX_NAME = 200;
 
+function requestOrigin(req: NextApiRequest): string {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim();
+  const forwardedHost = String(req.headers["x-forwarded-host"] || "")
+    .split(",")[0]
+    .trim();
+  const host = forwardedHost || String(req.headers.host || "").trim();
+  if (!host) return "";
+  return `${forwardedProto || "https"}://${host}`;
+}
+
 export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
 };
@@ -69,7 +81,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // weeks later. Gate the acceptance on a fresh status check first.
   const { data: existing, error: existingErr } = await (supabase as any)
     .from("quotes")
-    .select("id, company_id, status, valid_until, converted_to_order_id, event_date, guest_count")
+    .select("id, company_id, user_id, status, valid_until, converted_to_order_id, event_date, guest_count")
     .eq("public_token", token)
     .is("deleted_at", null)
     .maybeSingle();
@@ -79,13 +91,63 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (!existing) return res.status(404).json({ ok: false, error: "Quote not found." });
   if (existing.converted_to_order_id) {
-    return res.status(409).json({ ok: false, error: "This quote has already been accepted and converted to an order." });
+    // Idempotent recovery: the order/quote transaction may have
+    // committed just before a server timeout interrupted invoice,
+    // email or kitchen side effects. Re-run the idempotent cascade;
+    // existing artifacts are reused, while a failed invoice email
+    // (status=sent, sent_at=NULL) is retried.
+    try {
+      const { postOrderCreationCascade } = await import("@/services/order/postCreationCascade");
+      await postOrderCreationCascade(
+        supabase,
+        existing.converted_to_order_id,
+        existing.company_id,
+        existing.user_id || null,
+        { origin: requestOrigin(req) },
+      );
+    } catch (healErr) {
+      console.warn("[public/quotes/accept] converted quote recovery failed:", healErr);
+    }
+    return res.status(200).json({
+      ok: true,
+      alreadyAccepted: true,
+      quoteId: existing.id,
+      orderId: existing.converted_to_order_id,
+    });
   }
   if (existing.status === "accepted") {
-    // Already accepted (not yet converted) - idempotent success. Return
-    // here BEFORE the rate-limit so a client re-clicking, or re-opening
-    // the link, never burns budget on a no-op re-accept.
-    return res.status(200).json({ ok: true, alreadyAccepted: true, quoteId: existing.id });
+    // Heal the legacy/partial state instead of returning a false
+    // success. This is the exact state Callum reported: quote moved to
+    // Won but no order existed. The canonical conversion is atomic and
+    // idempotent, so a retry cannot create a duplicate order.
+    try {
+      const { quoteService } = await import("@/services/quoteService");
+      const conversion = await quoteService.convertQuoteToOrder(existing.id, {
+        _client: supabase,
+        origin: requestOrigin(req),
+      });
+      if (conversion.order?.id) {
+        return res.status(200).json({
+          ok: true,
+          alreadyAccepted: true,
+          quoteId: existing.id,
+          orderId: conversion.order.id,
+          recoveredConversion: true,
+        });
+      }
+      console.warn(
+        "[public/quotes/accept] accepted quote recovery refused:",
+        conversion.error_code || conversion.error,
+      );
+    } catch (conversionErr) {
+      console.warn("[public/quotes/accept] accepted quote recovery failed:", conversionErr);
+    }
+    return res.status(202).json({
+      ok: true,
+      alreadyAccepted: true,
+      conversionPending: true,
+      quoteId: existing.id,
+    });
   }
   if (existing.status === "rejected") {
     return res.status(409).json({ ok: false, error: "This quote was previously declined. Please request a new one." });
@@ -229,7 +291,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let convertedOrderId: string | null = null;
   try {
     const { quoteService } = await import("@/services/quoteService");
-    const convertResult = await (quoteService as any).convertQuoteToOrder(updated.id, { _client: supabase });
+    const convertResult = await (quoteService as any).convertQuoteToOrder(updated.id, {
+      _client: supabase,
+      origin: requestOrigin(req),
+    });
     convertedOrderId = (convertResult as any)?.order?.id ?? null;
     // convertQuoteToOrder reports refusals (no_guest_count,
     // no_client_email, ...) via the result object without throwing.

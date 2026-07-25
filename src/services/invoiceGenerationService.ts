@@ -6,6 +6,8 @@ import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
+import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
+import { ensureRequiredOrderLink } from "@/lib/email/requiredCustomerLinks";
 
 // Server-safe client injection. Browser callers pass nothing and get
 // the global anon-key client (RLS-gated). Server callers (the
@@ -683,7 +685,7 @@ export async function ensureInvoiceForOrder(
     // place: keep the newest, void the rest, recalc the survivor.
     const { data: existingRows, error: existingRowsErr } = await (supabase as any)
       .from("invoices")
-      .select("id, status, created_at, total_amount")
+      .select("id, status, created_at, total_amount, sent_at")
       .eq("order_id", orderId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
@@ -734,6 +736,34 @@ export async function ensureInvoiceForOrder(
           console.warn(
             "[ensureInvoiceForOrder] recalc on existing survivor failed:",
             e,
+          );
+        }
+      }
+
+      // A provider/config failure can leave an invoice in status=sent
+      // while sent_at remains NULL. Retrying the cascade used to stop
+      // at "invoice already exists", permanently suppressing the one
+      // acceptance email. Rebuild the current payload and retry only
+      // this explicit failed-send state. notifyClientOfInvoiceIssued
+      // has its own sent_at + notification idempotency gates, so this
+      // cannot duplicate a successfully delivered email.
+      if (survivor.status === "sent" && !survivor.sent_at) {
+        try {
+          const retryBuilt = await generateInvoiceData(orderId, companyId, supabase);
+          if (retryBuilt.success && retryBuilt.data) {
+            await notifyClientOfInvoiceIssued(
+              orderId,
+              companyId,
+              survivor.id,
+              retryBuilt.data,
+              supabase,
+              opts?.origin,
+            );
+          }
+        } catch (retryErr) {
+          console.warn(
+            "[ensureInvoiceForOrder] unsent invoice email retry failed:",
+            retryErr,
           );
         }
       }
@@ -1060,6 +1090,24 @@ async function notifyClientOfInvoiceIssued(
           console.warn("[notifyClientOfInvoiceIssued] public_token lookup failed, using portal link:", tokErr);
         }
 
+        // The invoice email is the single acceptance confirmation when
+        // a quote creates an unpaid deposit invoice. Mint the secure
+        // order link here, in the same awaited transaction boundary as
+        // the email, so clients can move from acceptance to their order
+        // immediately instead of receiving only a payment link.
+        let orderLink = "";
+        try {
+          orderLink = await mintOrderCustomerLink({
+            sb: supabase,
+            companyId,
+            orderId,
+            label: "deposit-invoice-email",
+            origin: originOverride || origin || null,
+          });
+        } catch (orderLinkErr) {
+          console.warn("[notifyClientOfInvoiceIssued] order link mint failed:", orderLinkErr);
+        }
+
         // Server-render the invoice PDF and attach it. Mirrors the
         // attachQuotePdf pattern Phase 3D set up for quotes - older
         // clients expect a saveable document inline. Render is wrapped
@@ -1095,6 +1143,7 @@ async function notifyClientOfInvoiceIssued(
             `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
             `Your deposit invoice {{invoice_number}} is ready. Deposit due: {{amount}}.\n\n` +
             `Pay or download it here: {{invoice_link}}\n\n` +
+            `View your order: {{order_url}}\n\n` +
             `Once the payment clears, your event date is locked in.\n\n` +
             `Thanks,\n{{tenant_name}}`;
 
@@ -1108,6 +1157,7 @@ async function notifyClientOfInvoiceIssued(
           deposit_amount: isBalance ? "" : amountBare,
           balance_amount: isBalance ? amountBare : "",
           invoice_link: payLink,
+          order_url: orderLink,
           clientName: invoiceData.clientName,
           companyName: tenantName,
         };
@@ -1122,13 +1172,16 @@ async function notifyClientOfInvoiceIssued(
           },
           client: supabase,
         });
+        const bodyWithRequiredOrderLink = !isBalance
+          ? ensureRequiredOrderLink(resolved.bodyHtml, orderLink)
+          : resolved.bodyHtml;
 
         const sent = await emailService.sendEmail({
           companyId,
           to: recipient,
           subject: resolved.subject,
           template: templateType,
-          body: resolved.bodyHtml,
+          body: bodyWithRequiredOrderLink,
           variables: emailVariables,
           orderId,
           ...(attachments.length > 0 ? { attachments } : {}),
@@ -1747,6 +1800,18 @@ export async function sendInvoiceEmail(
       console.warn("[sendInvoiceEmail] invoice_link lookup failed:", e);
     }
 
+    let orderLink = "";
+    try {
+      orderLink = await mintOrderCustomerLink({
+        sb: supabase,
+        companyId: options.companyId,
+        orderId: invoiceData.orderId,
+        label: "manual-invoice-email",
+      });
+    } catch (e) {
+      console.warn("[sendInvoiceEmail] order link mint failed:", e);
+    }
+
     const fallbackBody =
       options.body ||
       `Hi {{first_name}},\n\n` +
@@ -1780,6 +1845,7 @@ export async function sendInvoiceEmail(
           balance_amount: isBalance ? amountBare : "",
           // TIGHTEN I.114: always-current /pay/i/{token} URL.
           invoice_link: invoiceLink,
+          order_url: orderLink,
         },
         emailType: templateType,
         attachInvoicePdf: options.attachInvoicePdf !== false,

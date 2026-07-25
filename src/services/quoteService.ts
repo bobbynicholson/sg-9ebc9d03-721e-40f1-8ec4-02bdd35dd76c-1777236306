@@ -696,6 +696,9 @@ export const quoteService = {
        *  instead of the module-level anon browser client, so RLS doesn't
        *  block the INSERT into orders from an unauthenticated context. */
       _client?: any;
+      /** Request-derived public origin used for links in transactional
+       * emails when the deployment environment has no canonical URL. */
+      origin?: string;
     },
   ): Promise<{
     order: AppOrder | null;
@@ -804,6 +807,12 @@ export const quoteService = {
       id: quote.id,
       client_id: quote.client_id ?? null,
       lead_id: (quote as any).lead_id ?? null,
+    }, {
+      // Server-side/public acceptance injects a service-role client.
+      // Propagate it into lead promotion too; falling back to the
+      // module-level anonymous client here made lead-backed quotes fail
+      // conversion under RLS, leaving status=accepted with no order.
+      client: db,
     });
 
     // Why "confirmed" and not "pending"? (Audit + Bobby, May 2026)
@@ -1111,6 +1120,7 @@ export const quoteService = {
       newOrder.company_id,
       quote.user_id ?? null,
       {
+        origin: options?.origin,
         // Operator captured the deposit in the accept dialog -> the
         // "order confirmed" email may go out alongside the invoice.
         // Unpaid deposit -> the cascade suppresses it so the client

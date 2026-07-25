@@ -6,6 +6,7 @@ import {
   appendCompanyLegalFooter,
   appendPlatformLegalFooter,
 } from "@/services/email/legalEmailFooter";
+import { ensureRequiredOrderLink } from "@/lib/email/requiredCustomerLinks";
 
 export interface EmailSettings {
   id: string;
@@ -724,6 +725,17 @@ export const emailService = {
     const finalSubject = this.replaceVariables(payload.subject, normVars);
     finalBody = this.replaceVariables(finalBody, normVars);
     finalBody = dedupeRepeatedSignoffLines(finalBody, normVars);
+
+    // A deposit-invoice email is the quote-acceptance confirmation.
+    // Enforce the resulting order link at the final transport boundary
+    // so legacy global templates and tenant overrides cannot omit the
+    // client's route back to the booking.
+    if (payload.template === "deposit_invoice_issued") {
+      finalBody = ensureRequiredOrderLink(
+        finalBody,
+        (normVars as any).order_url || (normVars as any).orderUrl,
+      );
+    }
 
     // TIGHTEN I.124 (2026-06-03): auto-wrap plain or fragment HTML
     // bodies in a branded email shell. Reads company logo + brand
