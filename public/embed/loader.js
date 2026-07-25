@@ -99,9 +99,152 @@
   // generic "Catering Co." placeholder.
   function fallbackConfig(slug, templateOverride, opts) {
     opts = opts || {};
+    var template = templateOverride || 'quick-card';
+    var fields = [
+      { id: 'name', type: 'text', label: 'Your name', required: true, visible: true, order: 1 },
+      { id: 'email', type: 'email', label: 'Email', required: true, visible: true, order: 2 },
+      { id: 'phone', type: 'phone', label: 'Phone', required: true, visible: true, order: 3 },
+      {
+        id: 'event_type',
+        type: 'select',
+        label: 'Event type',
+        required: true,
+        visible: true,
+        order: 4,
+        options: [
+          { value: '', label: 'Choose an event type' },
+          { value: 'Birthday', label: 'Birthday' },
+          { value: 'Wedding', label: 'Wedding' },
+          { value: 'Corporate event', label: 'Corporate event' },
+          { value: 'Family celebration', label: 'Family celebration' },
+          { value: 'Other', label: 'Other' }
+        ]
+      },
+      { id: 'event_date', type: 'date', label: 'Event date', required: true, visible: true, order: 5 },
+      { id: 'guest_count', type: 'number', label: 'Number of guests', required: true, visible: true, validation: { min: 1, max: 5000 }, order: 6 },
+      { id: 'venue', type: 'text', label: 'Venue address', required: true, visible: true, order: 7 }
+    ];
+
+    // The quote-oriented previews should demonstrate the complete visitor
+    // journey, not the five-field generic lead form. These are clearly demo
+    // choices; live embeds receive the tenant's current catalogue from the
+    // config API.
+    if (template === 'detailed-multi-step' || template === 'pricing-calculator') {
+      var quoteOnly = { showIfFieldId: 'request_type', showIfValue: 'quote' };
+      fields.unshift({
+        id: 'request_type',
+        type: 'radio',
+        label: 'How can we help?',
+        helpText: 'Choose a short enquiry, or build a detailed quote request from the live menu.',
+        required: true,
+        visible: true,
+        order: 0,
+        options: [
+          { value: 'enquiry', label: 'Quick enquiry · tell us the basics' },
+          { value: 'quote', label: 'Build my quote request · choose menu and equipment' }
+        ]
+      });
+      fields.forEach(function (field) {
+        if (field.id === 'venue') field.conditional = quoteOnly;
+      });
+      fields.push(
+        {
+          id: 'tier',
+          type: 'tier',
+          label: 'Preferred package',
+          required: false,
+          visible: true,
+          order: 8,
+          conditional: quoteOnly,
+          options: [
+            { value: 'essential', label: 'Essential' },
+            { value: 'classic', label: 'Classic' },
+            { value: 'premium', label: 'Premium' }
+          ]
+        },
+        {
+          id: 'menu_item_ids',
+          type: 'checkboxes',
+          label: 'Menu preferences',
+          helpText: 'Choose the dishes you are interested in. We will confirm portions and availability before sending the quote.',
+          required: false,
+          visible: true,
+          order: 9,
+          conditional: quoteOnly,
+          options: [
+            { value: 'demo-beef-strips', label: 'Spicy Beef Strips · Starters · R50' },
+            { value: 'demo-chicken-wings', label: 'Sticky Chicken Wings · Starters · R40' },
+            { value: 'demo-lamb-ribs-half', label: 'Lamb Ribs Half Portion · Starters · R50' },
+            { value: 'demo-boerewors', label: 'Grilled Boerewors (150g) · Mains · R25' },
+            { value: 'demo-lamb-ribs-full', label: 'Lamb Ribs Full Portion · Mains · R85' },
+            { value: 'demo-lamb-package-25', label: 'Lamb Spit (on-site) · serves 25 · Mains · R4,750' },
+            { value: 'demo-lamb-package-35', label: 'Lamb Spit (on-site) · serves 35 · Mains · R5,250' },
+            { value: 'demo-lamb-package-50', label: 'Lamb Spit (on-site) · serves 50 · Mains · R6,050' },
+            { value: 'demo-lamb-full', label: 'Lamb Spit Full Portion · Mains · R105' },
+            { value: 'demo-lamb-half', label: 'Lamb Spit Half Portion · Mains · R65' },
+            { value: 'demo-chicken', label: 'Roasted Chicken Pieces · Mains · R40' },
+            { value: 'demo-kiddies', label: 'Kiddies Meals · Mains · R75' },
+            { value: 'demo-coleslaw', label: 'Coleslaw · Salads · R20' },
+            { value: 'demo-curry-noodle', label: 'Curry Noodle Salad · Salads · R22.50' },
+            { value: 'demo-greek', label: 'Greek Salad · Salads · R22.50' },
+            { value: 'demo-green', label: 'Green Salad · Salads · R17.50' },
+            { value: 'demo-pasta', label: 'Pasta Salad · Salads · R22.50' },
+            { value: 'demo-pasta-vinaigrette', label: 'Pasta Vinaigrette · Salads · R22.50' },
+            { value: 'demo-potato', label: 'Potato Salad · Salads · R22.50' },
+            { value: 'demo-baby-potatoes', label: 'Baby Potatoes · Sides · R7.50' },
+            { value: 'demo-garlic', label: 'Garlic Bread · Sides · R7.50' },
+            { value: 'demo-veg', label: 'Mixed Chunky Vegetables · Sides · R25' },
+            { value: 'demo-roasted-potatoes', label: 'Roasted Baby Potatoes · Sides · R10' },
+            { value: 'demo-brownie', label: 'Chocolate Brownie & Cream · Desserts · R40' },
+            { value: 'demo-malva', label: 'Malva Pudding & Custard · Desserts · R35' },
+            { value: 'demo-peppermint', label: 'Peppermint Crisp Tart · Desserts · R35' },
+            { value: 'demo-waiter', label: 'Waiter / Server · Service · R300' }
+          ]
+        },
+        {
+          id: 'equipment_item_ids',
+          type: 'checkboxes',
+          label: 'Equipment required',
+          helpText: 'Optional. Select what you expect to need; the team will confirm editable quantities.',
+          required: false,
+          visible: true,
+          order: 10,
+          conditional: quoteOnly,
+          options: [
+            { value: 'demo-bowl-plastic', label: 'Plastic bowl · Crockery · R2.50' },
+            { value: 'demo-bowl', label: 'Porcelain bowl · Crockery · R2.50' },
+            { value: 'demo-plate-20', label: '20 cm Plate · Crockery · R2.50' },
+            { value: 'demo-plate', label: '25 cm Plate · Crockery · R2.50' },
+            { value: 'demo-fork', label: 'Stainless steel fork · Cutlery · R2' },
+            { value: 'demo-knife', label: 'Stainless steel knife · Cutlery · R2' },
+            { value: 'demo-spoon', label: 'Stainless steel spoon · Cutlery · R2' },
+            { value: 'demo-chafing', label: 'Chafing dish · Service · R85' }
+          ]
+        },
+        {
+          id: 'dietary',
+          type: 'textarea',
+          label: 'Dietary requirements or allergies',
+          placeholder: 'Vegetarian, halaal, allergies, children’s meals...',
+          required: false,
+          visible: true,
+          order: 11,
+          conditional: quoteOnly
+        },
+        {
+          id: 'notes',
+          type: 'textarea',
+          label: 'Anything else we should know?',
+          placeholder: 'Serving time, access information, special requests...',
+          required: false,
+          visible: true,
+          order: 12
+        }
+      );
+    }
     return {
       slug: slug || 'default',
-      template: templateOverride || 'quick-card',
+      template: template,
       brand: {
         companyName: opts.companyName || 'Your Company',
         primaryColor: opts.primaryColor || '#0F172A',
@@ -112,14 +255,12 @@
       currency: opts.currency || 'ZAR',
       successMessage: 'Thanks. We will be in touch shortly.',
       redirectUrl: null,
-      tiers: [],
-      fields: [
-        { id: 'name', type: 'text', label: 'Your name', required: true, order: 1 },
-        { id: 'email', type: 'email', label: 'Email', required: true, order: 2 },
-        { id: 'phone', type: 'phone', label: 'Phone', required: false, order: 3 },
-        { id: 'event_date', type: 'date', label: 'Event date', required: true, order: 4 },
-        { id: 'guests', type: 'number', label: 'Guests', required: true, validation: { min: 1, max: 5000 }, order: 5 }
-      ]
+      tiers: [
+        { id: 'essential', name: 'Essential', price_per_person_min: 95, price_per_person_max: 135 },
+        { id: 'classic', name: 'Classic', price_per_person_min: 150, price_per_person_max: 210 },
+        { id: 'premium', name: 'Premium', price_per_person_min: 220, price_per_person_max: 300 }
+      ],
+      fields: fields
     };
   }
 
@@ -176,10 +317,7 @@
     };
     var configReq = demoMode
       ? Promise.resolve(fallbackConfig(slug, templateOverride, demoOpts))
-      : fetchConfig(token, slug).catch(function () {
-          // Graceful degradation: still render something usable in dev.
-          return fallbackConfig(slug, templateOverride, demoOpts);
-        });
+      : fetchConfig(token, slug);
 
     Promise.all([configReq, getHelpers()]).then(function (results) {
       var config = results[0];

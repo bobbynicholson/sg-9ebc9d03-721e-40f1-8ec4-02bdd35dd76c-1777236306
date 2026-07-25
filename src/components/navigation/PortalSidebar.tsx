@@ -574,7 +574,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           left a permanent 32px dead gutter between nav and content. */}
       <div
         className={cn(
-          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:border-r transition-all duration-300",
+          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:border-r transition-all duration-300",
           // Same descendant-selector caveat as the mobile bar: the rail's
           // own surface needs explicit dark classes when forced dark.
           forceDark

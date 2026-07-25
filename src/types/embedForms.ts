@@ -38,6 +38,7 @@ export type EmbedFieldMapping =
   | 'event_name'
   | 'notes'
   | 'budget'
+  | 'company'
   | 'dietary'
   | 'cuisine_type'
   | 'event_type';

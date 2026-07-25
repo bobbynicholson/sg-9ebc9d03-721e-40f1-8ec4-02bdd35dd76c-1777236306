@@ -81,6 +81,35 @@
     form.appendChild(h.el('h3', { class: 'cms-title', text: config.title || 'Estimate your event' }));
     form.appendChild(h.el('p', { class: 'cms-sub', text: config.subtitle || 'Slide for guest count, pick a menu, see pricing instantly.' }));
 
+    var entries = [];
+    var requestField = fields.find(function (f) { return f.id === 'request_type'; });
+    var requestInput = null;
+    if (requestField) {
+      var requestWrap = h.el('div', { class: 'cms-field', dataset: { fid: requestField.id } });
+      requestWrap.appendChild(h.el('label', {
+        class: 'cms-label',
+        text: requestField.label + (requestField.required ? ' *' : '')
+      }));
+      if (requestField.helpText) {
+        requestWrap.appendChild(h.el('div', { class: 'cms-help', text: requestField.helpText }));
+      }
+      requestInput = h.buildStandardInput(requestField, 'pc_request_type');
+      var requestError = h.el('div', {
+        class: 'cms-error',
+        id: 'pc_request_type_err',
+        'aria-live': 'polite'
+      });
+      requestWrap.appendChild(requestInput);
+      requestWrap.appendChild(requestError);
+      form.appendChild(requestWrap);
+      entries.push({
+        field: requestField,
+        input: requestInput,
+        errorEl: requestError,
+        wrapper: requestWrap
+      });
+    }
+
     var calc = h.el('div', { class: 'cms-calc' });
     calc.appendChild(h.el('label', { class: 'cms-label', for: 'pc_guests', text: 'Number of guests' }));
     var slider = h.el('input', { class: 'cms-slider', type: 'range', id: 'pc_guests', min: String(minGuests), max: String(maxGuests), step: '5', value: String(startGuests), 'aria-valuemin': String(minGuests), 'aria-valuemax': String(maxGuests) });
@@ -109,7 +138,8 @@
       });
       tierGroup.appendChild(lbl);
     });
-    calc.appendChild(tierGroup);
+    var quoteDetails = h.el('div', { class: 'cms-quote-details' });
+    quoteDetails.appendChild(tierGroup);
 
     var estimate = h.el('div', { class: 'cms-estimate', text: '...', 'aria-live': 'polite' });
     // Honesty disclaimer -- the calculator pulls from companies.embed_pricing_tiers
@@ -120,9 +150,11 @@
     // "indicative starting price" + an explicit final-quote caveat.
     var estLabel = h.el('div', { class: 'cms-estimate-label', text: 'Indicative starting price' });
     var estSub = h.el('div', { class: 'cms-estimate-sub', text: 'A guideline based on guest count and menu tier. Your final quote may vary based on menu choices, dietary requirements, venue and travel.' });
-    calc.appendChild(estLabel);
-    calc.appendChild(estimate);
-    calc.appendChild(estSub);
+    quoteDetails.appendChild(estLabel);
+    quoteDetails.appendChild(estimate);
+    quoteDetails.appendChild(estSub);
+    if (requestField) quoteDetails.style.display = 'none';
+    calc.appendChild(quoteDetails);
     form.appendChild(calc);
 
     function localEstimate() {
@@ -151,10 +183,11 @@
     slider.addEventListener('input', updateEstimate);
     updateEstimate();
 
-    var entries = [];
     fields.forEach(function (f) {
-      // Skip guest/tier fields if defined -- the calc owns those.
-      if (f.id === 'guests' || f.id === 'tier') return;
+      // Skip guest/tier fields if defined -- the calculator owns those.
+      // Current configs use guest_count; guests is retained for legacy
+      // forms created before the canonical field id was introduced.
+      if (f.id === 'request_type' || f.id === 'guests' || f.id === 'guest_count' || f.id === 'tier') return;
       var wrap = h.el('div', { class: 'cms-field', dataset: { fid: f.id } });
       var id = 'pc_' + f.id;
       wrap.appendChild(h.el('label', { class: 'cms-label', for: id, text: f.label + (f.required ? ' *' : '') }));
@@ -174,11 +207,27 @@
 
     var token = null;
     if (config.turnstileSiteKey) h.mountTurnstile(host, tslot, config.turnstileSiteKey, function (t) { token = t; });
-    h.bindFormRunner(host, form, fields.filter(function (f) { return f.id !== 'guests' && f.id !== 'tier'; }), entries, h, {
+    var runner = h.bindFormRunner(host, form, fields.filter(function (f) {
+      return f.id !== 'guests' && f.id !== 'guest_count' && f.id !== 'tier';
+    }), entries, h, {
       alertEl: alert, button: btn, config: config,
       getTurnstileToken: function () { return token; },
-      extraValues: function () { return { guests: Number(slider.value), tier: selectedTier }; }
+      onChange: function (payload) {
+        if (!requestField) return;
+        quoteDetails.style.display = payload.request_type === 'quote' ? '' : 'none';
+      },
+      extraValues: function () {
+        var values = { guest_count: Number(slider.value) };
+        var pickedMode = requestInput
+          ? requestInput.querySelector('input[type="radio"]:checked')
+          : null;
+        if (!requestField || (pickedMode && pickedMode.value === 'quote')) {
+          values.tier = selectedTier;
+        }
+        return values;
+      }
     });
+    runner.syncVisibility();
   }
   window.__cmsTemplates['pricing-calculator'] = { render: render };
 })();

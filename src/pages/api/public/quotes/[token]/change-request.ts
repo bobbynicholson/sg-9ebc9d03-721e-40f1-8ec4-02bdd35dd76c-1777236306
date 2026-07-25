@@ -11,6 +11,7 @@ import {
   verifyTurnstile,
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { buildQuoteChangeEditorPath } from "@/lib/quotes/revisionLifecycle";
 
 
 /**
@@ -462,6 +463,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       );
       if (recipientIds.length === 0) return;
 
+      const editorPath = buildQuoteChangeEditorPath(quote.id, inserted.id);
       const rows = recipientIds.map((rid: string) => ({
         company_id: quote.company_id,
         user_id: rid,
@@ -470,7 +472,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         title: "✏️ Client wants changes to a quote",
         message: `${submitterName || quote.client_name || "Client"} requested changes (${totalLabel}, ${eventLabel}): "${summary}"`,
         priority: "high",
-        link: `/admin/quotes/${quote.id}#change-requests`,
+        link: editorPath,
         related_entity_type: "quote",
         related_entity_id: quote.id,
       }));
@@ -496,7 +498,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Slug-prefix so the admin link lands in the operator's existing
         // tenant URL space (/{slug}/admin/...) - a bare /admin/... opens a
         // fresh tab with no company/session context (Pic 65).
-        const quoteLink = `${appUrl}${companySlug ? `/${companySlug}` : ""}/admin/quotes/${quote.id}#change-requests`;
+        const quoteLink = `${appUrl}${companySlug ? `/${companySlug}` : ""}${editorPath}`;
 
         const bodyHtml = `
           <p>Hi,</p>

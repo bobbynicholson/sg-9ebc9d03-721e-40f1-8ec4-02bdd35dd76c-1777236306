@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer, type ContextRow } from "@/components/messaging/MessageComposer";
+import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2358,6 +2359,38 @@ function AdminQuotesInner() {
                               }}
                             />
                           )}
+                          <WhatsAppButton
+                            kind="client"
+                            phone={(quote as any).client_phone}
+                            clientId={(quote as any).client_id}
+                            size="sm"
+                            variant="outline"
+                            className="w-full justify-center"
+                            label="WhatsApp"
+                            templates={["quote_sent", "quote_chase", "quote_accepted"]}
+                            defaultTemplate={
+                              quote.status === "accepted"
+                                ? "quote_accepted"
+                                : quote.status === "sent" || String(quote.status) === "viewed"
+                                  ? "quote_chase"
+                                  : "quote_sent"
+                            }
+                            ctx={{
+                              contactName: quote.client_name || "Client",
+                              eventName: (quote as any).event_name ?? (quote as any).quote_name ?? null,
+                              eventDate: quote.event_date
+                                ? new Date(quote.event_date).toLocaleDateString("en-ZA", {
+                                    day: "numeric",
+                                    month: "short",
+                                  })
+                                : null,
+                              guestCount: quote.guest_count ?? null,
+                              total: quote.total ?? null,
+                              quoteRef: quote.quote_number || null,
+                              fromName: profile?.full_name || companyName,
+                              companyName: companyName || null,
+                            }}
+                          />
                           {/* Mark accepted - single highest-value
                               follow-on action. Converts to a live order
                               + fires deposit invoice. Hidden once

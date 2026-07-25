@@ -6,7 +6,7 @@
  * opens the demo URL in a new tab.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -77,15 +77,14 @@ function safeCommentText(s: string): string {
   return htmlEscape(s).replace(/-{2,}/g, "-");
 }
 
-function buildSnippet(token: string, slug: string, host: string, integrity: string | null) {
-  // SRI attribute locks the loaded script to a specific hash. If the
-  // CDN ever serves a tampered loader.js, the host browser refuses to
-  // execute it. crossorigin="anonymous" is required for the integrity
-  // check to apply to a same-origin response.
-  const sriAttrs = integrity ? ` integrity="${htmlEscape(integrity)}" crossorigin="anonymous"` : "";
+function buildSnippet(token: string, slug: string, host: string) {
+  // loader.js is intentionally unversioned so existing website snippets
+  // receive compatibility fixes. Do not attach a content hash to this URL:
+  // the next deployment would change the file while old snippets retained
+  // the previous hash, and browsers would permanently block the form.
   return `<!-- ${safeCommentText(slug)} form, powered by CateringMS -->
 <div data-embed-form data-token="${htmlEscape(token)}" data-slug="${htmlEscape(slug)}"></div>
-<script async src="${htmlEscape(host)}/embed/loader.js"${sriAttrs}></script>`;
+<script async src="${htmlEscape(host)}/embed/loader.js"></script>`;
 }
 
 export function SnippetDialog({ open, onOpenChange, form, embedToken, companyName, loaderHost, onTokenRotated }: Props) {
@@ -104,31 +103,10 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
 
   const host = useMemo(() => resolveLoaderHost(loaderHost), [loaderHost]);
 
-  // Fetch the SRI integrity for /embed/loader.js once when the dialog
-  // opens. If the endpoint isn't reachable (older deploy without it,
-  // network blip), the snippet just omits the integrity attr and
-  // remains functional - defence in depth, not a hard requirement.
-  const [integrity, setIntegrity] = useState<string | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const resp = await fetch("/api/admin/embed/loader-integrity");
-        if (!resp.ok) return;
-        const json = await resp.json();
-        if (!cancelled && json?.integrity) setIntegrity(json.integrity);
-      } catch {
-        // Silent: the snippet still works without SRI.
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [open]);
-
   const snippet = useMemo(() => {
     if (!form || !currentToken) return "";
-    return buildSnippet(currentToken, form.slug, host, integrity);
-  }, [form, currentToken, host, integrity]);
+    return buildSnippet(currentToken, form.slug, host);
+  }, [form, currentToken, host]);
 
   // Preview link includes &template= so the demo page loads the same
   // template the operator is about to embed (helpers.js previously

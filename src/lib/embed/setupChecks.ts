@@ -61,6 +61,7 @@ export function getSetupChecklist(opts: SetupChecksOptions): SetupCheck[] {
     if (f.mapsTo) mappedTo.add(f.mapsTo);
   }
   const hasContactMapping = mappedTo.has("name") || mappedTo.has("email") || mappedTo.has("phone");
+  const hasEmailMapping = mappedTo.has("email");
   const hasEventDate = mappedTo.has("event_date");
   const hasGuestCount = mappedTo.has("guest_count");
 
@@ -73,6 +74,14 @@ export function getSetupChecklist(opts: SetupChecksOptions): SetupCheck[] {
     label: "At least one contact field maps to the lead",
     detail: "Map a Name, Email or Phone field to its lead column under the field's Advanced -> Maps to lead column. Otherwise submissions arrive on /admin/leads with no way to follow up.",
     passed: hasContactMapping,
+    anchor: "section-fields",
+  });
+  checks.push({
+    id: "email-mapped",
+    severity: "required",
+    label: "A visible email field maps to the lead",
+    detail: "Website submissions require a valid email address so the team can reply and a quote can be sent. Add an Email field and map it to Email.",
+    passed: hasEmailMapping,
     anchor: "section-fields",
   });
 

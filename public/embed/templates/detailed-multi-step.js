@@ -22,8 +22,8 @@
 
   // Default 3-step grouping if config does not specify groups.
   var DEFAULT_GROUPS = [
-    { key: 'contact', label: 'Contact', match: ['name', 'first_name', 'last_name', 'email', 'phone', 'company'] },
-    { key: 'event', label: 'Event', match: ['event_date', 'event_time', 'guests', 'venue', 'event_type', 'postcode', 'location'] },
+    { key: 'contact', label: 'Contact', match: ['request_type', 'name', 'first_name', 'last_name', 'email', 'phone', 'company'] },
+    { key: 'event', label: 'Event', match: ['event_date', 'event_time', 'guest_count', 'guests', 'venue', 'event_type', 'postcode', 'location'] },
     { key: 'prefs', label: 'Preferences', match: ['tier', 'dietary', 'menu', 'budget', 'notes', 'message', 'extras'] }
   ];
 
@@ -101,6 +101,7 @@
     var runner = h.bindFormRunner(host, form, fields, entries, h, {
       alertEl: alert, button: submitBtn, config: config, getTurnstileToken: function () { return token; }
     });
+    runner.syncVisibility();
 
     function showStep(i) {
       stepEls.forEach(function (s, idx) { s.classList.toggle('is-active', idx === i); });

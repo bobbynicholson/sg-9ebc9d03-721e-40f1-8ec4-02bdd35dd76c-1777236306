@@ -5,6 +5,10 @@ import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import type { Database } from "@/integrations/supabase/types";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 import { UserRole } from "@/types/app";
+import {
+  splitRequestedItems,
+  type RequestedCatalogueItem,
+} from "@/lib/embed/catalogueSelection";
 
 type Lead = Database["public"]["Tables"]["leads"]["Row"];
 type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
@@ -357,6 +361,21 @@ Guests: ${lead.guest_count ?? "TBD"}`;
   async convertLeadToQuote(leadId: string) {
     const lead = await this.getLeadById(leadId);
 
+    // Website catalogue submissions may already have a private draft. Reuse
+    // it instead of creating a second quote when the operator clicks Convert.
+    const { data: existingDraft } = await supabase
+      .from("quotes")
+      .select("id")
+      .eq("lead_id", leadId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingDraft?.id) {
+      await this.updateLead(leadId, { status: "quoted" });
+      return { lead, quoteId: existingDraft.id };
+    }
+
     // Create the draft quote up front. Previously this function only
     // flipped lead.status to 'quoted' and the operator was left to
     // build the quote manually from the lead detail accordion --
@@ -414,18 +433,49 @@ Guests: ${lead.guest_count ?? "TBD"}`;
     const requestedItems = Array.isArray((lead as any).requested_items)
       ? (lead as any).requested_items
       : [];
-    const menuItemsFromLead = requestedItems
-      .filter((r: any) => r && (r.item_name || r.name))
+    const catalogueItems = requestedItems.filter(
+      (r: any) => r && (r.item_name || r.name) && r.item_type,
+    ) as RequestedCatalogueItem[];
+    const splitCatalogue = splitRequestedItems(catalogueItems);
+    // Legacy rebook requests did not carry item_type/current pricing. Preserve
+    // their previous zero-price lines for manual pricing.
+    const legacyMenuItems = requestedItems
+      .filter((r: any) => r && (r.item_name || r.name) && !r.item_type)
       .map((r: any) => ({
         menu_item_id: r.menu_item_id || null,
         item_name: r.item_name || r.name,
         name: r.item_name || r.name,
         category: r.category || null,
         dietary_tags: r.dietary_tags || null,
+        pricing_mode: r.pricing_mode || "per_person",
         quantity: Number(r.quantity ?? 1) || 1,
-        unit_price: 0,
-        line_total: 0,
+        unit_price: Number(r.unit_price) || 0,
+        line_total: Number(r.line_total) || 0,
       }));
+    const menuItemsFromLead = [...splitCatalogue.menuItems, ...legacyMenuItems];
+    const rawLineTotal = [
+      ...menuItemsFromLead,
+      ...splitCatalogue.equipmentItems,
+    ].reduce((sum: number, item: any) => sum + (Number(item.line_total) || 0), 0);
+    const { resolveBranchSettings } = await import("./branchSettingsService");
+    const branch = await resolveBranchSettings(
+      (lead as any).company_id,
+      (lead as any).region_id || null,
+    );
+    const { data: pricingCompany } = await supabase
+      .from("companies")
+      .select("pricing_includes_vat")
+      .eq("id", (lead as any).company_id)
+      .maybeSingle();
+    const vatRate = branch.vatRegistered ? Number(branch.vatRate) || 0 : 0;
+    const includesVat = (pricingCompany as any)?.pricing_includes_vat === true;
+    const draftTotal = Number(
+      (includesVat ? rawLineTotal : rawLineTotal * (1 + vatRate)).toFixed(2),
+    );
+    const draftSubtotal = includesVat && vatRate > 0
+      ? Number((draftTotal / (1 + vatRate)).toFixed(2))
+      : Number(rawLineTotal.toFixed(2));
+    const draftTax = Number((draftTotal - draftSubtotal).toFixed(2));
 
     const draftPayload: any = {
       company_id: (lead as any).company_id,
@@ -447,11 +497,17 @@ Guests: ${lead.guest_count ?? "TBD"}`;
       // from there at display time.
       // Money fields start at zero - the operator builds these out
       // in /admin/quotes/[id]. We're just kickstarting the row.
-      subtotal: 0,
-      tax_amount: 0,
-      total: 0,
-      total_amount: 0,
+      subtotal: draftSubtotal,
+      tax_amount: draftTax,
+      tax: draftTax,
+      total: draftTotal,
+      total_amount: draftTotal,
       menu_items: menuItemsFromLead.length > 0 ? menuItemsFromLead : null,
+      equipment_items:
+        splitCatalogue.equipmentItems.length > 0
+          ? splitCatalogue.equipmentItems
+          : null,
+      deposit_percentage: branch.depositPercent,
       // quotes has NO special_instructions / internal_notes columns (those
       // are orders-only) - including them made createQuote's unfiltered
       // insert 42703 and the draft was silently never created. Fold both

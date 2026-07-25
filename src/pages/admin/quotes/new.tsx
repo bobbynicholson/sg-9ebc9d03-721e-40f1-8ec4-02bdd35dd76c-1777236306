@@ -117,6 +117,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
+import { savedQuantityWasOverridden } from "@/lib/quotes/revisionLifecycle";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -737,22 +738,42 @@ function NewQuotePage() {
 
       // Carry through requested_items from a client portal rebook lead.
       if (Array.isArray(l.requested_items) && l.requested_items.length > 0) {
+        const requestedMenu = l.requested_items.filter(
+          (it: any) => it?.item_type !== "equipment" && (it?.item_name || it?.name),
+        );
+        const requestedEquipment = l.requested_items.filter(
+          (it: any) => it?.item_type === "equipment" && (it?.item_name || it?.name),
+        );
         setMenuItems(
-          l.requested_items.map((it: any, i: number) => ({
+          requestedMenu.map((it: any, i: number) => ({
             id: `L_lead_${i}`,
             menu_item_id: it.menu_item_id ?? null,
-            name: it.item_name ?? "",
+            name: it.item_name ?? it.name ?? "",
             category: (it.category || "main").toLowerCase(),
             dietary_tags: Array.isArray(it.dietary_tags) ? it.dietary_tags : null,
-            pricingMode: "per_person" as PricingMode,
-            unitPrice: 0,
-            quantity: l.guest_count ?? 0,
+            pricingMode: (it.pricing_mode || "per_person") as PricingMode,
+            unitPrice: safeNum(it.unit_price),
+            quantity: safeNum(it.quantity) || l.guest_count || 1,
+            quantityOverridden: it.pricing_mode !== "per_person",
             discountPct: 0,
           })),
         );
+        if (requestedEquipment.length > 0) {
+          setEquipment(
+            requestedEquipment.map((it: any, i: number) => ({
+              id: `E_lead_${i}`,
+              equipment_id: it.equipment_id ?? null,
+              name: it.item_name ?? it.name ?? "",
+              category: it.category ?? null,
+              quantity: safeNum(it.quantity) || 1,
+              unitPrice: safeNum(it.unit_price),
+              hireInCost: 0,
+            })),
+          );
+        }
         toast({
           title: "Pre-filled from client request",
-          description: `${l.requested_items.length} item${l.requested_items.length === 1 ? "" : "s"} carried through. Set the prices.`,
+          description: `${l.requested_items.length} catalogue item${l.requested_items.length === 1 ? "" : "s"} carried through with current prices. Review quantities before sending.`,
         });
       }
     })();
@@ -952,18 +973,27 @@ function NewQuotePage() {
     if (typeof q.collection_next_day === "boolean") setCollectionNextDay(q.collection_next_day);
     if (Array.isArray(q.menu_items)) {
       setMenuItems(
-        q.menu_items.map((m: any, i: number) => ({
-          id: `L_${i}`,
-          menu_item_id: m.menu_item_id ?? null,
-          name: m.item_name ?? m.name ?? "",
-          description: m.description ?? undefined,
-          category: m.category ?? "main",
-          dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
-          pricingMode: (m.pricingMode || m.pricing_mode || "per_person") as PricingMode,
-          unitPrice: safeNum(m.unit_price ?? m.unitPrice ?? m.pricePerPerson),
-          quantity: safeNum(m.quantity),
-          discountPct: safeNum(m.discountPct ?? m.discount_pct),
-        })),
+        q.menu_items.map((m: any, i: number) => {
+          const pricingMode = (m.pricingMode || m.pricing_mode || "per_person") as PricingMode;
+          const quantity = safeNum(m.quantity);
+          return {
+            id: `L_${i}`,
+            menu_item_id: m.menu_item_id ?? null,
+            name: m.item_name ?? m.name ?? "",
+            description: m.description ?? undefined,
+            category: m.category ?? "main",
+            dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
+            pricingMode,
+            unitPrice: safeNum(m.unit_price ?? m.unitPrice ?? m.pricePerPerson),
+            quantity,
+            quantityOverridden: savedQuantityWasOverridden(
+              pricingMode,
+              quantity,
+              safeNum(q.guest_count),
+            ),
+            discountPct: safeNum(m.discountPct ?? m.discount_pct),
+          };
+        }),
       );
     }
     if (Array.isArray(q.equipment_items)) {

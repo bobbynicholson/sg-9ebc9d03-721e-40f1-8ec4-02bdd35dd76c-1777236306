@@ -17,6 +17,7 @@ import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/observability";
+import { buildQuoteSentLifecyclePatch } from "@/lib/quotes/revisionLifecycle";
 
 export interface QuoteSendDialogQuote {
   id: string;
@@ -481,29 +482,56 @@ export function QuoteSendDialog({
               },
             };
           }
-          // Stamp sent_at after a confirmed send. Converted/accepted
-          // quotes stay accepted; this path is just notifying the client
-          // of an update, not reopening the quote for acceptance.
+          // Finalise the lifecycle only after the email provider confirms
+          // delivery. A changed, unconverted quote is reopened so the
+          // client sees Accept again; converted quotes remain accepted.
           const now = new Date().toISOString();
           const stampQuotes = [quote, secondQuote].filter(Boolean) as QuoteSendDialogQuote[];
-          await Promise.allSettled(
+          const stampResults = await Promise.allSettled(
             stampQuotes.map((q) =>
               supabase
                 .from("quotes")
-                .update({
-                  ...(q.is_converted ? {} : { status: "sent" }),
-                  sent_at: now,
-                } as any)
+                .update(buildQuoteSentLifecyclePatch({
+                  isConverted: q.is_converted,
+                  contentChanged: q.content_changed,
+                  sentAt: now,
+                }) as any)
                 .eq("id", q.id)
-                .is("sent_at", null)
             )
           );
-          toast({
-            title: "Quote sent",
-            description: secondQuote
-              ? `Sent ${quote.quote_number || "quote"} + ${secondQuote.quote_number || "second quote"} to ${payload.to}.`
-              : `Sent to ${payload.to}.`,
-          });
+          const quoteIds = stampQuotes.map((q) => q.id);
+          const { error: changeRequestError } = await (supabase as any)
+            .from("quote_change_requests")
+            .update({ status: "addressed", addressed_at: now })
+            .in("quote_id", quoteIds)
+            .eq("status", "pending");
+          const lifecycleFailed =
+            stampResults.some(
+              (result) =>
+                result.status === "rejected"
+                || (result.status === "fulfilled" && !!(result.value as any)?.error),
+            )
+            || !!changeRequestError;
+          if (lifecycleFailed) {
+            console.error("[QuoteSendDialog] email sent but lifecycle update failed", {
+              stampResults,
+              changeRequestError,
+            });
+          }
+          toast(
+            lifecycleFailed
+              ? {
+                  title: "Quote sent; status needs attention",
+                  description: "The client received the email, but the quote status could not be fully updated. Refresh and check the quote before resending.",
+                  variant: "destructive",
+                }
+              : {
+                  title: "Quote sent",
+                  description: secondQuote
+                    ? `Sent ${quote.quote_number || "quote"} + ${secondQuote.quote_number || "second quote"} to ${payload.to}.`
+                    : `Sent to ${payload.to}.`,
+                },
+          );
           onSent?.(quote, secondQuote ?? undefined);
           return { success: true } as const;
         } catch (err: any) {

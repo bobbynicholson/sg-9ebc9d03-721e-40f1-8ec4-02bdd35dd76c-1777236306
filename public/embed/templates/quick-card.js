@@ -70,8 +70,13 @@
         var input = inputs[id];
         var f = fields.find(function (x) { return x.id === id; });
         if (f.type === 'checkbox') p[id] = input.checked;
-        else if (f.type === 'multiselect') {
-          p[id] = Array.from(input.selectedOptions || []).map(function (o) { return o.value; });
+        else if (f.type === 'checkboxes' || f.type === 'multiselect') {
+          p[id] = input.selectedOptions
+            ? Array.from(input.selectedOptions).map(function (o) { return o.value; })
+            : Array.from(input.querySelectorAll('input[type="checkbox"]:checked')).map(function (o) { return o.value; });
+        } else if (f.type === 'radio') {
+          var selected = input.querySelector('input[type="radio"]:checked');
+          p[id] = selected ? selected.value : '';
         } else {
           p[id] = input.value;
         }
@@ -130,28 +135,7 @@
   }
 
   function buildInput(f, id, h) {
-    if (f.type === 'select') {
-      var sel = h.el('select', { class: 'cms-select', id: id, name: f.id });
-      (f.options || []).forEach(function (o) {
-        sel.appendChild(h.el('option', { value: o.value, text: o.label }));
-      });
-      return sel;
-    }
-    if (f.type === 'textarea') {
-      return h.el('textarea', { class: 'cms-textarea', id: id, name: f.id, placeholder: f.placeholder || '', rows: '4' });
-    }
-    if (f.type === 'checkbox') {
-      return h.el('input', { class: 'cms-checkbox', type: 'checkbox', id: id, name: f.id });
-    }
-    var typeMap = { phone: 'tel', guests: 'number' };
-    return h.el('input', {
-      class: 'cms-input',
-      type: typeMap[f.type] || f.type || 'text',
-      id: id,
-      name: f.id,
-      placeholder: f.placeholder || '',
-      autocomplete: f.autocomplete || (f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'on')
-    });
+    return h.buildStandardInput(f, id);
   }
 
   window.__cmsTemplates['quick-card'] = { render: render };

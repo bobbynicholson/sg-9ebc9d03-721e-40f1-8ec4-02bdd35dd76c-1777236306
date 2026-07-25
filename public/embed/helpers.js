@@ -137,15 +137,15 @@
     return jsonFetch(apiBase + '/api/public/embed/' + encodeURIComponent(token) + '/submit', {
       method: 'POST',
       body: {
-        slug: formSlug || 'default',
+        formSlug: formSlug || 'default',
         payload: payload,
-        turnstile_token: turnstileToken || null,
+        turnstileToken: turnstileToken || '',
         honeypot: honeypot || '',
-        client_meta: {
-          referrer: document.referrer || null,
-          page_url: location.href,
-          user_agent: navigator.userAgent,
-          submitted_at: new Date().toISOString()
+        referrer: document.referrer || null,
+        clientMeta: {
+          pageUrl: location.href,
+          userAgent: navigator.userAgent,
+          submittedAt: new Date().toISOString()
         }
       }
     });
@@ -154,7 +154,7 @@
   function fetchEstimate(apiBase, token, guests, tierId) {
     var url = apiBase + '/api/public/embed/' + encodeURIComponent(token) +
       '/estimate?guests=' + encodeURIComponent(guests || 0) +
-      '&tier=' + encodeURIComponent(tierId || '');
+      '&tierId=' + encodeURIComponent(tierId || '');
     return jsonFetch(url);
   }
 
@@ -201,12 +201,17 @@
     function setVar(name, val) {
       if (val) styleHost.style.setProperty(name, val);
     }
-    setVar('--brand-primary', t.primaryColor || b.primaryColor || '#0F172A');
-    setVar('--brand-secondary', t.secondaryColor || b.secondaryColor || '#F59E0B');
-    setVar('--brand-text', t.textColor || '#0F172A');
-    setVar('--brand-bg', t.bgColor || '#FFFFFF');
-    setVar('--brand-radius', (t.radius || '12') + (typeof (t.radius) === 'number' ? 'px' : ''));
-    if (t.fontFamily) setVar('--brand-font', t.fontFamily);
+    setVar('--brand-primary', t.primaryColor || t.primary_color || b.primaryColor || '#0F172A');
+    setVar('--brand-secondary', t.secondaryColor || t.secondary_color || b.secondaryColor || '#F59E0B');
+    setVar('--brand-text', t.textColor || t.text_color || '#0F172A');
+    setVar('--brand-bg', t.bgColor || t.bg_color || '#FFFFFF');
+    var rawRadius = t.radius !== undefined ? t.radius : t.button_radius;
+    var radiusMap = { none: '0px', small: '6px', medium: '12px', full: '9999px' };
+    var resolvedRadius = radiusMap[rawRadius] ||
+      (typeof rawRadius === 'number' ? rawRadius + 'px' : rawRadius) ||
+      '12px';
+    setVar('--brand-radius', resolvedRadius);
+    setVar('--brand-font', t.fontFamily || t.font_family);
   }
 
   // Tiny safe-HTML helper -- never use innerHTML with untrusted data.
@@ -283,6 +288,19 @@
     '.cms-radio-option:hover,.cms-checkbox-option:hover{border-color:var(--brand-primary,#9CA3AF);background:color-mix(in srgb,var(--brand-primary,#0F172A) 4%,#fff)}',
     '.cms-radio-option input,.cms-checkbox-option input{accent-color:var(--brand-primary,#0F172A);width:18px;height:18px;flex-shrink:0}',
     '.cms-radio-label,.cms-checkbox-label{font-size:14px;color:var(--brand-text,#0F172A)}',
+    /* Searchable catalogue picker: used for live menu + equipment rows. */
+    '.cms-catalogue-picker{display:flex;flex-direction:column;gap:8px}',
+    '.cms-catalogue-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}',
+    '.cms-catalogue-controls .cms-input{grid-column:1/-1}',
+    '.cms-catalogue-add{min-height:44px;padding:9px 16px}',
+    '.cms-catalogue-selected{display:flex;flex-direction:column;gap:7px}',
+    '.cms-catalogue-status{font-size:12px;color:#64748B;min-height:18px}',
+    '.cms-catalogue-empty{font-size:13px;color:#64748B;padding:8px 0}',
+    '.cms-catalogue-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:calc(var(--brand-radius,12px) - 4px);background:#F8FAFC}',
+    '.cms-catalogue-row span{font-size:14px}',
+    '.cms-catalogue-remove{font:inherit;font-size:13px;font-weight:600;color:#B91C1C;background:transparent;border:0;cursor:pointer;padding:4px 6px;border-radius:6px}',
+    '.cms-catalogue-remove:hover{background:#FEE2E2}',
+    '@media(max-width:480px){.cms-catalogue-controls{grid-template-columns:1fr}.cms-catalogue-controls .cms-input{grid-column:auto}}',
     /* Standalone single checkbox -- align with adjacent label */
     '.cms-checkbox{accent-color:var(--brand-primary,#0F172A);width:18px;height:18px}',
     '.cms-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}'
@@ -481,6 +499,9 @@
       return radioWrap;
     }
     if (f.type === 'checkboxes' || f.type === 'multiselect') {
+      if (f.id === 'menu_item_ids' || f.id === 'equipment_item_ids') {
+        return buildCataloguePicker(f, id);
+      }
       // Multi-pick checkbox group. The submit collector reads
       // querySelectorAll(':checked') on these per group.
       var cbWrap = el('div', { class: 'cms-checkbox-group', role: 'group' });
@@ -512,6 +533,135 @@
       placeholder: f.placeholder || '',
       autocomplete: f.autocomplete || (f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'on')
     });
+  }
+
+  function buildCataloguePicker(f, id) {
+    var options = (f.options || []).slice();
+    var selected = new Map();
+    var wrap = el('div', {
+      class: 'cms-catalogue-picker',
+      role: 'group',
+      tabindex: '-1',
+      'aria-label': f.label || 'Catalogue items'
+    });
+    var search = el('input', {
+      class: 'cms-input',
+      type: 'search',
+      placeholder: f.id === 'menu_item_ids' ? 'Search the menu...' : 'Search equipment...',
+      autocomplete: 'off'
+    });
+    var select = el('select', {
+      class: 'cms-select',
+      'aria-label': f.id === 'menu_item_ids' ? 'Available menu items' : 'Available equipment'
+    });
+    var add = el('button', {
+      class: 'cms-btn cms-catalogue-add',
+      type: 'button',
+      text: 'Add'
+    });
+    var controls = el('div', { class: 'cms-catalogue-controls' }, [search, select, add]);
+    var resultStatus = el('div', {
+      class: 'cms-catalogue-status',
+      'aria-live': 'polite'
+    });
+    var picked = el('div', {
+      class: 'cms-catalogue-selected',
+      'aria-live': 'polite'
+    });
+    wrap.appendChild(controls);
+    wrap.appendChild(resultStatus);
+    wrap.appendChild(picked);
+
+    function filteredOptions() {
+      var term = search.value.trim().toLowerCase();
+      return options.filter(function (option) {
+        return !selected.has(String(option.value)) &&
+          (!term || String(option.label || option.value).toLowerCase().indexOf(term) !== -1);
+      });
+    }
+    function renderSelect() {
+      select.innerHTML = '';
+      var available = filteredOptions();
+      select.appendChild(el('option', {
+        value: '',
+        text: available.length > 0 ? 'Choose an item' : 'No matching items'
+      }));
+      available.forEach(function (option) {
+        select.appendChild(el('option', {
+          value: option.value,
+          text: option.label || option.value
+        }));
+      });
+      var isSearching = search.value.trim().length > 0;
+      select.size = isSearching ? Math.min(6, Math.max(2, available.length + 1)) : 1;
+      resultStatus.textContent = isSearching
+        ? available.length + ' matching item' + (available.length === 1 ? '' : 's')
+        : options.length - selected.size + ' available';
+      add.disabled = true;
+    }
+    function renderSelected() {
+      picked.innerHTML = '';
+      if (selected.size === 0) {
+        picked.appendChild(el('div', {
+          class: 'cms-catalogue-empty',
+          text: 'No items added yet.'
+        }));
+        return;
+      }
+      selected.forEach(function (option, value) {
+        var hidden = el('input', {
+          type: 'checkbox',
+          name: f.id,
+          value: value,
+          checked: 'checked',
+          class: 'cms-sr'
+        });
+        hidden.checked = true;
+        var remove = el('button', {
+          class: 'cms-catalogue-remove',
+          type: 'button',
+          text: 'Remove'
+        });
+        remove.addEventListener('click', function () {
+          selected.delete(value);
+          renderSelect();
+          renderSelected();
+          wrap.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        picked.appendChild(el('div', { class: 'cms-catalogue-row' }, [
+          hidden,
+          el('span', { text: option.label || option.value }),
+          remove
+        ]));
+      });
+    }
+    function addSelected() {
+      var value = select.value;
+      if (!value) return;
+      var option = options.find(function (candidate) {
+        return String(candidate.value) === String(value);
+      });
+      if (!option) return;
+      selected.set(String(option.value), option);
+      search.value = '';
+      renderSelect();
+      renderSelected();
+      wrap.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    search.addEventListener('input', renderSelect);
+    select.addEventListener('change', function () {
+      add.disabled = !select.value;
+    });
+    add.addEventListener('click', addSelected);
+    select.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addSelected();
+      }
+    });
+    renderSelect();
+    renderSelected();
+    return wrap;
   }
 
   // Public API exposed to templates only via the helpers param.

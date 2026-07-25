@@ -9,6 +9,7 @@ import {
   isUuid,
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { addCatalogueFields } from "@/lib/embed/catalogueSelection";
 
 
 /**
@@ -36,7 +37,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const slugParam = req.query.slug;
   const slug =
-    typeof slugParam === "string" && slugParam.length > 0 && slugParam.length <= 200
+    typeof slugParam === "string"
+      && slugParam !== "default"
+      && slugParam.length > 0
+      && slugParam.length <= 200
       ? slugParam
       : null;
 
@@ -95,6 +99,49 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   const form = forms[0];
+  const templateId = String(form.template_id || "");
+
+  // Quote-oriented forms receive live catalogue choices. Prices are shown for
+  // guidance, but submit.ts resolves every selected id again server-side, so a
+  // visitor cannot alter the eventual draft price in devtools.
+  const shouldLoadCatalogue = [
+    "detailed-multi-step",
+    "pricing-calculator",
+  ].includes(templateId);
+  let publicFields = (form.fields || []) as any[];
+  if (shouldLoadCatalogue) {
+    const [{ data: menuRows }, { data: equipmentRows }] = await Promise.all([
+      (supabase as any)
+        .from("menu_items")
+        .select(
+          "id, item_name, base_price, base_servings, category, description, dietary_tags, sold_as_package",
+        )
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .or("is_available.is.null,is_available.eq.true")
+        .order("category", { ascending: true })
+        .order("item_name", { ascending: true })
+        .limit(100),
+      (supabase as any)
+        .from("equipment")
+        .select(
+          "id, name, rental_price, category, description, available_quantity",
+        )
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .or("is_available.is.null,is_available.eq.true")
+        .order("category", { ascending: true })
+        .order("name", { ascending: true })
+        .limit(100),
+    ]);
+    publicFields = addCatalogueFields(
+      publicFields as any,
+      templateId,
+      (menuRows || []) as any,
+      (equipmentRows || []) as any,
+      (company as any).currency || "ZAR",
+    );
+  }
 
   // Best-effort view counter - fire-and-forget so a slow update never blocks
   // the response. Use rpc-style increment to avoid lost updates under race.
@@ -128,12 +175,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     ok: true,
     formId: form.id,
     slug: form.slug,
-    templateId: form.template_id,
+    templateId,
     // loader.js reads config.template (fallbackConfig uses that key);
     // ship both so the template resolves without the override attr.
-    template: form.template_id,
+    template: templateId,
     name: form.name,
-    fields: form.fields || [],
+    fields: publicFields,
     theme: form.theme || {},
     // Live pricing tiers for the calculator/estimator templates. Without
     // this the templates silently fell back to hardcoded placeholder

@@ -29,16 +29,19 @@ function parseEnv() {
 }
 const env = parseEnv();
 const url = env.NEXT_PUBLIC_SUPABASE_URL, anon = env.NEXT_PUBLIC_SUPABASE_ANON_KEY, svc = env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !anon || !svc) { console.error("Missing Supabase env in .env.local"); process.exit(1); }
-const admin = createClient(url, svc, { auth: { persistSession: false, autoRefreshToken: false } });
+if (!url || !anon) { console.error("Missing Supabase URL or anon key in .env.local"); process.exit(1); }
+const admin = svc
+  ? createClient(url, svc, { auth: { persistSession: false, autoRefreshToken: false } })
+  : null;
+const devPassword = env.NEXT_PUBLIC_DEV_USER_PASSWORD || "CateringMS123!";
 const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
 
 // role -> { email, landing }  (landing is the first page to open, includes prefix)
 const USERS = [
+  { role: "company_admin",    email: "hello@spitbraaidelivery.co.za",                  landing: `/${SLUG}/admin/dashboard` },
   { role: "admin",            email: "admin@spitbraaidelivery.co.za",                 landing: `/${SLUG}/admin/dashboard` },
   { role: "kitchen_staff",    email: "kitchen@spitbraaidelivery.co.za",               landing: `/${SLUG}/team-portal/kitchen/dashboard` },
   { role: "kitchen_manager",  email: "kitchen.manager.demo@spitbraaidelivery.co.za",  landing: `/${SLUG}/team-portal/kitchen/dashboard` },
-  { role: "waiter",           email: "waiter.demo@spitbraaidelivery.co.za",           landing: `/${SLUG}/team-portal/waiter/dashboard` },
   { role: "driver",           email: "driver@spitbraaidelivery.co.za",                landing: `/${SLUG}/team-portal/driver/dashboard` },
   { role: "shopping_staff",   email: "shopping@spitbraaidelivery.co.za",              landing: `/${SLUG}/team-portal/shopping/dashboard` },
   { role: "cleaning_staff",   email: "cleaning@spitbraaidelivery.co.za",              landing: `/${SLUG}/team-portal/cleaning/dashboard` },
@@ -50,6 +53,14 @@ const USERS = [
 const b64url = v => Buffer.from(v, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 async function mint(email) {
   const anonC = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
+  if (!admin) {
+    const { data, error } = await anonC.auth.signInWithPassword({
+      email,
+      password: devPassword,
+    });
+    if (error || !data?.session) throw new Error(error?.message || "no session");
+    return data.session;
+  }
   const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email, options: { redirectTo: "https://cateringms.com/auth/callback" } });
   if (error || !data?.properties?.action_link) throw new Error(error?.message || "no link");
   const r = await fetch(data.properties.action_link, { redirect: "manual" });

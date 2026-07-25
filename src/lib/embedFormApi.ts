@@ -33,6 +33,13 @@ export interface EmbedField {
   min?: number;
   max?: number;
   pattern?: string;
+  validation?: {
+    min?: number;
+    max?: number;
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+  };
   options?: Array<{ value: string; label?: string }>;
   // Field-to-lead column mapping. Recognised values:
   //   name, email, phone, event_date, guest_count, venue,
@@ -93,6 +100,9 @@ function isVisible(field: any, payload: Record<string, any>): boolean {
 
 export function validateField(field: EmbedField, value: any): ValidateResult {
   const present = !isEmpty(value);
+  // Saved form configs use a nested validation object. Flat keys are retained
+  // for legacy configs created before the customiser schema was finalised.
+  const rules = field.validation || field;
 
   if (!present) {
     if (field.required) {
@@ -106,15 +116,15 @@ export function validateField(field: EmbedField, value: any): ValidateResult {
     if (value.length > HARD_MAX_STRING) {
       return { ok: false, error: "Value too long" };
     }
-    if (field.maxLength && value.length > field.maxLength) {
-      return { ok: false, error: `Maximum ${field.maxLength} characters` };
+    if (rules.maxLength && value.length > rules.maxLength) {
+      return { ok: false, error: `Maximum ${rules.maxLength} characters` };
     }
-    if (field.minLength && value.length < field.minLength) {
-      return { ok: false, error: `Minimum ${field.minLength} characters` };
+    if (rules.minLength && value.length < rules.minLength) {
+      return { ok: false, error: `Minimum ${rules.minLength} characters` };
     }
-    if (field.pattern) {
+    if (rules.pattern) {
       try {
-        if (!new RegExp(field.pattern).test(value)) {
+        if (!new RegExp(rules.pattern).test(value)) {
           return { ok: false, error: "Invalid format" };
         }
       } catch {
@@ -152,11 +162,11 @@ export function validateField(field: EmbedField, value: any): ValidateResult {
       if (Number.isNaN(num)) {
         return { ok: false, error: "Enter a valid number" };
       }
-      if (field.min !== undefined && num < field.min) {
-        return { ok: false, error: `Minimum ${field.min}` };
+      if (rules.min !== undefined && num < rules.min) {
+        return { ok: false, error: `Minimum ${rules.min}` };
       }
-      if (field.max !== undefined && num > field.max) {
-        return { ok: false, error: `Maximum ${field.max}` };
+      if (rules.max !== undefined && num > rules.max) {
+        return { ok: false, error: `Maximum ${rules.max}` };
       }
       break;
     }
@@ -281,7 +291,8 @@ export function mapPayloadToLead(
         lead.venue_address = String(value).slice(0, 500);
         break;
       }
-      case "event_name": {
+      case "event_name":
+      case "event_type": {
         lead.event_type = String(value).slice(0, 100);
         break;
       }

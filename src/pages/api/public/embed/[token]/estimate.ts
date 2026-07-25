@@ -32,7 +32,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   const guestsRaw = req.query.guests;
-  const tierIdRaw = req.query.tierId;
+  // `tier` was shipped by the first helpers.js release; accept it as
+  // an alias so existing third-party snippets keep selecting the right
+  // tier while cached assets roll forward to canonical `tierId`.
+  const tierIdRaw = req.query.tierId ?? req.query.tier;
 
   const guests = parseInt(String(guestsRaw ?? ""), 10);
   if (!Number.isFinite(guests) || guests <= 0 || guests > 100_000) {

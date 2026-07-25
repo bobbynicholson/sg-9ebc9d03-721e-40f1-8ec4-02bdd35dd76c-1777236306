@@ -15,6 +15,17 @@ import {
 import { notifyAdminOfEmbedLead } from "@/lib/embed/notifyAdminOfEmbedLead";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { getEventCapacityForDate } from "@/lib/eventCapacity";
+import { normalizeEmbedSubmitRequest } from "@/lib/embed/normalizeSubmitRequest";
+import {
+  buildRequestedCatalogueItems,
+  EMBED_EQUIPMENT_FIELD_ID,
+  EMBED_MENU_FIELD_ID,
+  EMBED_REQUEST_TYPE_FIELD_ID,
+  selectedIds,
+  splitRequestedItems,
+  type RequestedCatalogueItem,
+} from "@/lib/embed/catalogueSelection";
+import { geocodeAddressServer } from "@/lib/geo/geocodeServer";
 
 
 /**
@@ -45,6 +56,118 @@ function safeJson(value: any): any {
   }
 }
 
+async function createPrivateDraftQuote(
+  supabase: any,
+  company: any,
+  regionId: string,
+  leadId: string,
+  lead: Record<string, any>,
+  requestedItems: RequestedCatalogueItem[],
+): Promise<string | null> {
+  if (requestedItems.length === 0) return null;
+
+  const { menuItems, equipmentItems } = splitRequestedItems(requestedItems);
+  const lineTotal = requestedItems.reduce(
+    (sum, item) => sum + (Number(item.line_total) || 0),
+    0,
+  );
+
+  const { data: region } = await supabase
+    .from("regions")
+    .select("vat_rate, vat_registered, deposit_percent")
+    .eq("id", regionId)
+    .maybeSingle();
+  const rawCompanyVat = Number(company.vat_rate);
+  const companyVatRate = Number.isFinite(rawCompanyVat)
+    ? (rawCompanyVat > 1 ? rawCompanyVat / 100 : rawCompanyVat)
+    : 0.15;
+  const vatRegistered =
+    typeof region?.vat_registered === "boolean"
+      ? region.vat_registered
+      : company.vat_registered === true;
+  const vatRate = vatRegistered
+    ? Number(region?.vat_rate ?? companyVatRate) || 0
+    : 0;
+  const pricingIncludesVat = company.pricing_includes_vat === true;
+
+  let subtotal: number;
+  let tax: number;
+  let total: number;
+  if (pricingIncludesVat) {
+    total = Number(lineTotal.toFixed(2));
+    subtotal = vatRate > 0
+      ? Number((total / (1 + vatRate)).toFixed(2))
+      : total;
+    tax = Number((total - subtotal).toFixed(2));
+  } else {
+    subtotal = Number(lineTotal.toFixed(2));
+    tax = Number((subtotal * vatRate).toFixed(2));
+    total = Number((subtotal + tax).toFixed(2));
+  }
+
+  const { data: quoteNumber, error: numberError } = await supabase.rpc(
+    "consume_next_document_number",
+    { p_company_id: company.id, p_document_type: "quote" },
+  );
+  if (numberError || !quoteNumber) {
+    console.warn("[embed/submit] draft quote numbering failed", {
+      code: numberError?.code,
+      message: numberError?.message,
+    });
+    return null;
+  }
+
+  const validUntil = new Date();
+  validUntil.setDate(validUntil.getDate() + 30);
+  const { data: quote, error: quoteError } = await supabase
+    .from("quotes")
+    .insert([{
+      company_id: company.id,
+      user_id: company.owner_id || null,
+      prepared_by: company.owner_id || null,
+      region_id: regionId,
+      lead_id: leadId,
+      quote_number: quoteNumber,
+      quote_name: lead.event_type || "Website quote request",
+      client_name: lead.client_name || lead.contact_name || "Website enquiry",
+      contact_name: lead.contact_name || null,
+      client_email: lead.client_email || lead.email,
+      client_phone: lead.client_phone || lead.phone || null,
+      event_type: lead.event_type || null,
+      event_date: lead.event_date || null,
+      guest_count: lead.guest_count ?? null,
+      venue_address: lead.venue_address || null,
+      venue_lat: lead.venue_lat ?? null,
+      venue_lng: lead.venue_lng ?? null,
+      menu_items: menuItems,
+      equipment_items: equipmentItems,
+      subtotal,
+      tax_amount: tax,
+      tax,
+      total_amount: total,
+      total,
+      discount_amount: 0,
+      delivery_fee: 0,
+      deposit_percentage:
+        Number(region?.deposit_percent ?? company.deposit_percent) || 30,
+      status: "draft",
+      valid_until: validUntil.toISOString().slice(0, 10),
+      source: "embed",
+      notes:
+        "Private draft created from website selections. Review portions, equipment quantities, delivery and availability before sending.",
+    }])
+    .select("id")
+    .single();
+  if (quoteError || !quote) {
+    console.warn("[embed/submit] private draft quote create failed", {
+      code: quoteError?.code,
+      message: quoteError?.message,
+    });
+    return null;
+  }
+  return quote.id as string;
+}
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res);
 
@@ -63,17 +186,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   // Body shape
   const body = (req.body || {}) as Record<string, any>;
-  const formSlug =
-    typeof body.formSlug === "string" ? body.formSlug.slice(0, 200) : null;
+  // Accept the canonical camelCase request shape plus the snake_case /
+  // short aliases shipped by older loader versions. This keeps existing
+  // snippets working while a new static loader rolls through CDN caches.
+  const {
+    formSlug,
+    turnstileToken,
+    honeypot,
+    referrer,
+  } = normalizeEmbedSubmitRequest(body);
   const payload =
     body.payload && typeof body.payload === "object" && !Array.isArray(body.payload)
       ? (body.payload as Record<string, any>)
       : null;
-  const turnstileToken =
-    typeof body.turnstileToken === "string" ? body.turnstileToken : "";
-  const honeypot = typeof body.honeypot === "string" ? body.honeypot : "";
-  const referrer =
-    typeof body.referrer === "string" ? body.referrer.slice(0, 1000) : null;
 
   // Rough size guard in case the body parser limit is overridden upstream.
   try {
@@ -143,7 +268,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { data: company, error: companyErr } = await (supabase as any)
     .from("companies")
     .select(
-      "id, company_name, owner_id, is_active, deleted_at, embed_token, auto_reply_to_embed_submissions"
+      "id, company_name, owner_id, is_active, deleted_at, embed_token, auto_reply_to_embed_submissions, pricing_includes_vat, vat_rate, vat_registered, deposit_percent"
     )
     .eq("embed_token", token)
     .maybeSingle();
@@ -160,7 +285,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let formQuery = (supabase as any)
     .from("embed_form_configs")
     .select(
-      "id, slug, name, fields, success_message, redirect_url, is_active, region_id, auto_reply_enabled, notify_admin_email"
+      "id, slug, name, template_id, fields, success_message, redirect_url, is_active, region_id, auto_reply_enabled, notify_admin_email"
     )
     .eq("company_id", company.id)
     .eq("is_active", true)
@@ -236,6 +361,73 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   }
 
+  // Public forms cannot safely expose addresses from other clients. Resolve
+  // the visitor's own typed venue instead and persist its map point so
+  // dispatch/delivery calculations do not inherit a text-only address.
+  const venuePoint = mapped.venue_address
+    ? await geocodeAddressServer(mapped.venue_address, { country: "za" })
+    : null;
+
+  // Resolve visitor choices from the tenant catalogue. Only the ids cross the
+  // public boundary; names, prices, package mode and totals come from fresh
+  // database rows. This prevents a forged payload from creating a discounted
+  // or cross-tenant quote.
+  let requestedCatalogueItems: RequestedCatalogueItem[] = [];
+  const requestType = String(payload[EMBED_REQUEST_TYPE_FIELD_ID] || "");
+  if (requestType && requestType !== "enquiry" && requestType !== "quote") {
+    return res.status(400).json({
+      ok: false,
+      message: "Choose either a quick enquiry or a quote request.",
+    });
+  }
+  const wantsDraftQuote = requestType === "quote" || requestType === "";
+  if (
+    wantsDraftQuote
+    && ["detailed-multi-step", "pricing-calculator"].includes(String(form.template_id))
+  ) {
+    const menuIds = selectedIds(payload[EMBED_MENU_FIELD_ID]);
+    const equipmentIds = selectedIds(payload[EMBED_EQUIPMENT_FIELD_ID]);
+    const [{ data: selectedMenu }, { data: selectedEquipment }] = await Promise.all([
+      menuIds.length > 0
+        ? (supabase as any)
+            .from("menu_items")
+            .select(
+              "id, item_name, base_price, base_servings, category, description, dietary_tags, sold_as_package",
+            )
+            .eq("company_id", company.id)
+            .is("deleted_at", null)
+            .or("is_available.is.null,is_available.eq.true")
+            .in("id", menuIds)
+        : Promise.resolve({ data: [] }),
+      equipmentIds.length > 0
+        ? (supabase as any)
+            .from("equipment")
+            .select(
+              "id, name, rental_price, category, description, available_quantity",
+            )
+            .eq("company_id", company.id)
+            .is("deleted_at", null)
+            .or("is_available.is.null,is_available.eq.true")
+            .in("id", equipmentIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+    if (
+      (selectedMenu || []).length !== menuIds.length
+      || (selectedEquipment || []).length !== equipmentIds.length
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          "One or more selected items are no longer available. Refresh the form and choose again.",
+      });
+    }
+    requestedCatalogueItems = buildRequestedCatalogueItems(
+      (selectedMenu || []) as any,
+      (selectedEquipment || []) as any,
+      mapped.guest_count || 1,
+    );
+  }
+
   const leadInsert: Record<string, any> = {
     company_id: company.id,
     user_id: company.owner_id || null,
@@ -250,12 +442,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     event_type: mapped.event_type || null,
     guest_count: mapped.guest_count ?? null,
     venue_address: mapped.venue_address || null,
+    venue_lat: venuePoint?.lat ?? null,
+    venue_lng: venuePoint?.lng ?? null,
     notes: mapped.notes || null,
     budget: mapped.budget ?? null,
     // Parity with the admin lead page (Company / organisation +
     // Special requests / dietary land in the same columns).
     company_name: mapped.company_name || null,
     special_requests: mapped.special_requests || null,
+    requested_items:
+      requestedCatalogueItems.length > 0 ? requestedCatalogueItems : null,
     source: "embed",
     status: "new",
   };
@@ -303,6 +499,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // submissions_count + last_submission_at are bumped by the
   // trg_embed_form_submissions_after_insert trigger on embed_form_submissions
   // (see migration 20260428120000_embed_forms.sql).
+
+  // A meaningful catalogue selection becomes a private, editable draft. No
+  // customer email or public quote link is produced here: staff must still
+  // verify portions, stock, delivery and availability and explicitly use
+  // Save & Send. Contact-only submissions remain leads and do not create R0
+  // quote shells.
+  let draftQuoteId: string | null = null;
+  if (requestedCatalogueItems.length > 0) {
+    try {
+      draftQuoteId = await createPrivateDraftQuote(
+        supabase,
+        company,
+        resolvedFormRegionId,
+        leadRow.id,
+        leadInsert,
+        requestedCatalogueItems,
+      );
+    } catch (draftError) {
+      console.warn("[embed/submit] private draft quote failed", draftError);
+    }
+  }
 
   // 8) Admin notification chain (in-portal + email + WhatsApp + region
   //    manager). Replaces the old single-row notifications insert that
@@ -440,6 +657,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   return res.status(200).json({
     ok: true,
     leadId: leadRow.id,
+    // Safe opaque reference for first-party integrations that want to show
+    // staff the created draft. The public form never receives a send/accept
+    // URL and cannot publish it.
+    draftQuoteId,
     redirectUrl: form.redirect_url || null,
     message:
       capacitySuccessMessage || form.success_message || "Thanks, we'll be in touch shortly.",
