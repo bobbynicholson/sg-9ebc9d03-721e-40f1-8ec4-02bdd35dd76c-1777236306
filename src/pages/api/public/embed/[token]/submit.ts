@@ -666,9 +666,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // staff the created draft. The public form never receives a send/accept
     // URL and cannot publish it.
     draftQuoteId,
+    venueVerified: Boolean(venuePoint),
     redirectUrl: form.redirect_url || null,
     message:
-      capacitySuccessMessage || form.success_message || "Thanks, we'll be in touch shortly.",
+      capacitySuccessMessage
+      || (requestType === "enquiry"
+        ? "Thanks, we've received your enquiry. The team will be in touch shortly."
+        : requestedCatalogueItems.length > 0
+          ? "Thanks, we've received your quote request. The team will review your selections and send the final quote."
+          : form.success_message || "Thanks, we'll be in touch shortly."),
   });
 }
 
