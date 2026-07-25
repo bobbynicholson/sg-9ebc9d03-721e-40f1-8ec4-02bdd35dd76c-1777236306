@@ -1,8 +1,0 @@
-This is a placeholder for the notification sound file.
-In production, replace this with an actual MP3 file.
-
-You can use a free notification sound from:
-- https://notificationsounds.com/
-- https://freesound.org/
-
-For now, the audio will fail gracefully if this file doesn't exist.

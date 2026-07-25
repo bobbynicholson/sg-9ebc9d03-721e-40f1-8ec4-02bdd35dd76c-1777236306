@@ -464,12 +464,9 @@ function DriverDashboardInner() {
       (notification: Notification) => {
         console.log("🔔 Real-time notification received:", notification);
 
-        // Show toast notification with sound
+        // NotificationBell (mounted by DriverNav/PortalSidebar) owns the
+        // shared, unlocked sound so this page does not play a duplicate.
         if (notification.notification_type === "order_ready") {
-          // Play notification sound
-          const audio = new Audio("/notification.mp3");
-          audio.play().catch((e) => console.log("Audio play failed:", e));
-
           // Show toast
           toast({
             title: notification.title,

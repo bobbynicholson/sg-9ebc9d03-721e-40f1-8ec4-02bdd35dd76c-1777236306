@@ -17,16 +17,38 @@ import { useToast } from "@/hooks/use-toast";
 import { effectivePriority } from "@/lib/notificationDisplay";
 import { useTenantHref } from "@/lib/tenantUrl";
 
-/** Fallback chime, synthesised with WebAudio so it works even if the
- *  audio asset fails to load. Stays silent if the AudioContext can't be
- *  constructed (older Safari, locked autoplay policy). Varies by tier so
- *  the fallback still signals urgency: urgent = 3 insistent beeps, high =
- *  bright double-ding, else = soft descending two-note. */
+type SoundTier = "urgent" | "high" | "default";
+
+// Browsers block audio started for the first time by a background realtime
+// event. Keep one AudioContext and unlock it on the operator's first click,
+// tap, or key press. The old fallback created a brand-new locked context only
+// after the notification arrived, so both the WAV and its fallback could be
+// silent even though the notification badge updated correctly.
+let sharedAudioContext: AudioContext | null = null;
+let audioUnlockPromise: Promise<void> | null = null;
+
+function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  const Ctx = (window as typeof window & {
+    webkitAudioContext?: typeof AudioContext;
+  }).AudioContext || (window as typeof window & {
+    webkitAudioContext?: typeof AudioContext;
+  }).webkitAudioContext;
+  if (!Ctx) return null;
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+    sharedAudioContext = new Ctx();
+  }
+  return sharedAudioContext;
+}
+
+/** Fallback chime, synthesised with WebAudio so it works even if an audio
+ * asset fails to load. Varies by tier so the fallback still signals urgency:
+ * urgent = 3 insistent beeps, high = bright double-ding, else = soft
+ * descending two-note. */
 function chime(tier: "urgent" | "high" | "default" = "default") {
   try {
-    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
+    const ctx = getAudioContext();
+    if (!ctx || ctx.state !== "running") return;
     const beep = (freq: number, at: number, len: number, vol: number, type: OscillatorType = "sine") => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -44,15 +66,12 @@ function chime(tier: "urgent" | "high" | "default" = "default") {
       beep(988, 0.0, 0.12, 0.06, "square");
       beep(988, 0.17, 0.12, 0.06, "square");
       beep(988, 0.34, 0.16, 0.07, "square");
-      setTimeout(() => ctx.close(), 700);
     } else if (tier === "high") {
       beep(1047, 0.0, 0.16, 0.05);
       beep(1568, 0.09, 0.22, 0.055);
-      setTimeout(() => ctx.close(), 500);
     } else {
       beep(880, 0.0, 0.2, 0.05);
       beep(1319, 0.1, 0.22, 0.05);
-      setTimeout(() => ctx.close(), 500);
     }
   } catch {
     // Best-effort - silent failure is fine.
@@ -74,20 +93,60 @@ const SOUND_SRC: Record<string, string> = {
   default: "/sounds/notification.wav",
 };
 const soundCache: Record<string, HTMLAudioElement> = {};
-function soundTier(priority?: string | null): "urgent" | "high" | "default" {
+function soundTier(priority?: string | null): SoundTier {
   return priority === "urgent" ? "urgent" : priority === "high" ? "high" : "default";
 }
+function getSound(tier: SoundTier): HTMLAudioElement {
+  let audio = soundCache[tier];
+  if (!audio) {
+    audio = new Audio(SOUND_SRC[tier]);
+    audio.volume = tier === "urgent" ? 0.6 : 0.45;
+    audio.preload = "auto";
+    soundCache[tier] = audio;
+  }
+  return audio;
+}
+
+/**
+ * Unlock both playback engines during a real user gesture. All three WAVs
+ * are started silently in the same gesture because Safari can scope media
+ * permission to the individual audio element rather than the whole origin.
+ */
+function unlockNotificationSound(): Promise<void> {
+  if (audioUnlockPromise) return audioUnlockPromise;
+  audioUnlockPromise = (async () => {
+    const ctx = getAudioContext();
+    if (ctx?.state === "suspended") await ctx.resume();
+
+    const attempts = (Object.keys(SOUND_SRC) as SoundTier[]).map(async (tier) => {
+      const audio = getSound(tier);
+      const volume = audio.volume;
+      audio.volume = 0;
+      try {
+        await audio.play();
+        audio.pause();
+        audio.currentTime = 0;
+      } finally {
+        audio.volume = volume;
+      }
+    });
+    const results = await Promise.allSettled(attempts);
+    const mediaUnlocked = results.some((result) => result.status === "fulfilled");
+    if (ctx?.state !== "running" && !mediaUnlocked) {
+      throw new Error("Browser audio is still locked");
+    }
+  })().catch(() => {
+    // A later gesture can retry if the browser rejected this one.
+    audioUnlockPromise = null;
+  });
+  return audioUnlockPromise;
+}
+
 function playNotifSound(priority?: string | null) {
   const tier = soundTier(priority);
   try {
     if (typeof window === "undefined") return;
-    let audio = soundCache[tier];
-    if (!audio) {
-      audio = new Audio(SOUND_SRC[tier]);
-      audio.volume = tier === "urgent" ? 0.6 : 0.45;
-      audio.preload = "auto";
-      soundCache[tier] = audio;
-    }
+    const audio = getSound(tier);
     audio.currentTime = 0;
     const p = audio.play();
     if (p && typeof (p as any).catch === "function") (p as Promise<void>).catch(() => chime(tier));
@@ -132,6 +191,19 @@ export function NotificationBell() {
     if (!user?.id) return;
     loadNotifications();
 
+    // Prime browser audio on the first operator interaction. Without this,
+    // realtime notifications received in a background/idle admin tab are
+    // visible but are forbidden from making sound by autoplay policy.
+    const unlock = () => {
+      void unlockNotificationSound();
+      document.removeEventListener("pointerdown", unlock, true);
+      document.removeEventListener("keydown", unlock, true);
+      document.removeEventListener("touchstart", unlock, true);
+    };
+    document.addEventListener("pointerdown", unlock, true);
+    document.addEventListener("keydown", unlock, true);
+    document.addEventListener("touchstart", unlock, true);
+
     // Realtime: server pushes new rows targeting this recipient.
     // notificationService.subscribeToNotifications already handles the
     // role filter, so we just prepend the new row when it arrives.
@@ -173,6 +245,9 @@ export function NotificationBell() {
     return () => {
       unsubscribe();
       clearInterval(interval);
+      document.removeEventListener("pointerdown", unlock, true);
+      document.removeEventListener("keydown", unlock, true);
+      document.removeEventListener("touchstart", unlock, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeRole, companyId]);
