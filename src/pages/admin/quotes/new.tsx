@@ -541,7 +541,11 @@ function NewQuotePage() {
   // items) on top of the loaded quote so the operator reviews + reprices
   // the client's actual asks instead of re-typing them. Banner shows what
   // was applied.
-  const [appliedChangeRequest, setAppliedChangeRequest] = useState<{ id: string; created_at: string } | null>(null);
+  const [appliedChangeRequest, setAppliedChangeRequest] = useState<{
+    id: string;
+    created_at: string;
+    message?: string | null;
+  } | null>(null);
   const [status, setStatus] = useState<"draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired" | "revised" | "pending">("draft");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
@@ -876,16 +880,15 @@ function NewQuotePage() {
             })),
           );
         }
-        const hints: string[] = [];
-        if (rc.menu_changes) hints.push(`Menu: ${rc.menu_changes}`);
-        if (rc.logistics_changes) hints.push(`Delivery/collection: ${rc.logistics_changes}`);
-        if (cr.message) hints.push(`Client note: ${cr.message}`);
-        if (hints.length > 0) {
-          setInternalNotes((prev) =>
-            [prev, "--- Client requested changes ---", ...hints].filter(Boolean).join("\n"),
-          );
-        }
-        setAppliedChangeRequest({ id: cr.id, created_at: cr.created_at });
+        // The request row is the internal audit record. quotes.notes is
+        // explicitly client-visible, so copying the client's request into
+        // it leaked workflow text onto the revised document and StrictMode
+        // hydration could append it twice.
+        setAppliedChangeRequest({
+          id: cr.id,
+          created_at: cr.created_at,
+          message: cr.message || null,
+        });
       }
 
       // 3) Linked-order lookup (non-critical; after the editable state is
@@ -2470,9 +2473,14 @@ function NewQuotePage() {
                     order without re-acceptance - the client already
                     accepted and owns the order page now. */}
                 {appliedChangeRequest && (
-                  <div className="p-2.5 rounded-md border border-brand-primary/30 bg-brand-primary/10 text-xs text-brand-primary max-w-xl">
+                  <div className="p-2.5 rounded-md border border-brand-primary/30 bg-brand-primary/10 text-xs text-brand-primary max-w-xl space-y-1">
                     <strong className="font-semibold">Loaded the client's requested changes.</strong>{" "}
                     The date, guests, venue, and items below now reflect what the client asked for. Review the pricing (and re-pick the venue if the address changed, so delivery/collection recompute), then Save &amp; Send to return the updated quote. This marks the change request as addressed.
+                    {appliedChangeRequest.message && (
+                      <p className="text-slate-700">
+                        <strong>Client note:</strong> {appliedChangeRequest.message}
+                      </p>
+                    )}
                   </div>
                 )}
                 {isRevisingNonDraft && (

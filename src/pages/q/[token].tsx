@@ -50,6 +50,8 @@ import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
 import { QuoteItemsEditor, type MenuLine, type EquipLine } from "@/components/quote/QuoteItemsEditor";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
+import { toLocalISO } from "@/lib/localDate";
+import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -309,6 +311,10 @@ export default function PublicQuotePage() {
 
   const handleSubmitChanges = async () => {
     if (!token) return;
+    if (changesEventDate && isPastCalendarDate(changesEventDate, toLocalISO(new Date()))) {
+      setChangesError("The new event date cannot be in the past.");
+      return;
+    }
     // The client may express their change two ways: a freeform message, or
     // by editing the item list (add/remove/qty). Either is enough - when
     // they only edited items we synthesise a message so the caterer's
@@ -385,9 +391,12 @@ export default function PublicQuotePage() {
   const company = quote.company;
   const companyName = company?.company_name || "Your caterer";
   const capacityBlocked = !!quote.event_capacity?.accepting_blocked;
-  const capacityMessage =
-    quote.event_capacity?.message ||
-    `This date or event size is no longer available. Please request a new date, adjust the guest count, or contact ${companyName} before accepting.`;
+  const eventDatePast = isPastCalendarDate(quote.event_date, toLocalISO(new Date()));
+  const acceptanceBlocked = capacityBlocked || eventDatePast;
+  const capacityMessage = eventDatePast
+    ? "This event date has already passed. Please request a new date before accepting."
+    : quote.event_capacity?.message ||
+      `This date or event size is no longer available. Please request a new date, adjust the guest count, or contact ${companyName} before accepting.`;
   // Phase 5 #10: tenant currency. Lives on company.currency now;
   // ZAR fallback for legacy rows where it's NULL.
   const fmtMoney = fmtMoneyFor((company as any)?.currency || "ZAR");
@@ -1049,13 +1058,13 @@ export default function PublicQuotePage() {
                   {acceptOpen ? (
                     <div className="space-y-3">
                       <p className="text-sm font-semibold text-stone-900">Confirm acceptance</p>
-                      {capacityBlocked && (
+                      {acceptanceBlocked && (
                         <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
                           <p className="text-xs text-rose-700 font-medium">{capacityMessage}</p>
                         </div>
                       )}
                       <p className="text-sm text-stone-600">
-                        {capacityBlocked
+                        {acceptanceBlocked
                           ? `Request a new date and ${companyName} will send an updated quote.`
                           : <>Type your name to lock this in. {companyName} will follow up with
                             {depositLabel ? ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)})` : " the deposit invoice"}.</>}
@@ -1080,7 +1089,7 @@ export default function PublicQuotePage() {
                         </Button>
                         <Button
                           onClick={handleAccept}
-                          disabled={capacityBlocked || accepting || !acceptName.trim()}
+                          disabled={acceptanceBlocked || accepting || !acceptName.trim()}
                           className="bg-brand-primary hover:opacity-90 gap-1.5"
                         >
                           {accepting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
@@ -1105,7 +1114,7 @@ export default function PublicQuotePage() {
                           This quote is valid until <strong>{validUntil}</strong>.
                         </p>
                       )}
-                      {capacityBlocked && (
+                      {acceptanceBlocked && (
                         <div className="max-w-md mx-auto rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-left">
                           <p className="text-xs text-rose-700 font-medium">{capacityMessage}</p>
                         </div>
@@ -1125,17 +1134,21 @@ export default function PublicQuotePage() {
                             brand colour (which can be anything). */}
                         <Button
                           onClick={() => {
-                            if (capacityBlocked) return;
+                            if (acceptanceBlocked) return;
                             setAcceptOpen(true);
                             setChangesOpen(false);
                             setChangesError(null);
                           }}
-                          disabled={capacityBlocked}
+                          disabled={acceptanceBlocked}
                           className="bg-brand-primary hover:bg-brand-primary/90 text-white gap-1.5 px-6 shadow-sm"
                           size="lg"
                         >
-                          {capacityBlocked ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-                          {capacityBlocked ? "Date fully booked" : "Accept this quote"}
+                          {acceptanceBlocked ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                          {acceptanceBlocked
+                            ? eventDatePast
+                              ? "Event date passed"
+                              : "Date fully booked"
+                            : "Accept this quote"}
                         </Button>
                         {/* Secondary - Tweak. Neutral outline. Hidden
                             once the inline change-request form is
@@ -1251,6 +1264,7 @@ export default function PublicQuotePage() {
                           <Input
                             id="changes-event-date"
                             type="date"
+                            min={toLocalISO(new Date())}
                             value={changesEventDate}
                             onChange={(e) => setChangesEventDate(e.target.value)}
                             className="mt-1"
@@ -1363,7 +1377,7 @@ export default function PublicQuotePage() {
               until the client responds. Hidden once the name form is
               open (the keyboard needs the space) and after any
               terminal response. */}
-          {!accepted && !capacityBlocked && !acceptOpen && !justDeclined && !pendingApproval && !changesOpen && quote.status !== "rejected" && (
+          {!accepted && !acceptanceBlocked && !acceptOpen && !justDeclined && !pendingApproval && !changesOpen && quote.status !== "rejected" && (
             <div className="no-print sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-stone-200 px-4 py-3 flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-wide text-stone-500 leading-none">

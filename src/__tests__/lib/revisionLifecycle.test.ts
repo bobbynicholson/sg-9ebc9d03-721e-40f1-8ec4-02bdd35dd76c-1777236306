@@ -1,6 +1,7 @@
 import {
   buildQuoteChangeEditorPath,
   buildQuoteSentLifecyclePatch,
+  isPastCalendarDate,
   savedQuantityWasOverridden,
 } from "@/lib/quotes/revisionLifecycle";
 
@@ -67,5 +68,18 @@ describe("quote revision lifecycle", () => {
     expect(buildQuoteChangeEditorPath("quote id", "request/id")).toBe(
       "/admin/quotes/new?fromQuoteId=quote%20id&change_request_id=request%2Fid",
     );
+  });
+
+  describe("isPastCalendarDate", () => {
+    it("blocks earlier date-only values without timezone conversion", () => {
+      expect(isPastCalendarDate("2026-07-21", "2026-07-25")).toBe(true);
+      expect(isPastCalendarDate("2026-07-25", "2026-07-25")).toBe(false);
+      expect(isPastCalendarDate("2026-09-16", "2026-07-25")).toBe(false);
+    });
+
+    it("does not treat malformed or missing values as past", () => {
+      expect(isPastCalendarDate(null, "2026-07-25")).toBe(false);
+      expect(isPastCalendarDate("21/07/2026", "2026-07-25")).toBe(false);
+    });
   });
 });

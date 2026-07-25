@@ -10,6 +10,7 @@ import {
 } from "@/lib/embedFormApi";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
 
 
@@ -91,6 +92,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
   if (existing.status === "expired") {
     return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
+  }
+  if (
+    existing.event_date
+    && isPastCalendarDate(existing.event_date, new Date().toISOString().slice(0, 10))
+  ) {
+    return res.status(409).json({
+      ok: false,
+      error: "This event date has already passed. Please request a new date before accepting.",
+    });
   }
   if (existing.valid_until) {
     const validUntil = new Date(existing.valid_until);

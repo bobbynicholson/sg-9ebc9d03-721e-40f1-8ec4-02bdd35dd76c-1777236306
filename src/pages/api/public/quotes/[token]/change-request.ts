@@ -11,7 +11,10 @@ import {
   verifyTurnstile,
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
-import { buildQuoteChangeEditorPath } from "@/lib/quotes/revisionLifecycle";
+import {
+  buildQuoteChangeEditorPath,
+  isPastCalendarDate,
+} from "@/lib/quotes/revisionLifecycle";
 
 
 /**
@@ -176,6 +179,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   if (!quote || quote.deleted_at) return res.status(404).json({ ok: false, error: "Quote not found" });
+
+  if (
+    requestedChanges.event_date
+    && isPastCalendarDate(requestedChanges.event_date, new Date().toISOString().slice(0, 10))
+  ) {
+    return res.status(400).json({
+      ok: false,
+      error: "The new event date cannot be in the past.",
+    });
+  }
 
   // Per-quote lifetime cap.
   const { count } = await (supabase as any)

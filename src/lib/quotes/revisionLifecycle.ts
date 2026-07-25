@@ -40,3 +40,13 @@ export function buildQuoteChangeEditorPath(
 ): string {
   return `/admin/quotes/new?fromQuoteId=${encodeURIComponent(quoteId)}&change_request_id=${encodeURIComponent(changeRequestId)}`;
 }
+
+/** Compare date-only values without introducing UTC/local-time shifts. */
+export function isPastCalendarDate(
+  value: string | null | undefined,
+  today: string,
+): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))
+    && /^\d{4}-\d{2}-\d{2}$/.test(today)
+    && String(value) < today;
+}

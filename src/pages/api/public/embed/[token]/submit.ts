@@ -154,8 +154,10 @@ async function createPrivateDraftQuote(
       status: "draft",
       valid_until: validUntil.toISOString().slice(0, 10),
       source: "embed",
-      notes:
-        "Private draft created from website selections. Review portions, equipment quantities, delivery and availability before sending.",
+      // quotes.notes is client-visible as "A note from us". The source
+      // column already identifies this as an embed draft, so never put an
+      // internal operator instruction into the client's document.
+      notes: null,
     }])
     .select("id")
     .single();
