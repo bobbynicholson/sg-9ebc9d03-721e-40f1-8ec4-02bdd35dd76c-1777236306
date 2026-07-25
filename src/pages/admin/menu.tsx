@@ -513,6 +513,29 @@ function MenuPage() {
     return m;
   }, [inventoryPool]);
 
+  // A complete costed recipe is the canonical COGS source. Reuse this
+  // single value in the top cost field, both margin previews and save
+  // payload so those surfaces cannot drift when an ingredient cost or
+  // quantity changes. Incomplete/free-text recipes retain the manual field.
+  const draftRecipeCost = !itemDraft.is_buy_and_sell && recipeDraft.enabled
+    ? computeRecipeCost(
+        Number(recipeDraft.base_servings) || 0,
+        recipeDraft.ingredients,
+        inventoryCostById,
+      )
+    : null;
+  const canonicalDraftUnitCost =
+    draftRecipeCost
+    && draftRecipeCost.contributing > 0
+    && draftRecipeCost.free_text === 0
+    && draftRecipeCost.missing_cost === 0
+      ? recipeCostPerSoldUnit({
+          totalCost: draftRecipeCost.total_cost,
+          costPerServing: draftRecipeCost.cost_per_serving,
+          soldAsPackage: itemDraft.sold_as_package,
+        })
+      : null;
+
   // ── MNU-B (menu deferred, 2026-05-24): bulk ops + selection ────────
   //
   // Selection lives at the page level so the toolbar can persist as
@@ -945,9 +968,10 @@ function MenuPage() {
         // role.
         ...(canSeeCost
           ? {
-              cost_per_unit: itemDraft.cost_per_unit.trim() === ""
-                ? null
-                : Number(itemDraft.cost_per_unit),
+              cost_per_unit: canonicalDraftUnitCost
+                ?? (itemDraft.cost_per_unit.trim() === ""
+                  ? null
+                  : Number(itemDraft.cost_per_unit)),
             }
           : {}),
         image_url: itemDraft.image_url.trim() || null,
@@ -1808,21 +1832,27 @@ function MenuPage() {
                 {canSeeCost && (
                   <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
                     <Label className="flex items-center gap-1 text-xs text-slate-600">
-                      Cost per unit (R)
-                      <InfoTooltip content="Per-unit COGS for this menu item - food cost, packaging, anything you spend to deliver one serving. Finance roles only; staff never see this number. Drives the Profit Margin tile + Cashflow Forecast on /admin/financial-dashboard. Saved at quote-accept time so historical reports stay stable." />
+                      Cost per sold unit (R)
+                      <InfoTooltip content="COGS for one sold unit. When the recipe is fully linked and costed this is calculated automatically from its ingredients (whole recipe for package items, per-serving recipe cost otherwise). Incomplete recipes keep this field editable. Drives Profit Margin and Cashflow Forecast." />
                     </Label>
                     <Input
                       type="number"
                       step="0.01"
                       min="0"
-                      value={itemDraft.cost_per_unit}
+                      value={canonicalDraftUnitCost ?? itemDraft.cost_per_unit}
                       onChange={(e) => setItemDraft({ ...itemDraft, cost_per_unit: e.target.value })}
+                      readOnly={canonicalDraftUnitCost != null}
                       placeholder="e.g. 65.00"
-                      className="text-sm"
+                      className={canonicalDraftUnitCost != null ? "text-sm bg-slate-50" : "text-sm"}
                     />
-                    {Number(itemDraft.base_price) > 0 && Number(itemDraft.cost_per_unit) > 0 && (() => {
+                    {canonicalDraftUnitCost != null && (
+                      <p className="text-[11px] text-slate-500">
+                        Calculated from the complete recipe below.
+                      </p>
+                    )}
+                    {Number(itemDraft.base_price) > 0 && Number(canonicalDraftUnitCost ?? itemDraft.cost_per_unit) > 0 && (() => {
                       const price = Number(itemDraft.base_price);
-                      const cost = Number(itemDraft.cost_per_unit);
+                      const cost = Number(canonicalDraftUnitCost ?? itemDraft.cost_per_unit);
                       const margin = ((price - cost) / price) * 100;
                       const tone = margin >= 60 ? "text-brand-primary"
                         : margin >= 30 ? "text-amber-700"
