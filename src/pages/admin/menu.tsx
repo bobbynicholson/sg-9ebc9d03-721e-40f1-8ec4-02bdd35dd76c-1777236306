@@ -1672,7 +1672,7 @@ function MenuPage() {
                                   const tone = pct < 30 ? "text-rose-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
                                   return (
                                     <div className={`text-[10px] tabular-nums font-medium ${tone}`}>
-                                      {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(0)}%)
+                                      {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(1)}%)
                                     </div>
                                   );
                                 })() : null}
@@ -2333,7 +2333,7 @@ function MenuPage() {
                           <span className={tone}>
                             Margin{" "}
                             <span className="font-bold tabular-nums">
-                              {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(0)}%)
+                              {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(1)}%)
                             </span>
                           </span>
                         )}
