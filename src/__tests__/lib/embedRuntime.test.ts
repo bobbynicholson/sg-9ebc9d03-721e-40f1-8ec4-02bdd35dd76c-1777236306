@@ -316,6 +316,29 @@ describe("catalogue-backed website quotes", () => {
     expect(split.equipmentItems).toHaveLength(1);
   });
 
+  it("prices a package once initially while keeping package quantity editable", () => {
+    const requested = buildRequestedCatalogueItems(
+      [{
+        ...menu[0],
+        id: "package-1",
+        item_name: "On-site Lamb (feeds 25)",
+        base_price: 4750,
+        base_servings: 25,
+        sold_as_package: true,
+      }],
+      [],
+      40,
+    );
+    expect(requested[0]).toMatchObject({
+      item_type: "menu",
+      sold_as_package: true,
+      pricing_mode: "per_portion",
+      quantity: 1,
+      unit_price: 4750,
+      line_total: 4750,
+    });
+  });
+
   it("maps event_type and enforces nested saved validation rules", () => {
     expect(
       mapPayloadToLead(

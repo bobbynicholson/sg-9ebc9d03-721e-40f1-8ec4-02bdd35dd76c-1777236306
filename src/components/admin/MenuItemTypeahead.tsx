@@ -47,6 +47,8 @@ export interface MenuItemPick {
     | "beverage"
     | "other";
   pricePerPerson: number;
+  /** True when the catalogue price is for one complete recipe/package. */
+  soldAsPackage: boolean;
   description: string | null;
   imageUrl: string | null;
   dietaryTags: string[];
@@ -169,6 +171,7 @@ export function MenuItemTypeahead({
       name: r.item_name,
       category: mapCategory(r.category),
       pricePerPerson: Number(r.base_price ?? 0),
+      soldAsPackage: r.sold_as_package === true,
       description: r.description,
       imageUrl: r.image_url,
       dietaryTags: r.dietary_tags ?? [],

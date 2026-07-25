@@ -1243,9 +1243,14 @@ function NewQuotePage() {
         name: m.item_name ?? m.name ?? "",
         category: m.category ?? "main",
         dietary_tags: Array.isArray(m.dietary_tags) ? m.dietary_tags : null,
-        pricingMode: "per_person",
+        pricingMode: (m.pricing_mode || m.pricingMode || "per_person") as PricingMode,
         unitPrice: safeNum(m.unit_price ?? m.pricePerPerson),
-        quantity: guestCount || safeNum(m.quantity),
+        quantity:
+          (m.pricing_mode || m.pricingMode) === "flat"
+            ? 1
+            : safeNum(m.quantity) || guestCount,
+        quantityOverridden:
+          (m.pricing_mode || m.pricingMode || "per_person") !== "per_person",
         discountPct: 0,
       })),
     );
@@ -1288,6 +1293,13 @@ function NewQuotePage() {
       dietary_tags: pick.dietaryTags ?? null,
       allergensReviewedAt: pick.allergensReviewedAt ?? null,
       unitPrice: safeNum(pick.pricePerPerson),
+      // A package catalogue price covers one complete recipe (for
+      // example one on-site lamb feeding 25 people). Start at one
+      // editable package: per_portion retains quantity controls so an
+      // operator can sell 2+ packages, whereas flat is permanently 1.
+      pricingMode: pick.soldAsPackage ? "per_portion" : "per_person",
+      quantity: pick.soldAsPackage ? 1 : guestCount,
+      quantityOverridden: pick.soldAsPackage,
       // Cost-per-unit isn't in the typeahead payload; the menu picker
       // doesn't currently surface it. Leaving costPerUnit unset so
       // the future margin tracker reads from menu_items directly.

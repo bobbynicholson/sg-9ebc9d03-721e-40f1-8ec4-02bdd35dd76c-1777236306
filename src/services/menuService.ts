@@ -497,6 +497,9 @@ export const menuService = {
     dietary_tags: string[] | null;
     allergen_codes: string[] | null;
     base_servings: number | null;
+    /** One sold unit represents the complete recipe/package rather than
+     * one serving. Quote builders use this to default to package quantity. */
+    sold_as_package: boolean;
     is_available: boolean | null;
     /** Phase 2 #7: surfaced so the quote builder can warn on
      *  unreviewed items at acceptance time. NULL = never reviewed. */
@@ -506,7 +509,7 @@ export const menuService = {
     const t = (term || "").trim();
     let q = supabase
       .from("menu_items")
-      .select("id, item_name, category, base_price, description, image_url, dietary_tags, allergen_codes, base_servings, is_available, allergens_reviewed_at")
+      .select("id, item_name, category, base_price, description, image_url, dietary_tags, allergen_codes, base_servings, sold_as_package, is_available, allergens_reviewed_at")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       // Hide archived/disabled items from quote pickers - the owner

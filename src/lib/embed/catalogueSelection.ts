@@ -34,7 +34,7 @@ export interface RequestedCatalogueItem {
   quantity: number;
   unit_price: number;
   line_total: number;
-  pricing_mode: "per_person" | "flat";
+  pricing_mode: "per_person" | "per_portion" | "flat";
   base_servings?: number | null;
   sold_as_package?: boolean;
   dietary_tags?: string[] | null;
@@ -204,7 +204,9 @@ export function buildRequestedCatalogueItems(
       dietary_tags: item.dietary_tags || null,
       base_servings: item.base_servings ?? null,
       sold_as_package: isPackage,
-      pricing_mode: isPackage ? "flat" : "per_person",
+      // Package lines start at one but remain quantity-editable when the
+      // operator reviews the website request in the quote builder.
+      pricing_mode: isPackage ? "per_portion" : "per_person",
       quantity,
       unit_price: unitPrice,
       line_total: Number((unitPrice * quantity).toFixed(2)),
