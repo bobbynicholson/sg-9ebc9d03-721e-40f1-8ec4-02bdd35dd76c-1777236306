@@ -438,6 +438,7 @@ export const emailService = {
     // surface failures for retry. Closes the audit-flagged "every
     // send is fire-and-forget" gap.
     const sb = client || supabase;
+    const resolvedStatus = statusOverride || "sent";
     const { data, error } = await sb
       .from("email_automation_log")
       .insert([
@@ -448,7 +449,8 @@ export const emailService = {
           recipient_email: recipientEmail,
           recipient_name: recipientName,
           subject: subject,
-          status: statusOverride || "sent",
+          status: resolvedStatus,
+          sent_at: resolvedStatus === "sent" ? new Date().toISOString() : null,
           error_message: failureReason || null,
         }
       ])

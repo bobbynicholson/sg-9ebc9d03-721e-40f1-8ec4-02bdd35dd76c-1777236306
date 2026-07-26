@@ -53,28 +53,25 @@ export async function duplicateQuote(
     clone.client_id = s.client_id || null;
 
     // Use the same sequential numbering RPC as createQuote so the
-    // duplicate gets the next real number (e.g. QUO-000022) instead
-    // of a -COPY-XXXX suffix that pollutes the quote list.
+    // duplicate gets the next real number (e.g. QUO-000022). Never
+    // fall back to a -COPY suffix: a numbering outage should produce
+    // a clear, retryable failure rather than persist a document that
+    // violates the tenant's numbering contract.
     const cid = s.company_id || s.user_id;
-    if (cid) {
-      try {
-        const { data: numData, error: numErr } = await (supabase as any).rpc(
-          "consume_next_document_number",
-          { p_company_id: cid, p_document_type: "quote" },
-        );
-        if (!numErr && numData) {
-          clone.quote_number = numData as string;
-        } else {
-          console.warn("[duplicateQuote] numbering RPC failed:", numErr);
-          clone.quote_number = `${(s.quote_number || "QUO")}-COPY`;
-        }
-      } catch (e) {
-        console.warn("[duplicateQuote] numbering RPC threw:", e);
-        clone.quote_number = `${(s.quote_number || "QUO")}-COPY`;
-      }
-    } else {
-      clone.quote_number = `${(s.quote_number || "QUO")}-COPY`;
+    if (!cid) {
+      throw new Error("Cannot duplicate quote: company is missing.");
     }
+    const { data: numData, error: numErr } = await (supabase as any).rpc(
+      "consume_next_document_number",
+      { p_company_id: cid, p_document_type: "quote" },
+    );
+    if (numErr || !numData) {
+      console.error("[duplicateQuote] numbering RPC failed:", numErr);
+      throw new Error(
+        "Could not allocate the next quote number. Nothing was duplicated; please try again.",
+      );
+    }
+    clone.quote_number = numData as string;
 
     // Wave 50 C11 - preserve the rebook chain.
     clone.parent_quote_id = sourceQuoteId;
