@@ -356,14 +356,14 @@ export function QuoteSendDialog({
   // out instead of being locked to the auto choice. Editing the actual
   // template content is a separate admin screen (link below the body).
   const templateOptions: Array<{ key: "email_quote_sent" | "email_quote_revised"; label: string }> = [
-    { key: "email_quote_sent", label: "First-time send" },
-    { key: "email_quote_revised", label: "Revised quote" },
+    { key: "email_quote_sent", label: "New quote email" },
+    { key: "email_quote_revised", label: "Revised quote email" },
   ];
   const templatePicker = (
     <div className="border rounded-md p-3 bg-slate-50 space-y-1.5">
       <p className="text-sm font-medium text-slate-700">Which email to send</p>
       <p className="text-xs text-slate-500">
-        The right one is pre-selected ({autoTemplateType === "email_quote_revised" ? "Revised quote" : "First-time send"}).
+        The right one is pre-selected ({autoTemplateType === "email_quote_revised" ? "Revised quote email" : "New quote email"}).
         Tap the other to switch. Edit the wording itself in Settings (link under the message).
       </p>
       <div className="flex flex-wrap gap-2">
@@ -447,7 +447,7 @@ export function QuoteSendDialog({
       sendLabel="Send quote"
       extraTopContent={<>{templatePicker}{secondQuotePicker}</>}
       templateEditHref="/admin/email-templates?tab=templates"
-      templateEditLabel={effectiveIsRevised ? '"Revised quote" template' : '"Quote just sent" template'}
+      templateEditLabel={effectiveIsRevised ? '"Revised quote email" template' : '"New quote email" template'}
       onSend={async (payload) => {
         try {
           const response = await fetch("/api/send-email", {

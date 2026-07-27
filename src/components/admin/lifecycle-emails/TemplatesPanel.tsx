@@ -352,9 +352,6 @@ export function TemplatesPanel() {
                                 <AlertCircle className="w-3 h-3" /> Disabled, using default
                               </Badge>
                             )}
-                            <code className="text-[10px] font-mono text-slate-400 ml-auto hidden sm:inline">
-                              {row.key}
-                            </code>
                           </div>
                           <p className="text-xs text-slate-500 mt-0.5">{row.description}</p>
                           {row.trigger && (
@@ -370,6 +367,7 @@ export function TemplatesPanel() {
                               {delivery === "automated"
                                 ? <Zap className="w-3 h-3 shrink-0" />
                                 : <MousePointerClick className="w-3 h-3 shrink-0" />}
+                              <span className="font-medium shrink-0">Used when:</span>
                               <span className="truncate" title={row.trigger}>
                                 {row.trigger}
                               </span>
@@ -599,9 +597,6 @@ function EditorDrawer({
         </SheetTitle>
         <SheetDescription className="flex items-center gap-2">
           <span>{template.description}</span>
-          <code className="text-[10px] font-mono text-slate-400 px-1.5 py-0.5 bg-slate-100 rounded">
-            {template.key}
-          </code>
         </SheetDescription>
       </SheetHeader>
 

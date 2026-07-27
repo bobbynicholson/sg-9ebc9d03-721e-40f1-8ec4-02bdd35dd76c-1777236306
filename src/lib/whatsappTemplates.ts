@@ -148,7 +148,7 @@ function buildClientCtx(ctx: ClientWhatsAppContext): Record<string, string | num
 export const CLIENT_WHATSAPP_LABELS: Record<ClientWhatsAppKind, string> = {
   touch_base:        "Touch base",
   lead_followup:     "Lead follow-up",
-  quote_sent:        "Quote just sent",
+  quote_sent:        "Quote sent — client notification",
   quote_chase:       "Quote chase",
   quote_accepted:    "Quote accepted, next steps",
   event_week:        "Event this week",

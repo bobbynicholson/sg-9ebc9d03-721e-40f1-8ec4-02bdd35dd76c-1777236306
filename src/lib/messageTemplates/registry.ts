@@ -299,7 +299,7 @@ function buildAfterSalesEntries(): TemplateDefinition[] {
       channel: "email",
       category: "client",
       group: "After-sales",
-      label: "Two months after event",
+      label: "Post-event check-in — 2 months",
       description: "Soft check-in 2 months after the event. Asks for honest feedback.",
       defaultSubject: "How did your {{eventType}} land?",
       defaultBody:
@@ -314,7 +314,7 @@ function buildAfterSalesEntries(): TemplateDefinition[] {
       channel: "email",
       category: "client",
       group: "After-sales",
-      label: "Four months after event",
+      label: "Post-event check-in — 4 months",
       description: "Menu-update check-in. No discount, no pressure.",
       defaultSubject: "If anything's coming up, we're here",
       defaultBody:
@@ -329,7 +329,7 @@ function buildAfterSalesEntries(): TemplateDefinition[] {
       channel: "email",
       category: "client",
       group: "After-sales",
-      label: "Six months after event",
+      label: "Post-event check-in — 6 months",
       description: "Diary-fills-up nudge with no discount.",
       defaultSubject: "Half a year on - anything brewing?",
       defaultBody:
@@ -344,7 +344,7 @@ function buildAfterSalesEntries(): TemplateDefinition[] {
       channel: "email",
       category: "client",
       group: "After-sales",
-      label: "Eight months after event",
+      label: "Post-event check-in — 8 months",
       description: "Friendly catch-up with what's new.",
       defaultSubject: "Hi from the team",
       defaultBody:
@@ -363,7 +363,7 @@ function buildAfterSalesEntries(): TemplateDefinition[] {
       channel: "email",
       category: "client",
       group: "After-sales",
-      label: "Ten months after event",
+      label: "Post-event check-in — 10 months",
       description: "End-of-year planning nudge.",
       defaultSubject: "Year's nearly out - planning anything?",
       defaultBody:
@@ -378,7 +378,7 @@ function buildAfterSalesEntries(): TemplateDefinition[] {
       channel: "email",
       category: "client",
       group: "After-sales",
-      label: "Twelve months after event",
+      label: "Post-event anniversary — 12 months",
       description: "One-year anniversary touch.",
       defaultSubject: "A year since your {{eventType}}",
       defaultBody:
@@ -401,7 +401,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Lead follow-up",
-    label: "Hot lead, fresh enquiry",
+    label: "New enquiry — quick reply",
     description: "Reply to a brand-new enquiry quickly so they don't shop around.",
     defaultSubject: "{{first_name}}, quick check-in on your {{event_name}}",
     defaultBody:
@@ -415,7 +415,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Quote",
-    label: "Following up on a quote",
+    label: "Sent quote — follow-up",
     description: "Quote sent, waiting for a reply. Soft chase.",
     defaultSubject: "Following up on your {{event_name}} quote",
     defaultBody:
@@ -429,7 +429,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Win-back",
-    label: "Quiet client, soft check-in",
+    label: "Inactive lead — gentle check-in",
     description: "Hasn't booked in a while. Door-open note, no pressure.",
     defaultSubject: "{{first_name}}, anything coming up we can help with?",
     defaultBody:
@@ -443,7 +443,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Win-back",
-    label: "Lost lead, door-open",
+    label: "Lost lead — keep the door open",
     description: "Quote didn't land. Stay-in-touch note for the next event.",
     defaultSubject: "{{first_name}}, door is still open from {{tenant_name}}",
     defaultBody:
@@ -457,7 +457,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Quote",
-    label: "Quote just sent",
+    label: "New quote email",
     description: "First send of a fresh quote.",
     defaultSubject: "Your {{event_name}} quote from {{tenant_name}} - {{total_zar}}",
     defaultBody:
@@ -472,7 +472,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Quote",
-    label: "Revised quote",
+    label: "Revised quote email",
     description: "After a quote is updated.",
     defaultSubject: "Your revised {{event_name}} quote - {{total_zar}}",
     defaultBody:
@@ -487,7 +487,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Quote",
-    label: "Quote accepted, next steps",
+    label: "Accepted quote — manual next steps",
     description: "Right after the client accepts.",
     defaultSubject: "{{first_name}}, you're booked in for {{event_name}} with {{tenant_name}}",
     defaultBody:
@@ -504,7 +504,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Quote",
-    label: "Quote expired",
+    label: "Expired quote — offer a refresh",
     description: "Old quote that's lapsed. Offer a fresh one.",
     defaultSubject: "Your {{event_name}} quote has expired - want a fresh one?",
     defaultBody:
@@ -518,7 +518,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Quote",
-    label: "Quote in draft",
+    label: "Draft quote — preparation update",
     description: "Heads-up that the quote is being prepared.",
     defaultSubject: "Quick note on your {{event_name}} quote",
     defaultBody:
@@ -531,7 +531,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Win-back",
-    label: "Quote rejected, soft win-back",
+    label: "Declined quote — keep the door open",
     description: "Client passed on the quote. Door-open response.",
     defaultSubject: "{{first_name}}, door is still open from {{tenant_name}}",
     defaultBody:
@@ -545,7 +545,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Active client",
-    label: "Final details for upcoming event",
+    label: "Upcoming event — confirm final details",
     description: "Active client, event coming up. Confirm last details.",
     defaultSubject: "Final details for {{event_name}} on {{event_date}}",
     defaultBody:
@@ -559,7 +559,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Active client",
-    label: "Returning client check-in",
+    label: "Returning client — check-in",
     description: "Booked with us before. Warm follow-up.",
     defaultSubject: "{{first_name}}, good to have you back at {{tenant_name}}",
     defaultBody:
@@ -572,7 +572,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Active client",
-    label: "VIP, no agenda check-in",
+    label: "VIP client — relationship check-in",
     description: "Top client, friendly note with no pitch.",
     defaultSubject: "{{first_name}}, it's been a while - how are things?",
     defaultBody:
@@ -586,7 +586,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Win-back",
-    label: "Cold lead, gentle re-engage",
+    label: "Inactive client — re-engagement",
     description: "Long pause since the last booking.",
     defaultSubject: "{{first_name}}, hello from {{tenant_name}}",
     defaultBody:
@@ -600,8 +600,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Active client",
-    label: "Confirmed booking, generic check-in",
-    description: "Default catch-all for confirmed clients.",
+    label: "Confirmed client — general check-in",
+    description: "General-purpose check-in for a client with a confirmed booking.",
     defaultSubject: "Quick check-in on {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
@@ -614,7 +614,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Lead follow-up",
-    label: "Lead reply (fresh enquiry)",
+    label: "New enquiry — detailed reply",
     description: "First reply when a fresh lead lands.",
     defaultSubject: "{{first_name}}, thanks for the {{event_name}} enquiry - {{tenant_name}}",
     defaultBody:
@@ -629,7 +629,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Lead follow-up",
-    label: "Touch base on a warm lead",
+    label: "Warm enquiry — check-in",
     description: "A few days after the initial enquiry, no quote yet.",
     defaultSubject: "{{first_name}}, circling back on your {{event_name}}",
     defaultBody:
@@ -642,7 +642,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Lead follow-up",
-    label: "Follow up on a quiet lead",
+    label: "Quiet enquiry — final follow-up",
     description: "Last nudge before the lead goes cold.",
     defaultSubject: "Following up on your {{event_name}} enquiry",
     defaultBody:
@@ -655,7 +655,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Quote",
-    label: "Chase a sent quote (lead-side)",
+    label: "Sent quote — follow-up from Leads",
     description: "Lead has a quote but has gone quiet.",
     defaultSubject: "Following up on your {{event_name}} quote - {{total_zar}}",
     defaultBody:
@@ -668,7 +668,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Win-back",
-    label: "Lead win-back",
+    label: "Lost enquiry — win-back",
     description: "Quote did not land. Soft door-open note.",
     defaultSubject: "{{first_name}}, door is still open from {{tenant_name}}",
     defaultBody:
@@ -681,7 +681,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Win-back",
-    label: "Reopen a lost lead",
+    label: "Lost enquiry — reopen",
     description: "Lead was marked lost. No agenda nudge.",
     defaultSubject: "{{first_name}}, hello from {{tenant_name}}",
     defaultBody:
@@ -696,7 +696,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Outreach",
-    label: "Touch base",
+    label: "New contact — first WhatsApp",
     description: "Soft intro / no-pressure ping for a freshly imported contact you've never spoken to before.",
     defaultBody:
       `Hi {{first_name}}, hope you're well! Just touching base from {{company_name}}. Whenever you've got an event coming up, give me a shout and I'll put a quote together. No rush, just wanted to make sure you've got my number.\n\n{{from_name}}`,
@@ -707,7 +707,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Lead follow-up",
-    label: "Lead follow-up",
+    label: "New enquiry — WhatsApp reply",
     description: "First WhatsApp on a fresh enquiry.",
     defaultBody:
       `Hi {{first_name}}, thanks for the enquiry about your event. Just checking that the date is still on. Happy to put a quote together as soon as I have final guest numbers.\n\n{{from_name}}`,
@@ -718,7 +718,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Quote",
-    label: "Quote sent (WhatsApp nudge)",
+    label: "Quote sent — WhatsApp notification",
     description: "WhatsApp ping after the email goes across.",
     defaultBody:
       `Hi {{first_name}}, just sent the quote across for your event {{quote_ref}}. Sitting at {{total}} including VAT. Have a look when you can and let me know if anything needs tweaking.\n\n{{from_name}}`,
@@ -729,7 +729,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Quote",
-    label: "Quote chase (WhatsApp)",
+    label: "Sent quote — WhatsApp follow-up",
     description: "Soft chase if there is no email reply.",
     defaultBody:
       `Hi {{first_name}}, circling back on the quote {{quote_ref}}. Any thoughts? Happy to adjust the menu or the headcount if it helps.\n\n{{from_name}}`,
@@ -740,7 +740,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Quote",
-    label: "Quote accepted, WhatsApp confirm",
+    label: "Accepted quote — WhatsApp confirmation",
     description: "Right after acceptance, deposit follow-up.",
     defaultBody:
       `Hi {{first_name}}, thanks for confirming! Deposit invoice is on its way through. Final guest numbers + dietary info 7 days before the event keeps everything tight.\n\n{{from_name}}`,
@@ -751,7 +751,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Day of event",
-    label: "Event this week",
+    label: "Event week — client check-in",
     description: "Final-numbers nudge in the week before the event.",
     defaultBody:
       `Hi {{first_name}}, your event on {{event_date}} is coming up. Confirming guest numbers and any dietary requirements now so we can lock the kitchen prep in.\n\n{{from_name}}`,
@@ -762,7 +762,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Day of event",
-    label: "Event day, morning",
+    label: "Event morning — preparation update",
     description: "We're prepping, driver leaves at X.",
     defaultBody:
       `Hi {{first_name}}, all set for today. Driver should be on site around the agreed time. Reply to this message if anything changes on your side.\n\n{{from_name}}`,
@@ -773,7 +773,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Day of event",
-    label: "We are on site",
+    label: "Arrival at venue — client update",
     description: "Driver has arrived at venue.",
     defaultBody:
       `Hi {{first_name}}, we are on site now. Anything you need, this thread is the fastest way to reach me.\n\n{{from_name}}`,
@@ -784,7 +784,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "client",
     group: "Day of event",
-    label: "Running late",
+    label: "Delivery delay — client alert",
     description: "Heads-up message when there's a delay.",
     defaultBody:
       `Hi {{first_name}}, quick heads-up: we are running a few minutes behind. The driver is on the way and I will message again as soon as we are pulling in.\n\n{{from_name}}`,
@@ -797,7 +797,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "staff",
     group: "Onboarding",
-    label: "Welcome (portal login)",
+    label: "New staff member — portal welcome",
     description: "Heads-up after a portal invite email goes out - helps it not get lost in spam.",
     defaultBody:
       `Hi {{first_name}}, welcome to {{company_name}}. We just emailed you a portal invite - check your inbox (and spam) and tap the link to set your password. Once you're in, you'll see your shifts, jobs, and earnings.\n\n{{from_name}}`,
@@ -808,8 +808,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "staff",
     group: "Onboarding",
-    label: "Welcome (no portal login)",
-    description: "For staff who'll be tap-in'd on a shared tablet - explains the flow without an app to install.",
+    label: "New staff member — shared-device welcome",
+    description: "Explains how staff use the shared on-site device when they do not have portal access.",
     defaultBody:
       `Hi {{first_name}}, welcome to {{company_name}}. You're on the books. No app to download - your manager will tap you in/out on the tablet at the start and end of each shift. Hours and pay roll up automatically. If anything ever feels off, ask me to check the system.\n\n{{from_name}}`,
     variables: STAFF_VARS,
@@ -819,7 +819,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "staff",
     group: "Shift",
-    label: "Confirm shift",
+    label: "Shift assignment — request confirmation",
     description: "Ask the staff member to YES the shift.",
     defaultBody:
       `Hi {{first_name}}, can you confirm you are good for {{shift_date}} ({{shift_time}})? Reply YES to lock it in.\n\n{{from_name}}`,
@@ -830,7 +830,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "staff",
     group: "Job",
-    label: "Job assigned",
+    label: "Job assignment — staff notification",
     description: "Notify a driver / kitchen staff that they've been booked.",
     defaultBody:
       `Hi {{first_name}}, you have been assigned to {{client_name}} on {{event_date}}. Open your team portal for the full details (route / prep list / pickup time).\n\n{{from_name}}`,
@@ -841,7 +841,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "staff",
     group: "Job",
-    label: "Pickup ready",
+    label: "Order ready — driver notification",
     description: "Tell the driver the order is ready.",
     defaultBody:
       `Hi {{first_name}}, the order for {{client_name}} is ready for pickup at the kitchen.\n\n{{from_name}}`,
@@ -852,7 +852,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "staff",
     group: "General",
-    label: "Quick check-in",
+    label: "Staff member — general check-in",
     description: "Generic 'how's it going' nudge.",
     defaultBody:
       `Hi {{first_name}}, quick check-in. All good for today? Shout if anything is off.\n\n{{from_name}}`,
@@ -863,7 +863,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "staff",
     group: "Shift",
-    label: "Schedule change",
+    label: "Shift changed — staff notification",
     description: "Alert about a shift schedule update.",
     defaultBody:
       `Hi {{first_name}}, heads up, there is a schedule change on your shift for {{shift_date}}. Open your team portal for the latest version.\n\n{{from_name}}`,
@@ -881,7 +881,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Order lifecycle",
-    label: "Order confirmed",
+    label: "Order confirmed — client email",
     description: "Sent the moment a quote tips into a confirmed order.",
     defaultSubject: "Order confirmed - {{order_number}}",
     defaultBody:
@@ -898,7 +898,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Order lifecycle",
-    label: "Kitchen prepping",
+    label: "Kitchen preparation started — client email",
     description: "Short reassurance note when the kitchen starts prep.",
     defaultSubject: "We're prepping your {{event_name}} order",
     defaultBody:
@@ -913,7 +913,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Order lifecycle",
-    label: "Order ready",
+    label: "Order ready — client email",
     description: "Sent when the kitchen marks prep complete.",
     defaultSubject: "Your {{event_name}} order is ready",
     defaultBody:
@@ -927,7 +927,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Order lifecycle",
-    label: "On the way",
+    label: "Delivery on the way — client email",
     description: "Driver has left the kitchen.",
     defaultSubject: "On the way - {{order_number}}",
     defaultBody:
@@ -942,7 +942,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Order lifecycle",
-    label: "Delivered",
+    label: "Order delivered — client email",
     description: "Sent the moment the driver marks delivery complete.",
     defaultSubject: "Delivered - {{order_number}}",
     defaultBody:
@@ -956,7 +956,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Order lifecycle",
-    label: "Order changed",
+    label: "Confirmed order changed — client email",
     description: "Sent when an amendment to a confirmed order is applied (guest count, menu, time, venue, etc.).",
     defaultSubject: "Update on your order {{order_number}}",
     defaultBody:
@@ -978,7 +978,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Order lifecycle",
-    label: "Change request declined",
+    label: "Order change declined — client email",
     description: "Sent when the client requested a change and the operator couldn't apply it.",
     defaultSubject: "Couldn't apply your change to {{order_number}}",
     defaultBody:
@@ -1000,8 +1000,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Pre-event",
-    label: "One week to go",
-    description: "Cron-fired check-in 7 days before the event.",
+    label: "Event reminder — 1 week before",
+    description: "Automatically sent 7 days before the event.",
     defaultSubject: "One week to go - {{event_name}} on {{event_date}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
@@ -1019,8 +1019,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Pre-event",
-    label: "Tomorrow's the day",
-    description: "Cron-fired check-in the day before the event.",
+    label: "Event reminder — 1 day before",
+    description: "Automatically sent on the day before the event.",
     defaultSubject: "Tomorrow's the day - {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
@@ -1034,7 +1034,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "staff",
     group: "Staff operations",
-    label: "Waiter assignment",
+    label: "Waiter assigned — staff email",
     description: "Direct email to a waiter when an admin assigns them to an event.",
     defaultSubject: "Service job assigned - {{order_number}}",
     defaultBody:
@@ -1055,8 +1055,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "staff",
     group: "Lead alerts",
-    label: "New website lead (admin email)",
-    description: "Internal email to the operator when an embed form on the tenant's website fires.",
+    label: "New website enquiry — admin email",
+    description: "Internal email to the admin when someone submits a website enquiry form.",
     defaultSubject: "New enquiry from {{client_name}} - {{form_name}}",
     defaultBody:
       `New lead from your website form.\n\n` +
@@ -1077,8 +1077,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "whatsapp",
     category: "staff",
     group: "Lead alerts",
-    label: "New website lead (admin WhatsApp)",
-    description: "WhatsApp ping to the operator when an embed form lead lands. Short on purpose.",
+    label: "New website enquiry — admin WhatsApp",
+    description: "Short WhatsApp alert to the admin when someone submits a website enquiry form.",
     defaultBody:
       `New lead from {{form_name}}.\n\n` +
       `{{client_name}} - {{event_type}} on {{event_date}}, {{guest_count}} guests.\n` +
@@ -1092,8 +1092,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Lead follow-up",
-    label: "Auto-reply to embed lead",
-    description: "Auto-reply the lead receives after submitting the website enquiry form.",
+    label: "Website enquiry — client confirmation",
+    description: "Confirmation automatically sent to a client after they submit the website enquiry form.",
     defaultSubject: "Thank you for your enquiry, {{client_name}}",
     defaultBody:
       `Hi {{client_name}},\n\n` +
@@ -1109,8 +1109,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Money",
-    label: "Balance reminder",
-    description: "Sent by the cron when an outstanding balance is approaching its due date.",
+    label: "Outstanding balance — payment reminder",
+    description: "Automatically sent when an outstanding balance is approaching its due date.",
     defaultSubject: "Balance reminder for {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
@@ -1126,7 +1126,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Post-event",
-    label: "Equipment collection reminder",
+    label: "Equipment collection — client reminder",
     description: "Sent when hired equipment is still on site after the event and needs to be collected.",
     defaultSubject: "Quick heads-up: equipment collection for {{event_name}}",
     defaultBody:
@@ -1143,8 +1143,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Account",
-    label: "Client portal magic link",
-    description: "Sent when a client requests access to their order portal.",
+    label: "Client portal — sign-in link",
+    description: "Secure sign-in link sent when a client requests access to their order portal.",
     defaultSubject: "Your {{company_name}} account link",
     defaultBody:
       `Hi {{first_name}},\n\n` +
@@ -1179,7 +1179,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "staff",
     group: "Account",
-    label: "Staff portal invite",
+    label: "Staff portal — invitation email",
     description: "Sent when a manager invites a staff member who needs portal access.",
     defaultSubject: "{{company_name}} invited you to the team portal",
     defaultBody:
@@ -1201,7 +1201,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Cancellation",
-    label: "Order cancelled",
+    label: "Order cancellation — client confirmation",
     description: "Confirmation email when an order is cancelled. The refund_paragraph variable carries the per-policy refund / credit / no-refund wording.",
     defaultSubject: "Order cancelled - {{order_number}}",
     defaultBody:
@@ -1228,7 +1228,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Cancellation",
-    label: "Refund paid",
+    label: "Refund payment — client confirmation",
     description: "Sent after a refund EFT has been processed.",
     defaultSubject: "Refund processed for {{order_number}} - {{refund_amount}}",
     defaultBody:
@@ -1250,7 +1250,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Cancellation",
-    label: "Postponement approved",
+    label: "Event postponement — client confirmation",
     description: "Sent when a client postpones their event to a new date.",
     defaultSubject: "Postponed to {{new_event_date}} - {{order_number}}",
     defaultBody:
@@ -1277,7 +1277,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Invoice",
-    label: "Deposit invoice sent",
+    label: "Deposit invoice — client email",
     description: "Sent when the deposit invoice is first issued to lock in the event date.",
     defaultSubject: "Deposit invoice {{invoice_number}} - {{event_name}}",
     defaultBody:
@@ -1305,7 +1305,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Invoice",
-    label: "Balance invoice sent",
+    label: "Balance invoice — client email",
     description: "Sent when the balance invoice goes out after the deposit is paid.",
     defaultSubject: "Balance invoice {{invoice_number}} - {{event_name}}",
     defaultBody:
@@ -1329,7 +1329,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Invoice",
-    label: "Deposit payment received",
+    label: "Deposit received — client receipt",
     description: "Receipt sent when the deposit payment lands and the booking becomes secure.",
     defaultSubject: "Deposit received - {{event_name}} booking secure",
     defaultBody:
@@ -1355,7 +1355,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Invoice",
-    label: "Payment received receipt",
+    label: "Payment received — client receipt",
     description: "Receipt sent when a client payment lands (deposit, balance, or full payment).",
     defaultSubject: "Payment received - invoice {{invoice_number}}",
     defaultBody:
@@ -1379,7 +1379,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "client",
     group: "Quote",
-    label: "Quote accepted (client confirmation)",
+    label: "Quote accepted — client confirmation",
     description: "Auto-reply the client receives the moment they accept a quote on the portal.",
     defaultSubject: "Quote accepted - thanks {{first_name}}",
     defaultBody:
@@ -1405,7 +1405,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "staff",
     group: "Quote",
-    label: "Quote accepted (admin notify)",
+    label: "Quote accepted — admin alert",
     description: "Operator-facing email when a client accepts a quote on the portal.",
     defaultSubject: "Quote accepted - {{client_name}}",
     defaultBody:
@@ -1611,7 +1611,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     channel: "email",
     category: "staff",
     group: "Subscription",
-    label: "Team member invitation",
+    label: "Team member — account invitation",
     description: "Email a manager-invited team member receives to set up their portal account.",
     defaultSubject: "You're invited to join {{company_name}} on CateringMS",
     defaultBody:
