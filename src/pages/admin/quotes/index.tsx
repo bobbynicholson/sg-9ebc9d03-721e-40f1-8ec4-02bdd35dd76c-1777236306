@@ -2479,8 +2479,27 @@ function AdminQuotesInner() {
                                     return toLocalISO(d);
                                   })();
                                   const newDate = window.prompt("New event date for the duplicate (YYYY-MM-DD):", todayPlus7);
-                                  if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return;
+                                  if (newDate === null) {
+                                    toast({
+                                      title: "Duplicate cancelled",
+                                      description: "No new quote was created.",
+                                    });
+                                    return;
+                                  }
+                                  if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+                                    toast({
+                                      title: "Enter a valid event date",
+                                      description: "Use YYYY-MM-DD, for example 2026-08-03. No quote was created.",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  const progressToast = toast({
+                                    title: "Duplicating quote...",
+                                    description: `Creating a new draft for ${newDate}.`,
+                                  });
                                   const res = await quoteService.duplicateQuote(quote.id, newDate);
+                                  progressToast.dismiss();
                                   if (!res.success) {
                                     toast({
                                       title: "Could not duplicate",
@@ -2495,6 +2514,9 @@ function AdminQuotesInner() {
                                   });
                                   const fresh = await quoteService.getQuotes(user.company_id!);
                                   setQuotes(fresh);
+                                  await router.push(
+                                    withSlug(`/admin/quotes/new?fromQuoteId=${(res.data as any).id}`),
+                                  );
                                 }}
                               >
                                 <Copy className="w-4 h-4 mr-2" />
