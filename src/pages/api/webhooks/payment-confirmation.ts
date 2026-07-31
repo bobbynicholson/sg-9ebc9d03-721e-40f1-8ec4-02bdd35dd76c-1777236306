@@ -991,6 +991,19 @@ async function sendClientPaymentConfirmation(
     } catch { /* keep fallback */ }
   }
   if (!tenantName) tenantName = "Your caterer";
+  let orderUrl = "";
+  try {
+    const { mintOrderCustomerLink } = await import("@/lib/customerLinksServer");
+    orderUrl = await mintOrderCustomerLink({
+      sb: supabase,
+      companyId: order.company_id || order.user_id,
+      orderId: order.id,
+      label: `payment-${kind}-confirmation`,
+      origin: process.env.NEXT_PUBLIC_APP_URL || null,
+    });
+  } catch (e) {
+    console.warn("[payment-confirmation] order link mint failed:", e);
+  }
   const title = isDeposit
     ? `Deposit received for order ${order.order_number}`
     : `Final payment received for order ${order.order_number}`;
@@ -1047,6 +1060,7 @@ async function sendClientPaymentConfirmation(
         ? `Hi {{first_name}},\n\n` +
           `We received your deposit of R {{amount}} for {{event_name}}.\n\n` +
           `Your booking is secure and your event date is locked in.\n\n` +
+          `View your booking: {{order_url}}\n\n` +
           `Thanks,\n{{tenant_name}}`
         : `Hi {{first_name}},\n\n` +
           `We received your final payment of R {{amount}} for {{event_name}}.\n\n` +
@@ -1074,6 +1088,7 @@ async function sendClientPaymentConfirmation(
           ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
           : "TBD",
         venue: order.venue_address || "TBD",
+        order_url: orderUrl,
         // legacy camelCase kept for older tenant overrides
         clientName: recipientName || "there",
         orderNumber: order.order_number,

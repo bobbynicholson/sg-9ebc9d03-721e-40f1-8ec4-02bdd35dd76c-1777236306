@@ -1108,20 +1108,10 @@ async function notifyClientOfInvoiceIssued(
           console.warn("[notifyClientOfInvoiceIssued] order link mint failed:", orderLinkErr);
         }
 
-        // Server-render the invoice PDF and attach it. Mirrors the
-        // attachQuotePdf pattern Phase 3D set up for quotes - older
-        // clients expect a saveable document inline. Render is wrapped
-        // in its own try / catch so a failure here doesn't block the
-        // email; the recipient still gets the link to the billing page.
-        const attachments: Array<{ filename: string; content: Buffer; contentType?: string }> = [];
-        try {
-          const pdfAttachment = await renderInvoicePdfAttachment(invoiceId, companyId, invoiceData, supabase);
-          if (pdfAttachment) {
-            attachments.push(pdfAttachment);
-          }
-        } catch (pdfErr: any) {
-          console.warn("[notifyClientOfInvoiceIssued] invoice PDF render failed (non-blocking):", pdfErr?.message || pdfErr);
-        }
+        // Keep the invoice email link-only. The public payment page is the
+        // canonical, current invoice and avoids corporate mail gateways
+        // rejecting messages with PDF attachments. Clients can still view or
+        // download the PDF from that page.
 
         // Pick deposit_invoice_issued vs balance_invoice_issued based
         // on whether a deposit has already been paid on this order.
@@ -1184,7 +1174,6 @@ async function notifyClientOfInvoiceIssued(
           body: bodyWithRequiredOrderLink,
           variables: emailVariables,
           orderId,
-          ...(attachments.length > 0 ? { attachments } : {}),
           // Forward the injected client so emailService can read
           // email_settings + write email_automation_log under the
           // same auth context (service-role from server callers,

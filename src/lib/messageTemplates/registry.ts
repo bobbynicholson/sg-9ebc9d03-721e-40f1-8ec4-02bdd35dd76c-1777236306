@@ -1336,6 +1336,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       `Hi {{first_name}},\n\n` +
       `We've received your deposit for {{event_name}}. Amount: {{amount_formatted}}. Reference: {{invoice_number}}.\n\n` +
       `Your booking is secure and your event date is locked in.\n\n` +
+      `View your booking: {{order_url}}\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: [
       { name: "first_name",       description: "Client's first name",          example: "Bobby" },
@@ -1348,6 +1349,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       { name: "amount",           description: "Amount received, numeric",     example: "4 500.00" },
       { name: "amount_formatted", description: "Amount received, formatted",   example: "R4 500.00" },
       { name: "invoice_link",     description: "Direct link to the invoice",   example: "https://app.example.com/pay/i/..." },
+      { name: "order_url",        description: "Secure link to view the confirmed booking", example: "https://app.example.com/order/..." },
     ],
   },
   {

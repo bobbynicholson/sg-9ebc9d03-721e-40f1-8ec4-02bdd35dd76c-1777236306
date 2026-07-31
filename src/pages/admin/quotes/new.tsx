@@ -163,6 +163,8 @@ interface EquipmentLineItem {
   name: string;
   category: string | null;
   quantity: number;
+  /** When true, a staff member explicitly chose a non-guest quantity. */
+  quantityOverridden?: boolean;
   unitPrice: number;
   /** Carried through so the kitchen + driver views can spot stockouts. */
   availableQuantity?: number | null;
@@ -875,6 +877,9 @@ function NewQuotePage() {
               name: e.name ?? "",
               category: null,
               quantity: safeNum(e.quantity),
+              quantityOverridden: typeof rc.guest_count === "number"
+                ? safeNum(e.quantity) !== safeNum(data.guest_count)
+                : false,
               unitPrice: safeNum(e.unit_price ?? e.unitPrice),
               hireInCost: 0,
             })),
@@ -1007,6 +1012,7 @@ function NewQuotePage() {
           name: e.name ?? "",
           category: e.category ?? null,
           quantity: safeNum(e.quantity),
+          quantityOverridden: safeNum(e.quantity) !== safeNum(q.guest_count),
           unitPrice: safeNum(e.unit_price ?? e.rentalPrice ?? e.unitPrice),
           hireInCost: safeNum(e.hire_in_cost_per_unit),
         })),
@@ -1177,6 +1183,24 @@ function NewQuotePage() {
           : it,
       ),
     );
+  }, [guestCount]);
+
+  // Cutlery, crockery and drinkware are normally one-per-guest. When a
+  // client changes the guest count, carry that change through to equipment
+  // lines that were still tracking the previous guest count. Explicitly
+  // edited quantities remain untouched.
+  const previousGuestCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    const next = Number(guestCount || 0);
+    const previous = previousGuestCountRef.current;
+    if (previous != null && previous > 0 && next > 0 && previous !== next) {
+      setEquipment((items) => items.map((item) =>
+        !item.quantityOverridden && item.quantity === previous
+          ? { ...item, quantity: next }
+          : item,
+      ));
+    }
+    previousGuestCountRef.current = next;
   }, [guestCount]);
 
   // ── Client typeahead pick ─────────────────────────────────────────
@@ -3170,7 +3194,10 @@ function NewQuotePage() {
                                 type="number"
                                 min={0}
                                 value={e.quantity || ""}
-                                onChange={(ev) => updateEquip(e.id, { quantity: safeNum(ev.target.value) })}
+                                onChange={(ev) => updateEquip(e.id, {
+                                  quantity: safeNum(ev.target.value),
+                                  quantityOverridden: true,
+                                })}
                               />
                             </div>
                             <div className="sm:col-span-4">

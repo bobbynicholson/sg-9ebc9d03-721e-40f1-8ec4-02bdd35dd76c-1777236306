@@ -509,6 +509,14 @@ export const quoteService = {
       console.warn(`[quoteService] _fireQuoteSentEmail: quote ${quoteId} has no client_email`);
       return;
     }
+    // A quote that has already been accepted (or converted into an order)
+    // must never receive the initial "quote is ready" message again. The
+    // acceptance workflow owns the deposit invoice email; sending the quote
+    // email here creates a confusing duplicate notification.
+    if ((quote as any).accepted_at || (quote as any).converted_to_order_id) {
+      console.log(`[quoteService] _fireQuoteSentEmail: ${quoteId} already accepted/converted, skipping`);
+      return;
+    }
 
     // Idempotency guard. Stamp sent_at the FIRST time we fire the
     // email; if it's already populated, the email already went out and

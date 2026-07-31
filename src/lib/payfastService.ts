@@ -37,7 +37,14 @@ export interface PayFastSubscriptionParams {
  *  difference from encodeURIComponent that matters: spaces must be
  *  '+', not '%20'. */
 function pfUrlEncode(value: string): string {
-  return encodeURIComponent(value.trim()).replace(/%20/g, "+");
+  // PayFast follows PHP's urlencode (RFC 1738), which differs from
+  // encodeURIComponent for spaces and the punctuation characters ! ' ( ) *.
+  // The latter are left unescaped by JavaScript but must be percent-encoded
+  // in the signed payload; an event such as "Cal's birthday" otherwise
+  // produces the gateway's "signature does not match" error.
+  return encodeURIComponent(value.trim())
+    .replace(/%20/g, "+")
+    .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
 export class PayFastService {
