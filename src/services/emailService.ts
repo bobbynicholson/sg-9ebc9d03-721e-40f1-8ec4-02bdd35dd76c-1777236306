@@ -728,11 +728,15 @@ export const emailService = {
     finalBody = this.replaceVariables(finalBody, normVars);
     finalBody = dedupeRepeatedSignoffLines(finalBody, normVars);
 
-    // A deposit-invoice email is the quote-acceptance confirmation.
-    // Enforce the resulting order link at the final transport boundary
-    // so legacy global templates and tenant overrides cannot omit the
+    // The deposit invoice is the quote-acceptance confirmation, and the
+    // deposit receipt is the booking confirmation. Enforce the resulting
+    // order link at the final transport boundary for both messages so
+    // legacy global templates and tenant overrides cannot omit the
     // client's route back to the booking.
-    if (payload.template === "deposit_invoice_issued") {
+    if (
+      payload.template === "deposit_invoice_issued" ||
+      payload.template === "deposit_payment_received"
+    ) {
       finalBody = ensureRequiredOrderLink(
         finalBody,
         (normVars as any).order_url || (normVars as any).orderUrl,

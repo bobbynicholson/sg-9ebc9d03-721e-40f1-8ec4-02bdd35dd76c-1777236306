@@ -17,10 +17,10 @@ describe("required customer links", () => {
   });
 
   it("keeps the deposit template contract explicit in the editor", () => {
-    const template = TEMPLATE_REGISTRY.find(
-      (entry) => entry.key === "deposit_invoice_issued",
-    );
-    expect(template?.defaultBody).toContain("{{order_url}}");
-    expect(template?.variables.some((variable) => variable.name === "order_url")).toBe(true);
+    for (const key of ["deposit_invoice_issued", "deposit_payment_received"]) {
+      const template = TEMPLATE_REGISTRY.find((entry) => entry.key === key);
+      expect(template?.defaultBody).toContain("{{order_url}}");
+      expect(template?.variables.some((variable) => variable.name === "order_url")).toBe(true);
+    }
   });
 });
