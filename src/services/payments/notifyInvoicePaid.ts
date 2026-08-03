@@ -14,6 +14,7 @@
  */
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { emailService } from "@/services/emailService";
+import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 
 export interface InvoicePaidNotifyInput {
   /** Service-role supabase client (bypasses RLS for the inserts). */
@@ -91,6 +92,7 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
   // Order context for nicer copy and email fallbacks.
   let order: any = null;
   let orderNumber: string | null = null;
+  let orderUrl = "";
   let eventName = String(invoiceData.eventName || invoiceData.event_name || "your event");
   let eventDate = String(invoiceData.eventDate || invoiceData.event_date || "");
   let venue = String(invoiceData.venue || invoiceData.venueAddress || "");
@@ -121,6 +123,24 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
     }
   }
   void order;
+
+  // The sandbox return-confirmation route and several manual-payment
+  // surfaces share this notifier instead of the PayFast ITN handler.
+  // Mint the same secure order link here so every deposit confirmation
+  // gives the client access to the now-confirmed booking.
+  if (orderId) {
+    try {
+      orderUrl = await mintOrderCustomerLink({
+        sb: admin,
+        companyId,
+        orderId,
+        label: "invoice-payment-confirmation",
+        origin: process.env.NEXT_PUBLIC_APP_URL || null,
+      });
+    } catch (e) {
+      console.warn("[notifyInvoicePaid] order link mint failed:", e);
+    }
+  }
 
   if (clientId && !clientEmail) {
     try {
@@ -249,6 +269,7 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
           order_number: orderNumber || invoiceNumber || "",
           invoice_link: invoiceLink,
           payment_link: invoiceLink,
+          order_url: orderUrl,
           clientName,
           companyName,
         },
