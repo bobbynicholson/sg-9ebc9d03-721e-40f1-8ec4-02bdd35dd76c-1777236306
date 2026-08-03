@@ -143,7 +143,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             updated_at: new Date().toISOString(),
           })
           .eq("id", invoice.order_id)
-          .eq("deposit_paid", false);
+          // Converted orders created before the boolean default was
+          // tightened can carry NULL here. Treat NULL and false as the
+          // same unpaid state so a successful sandbox payment always
+          // secures the booking.
+          .or("deposit_paid.is.null,deposit_paid.eq.false");
       } catch (e) {
         console.warn("[confirm-return] deposit flag update failed:", e);
       }
