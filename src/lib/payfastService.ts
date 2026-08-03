@@ -573,6 +573,22 @@ export function generatePayFastPaymentForm(input: PayFastFormInput): string {
   if (input.customStr3) params.custom_str3 = input.customStr3;
   if (input.customStr4) params.custom_str4 = input.customStr4;
 
+  // PayFast's shared, public sandbox account is a special case. Its
+  // credentials are intentionally not tied to a merchant passphrase and the
+  // sandbox currently rejects any signature submitted with that account --
+  // including signatures salted with the sample passphrase shown in older
+  // integration examples. An omitted signature is accepted for this generic
+  // test account. Keep the exception sandbox-only and credential-specific so
+  // tenant-owned sandbox accounts and every live payment remain signed.
+  const usesSharedUnsignedSandbox =
+    input.testMode &&
+    input.merchantId === "10000100" &&
+    input.merchantKey === "46f0cd694581a";
+
+  if (usesSharedUnsignedSandbox) {
+    return svc.generatePaymentForm(params as any);
+  }
+
   const signature = svc.generateSignature(params);
   return svc.generatePaymentForm({ ...params, signature } as any);
 }
