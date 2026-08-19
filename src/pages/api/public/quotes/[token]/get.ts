@@ -65,6 +65,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .from("quotes")
     .select(`
       id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+      region_id,
       venue_address, menu_items, equipment_items, notes, terms_and_conditions,
       subtotal, tax_amount, discount_amount, total, total_amount, status,
       deposit_percentage,

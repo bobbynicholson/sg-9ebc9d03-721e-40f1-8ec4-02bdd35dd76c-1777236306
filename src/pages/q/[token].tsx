@@ -101,6 +101,48 @@ function fmtMoneyFor(code: string | null | undefined): (n: number) => string {
   };
 }
 
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const renderClientTermsHtml = (value: string): string => {
+  const source = String(value || "");
+  if (!source.trim()) return "";
+
+  if (!/<[^>]+>/.test(source)) {
+    return source
+      .replace(/\r\n/g, "\n")
+      .split(/\n{2,}/)
+      .map((block) => `<p>${escapeHtml(block.trim()).replace(/\n/g, "<br />")}</p>`)
+      .join("");
+  }
+
+  return source
+    .replace(/<\s*(strong|b)\b[^>]*>/gi, "\u0001BOLD_START\u0001")
+    .replace(/<\s*\/\s*(strong|b)\s*>/gi, "\u0001BOLD_END\u0001")
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*\/\s*(p|div|li|h[1-6])\s*>/gi, "\n\n")
+    .replace(/<\s*(p|div|li|h[1-6])\b[^>]*>/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const html = block
+        .replace(/\u0001BOLD_START\u0001([\s\S]*?)\u0001BOLD_END\u0001/g, (_, text) => `<strong>${escapeHtml(String(text))}</strong>`)
+        .replace(/\*\*([^*\n][\s\S]*?[^*\n]|\S)\*\*/g, (_, text) => `<strong>${escapeHtml(String(text))}</strong>`);
+      return `<p>${escapeHtml(html).replace(/&lt;strong&gt;/g, "<strong>").replace(/&lt;\/strong&gt;/g, "</strong>").replace(/\n/g, "<br />")}</p>`;
+    })
+    .join("");
+};
+
 /**
  * Build the company name initials for a logo fallback. "Spit Braai
  * Delivery" -> "SB". Caps at two letters.
@@ -787,21 +829,20 @@ export default function PublicQuotePage() {
                 <div className="space-y-2">
                   {quote.equipment_items.map((item: any, i: number) => {
                     const name = item?.name || `Equipment ${i + 1}`;
-                    const qty = item?.quantity ?? item?.qty ?? 1;
-                    const lineTotal = Number(item?.total ?? Number(item?.unit_price ?? 0) * qty);
+                    const qty = Number(item?.quantity ?? item?.qty ?? 1);
+                    const unitPrice = Number(item?.unit_price ?? item?.unitPrice ?? item?.price ?? 0);
+                    const lineTotal = Number(item?.total ?? qty * unitPrice);
                     return (
                       <div key={i} className="print-row flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-stone-900">{name}</p>
-                          {qty > 1 && (
-                            <p className="text-xs text-stone-500">{qty} x</p>
-                          )}
-                        </div>
-                        {lineTotal > 0 && (
-                          <p className="text-stone-900 font-semibold tabular-nums shrink-0">
-                            {fmtMoney(lineTotal)}
+                          <p className="text-xs text-stone-500 mt-0.5">
+                            {qty} x {fmtMoney(unitPrice)}
                           </p>
-                        )}
+                        </div>
+                        <p className="text-stone-900 font-semibold tabular-nums shrink-0">
+                          {fmtMoney(lineTotal)}
+                        </p>
                       </div>
                     );
                   })}
@@ -944,7 +985,10 @@ export default function PublicQuotePage() {
                 {quote.terms_and_conditions && (
                   <div>
                     <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">Terms</p>
-                    <p className="text-xs text-stone-600 whitespace-pre-wrap">{quote.terms_and_conditions}</p>
+                    <div
+                      className="space-y-2 text-xs text-stone-600 [&_strong]:font-semibold [&_strong]:text-stone-800"
+                      dangerouslySetInnerHTML={{ __html: renderClientTermsHtml(quote.terms_and_conditions) }}
+                    />
                   </div>
                 )}
                 {validUntil && (

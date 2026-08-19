@@ -15,7 +15,7 @@ const env = Object.fromEntries(readFileSync(".env.local", "utf8").split(/\r?\n/)
 const url = env.NEXT_PUBLIC_SUPABASE_URL, anon = env.NEXT_PUBLIC_SUPABASE_ANON_KEY, svc = env.SUPABASE_SERVICE_ROLE_KEY;
 const admin = createClient(url, svc, { auth: { persistSession: false } });
 const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
-const BASE = "http://localhost:3001";
+const BASE = process.env.BASE || "http://localhost:3000";
 const SLUG = "spit-braai-delivery";
 const S = `/${SLUG}`;
 
@@ -48,6 +48,12 @@ function cookieChunks(session) {
   for (let i = 0; i < enc.length; i += size) out.push({ name: `${storageKey}.${out.length}`, value: enc.slice(i, i + size) });
   return out;
 }
+// Add ?dev to URL to trigger the middleware dev bypass (skips all auth checks on localhost)
+function withDev(landUrl) {
+  const u = new URL(`${BASE}${landUrl}`);
+  u.searchParams.set("dev", "1");
+  return u.toString();
+}
 
 // Floating badge so each window is instantly identifiable while testing.
 const BADGE = (label, color) => `
@@ -68,7 +74,7 @@ const BADGE = (label, color) => `
   const W = 1200, H = 820, browsers = [];
   for (let i = 0; i < ROLES.length; i++) {
     const role = ROLES[i];
-    const x = 40 + (i % 5) * 70, y = 40 + Math.floor(i / 5) * 90; // cascade so each is grabbable
+    const x = 40 + (i % 5) * 70, y = 40 + Math.floor(i / 5) * 90;
     try {
       const session = await mint(role.email);
       const browser = await chromium.launch({
@@ -76,10 +82,16 @@ const BADGE = (label, color) => `
         args: [`--window-size=${W},${H}`, `--window-position=${x},${y}`, "--disk-cache-size=1"],
       });
       const ctx = await browser.newContext({ viewport: null });
-      await ctx.addCookies(cookieChunks(session).map(c => ({ name: c.name, value: c.value, domain: "localhost", path: "/", secure: false, httpOnly: false, sameSite: "Lax", expires: Math.floor(Date.now() / 1000) + 86400 })));
+      // Inject session cookies so @supabase/ssr middleware reads them
+      await ctx.addCookies(cookieChunks(session).map(c => ({
+        name: c.name, value: c.value, domain: "localhost", path: "/",
+        secure: false, httpOnly: false, sameSite: "Lax",
+        expires: Math.floor(Date.now() / 1000) + 86400,
+      })));
       await ctx.addInitScript(BADGE(role.label, role.color));
       const page = await ctx.newPage();
-      await page.goto(`${BASE}${role.land}`, { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => {});
+      // Use ?dev param to bypass middleware auth on localhost (built-in dev bypass)
+      await page.goto(withDev(role.land), { waitUntil: "domcontentloaded", timeout: 45000 }).catch(() => {});
       browsers.push(browser);
       console.log(`opened  ${role.label.padEnd(24)} ${role.email.padEnd(48)} -> ${role.land}`);
     } catch (e) {

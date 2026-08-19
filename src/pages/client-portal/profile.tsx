@@ -144,8 +144,17 @@ function ClientProfilePageInner() {
         const optInStored = p.whatsapp_opt_in;
         const optInDefault = !!mobile && optInStored !== false;
 
+        // Strip email-as-name: some older client accounts were created
+        // with the email address stored in full_name (Pic 108). Detect
+        // this by checking if the stored full_name looks like an email
+        // and clear it so the field shows the placeholder "Your name"
+        // instead of the email, forcing the client to enter a real name.
+        const storedName = p.full_name || "";
+        const nameIsEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storedName.trim());
+        const resolvedName = nameIsEmail ? "" : storedName;
+
         setForm({
-          full_name: p.full_name || "",
+          full_name: resolvedName,
           mobile_number: mobile,
           phone_number: landline,
           whatsapp_opt_in: optInDefault,
@@ -433,7 +442,7 @@ function ClientProfilePageInner() {
                         {form.avatar_url ? (
                           <img
                             src={form.avatar_url}
-                            alt={form.full_name || "You"}
+                            alt={form.full_name.trim() || user?.email || "You"}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -460,11 +469,18 @@ function ClientProfilePageInner() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
-                        {form.full_name || "Your details"}
+                        {form.full_name.trim() || (
+                          <span className="text-slate-400 font-normal italic">Name not set yet</span>
+                        )}
                       </h2>
                       <p className="text-sm text-slate-500 truncate">
                         {user?.email || "Signed in"}
                       </p>
+                      {!form.full_name.trim() && (
+                        <p className="text-[11px] text-amber-600 mt-0.5">
+                          Add your full name below so the team knows who you are.
+                        </p>
+                      )}
                       <div className="flex gap-2 mt-2">
                         <Button
                           type="button"

@@ -40,16 +40,22 @@ interface AdminTrackingMapProps {
   companyId?: string;
 }
 
-// Custom driver icon (green car)
+// Custom driver icon with pulse ring animation — glows to show live GPS.
+// The ring uses a CSS keyframe injected once via a <style> tag in the
+// component body (safe for SSR because the map is client-only anyway).
 const driverIcon = new L.DivIcon({
-  html: `<div style="background: #10b981; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-      <path d="M5 17h14M5 17a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2M5 17v4m14-4v4M7 7V5m10 2V5M7 11h10"/>
-    </svg>
+  html: `<div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+    <div style="position:absolute;inset:0;border-radius:50%;background:rgba(16,185,129,0.25);animation:cms-driver-ping 1.8s ease-out infinite;"></div>
+    <div style="position:absolute;inset:4px;border-radius:50%;background:rgba(16,185,129,0.15);animation:cms-driver-ping 1.8s ease-out infinite 0.6s;"></div>
+    <div style="background:#10b981;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);position:relative;z-index:1;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+        <path d="M5 17h14M5 17a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2M5 17v4m14-4v4M7 7V5m10 2V5M7 11h10"/>
+      </svg>
+    </div>
   </div>`,
   className: "driver-marker",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
 });
 
 // Custom venue icon (blue pin)
@@ -139,8 +145,8 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
   // average-of-points effect was driving the auto-pan jank.
   const [mapCenter] = useState<[number, number]>([-29.8587, 31.0218]); // ZA-ish fallback
   const subscriptionRef = useRef<any>(null);
-  // Bumped to trigger a re-fit. Wired to the "Recentre" button later.
-  const recentreSignal = 0;
+  // Bumped by the Recentre button to re-fit the map to all points.
+  const [recentreSignal, setRecentreSignal] = useState(0);
   // Build the points the fit-to-bounds effect needs. Cheap recompute
   // because the parent re-renders on every realtime patch anyway.
   const mapPoints = [
@@ -357,6 +363,29 @@ export function AdminTrackingMap({ orders, driverLocations, onDriverLocationUpda
 
   return (
     <div className="relative h-full w-full">
+      {/* Keyframe for driver marker pulse ring — injected once, scoped to this component */}
+      <style>{`
+        @keyframes cms-driver-ping {
+          0% { transform: scale(0.8); opacity: 0.7; }
+          80% { transform: scale(2.2); opacity: 0; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+      `}</style>
+
+      {/* Recentre button — fits map back to all drivers + venues */}
+      {hasMappable && (
+        <button
+          type="button"
+          onClick={() => setRecentreSignal((n) => n + 1)}
+          title="Recentre map to all drivers and venues"
+          style={{ zIndex: 1000 }}
+          className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-md border border-slate-200 hover:bg-slate-50 transition-colors"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          Recentre
+        </button>
+      )}
+
       {!hasMappable && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-md border border-slate-200">

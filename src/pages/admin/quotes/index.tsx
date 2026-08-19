@@ -315,7 +315,7 @@ function AdminQuotesInner() {
   // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
   // picks up the right currency.
   const fmtMoney = { format: (n: number) => tenantCurrency.format(n, 2) };
-  const { regionFilterId } = useRegionFilter();
+  const { regionFilterId, options, hasMultipleBranches, setRegionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [autoEmailRows, setAutoEmailRows] = useState<any[]>([]);
@@ -702,6 +702,29 @@ function AdminQuotesInner() {
     ],
     { limit: 0 },
   );
+
+  const groupedRowsByRegion = useMemo(() => {
+    const groups = new Map<string, typeof filteredRows>();
+    for (const row of filteredRows) {
+      const regionId = (row.quote as any).region_id || "__company__";
+      if (!groups.has(regionId)) groups.set(regionId, []);
+      groups.get(regionId)!.push(row);
+    }
+
+    const orderedRegionIds = [
+      ...options.map((o) => o.id),
+      "__company__",
+      ...Array.from(groups.keys()).filter((id) => id !== "__company__" && !options.some((o) => o.id === id)),
+    ].filter((id, idx, arr) => arr.indexOf(id) === idx);
+
+    return orderedRegionIds
+      .map((regionId) => {
+        const rows = groups.get(regionId);
+        if (!rows || rows.length === 0) return null;
+        return { regionId, rows };
+      })
+      .filter((x): x is { regionId: string; rows: typeof filteredRows } => !!x);
+  }, [filteredRows, options]);
 
   // Phase 27 #8: manual refresh bumper. Realtime channels handle
   // most refresh cases but operators want a button when they
@@ -1633,6 +1656,44 @@ function AdminQuotesInner() {
 
           <PageWorkbench />
 
+          {hasMultipleBranches && (
+            <PortalCard className="mb-6 border-brand-primary/20 bg-brand-primary/[0.04]">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Quotes region</p>
+                  <p className="text-xs text-slate-500">Choose a branch to review, or show every region.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRegionFilterId(null)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                      !regionFilterId
+                        ? "border-brand-primary bg-brand-primary text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-brand-primary/40 hover:text-brand-primary"
+                    }`}
+                  >
+                    All regions
+                  </button>
+                  {options.map((option) => (
+                    <button
+                      key={`top-region-filter-${option.id}`}
+                      type="button"
+                      onClick={() => setRegionFilterId(option.id)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        regionFilterId === option.id
+                          ? "border-brand-primary bg-brand-primary text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-brand-primary/40 hover:text-brand-primary"
+                      }`}
+                    >
+                      {option.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </PortalCard>
+          )}
+
           {/* Load-failure recovery card. Sits directly under the
               header so it cannot be missed; Retry re-runs the main
               load effect via refreshTick. */}
@@ -1697,6 +1758,54 @@ function AdminQuotesInner() {
               hint={`Sum of quote totals, ${tileRange.label.toLowerCase()}`}
             />
           </div>
+
+          {viewMode === "list" && hasMultipleBranches && groupedRowsByRegion.length > 1 && (
+            <PortalCard className="mb-6 border-slate-200 bg-slate-50/70">
+              <div className="flex flex-col gap-1 mb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold text-slate-900">Quotes by region</h2>
+                  <span className="text-xs text-slate-500">Jump to a region</span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  All regions in your current filters are shown below. Select one to review it without scrolling through the other branches.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {groupedRowsByRegion.map(({ regionId, rows }) => {
+                  const regionMeta = options.find((o) => o.id === regionId);
+                  const regionLabel = regionMeta?.name || "Company-wide";
+                  const regionTotal = rows.reduce(
+                    (sum, row) => sum + Number(row.quote.total ?? row.quote.subtotal ?? 0),
+                    0,
+                  );
+                  return (
+                    <button
+                      key={`region-nav-${regionId}`}
+                      type="button"
+                      className="group flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-left transition hover:border-brand-primary/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                      onClick={() => {
+                        document.getElementById(`quote-region-${regionId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                    >
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-2">
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-brand-primary" />
+                          <span className="truncate text-sm font-semibold text-slate-900 group-hover:text-brand-primary">{regionLabel}</span>
+                        </span>
+                        <span className="mt-1 block pl-4 text-xs text-slate-500">
+                          {rows.length} quote{rows.length === 1 ? "" : "s"}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-slate-700">
+                        {fmtMoney.format(regionTotal)}
+                        <span className="ml-1 text-slate-400" aria-hidden="true">-&gt;</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </PortalCard>
+          )}
 
           {/* Command-centre restructure (2026-07-02): search, view
               toggle, bucket pills and saved views were four scattered
@@ -1963,61 +2072,82 @@ function AdminQuotesInner() {
                 </CardContent>
               </Card>
             ) : (
-              filteredRows.map((rs) => {
-                const quote = rs.quote;
-                const intel = rs.intelligence;
-                const auto = rs.autoEmail;
-                const canCompose = !!quote.client_email && quote.status !== "draft";
-                const composeHint = !quote.client_email
-                  ? "No email on this quote, add one to enable compose"
-                  : quote.status === "draft"
-                    ? "Send the quote first, then you can follow up"
-                    : "Open a follow-up draft in Gmail / Outlook / mail app";
-                // Resolve the diary signal off the authoritative event
-                // date when the quote has converted - a postponed
-                // order should land on the new date, not the original
-                // enquiry date.
-                const resolved = resolvedByQuoteId.get(quote.id) || null;
-                const diary = computeDiarySignal(resolved?.eventDate ?? quote.event_date, diaryIndex, quote.id);
-                const diaryTone = DIARY_TONE[diary.status];
-                // We only nudge the team to send a sweetener on quotes that
-                // are still in play. There's no point offering a discount
-                // on a won, lost or expired quote.
-                const sweetenerEligible =
-                  diary.sweetenerWorthwhile &&
-                  canCompose &&
-                  ["sent", "pending"].includes((quote.status || "").toLowerCase()) &&
-                  intel.bucket !== "won" &&
-                  intel.bucket !== "lost";
-                const followup = followupByQuote[quote.id];
-                // Authoritative event details for the row. When the
-                // quote has converted to an order, those numbers are
-                // the source of truth; otherwise we fall back to the
-                // quote row itself. `resolved` was set above for the
-                // diary signal - reuse it here.
-                const displayEventDate = resolved?.eventDate ?? quote.event_date ?? null;
-                const displayGuestCount = resolved?.guestCount ?? quote.guest_count ?? null;
-                const displayTotal = resolved?.totalAmount ?? (quote.total ?? 0);
+              groupedRowsByRegion.map(({ regionId, rows }) => {
+                const regionMeta = options.find((o) => o.id === regionId) || null;
+                const regionLabel = regionMeta?.name || "Company-wide";
+                const regionCount = rows.length;
+                const regionTotal = rows.reduce((sum, rs) => {
+                  const quote = rs.quote;
+                  return sum + Number(quote.total ?? quote.subtotal ?? 0);
+                }, 0);
                 return (
-                  <Card
-                    key={quote.id}
-                    id={`quote-${quote.id}`}
-                    className={`hover:shadow-lg transition-all scroll-mt-24 ${
-                      // Deep-link focus wins over the urgency rings so
-                      // the user instantly sees which quote they were
-                      // pointed at by the notification.
-                      focusedQuoteId === quote.id
-                        ? "ring-4 ring-brand-primary/40 ring-offset-2"
-                        : intel.tone === "urgent"
-                          ? "ring-2 ring-rose-300"
-                          : intel.isClientRequest
-                            ? "ring-2 ring-brand-primary/20"
-                            : intel.bucket === "stale"
-                              ? "ring-2 ring-amber-300"
-                              : ""
-                    }`}
-                  >
-                    <CardContent className="p-4 sm:p-6">
+                  <div id={`quote-region-${regionId}`} key={regionId} className="scroll-mt-24 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-semibold text-slate-900">{regionLabel}</h3>
+                        <RegionBadge regionId={regionId === "__company__" ? null : regionId} alwaysShow />
+                        <span className="text-xs text-slate-500 tabular-nums">{regionCount} quote{regionCount === 1 ? "" : "s"}</span>
+                      </div>
+                      <div className="text-xs text-slate-500 tabular-nums">
+                        Total {fmtMoney.format(regionTotal)}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {rows.map((rs) => {
+                        const quote = rs.quote;
+                        const intel = rs.intelligence;
+                        const auto = rs.autoEmail;
+                        const canCompose = !!quote.client_email && quote.status !== "draft";
+                        const composeHint = !quote.client_email
+                          ? "No email on this quote, add one to enable compose"
+                          : quote.status === "draft"
+                            ? "Send the quote first, then you can follow up"
+                            : "Open a follow-up draft in Gmail / Outlook / mail app";
+                        // Resolve the diary signal off the authoritative event
+                        // date when the quote has converted - a postponed
+                        // order should land on the new date, not the original
+                        // enquiry date.
+                        const resolved = resolvedByQuoteId.get(quote.id) || null;
+                        const diary = computeDiarySignal(resolved?.eventDate ?? quote.event_date, diaryIndex, quote.id);
+                        const diaryTone = DIARY_TONE[diary.status];
+                        // We only nudge the team to send a sweetener on quotes that
+                        // are still in play. There's no point offering a discount
+                        // on a won, lost or expired quote.
+                        const sweetenerEligible =
+                          diary.sweetenerWorthwhile &&
+                          canCompose &&
+                          ["sent", "pending"].includes((quote.status || "").toLowerCase()) &&
+                          intel.bucket !== "won" &&
+                          intel.bucket !== "lost";
+                        const followup = followupByQuote[quote.id];
+                        // Authoritative event details for the row. When the
+                        // quote has converted to an order, those numbers are
+                        // the source of truth; otherwise we fall back to the
+                        // quote row itself. `resolved` was set above for the
+                        // diary signal - reuse it here.
+                        const displayEventDate = resolved?.eventDate ?? quote.event_date ?? null;
+                        const displayGuestCount = resolved?.guestCount ?? quote.guest_count ?? null;
+                        const displayTotal = resolved?.totalAmount ?? (quote.total ?? 0);
+                        return (
+                          <Card
+                            key={quote.id}
+                            id={`quote-${quote.id}`}
+                            className={`hover:shadow-lg transition-all scroll-mt-24 ${
+                              // Deep-link focus wins over the urgency rings so
+                              // the user instantly sees which quote they were
+                              // pointed at by the notification.
+                              focusedQuoteId === quote.id
+                                ? "ring-4 ring-brand-primary/40 ring-offset-2"
+                                : intel.tone === "urgent"
+                                  ? "ring-2 ring-rose-300"
+                                  : intel.isClientRequest
+                                    ? "ring-2 ring-brand-primary/20"
+                                    : intel.bucket === "stale"
+                                      ? "ring-2 ring-amber-300"
+                                      : ""
+                            }`}
+                          >
+                            <CardContent className="p-4 sm:p-6">
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-0">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -2666,6 +2796,10 @@ function AdminQuotesInner() {
                     </CardContent>
                   </Card>
                 );
+              })}
+            </div>
+          </div>
+                );
               })
             )}
           </div>
@@ -3093,7 +3227,11 @@ function AdminQuotesInner() {
         // is rarely stamped - the dialog fell back to a self-fetch on
         // every open. Null still triggers the dialog's own lookup.
         tenantName={companyName || null}
-        quote={sendDialogQuote as QuoteSendDialogQuote | null}
+        quote={{
+          ...(sendDialogQuote as QuoteSendDialogQuote),
+          menu_items: (sendDialogQuote as any)?.menu_items ?? null,
+          equipment_items: (sendDialogQuote as any)?.equipment_items ?? null,
+        }}
         availableQuotes={
           sendDialogQuote
             ? (quotes.filter(

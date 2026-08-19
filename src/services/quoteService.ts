@@ -579,6 +579,20 @@ export const quoteService = {
           day: "numeric", month: "long", year: "numeric",
         })
       : "";
+    const buildBreakdown = (items: any[] | null | undefined): string => {
+      if (!Array.isArray(items) || items.length === 0) return "";
+      return items.map((item, index) => {
+        const name = item?.name || item?.item_name || item?.menu_item_name || item?.equipment_name || `Item ${index + 1}`;
+        const qty = Number(item?.quantity ?? item?.qty ?? 1);
+        const unit = Number(item?.unit_price ?? item?.unitPrice ?? item?.pricePerPerson ?? item?.price_per_person ?? item?.base_price ?? item?.price ?? item?.rentalPrice ?? item?.rental_price ?? 0);
+        const total = Number(item?.total ?? item?.line_total ?? item?.lineTotal ?? qty * unit);
+        return `- ${name}: ${qty} x ${fmtMoney(unit, currencyCode)} = ${fmtMoney(total, currencyCode)}`;
+      }).join("\n");
+    };
+    const equipmentBreakdown = [
+      buildBreakdown(Array.isArray((q as any).menu_items) ? (q as any).menu_items : null),
+      buildBreakdown(Array.isArray((q as any).equipment_items) ? (q as any).equipment_items : null),
+    ].filter(Boolean).join("\n");
 
     // Build the public quote link so templates can include {{quote_url}}.
     // Browser caller (Save & Send runs client-side): trust the tab's
@@ -642,6 +656,7 @@ export const quoteService = {
           quote_url:    quoteUrl,
           total:        totalFormatted,
           total_zar:    totalFormatted,
+          equipment_breakdown: equipmentBreakdown,
         },
       }),
     });

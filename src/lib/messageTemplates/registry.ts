@@ -136,6 +136,7 @@ const QUOTE_VARS: TemplateVariable[] = [
   { name: "quote_number",  description: "Quote number",                         example: "QUO-000051" },
   { name: "total",         description: "Quote total (formatted as R12,345)",    example: "R12,345" },
   { name: "total_zar",     description: "Quote total in ZAR, no decimals",       example: "R 12 345" },
+  { name: "equipment_breakdown", description: "Equipment line breakdown with qty x price = total", example: "2 x R 450.00 = R 900.00" },
   { name: "quote_url",     description: "Link for the client to view + accept the quote", example: "https://cateringms.com/.../q/abc123" },
   { name: "guest_count",   description: "Number of guests",                      example: "30" },
 ];
@@ -463,6 +464,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Thank you for the opportunity to quote on {{event_name}}. Your quote {{quote_number}} is ready, and the total comes to {{total}} including VAT.\n\n` +
+      `{{equipment_breakdown}}\n\n` +
       `You can view the full breakdown and accept your quote here:\n{{quote_url}}\n\n` +
       `Please have a look when you get a chance and let me know if anything needs changing. I am happy to adjust the menu or talk through the options on a quick call.\n\nKind regards,\n{{from_name}}`,
     variables: QUOTE_VARS,
@@ -478,6 +480,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Thank you for your patience. I have updated your quote {{quote_number}} for {{event_name}} based on what we last discussed, and the new total comes to {{total}} including VAT.\n\n` +
+      `{{equipment_breakdown}}\n\n` +
       `You can view the updated quote here:\n{{quote_url}}\n\n` +
       `Please take a look when you can and let me know if anything still needs tweaking. Happy to make further changes.\n\nKind regards,\n{{from_name}}`,
     variables: QUOTE_VARS,

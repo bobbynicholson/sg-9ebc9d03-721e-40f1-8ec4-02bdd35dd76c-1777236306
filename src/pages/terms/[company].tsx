@@ -31,6 +31,48 @@ interface CompanyTermsProps {
 const SAFE_COLS =
   "id, slug, company_name, logo_url, primary_color, email, phone, terms_and_conditions";
 
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+const renderClientTermsHtml = (value: string): string => {
+  const source = String(value || "");
+  if (!source.trim()) return "";
+
+  if (!/<[^>]+>/.test(source)) {
+    return source
+      .replace(/\r\n/g, "\n")
+      .split(/\n{2,}/)
+      .map((block) => `<p>${escapeHtml(block.trim()).replace(/\n/g, "<br />")}</p>`)
+      .join("");
+  }
+
+  return source
+    .replace(/<\s*(strong|b)\b[^>]*>/gi, "\u0001BOLD_START\u0001")
+    .replace(/<\s*\/\s*(strong|b)\s*>/gi, "\u0001BOLD_END\u0001")
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*\/\s*(p|div|li|h[1-6])\s*>/gi, "\n\n")
+    .replace(/<\s*(p|div|li|h[1-6])\b[^>]*>/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const html = block
+        .replace(/\u0001BOLD_START\u0001([\s\S]*?)\u0001BOLD_END\u0001/g, (_, text) => `<strong>${escapeHtml(String(text))}</strong>`)
+        .replace(/\*\*([^*\n][\s\S]*?[^*\n]|\S)\*\*/g, (_, text) => `<strong>${escapeHtml(String(text))}</strong>`);
+      return `<p>${escapeHtml(html).replace(/&lt;strong&gt;/g, "<strong>").replace(/&lt;\/strong&gt;/g, "</strong>").replace(/\n/g, "<br />")}</p>`;
+    })
+    .join("");
+};
+
 export const getServerSideProps: GetServerSideProps<CompanyTermsProps> = async (
   ctx,
 ) => {
@@ -122,9 +164,10 @@ export default function CompanyTermsPage({
         <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
           {terms ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <p className="whitespace-pre-wrap text-[15px] leading-7 text-slate-700">
-                {terms}
-              </p>
+              <div
+                className="space-y-4 text-[15px] leading-7 text-slate-700 [&_strong]:font-semibold [&_strong]:text-slate-900"
+                dangerouslySetInnerHTML={{ __html: renderClientTermsHtml(terms) }}
+              />
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">

@@ -242,12 +242,12 @@ export const googleMapsService = {
   async calculateDistance(origin: string, destination: string): Promise<{
     distance: number;
     duration: number;
-  }> {
+  } | null> {
     try {
       await this.initializeGoogleMaps();
 
       if (!(window as any).google) {
-        throw new Error("Google Maps not initialized");
+        return null;
       }
 
       const distanceMatrixService = new (window as any).google.maps.DistanceMatrixService();
@@ -272,7 +272,7 @@ export const googleMapsService = {
       const element = result.rows[0].elements[0];
 
       if (element.status !== "OK") {
-        throw new Error("Unable to calculate distance");
+        return null;
       }
 
       return {
@@ -281,7 +281,7 @@ export const googleMapsService = {
       };
     } catch (error) {
       console.error("Error calculating distance:", error);
-      throw error;
+      return null;
     }
   },
 
@@ -291,7 +291,9 @@ export const googleMapsService = {
     ratePerKm: number
   ): Promise<number> {
     try {
-      const { distance } = await this.calculateDistance(kitchenAddress, venueAddress);
+      const result = await this.calculateDistance(kitchenAddress, venueAddress);
+      if (!result) return 0;
+      const { distance } = result;
       const kilometers = distance / 1000;
       const deliveryFee = kilometers * ratePerKm;
       

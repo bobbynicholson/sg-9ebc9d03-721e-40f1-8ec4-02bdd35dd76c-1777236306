@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
-  Save, AlertCircle, ShieldAlert, Plus, Trash2, Calendar, Receipt, Users,
+  Save, AlertCircle, ShieldAlert, Plus, Trash2, Calendar, Receipt, Users, Bold,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { sanitizeClientTermsHtml } from "@/lib/clientTermsFormatting";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import {
@@ -64,6 +64,12 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
   const [error, setError] = useState("");
   const [policy, setPolicy] = useState<CancellationPolicy>(DEFAULT_POLICY);
   const [terms, setTerms] = useState<string>("");
+  const termsEditorRef = useRef<HTMLDivElement | null>(null);
+  const [selectionHint, setSelectionHint] = useState<{
+    visible: boolean;
+    top: number;
+    left: number;
+  }>({ visible: false, top: 0, left: 0 });
   const [confidentialityNotice, setConfidentialityNotice] = useState<string>(
     DEFAULT_CONFIDENTIALITY_NOTICE,
   );
@@ -125,6 +131,46 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
     });
   };
 
+  const applyBoldToTerms = () => {
+    const editor = termsEditorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      document.execCommand("bold");
+      setTerms(editor.innerHTML);
+      return;
+    }
+
+    document.execCommand("bold");
+    setTerms(editor.innerHTML);
+    setSelectionHint((current) => ({ ...current, visible: false }));
+  };
+
+  const syncSelectionHint = () => {
+    const editor = termsEditorRef.current;
+    if (!editor) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      setSelectionHint((current) => (current.visible ? { ...current, visible: false } : current));
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) {
+      setSelectionHint((current) => (current.visible ? { ...current, visible: false } : current));
+      return;
+    }
+
+    const rect = range.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    const top = Math.max(8, rect.top - editorRect.top - 48);
+    const left = Math.max(8, rect.left - editorRect.left);
+    setSelectionHint({ visible: true, top, left });
+  };
+
   const handleSave = async () => {
     if (!companyId) { setError("No company on your profile."); return; }
 
@@ -156,11 +202,12 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
     try {
       // Persist sorted shape so the RPC iteration order is predictable.
       const sorted = sortedTiers;
+      const cleanTerms = sanitizeClientTermsHtml(terms);
       const { error } = await supabase
         .from("companies")
         .update({
           cancellation_policy: { ...policy, deposit_refund_tiers: sorted },
-          terms_and_conditions: terms,
+          terms_and_conditions: cleanTerms,
           confidentiality_notice: cleanNotice,
         } as any)
         .eq("id", companyId);
@@ -172,6 +219,18 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    if (termsEditorRef.current) {
+      termsEditorRef.current.innerHTML = sanitizeClientTermsHtml(terms);
+    }
+  }, [companyId, loading]);
+
+  useEffect(() => {
+    const onSelectionChange = () => syncSelectionHint();
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => document.removeEventListener("selectionchange", onSelectionChange);
+  }, []);
 
   if (loading) {
     return (
@@ -187,17 +246,63 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
         <CardHeader>
           <CardTitle>Client terms &amp; conditions</CardTitle>
         </CardHeader>
-        <CardContent className="pt-6 space-y-2">
-          <Textarea
-            rows={10}
-            placeholder={"Paste your terms and conditions here. The structured cancellation policy below is enforced automatically; this text gives the client the rest of your booking terms in your own words."}
-            value={terms}
-            onChange={(e) => setTerms(e.target.value)}
-          />
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 bg-white"
+              onClick={applyBoldToTerms}
+              title="Bold selected text"
+              aria-label="Bold selected text"
+            >
+              <Bold className="h-4 w-4" />
+              Bold
+            </Button>
+          </div>
+          <div className="relative">
+            <div
+              ref={termsEditorRef}
+              role="textbox"
+              aria-multiline="true"
+              contentEditable
+              suppressContentEditableWarning
+              onInput={(e) => setTerms((e.currentTarget as HTMLDivElement).innerHTML)}
+              onMouseUp={syncSelectionHint}
+              onKeyUp={syncSelectionHint}
+              onBlur={() => setSelectionHint((current) => ({ ...current, visible: false }))}
+              className="min-h-[260px] rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 [&_strong]:font-semibold [&_strong]:text-slate-950"
+            />
+            {selectionHint.visible && (
+              <div
+                className="absolute z-10"
+                style={{ top: selectionHint.top, left: selectionHint.left }}
+              >
+                <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 shadow-lg">
+                  <span className="text-xs text-slate-500">Bold this text?</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={applyBoldToTerms}
+                  >
+                    Bold
+                  </Button>
+                </div>
+              </div>
+            )}
+            {!terms.trim() && (
+              <div className="pointer-events-none absolute left-3 top-2 text-sm leading-6 text-slate-400">
+                Paste your terms and conditions here. Highlight a heading and click Bold.
+              </div>
+            )}
+          </div>
           <p className="text-xs text-slate-500">
-            Published verbatim on the caterer-specific terms page linked from
-            emails, quotes, invoices, receipts and the client portal. Leave it
-            blank and clients see a &quot;contact us for terms&quot; placeholder.
+            Published on the caterer-specific terms page linked from emails,
+            quotes, invoices, receipts and the client portal. Leave it blank and
+            clients see a &quot;contact us for terms&quot; placeholder.
           </p>
         </CardContent>
       </Card>
@@ -207,12 +312,13 @@ export function CancellationPolicyTab({ companyId: companyIdProp }: Props = {}) 
           <CardTitle>Email confidentiality notice</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-2">
-          <Textarea
+          <textarea
             rows={7}
             maxLength={MAX_CONFIDENTIALITY_NOTICE_LENGTH}
             placeholder={DEFAULT_CONFIDENTIALITY_NOTICE}
             value={confidentialityNotice}
             onChange={(e) => setConfidentialityNotice(e.target.value)}
+            className="flex min-h-[80px] w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
           />
           <div className="flex items-start justify-between gap-4 text-xs text-slate-500">
             <p>

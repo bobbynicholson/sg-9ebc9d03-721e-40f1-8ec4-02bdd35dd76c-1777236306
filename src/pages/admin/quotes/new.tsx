@@ -425,6 +425,7 @@ function NewQuotePage() {
    *  to the first available kitchen on load; operator switches via
    *  the picker when the company has more than one branch. */
   const [kitchenId, setKitchenId] = useState<string | null>(null);
+  const quoteHydratedRef = useRef(false);
   // True once the operator MANUALLY switches kitchen/branch (not the
   // auto-default selection, not the saved-quote load). Gates whether the
   // branch-settings effect is allowed to overwrite the saved delivery
@@ -437,10 +438,10 @@ function NewQuotePage() {
   // Default the picker to the first kitchen once they load. Re-runs
   // if the operator's company switches (super_admin scenario).
   useEffect(() => {
-    if (!kitchenId && kitchens.length > 0) {
+    if (!kitchenId && kitchens.length > 0 && (!fromQuoteId || quoteHydratedRef.current)) {
       setKitchenId(kitchens[0].id);
     }
-  }, [kitchens, kitchenId]);
+  }, [kitchens, kitchenId, fromQuoteId]);
 
   // Capacity-based kitchen suggestion. Triggers whenever the event
   // date or the set of available kitchens changes. The hint appears
@@ -833,6 +834,7 @@ function NewQuotePage() {
       if (cancelled) return;
 
       // 1) Hydrate from the saved quote.
+      quoteHydratedRef.current = true;
       hydrateFromQuote(data);
       setQuoteId(data.id);
       setQuoteNumber(data.quote_number);
@@ -920,6 +922,16 @@ function NewQuotePage() {
     setClientName(q.client_name || "");
     setEmail(q.client_email || "");
     if (q.client_phone) setPhone(q.client_phone);
+    // Restore the saved kitchen/region so the picker and buildPayload
+    // both reflect the original branch (Pic 108 region-reset fix).
+    // Must run before any other state restore so the branch-settings
+    // effect reads the right region from the start. Setting
+    // kitchenManualRef=true prevents the branch-settings effect from
+    // clobbering the saved delivery rate with the branch default.
+    if (q.region_id) {
+      setKitchenId(q.region_id);
+      kitchenManualRef.current = true;
+    }
     if (q.event_date) setEventDate(q.event_date);
     // event_time on the quote is HH:MM (or HH:MM:SS); the <input
     // type="time"> only accepts HH:MM so trim seconds if present.
@@ -1102,55 +1114,92 @@ function NewQuotePage() {
     return () => { cancelled = true; clearTimeout(handle); };
   }, [venueAddress, venueLat, venueLng]);
 
-  // ── Auto-distance from selected kitchen to venue (haversine). ────
-  // Triggers whenever venueLat/Lng changes (set by AddressAutocomplete
-  // on pick) OR the operator switches kitchen via the picker.
+  // ── Auto-distance from selected kitchen to venue (road distance). ──
+  // Uses Google Distance Matrix (actual driving km) when the Maps key
+  // is configured and both kitchen + venue addresses are known.
+  // Falls back to the Haversine straight-line formula when:
+  //   - Google Maps isn't loaded / key not set
+  //   - address strings aren't available but lat/lng are
+  // This gives accurate road-distance pricing (avoids systematic
+  // undercharging on routes with rivers, mountains, or highways).
   //
-  // havInitRef guards the FIRST run after mount so reopening a quote
-  // with a saved flat-fee override doesn't have the override cleared
-  // by the loader-triggered distance recompute. Real subsequent
-  // changes (operator picks a new kitchen / venue on this session)
-  // still clear the override and re-enable auto-fee.
+  // havInitRef guards the FIRST run after mount so reopening a saved
+  // quote with a flat-fee override doesn't clear it via a loader-
+  // triggered distance recompute. Real user-driven changes (switching
+  // kitchen or picking a new venue) still re-run and clear the override.
   const havInitRef = useRef(false);
   useEffect(() => {
     if (
       !selectedKitchen ||
       typeof venueLat !== "number" || typeof venueLng !== "number"
     ) return;
-    const R = 6371;
-    const toRad = (d: number) => (d * Math.PI) / 180;
-    const dLat = toRad(venueLat - selectedKitchen.lat);
-    const dLng = toRad(venueLng - selectedKitchen.lng);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(selectedKitchen.lat)) *
-        Math.cos(toRad(venueLat)) *
-        Math.sin(dLng / 2) ** 2;
-    const km = 2 * R * Math.asin(Math.sqrt(a));
-    const kmRounded = Number(km.toFixed(2));
-    // Collection is the same kitchen <-> venue leg as delivery (the
-    // team drives back to collect equipment), so it shares the exact
-    // same one-way distance. We have the address + kitchen coords, so
-    // fill BOTH automatically instead of making the operator retype
-    // the collection distance by hand.
-    if (havInitRef.current) {
-      // Real user-driven change: switching kitchen / picking new
-      // address recomputes the distance + re-enables auto-fee.
-      setDeliveryDistance(kmRounded);
-      setDeliveryFeeOverridden(false);
-      setCollectionDistance(kmRounded);
-      setCollectionFeeOverridden(false);
-    } else {
-      // First run after mount. For a NEW quote, set the computed
-      // distance. For an EDITED quote, keep the SAVED distance so
-      // reopening doesn't reset the fee to the auto value (Pic 64).
-      havInitRef.current = true;
-      if (!fromQuoteId) {
+
+    let cancelled = false;
+
+    const applyDistance = (kmRounded: number) => {
+      if (cancelled) return;
+      if (havInitRef.current) {
+        // Real user-driven change: re-enable auto-fee.
         setDeliveryDistance(kmRounded);
+        setDeliveryFeeOverridden(false);
         setCollectionDistance(kmRounded);
+        setCollectionFeeOverridden(false);
+      } else {
+        // First run after mount. For a NEW quote set the computed
+        // distance; for an EDITED quote keep the saved distance so
+        // reopening doesn't silently reprice (Pic 64).
+        havInitRef.current = true;
+        if (!fromQuoteId) {
+          setDeliveryDistance(kmRounded);
+          setCollectionDistance(kmRounded);
+        }
       }
+    };
+
+    // Haversine straight-line fallback (always available).
+    const haversineKm = (() => {
+      const R = 6371;
+      const toRad = (d: number) => (d * Math.PI) / 180;
+      const dLat = toRad(venueLat - selectedKitchen.lat);
+      const dLng = toRad(venueLng - selectedKitchen.lng);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(selectedKitchen.lat)) *
+          Math.cos(toRad(venueLat)) *
+          Math.sin(dLng / 2) ** 2;
+      return Number((2 * R * Math.asin(Math.sqrt(a))).toFixed(2));
+    })();
+
+    // Try Google Distance Matrix first for accurate road distance.
+    // Build the best available origin string (address preferred;
+    // coord string as fallback when address is null).
+    const kitchenOrigin =
+      selectedKitchen.address ||
+      `${selectedKitchen.lat},${selectedKitchen.lng}`;
+    const venueDestination = venueAddress.trim() || `${venueLat},${venueLng}`;
+
+    if (kitchenOrigin && venueDestination) {
+      googleMapsService.calculateDistance(kitchenOrigin, venueDestination)
+        .then((result) => {
+          if (cancelled) return;
+          if (!result) {
+            applyDistance(haversineKm);
+            return;
+          }
+          // result.distance is in metres from the Distance Matrix API.
+          const roadKm = Number((result.distance / 1000).toFixed(2));
+          applyDistance(roadKm);
+        })
+        .catch(() => {
+          // Google Maps unavailable or API key not set — fall back to haversine.
+          if (!cancelled) applyDistance(haversineKm);
+        });
+    } else {
+      applyDistance(haversineKm);
     }
-  }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, venueLat, venueLng]);
+
+    return () => { cancelled = true; };
+  }, [selectedKitchen?.id, selectedKitchen?.lat, selectedKitchen?.lng, selectedKitchen?.address, venueLat, venueLng, venueAddress]);
 
   // ── Auto-fee from distance × 2 (round-trip) × per-km, floored at
   // min fee. The ×2 covers the return leg - a venue 10km away costs
@@ -3645,7 +3694,11 @@ function NewQuotePage() {
             if (!open) setSendDialogQuote(null);
           }}
           companyId={companyId}
-          quote={sendDialogQuote}
+          quote={{
+            ...sendDialogQuote,
+            menu_items: (sendDialogQuote as any)?.menu_items ?? null,
+            equipment_items: (sendDialogQuote as any)?.equipment_items ?? null,
+          }}
           tenantName={null}
           onSent={() => {
             setSendDialogQuote(null);

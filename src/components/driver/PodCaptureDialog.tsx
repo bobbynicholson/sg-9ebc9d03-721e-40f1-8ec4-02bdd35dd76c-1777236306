@@ -13,6 +13,8 @@ import {
   clearPendingPodCapture,
   markPodCapturePending,
 } from "@/lib/podCaptureRecovery";
+import { SmoothCompletionCelebration } from "@/components/SmoothCompletionCelebration";
+import { gamificationService } from "@/services/gamificationService";
 
 /**
  * localStorage key marking a POD capture in progress. Written when the
@@ -45,6 +47,8 @@ interface Props {
   title?: string;
   /** Keeps interrupted-camera recovery in the workflow that opened it. */
   recoveryFlow?: "status" | "direct";
+  /** Order number shown in the celebration dialog after a successful POD save. */
+  orderNumber?: string;
 }
 
 /**
@@ -53,13 +57,14 @@ interface Props {
  * pod_signature_url + pod_recipient_name + pod_captured_at on the order
  * row plus marks status delivered.
  */
-export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSaved, onCapture, title, recoveryFlow = "direct" }: Props) {
+export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSaved, onCapture, title, recoveryFlow = "direct", orderNumber }: Props) {
   const { toast } = useToast();
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [recipientName, setRecipientName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [celebrationOpen, setCelebrationOpen] = useState(false);
 
   // Signature pad state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -264,6 +269,19 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
       emitOrderUpdated(orderId, "driver:pod-upload", ["status"]);
       clearPendingMarker();
       onOpenChange(false);
+
+      // Award gamification points and fire the celebration dialog.
+      // Both are best-effort — a failure here must never block the POD save.
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser?.id) {
+          await gamificationService.awardActionPoints(authUser.id, "order_completed", orderId);
+        }
+      } catch (gErr) {
+        console.warn("[PodCaptureDialog] gamification award failed (non-blocking):", gErr);
+      }
+      setCelebrationOpen(true);
+
       onSaved?.();
     } catch (e: any) {
       console.error(e);
@@ -274,6 +292,7 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="max-w-md max-h-[90vh] overflow-y-auto"
@@ -391,5 +410,16 @@ export function PodCaptureDialog({ open, onOpenChange, orderId, clientName, onSa
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+      {/* Celebration dialog — renders outside the POD dialog so it
+          survives after the POD dialog closes on save. */}
+      <SmoothCompletionCelebration
+        isOpen={celebrationOpen}
+        onClose={() => setCelebrationOpen(false)}
+        orderNumber={orderNumber || orderId.slice(0, 8).toUpperCase()}
+        clientName={clientName || ""}
+        userRole="driver"
+      />
+    </>
   );
 }

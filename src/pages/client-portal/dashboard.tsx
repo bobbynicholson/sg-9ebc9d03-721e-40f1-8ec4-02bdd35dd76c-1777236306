@@ -459,9 +459,11 @@ function ClientPortalDashboardInner() {
   // can be "Bobby Nicholson" on Spit Braai's books and "Tollie Le
   // Roux" on the auth side - the greeting in this catering company's
   // portal should say what THIS catering company calls them.
+  // Fallback chain: client_name → full_name → email prefix → "there"
   const [clientName, setClientName] = useState<string | null>(null);
   const firstName = (
-    clientName || profile?.full_name || user?.full_name || ""
+    clientName || profile?.full_name || user?.full_name
+    || user?.email?.split("@")[0] || ""
   ).split(" ")[0] || "there";
 
   // Canonical clients.id for THIS tenant. Used as the FK target when the

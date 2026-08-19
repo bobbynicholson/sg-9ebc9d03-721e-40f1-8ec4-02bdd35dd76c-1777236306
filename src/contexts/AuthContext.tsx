@@ -423,10 +423,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
           const roleValue = derivedRoles.roles[0] || UserRole.CLIENT;
 
+          // Strip email-as-name: some client accounts were created with
+          // the email address stored in full_name. Detect by checking if
+          // the stored value looks like an email and fall back to empty
+          // so the UI shows the placeholder / email fallback instead.
+          const rawName = userProfile.full_name || "";
+          const nameIsEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawName.trim());
+          const resolvedFullName = nameIsEmail ? "" : rawName;
+
           const authenticatedUser: AuthenticatedUser = {
             id: session.user.id,
             email: session.user.email || "",
-            full_name: userProfile.full_name || "",
+            full_name: resolvedFullName,
             role: roleValue,
             active_role: derivedRoles.activeRole,
             avatar_url: userProfile.avatar_url || "",
@@ -441,7 +449,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
 
           setUser(authenticatedUser);
-          setProfile(userProfile as DbProfile);
+          // Clean the profile's full_name the same way we cleaned
+          // the authenticatedUser above — so profile?.full_name
+          // call sites (dashboard, my-orders, etc.) also get the
+          // sanitised value rather than the raw email-as-name.
+          const cleanedProfile = nameIsEmail
+            ? { ...userProfile, full_name: "" }
+            : userProfile;
+          setProfile(cleanedProfile as DbProfile);
           setCompany(userCompany);
           setUserRoles(derivedRoles.roles);
           setActiveRole(derivedRoles.activeRole);

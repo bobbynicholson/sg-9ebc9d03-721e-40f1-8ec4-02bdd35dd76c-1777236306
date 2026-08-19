@@ -27,6 +27,7 @@ import {
   Link,
 } from "@react-pdf/renderer";
 import { buildCompanyTermsUrl } from "@/lib/companyLegal";
+import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
 
 // --- Types -----------------------------------------------------------------
 
@@ -62,6 +63,9 @@ export interface QuotePdfData {
   delivery_fee?: number | null;
   delivery_distance_km?: number | null;
   delivery_rate_per_km?: number | null;
+  collection_fee?: number | null;
+  collection_distance_km?: number | null;
+  collection_rate_per_km?: number | null;
   discount_amount?: number | null;
   tax_amount?: number | null;
   total: number;
@@ -186,6 +190,20 @@ const joinFooterParts = (parts: Array<string | null | undefined>): string =>
     .map((part) => (part == null ? "" : String(part).trim()))
     .filter(Boolean)
     .join(" | ");
+
+const renderPdfTerms = (terms: string, styles: ReturnType<typeof buildStyles>) =>
+  parseClientTermsBlocks(terms).map((block, blockIndex) => (
+    <Text key={`terms-block-${blockIndex}`} style={styles.terms}>
+      {block.map((segment, segmentIndex) => (
+        <Text
+          key={`terms-segment-${blockIndex}-${segmentIndex}`}
+          style={segment.bold ? { fontFamily: "Helvetica-Bold", color: "#1c1917" } : undefined}
+        >
+          {segment.text}
+        </Text>
+      ))}
+    </Text>
+  ));
 
 // --- Styles factory --------------------------------------------------------
 
@@ -440,6 +458,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
   const equipmentItems = Array.isArray(data.equipment_items) ? data.equipment_items : [];
 
   const deliveryFee = Number(data.delivery_fee || 0);
+  const collectionFee = Number(data.collection_fee || 0);
   const subtotal = Number(data.subtotal || 0);
   const itemsNet = subtotal - deliveryFee;
   const discount = Number(data.discount_amount || 0);
@@ -606,15 +625,11 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 >
                   <View style={styles.lineLeft}>
                     <Text style={styles.lineName}>{name}</Text>
-                    {qty > 1 ? (
-                      <Text style={styles.lineSub}>{qty} x</Text>
-                    ) : null}
+                    <Text style={styles.lineSub}>
+                      {qty} x {fmtZAR(unitPrice)}
+                    </Text>
                   </View>
-                  {lineTotal > 0 ? (
-                    <Text style={styles.lineTotal}>{fmtZAR(lineTotal)}</Text>
-                  ) : (
-                    <Text style={styles.lineTotal}> </Text>
-                  )}
+                  <Text style={styles.lineTotal}>{fmtZAR(lineTotal)}</Text>
                 </View>
               );
             })}
@@ -637,11 +652,11 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
               : itemsNet;
             return (
               <>
-                {deliveryFee > 0 ? (
+                {deliveryFee > 0 || collectionFee > 0 ? (
                   <>
                     <View style={styles.totalsRow}>
                       <Text style={styles.totalsLabel}>Items</Text>
-                      <Text style={styles.totalsValue}>{fmtZAR(itemsLine)}</Text>
+                      <Text style={styles.totalsValue}>{fmtZAR(Math.max(0, itemsLine - collectionFee))}</Text>
                     </View>
                     <View style={styles.totalsRow}>
                       <Text style={styles.totalsLabel}>
@@ -660,6 +675,20 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                       </Text>
                       <Text style={styles.totalsValue}>{fmtZAR(deliveryFee)}</Text>
                     </View>
+                    {collectionFee > 0 ? (
+                      <View style={styles.totalsRow}>
+                        <Text style={styles.totalsLabel}>
+                          {(() => {
+                            const dist = Number(data.collection_distance_km) || 0;
+                            const rate = Number(data.collection_rate_per_km) || 0;
+                            const roundTrip = dist * 2 * rate;
+                            const isFlat = !dist || Math.abs(collectionFee - roundTrip) > 0.01;
+                            return isFlat ? "Collection" : `Collection (${dist.toFixed(1)} km × 2)`;
+                          })()}
+                        </Text>
+                        <Text style={styles.totalsValue}>{fmtZAR(collectionFee)}</Text>
+                      </View>
+                    ) : null}
                   </>
                 ) : null}
                 {!incVat ? (
@@ -711,7 +740,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 <Text style={styles.sectionLabel} minPresenceAhead={36}>
                   Terms
                 </Text>
-                <Text style={styles.terms}>{data.terms_and_conditions}</Text>
+                {renderPdfTerms(data.terms_and_conditions, styles)}
               </>
             ) : null}
             {validUntil ? (

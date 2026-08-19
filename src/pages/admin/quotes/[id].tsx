@@ -1501,6 +1501,8 @@ function AdminQuoteDetailInner() {
             quote_name: (quote as any).quote_name ?? null,
             user_id: (quote as any).user_id ?? null,
             public_token: (quote as any).public_token ?? null,
+            menu_items: (quote as any).menu_items ?? null,
+            equipment_items: (quote as any).equipment_items ?? null,
             // TIGHTEN I.128: forward guest count + event date + the
             // converted flag so the body reflects the live booking.
             guest_count: (quote as any).guest_count ?? null,

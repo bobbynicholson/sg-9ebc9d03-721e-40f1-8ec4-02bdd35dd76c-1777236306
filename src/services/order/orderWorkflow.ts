@@ -859,16 +859,49 @@ export async function updateOrderStatus(
       }
     }
 
-    // Auto-flip delivered -> completed once after-event window passes.
-    // Flow audit Leg F P0-3: completeOrder() flips to "delivered" not
-    // "completed", and there was no other auto-completion path - so
-    // every order sat at delivered indefinitely, the after-sales
-    // sequence (which keys on completed) never fired. Trigger a
-    // delayed transition here. For now, fire it synchronously when the
-    // operator explicitly marks the order completed via the dedicated
-    // workflow path - separate from the auto-fire on delivery. The
-    // cron path lives in /api/cron/auto-complete-delivered (added in
-    // companion change).
+    // Award gamification points to the assigned driver on delivery
+    // and to all relevant parties on completion. Best-effort — a
+    // failure here must never block the status flip or any other
+    // side-effect (same pattern as notifications / audit_logs).
+    if ((newStatus === "delivered" || newStatus === "completed") && order.company_id) {
+      try {
+        const { gamificationService } = await import("@/services/gamificationService");
+        const driverId = (order as any).assigned_driver_id || (order as any).driver_id;
+
+        if (newStatus === "delivered" && driverId) {
+          // Check if delivery was on time for bonus points.
+          const deliveryTime = (order as any).delivery_time || (order as any).event_time;
+          const eventDate = (order as any).event_date;
+          let isOnTime = false;
+          if (deliveryTime && eventDate) {
+            const scheduled = new Date(`${eventDate}T${deliveryTime.slice(0, 5)}:00`);
+            isOnTime = !isNaN(scheduled.getTime()) && new Date() <= scheduled;
+          }
+          const action = isOnTime ? "on_time_delivery" : "order_completed";
+          await gamificationService.awardActionPoints(driverId, action, order.id).catch(
+            (e) => console.warn("[orderWorkflow] gamification award failed:", e),
+          );
+        }
+
+        if (newStatus === "completed" && driverId) {
+          // Perfect order bonus: completed with no damage reports or complaints.
+          // Check for open damage reports on this order.
+          const { data: damages } = await (supabase as any)
+            .from("equipment_damages")
+            .select("id")
+            .eq("order_id", order.id)
+            .limit(1);
+          if (!damages || damages.length === 0) {
+            await gamificationService.awardActionPoints(driverId, "perfect_order", order.id).catch(
+              (e) => console.warn("[orderWorkflow] gamification perfect_order award failed:", e),
+            );
+          }
+        }
+      } catch (gamErr) {
+        console.warn("[orderWorkflow] gamification block crashed (non-blocking):", gamErr);
+      }
+    }
+
     return { success: true, data: order };
   } catch (error: any) {
     console.error("Error updating order status:", error);

@@ -41,6 +41,7 @@ import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { DriverClockButton } from "@/components/driver/DriverClockButton";
 import { DriverStatusDialog } from "@/components/driver/DriverStatusDialog";
 import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
+import { DriverLeaderboardStrip } from "@/components/driver/DriverLeaderboardStrip";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
@@ -971,6 +972,13 @@ function DriverDashboardInner() {
                 hint="Hourly + distance + callout"
               />
             </div>
+
+            {/* Driver leaderboard - shows this month's top drivers.
+                Only renders when there are 2+ drivers to compare. */}
+            <DriverLeaderboardStrip
+              companyId={user?.company_id}
+              currentUserId={user?.id}
+            />
 
             {/* My Deliveries - moved up with the earnings + stats
                 block (ODOC H.9). Every active job carries an "Open

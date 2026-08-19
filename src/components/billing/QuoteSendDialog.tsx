@@ -30,6 +30,22 @@ export interface QuoteSendDialogQuote {
   event_name?: string | null;
   quote_name?: string | null;
   user_id?: string | null;
+  menu_items?: Array<{
+    name?: string | null;
+    item_name?: string | null;
+    menu_item_name?: string | null;
+    quantity?: number | null;
+    qty?: number | null;
+    unit_price?: number | null;
+    unitPrice?: number | null;
+    pricePerPerson?: number | null;
+    price_per_person?: number | null;
+    base_price?: number | null;
+    price?: number | null;
+    total?: number | null;
+    line_total?: number | null;
+    lineTotal?: number | null;
+  }> | null;
   /** TIGHTEN I.111: public token used to build the /q/{token} client
    *  view link that goes into the email body. Required for the link
    *  to render; without it the body falls back to a no-link variant. */
@@ -44,6 +60,20 @@ export interface QuoteSendDialogQuote {
    *  changed. */
   guest_count?: number | null;
   event_date?: string | null;
+  equipment_items?: Array<{
+    name?: string | null;
+    item_name?: string | null;
+    equipment_name?: string | null;
+    quantity?: number | null;
+    qty?: number | null;
+    unit_price?: number | null;
+    unitPrice?: number | null;
+    rentalPrice?: number | null;
+    rental_price?: number | null;
+    total?: number | null;
+    line_total?: number | null;
+    lineTotal?: number | null;
+  }> | null;
   /** True when this quote already has a linked order (i.e. the client
    *  already accepted). The body copy switches from "Here's your
    *  quote" to "I've updated your booking". */
@@ -87,6 +117,28 @@ export interface QuoteSendDialogProps {
 const PLACEHOLDER_EVENT_NAMES = new Set([
   "", "quote", "your event", "n/a", "tbd", "tbc", "untitled",
 ]);
+const buildItemBreakdown = (
+  items: Array<Record<string, any>> | null | undefined,
+  currency: string,
+  kind: "menu" | "equipment",
+): string => {
+  if (!Array.isArray(items) || items.length === 0) return "";
+  return items
+    .map((item, index) => {
+      const name = String(
+        item?.name ||
+        item?.item_name ||
+        item?.menu_item_name ||
+        item?.equipment_name ||
+        `${kind === "menu" ? "Item" : "Equipment"} ${index + 1}`,
+      );
+      const qty = Number(item?.quantity ?? item?.qty ?? 1);
+      const unit = Number(item?.unit_price ?? item?.unitPrice ?? item?.pricePerPerson ?? item?.price_per_person ?? item?.base_price ?? item?.price ?? item?.rentalPrice ?? item?.rental_price ?? 0);
+      const total = Number(item?.total ?? item?.line_total ?? item?.lineTotal ?? qty * unit);
+      return `- ${name}: ${qty} x ${fmtMoney(unit, currency)} = ${fmtMoney(total, currency)}`;
+    })
+    .join("\n");
+};
 function cleanEventName(raw: string | null | undefined): string | null {
   const trimmed = String(raw ?? "").trim();
   if (!trimmed) return null;
@@ -135,6 +187,9 @@ export function QuoteSendDialog({
   // subject render the same shape ("R 3 602" / "$3,602"). Previously
   // built "ZAR 3601.71" with no symbol or separator.
   const totalLabel = fmtMoney(total, currency) || `${currency} ${total.toFixed(2)}`;
+  const menuBreakdown = buildItemBreakdown(quote?.menu_items, currency, "menu");
+  const equipmentBreakdown = buildItemBreakdown(quote?.equipment_items, currency, "equipment");
+  const combinedBreakdown = [menuBreakdown, equipmentBreakdown].filter(Boolean).join("\n");
   const quoteUrl =
     quote?.public_token && typeof window !== "undefined"
       ? buildPublicQuoteUrl(quote.public_token, fetchedSlug)
@@ -177,13 +232,12 @@ export function QuoteSendDialog({
     ? new Date(String(quote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
   const isConverted = !!quote?.is_converted;
-  const quoteContentChanged = quote?.content_changed !== false;
   // "Revised" = already sent before (re-send after edits) OR converted
   // (booking update). Either way it's NOT a fresh first-time quote, so it
   // uses the "Revised quote" template, not "Quote just sent". isConverted
   // alone missed the common case: a sent-but-not-yet-accepted quote being
   // re-sent (Pic 63 - it wrongly used the new-quote wording).
-  const isRevised = isConverted || (!!quote?.already_sent && quoteContentChanged);
+  const isRevised = isConverted || !!quote?.already_sent;
   // The template the dialog would pick on its own...
   const autoTemplateType = isRevised ? "email_quote_revised" : "email_quote_sent";
   // ...and the one actually used: the operator's choice wins, else auto.
@@ -272,6 +326,7 @@ export function QuoteSendDialog({
             // "30 guests on 6 June" so the client sees what changed.
             guest_count: guestCount > 0 ? String(guestCount) : "",
             event_date: eventDateLabel || "",
+            equipment_breakdown: combinedBreakdown,
           },
           // Fallback when no tenant override exists: use the SAME registry
           // default the Templates tab shows for this template, so the
@@ -309,6 +364,7 @@ export function QuoteSendDialog({
                 guestCount: guestCount > 0 ? guestCount : null,
                 eventDateLabel,
                 isConverted,
+                equipmentBreakdown: combinedBreakdown,
               }),
             };
           })(),
@@ -337,6 +393,7 @@ export function QuoteSendDialog({
               guestCount: guestCount > 0 ? guestCount : null,
               eventDateLabel,
               isConverted,
+              equipmentBreakdown: combinedBreakdown,
             }),
           });
         }
@@ -445,6 +502,7 @@ export function QuoteSendDialog({
           : "Quote.pdf"
       }
       sendLabel="Send quote"
+      testRecipient="rajm267744@gmail.com"
       extraTopContent={<>{templatePicker}{secondQuotePicker}</>}
       templateEditHref="/admin/email-templates?tab=templates"
       templateEditLabel={effectiveIsRevised ? '"Revised quote email" template' : '"New quote email" template'}
@@ -605,6 +663,7 @@ function buildFallbackBody(input: {
   guestCount: number | null;
   eventDateLabel: string | null;
   isConverted: boolean;
+  equipmentBreakdown?: string;
   secondQuoteData?: {
     quoteNumber: string;
     amount: string;
@@ -616,7 +675,7 @@ function buildFallbackBody(input: {
 }): string {
   const {
     firstName, tenantName, eventName, quoteNumber, amount, quoteUrl,
-    guestCount, eventDateLabel, isConverted, secondQuoteData,
+    guestCount, eventDateLabel, isConverted, equipmentBreakdown, secondQuoteData,
   } = input;
 
   const lines: string[] = [`Hi ${firstName},`, ""];
@@ -646,6 +705,11 @@ function buildFallbackBody(input: {
       label: "Option 2",
     }));
     lines.push("");
+    if (equipmentBreakdown) {
+      lines.push("Equipment breakdown:");
+      lines.push(equipmentBreakdown);
+      lines.push("");
+    }
     lines.push("Reply to this email if you'd like to chat through either option.");
   } else if (isConverted) {
     // Booking-update path. Bobby's call: when the operator edits a
@@ -661,6 +725,11 @@ function buildFallbackBody(input: {
     lines.push("");
     lines.push(`  ${detailsLine}`);
     lines.push("");
+    if (equipmentBreakdown) {
+      lines.push("Equipment breakdown:");
+      lines.push(equipmentBreakdown);
+      lines.push("");
+    }
     if (quoteUrl) {
       lines.push("Your live order page is up to date:");
       lines.push(quoteUrl);
@@ -679,6 +748,11 @@ function buildFallbackBody(input: {
     lines.push(`Thanks for the opportunity to quote you. Your quote ${quoteNumber} is ready:`);
     lines.push("");
     lines.push(`  ${detailsLine}`);
+    if (equipmentBreakdown) {
+      lines.push("");
+      lines.push("Equipment breakdown:");
+      lines.push(equipmentBreakdown);
+    }
     if (quoteUrl) {
       lines.push("");
       lines.push("View the quote here:");

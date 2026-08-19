@@ -63,6 +63,8 @@ export interface SendEmailDialogProps {
   defaultBody: string;
   defaultCc?: string;
   defaultBcc?: string;
+  /** Optional quick-fill address for local testing or operator speed. */
+  testRecipient?: string;
 
   /** Filename of the PDF that will be attached on send. */
   attachmentFilename?: string;
@@ -183,6 +185,15 @@ export function SendEmailDialog(props: SendEmailDialogProps) {
               onChange={(e) => setTo(e.target.value)}
               placeholder="client@example.com"
             />
+            {props.testRecipient ? (
+              <button
+                type="button"
+                className="text-xs text-blue-700 hover:text-blue-900 underline"
+                onClick={() => setTo(props.testRecipient || "")}
+              >
+                Use test email ({props.testRecipient})
+              </button>
+            ) : null}
             <button
               type="button"
               className="text-xs text-slate-600 hover:text-slate-900 underline"
