@@ -201,6 +201,19 @@ const PIPELINE_COLUMNS: Array<{
   { bucket: "lost",               title: "Lost",               tone: "border-slate-300 bg-slate-50",     Icon: Snowflake },
 ];
 
+// The Open chip is the working queue, not an audit view. Terminal and
+// lapsed outcomes must not remain visible after an operator closes a quote.
+const OPEN_QUOTE_BUCKETS = new Set<QuoteBucket>([
+  "action_needed",
+  "in_play",
+  "stale",
+  "accepted_awaiting_deposit",
+]);
+
+function isOpenQuoteBucket(bucket: QuoteBucket): boolean {
+  return OPEN_QUOTE_BUCKETS.has(bucket);
+}
+
 function PipelineBoard({
   rows,
   onOpen,
@@ -663,23 +676,22 @@ function AdminQuotesInner() {
   const bucketFilteredRows = useMemo(
     () => {
       if (bucket === "all") {
-        return regionFilteredRows.filter((r) => r.intelligence.bucket !== "won");
+        return regionFilteredRows.filter((r) => isOpenQuoteBucket(r.intelligence.bucket));
       }
       return regionFilteredRows.filter((r) => r.intelligence.bucket === bucket);
     },
     [regionFilteredRows, bucket],
   );
 
-  // Open = everything except won. Used to relabel the "all" chip
-  // count + the revenue chip so what the pill says matches what the
-  // list shows.
+  // Open = active work only. Used to keep the "Open" chip count and
+  // revenue exactly aligned with the rows shown by that filter.
   const openCount = useMemo(
-    () => regionFilteredRows.filter((r) => r.intelligence.bucket !== "won").length,
+    () => regionFilteredRows.filter((r) => isOpenQuoteBucket(r.intelligence.bucket)).length,
     [regionFilteredRows],
   );
   const openRevenue = useMemo(
     () => regionFilteredRows.reduce((sum, r) => {
-      if (r.intelligence.bucket === "won") return sum;
+      if (!isOpenQuoteBucket(r.intelligence.bucket)) return sum;
       const t = Number((r.quote as any).total ?? (r.quote as any).subtotal ?? 0);
       return Number.isFinite(t) ? sum + t : sum;
     }, 0),
@@ -1865,9 +1877,10 @@ function AdminQuotesInner() {
             ] as const).map((pill) => {
               const Icon = pill.icon;
               const active = bucket === pill.id;
-              // LCF-U: the "all" chip now means "Open" - everything
-              // except won-and-converted. Show the open-only count so
-              // the pill matches the list it produces.
+              // LCF-U: the "all" chip means the active working queue.
+              // Show the same open-only count as the list it produces;
+              // lost, expired, cancelled and won outcomes belong in
+              // their dedicated audit buckets.
               const count = pill.id === "all"
                 ? openCount
                 : ((counts as any)[pill.id] as number);
