@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, ExternalLink, Copy, Send } from "lucide-react";
 import { composeEmail } from "@/lib/composeEmail";
+import { useToast } from "@/hooks/use-toast";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 import type { ClientWhatsAppContext, ClientWhatsAppKind, StaffWhatsAppContext, StaffWhatsAppKind } from "@/lib/whatsappTemplates";
 
@@ -66,6 +67,13 @@ export interface ComposerTemplate {
   body: string;
 }
 
+/** Authenticated server delivery, separate from personal mail drafts. */
+export interface DirectEmailSend {
+  companyId: string;
+  quoteId?: string | null;
+  orderId?: string | null;
+}
+
 export interface ContextRow {
   label: string;
   /** Raw value - caller decides how it shows (e.g. formatted money). */
@@ -99,7 +107,9 @@ export interface MessageComposerProps {
   footerHint?: string;
   /** Called after the operator picks a send channel so the caller can
    *  log a touch / mark as contacted. Optional. */
-  onSent?: (channel: "gmail" | "outlook" | "mailto" | "clipboard" | "whatsapp") => void;
+  onSent?: (channel: "direct" | "gmail" | "outlook" | "mailto" | "clipboard" | "whatsapp") => void;
+  /** Optional authenticated server delivery action. */
+  directEmail?: DirectEmailSend;
   /** Optional WhatsApp slot. When present + the recipient has a phone,
    *  a fifth send action appears next to the email channels. */
   whatsapp?: WhatsAppSlot | WhatsAppStaffSlot;
@@ -113,11 +123,15 @@ export interface MessageComposerProps {
 export function MessageComposer({
   icon, title, subtitle, banner, controls,
   contextLabel, contextRows, recipient, template,
-  fromName, footerHint, onSent, whatsapp, publicLink, onClose,
+  fromName, footerHint, onSent, directEmail, whatsapp, publicLink, onClose,
 }: MessageComposerProps) {
+  const { toast } = useToast();
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
   const [copied, setCopied] = useState(false);
+  const [directSending, setDirectSending] = useState(false);
+  const [directSent, setDirectSent] = useState(false);
+  const [directError, setDirectError] = useState<string | null>(null);
   // When the user has manually edited the body we stop re-rendering it
   // from the template - otherwise the caller updating template (e.g.
   // sweetener tweaks) would wipe their wording.
@@ -148,8 +162,41 @@ export function MessageComposer({
     fromName,
   };
 
-  const handleSent = (channel: "gmail" | "outlook" | "mailto" | "clipboard" | "whatsapp") => {
+  const handleSent = (channel: "direct" | "gmail" | "outlook" | "mailto" | "clipboard" | "whatsapp") => {
     if (onSent) onSent(channel);
+  };
+
+  const handleDirectSend = async () => {
+    if (!directEmail || !recipient.email || directSending) return;
+    setDirectSending(true);
+    setDirectError(null);
+    try {
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: directEmail.companyId,
+          to: recipient.email,
+          subject,
+          body,
+          ...(directEmail.quoteId ? { quoteId: directEmail.quoteId } : {}),
+          ...(directEmail.orderId ? { orderId: directEmail.orderId } : {}),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success !== true) {
+        throw new Error(String(data?.error || "The email could not be sent."));
+      }
+      setDirectSent(true);
+      toast({ title: "Email sent", description: `Delivered directly to ${recipient.email}.` });
+      handleSent("direct");
+    } catch (error: any) {
+      const message = error?.message || "The email could not be sent.";
+      setDirectError(message);
+      toast({ title: "Email not sent", description: message, variant: "destructive" });
+    } finally {
+      setDirectSending(false);
+    }
   };
 
   return (
@@ -230,15 +277,26 @@ export function MessageComposer({
             uses its own short-form template catalog so the body that
             opens in the chat is channel-appropriate, not the long
             email body the operator has been editing above. */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-2 pt-2 border-t border-slate-100">
+          {directEmail && (
+            <Button
+              variant="default"
+              disabled={!recipient.email || directSending}
+              onClick={handleDirectSend}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            >
+              <Send className="w-4 h-4" />
+              {directSending ? "Sending..." : directSent ? "Sent directly" : "Send directly"}
+            </Button>
+          )}
           <Button
-            variant="default"
+            variant={directEmail ? "outline" : "default"}
             disabled={!recipient.email}
             onClick={() => {
               window.open(composeEmail.gmailUrl(payload), "_blank", "noopener");
               handleSent("gmail");
             }}
-            className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
+            className={directEmail ? "gap-2" : "gap-2 bg-brand-primary hover:bg-brand-primary/90"}
           >
             <ExternalLink className="w-4 h-4" /> Open in Gmail
           </Button>
@@ -279,6 +337,11 @@ export function MessageComposer({
             <Copy className="w-4 h-4" /> {copied ? "Copied!" : "Copy"}
           </Button>
         </div>
+        {directError && (
+          <p className="text-xs text-rose-600" role="alert">
+            {directError}
+          </p>
+        )}
 
         {/* Public share link. Optional - only renders when the
             caller passed a publicLink string. Lets the operator
@@ -312,11 +375,14 @@ export function MessageComposer({
             we have a phone number to send to. Renders full-width so it
             reads as an alternative channel, not a fifth email option. */}
         {whatsapp && recipient.phone && (
-          <div className="pt-2 border-t border-slate-100">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] text-slate-500">
+          <div className="pt-3 border-t border-slate-100 space-y-2.5">
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+              <p className="text-[11px] leading-4 text-slate-500">
                 Prefer WhatsApp? Pre-filled message in the green-tick app, you hit send.
               </p>
+            </div>
+            <div className="w-full">
               {whatsapp.kind === "client" ? (
                 <WhatsAppButton
                   kind="client"
@@ -328,6 +394,7 @@ export function MessageComposer({
                   variant="outline"
                   size="sm"
                   label="Send on WhatsApp"
+                  className="w-full justify-center"
                   onSent={() => handleSent("whatsapp")}
                 />
               ) : (
@@ -340,6 +407,7 @@ export function MessageComposer({
                   variant="outline"
                   size="sm"
                   label="Send on WhatsApp"
+                  className="w-full justify-center"
                   onSent={() => handleSent("whatsapp")}
                 />
               )}
@@ -348,7 +416,7 @@ export function MessageComposer({
         )}
 
         <p className="text-[11px] text-slate-500 text-center">
-          Direct send via your own SMTP / Gmail OAuth coming soon. Until then these four options keep the email looking like it came from you, not from us.
+          Send directly uses your company&apos;s configured email sender. Gmail, Outlook and the default mail app open a personal draft for manual review.
         </p>
 
         <Button variant="ghost" onClick={onClose} className="w-full">Close</Button>

@@ -236,6 +236,23 @@ export function TimelineRow({
                 />
               </div>
             </div>
+            <div className="flex shrink-0 items-center gap-2 pt-0.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedOrder(order);
+                  setIsModalOpen(true);
+                }}
+                className="gap-1.5"
+                title="Open order management controls"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                Manage
+              </Button>
+            </div>
           </div>
 
           {/* Wave 25: replaces the legacy 7-dot WORKFLOW_STAGES row

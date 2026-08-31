@@ -7,7 +7,7 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { currencyMonitoringService } from "@/services/currencyMonitoringService";
+import { currencyMonitoringService, type LatestCurrencyRate, type SupportedCurrency } from "@/services/currencyMonitoringService";
 import {
   TrendingUp,
   TrendingDown,
@@ -62,6 +62,8 @@ function PlatformCurrencyMonitoringPage() {
   const [currentRate, setCurrentRate] = useState<number>(0);
   const [currentRateDate, setCurrentRateDate] = useState<string | null>(null);
   const [historicalRates, setHistoricalRates] = useState<ExchangeRate[]>([]);
+  const [supportedCurrencies, setSupportedCurrencies] = useState<SupportedCurrency[]>([]);
+  const [latestRates, setLatestRates] = useState<{ date: string | null; rates: LatestCurrencyRate[] }>({ date: null, rates: [] });
   const [alerts, setAlerts] = useState<FluctuationAlert[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -82,15 +84,19 @@ function PlatformCurrencyMonitoringPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const [latest, rates, unresolvedAlerts] = await Promise.all([
+      const [latest, rates, unresolvedAlerts, currencies, storedRates] = await Promise.all([
         currencyMonitoringService.getLatestStoredRate(),
         currencyMonitoringService.getHistoricalRates(90),
         currencyMonitoringService.getUnresolvedAlerts(),
+        currencyMonitoringService.getSupportedCurrencies(),
+        currencyMonitoringService.getLatestRates(),
       ]);
 
       setCurrentRate(latest?.rate ?? 0);
       setCurrentRateDate(latest?.date ?? null);
       setHistoricalRates(rates);
+      setSupportedCurrencies(currencies);
+      setLatestRates(storedRates);
       setAlerts(unresolvedAlerts);
     } catch (error: any) {
       console.error("Error loading currency data:", error);
@@ -305,6 +311,67 @@ function PlatformCurrencyMonitoringPage() {
 
         <PortalCard>
           <PortalCardHeader
+            title="Supported currencies"
+          />
+          <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+            Resolved from active region settings and the latest exchange-rate records.
+          </p>
+          {supportedCurrencies.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              No supported currencies are configured yet.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {supportedCurrencies.map((currency) => (
+                <div
+                  key={currency.code}
+                  className="rounded-xl border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {currency.code}
+                    </span>
+                    <Badge variant="outline">{currency.symbol}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                    {currency.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </PortalCard>
+
+        <PortalCard>
+          <PortalCardHeader title="Latest exchange rates" />
+          <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+            Latest stored rates from the platform currency monitor{latestRates.date ? ` · ${new Date(latestRates.date).toLocaleDateString()}` : ""}.
+          </p>
+          {latestRates.rates.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              No exchange rates have been stored yet.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {latestRates.rates.map((rate) => (
+                <div
+                  key={`${rate.from}-${rate.to}`}
+                  className="rounded-xl border border-slate-200/80 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    {rate.from} to {rate.to}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">
+                    {rate.rate.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </PortalCard>
+
+        <PortalCard>
+          <PortalCardHeader
             title={
               <span className="flex items-center gap-2">
                 <Activity className="h-4 w-4 text-amber-600 dark:text-amber-500" />
@@ -342,7 +409,7 @@ function PlatformCurrencyMonitoringPage() {
             </div>
         </PortalCard>
 
-        <PortalCard>
+        <PortalCard id="currency-alerts" data-chat-section="platform.currency-monitoring.alerts">
           <PortalCardHeader
             title={
               <span className="flex items-center gap-2">

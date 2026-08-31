@@ -93,6 +93,12 @@ function PlatformSubscriptionManagement() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const status = new URLSearchParams(window.location.search).get("status");
+    if (["all", "active", "trial", "past_due", "cancelled"].includes(status || "")) setStatusFilter(status || "all");
+  }, []);
+
   // Fallback rates only for when the pricing-plans API is unreachable.
   // Live rates come from platform_pricing_plans (the same table the
   // pricing-management page edits) so MRR follows real price changes.
@@ -398,7 +404,7 @@ function PlatformSubscriptionManagement() {
           </Alert>
         )}
 
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <div id="active-plans" data-chat-section="platform.subscription-management.active-plans" className="grid gap-4 md:grid-cols-4 mb-6">
           <StatTile
             label={
               <span className="flex items-center gap-1.5">
@@ -446,7 +452,7 @@ function PlatformSubscriptionManagement() {
         </div>
 
         {/* Toolbar: search + status filter grouped in one place. */}
-        <PortalCard className="mb-6">
+        <PortalCard id="subscription-records" data-chat-section="platform.subscription-management.records" className="mb-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
@@ -596,11 +602,11 @@ function PlatformSubscriptionManagement() {
         </PortalCard>
 
         <div className="grid gap-6 md:grid-cols-2 mb-6">
-          <PortalCard className="border-yellow-200 bg-yellow-50 dark:border-yellow-900/40 dark:bg-yellow-950/20">
+          <PortalCard className="border-l-4 border-l-amber-400 bg-white dark:border-slate-800 dark:border-l-amber-400 dark:bg-slate-900">
             <PortalCardHeader
               title={
                 <span className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   At Risk ({stats.pastDue})
                   <InfoTooltip content="Companies with a failed or overdue payment that need a personal nudge.\n\nReach out promptly, this is the window where churn usually happens." />
                 </span>
@@ -642,7 +648,7 @@ function PlatformSubscriptionManagement() {
               )}
           </PortalCard>
 
-          <PortalCard className="border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/20">
+          <PortalCard className="border-l-4 border-l-rose-400 bg-white dark:border-slate-800 dark:border-l-rose-400 dark:bg-slate-900">
             <PortalCardHeader
               title={
                 <span className="flex items-center gap-2">

@@ -54,6 +54,10 @@ function CleaningDashboardInner() {
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
   const [activeTab, setActiveTab] = useState("verification");
+  useEffect(() => {
+    const requestedTab = typeof router.query.tab === "string" ? router.query.tab : "";
+    if (router.isReady && ["verification", "damages"].includes(requestedTab)) setActiveTab(requestedTab);
+  }, [router.isReady, router.query.tab]);
   const [equipment, setEquipment] = useState<EquipmentRow[]>([]);
   const [loadingEquipment, setLoadingEquipment] = useState(true);
   // Command-centre restructure (2026-07-02): the equipment read used to
@@ -523,7 +527,10 @@ function CleaningDashboardInner() {
               cleaners completed jobs in one place and admins still
               saw them pending elsewhere. Component file kept in case
               another surface needs it later. */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={(next) => {
+            setActiveTab(next);
+            void router.replace({ pathname: router.pathname, query: { ...router.query, tab: next } }, undefined, { shallow: true });
+          }} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
               <TabsTrigger
                 value="verification"
@@ -543,7 +550,7 @@ function CleaningDashboardInner() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="verification" className="space-y-6">
+            <TabsContent id="cleaning-verification" data-chat-section="cleaning.dashboard.verification" data-chat-section-label="Equipment verification" value="verification" className="space-y-6 scroll-mt-20">
               <PortalCard>
                 <div className="mb-4 flex items-center gap-2">
                   <ClipboardCheck className="h-5 w-5 text-slate-400 dark:text-slate-500" />
@@ -562,7 +569,7 @@ function CleaningDashboardInner() {
               </PortalCard>
             </TabsContent>
 
-            <TabsContent value="damages" className="space-y-6">
+            <TabsContent id="cleaning-damages" data-chat-section="cleaning.dashboard.damages" data-chat-section-label="Cleaning damages" value="damages" className="space-y-6 scroll-mt-20">
               <PortalCard>
                 <div className="mb-4 flex items-center gap-2">
                   <AlertTriangle className="h-5 w-5 text-rose-500 dark:text-rose-400" />

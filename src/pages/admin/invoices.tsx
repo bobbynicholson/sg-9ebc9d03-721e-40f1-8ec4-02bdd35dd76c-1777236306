@@ -1824,7 +1824,7 @@ function InvoicesPageInner() {
         )}
 
         {/* Filters */}
-        <Card className="mb-6">
+        <Card id="invoice-filters" data-chat-section="admin.invoices.filters" data-chat-section-label="Invoice filters" className="mb-6">
           <CardContent className="space-y-3 pt-4 pb-4">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,560px)_240px] lg:items-start">
               <AdminSearchField
@@ -1990,7 +1990,7 @@ function InvoicesPageInner() {
         </Card>
 
         {/* Invoices List */}
-        <Card>
+        <Card id="invoice-ledger" data-chat-section="admin.invoices.ledger" data-chat-section-label="Invoice ledger">
           <CardHeader>
             <CardTitle className="flex items-center gap-1.5">Invoices <InfoTooltip content={"Every invoice for your company, newest first, narrowed by your search and status filters."} /></CardTitle>
           </CardHeader>

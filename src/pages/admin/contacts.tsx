@@ -1436,7 +1436,7 @@ function ClientsCRM() {
           {/* Command-centre toolbar: search + saved views + tag
               filter + status chips grouped into ONE card instead of
               loose strips scattered above the table. */}
-          <PortalCard className="mb-6 space-y-3">
+          <PortalCard id="contact-filters" data-chat-section="admin.contacts.filters" data-chat-section-label="Contact filters" className="mb-6 space-y-3">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,520px)_1fr] lg:items-start">
             <AdminSearchField
               inputRef={searchRef}
@@ -1474,6 +1474,7 @@ function ClientsCRM() {
                     key={t}
                     active={active}
                     label={t}
+                    chatTag={t}
                     tone="slate"
                     onClick={() => setTagFilter((prev) => {
                       const next = new Set(prev);
@@ -1559,7 +1560,7 @@ function ClientsCRM() {
           )}
 
           {/* Table */}
-          <Card>
+          <Card id="contact-book" data-chat-section="admin.contacts.book" data-chat-section-label="Contact book">
             <CardContent className="p-0">
               {loading ? (
                 // Skeleton rows inside the shell so the nav rail never
@@ -2322,6 +2323,7 @@ function ComposeDrawer({
       }}
       template={{ subject: tpl.subject, body: tpl.body }}
       fromName={fromName}
+      directEmail={companyId ? { companyId } : undefined}
       footerHint="Edit freely. The wording is just a starting point based on this contact's status. Drag the left edge of this drawer for more room."
       onSent={onSent}
       whatsapp={{

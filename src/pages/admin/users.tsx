@@ -63,6 +63,7 @@ import { formatLocalDate } from "@/lib/localFormat";
 import { loginActivityBucket } from "@/lib/loginActivity";
 import { toLocalISO } from "@/lib/localDate";
 import { normalizeRoleValue as normalizeAppRoleValue } from "@/lib/roleDerivation";
+import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 // USR-C (task #208, 2026-05-24): pending-invite shape used by the
 // new Pending tab + Invite dialog.
@@ -132,6 +133,28 @@ function AdminUsersPage() {
   // Wave 27.3: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
+  const routeTenantSlug = getTenantSlugFromPathname(router.asPath);
+
+  // A bare /admin/users URL is ambiguous: this page is the staff list for
+  // one catering company, while platform-wide users belong under the
+  // platform user-management page. Keep direct bookmarks safe and make the
+  // company visible in the URL before loading this tenant page.
+  useEffect(() => {
+    if (!router.isReady || !user || routeTenantSlug) return;
+    const pathname = (router.asPath || "").split(/[?#]/)[0];
+    if (pathname !== "/admin/users") return;
+
+    const role = String(user.active_role || user.role || "").toLowerCase();
+    if (role === UserRole.SUPER_ADMIN) {
+      void router.replace("/admin/platform/user-management");
+      return;
+    }
+
+    const companyUsersPath = withSlug("/admin/users");
+    if (companyUsersPath !== "/admin/users") {
+      void router.replace(companyUsersPath);
+    }
+  }, [router, user, routeTenantSlug, withSlug]);
 
   // USR-D (task #209, 2026-05-24): the Edit Departments picker was
   // a flat 7-checkbox grid with no copy explaining what each grants.

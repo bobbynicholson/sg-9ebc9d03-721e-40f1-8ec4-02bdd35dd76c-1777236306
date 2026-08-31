@@ -27,15 +27,16 @@
  *   /admin/kitchen-staff     (staff)
  *   /admin/users             (staff - where mobile is captured)
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MessageCircle, Send } from "lucide-react";
-import { isLikelyMobile, openWhatsApp } from "@/lib/whatsapp";
+import { buildWhatsAppUrl, isLikelyMobile } from "@/lib/whatsapp";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTemplateOverrides } from "@/hooks/useTemplateOverrides";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CLIENT_WHATSAPP_LABELS,
@@ -118,7 +119,13 @@ export function WhatsAppButton(props: Props) {
     clientId,
   } = props;
 
-  const showButton = !!phone && (forceShow || isLikelyMobile(phone));
+  const hasPhone = Boolean(phone?.trim());
+  const normalisedPhone = phone ? phone.replace(/\D/g, "") : "";
+  const phoneIsUsable = hasPhone && (forceShow || isLikelyMobile(phone));
+  const phoneUnavailableReason = !normalisedPhone
+    ? "Add a valid phone number before opening WhatsApp."
+    : "This number does not look like a WhatsApp mobile number.";
+  const { toast } = useToast();
 
   // Auto-resolve opt-out from the recipient's profile when given a
   // clientId. Two single-row queries; cached in component state for
@@ -192,6 +199,8 @@ export function WhatsAppButton(props: Props) {
     defaultTemplate ?? templateKeys[0],
   );
   const [message, setMessage] = useState<string>("");
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   // Track whether the operator has hand-edited the message so changing
   // templates does not blow away their words.
   const [edited, setEdited] = useState(false);
@@ -223,20 +232,87 @@ export function WhatsAppButton(props: Props) {
     }
   }, [open, edited, renderedTemplate]);
 
-  const handleSend = () => {
-    const ok = openWhatsApp(phone, message || renderedTemplate);
-    if (ok) {
-      onSent?.(pickedKey);
-      setOpen(false);
-      // Reset edited flag for the next open.
-      setEdited(false);
+  const handleSend = (event?: React.MouseEvent<HTMLAnchorElement>) => {
+    if (sendingRef.current) {
+      event?.preventDefault();
+      return;
     }
+    // The textarea is seeded from an effect when the popover opens. If the
+    // operator clicks immediately, React may not have committed that effect
+    // yet even though the template is already available. Always fall back to
+    // the rendered template so a fast click can never look like a dead button.
+    const body = message.trim() ? message : renderedTemplate;
+    if (!body.trim()) {
+      event?.preventDefault();
+      toast({
+        title: "WhatsApp message is empty",
+        description: "Add a message before opening WhatsApp.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    sendingRef.current = true;
+    setSending(true);
+    const url = buildWhatsAppUrl(phone, body);
+    if (!url) {
+      event?.preventDefault();
+      toast({
+        title: "Could not open WhatsApp",
+        description: "Add a valid WhatsApp mobile number and try again.",
+        variant: "destructive",
+      });
+      sendingRef.current = false;
+      setSending(false);
+      return;
+    }
+
+    // Let the browser perform the native anchor navigation. This is more
+    // reliable than window.open in embedded/local Chromium and still opens
+    // the exact URL built from the current textarea contents.
+    toast({
+      title: "WhatsApp opened",
+      description: "Review the pre-filled message and press Send in WhatsApp.",
+    });
+    onSent?.(pickedKey);
+    // Do not unmount the anchor in the same click event. Chromium can cancel
+    // a native target=_blank navigation when the clicked node disappears
+    // synchronously (the popover close used to make the action look dead).
+    // Keep it mounted long enough for the browser to dispatch the link, then
+    // close the composer.
+    window.setTimeout(() => {
+      setOpen(false);
+      setEdited(false);
+    }, 250);
+    // The action is a browser launch rather than a network send. Keep a
+    // short synchronous click lock so double-clicks cannot open duplicate
+    // WhatsApp tabs, while still allowing a retry after a blocked popup.
+    window.setTimeout(() => {
+      sendingRef.current = false;
+      setSending(false);
+    }, 900);
   };
 
   const labels: Record<string, string> =
     props.kind === "client" ? CLIENT_WHATSAPP_LABELS : STAFF_WHATSAPP_LABELS;
 
-  if (!showButton) return null;
+  if (!hasPhone) return null;
+
+  if (!phoneIsUsable) {
+    return (
+      <Button
+        type="button"
+        size={size}
+        variant={variant}
+        disabled
+        className={`gap-1.5 opacity-60 ${className ?? ""}`}
+        title={phoneUnavailableReason}
+      >
+        <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
+        {label || "WhatsApp unavailable"}
+      </Button>
+    );
+  }
 
   // Opted-out branch: render the same trigger so the layout doesn't
   // jump, but visibly grey it out and pop a notice instead of the
@@ -271,80 +347,108 @@ export function WhatsAppButton(props: Props) {
   }
 
   return (
-    <Popover open={open} onOpenChange={(o) => {
-      setOpen(o);
-      if (o) {
-        // Re-seed message from template each time the popover opens
-        // unless the operator was mid-edit.
-        if (!edited) setMessage(renderedTemplate);
-      }
-    }}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          size={size}
-          variant={variant}
-          className={`gap-1.5 ${className ?? ""}`}
+    <div className="w-full">
+      <Button
+        type="button"
+        size={size}
+        variant={variant}
+        aria-label={label || "Open WhatsApp message composer"}
+        aria-expanded={open}
+        className={`gap-1.5 ${className ?? ""}`}
+        onClick={() => {
+          const nextOpen = !open;
+          setOpen(nextOpen);
+          if (nextOpen && !edited) setMessage(renderedTemplate);
+        }}
+      >
+        <MessageCircle className="w-3.5 h-3.5 text-brand-primary" />
+        {label || null}
+      </Button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-label="WhatsApp message composer"
+          className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 shadow-lg space-y-2"
         >
-          <MessageCircle className="w-3.5 h-3.5 text-brand-primary" />
-          {label || null}
-        </Button>
-      </PopoverTrigger>
-
-      <PopoverContent align="end" className="w-[360px] p-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="w-4 h-4 text-brand-primary" />
-          <p className="text-sm font-semibold text-slate-900">WhatsApp message</p>
-        </div>
-
-        {/* Template chips - picking one re-renders the message body. */}
-        <div className="flex flex-wrap gap-1">
-          {templateKeys.map((k) => (
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-brand-primary" />
+              <p className="text-sm font-semibold text-slate-900">WhatsApp message</p>
+            </div>
             <button
-              key={k}
               type="button"
-              onClick={() => {
-                setPickedKey(k);
-                // Switching template after the user has typed should
-                // overwrite their text - otherwise the chip click
-                // does nothing visible. This is the common case (they
-                // changed their mind about which message to send).
-                setEdited(false);
-              }}
-              className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
-                pickedKey === k
-                  ? "bg-brand-primary text-white border-brand-primary/80"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-              }`}
+              onClick={() => setOpen(false)}
+              className="rounded px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800"
             >
-              {labels[k]}
+              Close
             </button>
-          ))}
+          </div>
+
+          {/* Template chips - picking one re-renders the message body. */}
+          <div className="flex flex-wrap gap-1">
+            {templateKeys.map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => {
+                  setPickedKey(k);
+                  // Switching template after the user has typed should
+                  // overwrite their text - otherwise the chip click
+                  // does nothing visible. This is the common case (they
+                  // changed their mind about which message to send).
+                  setEdited(false);
+                }}
+                className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                  pickedKey === k
+                    ? "bg-brand-primary text-white border-brand-primary/80"
+                    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {labels[k]}
+              </button>
+            ))}
+          </div>
+
+          <textarea
+            value={message}
+            onChange={(e) => {
+              setEdited(true);
+              setMessage(e.target.value);
+            }}
+            rows={6}
+            className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs leading-5"
+          />
+
+          <p className="text-[10px] text-slate-500 leading-snug">
+            Opens WhatsApp with the message pre-filled. You hit send. Nothing leaves until you do.
+          </p>
+
+          <Button
+            asChild
+            className="w-full h-9 bg-brand-primary hover:bg-brand-primary/90 gap-1.5"
+          >
+            <a
+              href={buildWhatsAppUrl(phone, message.trim() ? message : renderedTemplate) || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Send current message via WhatsApp"
+              aria-disabled={sending}
+              tabIndex={sending ? -1 : 0}
+              onClick={(event) => {
+                if (sending) {
+                  event.preventDefault();
+                  return;
+                }
+                handleSend(event);
+              }}
+            >
+              <Send className="w-3.5 h-3.5" />
+              {sending ? "Opening WhatsApp…" : "Send via WhatsApp"}
+            </a>
+          </Button>
         </div>
-
-        <textarea
-          value={message}
-          onChange={(e) => {
-            setEdited(true);
-            setMessage(e.target.value);
-          }}
-          rows={6}
-          className="w-full rounded-md border border-slate-200 px-3 py-2 text-xs leading-5"
-        />
-
-        <p className="text-[10px] text-slate-500 leading-snug">
-          Opens WhatsApp with the message pre-filled. You hit send. Nothing leaves until you do.
-        </p>
-
-        <Button
-          type="button"
-          onClick={handleSend}
-          className="w-full h-9 bg-brand-primary hover:bg-brand-primary/90 gap-1.5"
-        >
-          <Send className="w-3.5 h-3.5" />
-          Send via WhatsApp
-        </Button>
-      </PopoverContent>
-    </Popover>
+      )}
+    </div>
   );
 }

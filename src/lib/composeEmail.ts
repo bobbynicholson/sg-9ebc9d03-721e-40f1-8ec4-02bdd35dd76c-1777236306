@@ -8,10 +8,9 @@
  * - Default mail app (mailto:): falls back to whatever the OS picks up
  * - Clipboard: copies subject + body so you can paste anywhere
  *
- * Future: a fifth option once the SMTP relay edge function is live.
- * sendDirect() will POST to /api/email/send and use the company's
- * configured SMTP / Gmail / Outlook OAuth. Stub is here so the UI
- * doesn't change when we wire it up.
+ * Direct delivery is handled by MessageComposer through the authenticated
+ * /api/send-email route. These helpers intentionally remain the personal
+ * draft/copy alternatives and never claim that a draft was sent.
  */
 
 import { resolveTemplateSync } from "@/services/messageTemplateService";
@@ -74,9 +73,8 @@ export const composeEmail = {
     }
   },
 
-  /** Stub: sends through the company's configured SMTP/Gmail/Outlook
-   *  via a future edge function. For now returns "not yet" so the UI
-   *  can show a coming-soon badge without crashing. */
+  /** @deprecated Use MessageComposer's directEmail prop so the request
+   *  includes the authenticated company scope and can be logged. */
   async sendDirect(_p: ComposePayload): Promise<{ ok: false; reason: "smtp_not_configured" }> {
     return { ok: false, reason: "smtp_not_configured" };
   },

@@ -242,7 +242,7 @@ function PricingManagementPage() {
         <PageWorkbench />
 
         {/* How it works - quiet inline note, not a loud coloured alert */}
-        <PortalCard className="mb-6">
+        <PortalCard id="feature-gates" data-chat-section="platform.pricing-management.feature-gates" className="mb-6">
           <div className="flex gap-3">
             <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-500" />
             <div className="min-w-0 text-sm text-slate-600 dark:text-slate-400">

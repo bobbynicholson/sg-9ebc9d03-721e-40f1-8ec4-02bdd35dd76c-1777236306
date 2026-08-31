@@ -885,7 +885,7 @@ function KitchenPrepListPageInner() {
                 </PortalCard>
               )
             ) : (
-              <PortalCard>
+              <PortalCard id="prep-demand" data-chat-section="kitchen.prep.demand" data-chat-section-label="Prep demand">
                 <PortalCardHeader title={`Total demand - next ${horizonDays} days`} />
                 <p className="text-xs text-slate-600 dark:text-slate-400 -mt-2 mb-3">
                   Sums every confirmed order's ingredient need against your current stock.

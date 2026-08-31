@@ -202,8 +202,8 @@ function TenantHealthDashboard() {
     [rows],
   );
 
-  const renderTable = (label: string, list: HealthRow[], emptyText: string, accentDateLabel: string, accent: (r: HealthRow) => string) => (
-    <PortalCard padded={false}>
+  const renderTable = (sectionId: string, sectionRef: string, label: string, list: HealthRow[], emptyText: string, accentDateLabel: string, accent: (r: HealthRow) => string) => (
+    <PortalCard id={sectionId} data-chat-section={sectionRef} padded={false}>
       <div className="px-5 pt-5 pb-3">
         <PortalCardHeader className="mb-0" title={label} />
         <p className="text-sm text-slate-500 dark:text-slate-400">{list.length} tenant{list.length === 1 ? "" : "s"}</p>
@@ -320,28 +320,28 @@ function TenantHealthDashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {renderTable(
-              "Stuck in onboarding",
+              "stuck-onboarding", "platform.tenant-health.onboarding", "Stuck in onboarding",
               stuckOnboarding,
               "Nobody stuck in onboarding right now.",
               "since signup",
               (r) => `${daysSince(r.company.created_at)}d`,
             )}
             {renderTable(
-              "Dormant tenants",
+              "dormant-companies", "platform.tenant-health.dormant", "Dormant tenants",
               dormant,
               "Everyone onboarded is shipping orders.",
               "since last event",
               (r) => `${daysSince(r.lastOrderEventDate)}d`,
             )}
             {renderTable(
-              "No payment gateway",
+              "payment-issues", "platform.tenant-health.payment-issues", "No payment gateway",
               noPaymentGateway,
               "Every onboarded tenant has a gateway.",
               "signup",
               (r) => fmtDate(r.company.created_at),
             )}
             {renderTable(
-              "New signups (last 7 days)",
+              "new-signups", "platform.tenant-health.new-signups", "New signups (last 7 days)",
               newSignups,
               "No new signups this week.",
               "signup",

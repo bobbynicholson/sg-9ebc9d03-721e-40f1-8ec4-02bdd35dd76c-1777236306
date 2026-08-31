@@ -537,7 +537,7 @@ function TechCostsDashboard() {
           <PageWorkbench />
 
           {/* Headline numbers */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div id="tenant-cost" data-chat-section="platform.tech-costs.tenant-cost" data-chat-section-label="Cost per company" className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <StatTile
               label="Monthly platform cost"
               value={`ZAR ${total_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
@@ -567,7 +567,7 @@ function TechCostsDashboard() {
           </div>
 
           {/* Total revenue + total margin row */}
-          <PortalCard className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left p-4">
+          <PortalCard id="margin-analysis" data-chat-section="platform.tech-costs.margin" data-chat-section-label="Margin analysis" className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left p-4">
               <div>
                 <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">Tenants</p>
                 <p className="text-xl font-bold text-slate-900 dark:text-white">{assumptions.tenants.toLocaleString()}</p>
@@ -800,7 +800,7 @@ function TechCostsDashboard() {
           </div>
 
           {/* Scaling table */}
-          <PortalCard className="mb-6">
+          <PortalCard id="cost-trend" data-chat-section="platform.tech-costs.trend" data-chat-section-label="Cost trend and scale scenarios" className="mb-6">
               <PortalCardHeader
                 title={
                   <>

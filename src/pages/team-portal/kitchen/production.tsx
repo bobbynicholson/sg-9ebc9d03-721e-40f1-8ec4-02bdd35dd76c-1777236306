@@ -940,7 +940,7 @@ function KitchenProductionPageInner() {
             const orderById = new Map<string, Order>(orders.map((o) => [o.id, o]));
             const stationById = new Map<string, KitchenStation>(stations.map((s) => [s.id, s]));
             return (
-              <PortalCard className="mb-4">
+              <PortalCard id="production-board" data-chat-section="kitchen.production.board" data-chat-section-label="Production board" className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
                     <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">

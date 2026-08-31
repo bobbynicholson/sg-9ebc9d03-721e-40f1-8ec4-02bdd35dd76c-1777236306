@@ -253,6 +253,7 @@ function ClientQuotesPageInner() {
             <div className="space-y-6">
               {grouped.pending.length > 0 && (
                 <QuoteGroup
+                  sectionId="quotes-waiting"
                   title="Awaiting your response"
                   description="Open to accept, or push back with the changes you'd like before signing off."
                   items={grouped.pending}
@@ -363,6 +364,7 @@ export default function ClientQuotesPage() {
 }
 
 function QuoteGroup({
+  sectionId,
   title,
   description,
   items,
@@ -370,6 +372,7 @@ function QuoteGroup({
   onDecline,
   fmtMoney,
 }: {
+  sectionId?: string;
   title: string;
   description: string;
   items: PortalQuote[];
@@ -378,7 +381,7 @@ function QuoteGroup({
   fmtMoney: { format: (n: number) => string };
 }) {
   return (
-    <section className="w-full">
+    <section id={sectionId} data-chat-section={sectionId ? "client.quotes.waiting" : undefined} data-chat-section-label={sectionId ? "Quotes waiting for response" : undefined} className="w-full scroll-mt-20">
       <div className="mb-3">
         <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>

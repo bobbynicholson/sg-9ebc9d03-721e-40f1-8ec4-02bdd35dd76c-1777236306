@@ -111,6 +111,7 @@ export function AdminFilterChip({
   onClick,
   title,
   className,
+  chatTag,
 }: {
   active: boolean;
   label: React.ReactNode;
@@ -121,6 +122,7 @@ export function AdminFilterChip({
   onClick: () => void;
   title?: string;
   className?: string;
+  chatTag?: string;
 }) {
   const palette = CHIP_TONES[tone];
   return (
@@ -128,6 +130,7 @@ export function AdminFilterChip({
       type="button"
       onClick={onClick}
       title={title}
+      data-chat-tag={chatTag || undefined}
       className={cn(
         "inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
         active ? palette.active : palette.idle,

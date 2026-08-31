@@ -253,19 +253,19 @@ function LifecycleEmailsPage() {
               <TabsTrigger value="settings"   className="text-xs md:text-sm">Settings</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="templates" className="mt-6">
+            <TabsContent id="email-templates" data-chat-section="admin.email-templates.templates" data-chat-section-label="Email templates" value="templates" className="mt-6">
               <TemplatesPanel />
             </TabsContent>
 
-            <TabsContent value="sent-log" className="mt-6">
+            <TabsContent id="email-sent-log" data-chat-section="admin.email-templates.sent-log" data-chat-section-label="Sent email log" value="sent-log" className="mt-6">
               <SentLogPanel />
             </TabsContent>
 
-            <TabsContent value="automation" className="mt-6">
+            <TabsContent id="email-automation" data-chat-section="admin.email-templates.automation" data-chat-section-label="Email automation" value="automation" className="mt-6">
               <AutomationDashboardPanel />
             </TabsContent>
 
-            <TabsContent value="settings" className="mt-6">
+            <TabsContent id="email-settings" data-chat-section="admin.email-templates.settings" data-chat-section-label="Email template settings" value="settings" className="mt-6">
               <AutomationSettingsPanel />
             </TabsContent>
           </Tabs>

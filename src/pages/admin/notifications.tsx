@@ -2,6 +2,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useState, useEffect, useMemo, useRef } from "react";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -29,6 +30,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProtectedNotificationsPage() {
@@ -43,6 +45,7 @@ export default function ProtectedNotificationsPage() {
 }
 
 function NotificationsPage() {
+  const router = useRouter();
   const { user, activeRole } = useAuth();
   const { toast } = useToast();
   // Wave 26.1: tenant-slug wrapper. Every smart-CTA destination
@@ -51,6 +54,8 @@ function NotificationsPage() {
   // current tenant slug so a tenant on /spit-braai-delivery/admin/...
   // stays inside that namespace when they click through.
   const { withSlug } = useTenantHref();
+  const routeTenantSlug = getTenantSlugFromPathname(router.asPath);
+  const [redirectingToScopedPage, setRedirectingToScopedPage] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   // Surfaced load failure. The service used to swallow query errors
@@ -83,11 +88,29 @@ function NotificationsPage() {
   // once while triaging a busy inbox.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
+  // Notifications are tenant-scoped. A platform admin has no company inbox,
+  // so the bare legacy URL must not render a default-colour tenant page.
+  // Tenant users are canonicalised to the company URL so branding and data
+  // context are explicit in the address bar.
   useEffect(() => {
-    if (user?.id) {
+    if (!router.isReady || !user?.id || routeTenantSlug) return;
+    const pathname = (router.asPath || "").split(/[?#]/)[0];
+    if (pathname !== "/admin/notifications") return;
+
+    const role = String(user.active_role || user.role || "").toLowerCase();
+    const destination = role === UserRole.SUPER_ADMIN
+      ? "/admin/platform/dashboard"
+      : withSlug("/admin/notifications");
+    if (destination === "/admin/notifications") return;
+    setRedirectingToScopedPage(true);
+    void router.replace(destination);
+  }, [router, user, routeTenantSlug, withSlug]);
+
+  useEffect(() => {
+    if (user?.id && !redirectingToScopedPage) {
       loadNotifications();
     }
-  }, [user, activeRole]);
+  }, [user, activeRole, redirectingToScopedPage]);
 
   const loadNotifications = async () => {
     if (!user?.id) return;
@@ -220,17 +243,24 @@ function NotificationsPage() {
     }
   };
 
-  const getPriorityColor = (priority: string | null) => {
-    switch (priority) {
-      case "urgent":
-        return "bg-rose-50 border-rose-200 hover:border-rose-300";
-      case "high":
-        return "bg-orange-50 border-orange-200 hover:border-orange-300";
-      case "medium":
-        return "bg-blue-50 border-blue-200 hover:border-blue-300";
-      default:
-        return "bg-gray-50 border-gray-200 hover:border-gray-300";
-    }
+  const getPriorityColor = (priority: string | null, unread: boolean) => {
+    // Keep the inbox on the same neutral card system as the rest of the
+    // tenant workspace. Priority remains visible through the icon and a
+    // slim semantic edge, while unread/hover states use this company's
+    // active brand colour instead of unrelated full-row fills.
+    const priorityEdge = (() => {
+      switch (priority) {
+        case "urgent":
+          return "border-l-rose-400";
+        case "high":
+          return "border-l-amber-400";
+        case "medium":
+          return "border-l-brand-primary";
+        default:
+          return "border-l-slate-300";
+      }
+    })();
+    return `border border-slate-200 ${priorityEdge} ${unread ? "bg-brand-primary/[0.045]" : "bg-white"} hover:bg-brand-primary/[0.055] hover:border-brand-primary/25`;
   };
 
   const preFilteredNotifications = useMemo(() => {
@@ -293,6 +323,8 @@ function NotificationsPage() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  if (redirectingToScopedPage) return null;
 
   return (
     <>
@@ -502,9 +534,7 @@ function NotificationsPage() {
                       {filteredNotifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`p-4 sm:p-6 transition-colors ${
-                            !notification.is_read ? "bg-blue-50/50" : ""
-                          } ${getPriorityColor(notification.priority)}`}
+                          className={`p-4 sm:p-6 transition-colors ${getPriorityColor(notification.priority, !notification.is_read)}`}
                         >
                           <div className="flex items-start gap-4">
                             <div className="mt-1 flex-shrink-0">

@@ -66,6 +66,15 @@ interface ProfileOption {
 
 const PAGE_SIZE = 50;
 
+const AUDIT_CATEGORIES = [
+  { value: "all", label: "All activity" },
+  { value: "subscription", label: "Subscription changes" },
+  { value: "pricing", label: "Pricing changes" },
+  { value: "permission", label: "User and permission changes" },
+  { value: "company", label: "Company changes" },
+  { value: "failure", label: "Failed or denied actions" },
+] as const;
+
 const fmtTs = (iso: string) => {
   return new Date(iso).toLocaleString("en-ZA", {
     day: "numeric",
@@ -98,6 +107,23 @@ const entityHref = (entityType: string, entityId: string | null): string | null 
       return null;
   }
 };
+
+function applyAuditCategoryFilter(query: any, category: string): any {
+  switch (category) {
+    case "subscription":
+      return query.or("action.ilike.%subscription%,entity_type.eq.subscription");
+    case "pricing":
+      return query.or("action.ilike.%pricing%,action.ilike.%price%,entity_type.eq.pricing");
+    case "permission":
+      return query.or("action.ilike.%permission%,action.ilike.%role%,action.ilike.%user_soft_deleted%");
+    case "company":
+      return query.or("action.ilike.%company%,entity_type.eq.company");
+    case "failure":
+      return query.or("action.ilike.%fail%,action.ilike.%error%,action.ilike.%suspicious%,action.ilike.%denied%");
+    default:
+      return query;
+  }
+}
 
 // Tone the row border by action class so eyes parse the stream
 // without reading every word. Refund + payment + cancel are the
@@ -136,6 +162,9 @@ function AuditLogsViewer() {
   const [actionFilter, setActionFilter] = useState<string>(
     typeof q.action === "string" ? q.action : "",
   );
+  const [categoryFilter, setCategoryFilter] = useState<string>(
+    typeof q.category === "string" && AUDIT_CATEGORIES.some((item) => item.value === q.category) ? q.category : "all",
+  );
   const [entityTypeFilter, setEntityTypeFilter] = useState<string>(
     typeof q.entityType === "string" ? q.entityType : "all",
   );
@@ -172,6 +201,7 @@ function AuditLogsViewer() {
     const next: Record<string, string> = {};
     if (companyId !== "all") next.company = companyId;
     if (actionFilter.trim()) next.action = actionFilter.trim();
+    if (categoryFilter !== "all") next.category = categoryFilter;
     if (entityTypeFilter !== "all") next.entityType = entityTypeFilter;
     if (entityIdFilter.trim()) next.entityId = entityIdFilter.trim();
     if (sinceFilter !== "7d") next.since = sinceFilter;
@@ -179,7 +209,7 @@ function AuditLogsViewer() {
     if (page > 0) next.page = String(page);
     router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, actionFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
+  }, [companyId, actionFilter, categoryFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
 
   // Lookups for label hydration. Worth a single round-trip per page
   // so the operator sees "Spit Braai Delivery" instead of a UUID.
@@ -192,7 +222,7 @@ function AuditLogsViewer() {
     void loadCompanies();
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user, companyId, actionFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
+  }, [authLoading, user, companyId, actionFilter, categoryFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
 
   const loadCompanies = async () => {
     try {
@@ -247,6 +277,7 @@ function AuditLogsViewer() {
         .select("id, created_at, user_id, company_id, action, entity_type, entity_id, ip_address, details", { count: "exact" })
         .order("created_at", { ascending: false });
       if (companyId !== "all") q = q.eq("company_id", companyId);
+      q = applyAuditCategoryFilter(q, categoryFilter);
       if (entityTypeFilter !== "all") q = q.eq("entity_type", entityTypeFilter);
       if (actionFilter.trim()) q = q.ilike("action", `%${actionFilter.trim()}%`);
       if (entityIdFilter.trim()) q = q.eq("entity_id", entityIdFilter.trim());
@@ -349,13 +380,26 @@ function AuditLogsViewer() {
           />
           <PageWorkbench />
 
-          <PortalCard className="mb-6">
+          <PortalCard id="platform-audit-filters" data-chat-section="platform.audit-logs.filters" className="mb-6">
             <PortalCardHeader title="Filters" />
             <p className="-mt-2 mb-3 text-xs text-slate-500 dark:text-slate-400">
               Combine any of these. Defaults to the last 7 days across every tenant.
             </p>
             <div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Activity group</Label>
+                  <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(0); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AUDIT_CATEGORIES.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div>
                   <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Tenant</Label>
                   <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setPage(0); }}>
@@ -469,7 +513,7 @@ function AuditLogsViewer() {
               description="Loosen the filters or expand the window if you think something should be here."
             />
           ) : (
-            <div className="space-y-2">
+            <div id="platform-audit-records" data-chat-section="platform.audit-logs.records" className="space-y-2">
               {rows.map((r) => {
                 const tone = toneFor(r.action);
                 const href = entityHref(r.entity_type, r.entity_id);
@@ -478,6 +522,7 @@ function AuditLogsViewer() {
                 return (
                   <div
                     key={r.id}
+                    id={`platform-audit-record-${r.id}`}
                     className={`border border-slate-200 dark:border-slate-700 border-l-4 rounded-md p-3 ${tone}`}
                   >
                     <div className="flex items-start justify-between gap-3">

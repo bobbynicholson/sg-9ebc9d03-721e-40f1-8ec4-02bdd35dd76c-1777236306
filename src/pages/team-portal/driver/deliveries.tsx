@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -130,6 +131,9 @@ const heroChipClass =
   "inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white";
 
 function DriverDeliveriesInner() {
+  const router = useRouter();
+  const requestedTab = typeof router.query.tab === "string" ? router.query.tab : "all";
+  const initialTab = ["all", "upcoming", "completed"].includes(requestedTab) ? requestedTab : "all";
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<DriverOrder[]>([]);
@@ -327,7 +331,7 @@ function DriverDeliveriesInner() {
       )}
 
       {!error && (
-        <PortalCard>
+        <PortalCard id="delivery-history" data-chat-section="driver.deliveries.history" data-chat-section-label="Delivery history" className="scroll-mt-20">
           <PortalCardHeader title="Delivery history" />
           {showSkeleton ? (
             <div className="py-12 flex items-center justify-center text-slate-500 dark:text-slate-400 gap-2" aria-busy="true">
@@ -345,7 +349,7 @@ function DriverDeliveriesInner() {
                   className="pl-9"
                 />
               </div>
-              <Tabs defaultValue="all">
+              <Tabs defaultValue={initialTab} key={initialTab}>
                 <TabsList className="mb-4 flex w-full gap-1 overflow-x-auto">
                   <TabsTrigger
                     value="all"

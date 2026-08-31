@@ -607,10 +607,12 @@ function AdminLeadsInner() {
     // Quote Management page. The drawer surfaces the lead context
     // (event date, guests, days waiting) on the right rail and lets
     // the operator edit the AI-suggested wording before sending.
-    if (!lead.client_email) {
+    const email = lead.client_email || lead.email;
+    const phone = lead.client_phone || lead.phone;
+    if (!email && !phone) {
       toast({
-        title: "No email on this lead",
-        description: "Add an email address to send a follow-up.",
+        title: "No contact method on this lead",
+        description: "Add an email address or phone number before sending a follow-up.",
         variant: "destructive",
       });
       return;
@@ -1280,7 +1282,7 @@ function AdminLeadsInner() {
 
           {/* Toolbar: search + status chips grouped into ONE card per
               the command-centre standard (was the list card's header). */}
-          <PortalCard className="mb-6 space-y-3">
+          <PortalCard id="lead-filters" data-chat-section="admin.leads.filters" data-chat-section-label="Lead filters" className="mb-6 space-y-3">
               <div className="grid gap-3 lg:grid-cols-[minmax(0,560px)_1fr] lg:items-start">
                 <AdminSearchField
                   inputRef={searchRef}
@@ -1322,7 +1324,7 @@ function AdminLeadsInner() {
               </AdminControlGroup>
           </PortalCard>
 
-          <PortalCard className="mb-6">
+          <PortalCard id="lead-pipeline" data-chat-section="admin.leads.pipeline" data-chat-section-label="Lead pipeline" className="mb-6">
             <PortalCardHeader
               title={loading ? "Leads" : `Leads (${filteredLeads.length})`}
             />
@@ -2065,9 +2067,11 @@ function LeadComposeDrawer({
         name: lead.client_name || lead.contact_name || "there",
         email: lead.client_email || lead.email || null,
         phone: lead.client_phone || lead.phone || null,
+        clientId: lead.converted_to_client_id || null,
       }}
       template={{ subject: tpl.subject, body: tpl.body }}
       fromName={fromName}
+      directEmail={companyId ? { companyId } : undefined}
       footerHint={
         "Edit freely, the wording is just a starting point based on this lead's status. Drag the left edge of this drawer to give yourself more room."
       }

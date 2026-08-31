@@ -1722,6 +1722,7 @@ function OrderProcessDashboard() {
               </div>
             )}
 
+            <div id="order-filters" data-chat-section="admin.orders.filters" data-chat-section-label="Order filters" className="scroll-mt-20">
             <OrderFiltersBar
               searchTerm={searchTerm}
               onSearchTermChange={setSearchTerm}
@@ -1742,8 +1743,10 @@ function OrderProcessDashboard() {
               onSaveCurrentView={saveCurrentView}
               onExport={exportFilteredCsv}
             />
+            </div>
 
             {/* Kanban Board / Timeline View */}
+            <span id="order-list" data-chat-section="admin.orders.list" data-chat-section-label="Order list" className="scroll-mt-20" aria-hidden="true" />
             {loading ? (
               <Card>
                 <CardContent className="py-24">

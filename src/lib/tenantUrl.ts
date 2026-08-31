@@ -107,6 +107,23 @@ export function useResolvedTenantSlug(): string {
  */
 export function useTenantHref() {
   const slug = useResolvedTenantSlug();
+  const router = useRouter();
+  const { profile, user } = useAuth() as any;
+  const isPlatformRole = String(user?.role || profile?.role || user?.user_metadata?.role || "") === "super_admin"
+    || (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("dev"));
+  const isPlatformRoute = router.pathname === "/admin/platform"
+    || router.pathname.startsWith("/admin/platform/")
+    || (router.asPath || "").split(/[?#]/)[0].startsWith("/admin/platform/");
+  const isLocalDev = typeof window !== "undefined"
+    && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    && new URLSearchParams(window.location.search).has("dev");
+  const preserveDevQuery = (href: string): string => {
+    if (!isLocalDev || !href || href.startsWith("#") || /^[a-z]+:|^\/\//i.test(href)) return href;
+    const [pathAndQuery, hash = ""] = href.split("#", 2);
+    if (/[?&]dev(?:=|&|$)/i.test(pathAndQuery)) return href;
+    const separator = pathAndQuery.includes("?") ? "&" : "?";
+    return `${pathAndQuery}${separator}dev=true${hash ? `#${hash}` : ""}`;
+  };
 
   const withSlug = (href: string): string => {
     if (!href) return href;
@@ -114,23 +131,31 @@ export function useTenantHref() {
     if (/^[a-z]+:|^\/\//i.test(href)) return href;
     // Anchors and query-only links pass through.
     if (href.startsWith("#") || href.startsWith("?")) return href;
-    if (!slug) return href;
+    if (!slug) return preserveDevQuery(href);
+    // AI Brain is shared by tenant and platform administration. Keep it
+    // global for platform owners even if a stale tenant slug is present.
+    if ((isPlatformRole || isPlatformRoute) && (href === "/admin/ai-brain" || href.startsWith("/admin/ai-brain/") || href.startsWith("/admin/ai-brain?") || href.startsWith("/admin/ai-brain#"))) return preserveDevQuery(href);
+    // A platform sidebar must never silently open the stale/dev tenant when
+    // its old switch link is still present in a cached bundle. Route it to
+    // the explicit company picker instead; the operator chooses the target
+    // company from there.
+    if (isPlatformRoute && href === "/admin/dashboard") return preserveDevQuery("/admin/platform/company-database#company-records");
     // Already slug-prefixed - idempotent.
-    if (href.startsWith(`/${slug}/`) || href === `/${slug}`) return href;
+    if (href.startsWith(`/${slug}/`) || href === `/${slug}`) return preserveDevQuery(href);
     // Global path - never prefixed.
     for (const p of GLOBAL_PREFIXES) {
       if (href === p || href.startsWith(p + "/") || href.startsWith(p + "?")) {
-        return href;
+        return preserveDevQuery(href);
       }
     }
     // Tenant-scoped path - prefix it.
     for (const p of TENANT_SCOPED_PREFIXES) {
       if (href === p || href.startsWith(p + "/") || href.startsWith(p + "?")) {
-        return `/${slug}${href}`;
+        return preserveDevQuery(`/${slug}${href}`);
       }
     }
     // Anything else (relative paths, custom routes) passes through.
-    return href;
+    return preserveDevQuery(href);
   };
 
   return { slug, withSlug };

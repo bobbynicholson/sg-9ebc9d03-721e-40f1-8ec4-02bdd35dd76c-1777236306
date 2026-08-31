@@ -1,7 +1,10 @@
 import * as React from "react";
 import { ArrowUpRight, ArrowDownRight, Route } from "lucide-react";
+import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { cn } from "@/lib/utils";
+import { getNavigationRefForPath } from "@/lib/chatbot/navigation";
+import { indexChatPageSections } from "@/lib/chatbot/sectionAnchors";
 
 // Desk-panel shadow: layered and soft. A crisp 1px contact line plus a
 // wide low-alpha ambient makes panels feel physically seated on the
@@ -276,6 +279,13 @@ export function PageWorkbench({
 }) {
   const router = useRouter();
   const pathname = router.pathname || "";
+  useEffect(() => {
+    const run = () => { indexChatPageSections(); };
+    run();
+    const observer = new MutationObserver(run);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [pathname]);
   const surface = routeSurface(pathname);
   const segments = visibleRouteSegments(pathname);
   const page = humanizeSegment(segments[segments.length - 1] || "dashboard") || "Dashboard";
@@ -285,6 +295,8 @@ export function PageWorkbench({
   return (
     <nav
       aria-label="Page context"
+      data-chat-ref={getNavigationRefForPath(pathname) || undefined}
+      data-chat-target-type="page"
       className={cn(
         "!mb-7 flex items-center justify-between gap-3 text-xs",
         className,

@@ -21,12 +21,23 @@ const SLUG = "spit-braai-delivery";
 
 const USERS = [
   {
+    role: "company_admin",
+    email: "hello@spitbraaidelivery.co.za",
+    prefix: `/${SLUG}`,
+    routes: [
+      "/admin/dashboard", "/admin/orders", "/admin/quotes", "/admin/invoices",
+      "/admin/calendar", "/admin/menu", "/admin/inventory", "/admin/equipment", "/admin/users",
+      "/admin/staff", "/admin/subscription", "/admin/notifications", "/admin/settings", "/admin/ai-brain",
+      "/admin/ai-brain/access",
+    ],
+  },
+  {
     role: "admin",
     email: "admin@spitbraaidelivery.co.za",
     prefix: `/${SLUG}`,
     routes: [
       "/admin/dashboard", "/admin/orders", "/admin/quotes", "/admin/invoices",
-      "/admin/calendar", "/admin/menu", "/admin/inventory", "/admin/equipment",
+      "/admin/calendar", "/admin/menu", "/admin/inventory", "/admin/equipment", "/admin/users",
       "/admin/staff", "/admin/notifications", "/admin/settings",
     ],
   },
@@ -111,11 +122,26 @@ const USERS = [
     prefix: "",
     routes: [
       "/admin/platform/dashboard", "/admin/platform/company-database", "/admin/platform/user-management",
+      // Bare tenant staff URL must resolve to the platform user list for a
+      // super_admin instead of silently becoming an all-company tenant page.
+      "/admin/users",
+      // Bare tenant inbox URL must resolve to the platform workspace rather
+      // than render an unscoped default-colour notification page.
+      "/admin/notifications",
+      // Bare tenant audit URL must resolve to the platform audit trail.
+      "/admin/audit-logs",
+      // Bare company billing URL must resolve to the platform subscription
+      // workspace instead of rendering an unscoped tenant billing page.
+      "/admin/subscription",
       "/admin/platform/financial-dashboard", "/admin/platform/subscription-management", "/admin/platform/trial-management",
       "/admin/platform/pricing-management", "/admin/platform/tenant-health", "/admin/platform/tax-rules",
       "/admin/platform/currency-monitoring", "/admin/platform/tech-costs", "/admin/platform/messaging-templates",
       "/admin/platform/cms-pages", "/admin/platform/cms-blog", "/admin/platform/audit-logs",
       "/admin/platform/settings",
+      // A platform owner may browse any selected tenant. This route must
+      // render the tenant admin chrome/data context, not the platform rail.
+      `/${SLUG}/admin/dashboard`,
+      `/${SLUG}/admin/subscription`,
     ],
   },
 ];
@@ -188,8 +214,9 @@ async function crawlUser(browser, user, storageKey) {
   }
 
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  const isLocal = BASE_URL.includes("localhost");
-  const cookieDomain = isLocal ? "localhost" : "cateringms.com";
+  const baseHost = new URL(BASE_URL).hostname;
+  const isLocal = baseHost === "localhost" || baseHost === "127.0.0.1";
+  const cookieDomain = isLocal ? baseHost : "cateringms.com";
   await context.addCookies(cookieChunks(storageKey, session).map((c) => ({
     name: c.name, value: c.value, domain: cookieDomain, path: "/",
     secure: !isLocal, httpOnly: false, sameSite: "Lax",

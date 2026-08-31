@@ -106,6 +106,12 @@ function CompanyDatabasePage() {
     }
   }, [profile]);
 
+  useEffect(() => {
+    if (!router.isReady) return;
+    const status = router.query.status;
+    if (typeof status === "string" && ["all", "trial", "active", "past_due", "cancelled", "suspended"].includes(status)) setStatusFilter(status);
+  }, [router.isReady, router.query.status]);
+
   // Honour ?company=<id> from subscription-management's "View company"
   // CTA. Wait until the rows are loaded, then scroll the matching
   // TableRow into view and flash an amber ring for a few seconds.
@@ -195,13 +201,32 @@ function CompanyDatabasePage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const { data: companiesData, error } = await supabase
+      let companiesData: any[] | null = null;
+      let error: any = null;
+      const primaryResult = await supabase
         .from("companies")
         .select(`
           *,
           profiles!companies_owner_id_fkey(full_name)
         `)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
+      companiesData = primaryResult.data as any[] | null;
+      error = primaryResult.error;
+
+      // The owner relationship is optional for older company rows and can
+      // fail independently of the company records themselves. Retry the
+      // plain company query so one relationship/schema issue cannot make the
+      // platform appear to have zero companies.
+      if (error) {
+        const fallbackResult = await supabase
+          .from("companies")
+          .select("*")
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+        companiesData = fallbackResult.data as any[] | null;
+        error = fallbackResult.error;
+      }
 
       if (error) throw error;
 
@@ -216,8 +241,9 @@ function CompanyDatabasePage() {
           supabase.from("profiles").select("company_id").in("company_id", companyIds),
           supabase.from("orders").select("company_id").in("company_id", companyIds),
         ]);
-        if (profilesRes.error) throw profilesRes.error;
-        if (ordersRes.error) throw ordersRes.error;
+        // Enrichment is helpful but not required to render the authoritative
+        // company list. Keep the rows visible if either optional count query
+        // is unavailable.
         (profilesRes.data || []).forEach((row: any) => {
           if (row.company_id) userCounts.set(row.company_id, (userCounts.get(row.company_id) || 0) + 1);
         });
@@ -552,7 +578,7 @@ function CompanyDatabasePage() {
         </div>
 
         {/* Toolbar: search + status filter + add-company in one place. */}
-        <PortalCard className="mb-6">
+        <PortalCard id="company-records" data-chat-section="platform.company-database.records" className="mb-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
@@ -615,7 +641,7 @@ function CompanyDatabasePage() {
         )}
 
         {/* Companies Table */}
-        <PortalCard>
+        <PortalCard id="company-records-table">
           <PortalCardHeader
             title={
               <span className="flex items-center gap-2">

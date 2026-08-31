@@ -931,7 +931,9 @@ export const emailService = {
         );
         return {
           success: false,
-          error: "The Resend API key is missing or invalid. Ask your platform admin.",
+          error: process.env.NODE_ENV !== "production"
+            ? "Local email delivery is not configured. Add RESEND_API_KEY to .env.local and restart the dev server."
+            : "The Resend API key is missing or invalid. Ask your platform admin.",
           error_code: "resend_auth",
         };
       } else {

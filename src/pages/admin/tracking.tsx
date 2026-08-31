@@ -913,7 +913,7 @@ function AdminTrackingInner() {
               <TabsTrigger value="list">List View <span className="ml-1 tabular-nums">({filteredOrders.length})</span></TabsTrigger>
             </TabsList>
 
-            <TabsContent value="map">
+            <TabsContent id="tracking-map" data-chat-section="admin.tracking.map" data-chat-section-label="Tracking map" value="map">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Map */}
                 <PortalCard className="lg:col-span-2">
@@ -1054,7 +1054,7 @@ function AdminTrackingInner() {
               </div>
             </TabsContent>
 
-            <TabsContent value="list">
+            <TabsContent id="tracking-list" data-chat-section="admin.tracking.list" data-chat-section-label="Tracking list" value="list">
               <PortalCard>
                 <div>
                   {loading ? (

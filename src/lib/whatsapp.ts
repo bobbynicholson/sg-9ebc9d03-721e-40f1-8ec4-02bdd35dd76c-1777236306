@@ -68,7 +68,7 @@ export function isLikelyMobile(phone: string | null | undefined): boolean {
   // SA: country code 27, mobile starts with 6/7/8 after CC.
   if (digits.startsWith("27")) {
     const after = digits.slice(2);
-    return /^[678]/.test(after);
+    return after.length === 9 && /^[678]/.test(after);
   }
   // Non-SA -> trust it. We don't ship in countries we haven't validated.
   return digits.length >= 10;
@@ -121,6 +121,19 @@ export function openWhatsApp(phone: string | null | undefined, message?: string)
   const url = buildWhatsAppUrl(phone, message);
   if (!url) return false;
   if (typeof window === "undefined") return false;
-  window.open(url, "_blank", "noopener");
-  return true;
+  // Use the normal browser launch path first. Some browsers and embedded
+  // Chromium sessions return null when `noopener` is supplied, even though
+  // the user-initiated launch is otherwise valid.
+  const opened = window.open(url, "_blank");
+  if (opened !== null) return true;
+
+  // A blocked new tab must not make the button appear dead. Navigating the
+  // current tab is a reliable fallback and still takes the operator to the
+  // same pre-filled WhatsApp conversation.
+  try {
+    window.location.assign(url);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -1,5 +1,5 @@
 import type { AppProps } from "next/app";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Fraunces, Inter } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -13,6 +13,9 @@ import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import { CommandPalette } from "@/components/CommandPalette";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
+import { ChatBot } from "@/components/ChatBot";
+import { useAuth } from "@/contexts/AuthContext";
+import { indexChatPageSections } from "@/lib/chatbot/sectionAnchors";
 import "@/styles/globals.css";
 
 // Warm modern display serif for marketing headings (opt-in via Tailwind's
@@ -73,6 +76,51 @@ function reloadForNewBuild() {
   } catch {
     /* never let recovery itself throw */
   }
+}
+
+/**
+ * The assistant belongs to the authenticated product shell, not to a short
+ * list of hand-picked pages. A few legacy pages still mount their own
+ * assistant; the DOM check keeps the transition from rendering two launchers
+ * while those page-level mounts are gradually consolidated.
+ */
+function GlobalChatAssistant() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [useGlobalAssistant, setUseGlobalAssistant] = useState(false);
+  const path = (router.asPath || "").split(/[?#]/)[0].replace(/^\/[^/]+(?=\/(?:admin|team-portal|client-portal|account)(?:\/|$))/, "");
+  const isProductRoute = ["/admin", "/team-portal", "/client-portal", "/account", "/super-admin"].some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+
+  useEffect(() => {
+    if (!user?.id || !isProductRoute || typeof document === "undefined") {
+      setUseGlobalAssistant(false);
+      return;
+    }
+    // Existing page-level instances are already committed by the time this
+    // shell effect runs. If a future page adds one, the observer also catches
+    // it before a second launcher is left behind.
+    const sync = () => setUseGlobalAssistant(!document.querySelector("[data-chatbot-root]:not([data-chatbot-global])"));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [user?.id, isProductRoute, path]);
+
+  // Index semantic headings and marked business regions globally so legacy
+  // product pages receive the same section-level navigation as newer pages
+  // that mount PageWorkbench. Explicit data-chat-section refs remain the
+  // stable names; ordinary headings receive deterministic local anchors.
+  useEffect(() => {
+    if (!isProductRoute || typeof document === "undefined") return;
+    const syncSections = () => { indexChatPageSections(); };
+    syncSections();
+    const observer = new MutationObserver(syncSections);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [isProductRoute, path]);
+
+  if (!useGlobalAssistant || !user) return null;
+  return <ChatBot global userRole={user.active_role || user.role} companyId={user.company_id || user.user_metadata?.company_id} />;
 }
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -253,6 +301,7 @@ export default function App({ Component, pageProps }: AppProps) {
             <GlobalInternalFooter />
             <CommandPalette />
             <MiddlewareErrorToast />
+            <GlobalChatAssistant />
             {/* VersionWatcher (the "A new version is available" banner)
                 unmounted per Raj, 2026-06-12 - it nagged on every
                 deploy during active development. Component + the

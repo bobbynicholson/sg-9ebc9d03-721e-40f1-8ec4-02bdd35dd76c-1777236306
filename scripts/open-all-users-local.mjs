@@ -1,7 +1,7 @@
 // Open every role's portal in its OWN visible browser window on localhost,
 // each already logged in as that user (real minted session).
 //   node scripts/open-all-users-local.mjs [--base http://localhost:3001]
-import { readFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, mkdirSync, existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -42,6 +42,7 @@ const USERS = [
   { role: "admin",            email: "admin@spitbraaidelivery.co.za",                 landing: `/${SLUG}/admin/dashboard` },
   { role: "kitchen_staff",    email: "kitchen@spitbraaidelivery.co.za",               landing: `/${SLUG}/team-portal/kitchen/dashboard` },
   { role: "kitchen_manager",  email: "kitchen.manager.demo@spitbraaidelivery.co.za",  landing: `/${SLUG}/team-portal/kitchen/dashboard` },
+  { role: "waiter",           email: "waiter.demo@spitbraaidelivery.co.za",             landing: `/${SLUG}/team-portal/waiter/dashboard` },
   { role: "driver",           email: "driver@spitbraaidelivery.co.za",                landing: `/${SLUG}/team-portal/driver/dashboard` },
   { role: "shopping_staff",   email: "shopping@spitbraaidelivery.co.za",              landing: `/${SLUG}/team-portal/shopping/dashboard` },
   { role: "cleaning_staff",   email: "cleaning@spitbraaidelivery.co.za",              landing: `/${SLUG}/team-portal/cleaning/dashboard` },
@@ -77,6 +78,11 @@ function cookieChunks(session) {
 }
 
 const contexts = [];
+const statusPath = path.join(repoRoot, ".browser-profiles-local", "launch-status.json");
+mkdirSync(path.dirname(statusPath), { recursive: true });
+const launchStatus = [];
+const saveLaunchStatus = () => writeFileSync(statusPath, JSON.stringify(launchStatus, null, 2));
+saveLaunchStatus();
 for (const u of USERS) {
   try {
     const session = await mint(u.email);
@@ -92,10 +98,25 @@ for (const u of USERS) {
       expires: Math.floor(Date.now() / 1000) + 86400,
     })));
     const page = ctx.pages()[0] || await ctx.newPage();
+    // The app uses @supabase/ssr cookies in the browser. Seed those cookies
+    // before navigation and do not route through /auth/callback here: that
+    // page performs a browser-side Supabase network request, which is not
+    // needed for a pre-seeded local test session and can fail independently
+    // of the valid session.
     await page.goto(`${BASE}${u.landing}`, { waitUntil: "domcontentloaded" }).catch(() => {});
+    await page.waitForTimeout(800);
     contexts.push(ctx);
-    console.log(`OPENED [${u.role}] ${u.email} -> ${u.landing}`);
+    const authCheck = await page.evaluate(async () => {
+      const response = await fetch("/api/chat?limit=1", { credentials: "include" });
+      return { status: response.status };
+    }).catch(() => ({ status: 0 }));
+    const authenticated = authCheck.status === 200;
+    launchStatus.push({ role: u.role, email: u.email, landing: u.landing, authenticated, status: authCheck.status, checkedAt: new Date().toISOString() });
+    saveLaunchStatus();
+    console.log(`${authenticated ? "AUTHENTICATED" : "OPENED (NOT AUTHENTICATED)"} [${u.role}] ${u.email} -> ${u.landing}`);
   } catch (e) {
+    launchStatus.push({ role: u.role, email: u.email, landing: u.landing, authenticated: false, status: 0, error: e.message, checkedAt: new Date().toISOString() });
+    saveLaunchStatus();
     console.log(`SKIP   [${u.role}] ${u.email}: ${e.message}`);
   }
 }

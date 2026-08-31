@@ -1456,7 +1456,7 @@ function SmartShoppingPage() {
               </TabsList>
 
               {/* BUY NOW */}
-              <TabsContent value="buy_now">
+              <TabsContent id="shopping-buy-now" data-chat-section="admin.shopping.buy-now" data-chat-section-label="Buy now list" value="buy_now">
                 {/* SHOP-I: expanded "Awaiting delivery" + "Snoozed"
                     panels. Audit caught the previous <details>
                     collapse hid the mistake-clicked rows behind a
@@ -1625,7 +1625,7 @@ function SmartShoppingPage() {
               </TabsContent>
 
               {/* PLAN AHEAD */}
-              <TabsContent value="plan">
+              <TabsContent id="shopping-plan" data-chat-section="admin.shopping.plan" data-chat-section-label="Shopping plan" value="plan">
                 <Card>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -1763,7 +1763,7 @@ function SmartShoppingPage() {
               </TabsContent>
 
               {/* BY SUPPLIER */}
-              <TabsContent value="supplier">
+              <TabsContent id="shopping-suppliers" data-chat-section="admin.shopping.suppliers" data-chat-section-label="Supplier comparison" value="supplier">
                 {/* SHOP-D: master Email-all button. Fans out one
                     compose window per supplier with an email on
                     file. Stagger 200ms so popup blockers don't
@@ -1974,7 +1974,7 @@ function SmartShoppingPage() {
                   shopping is the single place an admin acts). The
                   read-only mirror at /admin/tax-purchases is kept as an
                   accountant-facing overview. */}
-              <TabsContent value="receipts">
+              <TabsContent id="shopping-receipts" data-chat-section="admin.shopping.receipts" data-chat-section-label="Receipt history" value="receipts">
                 <ReceiptsTab companyId={companyId || ""} userId={user?.id || ""} />
               </TabsContent>
             </Tabs>

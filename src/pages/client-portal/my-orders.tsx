@@ -330,7 +330,7 @@ function MyOrdersInner() {
             </Button>
           </div>
 
-          <PortalCard>
+          <PortalCard id="booking-list" data-chat-section="client.bookings.list" data-chat-section-label="Bookings list">
             <PortalCardHeader title={`Bookings (${filteredOrders.length})`} />
             <div>
               {loading ? (

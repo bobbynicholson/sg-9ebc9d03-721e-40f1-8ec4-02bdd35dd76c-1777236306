@@ -1760,7 +1760,7 @@ function AdminQuotesInner() {
           </div>
 
           {viewMode === "list" && hasMultipleBranches && groupedRowsByRegion.length > 1 && (
-            <PortalCard className="mb-6 border-slate-200 bg-slate-50/70">
+            <PortalCard id="quote-regions" data-chat-section="admin.quotes.regions" data-chat-section-label="Quotes by region" className="mb-6 border-slate-200 bg-slate-50/70">
               <div className="flex flex-col gap-1 mb-3">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-sm font-semibold text-slate-900">Quotes by region</h2>
@@ -1811,7 +1811,7 @@ function AdminQuotesInner() {
               toggle, bucket pills and saved views were four scattered
               sibling strips - now grouped into ONE toolbar card per
               the page standard. Behaviour unchanged. */}
-          <PortalCard className="mb-6 space-y-3">
+          <PortalCard id="quote-pipeline" data-chat-section="admin.quotes.pipeline" data-chat-section-label="Quote pipeline" className="mb-6 space-y-3">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,560px)_auto] lg:items-start">
             {/* Smart search across client, event, ref + total. */}
             {quotes.length > 0 ? (
@@ -1990,9 +1990,9 @@ function AdminQuotesInner() {
           <div className="mb-4 flex items-start gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/10 px-4 py-3">
             <Mail className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-medium text-slate-900">Personal follow-ups, not bulk.</p>
+              <p className="font-medium text-slate-900">Personal follow-ups or direct delivery.</p>
               <p className="text-slate-600 mt-0.5">
-                Compose opens a draft in Gmail / Outlook / your default mail app pre-filled from this quote, so it actually arrives from <span className="font-medium">your address</span>. Subject and body update automatically based on the quote's status.
+                The draft composer opens Gmail / Outlook / your default mail app for manual review. Use <span className="font-medium">Send directly</span> when the message should go through your company&apos;s configured email sender.
               </p>
             </div>
           </div>
@@ -2521,6 +2521,24 @@ function AdminQuotesInner() {
                               companyName: companyName || null,
                             }}
                           />
+                          {/* Make the close-out path visible for stale,
+                              expired, draft, and sent quotes. The existing
+                              guarded reason dialog remains the single source
+                              of truth; this is only a clearer entry point
+                              than hiding "Mark rejected" inside More. */}
+                          {quote.status !== "accepted" && quote.status !== "rejected" && !(quote as any).converted_to_order_id && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMarkAsLost(quote)}
+                              className="w-full justify-center border-slate-300 text-slate-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700"
+                              title="Close this quote as rejected and record the reason"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Close quote
+                            </Button>
+                          )}
                           {/* Mark accepted - single highest-value
                               follow-on action. Converts to a live order
                               + fires deposit invoice. Hidden once
@@ -3544,6 +3562,7 @@ function QuoteComposeDrawer({
       }}
       template={initial}
       fromName={fromName}
+      directEmail={companyId ? { companyId, quoteId: quote.id } : undefined}
       footerHint={mode === "sweetener"
         ? "Tweak the offer above and the body refreshes, once you start typing here we keep your wording."
         : "Edit freely, the template's just a starting point based on this quote's status. Drag the left edge of this drawer to give yourself more room."}

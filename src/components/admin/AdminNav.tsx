@@ -66,6 +66,7 @@ import {
   Activity,
   Shield,
   CookingPot,
+  Brain,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +82,7 @@ import { AdminSmartQuickActions } from "@/components/admin/AdminSmartQuickAction
 import { useAdminLiveCounts } from "@/hooks/useAdminLiveCounts";
 import { useAdminPortalMode } from "@/hooks/useAdminPortalMode";
 import { useAdminModeToast } from "@/hooks/useAdminModeToast";
+import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 interface AdminNavProps {
   className?: string;
@@ -148,7 +150,18 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
 
 export function AdminNav(_: AdminNavProps = {}) {
   const router = useRouter();
-  const { profile } = useAuth() as any;
+  const { profile, activeRole, companySlug: authCompanySlug } = useAuth() as any;
+  const baseRole = String(profile?.role || "");
+  const tenantBrowseSlug = getTenantSlugFromPathname(router.asPath);
+  // A super-admin is still a super-admin for server authorization, but the
+  // visible chrome must become the selected company's admin chrome while on
+  // a tenant URL. Without this split the platform sections stayed visible.
+  const isTenantBrowseView = baseRole === UserRole.SUPER_ADMIN && Boolean(tenantBrowseSlug);
+  const effectiveRole = (isTenantBrowseView
+    ? UserRole.COMPANY_ADMIN
+    : (["super_admin", "owner", "company_admin"].includes(baseRole)
+    ? baseRole
+    : String(activeRole || profile?.active_role || baseRole))) as UserRole;
 
   // Live intelligence hooks - badges + liveDescriptions below close over
   // these so the operator sees urgency inline without opening a page.
@@ -157,7 +170,7 @@ export function AdminNav(_: AdminNavProps = {}) {
   useAdminModeToast();
 
   const companySlug =
-    profile?.company_slug || (router.query.company_slug as string) || "";
+    tenantBrowseSlug || profile?.company_slug || authCompanySlug || (router.query.company_slug as string) || "";
 
   // Wave 70.31 information architecture (signed off May 2026). Section ids
   // are stable - never rename or operators lose saved open/closed state.
@@ -261,7 +274,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       ],
     },
     // MONEY - finance nucleus, gated to finance-bearing roles.
-    ...(profile && canAccessFinance(profile.role as UserRole) ? [{
+    ...(profile && canAccessFinance(effectiveRole) ? [{
       id: "money",
       title: "Finance",
       defaultOpen: false,
@@ -309,7 +322,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           UserRole.OWNER,
           UserRole.COMPANY_ADMIN,
           UserRole.ADMIN,
-        ].includes(profile.role as UserRole)) ? [
+        ].includes(effectiveRole)) ? [
           { title: "Holiday calendar", href: "/admin/public-holidays", icon: CalendarHeart, description: "Payroll rate dates" },
         ] : []),
         { title: "Onboarding",    href: "/admin/onboarding",     icon: Wand2,     description: "Import clients and orders" },
@@ -317,7 +330,7 @@ export function AdminNav(_: AdminNavProps = {}) {
         // super_admin (the platform operator has no need to see a
         // tenant's private staff wages). Pages enforce the same via
         // ProtectedRoute denyRoles, which beats god mode.
-        ...(profile && canManagePayroll(profile.role as UserRole) ? [
+        ...(profile && canManagePayroll(effectiveRole) ? [
           { title: "Wages",            href: "/admin/wages",             icon: Wallet,     description: "Hours, rates, overtime" },
           { title: "Staff rates",      href: "/admin/staff",             icon: Users,      description: "Pay rates" },
           { title: "Staff hours",      href: "/admin/staff-hours",       icon: Clock,      description: "Time worked" },
@@ -332,7 +345,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       UserRole.OWNER,
       UserRole.COMPANY_ADMIN,
       UserRole.ADMIN,
-    ].includes(profile.role as UserRole) ? [{
+    ].includes(effectiveRole) ? [{
       id: "settings",
       title: "Settings",
       defaultOpen: false,
@@ -346,7 +359,11 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Messages",              href: "/admin/email-templates",       icon: MessageSquare, description: "Email and WhatsApp templates" },
         { title: "Notifications",         href: "/admin/notification-settings", icon: Bell,          description: "Routing and opt-ins" },
         { title: "Audit log",             href: "/admin/audit-logs",            icon: Shield,        description: "Compliance trail - who did what" },
-        ...(profile && canAccessFinance(profile.role as UserRole)
+        ...((profile && [UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN].includes(effectiveRole)) ? [
+          { title: "AI brain", href: "/admin/ai-brain", icon: Brain, description: "Manage approved assistant knowledge" },
+          { title: "AI access", href: "/admin/ai-brain/access", icon: Shield, description: "Manage role live-data tools" },
+        ] : []),
+        ...(profile && canAccessFinance(effectiveRole)
           ? [
               { title: "Subscription", href: "/admin/subscription", icon: CreditCard, description: "Your CateringMS plan and billing" },
               // Payment gateways had NO tenant nav entry - the page
@@ -359,7 +376,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       ],
     } as PortalSidebarSection] : []),
     // PLATFORM - super_admin only. /admin/platform/* are global prefixes.
-    ...(profile && profile.role === "super_admin" ? [{
+    ...(profile && effectiveRole === UserRole.SUPER_ADMIN ? [{
       id: "platform",
       title: "Platform",
       defaultOpen: false,

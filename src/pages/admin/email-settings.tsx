@@ -1051,7 +1051,7 @@ function EmailSettingsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-slate-600" />
                 When to email clients automatically
-                <InfoTooltip content={"Toggle which client emails fire automatically. Each one includes the client's secure order link. Repeat clients can also get a 'View all my events' link.\n\nWhile direct-send is being wired up, drafts queue here, you can copy and send any draft from your own inbox in the meantime."} />
+                <InfoTooltip content={"Toggle which client emails fire automatically. Each one includes the client's secure order link. Repeat clients can also get a 'View all my events' link.\n\nDirect quote and CRM sends use the verified company email sender. Gmail, Outlook, and the default mail app are optional manual-draft alternatives."} />
               </CardTitle>
               <CardDescription>
                 Pick which moments automatically send a client email with their secure order link.

@@ -192,7 +192,7 @@ function findTableBefore(src, pos, lookback = 800) {
 // runtime, and the bug stays invisible until a real human
 // notices the affected surface always reads zero.
 const KNOWN_TABLES = new Set([
-  "account_deletion_requests","accounting_integrations","admin_notifications","allergens",
+  "account_deletion_requests","accounting_integrations","admin_notifications","ai_brain_access_policies","ai_brain_documents","ai_brain_sources","ai_brain_tool_policies","ai_dynamic_tools","allergens",
   "api_key_rate_limits","api_keys","app_config","audit_logs","backup_generators",
   "billing_history","blocked_contacts","blog_posts","booking_packages",
   "cancellation_requests","chat_messages","chat_sessions","cleaning_duty_logs","cleaning_event_checklists","cleaning_event_handovers","cleaning_jobs","cleaning_machines",

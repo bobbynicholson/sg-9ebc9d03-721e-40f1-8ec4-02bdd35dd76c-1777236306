@@ -161,6 +161,12 @@ export default function UserManagementPage() {
     loadCompanies();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const status = new URLSearchParams(window.location.search).get("status");
+    if (status === "active" || status === "pending" || status === "all") setStatusFilter(status);
+  }, []);
+
   const loadUsers = async () => {
     try {
       // Two-step fetch: profiles, then companies map. Avoids supabase-js
@@ -643,7 +649,7 @@ export default function UserManagementPage() {
           <StatTile label="Platform admins" value={summary.platformAdmins} hint="Global admin access" icon={ShieldCheck} />
         </div>
 
-        <PortalCard className="mb-6">
+        <PortalCard id="pending-invitations" data-chat-section="platform.user-management.pending-invitations" className="mb-6">
           <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
             <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 dark:text-slate-400">
               Search and filters
@@ -709,7 +715,7 @@ export default function UserManagementPage() {
           </div>
         </PortalCard>
 
-        <PortalCard className="mb-6">
+        <PortalCard id="user-directory" data-chat-section="platform.user-management.directory" className="mb-6">
           <PortalCardHeader
             title={
               <span className="flex items-center gap-2">

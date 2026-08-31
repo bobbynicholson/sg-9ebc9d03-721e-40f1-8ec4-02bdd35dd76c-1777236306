@@ -15,7 +15,7 @@
  *
  * Architecture (unchanged):
  *   Command    - the screen you open every morning (Dashboard)
- *   Tenants    - who's on the platform (Companies, Users, Subscriptions, Trials, Health, Audit)
+ *   Companies  - who's on the platform (Companies, Users, Subscriptions, Trials, Health, Audit)
  *   Revenue    - money signals (Financial, Pricing, Currency, Tech costs)
  *   Marketing  - public-facing content (CMS Pages, Blog, Emails)
  *   System     - infrastructure (Settings, Payment Gateways)
@@ -42,8 +42,11 @@ import {
   Calculator,
   Settings,
   Activity,
+  AlertTriangle,
   ScrollText,
   Mail,
+  Brain,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
@@ -105,11 +108,11 @@ export function PlatformNav(_: PlatformNavProps = {}) {
     // the theme-following light rail.
     appearance: "dark",
     ...BRAND_PORTAL_PALETTE,
-    searchHint: "Search tenants, users, orders...",
+    searchHint: "Search companies, users, orders...",
     dashboardHref: "/admin/platform/dashboard",
     mobileQuickActions: [
-      { href: "/admin/platform/company-database",       label: "Companies",     sub: "All tenants",    icon: Building2,   accent: BRAND_ACCENT },
-      { href: "/admin/platform/user-management",        label: "Users",         sub: "Cross-tenant",   icon: Users,       accent: BRAND_ACCENT },
+      { href: "/admin/platform/company-database",       label: "Companies",     sub: "All companies",  icon: Building2,   accent: BRAND_ACCENT },
+      { href: "/admin/platform/user-management",        label: "Users",         sub: "All users",      icon: Users,       accent: BRAND_ACCENT },
       { href: "/admin/platform/subscription-management", label: "Subscriptions", sub: "Plans + billing", icon: CreditCard,  accent: BRAND_ACCENT },
     ],
     renderTopSlot: () => <PlatformTopSlot />,
@@ -119,16 +122,25 @@ export function PlatformNav(_: PlatformNavProps = {}) {
         title: "Command",
         defaultOpen: true,
         items: [
-          { title: "Platform Dashboard", href: "/admin/platform/dashboard", icon: LayoutDashboard, description: "MRR, signups, churn at a glance" },
+          { title: "Platform Dashboard", href: "/admin/platform/dashboard", icon: LayoutDashboard, description: "Revenue, new companies, and cancellations" },
+        ],
+      },
+      {
+        id: "ai",
+        title: "AI assistant",
+        defaultOpen: true,
+        items: [
+          { title: "AI Brain", href: "/admin/ai-brain", icon: Brain, description: "Manage approved assistant knowledge and sources" },
+          { title: "AI Access", href: "/admin/ai-brain/access", icon: ShieldCheck, description: "Manage which roles can access current information" },
         ],
       },
       {
         id: "tenants",
-        title: "Tenants",
+        title: "Companies",
         defaultOpen: true,
         items: [
           { title: "Companies",      href: "/admin/platform/company-database",       icon: Building2,  description: "Every registered catering business" },
-          { title: "Users",          href: "/admin/platform/user-management",        icon: Users,      description: "All accounts across all tenants" },
+          { title: "Users",          href: "/admin/platform/user-management",        icon: Users,      description: "All users across all companies" },
           {
             title: "Subscriptions",
             href: "/admin/platform/subscription-management",
@@ -137,8 +149,9 @@ export function PlatformNav(_: PlatformNavProps = {}) {
             badge: () => ({ text: "Live", tone: "info" }),
           },
           { title: "Trials",         href: "/admin/platform/trial-management",       icon: Calendar,   description: "Extend trials, convert to paid" },
-          { title: "Tenant Health",  href: "/admin/platform/tenant-health",          icon: Activity,   description: "Stuck onboarding, dormant, payment unset" },
-          { title: "Audit logs",     href: "/admin/platform/audit-logs",             icon: ScrollText, description: "Append-only trail across every tenant" },
+          { title: "Company Health", href: "/admin/platform/tenant-health",          icon: Activity,   description: "Stuck setup, quiet companies, payment issues" },
+          { title: "Payment Issues", href: "/admin/platform/payment-issues",         icon: AlertTriangle, description: "Companies whose payment setup needs attention" },
+          { title: "Activity log",  href: "/admin/platform/audit-logs",             icon: ScrollText, description: "History of activity across all companies" },
         ],
       },
       {
@@ -146,10 +159,10 @@ export function PlatformNav(_: PlatformNavProps = {}) {
         title: "Revenue",
         defaultOpen: true,
         items: [
-          { title: "Financial Dashboard", href: "/admin/platform/financial-dashboard", icon: BarChart3,     description: "Platform MRR, ARR, cohort analysis" },
-          { title: "Pricing",             href: "/admin/platform/pricing-management",  icon: Tag,           description: "Plans, price tiers, feature gates" },
-          { title: "Currency Monitor",    href: "/admin/platform/currency-monitoring", icon: ArrowLeftRight, description: "Live FX rates, threshold alerts" },
-          { title: "Tech-stack costs",    href: "/admin/platform/tech-costs",          icon: Calculator,    description: "COGS, margin per tenant, scale curves" },
+          { title: "Financial Dashboard", href: "/admin/platform/financial-dashboard", icon: BarChart3,     description: "Revenue, recurring income, and trends" },
+          { title: "Pricing",             href: "/admin/platform/pricing-management",  icon: Tag,           description: "Plans, prices, and included features" },
+          { title: "Currency Monitor",    href: "/admin/platform/currency-monitoring", icon: ArrowLeftRight, description: "Exchange rates and alerts" },
+          { title: "Tech-stack Costs",    href: "/admin/platform/tech-costs",          icon: Calculator,    description: "Technology costs, margin, and cost at scale" },
         ],
       },
       {
@@ -159,7 +172,7 @@ export function PlatformNav(_: PlatformNavProps = {}) {
         items: [
           { title: "CMS Pages",       href: "/admin/platform/cms-pages",           icon: Globe,    description: "Landing pages, features, pricing copy" },
           { title: "Blog",           href: "/admin/platform/cms-blog",            icon: Newspaper, description: "Articles, SEO, thought leadership" },
-          { title: "Platform emails", href: "/admin/platform/messaging-templates", icon: Mail,     description: "Receipts, trial reminders, owner welcome" },
+          { title: "Platform emails", href: "/admin/platform/messaging-templates", icon: Mail,     description: "Receipts, trial reminders, and welcome messages" },
         ],
       },
       {
@@ -185,9 +198,11 @@ export function PlatformNav(_: PlatformNavProps = {}) {
         defaultOpen: true,
         footerTreatment: true,
         items: [
-          // PortalSidebar applies withSlug() to this href, so a super-
-          // admin browsing a tenant lands in that tenant's admin view.
-          { title: "Switch to tenant view", href: "/admin/dashboard", icon: MonitorCheck, description: "Browse as company admin" },
+          // A platform owner must choose the company explicitly before
+          // entering a tenant workspace. Sending this through withSlug()
+          // would silently open whichever stale/dev slug happens to be in
+          // auth context, which is both confusing and unsafe.
+          { title: "Switch to company view", href: "/admin/platform/company-database#company-records", icon: MonitorCheck, description: "Choose a company to browse" },
         ],
       },
     ],

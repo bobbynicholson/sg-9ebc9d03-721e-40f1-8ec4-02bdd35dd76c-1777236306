@@ -42,6 +42,20 @@ export interface LiveRates {
   aud: number;
 }
 
+export interface SupportedCurrency {
+  code: string;
+  name: string;
+  symbol: string;
+  sources: string[];
+}
+
+export interface LatestCurrencyRate {
+  from: string;
+  to: string;
+  rate: number;
+  date: string;
+}
+
 export interface FluctuationAlertRow {
   id: string;
   check_date: string;
@@ -64,6 +78,131 @@ const ALERT_DEDUPE_DAYS = 7;
 const EXCHANGE_API_URL = "https://api.exchangerate-api.com/v4/latest/USD";
 
 export const currencyMonitoringService = {
+  /**
+   * Resolve the currencies the platform currently knows about from the same
+   * records used by the portal. Region currency settings describe currencies
+   * currently configured for tenants; exchange-rate columns describe pairs
+   * that the platform can monitor. No currency list is embedded in the
+   * assistant or portal response.
+   */
+  async getSupportedCurrencies(client: SbLike = defaultClient): Promise<SupportedCurrency[]> {
+    try {
+      const [regionsResult, ratesResult, catalogResult] = await Promise.all([
+        client.from("regions").select("currency").eq("is_active", true).limit(5000),
+        client.from("exchange_rates").select("*").order("date", { ascending: false }).limit(1).maybeSingle(),
+        client
+          .from("platform_supported_currencies")
+          .select("code, name, symbol")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("code", { ascending: true }),
+      ]);
+
+      // Once the catalog migration is present it is authoritative. The
+      // fallback below keeps older deployments readable while they roll the
+      // migration out and still derives values from portal records.
+      if (!catalogResult?.error && Array.isArray(catalogResult.data)) {
+        return catalogResult.data
+          .map((row: any) => ({
+            code: String(row?.code || "").trim().toUpperCase(),
+            name: String(row?.name || row?.code || "").trim(),
+            symbol: String(row?.symbol || row?.code || "").trim(),
+            sources: ["platform currency catalog"],
+          }))
+          .filter((row: SupportedCurrency) => /^[A-Z]{3}$/.test(row.code) && row.name.length > 0);
+      }
+
+      const byCode = new Map<string, Set<string>>();
+      const add = (value: unknown, source: string) => {
+        const code = String(value || "").trim().toUpperCase();
+        if (!/^[A-Z]{3}$/.test(code)) return;
+        if (!byCode.has(code)) byCode.set(code, new Set<string>());
+        byCode.get(code)!.add(source);
+      };
+
+      for (const row of (Array.isArray(regionsResult?.data) ? regionsResult.data : [])) {
+        add(row?.currency, "active region settings");
+      }
+
+      const latestRate = ratesResult?.data && typeof ratesResult.data === "object" ? ratesResult.data : null;
+      if (latestRate) {
+        for (const [column, value] of Object.entries(latestRate)) {
+          const match = column.match(/^([a-z]{3})_to_zar_rate$/i);
+          if (match && Number.isFinite(Number(value)) && Number(value) > 0) {
+            add(match[1], "exchange-rate monitoring");
+            add("ZAR", "exchange-rate monitoring");
+          }
+        }
+      }
+
+      return [...byCode.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([code, sources]) => {
+        let name = code;
+        let symbol = code;
+        try {
+          name = new Intl.DisplayNames(["en"], { type: "currency" }).of(code) || code;
+          const parts = new Intl.NumberFormat("en", {
+            style: "currency",
+            currency: code,
+            currencyDisplay: "narrowSymbol",
+          }).formatToParts(0);
+          symbol = parts.find((part) => part.type === "currency")?.value || code;
+        } catch {
+          // Keep the ISO code when the runtime does not know the currency.
+        }
+        return { code, name, symbol, sources: [...sources] };
+      });
+    } catch (error) {
+      console.error("[currency] getSupportedCurrencies failed:", error);
+      return [];
+    }
+  },
+
+  /** Read the latest stored currency pairs without assuming a fixed list. */
+  async getLatestRates(client: SbLike = defaultClient): Promise<{ date: string | null; rates: LatestCurrencyRate[] }> {
+    try {
+      const { data, error } = await client
+        .from("exchange_rates")
+        .select("*")
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error || !data) return { date: null, rates: [] };
+
+      const date = String(data.date || "");
+      const rates = Object.entries(data)
+        .map(([column, value]) => {
+          const match = column.match(/^([a-z]{3})_to_zar_rate$/i);
+          const rate = Number(value);
+          return match && Number.isFinite(rate) && rate > 0
+            ? { from: match[1].toUpperCase(), to: "ZAR", rate, date }
+            : null;
+        })
+        .filter((item): item is LatestCurrencyRate => Boolean(item))
+        .sort((a, b) => a.from.localeCompare(b.from));
+      return { date: date || null, rates };
+    } catch (error) {
+      console.error("[currency] getLatestRates failed:", error);
+      return { date: null, rates: [] };
+    }
+  },
+
+  /** Return the current 90-day review-trigger state as plain data. */
+  async getThresholdStatus(client: SbLike = defaultClient) {
+    const fluctuation = await this.checkForSignificantFluctuation(client);
+    return {
+      pair: "USD/ZAR",
+      thresholdPercent: FLUCTUATION_THRESHOLD_PCT,
+      reviewRequired: fluctuation.hasFluctuation,
+      percentageChange: fluctuation.percentageChange,
+      startRate: fluctuation.startRate,
+      endRate: fluctuation.endRate,
+      startDate: fluctuation.startDate,
+      endDate: fluctuation.endDate,
+      dataPoints: fluctuation.dataPoints,
+      as_of: new Date().toISOString(),
+    };
+  },
+
   /**
    * Live USD->ZAR fetch. Used inside runDailyCheck so today's row
    * always reflects the live API. Falls back to FALLBACK_RATE on
@@ -246,6 +385,7 @@ export const currencyMonitoringService = {
         endRate: 0,
         startDate: "",
         endDate: "",
+        dataPoints: rates.length,
       };
     }
     const oldest = rates[0];
@@ -261,6 +401,7 @@ export const currencyMonitoringService = {
       endRate: Number(latest.usd_to_zar_rate),
       startDate: oldest.date,
       endDate: latest.date,
+      dataPoints: rates.length,
     };
   },
 

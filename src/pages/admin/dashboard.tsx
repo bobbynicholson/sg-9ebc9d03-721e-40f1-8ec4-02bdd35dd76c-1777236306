@@ -1222,7 +1222,7 @@ function AdminDashboardPage() {
             || stats.pendingQuoteDrafts > 0
             || stats.lowStockItems > 0
             || stats.upcomingEvents > 0) && (
-            <Card className="mb-6 bg-gradient-to-r from-amber-50 to-orange-50">
+            <Card id="priority-actions" data-chat-section="admin.dashboard.priority-actions" data-chat-section-label="Priority actions" className="mb-6 scroll-mt-20 bg-gradient-to-r from-amber-50 to-orange-50">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                   <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
@@ -1297,7 +1297,7 @@ function AdminDashboardPage() {
           )}
 
           {/* Quick Actions */}
-          <Card className="mb-6">
+          <Card id="quick-actions" data-chat-section="admin.dashboard.quick-actions" data-chat-section-label="Dashboard quick actions" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
             </CardHeader>

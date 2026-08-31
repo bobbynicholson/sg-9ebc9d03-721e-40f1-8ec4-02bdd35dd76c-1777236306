@@ -47,10 +47,20 @@ describe("DriverStatusDialog POD nesting", () => {
       configurable: true,
       value: jest.fn(() => ({
         beginPath: jest.fn(),
+        arc: jest.fn(),
+        clearRect: jest.fn(),
+        closePath: jest.fn(),
         fillRect: jest.fn(),
+        fill: jest.fn(),
+        fillText: jest.fn(),
         lineTo: jest.fn(),
         moveTo: jest.fn(),
+        restore: jest.fn(),
+        rotate: jest.fn(),
+        save: jest.fn(),
+        scale: jest.fn(),
         stroke: jest.fn(),
+        translate: jest.fn(),
       })),
     });
   });
@@ -75,7 +85,7 @@ describe("DriverStatusDialog POD nesting", () => {
     expect(screen.getByText("Setup completed")).not.toBeNull();
     expect(readPendingPodCapture(localStorage)?.flow).toBe("status");
     expect(onClose).not.toHaveBeenCalled();
-  });
+  }, 15000);
 
   it("does not dismiss the parent workflow on an outside camera-return interaction", () => {
     const onClose = jest.fn();

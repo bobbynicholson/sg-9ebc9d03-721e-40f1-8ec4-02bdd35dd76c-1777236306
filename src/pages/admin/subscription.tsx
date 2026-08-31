@@ -39,6 +39,8 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
@@ -59,6 +61,9 @@ function SubscriptionPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const { withSlug } = useTenantHref();
+  const routeTenantSlug = getTenantSlugFromPathname(router.asPath);
+  const [redirectingToScopedPage, setRedirectingToScopedPage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -75,8 +80,25 @@ function SubscriptionPage() {
   const [deleteReason, setDeleteReason] = useState("");
   const [exportData, setExportData] = useState(false);
 
+  // A bare subscription URL is ambiguous: platform billing belongs in the
+  // platform workspace, while a company subscription must carry the tenant
+  // slug so branding and data scope cannot drift apart.
   useEffect(() => {
-    if (user) {
+    if (!router.isReady || !user || routeTenantSlug) return;
+    const pathname = (router.asPath || "").split(/[?#]/)[0];
+    if (pathname !== "/admin/subscription") return;
+
+    const role = String(user.active_role || user.role || "").toLowerCase();
+    const destination = role === UserRole.SUPER_ADMIN
+      ? "/admin/platform/subscription-management"
+      : withSlug("/admin/subscription");
+    if (destination === "/admin/subscription") return;
+    setRedirectingToScopedPage(true);
+    void router.replace(destination);
+  }, [router, user, routeTenantSlug, withSlug]);
+
+  useEffect(() => {
+    if (user && !redirectingToScopedPage) {
       loadSubscriptionData();
     } else {
       const timer = setTimeout(() => {
@@ -86,7 +108,7 @@ function SubscriptionPage() {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [user, router]);
+  }, [user, router, redirectingToScopedPage]);
 
   const loadSubscriptionData = async () => {
     if (!user?.id) return;
@@ -301,6 +323,8 @@ function SubscriptionPage() {
     return status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ");
   };
 
+  if (redirectingToScopedPage) return null;
+
   if (loading || !user) {
     // Loading renders INSIDE the admin chrome - the nav rail must
     // never disappear while the page fetches (pre-fix this was a bare
@@ -352,10 +376,10 @@ function SubscriptionPage() {
               subtitle="Your CateringMS plan, usage against plan limits, billing history and account controls."
             />
             <PageWorkbench />
-            <Card className="border-rose-200">
+            <Card className="border-l-4 border-l-rose-400 dark:border-slate-800 dark:border-l-rose-400">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-rose-900">
-                  <AlertTriangle className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-slate-950 dark:text-white">
+                  <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
                   Could not load your subscription
                 </CardTitle>
                 <CardDescription>{loadError}</CardDescription>
@@ -503,9 +527,9 @@ function SubscriptionPage() {
           <PageWorkbench />
 
           {pendingDeletion && (
-            <Alert className="mb-6 border-rose-200 bg-rose-50">
-              <AlertTriangle className="h-5 w-5 border-rose-200" />
-              <AlertDescription className="border-rose-200">
+            <Alert className="mb-6 border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+              <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+              <AlertDescription className="text-slate-700 dark:text-slate-300">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold mb-1">Account Deletion Scheduled</p>
@@ -520,9 +544,9 @@ function SubscriptionPage() {
           )}
 
           {subscription.cancel_at_period_end && (
-            <Alert className="mb-6 border-amber-200 bg-amber-50">
+            <Alert className="mb-6 border-slate-200 border-l-4 border-l-amber-400 bg-white dark:border-slate-800 dark:border-l-amber-400 dark:bg-slate-900">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
-              <AlertDescription className="text-amber-900">
+              <AlertDescription className="text-slate-700 dark:text-slate-300">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-semibold mb-1">Subscription Cancelling</p>
@@ -537,9 +561,9 @@ function SubscriptionPage() {
           )}
 
           {trialStatus?.isInTrial && (
-            <Alert className="mb-6 border-blue-200 bg-blue-50">
-              <Info className="h-5 w-5 text-blue-600" />
-              <AlertDescription className="text-blue-900">
+            <Alert className="mb-6 border-slate-200 border-l-4 border-l-brand-primary bg-white dark:border-slate-800 dark:border-l-brand-primary dark:bg-slate-900">
+              <Info className="h-5 w-5 text-brand-primary" />
+              <AlertDescription className="text-slate-700 dark:text-slate-300">
                 <p className="font-semibold mb-1">Free Trial Active</p>
                 <p className="text-sm">You have {trialStatus.daysRemaining} days remaining in your free trial. Your trial ends on {formatDate(trialStatus.trialEndsAt!)}.</p>
               </AlertDescription>
@@ -636,9 +660,9 @@ function SubscriptionPage() {
                     )}
                   </div>
 
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <Info className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-sm text-blue-900">
+                  <Alert className="border-brand-primary/20 bg-brand-primary/5 dark:border-brand-primary/30 dark:bg-brand-primary/10">
+                    <Info className="h-4 w-4 text-brand-primary" />
+                    <AlertDescription className="text-sm text-slate-700 dark:text-slate-300">
                       Your plan limits are based on <strong>whichever comes first</strong>. Upgrade anytime if you need more capacity.
                     </AlertDescription>
                   </Alert>
@@ -693,13 +717,13 @@ function SubscriptionPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-rose-200">
+          <Card className="border-l-4 border-l-rose-400 dark:border-slate-800 dark:border-l-rose-400">
             <CardHeader>
               <CardTitle className="text-rose-900">Danger Zone</CardTitle>
               <CardDescription>Irreversible actions for your subscription and account</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 border border-rose-200 rounded-lg bg-rose-50">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-slate-200 border-l-4 border-l-rose-300 bg-white p-4 dark:border-slate-700 dark:border-l-rose-400 dark:bg-slate-900">
                 <div>
                   <p className="font-medium text-slate-900">Cancel Subscription</p>
                   <p className="text-sm text-slate-600">Stop your subscription and lose access to features</p>
@@ -770,7 +794,7 @@ function SubscriptionPage() {
                 </Dialog>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 border border-rose-300 rounded-lg bg-rose-100">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-slate-200 border-l-4 border-l-rose-400 bg-white p-4 dark:border-slate-700 dark:border-l-rose-400 dark:bg-slate-900">
                 <div>
                   <p className="font-medium text-slate-900">Delete Account</p>
                   <p className="text-sm text-slate-600">Permanently delete your account and all data (30-day grace period)</p>

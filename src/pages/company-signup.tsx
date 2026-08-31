@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { UserRole } from "@/types/app";
 import { Reveal } from "@/components/motion/Reveal";
 import { EASE, iconChip, Eyebrow } from "@/components/motion/marketing";
+import type { SupportedCurrency } from "@/services/currencyMonitoringService";
 
 // Slug availability states surfaced to the UI.
 type SlugAvailability =
@@ -65,14 +66,6 @@ async function retryProfileOperation<T>(
   throw lastError || new Error(`${operationName} failed after ${maxRetries} attempts`);
 }
 
-const CURRENCIES = [
-  { code: "ZAR", name: "South African Rand", symbol: "R" },
-  { code: "USD", name: "US Dollar", symbol: "$" },
-  { code: "EUR", name: "Euro", symbol: "€" },
-  { code: "GBP", name: "British Pound", symbol: "£" },
-  { code: "AUD", name: "Australian Dollar", symbol: "A$" }
-];
-
 export default function CompanySignupPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -82,7 +75,7 @@ export default function CompanySignupPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    currency: "ZAR",
+    currency: "",
     customSlug: "" // Required, locked permanently after submit
   });
   const [error, setError] = useState("");
@@ -99,6 +92,9 @@ export default function CompanySignupPage() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [slugAvailability, setSlugAvailability] =
     useState<SlugAvailability>({ state: "idle" });
+  const [currencies, setCurrencies] = useState<SupportedCurrency[]>([]);
+  const [currenciesLoading, setCurrenciesLoading] = useState(true);
+  const [currenciesError, setCurrenciesError] = useState("");
 
   // Block already-signed-in users from the public owner self-signup.
   // This page calls supabase.auth.signUp, which replaces the current
@@ -123,6 +119,33 @@ export default function CompanySignupPage() {
     })();
     return () => { cancelled = true; };
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setCurrenciesLoading(true);
+        setCurrenciesError("");
+        const response = await fetch("/api/public/supported-currencies");
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || "Could not load currencies.");
+        const next = Array.isArray(payload?.currencies) ? payload.currencies : [];
+        if (cancelled) return;
+        setCurrencies(next);
+        setFormData((current) => ({
+          ...current,
+          currency: next.some((item: SupportedCurrency) => item.code === current.currency)
+            ? current.currency
+            : next[0]?.code || "",
+        }));
+      } catch (loadError: any) {
+        if (!cancelled) setCurrenciesError(loadError?.message || "Could not load currencies.");
+      } finally {
+        if (!cancelled) setCurrenciesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Live availability check via the SECURITY DEFINER RPC. Debounced so
   // we aren't pinging on every keystroke. The RPC returns only a
@@ -769,12 +792,13 @@ export default function CompanySignupPage() {
                 <Select
                   value={formData.currency}
                   onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                  disabled={currenciesLoading || currencies.length === 0}
                 >
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select your currency" />
+                  <SelectTrigger className="h-12" aria-describedby="currency-help">
+                    <SelectValue placeholder={currenciesLoading ? "Loading currencies..." : "Select your currency"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {CURRENCIES.map((currency) => (
+                    {currencies.map((currency) => (
                       <SelectItem key={currency.code} value={currency.code}>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{currency.symbol}</span>
@@ -784,6 +808,13 @@ export default function CompanySignupPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p id="currency-help" className="text-xs text-slate-500">
+                  {currenciesError || (currenciesLoading
+                    ? "Loading the current currency options."
+                    : currencies.length === 0
+                      ? "No currencies are currently available. Please try again shortly."
+                      : "Currency options are managed by the platform.")}
+                </p>
               </div>
             </div>
 

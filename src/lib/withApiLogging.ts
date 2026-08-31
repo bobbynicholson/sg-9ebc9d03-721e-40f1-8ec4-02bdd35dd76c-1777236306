@@ -118,7 +118,16 @@ export function withApiLogging(handler: ApiHandler, areaOverride?: LogArea): Api
             : undefined,
       });
       if (!res.headersSent) {
-        res.status(500).json({ error: "Internal server error" });
+        const isChatRequest = /\/api\/chat(?:[/?]|$)/.test(url);
+        if (isChatRequest) {
+          res.status(500).json({
+            error: "The assistant could not complete this request. Please try again.",
+            code: "UNEXPECTED_CHAT_SERVER_ERROR",
+            retryable: true,
+          });
+        } else {
+          res.status(500).json({ error: "Internal server error" });
+        }
       }
     }
   };

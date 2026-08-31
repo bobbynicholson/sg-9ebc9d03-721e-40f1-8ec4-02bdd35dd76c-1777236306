@@ -464,7 +464,7 @@ function ShoppingBuyListPageInner() {
           </PortalCard>
 
           {/* Buy list rows */}
-          <PortalCard padded={false}>
+          <PortalCard id="shopping-buy-items" data-chat-section="shopping.buy-list.items" data-chat-section-label="Items to buy" padded={false}>
             <PortalCardHeader
               className="mb-0 p-5"
               title={

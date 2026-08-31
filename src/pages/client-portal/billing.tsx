@@ -494,7 +494,7 @@ function ClientBillingPageInner() {
               </div>
 
               {/* Filters and Search */}
-              <PortalCard className="mb-6">
+              <PortalCard id="invoice-list" data-chat-section="client.billing.invoices" data-chat-section-label="Client invoice list" className="mb-6 scroll-mt-20">
                 <PortalCardHeader
                   title={`Invoices (${filteredInvoices.length})`}
                   action={

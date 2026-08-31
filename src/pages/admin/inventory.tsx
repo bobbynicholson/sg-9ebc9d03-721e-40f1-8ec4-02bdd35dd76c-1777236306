@@ -1251,7 +1251,7 @@ function AdminInventory() {
           </Card>
 
           {/* Search + filter chips + views + export */}
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3">
+          <div id="inventory-filters" data-chat-section="admin.inventory.filters" data-chat-section-label="Inventory filters" className="rounded-lg border border-slate-200 bg-white shadow-sm mb-4 p-3 scroll-mt-20">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1408,6 +1408,7 @@ function AdminInventory() {
             onBulkMarkPerishable={handleBulkMarkPerishable}
           />
 
+          <span id="inventory-catalogue" data-chat-section="admin.inventory.catalogue" data-chat-section-label="Inventory catalogue" className="scroll-mt-20" aria-hidden="true" />
           {/* Dense table */}
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
             {/* Table header */}

@@ -7,6 +7,7 @@ import { UserRole } from "@/types/app";
 import { profileService } from "@/services/profileService";
 import { prewarmCompanyTemplates } from "@/services/messageTemplateService";
 import { deriveUserRoles } from "@/lib/roleDerivation";
+import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 type Company = Tables<"companies">;
 type DbProfile = Tables<"profiles">;
@@ -63,6 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [profile, setProfile] = useState<DbProfile | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
+  // A platform owner keeps their real super-admin identity while browsing a
+  // tenant URL. This separate route context lets every existing tenant page
+  // read the selected company's id/name/settings without changing platform
+  // permissions or the persisted profile row.
+  const [routeCompany, setRouteCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -209,6 +215,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []); // Only run once on mount
+
+  const routeTenantSlug = getTenantSlugFromPathname(router.asPath);
+  const isSuperAdmin = String(profile?.role || user?.role || "") === UserRole.SUPER_ADMIN;
+
+  // A platform owner must not render a tenant page from a bare /admin URL.
+  // Those pages need a company slug to resolve branding and company data;
+  // without one they showed "no company linked" while the assistant still
+  // operated with platform-wide permissions. Keep the few shared admin
+  // surfaces that already understand platform context, and canonicalise
+  // every other bare admin URL to its platform equivalent or dashboard.
+  useEffect(() => {
+    if (!router.isReady || !isSuperAdmin || routeTenantSlug) return;
+    const pathname = (router.asPath || "").split(/[?#]/)[0];
+    if (!pathname.startsWith("/admin") || pathname.startsWith("/admin/platform")) return;
+
+    // These pages deliberately support both platform and company contexts.
+    if (pathname === "/admin/ai-brain" || pathname.startsWith("/admin/ai-brain/") || pathname === "/admin/payment-gateways") return;
+
+    const platformAliases: Record<string, string> = {
+      "/admin": "/admin/platform/dashboard",
+      "/admin/dashboard": "/admin/platform/dashboard",
+      "/admin/audit-logs": "/admin/platform/audit-logs",
+      "/admin/users": "/admin/platform/user-management",
+      "/admin/subscription": "/admin/platform/subscription-management",
+      "/admin/financial-dashboard": "/admin/platform/financial-dashboard",
+      "/admin/settings": "/admin/platform/settings",
+      "/admin/notifications": "/admin/platform/dashboard",
+    };
+    const destination = platformAliases[pathname] || "/admin/platform/dashboard";
+    if (destination !== pathname) void router.replace(destination);
+  }, [isSuperAdmin, routeTenantSlug, router]);
+
+  // Resolve the company selected by a platform owner's tenant URL. The
+  // middleware deliberately permits this navigation, but previously the
+  // client continued carrying a company-less platform context. That made
+  // the tenant dashboard use default branding and caused company queries to
+  // short-circuit on a missing company_id.
+  useEffect(() => {
+    let cancelled = false;
+    setRouteCompany(null);
+
+    if (!routeTenantSlug || !isSuperAdmin || !user) return;
+
+    (async () => {
+      try {
+        const { data: brandData, error: brandError } = await (supabase.rpc as any)(
+          "get_company_branding",
+          { p_slug: routeTenantSlug },
+        );
+        const brand = Array.isArray(brandData) ? brandData[0] : brandData;
+        if (brandError || !brand?.id) {
+          console.warn("[AuthContext] tenant browse company lookup failed:", brandError);
+          return;
+        }
+
+        // Platform admins can read the full company row. Keep the safe RPC
+        // result as a fallback so branding/name still work if a deployment
+        // has a stricter companies SELECT policy.
+        const { data: fullCompany } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("id", brand.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+        setRouteCompany((fullCompany || {
+          id: brand.id,
+          slug: brand.slug || routeTenantSlug,
+          company_name: brand.company_name || null,
+          logo_url: brand.logo_url || null,
+          primary_color: brand.primary_color || null,
+          secondary_color: brand.secondary_color || null,
+          accent_color: brand.accent_color || null,
+        }) as Company);
+      } catch (error) {
+        if (!cancelled) console.warn("[AuthContext] tenant browse company lookup failed:", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin, routeTenantSlug, supabase, user]);
 
   const handleSessionChange = async (session: Session | null) => {
     // Same-user auth events must be silent. supabase-js emits
@@ -549,11 +638,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const browsingTenant = isSuperAdmin && Boolean(routeTenantSlug) && Boolean(routeCompany);
+  const contextCompany = browsingTenant ? routeCompany : company;
+  const contextUser = browsingTenant && user && routeCompany
+    ? {
+        ...user,
+        company_id: routeCompany.id,
+        company_name: routeCompany.company_name || undefined,
+        company_slug: routeCompany.slug || routeTenantSlug,
+      }
+    : user;
+  const contextProfile = browsingTenant && profile && routeCompany
+    ? { ...profile, company_id: routeCompany.id }
+    : profile;
+
   const contextValue: AuthContextType = {
-    user,
-    profile,
-    company,
-    companySlug: company?.slug || null,
+    user: contextUser,
+    profile: contextProfile,
+    company: contextCompany,
+    companySlug: contextCompany?.slug || (browsingTenant ? routeTenantSlug : null),
     loading,
     error,
     userRoles,

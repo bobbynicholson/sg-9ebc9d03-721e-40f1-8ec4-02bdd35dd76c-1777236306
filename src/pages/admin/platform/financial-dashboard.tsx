@@ -173,12 +173,14 @@ function PlatformFinancialDashboard() {
               hint="Monthly and annual combined"
               icon={TrendingUp}
             />
-            <StatTile
-              label="Churn (30 days)"
-              value={loading ? "-" : pct(metrics?.churnRate)}
-              hint={loading ? undefined : `Trial to paid conversion ${pct(metrics?.conversionRate)}`}
-              icon={Activity}
-            />
+            <div id="churn" data-chat-section="platform.financial-dashboard.churn">
+              <StatTile
+                label="Churn (30 days)"
+                value={loading ? "-" : pct(metrics?.churnRate)}
+                hint={loading ? undefined : `Trial to paid conversion ${pct(metrics?.conversionRate)}`}
+                icon={Activity}
+              />
+            </div>
           </div>
 
           {/* Tenant mix row */}

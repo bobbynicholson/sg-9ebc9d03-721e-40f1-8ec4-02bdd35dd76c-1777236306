@@ -206,6 +206,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const allHrefs = config.sections.flatMap((s) => s.items.map((i) => i.href));
   const isActive = buildIsActive(allHrefs, { router, withSlug });
 
+  // Route-specific platform handling, tenant scoping, and local-dev query
+  // preservation all live in one helper so sidebar links and chat links
+  // cannot drift apart.
+  const hrefForItem = (href: string) => withSlug(href);
+
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
   const BrandIcon = config.brandIcon;
 
@@ -278,7 +283,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     return (
       <Link
         key={item.href}
-        href={withSlug(item.href)}
+        href={hrefForItem(item.href)}
         onClick={onClickAfterNav}
         className={cn(
           // Wave 70.41b - overflow-hidden so long badges + descriptions
@@ -574,7 +579,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           left a permanent 32px dead gutter between nav and content. */}
       <div
         className={cn(
-          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:border-r transition-all duration-300",
+          // Only the collapse width should animate. Branding variables are
+          // refreshed asynchronously; transition-all made the rail's
+          // background, text, and borders visibly fade from the defaults to
+          // the company colours after the page had already appeared.
+          "hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:border-r transition-[width] duration-300 ease-out",
           // Same descendant-selector caveat as the mobile bar: the rail's
           // own surface needs explicit dark classes when forced dark.
           forceDark

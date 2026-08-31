@@ -743,7 +743,7 @@ function ClientTrackingInner() {
                 under Bookings; this page only lists trips with a driver
                 actively on the road. */}
             <div>
-              <PortalCard>
+              <PortalCard id="live-trips" data-chat-section="client.tracking.live" data-chat-section-label="Live trips">
                 <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Live trips</h2>
                 <div className="space-y-3">
                   {orders.map((order) => (

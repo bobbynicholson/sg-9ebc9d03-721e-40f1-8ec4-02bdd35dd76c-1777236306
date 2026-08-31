@@ -407,7 +407,7 @@ function ShoppingInventoryPageInner() {
           />
         </div>
 
-        <PortalCard padded={false} className="mb-6 p-4 sm:p-5">
+        <PortalCard id="shopping-stock" data-chat-section="shopping.inventory.stock" data-chat-section-label="Procurement stock" padded={false} className="mb-6 p-4 sm:p-5">
           <PortalCardHeader title="Filter" />
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">

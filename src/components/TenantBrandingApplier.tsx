@@ -64,9 +64,12 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     let cancelled = false;
 
     if (!companyId) {
-      // No tenant context. If we already seeded from initialBranding
-      // keep that paint; otherwise fall back to defaults.
-      if (!getBrandingRow()) {
+      // Clear a previous tenant's colours when a platform owner returns to
+      // a global page. Preserve only the SSR-seeded branding used by public
+      // tenant login pages before an authenticated company exists.
+      const seededId = initialBranding?.id || null;
+      const currentId = getBrandingRow()?.id || null;
+      if (!initialBranding || currentId !== seededId || user) {
         setBrandingRow(null);
         paint(null);
       }
@@ -114,7 +117,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [companyId]);
+  }, [companyId, initialBranding, user]);
 
   // Live re-paint hook. White-label admin dispatches `branding:updated`
   // after a successful save (or with `null` to reset) so the running

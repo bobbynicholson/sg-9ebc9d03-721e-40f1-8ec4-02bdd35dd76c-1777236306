@@ -15,7 +15,9 @@ const env = Object.fromEntries(readFileSync(".env.local", "utf8").split(/\r?\n/)
 const url = env.NEXT_PUBLIC_SUPABASE_URL, anon = env.NEXT_PUBLIC_SUPABASE_ANON_KEY, svc = env.SUPABASE_SERVICE_ROLE_KEY;
 const admin = createClient(url, svc, { auth: { persistSession: false } });
 const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
-const BASE = process.env.BASE || "http://localhost:3000";
+const args = process.argv.slice(2);
+const baseIdx = args.indexOf("--base");
+const BASE = baseIdx >= 0 ? args[baseIdx + 1] : process.env.BASE || "http://localhost:3001";
 const SLUG = "spit-braai-delivery";
 const S = `/${SLUG}`;
 
