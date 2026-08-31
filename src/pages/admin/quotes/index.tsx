@@ -210,8 +210,26 @@ const OPEN_QUOTE_BUCKETS = new Set<QuoteBucket>([
   "accepted_awaiting_deposit",
 ]);
 
+const VALID_QUOTE_BUCKETS = new Set<QuoteBucket>([
+  "all",
+  "action_needed",
+  "in_play",
+  "stale",
+  "accepted_awaiting_deposit",
+  "won",
+  "won_then_cancelled",
+  "expired",
+  "lost",
+]);
+
 function isOpenQuoteBucket(bucket: QuoteBucket): boolean {
   return OPEN_QUOTE_BUCKETS.has(bucket);
+}
+
+function parseQuoteBucket(value: unknown): QuoteBucket | null {
+  return typeof value === "string" && VALID_QUOTE_BUCKETS.has(value as QuoteBucket)
+    ? value as QuoteBucket
+    : null;
 }
 
 function PipelineBoard({
@@ -407,7 +425,8 @@ function AdminQuotesInner() {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (typeof saved.search === "string") setSearch(saved.search);
-      if (typeof saved.bucket === "string") setBucket(saved.bucket as QuoteBucket);
+      const savedBucket = parseQuoteBucket(saved.bucket);
+      if (savedBucket) setBucket(savedBucket);
       if (saved.viewMode === "list" || saved.viewMode === "pipeline") setViewMode(saved.viewMode);
     } catch {
       /* corrupt storage - fall back to defaults */
@@ -445,7 +464,30 @@ function AdminQuotesInner() {
     if (typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem("cateringms.adminQuotes.savedViews.v1");
-      if (raw) setSavedViews(JSON.parse(raw) as SavedQuoteView[]);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setSavedViews(parsed.flatMap((view: unknown) => {
+            if (!view || typeof view !== "object") return [];
+            const candidate = view as Partial<SavedQuoteView>;
+            const normalizedBucket = parseQuoteBucket(candidate.bucket);
+            if (
+              typeof candidate.id !== "string"
+              || typeof candidate.name !== "string"
+              || typeof candidate.search !== "string"
+              || !normalizedBucket
+              || (candidate.viewMode !== "list" && candidate.viewMode !== "pipeline")
+            ) return [];
+            return [{
+              id: candidate.id,
+              name: candidate.name,
+              search: candidate.search,
+              bucket: normalizedBucket,
+              viewMode: candidate.viewMode,
+            }];
+          }));
+        }
+      }
     } catch { /* ignore */ }
   }, []);
   useEffect(() => {
@@ -469,7 +511,7 @@ function AdminQuotesInner() {
   };
   const applySavedQuoteView = (v: SavedQuoteView) => {
     setSearch(v.search);
-    setBucket(v.bucket);
+    setBucket(parseQuoteBucket(v.bucket) || "all");
     setViewMode(v.viewMode);
   };
   const removeSavedQuoteView = (id: string) => {
@@ -540,13 +582,16 @@ function AdminQuotesInner() {
         const resolved = resolvedByQuoteId.get(q.id);
         const orderStatus = (resolved?.status || "").toString().toLowerCase();
         let intelligence = baseIntel;
-        if (orderStatus === "cancelled" || orderStatus === "rejected") {
+        if (orderStatus === "cancelled" || orderStatus === "canceled") {
+          // A converted quote whose live order is cancelled is a churned
+          // win, not a normal lost quote. Keep it in the dedicated outcome
+          // bucket so conversion and loss reporting remain distinguishable.
           intelligence = {
             ...baseIntel,
-            bucket: "lost",
-            tone: "neutral",
-            label: "Order cancelled",
-            reason: `Linked order ${resolved?.orderNumber || ""} was cancelled - quote is no longer in play`,
+            bucket: "won_then_cancelled",
+            tone: "warm",
+            label: "Won, order cancelled",
+            reason: `Linked order ${resolved?.orderNumber || ""} was cancelled after acceptance`,
           };
         } else if (
           orderStatus === "delivered"

@@ -141,7 +141,7 @@ export function deriveQuoteIntelligence(q: any): QuoteIntelligence {
   // canonical signal so this also catches legacy rows.
   const lostReason = (q.lost_reason as string | null) || null;
   const isWonThenCancelled =
-    !!convertedOrderId && (status === "rejected" || lostReason === "order_cancelled");
+    !!convertedOrderId && lostReason === "order_cancelled";
   if (isWonThenCancelled) {
     return {
       bucket: "won_then_cancelled",
