@@ -239,7 +239,7 @@ const KNOWN_TABLES = new Set([
   "orders","outgoing_email_log","outgoing_email_queue","outsource_assignments",
   "outsource_providers","pat_testing","payment_gateway_credentials","payment_gateways",
   "payment_reminders","payments","pending_reviews","pest_control_logs",
-  "platform_pricing_plans","profiles","public_holidays","purchase_history",
+  "platform_pricing_plans","platform_supported_currencies","profiles","public_holidays","purchase_history",
   "purchase_line_memory","purchase_receipt_items","purchase_receipts",
   "quote_acceptances","quote_change_requests","quote_followup_log","quotes",
   "recipe_ingredients","recipe_scaling_history","recipes","recurring_invoice_runs",
