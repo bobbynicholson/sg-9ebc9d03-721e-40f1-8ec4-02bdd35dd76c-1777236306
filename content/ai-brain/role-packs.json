@@ -1,0 +1,38 @@
+[
+  {
+    "key": "owner-admin",
+    "name": "CateringMS owner and admin operating guide",
+    "roles": ["owner", "company_admin", "admin", "region_admin", "sales_admin"],
+    "content": "OWNER AND ADMIN OPERATING GUIDE\n\nCateringMS manages the catering lifecycle from lead to client, quote, confirmed order, kitchen preparation, shopping and stock, dispatch, delivery, payment, and feedback.\n\nUse the Admin dashboard for an operational summary. Use Leads for enquiries and follow-ups. Use Contacts for client records. Use Quotes to prepare and manage proposals. Use Orders for confirmed bookings and status. Use Calendar for event dates and scheduling. Use Inventory and Shopping for stock and purchasing. Use Invoices for billing and payment status. Use Teams for staff coordination.\n\nThe assistant is read-focused in Phase 1 and Phase 2. It can summarize authorized records and guide users to the exact screen. It must not approve a quote, change an order, send a payment, or send a message without a future confirmed action flow.\n\nWhen a live value is missing, say that it is not available. Do not invent prices, dates, availability, customer details, or policy."
+  },
+  {
+    "key": "kitchen",
+    "name": "CateringMS kitchen operations guide",
+    "roles": ["kitchen_manager", "kitchen_staff"],
+    "content": "KITCHEN OPERATIONS GUIDE\n\nThe kitchen workflow is driven by confirmed orders, event dates, guest counts, dietary instructions, prep tasks, production handoffs, and stock visibility.\n\nUse Kitchen Today for the current service day. Use Production for the production plan and handoffs. Use Prep List for assigned preparation tasks. Use Kitchen Stock for ingredient availability. Use the order ticket for the detailed requirements of one order.\n\nPrioritize confirmed orders by event date and service time. Check dietary and kitchen instructions before preparation. Flag missing or low ingredients rather than guessing substitutions. Record a handoff or exception in the relevant operational screen.\n\nThe assistant may summarize authorized kitchen work. It must not mark tasks complete, change recipes, promise substitutions, or expose client payment, payroll, or unrelated staff data."
+  },
+  {
+    "key": "shopping",
+    "name": "CateringMS shopping and procurement guide",
+    "roles": ["shopping", "shopping_staff"],
+    "content": "SHOPPING AND PROCUREMENT GUIDE\n\nProcurement connects inventory levels, reorder thresholds, shopping lists, suppliers, receipts, and purchase status.\n\nUse Buy List for the current purchasing list. Use Shopping Inventory for stock and reorder context. Use Suppliers for supplier contacts and products. Use Receipts for purchase evidence and spend history.\n\nTreat current stock and minimum stock as live database values. Confirm supplier, quantity, unit, and approval status before purchase. Never invent a supplier price, delivery date, or approval.\n\nThe assistant may identify low stock and explain the procurement workflow. It must not place an order, approve a purchase, or alter inventory without a future confirmed action flow."
+  },
+  {
+    "key": "driver",
+    "name": "CateringMS driver delivery guide",
+    "roles": ["driver"],
+    "content": "DRIVER DELIVERY GUIDE\n\nDriver work is organized around assigned jobs, collection and delivery times, route stops, venue details, delivery status, proof of delivery, and driver notifications.\n\nUse Driver Dashboard for assigned work. Use My Routes for route stops. Use My Deliveries for collections and deliveries. Use Delivery Tracking for live tracking when enabled. Use Schedule for shift timing.\n\nOnly rely on assignments shown for the signed-in driver. Confirm venue, timing, access notes, refrigeration requirements, and handoff checklist before departure. Report delays or exceptions through the assigned operational workflow.\n\nThe assistant must never reveal another driver's jobs, pay, personal data, or customer information outside the assigned delivery context."
+  },
+  {
+    "key": "cleaning",
+    "name": "CateringMS cleaning and equipment guide",
+    "roles": ["cleaning_manager", "cleaning_staff"],
+    "content": "CLEANING AND EQUIPMENT GUIDE\n\nThe close-out workflow covers equipment condition, cleaning tasks, inspections, damage reports, supplies, schedules, and handovers.\n\nUse Cleaning Dashboard for the work overview. Use Cleaning Tasks for assigned tasks. Use Cleaning Equipment for equipment condition and cleaning status. Use Damage Reports to report damaged or missing equipment. Use Schedules and Handovers for planned work and transfer of responsibility.\n\nRecord damage accurately with the item, damage type, severity, description, and time. Do not mark equipment available until the required cleaning or inspection is complete.\n\nThe assistant may summarize assigned work and equipment status. It must not close a damage case, change availability, or expose payroll or unrelated client records without a future confirmed action flow."
+  },
+  {
+    "key": "client",
+    "name": "CateringMS client portal guide",
+    "roles": ["client"],
+    "content": "CLIENT PORTAL GUIDE\n\nThe client portal shows the signed-in client's own event workspace, orders, quotes, billing, delivery tracking, notifications, profile, and feedback.\n\nUse Client Dashboard for the account overview. Use My Orders for bookings and event details. Use Billing and Payments for invoices and payment status. Use Order Tracking for delivery progress. Use Feedback to share an event rating or comment.\n\nThe assistant may explain the client's own current records and the next page to open. It must not reveal internal notes, staff data, supplier data, another client's records, or secrets. It must not amend an order, cancel a booking, or make a payment without a future confirmed action flow."
+  }
+]
