@@ -28,8 +28,9 @@ import {
 import { DeclineAssignmentDialog } from "@/components/driver/DeclineAssignmentDialog";
 import { RunningLateChips } from "@/components/driver/RunningLateChips";
 import { OrderChatPanel } from "@/components/admin/dispatch/OrderChatPanel";
+import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, MessageSquare } from "lucide-react";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useDriverGPSPing } from "@/hooks/useDriverGPSPing";
@@ -48,11 +49,13 @@ import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { PortalOverview, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService, Notification } from "@/services/notificationService";
+import { orderChatService } from "@/services/orderChatService";
 import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { useToast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
@@ -88,6 +91,7 @@ interface Job {
 
 function DriverDashboardInner() {
   const { user, userRoles } = useAuth();
+  const router = useRouter();
   const { withSlug } = useTenantHref();
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
@@ -219,6 +223,8 @@ function DriverDashboardInner() {
   const [assignmentByOrder, setAssignmentByOrder] = useState<Record<string, string>>({});
   // Phase 5B: chat dialog
   const [chatJob, setChatJob] = useState<Job | null>(null);
+  const [dispatchChatJob, setDispatchChatJob] = useState<Job | null>(null);
+  const [chatUnreadByOrder, setChatUnreadByOrder] = useState<Record<string, number>>({});
   // Kitchen origin: driver's region kitchen if set, otherwise company HQ
   const { origin: kitchenOrigin } = useKitchenOrigin(user?.id, user?.company_id);
 
@@ -245,7 +251,7 @@ function DriverDashboardInner() {
       // We keep two queries because they cover different concerns:
       //   (a) driver_assignments captures mid-flight dispatch state
       //       (assigned -> accepted -> en_route -> picked_up -> at_venue).
-      //   (b) orders.assigned_driver_id / driver_id catches newly-confirmed
+      //   (b) orders.assigned_driver_id / driver_id / secondary_driver_id catches newly-confirmed
       //       orders that don't yet have a driver_assignments row (legacy
       //       dispatch path).
       //
@@ -331,7 +337,7 @@ function DriverDashboardInner() {
         .select("*")
         .eq("company_id", user.company_id)
         .is("deleted_at", null)
-        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
+        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
         .in("status", ["confirmed", "preparing", "ready", "in_transit"])
         .gte("event_date", todayISO)
         .lte("event_date", horizonISO)
@@ -405,7 +411,7 @@ function DriverDashboardInner() {
           .select("id", { count: "exact", head: true })
           .eq("company_id", user.company_id)
           .is("deleted_at", null)
-          .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
+          .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
           .in("status", ["delivered", "completed"])
           .eq("event_date", todayISO);
         setCompletedTodayCount(doneCount || 0);
@@ -494,6 +500,83 @@ function DriverDashboardInner() {
     };
   }, [user?.id, toast, refreshSignal]);
 
+  // Customer-chat unread state is kept separate from the general
+  // notification bell so the driver can see which delivery needs attention.
+  // The persisted notification row covers the background/offline case; this
+  // order-channel subscription makes the open driver portal feel instant.
+  useEffect(() => {
+    if (!user?.id || !user?.company_id) {
+      setChatUnreadByOrder({});
+      return;
+    }
+    let cancelled = false;
+    const orderIds = jobs.map((job) => job.id);
+    void orderChatService
+      .getUnreadCountByOrder("driver", { companyId: user.company_id, orderIds })
+      .then((counts) => {
+        if (!cancelled) setChatUnreadByOrder(counts);
+      });
+
+    const channel = supabase
+      .channel(`driver-order-chat:${user.company_id}:${Math.random().toString(36).slice(2, 8)}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "order_chat_messages",
+          filter: `company_id=eq.${user.company_id}`,
+        },
+        (payload: any) => {
+          const row = payload?.new;
+          if (!row || row.sender_role !== "client" || !orderIds.includes(row.order_id)) return;
+          if (row.order_id !== chatJob?.id) {
+            setChatUnreadByOrder((previous) => ({
+              ...previous,
+              [row.order_id]: (previous[row.order_id] || 0) + 1,
+            }));
+            toast({
+              title: "New client message",
+              description: "A client sent a message about one of your deliveries.",
+              duration: 7000,
+            });
+          }
+        },
+      )
+      .subscribe();
+
+    const refreshOnVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      void orderChatService
+        .getUnreadCountByOrder("driver", { companyId: user.company_id, orderIds })
+        .then((counts) => setChatUnreadByOrder(counts));
+    };
+    document.addEventListener("visibilitychange", refreshOnVisible);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", refreshOnVisible);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, user?.company_id, jobs, chatJob?.id, toast]);
+
+  // NotificationBell links client messages back to the driver's assigned
+  // order. Open the same client conversation automatically after the jobs
+  // query has hydrated, rather than leaving the driver to hunt for it.
+  useEffect(() => {
+    if (!router.isReady || typeof router.query.chatOrderId !== "string" || !jobs.length) return;
+    const target = jobs.find((job) => job.id === router.query.chatOrderId);
+    if (!target) return;
+    setChatJob(target);
+    const nextQuery = { ...router.query };
+    delete nextQuery.chatOrderId;
+    void router.replace(
+      { pathname: router.pathname, query: nextQuery },
+      undefined,
+      { shallow: true },
+    );
+  }, [router.isReady, router.pathname, router.query.chatOrderId, jobs]);
+
   // DRV-D (driver deep audit, DRV-10 / DRV-23 / DRV-47): earnings
   // totals agreement.
   //
@@ -569,7 +652,9 @@ function DriverDashboardInner() {
           if (
             newOrder.status === "ready" &&
             oldOrder.status !== "ready" &&
-            (newOrder.driver_id === user.id || newOrder.assigned_driver_id === user.id)
+            (newOrder.driver_id === user.id ||
+              newOrder.assigned_driver_id === user.id ||
+              newOrder.secondary_driver_id === user.id)
           ) {
             console.log("🚀 Order is ready for pickup:", newOrder.order_number);
             loadDriverJobs();
@@ -787,6 +872,12 @@ function DriverDashboardInner() {
                   </Button>
                   <Button asChild size="sm" variant="outline">
                     <Link href={withSlug("/team-portal/driver/deliveries")}>All deliveries</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30">
+                    <Link href={withSlug("/team-portal/driver/notifications")}>
+                      <Bell className="mr-1.5 h-4 w-4" />
+                      Notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}
+                    </Link>
                   </Button>
                 </>
               }
@@ -1062,11 +1153,25 @@ function DriverDashboardInner() {
                           <Button
                             variant="outline"
                             onClick={() => setChatJob(job)}
-                            className="flex-1 sm:flex-none min-h-11 px-3 text-sm"
-                            title="Chat with dispatcher"
+                            className="relative flex-1 sm:flex-none min-h-11 px-3 text-sm"
+                            title="Message the client"
                           >
                             <MessageCircle className="w-4 h-4 sm:mr-2" />
                             <span className="hidden sm:inline">Chat</span>
+                            {chatUnreadByOrder[job.id] > 0 && (
+                              <span className="ml-1 inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+                                {chatUnreadByOrder[job.id] > 9 ? "9+" : chatUnreadByOrder[job.id]}
+                              </span>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setDispatchChatJob(job)}
+                            className="flex-1 sm:flex-none min-h-11 px-3 text-sm"
+                            title="Private chat with dispatch"
+                          >
+                            <MessageSquare className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Dispatch</span>
                           </Button>
                           <Button
                             variant="outline"
@@ -1249,22 +1354,45 @@ function DriverDashboardInner() {
         />
       )}
 
-      {/* Phase 5B: Driver chat with dispatcher */}
+      {/* Customer-facing order chat: this is the Chat action on a delivery. */}
       <Dialog open={!!chatJob} onOpenChange={open => !open && setChatJob(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg border-slate-200 bg-white/95 shadow-2xl dark:border-slate-800 dark:bg-slate-900/95">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-slate-400 dark:text-slate-500" />
-              Chat - {chatJob?.client_name}
+            <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+              <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              Message {chatJob?.client_name}
             </DialogTitle>
           </DialogHeader>
           {chatJob && user?.id && user?.company_id && (
-            <OrderChatPanel
+            <OrderClientChatPanel
               companyId={user.company_id}
               orderId={chatJob.id}
               userId={user.id}
               senderRole="driver"
-              maxHeight="320px"
+              orderLabel={`${chatJob.order_number} · ${chatJob.client_name}`}
+              maxHeight="380px"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Private logistics chat remains separate from the client-visible
+          thread. This prevents dispatch notes from leaking to a client. */}
+      <Dialog open={!!dispatchChatJob} onOpenChange={open => !open && setDispatchChatJob(null)}>
+        <DialogContent className="max-w-lg border-slate-200 bg-white/95 shadow-2xl dark:border-slate-800 dark:bg-slate-900/95">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+              <MessageSquare className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+              Dispatch chat · {dispatchChatJob?.client_name}
+            </DialogTitle>
+          </DialogHeader>
+          {dispatchChatJob && user?.id && user?.company_id && (
+            <OrderChatPanel
+              companyId={user.company_id}
+              orderId={dispatchChatJob.id}
+              userId={user.id}
+              senderRole="driver"
+              maxHeight="380px"
             />
           )}
         </DialogContent>

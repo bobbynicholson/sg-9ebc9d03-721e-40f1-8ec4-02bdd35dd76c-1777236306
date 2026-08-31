@@ -23,6 +23,7 @@ import {
   Package,
   UtensilsCrossed,
   RefreshCw,
+  MessageCircle,
 } from "lucide-react";
 import {
   Accordion, AccordionItem, AccordionTrigger, AccordionContent,
@@ -33,16 +34,18 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { PortalCard, PortalCardHeader, PortalOverview, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
-import { routeOptimizationService, OptimizedRoute } from "@/services/routeOptimizationService";
+import { routeOptimizationService, OptimizedRoute, DeliveryStop } from "@/services/routeOptimizationService";
 import driverService from "@/services/driverService";
 import { useDriverPayRates } from "@/hooks/useDriverPayRates";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
 import { DeliveryStatusModal } from "@/components/driver/DeliveryStatusModal";
+import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
 import { openNavigation as openMapsNavigation } from "@/lib/driverNavigation";
 import { useKitchenOrigin } from "@/hooks/useKitchenOrigin";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -128,6 +131,7 @@ function DriverRoutesInner() {
   const trip = useDriverTripTimer(user?.id ?? null, stopIds);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [chatStop, setChatStop] = useState<DeliveryStop | null>(null);
 
   useEffect(() => {
     if (user?.id && user?.company_id) {
@@ -989,6 +993,14 @@ function DriverRoutesInner() {
                                 <CheckCircle className="w-4 h-4 mr-2" />
                                 {stopIsRolling ? "Mark complete" : "Start delivery first"}
                               </Button>
+                              <Button
+                                onClick={() => setChatStop(currentStop)}
+                                variant="outline"
+                                className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30"
+                              >
+                                <MessageCircle className="w-4 h-4 mr-2" />
+                                Message client
+                              </Button>
                               {/* ODOC H.10: easy-reference link to the
                                   full order brief from inside the Next
                                   Stop hero card. Bobby's brief - the
@@ -1150,6 +1162,16 @@ function DriverRoutesInner() {
                                   <ExternalLink className="w-3.5 h-3.5" />
                                   Open brief
                                 </Link>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => setChatStop(stop)}
+                                  className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border-blue-200 bg-blue-50 text-blue-700 font-semibold min-h-[32px] hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                                  title="Message the client about this order"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  Chat
+                                </Button>
                               </div>
                               <p className="text-sm text-slate-600 dark:text-slate-400 mb-2 flex items-start gap-1">
                                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400 dark:text-slate-500" />
@@ -1255,6 +1277,30 @@ function DriverRoutesInner() {
       )}
 
       <ChatBot userRole="driver" companyId={user?.company_id} />
+
+      <Dialog open={!!chatStop} onOpenChange={(open) => !open && setChatStop(null)}>
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-xl gap-0 overflow-hidden rounded-3xl border-slate-200 bg-white p-0 shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+          <DialogHeader className="border-b border-slate-200 bg-gradient-to-br from-blue-600 to-indigo-700 px-5 py-4 text-white dark:border-slate-800">
+            <DialogTitle className="flex items-center gap-2 text-base text-white">
+              <MessageCircle className="h-5 w-5" />
+              Message {chatStop?.client_name || "client"}
+            </DialogTitle>
+            <p className="mt-1 text-xs text-blue-100">Live conversation for this delivery. The client receives an in-app alert.</p>
+          </DialogHeader>
+          <div className="max-h-[min(70vh,560px)] overflow-y-auto p-3 sm:p-4">
+            {chatStop && user?.id && user?.company_id && (
+              <OrderClientChatPanel
+                companyId={user.company_id}
+                orderId={chatStop.order_id}
+                userId={user.id}
+                senderRole="driver"
+                orderLabel={`${chatStop.client_name || "Client"} · ${chatStop.event_date || "Delivery"}`}
+                maxHeight="min(42vh, 320px)"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Cancel-trip confirmation. Spells out what reverts so the
           driver doesn't accidentally throw away a partially-done

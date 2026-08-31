@@ -72,7 +72,7 @@ function endOfMonth(d: Date): Date {
 /** Every order column this page reads - shared by the month-window
  *  and upcoming-agenda queries so the two stay in lockstep. */
 const ORDER_COLUMNS =
-  "id, order_number, client_name, event_date, event_time, pickup_time, venue_address, guest_count, status, assigned_driver_id, driver_id";
+  "id, order_number, client_name, event_date, event_time, pickup_time, venue_address, guest_count, status, assigned_driver_id, driver_id, secondary_driver_id";
 
 const AGENDA_BUCKETS = ["Today", "Tomorrow", "This week", "This month", "Later"] as const;
 type AgendaBucket = (typeof AGENDA_BUCKETS)[number];
@@ -147,7 +147,7 @@ function DriverCalendarInner() {
           .from("orders")
           .select(ORDER_COLUMNS)
           .eq("company_id", user.company_id)
-          .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id}`)
+          .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
           .in("status", ["confirmed", "preparing", "ready", "in_transit"])
           .gte("event_date", toLocalISO(today))
           .order("event_date", { ascending: true })
@@ -159,10 +159,14 @@ function DriverCalendarInner() {
       if (upcomingRes.error) throw upcomingRes.error;
 
       const rows = (monthRes.data || []).flatMap((o): OrderRow[] => {
-        const mine = o.assigned_driver_id === user.id || o.driver_id === user.id;
+        const mine =
+          o.assigned_driver_id === user.id ||
+          o.driver_id === user.id ||
+          o.secondary_driver_id === user.id;
         const claimable =
           !o.assigned_driver_id &&
           !o.driver_id &&
+          !o.secondary_driver_id &&
           !["delivered", "completed"].includes(String(o.status));
         // We surface a row if it's MINE or unclaimed-in-tenant.
         // Other drivers' jobs we leave out - the driver can't

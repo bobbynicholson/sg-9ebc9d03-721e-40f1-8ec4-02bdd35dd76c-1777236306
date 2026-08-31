@@ -415,6 +415,20 @@ function ClientPortalDashboardInner() {
   const [messageOrder, setMessageOrder] = useState<Order | null>(null);
   const [unreadByOrder, setUnreadByOrder] = useState<Record<string, number>>({});
 
+  // NotificationBell deep-links staff replies straight into the relevant
+  // order conversation. Wait for the order list to hydrate, open the modal,
+  // then remove the query so refresh/back does not reopen it forever.
+  useEffect(() => {
+    if (!router.isReady || typeof router.query.chatOrderId !== "string" || !orders.length) return;
+    const target = orders.find((order) => order.id === router.query.chatOrderId);
+    if (!target) return;
+    setUnreadByOrder((previous) => ({ ...previous, [target.id]: 0 }));
+    setMessageOrder(target);
+    const nextQuery = { ...router.query };
+    delete nextQuery.chatOrderId;
+    void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+  }, [router.isReady, router.pathname, router.query.chatOrderId, orders]);
+
   // Branding tones - fall back to a calm emerald so unbranded companies
   // still look polished.
   const brandPrimary = company?.primary_color || "#059669";

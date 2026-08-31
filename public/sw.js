@@ -70,6 +70,25 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Open the contextual page when a background notification is tapped in the
+// installed driver PWA. The page-level fallback handles browsers where this
+// worker is not controlling the current tenant-slug route.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data && event.notification.data.url;
+  if (!targetUrl) return;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((client) => "focus" in client);
+      if (existing) {
+        existing.navigate(targetUrl);
+        return existing.focus();
+      }
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;

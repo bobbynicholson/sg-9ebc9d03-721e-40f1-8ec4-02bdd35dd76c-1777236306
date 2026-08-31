@@ -796,6 +796,12 @@ export const notificationService = {
 
       const notifications = recipientFilteredProfiles
         .map((profile: any) => {
+          const isDriverRecipient =
+            profile.role === "driver" || profile.active_role === "driver";
+          const recipientLink =
+            isDriverRecipient && params.relatedEntityId
+              ? `/team-portal/driver/dashboard?chatOrderId=${encodeURIComponent(params.relatedEntityId)}`
+              : params.link || null;
           const row: Record<string, any> = {
             company_id: params.companyId,
             recipient_id: profile.id,
@@ -803,7 +809,7 @@ export const notificationService = {
             notification_type: params.type,
             title: params.title,
             message: params.message,
-            link: params.link || null,
+            link: recipientLink,
             priority: params.priority || "normal",
             // Stamp the recipient's ACTIVE role, not the base role. The
             // bell (getNotifications + realtime) filters rows by the

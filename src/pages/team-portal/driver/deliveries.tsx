@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
@@ -30,6 +31,7 @@ import { parseLocalDay } from "@/lib/localDate";
 // expander (restructure 2026-07-02) so a long history doesn't mount
 // a live GPS/data panel for every row at once.
 import { DriverConfirmationPanel } from "@/components/driver/DriverConfirmationPanel";
+import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { logPiiAccess } from "@/services/piiAccessLogService";
 
@@ -182,6 +184,7 @@ function DriverDeliveriesInner() {
         // second driver on a two-driver job was getting an empty list
         // because secondary_driver_id wasn't in the filter.
         .eq("company_id", user.company_id)
+        .is("deleted_at", null)
         .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
         .order("event_date", { ascending: false });
       if (cancelled) return;
@@ -403,6 +406,8 @@ function DeliveryList({
   // - the doc carries venue contact, leave-by, checklist, POD path
   // all in one brief.
   const { withSlug } = useTenantHref();
+  const { user } = useAuth();
+  const [chatOrder, setChatOrder] = useState<DriverOrder | null>(null);
   if (orders.length === 0) {
     return (
       <div className="py-14 px-6 text-center">
@@ -419,6 +424,7 @@ function DeliveryList({
     );
   }
   return (
+    <>
     <div className="space-y-3">
       {orders.map((o) => {
         const equipment = Array.isArray(o.equipment_items) ? o.equipment_items : [];
@@ -467,6 +473,16 @@ function DeliveryList({
                     <ExternalLink className="w-3.5 h-3.5" />
                     Open brief
                   </Link>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setChatOrder(o)}
+                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border-blue-200 bg-blue-50 text-blue-700 font-semibold min-h-[32px] hover:bg-blue-100 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                    title="Message the client about this order"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Chat
+                  </Button>
                   {o.venue_address && (
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.venue_address)}`}
@@ -661,6 +677,30 @@ function DeliveryList({
         );
       })}
     </div>
+    <Dialog open={!!chatOrder} onOpenChange={(open) => !open && setChatOrder(null)}>
+      <DialogContent className="w-[calc(100vw-1rem)] max-w-xl gap-0 overflow-hidden rounded-3xl border-slate-200 bg-white p-0 shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+        <DialogHeader className="border-b border-slate-200 bg-gradient-to-br from-blue-600 to-indigo-700 px-5 py-4 text-white dark:border-slate-800">
+          <DialogTitle className="flex items-center gap-2 text-base text-white">
+            <MessageCircle className="h-5 w-5" />
+            Message {chatOrder?.client_name || "client"}
+          </DialogTitle>
+          <p className="mt-1 text-xs text-blue-100">Live conversation for this delivery.</p>
+        </DialogHeader>
+        <div className="max-h-[min(70vh,560px)] overflow-y-auto p-3 sm:p-4">
+          {chatOrder && user?.id && user?.company_id && (
+            <OrderClientChatPanel
+              companyId={user.company_id}
+              orderId={chatOrder.id}
+              userId={user.id}
+              senderRole="driver"
+              orderLabel={`${chatOrder.client_name || "Client"} · ${chatOrder.order_number || "Delivery"}`}
+              maxHeight="min(42vh, 320px)"
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

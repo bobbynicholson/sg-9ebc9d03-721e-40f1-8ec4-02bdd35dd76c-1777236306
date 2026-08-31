@@ -171,6 +171,37 @@ function claimToast(id: string): boolean {
   return true;
 }
 
+// Optional browser-level alert for an already-granted notification
+// permission. We deliberately do not request permission from a background
+// realtime callback; the user must opt in from the browser/PWA settings.
+// Persisted notifications and the in-app bell remain the source of truth when
+// permission is unavailable or the tab has been fully terminated.
+async function showBackgroundNotification(notification: Notification, href: string) {
+  if (typeof window === "undefined" || document.visibilityState === "visible") return;
+  if (!("Notification" in window) || window.Notification.permission !== "granted") return;
+
+  const title = notification.title || "New CateringMS message";
+  const options = {
+    body: notification.message || "You have a new notification.",
+    tag: `cateringms-${notification.id}`,
+    data: { url: href },
+  };
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    if (registration?.showNotification) {
+      await registration.showNotification(title, options);
+    } else {
+      const popup = new window.Notification(title, options);
+      popup.onclick = () => {
+        window.focus();
+        window.location.assign(href);
+      };
+    }
+  } catch {
+    // Browser notification support is best-effort; the bell still updates.
+  }
+}
+
 export function NotificationBell() {
   const router = useRouter();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
@@ -230,6 +261,12 @@ export function NotificationBell() {
         if (claimToast(notification.id)) {
           const priority = (notification.priority || "").toLowerCase();
           playNotifSound(priority);
+          void showBackgroundNotification(
+            notification,
+            /^https?:\/\//i.test(notification.link || "")
+              ? (notification.link as string)
+              : withSlug(notification.link || "/notifications"),
+          );
           if (priority === "urgent" || priority === "high") {
             toast({
               title: notification.title || "New notification",

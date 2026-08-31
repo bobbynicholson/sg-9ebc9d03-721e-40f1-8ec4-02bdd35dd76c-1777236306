@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { googleMapsService } from "./googleMapsService";
 import { notificationService } from "./notificationService";
 import { UserRole } from "@/types/app";
+import { DEFAULT_TENANT_TIMEZONE, toZonedISO } from "@/lib/localDate";
 
 export interface DeliveryStop {
   id: string;
@@ -381,14 +382,42 @@ export const routeOptimizationService = {
     // somehow spans tenants from pulling another company's orders
     // onto the route board.
     if (!driverId || !companyId) return [];
-    // Orders may have either `driver_id` (legacy) or `assigned_driver_id`
-    // (current dispatch flow) populated, so we OR across both columns.
+
+    // This powers the driver's "Today's Routes" board, so it must use the
+    // same bounded work window as the driver dashboard. The old query only
+    // filtered by driver + status, which pulled every historical assigned
+    // order into the route (including July jobs on an August route). Keep a
+    // short look-back for post-event collections, and a 14-day forward window
+    // for upcoming work. Use the tenant timezone so the boundary follows the
+    // company's calendar rather than the operator's browser/UTC day.
+    const { data: companyDateConfig, error: companyDateConfigError } = await supabase
+      .from("companies")
+      .select("timezone")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (companyDateConfigError) {
+      console.warn("[routeOptimizationService] company timezone lookup failed; using default:", companyDateConfigError.message);
+    }
+    const timezone = companyDateConfig?.timezone || DEFAULT_TENANT_TIMEZONE;
+    const today = new Date();
+    const lowerDate = new Date(today);
+    lowerDate.setDate(lowerDate.getDate() - 7);
+    const upperDate = new Date(today);
+    upperDate.setDate(upperDate.getDate() + 14);
+    const lowerISO = toZonedISO(lowerDate, timezone);
+    const upperISO = toZonedISO(upperDate, timezone);
+
+    // Orders may have either `driver_id` (legacy), `assigned_driver_id`
+    // (primary), or `secondary_driver_id` (supporting driver) populated.
+    // Keep all three paths visible to the driver who is actually assigned.
     const { data, error } = await supabase
       .from("orders")
       .select("*")
       .eq("company_id", companyId)
-      .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId}`)
+      .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId},secondary_driver_id.eq.${driverId}`)
       .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+      .gte("event_date", lowerISO)
+      .lte("event_date", upperISO)
       .not("venue_lat", "is", null)
       .not("venue_lng", "is", null);
 
@@ -751,6 +780,20 @@ export const routeOptimizationService = {
       return null;
     }
 
+    // A driver can have several upcoming assignments, but one route board
+    // must never optimise stops from different event days together. Pick the
+    // earliest active day (today when there is work today, otherwise the next
+    // upcoming day) and leave later days for their own route run. This also
+    // keeps the route title "Today's Routes" truthful when the dashboard is
+    // opened ahead of tomorrow's event.
+    const routeDate = stops
+      .map((stop) => stop.event_date?.slice(0, 10))
+      .filter((date): date is string => Boolean(date))
+      .sort()[0];
+    const routeStops = routeDate
+      ? stops.filter((stop) => stop.event_date?.slice(0, 10) === routeDate)
+      : stops;
+
     // RP-B (route-planning audit, RP-1): GPS coordinates come from
     // driver_locations (single-row-per-driver table) not profiles.
     // Pre-RP-B this selected `current_lat/current_lng` from profiles,
@@ -765,7 +808,7 @@ export const routeOptimizationService = {
 
     return this.optimizeRoute(
       driverId,
-      stops,
+      routeStops,
       gpsRow?.latitude,
       gpsRow?.longitude
     );

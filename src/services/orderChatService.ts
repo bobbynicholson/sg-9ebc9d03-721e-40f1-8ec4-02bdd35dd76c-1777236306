@@ -31,6 +31,34 @@ function otherSide(role: OrderChatRole): OrderChatRole[] {
 }
 
 export const orderChatService = {
+  async getClientUserIdForOrder(orderId: string): Promise<string | null> {
+    if (!orderId) return null;
+    const { data, error } = await supabase
+      .from("orders")
+      .select("client_id")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (error) {
+      console.warn("[orderChatService/getClientUserIdForOrder]", error);
+      return null;
+    }
+    const clientId = (data as any)?.client_id;
+    if (!clientId) return null;
+
+    // clients is intentionally RLS-protected from ordinary staff reads.
+    // Resolve only the auth uid through the SECURITY DEFINER function so a
+    // driver can notify the correct client without exposing client PII.
+    const { data: resolvedId, error: rpcError } = await supabase.rpc(
+      "resolve_client_user_id",
+      { p_client_id: clientId },
+    );
+    if (rpcError) {
+      console.warn("[orderChatService/getClientUserIdForOrder] resolver failed", rpcError);
+      return null;
+    }
+    return (resolvedId as string) || null;
+  },
+
   async getMessagesForOrder(orderId: string): Promise<OrderChatMessage[]> {
     // sender_id is polymorphic (client | staff), so there's no FK to embed a
     // name through. Load the rows, then resolve staff names separately.
@@ -78,6 +106,25 @@ export const orderChatService = {
       .single();
     if (error) throw error;
     return { ...(data as any), sender_name: (data as any).sender?.full_name };
+  },
+
+  /**
+   * Ask the server to fan the persisted message out to the opposite
+   * audience. This must run server-side: a client session cannot enumerate
+   * every staff profile in the tenant, and a driver must not be able to
+   * choose arbitrary notification recipients.
+   */
+  async notifyMessage(messageId: string): Promise<{ notified: number }> {
+    const response = await fetch("/api/orders/chat-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.error || "The message was sent, but notifications could not be delivered.");
+    }
+    return { notified: Number(payload?.notified || 0) };
   },
 
   async markRead(messageIds: string[]): Promise<void> {
