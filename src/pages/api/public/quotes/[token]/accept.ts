@@ -171,7 +171,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // returns the same answer without re-checking the date.
       await (supabase as any)
         .from("quotes")
-        .update({ status: "expired" })
+        .update({ status: "expired", expired_at: new Date().toISOString(), expiry_client_eligible: true })
         .eq("id", existing.id);
       return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
     }
