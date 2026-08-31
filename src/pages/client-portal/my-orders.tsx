@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, Banknote, Package, Truck, Pencil, CalendarX, Receipt, AlertCircle, RotateCcw } from "lucide-react";
+import { MapPin, Users, Banknote, Package, Truck, Pencil, CalendarX, Receipt, AlertCircle, RotateCcw, MessageCircle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { clientOrderHref } from "@/lib/orderUrls";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
+import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
 
 interface Order {
   id: string;
@@ -107,6 +108,7 @@ function MyOrdersInner() {
   // single instance reused across rows. Setting the source order opens
   // it; clearing it on close.
   const [rebookOrder, setRebookOrder] = useState<Order | null>(null);
+  const [chatOrder, setChatOrder] = useState<Order | null>(null);
   const { toast } = useToast();
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands - admin moving the event date should update the client view immediately.
   const refreshSignal = useOrderRefreshSignal(company?.id ?? null);
@@ -534,6 +536,15 @@ function MyOrdersInner() {
                               View details
                             </Button>
                           </Link>
+                          <Button
+                            size="sm"
+                            onClick={() => setChatOrder(order)}
+                            className="w-full sm:w-auto gap-1.5 bg-blue-600 text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700"
+                            title="Message your catering team about this order"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Chat team
+                          </Button>
                           {/* Book again - only on completed/delivered orders. Opens
                               the same RebookDialog the dashboard uses;
                               prefills via sourceOrder on the dialog side. */}
@@ -589,6 +600,30 @@ function MyOrdersInner() {
         profileFullName={profile?.full_name || (user as any)?.full_name || null}
         profilePhone={(profile as any)?.phone_number || null}
       />
+
+      <Dialog open={!!chatOrder} onOpenChange={(open) => { if (!open) setChatOrder(null); }}>
+        <DialogContent className="max-w-2xl gap-3 p-3 sm:p-4">
+          <DialogHeader className="pr-8">
+            <DialogTitle className="flex items-center gap-2 text-left">
+              <MessageCircle className="h-5 w-5 text-blue-600" />
+              Message your catering team
+            </DialogTitle>
+            <DialogDescription className="text-left">
+              Live conversation for {chatOrder?.order_number ? `order #${chatOrder.order_number}` : "this order"}.
+            </DialogDescription>
+          </DialogHeader>
+          {chatOrder && user?.id && company?.id && (
+            <OrderClientChatPanel
+              companyId={company.id}
+              orderId={chatOrder.id}
+              userId={user.id}
+              senderRole="client"
+              orderLabel={chatOrder.event_name || chatOrder.order_number || "Order"}
+              maxHeight="min(56vh, 520px)"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ChatBot userRole="client" companyId={user?.user_metadata?.company_id} />
 

@@ -27,10 +27,11 @@ import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { captureException } from "@/lib/observability";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Loader2, Printer, ArrowLeft, RefreshCw,
   FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History, Star,
-  MessageSquare, Paperclip, ArrowRight, Utensils,
+  MessageSquare, MessageCircle, Paperclip, ArrowRight, Utensils,
 } from "lucide-react";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import { computeOrderTimeline, type OrderTimelineStage } from "@/services/order/orderTimeline";
@@ -55,6 +56,8 @@ import { FeedbackSection } from "./sections/FeedbackSection";
 import { CommsLogSection } from "./sections/CommsLogSection";
 import { AttachmentsSection } from "./sections/AttachmentsSection";
 import { HistorySection } from "./sections/HistorySection";
+import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
+import type { OrderChatRole } from "@/services/orderChatService";
 
 const ROUTE_TAG = "/order/[id]";
 
@@ -464,6 +467,15 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   // sections already hide their action buttons for non-matching roles,
   // but a client shouldn't see the sections at all.
   const isClient = mode === "client" || role === UserRole.CLIENT;
+  const chatSenderRole: OrderChatRole = isClient
+    ? "client"
+    : role === UserRole.DRIVER
+      ? "driver"
+      : role === UserRole.KITCHEN_MANAGER || role === UserRole.KITCHEN_STAFF
+        ? "kitchen"
+        : "admin";
+  const chatLabel = isClient ? "Message catering team" : "Message client";
+  const [chatOpen, setChatOpen] = useState(false);
 
   // ODOC role-relevance (driver feedback 2026-07-04, Pic 81): each
   // staff role sees only the sections that carry information they act
@@ -705,6 +717,18 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             {/* ODOC Wave F: live presence pill - avatar stack of other
                 staff currently viewing this order. */}
             <OrderPresence orderId={order.id} />
+            {user?.id && (
+              <Button
+                size="sm"
+                onClick={() => setChatOpen(true)}
+                className="h-8 gap-1.5 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700"
+                title={chatLabel}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{chatLabel}</span>
+                <span className="sm:hidden">Chat</span>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => load()} className="h-8" title="Refresh">
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
@@ -755,6 +779,17 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 </button>
               );
             })}
+            {user?.id && (
+              <button
+                type="button"
+                onClick={() => setChatOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors flex-shrink-0 bg-blue-600 text-white shadow-sm shadow-blue-600/20 hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                title={chatLabel}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                Chat
+              </button>
+            )}
           </div>
         </nav>
       )}
@@ -995,6 +1030,32 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           </p>
         )}
       </div>
+
+      {user?.id && (
+        <Dialog open={chatOpen} onOpenChange={setChatOpen}>
+          <DialogContent className="max-w-2xl gap-3 p-3 sm:p-4">
+            <DialogHeader className="pr-8">
+              <DialogTitle className="flex items-center gap-2 text-left">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+                  <MessageCircle className="h-4 w-4" />
+                </span>
+                {chatLabel}
+              </DialogTitle>
+              <DialogDescription className="text-left">
+                Live conversation for {order.order_number ? `order #${order.order_number}` : "this order"}. Messages stay linked to this delivery.
+              </DialogDescription>
+            </DialogHeader>
+            <OrderClientChatPanel
+              companyId={order.company_id}
+              orderId={order.id}
+              userId={user.id}
+              senderRole={chatSenderRole}
+              orderLabel={`${order.client_name || "Client"} · ${order.order_number || "Order"}`}
+              maxHeight="min(56vh, 520px)"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
