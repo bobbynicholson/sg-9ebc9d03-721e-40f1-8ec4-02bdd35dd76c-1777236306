@@ -33,7 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { PortalCard, PortalCardHeader, PortalOverview } from "@/components/portal/ui";
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, MapPin, Clock,
-  Users, Loader2, Hand, ExternalLink, Truck, RefreshCw, Navigation, CalendarClock,
+  Users, Loader2, Hand, ExternalLink, Truck, RefreshCw, Navigation, CalendarClock, MessageCircle,
 } from "lucide-react";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -592,6 +592,16 @@ function DriverCalendarInner() {
                               <ExternalLink className="w-3.5 h-3.5" />
                               Open brief
                             </Link>
+                            {o.is_mine && (
+                              <Link
+                                href={withSlug(staffOrderHref(o.id, "driver", { openChat: true }))}
+                                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold min-h-[32px] dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                                title="Message the client about this order"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                Chat
+                              </Link>
+                            )}
                             {o.is_mine ? (
                               <Link href={withSlug("/team-portal/driver/routes")}>
                                 <Button size="sm" variant="outline" className="min-h-11">
@@ -736,6 +746,16 @@ function DriverCalendarInner() {
                                         <ExternalLink className="w-3.5 h-3.5" />
                                         Open brief
                                       </Link>
+                                      {o.is_mine && (
+                                        <Link
+                                          href={withSlug(staffOrderHref(o.id, "driver", { openChat: true }))}
+                                          className="inline-flex items-center gap-1 text-xs px-2.5 py-2 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold min-h-[44px] dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                                          title="Message the client about this order"
+                                        >
+                                          <MessageCircle className="w-3.5 h-3.5" />
+                                          Chat
+                                        </Link>
+                                      )}
                                     </div>
                                   </div>
                                 </div>

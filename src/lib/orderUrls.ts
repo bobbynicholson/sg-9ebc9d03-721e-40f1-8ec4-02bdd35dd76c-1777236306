@@ -84,10 +84,17 @@ export function appBaseUrl(): string {
  * needs the AuthContext. We don't import that here so the helper
  * is usable from services too.
  */
-export function staffOrderHref(orderId: string, role?: StaffOrderRole | null): string {
+export function staffOrderHref(
+  orderId: string,
+  role?: StaffOrderRole | null,
+  options: { openChat?: boolean } = {},
+): string {
   if (!orderId) return "/order/";
-  const qs = role ? `?role=${encodeURIComponent(role)}` : "";
-  return `/order/${orderId}${qs}`;
+  const params = new URLSearchParams();
+  if (role) params.set("role", role);
+  if (options.openChat) params.set("chat", "1");
+  const query = params.toString();
+  return `/order/${orderId}${query ? `?${query}` : ""}`;
 }
 
 /**

@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Banknote, Clock, Download, ExternalLink, Loader2, MapPin, RefreshCw, Route, TrendingUp, Truck,
+  Banknote, Clock, Download, ExternalLink, Loader2, MapPin, RefreshCw, Route, TrendingUp, Truck, MessageCircle,
 } from "lucide-react";
 import { PortalCard, PortalCardHeader, PortalOverview, StatTile } from "@/components/portal/ui";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
@@ -455,14 +455,24 @@ function DeliveryTable({ summary, formatR, withSlug }: { summary: DriverPaySumma
                 <td className="px-4 py-2 text-right tabular-nums text-slate-700 dark:text-slate-300">{formatR(d.callout_fee)}</td>
                 <td className="px-4 py-2 text-right font-semibold text-slate-900 tabular-nums dark:text-white">{formatR(d.total)}</td>
                 <td className="px-4 py-2 text-right">
-                  <Link
-                    href={withSlug(staffOrderHref(d.order_id, "driver"))}
-                    className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 text-brand-primary font-semibold min-h-[32px] dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary dark:hover:bg-brand-primary/20"
-                    title="Open the driver brief for this order"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Open brief
-                  </Link>
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      href={withSlug(staffOrderHref(d.order_id, "driver"))}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/30 bg-brand-primary/5 hover:bg-brand-primary/10 text-brand-primary font-semibold min-h-[32px] dark:border-brand-primary/30 dark:bg-brand-primary/10 dark:text-brand-primary dark:hover:bg-brand-primary/20"
+                      title="Open the driver brief for this order"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Open brief
+                    </Link>
+                    <Link
+                      href={withSlug(staffOrderHref(d.order_id, "driver", { openChat: true }))}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold min-h-[32px] dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300 dark:hover:bg-blue-950/50"
+                      title="Message the client about this order"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Chat
+                    </Link>
+                  </div>
                 </td>
               </tr>
             );

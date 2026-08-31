@@ -632,6 +632,16 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
     return () => clearTimeout(t);
   }, [loading, order, primary, mode, scrollToSection]);
 
+  // Order-list chat CTAs use a deep link so the driver can open the same
+  // conversation from calendar/earnings without duplicating modal state.
+  useEffect(() => {
+    if (!router.isReady || loading || !order || mode === "print" || router.query.chat !== "1") return;
+    setChatOpen(true);
+    const nextQuery = { ...router.query };
+    delete nextQuery.chat;
+    void router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+  }, [loading, mode, order, router]);
+
   // ODOC Wave D: document title - "ORD-12345 · Smith Family · CateringMS"
   // so the browser tab strip is identifiable when many orders are open.
   useEffect(() => {

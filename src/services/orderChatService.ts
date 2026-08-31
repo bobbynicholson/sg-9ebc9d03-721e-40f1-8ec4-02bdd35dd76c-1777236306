@@ -102,10 +102,17 @@ export const orderChatService = {
         sender_role: payload.senderRole,
         body: text,
       }])
-      .select("*, sender:sender_id(full_name)")
+      // sender_id references auth.users, not profiles. Embedding a
+      // `sender:sender_id(full_name)` relation here makes PostgREST reject
+      // the insert on deployments where that auth relation is not exposed.
+      // Staff names are resolved separately when messages are read.
+      .select("*")
       .single();
-    if (error) throw error;
-    return { ...(data as any), sender_name: (data as any).sender?.full_name };
+    if (error) {
+      const detail = [error.message, error.details, error.hint].filter(Boolean).join(" ");
+      throw new Error(detail || "The message could not be saved.");
+    }
+    return { ...(data as any) };
   },
 
   /**
