@@ -178,6 +178,10 @@ function KitchenStaffPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRates, setBulkRates] = useState<Record<string, string>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
+  // Service-tab quick assignment: existing staff can be added to the
+  // service roster without opening and re-saving the full staff form.
+  const [serviceStaffId, setServiceStaffId] = useState("");
+  const [addingServiceStaff, setAddingServiceStaff] = useState(false);
 
   const companyId = profile?.company_id;
   // STA-C: region scope from the global filter. When active we
@@ -359,9 +363,73 @@ function KitchenStaffPage() {
 
   const openAdd = () => {
     setEditTarget(null);
-    setDraft(EMPTY_DRAFT);
+    // Starting an add flow from a department tab should carry that
+    // department into the new row. Service is the important case here:
+    // owners commonly open this page from the empty Service tab to add a
+    // waiter/server, and defaulting to Kitchen made that easy to miss.
+    const departmentDraft = filterDept !== "all" && ALL_DEPARTMENTS.some((d) => d.id === filterDept)
+      ? {
+          ...EMPTY_DRAFT,
+          departments: [filterDept],
+          role_title: filterDept === "service" ? "Waiter" : EMPTY_DRAFT.role_title,
+        }
+      : EMPTY_DRAFT;
+    setDraft(departmentDraft);
     setError("");
     setDialogOpen(true);
+  };
+
+  // Keep every existing staff member in the Service-tab dropdown. People
+  // already assigned to Service stay visible (and are marked/disabled) so
+  // the dropdown is the complete roster, not a hidden filtered subset.
+  const serviceStaffOptions = useMemo(
+    () => staff
+      .filter((s) => !s.deleted_at)
+      .sort((a, b) => a.full_name.localeCompare(b.full_name)),
+    [staff],
+  );
+
+  const selectedServiceStaff = serviceStaffId
+    ? staff.find((s) => s.id === serviceStaffId)
+    : null;
+  const selectedServiceAlreadyAssigned = !!selectedServiceStaff &&
+    Array.isArray(selectedServiceStaff.departments) &&
+    selectedServiceStaff.departments.includes("service");
+
+  const addExistingStaffToService = async () => {
+    if (!serviceStaffId) return;
+    const target = staff.find((s) => s.id === serviceStaffId);
+    if (!target) return;
+
+    setAddingServiceStaff(true);
+    try {
+      const departments = Array.from(new Set([
+        ...(Array.isArray(target.departments) ? target.departments : []),
+        "service",
+      ]));
+      await kitchenStaffService.upsertStaff({
+        id: target.id,
+        company_id: target.company_id,
+        full_name: target.full_name,
+        departments,
+        is_active: true,
+        deleted_at: null,
+      } as Parameters<typeof kitchenStaffService.upsertStaff>[0]);
+      toast({
+        title: "Added to Service",
+        description: `${target.full_name} will now appear on the Service team roster.`,
+      });
+      setServiceStaffId("");
+      await load();
+    } catch (e: unknown) {
+      toast({
+        title: "Could not add to Service",
+        description: dbErrorMessage(e, { entity: "staff member" }),
+        variant: "destructive",
+      });
+    } finally {
+      setAddingServiceStaff(false);
+    }
   };
 
   const openEdit = (s: KitchenStaffMember) => {
@@ -816,6 +884,64 @@ function KitchenStaffPage() {
                 );
               })}
             </div>
+            {filterDept === "service" && (
+              <div className="mb-3 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <Label htmlFor="add-existing-service-staff" className="flex items-center gap-1 text-sm font-semibold text-slate-900">
+                      Add existing staff to Service
+                    </Label>
+                    <select
+                      id="add-existing-service-staff"
+                      aria-label="Add existing staff to Service"
+                      value={serviceStaffId}
+                      onChange={(e) => setServiceStaffId(e.target.value)}
+                      disabled={addingServiceStaff || serviceStaffOptions.length === 0}
+                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <option value="">
+                        {serviceStaffOptions.length === 0
+                          ? "No existing staff available"
+                          : "Choose an existing staff member..."}
+                      </option>
+                      {serviceStaffOptions.map((candidate) => {
+                        const alreadyAssigned = Array.isArray(candidate.departments) && candidate.departments.includes("service");
+                        return (
+                          <option key={candidate.id} value={candidate.id} disabled={alreadyAssigned}>
+                            {candidate.full_name}
+                            {candidate.role_title ? ` - ${candidate.role_title}` : ""}
+                            {!candidate.is_active ? " - Inactive" : ""}
+                            {alreadyAssigned ? " - Already in Service" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <p className="text-xs text-slate-600">
+                      This keeps their current departments and adds Service as an additional duty.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={addExistingStaffToService}
+                    disabled={!serviceStaffId || selectedServiceAlreadyAssigned || addingServiceStaff}
+                    className="h-9 bg-brand-primary text-white hover:opacity-90"
+                  >
+                    {addingServiceStaff ? "Adding..." : "Add to Service"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={openAdd}
+                    className="h-9"
+                  >
+                    <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                    New staff
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
