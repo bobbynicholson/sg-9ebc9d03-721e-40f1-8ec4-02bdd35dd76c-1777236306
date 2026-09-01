@@ -348,6 +348,15 @@ function NewQuotePage() {
 
   const [eventName, setEventName] = useState("");
   const [eventDate, setEventDate] = useState("");
+  const quoteUserEditedRef = useRef(false);
+  // Save callbacks can outlive the render that created them (especially
+  // while the client snapshot/capacity checks are resolving). Keep the
+  // latest calendar value available to the persistence layer so an old
+  // callback cannot write a previous event date over a newer edit.
+  const eventDateRef = useRef("");
+  useEffect(() => {
+    eventDateRef.current = eventDate;
+  }, [eventDate]);
   const [eventTime, setEventTime] = useState("");
   // Distinct from event start time: a morning setup for an evening
   // event is normal at big functions, so the operator gets an
@@ -863,7 +872,7 @@ function NewQuotePage() {
       // 2) Overlay the client's requested changes (same tick, so these win).
       if (cr) {
         const rc = (cr.requested_changes || {}) as any;
-        if (rc.event_date) setEventDate(String(rc.event_date));
+        if (!quoteUserEditedRef.current && rc.event_date) setEventDate(String(rc.event_date));
         if (typeof rc.guest_count === "number") setGuestCount(rc.guest_count);
         if (rc.waiter_service === true) setWaiterServiceRequired(true);
         if (rc.venue_address) setVenueAddress(String(rc.venue_address));
@@ -944,7 +953,9 @@ function NewQuotePage() {
       setKitchenId(q.region_id);
       kitchenManualRef.current = true;
     }
-    if (q.event_date) setEventDate(q.event_date);
+    // A slow quote/change-request fetch must never overwrite a value the
+    // operator has already started editing in the form.
+    if (!quoteUserEditedRef.current && q.event_date) setEventDate(q.event_date);
     // event_time on the quote is HH:MM (or HH:MM:SS); the <input
     // type="time"> only accepts HH:MM so trim seconds if present.
     if (q.event_time) setEventTime(String(q.event_time).slice(0, 5));
@@ -1283,7 +1294,7 @@ function NewQuotePage() {
       setClientName((v) => v || snap.full_name || "");
       setEmail((v) => v || snap.email || "");
       setPhone((v) => v || snap.phone || "");
-      if (!eventDate && snap.last_event_date) setEventDate(snap.last_event_date);
+      if (!quoteUserEditedRef.current && !eventDate && snap.last_event_date) setEventDate(snap.last_event_date);
       if (!eventName && snap.last_event_type) setEventName(snap.last_event_type);
       if (!guestCount && snap.last_guest_count) setGuestCount(snap.last_guest_count);
       if (!venueAddress && snap.last_venue_address) setVenueAddress(snap.last_venue_address);
@@ -1606,7 +1617,7 @@ function NewQuotePage() {
       // "no event name set" - downstream renderers fall back to the
       // quote number or a friendly "Untitled" label.
       quote_name: eventName.trim() || "Untitled",
-      event_date: eventDate || null,
+      event_date: eventDateRef.current || null,
       event_time: eventTime || null,
       // setup_time defaults to suggestedSetupTime when the operator
       // hasn't typed an explicit value - means a quote with a 5pm
@@ -2085,6 +2096,15 @@ function NewQuotePage() {
   // "no deal without email" rule here so we never persist a row the
   // pipeline can't process.
   const dirtyRef = useRef(false);
+  // Keep the debounce cancellable so an explicit save cannot race a
+  // pending timer created by an earlier render and write stale form data.
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingAutoSave = useCallback(() => {
+    if (autoSaveTimerRef.current !== null) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+  }, []);
   // Audit fix (2026-07-02): internalNotes (the client-visible note,
   // quotes.notes) was missing from the dirty deps, so a note-only edit
   // never marked the form dirty and never autosaved - the note was
@@ -2092,18 +2112,32 @@ function NewQuotePage() {
   useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientName, email, internalNotes]);
   useEffect(() => {
     if (status !== "draft") return;
+    // Existing quotes are loaded asynchronously from ?fromQuoteId. A
+    // background write during that hydration window can persist the
+    // pre-hydration defaults over a field the operator just edited.
+    // Existing quotes therefore save only through the explicit Save
+    // button; brand-new drafts retain the debounced convenience save.
+    if (fromQuoteId) return;
     if (!clientName) return;
     if (!email || !email.trim()) return;
     if (!dirtyRef.current) return;
     // Don't autosave a quote with an invalid setup/start time - the
     // inline error already flags it; persistQuote would just toast.
     if (setupTimeError) return;
+    cancelPendingAutoSave();
     const handle = setTimeout(() => {
+      autoSaveTimerRef.current = null;
       dirtyRef.current = false;
-      persistQuote();
+      void persistQuote().then((id) => {
+        if (!id) dirtyRef.current = true;
+      });
     }, AUTOSAVE_DELAY_MS);
-    return () => clearTimeout(handle);
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError]);
+    autoSaveTimerRef.current = handle;
+    return () => {
+      clearTimeout(handle);
+      if (autoSaveTimerRef.current === handle) autoSaveTimerRef.current = null;
+    };
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -2118,7 +2152,10 @@ function NewQuotePage() {
       });
       return;
     }
+    cancelPendingAutoSave();
+    dirtyRef.current = false;
     const id = await persistQuote({ status: "draft" });
+    if (!id) dirtyRef.current = true;
     // persistQuote refuses to downgrade an accepted quote, so don't
     // tell the operator it became a draft when it didn't.
     if (id) toast({ title: status === "accepted" ? "Saved - quote stays accepted" : "Saved as draft" });
@@ -2171,12 +2208,15 @@ function NewQuotePage() {
     setSending(true);
     try {
       const contentChangedForSend = quoteContentHasChanged();
+      cancelPendingAutoSave();
+      dirtyRef.current = false;
       // Persist the latest edits but DON'T auto-fire the email -
       // the preview dialog will fire it when the operator confirms.
       const id = await persistQuote({
         __skipSentEmail: true,
         __contentChanged: contentChangedForSend,
       });
+      if (!id) dirtyRef.current = true;
       if (id) {
         // Open the preview-and-edit dialog with the current quote
         // state. The dialog resolves the template, lets the operator
@@ -2636,7 +2676,11 @@ function NewQuotePage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left column: form */}
-            <div className="lg:col-span-2 space-y-6">
+            <div
+              className="lg:col-span-2 space-y-6"
+              onFocusCapture={() => { if (fromQuoteId) quoteUserEditedRef.current = true; }}
+              onChangeCapture={() => { if (fromQuoteId) quoteUserEditedRef.current = true; }}
+            >
               {/* Client + Event */}
               <Card>
                 <CardHeader>
@@ -2681,7 +2725,16 @@ function NewQuotePage() {
                     </div>
                     <div>
                       <Label className="text-xs flex items-center gap-1"><Calendar className="w-3 h-3" /> Event date</Label>
-                      <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                      <Input
+                        type="date"
+                        value={eventDate}
+                        onChange={(e) => {
+                          const nextDate = e.target.value;
+                          quoteUserEditedRef.current = true;
+                          eventDateRef.current = nextDate;
+                          setEventDate(nextDate);
+                        }}
+                      />
                       {(eventCapacityChecking || eventCapacity) && (
                         <div
                           className={`mt-2 flex items-start gap-1.5 rounded-md border px-2.5 py-2 text-[11px] ${
