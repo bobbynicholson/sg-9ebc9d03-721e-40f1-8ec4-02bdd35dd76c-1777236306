@@ -100,6 +100,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (typeof rawChanges.logistics_changes === "string" && rawChanges.logistics_changes.trim()) {
     requestedChanges.logistics_changes = rawChanges.logistics_changes.trim().slice(0, 2000);
   }
+  if (rawChanges.waiter_service === true) {
+    requestedChanges.waiter_service = true;
+  }
   // Structured item picks from the in-form editor. Sanitise hard: cap the
   // array, keep only known fields, coerce types, clamp quantities. A line
   // with no name is dropped. Empty arrays are kept (they mean "remove
@@ -237,11 +240,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { data: full } = await (supabase as any)
       .from("quotes")
-      .select("guest_count, menu_items, equipment_items, delivery_fee, collection_fee, discount_amount")
+      .select("guest_count, menu_items, equipment_items, delivery_fee, collection_fee, discount_amount, waiter_service_required, waiter_total_fee")
       .eq("id", quote.id)
       .maybeSingle();
 
     const quoteUpdate: Record<string, any> = {};
+    if (requestedChanges.waiter_service === true) {
+      // The client can request waiter service, but only the authenticated
+      // operator may set the staffing, hours, and rate that become billable.
+      // Mark the quote for review without inventing a price on the client's
+      // behalf; the admin quote editor will price and resend it.
+      quoteUpdate.waiter_service_required = true;
+    }
     if (requestedChanges.event_date) quoteUpdate.event_date = requestedChanges.event_date;
     const requestedGuestCount =
       typeof requestedChanges.guest_count === "number"

@@ -419,6 +419,16 @@ function NewQuotePage() {
   // Next-day collection: when on, the auto-scheduled collection trip is
   // booked for the morning after the event instead of the same evening.
   const [collectionNextDay, setCollectionNextDay] = useState(false);
+  // On-site waiter service is a quoteable service, not just an
+  // operational flag. These fields are carried into the accepted order so
+  // the admin can assign the actual waiter without losing the agreed price.
+  const [waiterServiceRequired, setWaiterServiceRequired] = useState(false);
+  const [waiterCount, setWaiterCount] = useState(1);
+  const [waiterDurationHours, setWaiterDurationHours] = useState(4);
+  const [waiterHourlyRate, setWaiterHourlyRate] = useState(0);
+  const waiterTotalFee = waiterServiceRequired
+    ? Number((Math.max(1, waiterCount) * Math.max(0, waiterDurationHours) * Math.max(0, waiterHourlyRate)).toFixed(2))
+    : 0;
   /** Available kitchens for this company (active branches + HQ). */
   const { kitchens } = useCompanyKitchens(companyId || null);
   /** Currently picked kitchen the delivery is leaving from. Defaults
@@ -599,7 +609,7 @@ function NewQuotePage() {
     // line sums + delivery fee + discounts are all gross numbers; we
     // derive the ex-VAT subtotal by dividing back. When ex-VAT (the
     // historic default), VAT is added on top.
-    const grossOrNet = afterDiscounts + deliveryFee + collectionFee;
+    const grossOrNet = afterDiscounts + deliveryFee + collectionFee + waiterTotalFee;
     let subtotal: number;
     let tax: number;
     let total: number;
@@ -624,11 +634,12 @@ function NewQuotePage() {
       afterDiscounts,
       deliveryFee,
       collectionFee,
+      waiterTotalFee,
       subtotal,
       tax,
       total,
     };
-  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, taxRate, pricingIncludesVat]);
+  }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterTotalFee, taxRate, pricingIncludesVat]);
 
   // ── Pre-fill: load company default delivery buffer ─────────────────
   // Wave 11 #7: this used to also pull deliveryCostPerKm from a global
@@ -854,6 +865,7 @@ function NewQuotePage() {
         const rc = (cr.requested_changes || {}) as any;
         if (rc.event_date) setEventDate(String(rc.event_date));
         if (typeof rc.guest_count === "number") setGuestCount(rc.guest_count);
+        if (rc.waiter_service === true) setWaiterServiceRequired(true);
         if (rc.venue_address) setVenueAddress(String(rc.venue_address));
         if (Array.isArray(rc.menu_items)) {
           setMenuItems(
@@ -991,6 +1003,10 @@ function NewQuotePage() {
       if (Math.abs(q.collection_fee - cRoundTrip) > 0.01) setCollectionFeeOverridden(true);
     }
     if (typeof q.collection_next_day === "boolean") setCollectionNextDay(q.collection_next_day);
+    if (typeof q.waiter_service_required === "boolean") setWaiterServiceRequired(q.waiter_service_required);
+    if (typeof q.waiter_count === "number") setWaiterCount(Math.max(1, Math.min(50, q.waiter_count)));
+    if (typeof q.waiter_duration_hours === "number") setWaiterDurationHours(Math.max(0, q.waiter_duration_hours));
+    if (typeof q.waiter_hourly_rate === "number") setWaiterHourlyRate(Math.max(0, q.waiter_hourly_rate));
     if (Array.isArray(q.menu_items)) {
       setMenuItems(
         q.menu_items.map((m: any, i: number) => {
@@ -1610,6 +1626,11 @@ function NewQuotePage() {
       collection_rate_per_km: collectionCostPerKm || null,
       collection_fee: collectionFee || 0,
       collection_next_day: collectionNextDay,
+      waiter_service_required: waiterServiceRequired,
+      waiter_count: Math.max(1, Math.min(50, waiterCount)),
+      waiter_duration_hours: waiterServiceRequired ? waiterDurationHours : null,
+      waiter_hourly_rate: waiterServiceRequired ? waiterHourlyRate : null,
+      waiter_total_fee: waiterTotalFee,
       subtotal: computed.subtotal,
       discount_amount: computed.pctDiscount + computed.flatDiscount,
       tax_amount: computed.tax,
@@ -1631,6 +1652,7 @@ function NewQuotePage() {
     venueAddress, venueLat, venueLng,
     deliveryDistance, deliveryCostPerKm, deliveryFee, depositPercent,
     collectionDistance, collectionCostPerKm, collectionFee, collectionNextDay,
+    waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, waiterTotalFee,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
     validUntil, internalNotes,
     // The equipment split reads the live availability snapshot; without
@@ -2067,7 +2089,7 @@ function NewQuotePage() {
   // quotes.notes) was missing from the dirty deps, so a note-only edit
   // never marked the form dirty and never autosaved - the note was
   // silently lost unless the operator clicked Save explicitly.
-  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, clientName, email, internalNotes]);
+  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientName, email, internalNotes]);
   useEffect(() => {
     if (status !== "draft") return;
     if (!clientName) return;
@@ -2081,7 +2103,7 @@ function NewQuotePage() {
       persistQuote();
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(handle);
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError]);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -2267,6 +2289,9 @@ function NewQuotePage() {
             value={fmtR(computed.collectionFee)}
             muted
           />
+        )}
+        {computed.waiterTotalFee > 0 && (
+          <Row label={`Waiter service (${waiterCount} × ${waiterDurationHours}h)`} value={fmtR(computed.waiterTotalFee)} muted />
         )}
         <div className="my-1 border-t border-slate-200" />
         {incVat ? (
@@ -2962,6 +2987,40 @@ function NewQuotePage() {
                       </label>
                     </div>
                   )}
+
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 space-y-3">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={waiterServiceRequired}
+                        onChange={(e) => setWaiterServiceRequired(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-amber-600"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-amber-950">Include on-site waiter service</span>
+                        <span className="block text-[11px] leading-4 text-amber-800">Show this service on the quote and carry it into the accepted order for assignment.</span>
+                      </span>
+                    </label>
+                    {waiterServiceRequired && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pl-6">
+                        <div>
+                          <Label className="text-[11px] text-amber-900">Waiters</Label>
+                          <Input type="number" min={1} max={50} step={1} value={waiterCount} onChange={(e) => setWaiterCount(Math.max(1, Math.min(50, safeNum(e.target.value) || 1)))} className="bg-white" />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-amber-900">Hours each</Label>
+                          <Input type="number" min={0.5} step={0.5} value={waiterDurationHours || ""} onChange={(e) => setWaiterDurationHours(Math.max(0, safeNum(e.target.value)))} className="bg-white" />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] text-amber-900">Rate / hour ({tenantCurrency.symbol})</Label>
+                          <Input type="number" min={0} step={0.01} value={waiterHourlyRate || ""} onChange={(e) => setWaiterHourlyRate(Math.max(0, safeNum(e.target.value)))} className="bg-white" />
+                        </div>
+                      </div>
+                    )}
+                    {waiterServiceRequired && (
+                      <p className="pl-6 text-[11px] font-medium text-amber-900">Waiter service fee: {fmtR(waiterTotalFee)}. The client must accept the updated quote before assignment.</p>
+                    )}
+                  </div>
 
                   {/* Recent-quote templates from the picked client. */}
                   {clientSnapshot && clientSnapshot.recent_quotes.length > 0 && (

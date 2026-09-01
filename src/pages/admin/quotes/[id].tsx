@@ -172,6 +172,10 @@ function AdminQuoteDetailInner() {
   // COLLECTION fee to move too, but this page only exposed delivery.
   // Both fees are now editable here, mirroring the full builder.
   const [collectionFee, setCollectionFee] = useState<number>(0);
+  const [waiterServiceRequired, setWaiterServiceRequired] = useState(false);
+  const [waiterCount, setWaiterCount] = useState(1);
+  const [waiterDurationHours, setWaiterDurationHours] = useState(4);
+  const [waiterHourlyRate, setWaiterHourlyRate] = useState(0);
   const [discount, setDiscount] = useState<number>(0);
   const [notes, setNotes] = useState<string>("");
 
@@ -234,6 +238,10 @@ function AdminQuoteDetailInner() {
       );
       setDeliveryFee(safeNum((data as any)?.delivery_fee));
       setCollectionFee(safeNum((data as any)?.collection_fee));
+      setWaiterServiceRequired(!!(data as any)?.waiter_service_required);
+      setWaiterCount(Math.max(1, Math.min(50, safeNum((data as any)?.waiter_count) || 1)));
+      setWaiterDurationHours(Math.max(0, safeNum((data as any)?.waiter_duration_hours) || 4));
+      setWaiterHourlyRate(Math.max(0, safeNum((data as any)?.waiter_hourly_rate)));
       setDiscount(safeNum((data as any)?.discount_amount));
       setNotes((data as any)?.notes ?? "");
       setLoading(false);
@@ -419,6 +427,9 @@ function AdminQuoteDetailInner() {
     ),
     [equipmentRows],
   );
+  const waiterTotalFee = waiterServiceRequired
+    ? Number((Math.max(1, waiterCount) * Math.max(0, waiterDurationHours) * Math.max(0, waiterHourlyRate)).toFixed(2))
+    : 0;
   const computed = useMemo(() => {
     // Per-line discount honoured: builder-made lines carry
     // discount_pct in the jsonb; ignoring it inflated the recompute.
@@ -426,18 +437,19 @@ function AdminQuoteDetailInner() {
       (s, it) => s + it.quantity * it.unit_price * (1 - (it.discount_pct || 0) / 100),
       0,
     );
-    const lineSum = itemsSubtotal + equipmentSubtotal + deliveryFee + collectionFee - discount;
+    const lineSum = itemsSubtotal + equipmentSubtotal + deliveryFee + collectionFee + waiterTotalFee - discount;
     const br = breakdownFromLineSum(lineSum, taxRate, pricingMode.mode);
     return {
       itemsSubtotal,
       equipmentSubtotal,
       collectionFee,
+      waiterTotalFee,
       // subtotal here is the ex-VAT figure, matching the invoice math.
       subtotal: br.net,
       tax: br.vat,
       total: br.gross,
     };
-  }, [items, equipmentSubtotal, collectionFee, deliveryFee, discount, taxRate, pricingMode.mode]);
+  }, [items, equipmentSubtotal, collectionFee, deliveryFee, waiterTotalFee, discount, taxRate, pricingMode.mode]);
 
   const updateItem = (key: string, patch: Partial<MenuItemRow>) =>
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch } : it)));
@@ -483,6 +495,11 @@ function AdminQuoteDetailInner() {
       // stale delivery_fee line - a breakdown that no longer summed.
       delivery_fee: deliveryFee,
       collection_fee: collectionFee,
+      waiter_service_required: waiterServiceRequired,
+      waiter_count: Math.max(1, Math.min(50, waiterCount)),
+      waiter_duration_hours: waiterServiceRequired ? waiterDurationHours : null,
+      waiter_hourly_rate: waiterServiceRequired ? waiterHourlyRate : null,
+      waiter_total_fee: waiterTotalFee,
       discount_amount: discount,
       notes: notes || null,
     } as any;
@@ -1061,8 +1078,8 @@ function AdminQuoteDetailInner() {
                           />
                         </div>
                       </div>
-                      <div>
-                        <label className="text-xs text-slate-600 block mb-1">Collection fee</label>
+                        <div>
+                          <label className="text-xs text-slate-600 block mb-1">Collection fee</label>
                         <div className="relative">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{tenantCurrency.symbol}</span>
                           <Input
@@ -1091,6 +1108,25 @@ function AdminQuoteDetailInner() {
                       </div>
                     </div>
                   )}
+                  {isDraft && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" checked={waiterServiceRequired} onChange={(e) => setWaiterServiceRequired(e.target.checked)} className="mt-0.5 h-4 w-4 accent-amber-600" />
+                        <span>
+                          <span className="block text-xs font-semibold text-amber-950">Include on-site waiter service</span>
+                          <span className="block text-[11px] text-amber-800">The client must accept the updated quote; then assign the actual waiter on the order.</span>
+                        </span>
+                      </label>
+                      {waiterServiceRequired && (
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 pl-6">
+                          <Input aria-label="Waiters" type="number" min={1} max={50} value={waiterCount} onChange={(e) => setWaiterCount(Math.max(1, Math.min(50, safeNum(e.target.value) || 1)))} placeholder="Waiters" />
+                          <Input aria-label="Hours each" type="number" min={0.5} step={0.5} value={waiterDurationHours || ""} onChange={(e) => setWaiterDurationHours(Math.max(0, safeNum(e.target.value)))} placeholder="Hours each" />
+                          <Input aria-label="Rate per hour" type="number" min={0} step={0.01} value={waiterHourlyRate || ""} onChange={(e) => setWaiterHourlyRate(Math.max(0, safeNum(e.target.value)))} placeholder={`Rate / hour (${tenantCurrency.symbol})`} />
+                        </div>
+                      )}
+                      {waiterServiceRequired && <p className="mt-2 pl-6 text-[11px] font-medium text-amber-900">Waiter service fee: {tenantCurrency.symbol}{waiterTotalFee.toFixed(2)}</p>}
+                    </div>
+                  )}
                   {/* Wave 12 audit: align the running-total panel with
                       what the customer sees on /q/[token] and the PDF.
                       Under inc-VAT mode the line items above are
@@ -1102,6 +1138,7 @@ function AdminQuoteDetailInner() {
                     const incVat = pricingMode.mode === "inc";
                     const liveDelivery = isDraft ? deliveryFee : safeNum((quote as any).delivery_fee);
                     const liveCollection = isDraft ? collectionFee : safeNum((quote as any).collection_fee);
+                    const liveWaiter = isDraft ? waiterTotalFee : safeNum((quote as any).waiter_total_fee);
                     const liveDiscount = isDraft ? discount : safeNum((quote as any).discount_amount);
                     const liveTotal = isDraft
                       ? computed.total
@@ -1128,6 +1165,7 @@ function AdminQuoteDetailInner() {
                       + computed.equipmentSubtotal
                       + liveDelivery
                       + liveCollection
+                      + liveWaiter
                       - liveDiscount
                       + (incVat ? 0 : liveTax);
                     const adjustmentDelta = isDraft ? 0 : liveTotal - componentsGross;
@@ -1158,6 +1196,12 @@ function AdminQuoteDetailInner() {
                           <div className="flex justify-between text-sm">
                             <span className="text-slate-600">Collection fee</span>
                             <span className="font-medium">{fmtMoney(liveCollection)}</span>
+                          </div>
+                        )}
+                        {liveWaiter > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">On-site waiter service</span>
+                            <span className="font-medium">{fmtMoney(liveWaiter)}</span>
                           </div>
                         )}
                         {liveDiscount > 0 && (

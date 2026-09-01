@@ -22,6 +22,7 @@ import {
   Clock, CheckCircle2, Package, MapPin, AlertCircle, Save, X, FileText,
   Receipt, Pause, Copy, Star, RefreshCw, MoreHorizontal, Phone,
   MessageCircle, Mail, ArrowRight, Download, Trash2, Play,
+  UserPlus,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -1109,6 +1110,15 @@ return (
             >
               <Receipt className="w-3.5 h-3.5" />
               Invoice
+            </Link>
+            <Link
+              href={withSlug(`${staffOrderHref(selectedOrder.id, "admin")}#section-waiter`)}
+              onClick={() => setIsModalOpen(false)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 hover:bg-amber-100 transition"
+              title="Open the order Service team section to assign or remove waiters"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Assign waiter
             </Link>
           </div>
         )}

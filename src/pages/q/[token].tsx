@@ -244,6 +244,7 @@ export default function PublicQuotePage() {
   const [changesMenu, setChangesMenu] = useState("");
   const [changesVenue, setChangesVenue] = useState("");
   const [changesLogistics, setChangesLogistics] = useState("");
+  const [changesWaiterService, setChangesWaiterService] = useState(false);
   // Structured item edits (prefilled from the quote in the editor). Null
   // until the client touches the editor, so an untouched request doesn't
   // overwrite the quote's lines with a stale snapshot.
@@ -392,6 +393,7 @@ export default function PublicQuotePage() {
         menu_changes: changesMenu.trim() || null,
         venue_address: changesVenue.trim() || null,
         logistics_changes: changesLogistics.trim() || null,
+        waiter_service: changesWaiterService,
         menu_items: changesMenuItems !== null ? menuPayload : null,
         equipment_items: changesEquipItems !== null ? equipPayload : null,
       },
@@ -871,6 +873,7 @@ export default function PublicQuotePage() {
             const incVat = (company as any)?.pricing_includes_vat === true;
             const deliveryFee = Number((quote as any).delivery_fee || 0);
             const collectionFee = Number((quote as any).collection_fee || 0);
+            const waiterFee = Number((quote as any).waiter_total_fee || 0);
             const persistedSubtotal = Number(quote.subtotal || 0);
             const persistedTax = Number(quote.tax_amount || 0);
             const persistedTotal = total;
@@ -880,15 +883,15 @@ export default function PublicQuotePage() {
             // show net (= subtotal - delivery - collection). Collection
             // must be netted out too or it silently inflates "Items".
             const itemsLine = incVat
-              ? Math.max(0, persistedTotal - deliveryFee - collectionFee)
-              : Math.max(0, persistedSubtotal - deliveryFee - collectionFee);
+              ? Math.max(0, persistedTotal - deliveryFee - collectionFee - waiterFee)
+              : Math.max(0, persistedSubtotal - deliveryFee - collectionFee - waiterFee);
             return (
               <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none overflow-hidden">
                 <CardContent className="py-5 px-5 space-y-2 bg-gradient-to-br from-white via-white to-brand-primary/5">
                   <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
                     Your investment
                   </p>
-                  {deliveryFee > 0 || collectionFee > 0 ? (
+                  {deliveryFee > 0 || collectionFee > 0 || waiterFee > 0 ? (
                     <>
                       <div className="flex justify-between text-sm">
                         <span className="text-stone-600">Items</span>
@@ -910,6 +913,12 @@ export default function PublicQuotePage() {
                           <span className="text-stone-900 tabular-nums">
                             {fmtMoney(collectionFee)}
                           </span>
+                        </div>
+                      )}
+                      {waiterFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-stone-600">On-site waiter service</span>
+                          <span className="text-stone-900 tabular-nums">{fmtMoney(waiterFee)}</span>
                         </div>
                       )}
                     </>
@@ -1373,6 +1382,19 @@ export default function PublicQuotePage() {
                           className="mt-1"
                         />
                       </div>
+
+                      <label className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={changesWaiterService}
+                          onChange={(e) => setChangesWaiterService(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 accent-amber-600"
+                        />
+                        <span>
+                          <span className="block text-xs font-semibold text-amber-950">Please include waiter service</span>
+                          <span className="block mt-0.5 text-[11px] leading-4 text-amber-800">Ask the catering team to price an on-site waiter/service team for this event. They will confirm availability and send an updated quote.</span>
+                        </span>
+                      </label>
 
                       <div>
                         <label htmlFor="changes-name" className="text-xs font-medium text-stone-700">

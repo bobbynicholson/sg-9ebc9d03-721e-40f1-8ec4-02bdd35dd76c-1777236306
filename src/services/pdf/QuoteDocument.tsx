@@ -66,6 +66,11 @@ export interface QuotePdfData {
   collection_fee?: number | null;
   collection_distance_km?: number | null;
   collection_rate_per_km?: number | null;
+  waiter_service_required?: boolean | null;
+  waiter_count?: number | null;
+  waiter_duration_hours?: number | null;
+  waiter_hourly_rate?: number | null;
+  waiter_total_fee?: number | null;
   discount_amount?: number | null;
   tax_amount?: number | null;
   total: number;
@@ -459,8 +464,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
 
   const deliveryFee = Number(data.delivery_fee || 0);
   const collectionFee = Number(data.collection_fee || 0);
+  const waiterFee = data.waiter_service_required === true ? Number(data.waiter_total_fee || 0) : 0;
   const subtotal = Number(data.subtotal || 0);
-  const itemsNet = subtotal - deliveryFee;
+  const itemsNet = subtotal - deliveryFee - collectionFee - waiterFee;
   const discount = Number(data.discount_amount || 0);
   const tax = Number(data.tax_amount || 0);
   const total = Number(data.total || 0);
@@ -648,15 +654,15 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           {(() => {
             const incVat = company.pricing_includes_vat === true;
             const itemsLine = incVat
-              ? Math.max(0, total - deliveryFee)
+              ? Math.max(0, total - deliveryFee - collectionFee - waiterFee)
               : itemsNet;
             return (
               <>
-                {deliveryFee > 0 || collectionFee > 0 ? (
+                {deliveryFee > 0 || collectionFee > 0 || waiterFee > 0 ? (
                   <>
                     <View style={styles.totalsRow}>
                       <Text style={styles.totalsLabel}>Items</Text>
-                      <Text style={styles.totalsValue}>{fmtZAR(Math.max(0, itemsLine - collectionFee))}</Text>
+                      <Text style={styles.totalsValue}>{fmtZAR(itemsLine)}</Text>
                     </View>
                     <View style={styles.totalsRow}>
                       <Text style={styles.totalsLabel}>
@@ -687,6 +693,16 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                           })()}
                         </Text>
                         <Text style={styles.totalsValue}>{fmtZAR(collectionFee)}</Text>
+                      </View>
+                    ) : null}
+                    {waiterFee > 0 ? (
+                      <View style={styles.totalsRow}>
+                        <Text style={styles.totalsLabel}>
+                          On-site waiter service{data.waiter_count && data.waiter_duration_hours
+                            ? ` (${data.waiter_count} × ${data.waiter_duration_hours}h)`
+                            : ""}
+                        </Text>
+                        <Text style={styles.totalsValue}>{fmtZAR(waiterFee)}</Text>
                       </View>
                     ) : null}
                   </>

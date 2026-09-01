@@ -51,6 +51,12 @@ const QUOTE_TO_ORDER_MAP: Array<{ quoteKey: string; orderKey: string }> = [
   { quoteKey: "collection_distance_km", orderKey: "collection_distance_km" },
   { quoteKey: "collection_rate_per_km", orderKey: "collection_rate_per_km" },
   { quoteKey: "collection_next_day", orderKey: "collection_next_day" },
+  { quoteKey: "waiter_service_required", orderKey: "waiter_service_required" },
+  { quoteKey: "waiter_service_required", orderKey: "requires_waiter" },
+  { quoteKey: "waiter_count", orderKey: "waiter_count" },
+  { quoteKey: "waiter_duration_hours", orderKey: "waiter_duration_hours" },
+  { quoteKey: "waiter_hourly_rate", orderKey: "waiter_hourly_rate" },
+  { quoteKey: "waiter_total_fee", orderKey: "waiter_total_fee" },
   { quoteKey: "region_id", orderKey: "region_id" },
   // notes -> internal_notes is intentionally one-way; the operator's
   // brief on the order can diverge from the customer-facing quote
@@ -387,7 +393,8 @@ export async function propagateQuoteEditToOrder(
     const PRICING_FIELDS = new Set([
       "subtotal", "discount_amount", "tax_amount", "tax", "total_amount",
       "delivery_fee", "delivery_distance_km", "delivery_rate_per_km",
-      "collection_fee",
+      "collection_fee", "waiter_total_fee", "waiter_service_required",
+      "waiter_count", "waiter_duration_hours", "waiter_hourly_rate",
     ]);
     const needsInvoiceRecalc = menuChanged
       || receipt.fieldsChanged.some((f) => PRICING_FIELDS.has(f));

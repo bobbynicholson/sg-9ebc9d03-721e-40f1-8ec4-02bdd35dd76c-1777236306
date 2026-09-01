@@ -63,6 +63,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         subtotal, tax_amount, discount_amount, total, total_amount, status,
         delivery_fee, delivery_distance_km, delivery_rate_per_km,
         collection_fee, collection_distance_km, collection_rate_per_km,
+        waiter_service_required, waiter_count, waiter_duration_hours, waiter_hourly_rate, waiter_total_fee,
         valid_until, accepted_at, updated_at,
         company:company_id (
           id, slug, company_name, legal_name, logo_url, email, phone, website,

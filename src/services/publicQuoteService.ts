@@ -42,6 +42,11 @@ export interface PublicQuoteView {
   discount_amount: number | null;
   total: number;
   total_amount: number;
+  waiter_service_required?: boolean;
+  waiter_count?: number | null;
+  waiter_duration_hours?: number | null;
+  waiter_hourly_rate?: number | null;
+  waiter_total_fee?: number | null;
   /**
    * Percentage of total_amount the client needs to pay to confirm.
    * Null when the tenant hasn't configured a deposit. Phase 3e client
@@ -217,11 +222,13 @@ export async function submitChangeRequest(args: {
     menu_changes?: string | null;
     venue_address?: string | null;
     logistics_changes?: string | null;
+    /** The client is asking the caterer to price on-site waiter service. */
+    waiter_service?: boolean;
     /** Structured item picks from the in-form editor. null = the client
      *  didn't touch the item editor (leave the quote's lines as-is). */
     menu_items?: Array<{ menu_item_id: string | null; item_name: string; unit_price: number; quantity: number }> | null;
     equipment_items?: Array<{ equipment_id: string | null; name: string; unit_price: number; quantity: number }> | null;
-  };
+   };
 }): Promise<{ ok: boolean; error?: string }> {
   if (!args.token) return { ok: false, error: "Missing token." };
   if (!args.message?.trim()) return { ok: false, error: "Please tell us what to change." };

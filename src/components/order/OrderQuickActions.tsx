@@ -21,9 +21,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { canSeeOtherStaffPay } from "@/lib/authGuards";
+import { staffOrderHref } from "@/lib/orderUrls";
 import { UserRole } from "@/types/app";
 import {
-  FileText, Eye, Copy, Receipt, Phone, MessageCircle, Mail,
+  FileText, Eye, Copy, Receipt, Phone, MessageCircle, Mail, UserPlus,
 } from "lucide-react";
 
 interface Props {
@@ -135,6 +136,14 @@ export function OrderQuickActions({ order }: Props) {
       >
         <Receipt className="w-3.5 h-3.5" />
         Invoice
+      </Link>
+      <Link
+        href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)}
+        className={`${chipBase} text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:text-amber-950`}
+        title="Open the Service team section to assign or remove waiters"
+      >
+        <UserPlus className="w-3.5 h-3.5" />
+        Assign waiter
       </Link>
       {phone && (
         <>

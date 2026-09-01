@@ -933,6 +933,14 @@ export const quoteService = {
       // (orderWorkflow, on 'delivered') books the collection trip for the
       // next morning instead of the same evening.
       collection_next_day: (q as any).collection_next_day ?? false,
+      // Quote-stage waiter service becomes an operational requirement on the
+      // order. The admin still assigns the actual staff member separately.
+      requires_waiter: !!q.waiter_service_required,
+      waiter_service_required: !!q.waiter_service_required,
+      waiter_count: Math.max(1, Math.min(50, Number(q.waiter_count) || 1)),
+      waiter_duration_hours: q.waiter_duration_hours ?? null,
+      waiter_hourly_rate: q.waiter_hourly_rate ?? null,
+      waiter_total_fee: q.waiter_total_fee ?? 0,
       // Notes - quote.notes maps to internal_notes on orders
       internal_notes: q.notes ?? null,
       // Lifecycle
