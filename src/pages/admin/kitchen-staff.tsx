@@ -908,41 +908,39 @@ function KitchenStaffPage() {
                     {serviceUnassignedCount} available
                   </span>
                 </div>
-                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <Label htmlFor="add-existing-service-staff" className="text-xs font-medium text-slate-700">
-                      Staff member
-                    </Label>
-                    <select
-                      id="add-existing-service-staff"
-                      aria-label="Add existing staff to Service"
-                      aria-describedby="service-roster-help"
-                      value={serviceStaffId}
-                      onChange={(e) => setServiceStaffId(e.target.value)}
-                      disabled={addingServiceStaff || serviceStaffOptions.length === 0}
-                      className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 disabled:bg-slate-100 disabled:text-slate-400"
-                    >
-                      <option value="">
-                        {serviceStaffOptions.length === 0
-                          ? "No existing staff available"
-                          : "Choose an existing staff member..."}
-                      </option>
-                      {serviceStaffOptions.map((candidate) => {
-                        const alreadyAssigned = Array.isArray(candidate.departments) && candidate.departments.includes("service");
-                        return (
-                          <option key={candidate.id} value={candidate.id} disabled={alreadyAssigned}>
-                            {candidate.full_name}
-                            {candidate.role_title ? ` - ${candidate.role_title}` : ""}
-                            {!candidate.is_active ? " - Inactive" : ""}
-                            {alreadyAssigned ? " - Already in Service" : ""}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <p id="service-roster-help" className="text-xs leading-5 text-slate-500">
-                      Inactive staff are included and will be reactivated when added.
-                    </p>
-                  </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <Label htmlFor="add-existing-service-staff" className="shrink-0 text-xs font-medium text-slate-700 sm:w-24">
+                        Staff member
+                      </Label>
+                      <select
+                        id="add-existing-service-staff"
+                        aria-label="Add existing staff to Service"
+                        aria-describedby="service-roster-help"
+                        value={serviceStaffId}
+                        onChange={(e) => setServiceStaffId(e.target.value)}
+                        disabled={addingServiceStaff || serviceStaffOptions.length === 0}
+                        className="h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        <option value="">
+                          {serviceStaffOptions.length === 0
+                            ? "No existing staff available"
+                            : "Choose an existing staff member..."}
+                        </option>
+                        {serviceStaffOptions.map((candidate) => {
+                          const alreadyAssigned = Array.isArray(candidate.departments) && candidate.departments.includes("service");
+                          return (
+                            <option key={candidate.id} value={candidate.id} disabled={alreadyAssigned}>
+                              {candidate.full_name}
+                              {candidate.role_title ? ` - ${candidate.role_title}` : ""}
+                              {!candidate.is_active ? " - Inactive" : ""}
+                              {alreadyAssigned ? " - Already in Service" : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
                   <Button
                     type="button"
                     size="sm"
@@ -952,6 +950,10 @@ function KitchenStaffPage() {
                   >
                     {addingServiceStaff ? "Adding…" : "Add to roster"}
                   </Button>
+                  </div>
+                  <p id="service-roster-help" className="text-xs leading-5 text-slate-500 sm:pl-[6.5rem]">
+                    Inactive staff are included and will be reactivated when added.
+                  </p>
                 </div>
               </div>
             )}
