@@ -24,6 +24,7 @@ import { InvoiceDetailModal } from "@/components/billing/InvoiceDetailModal";
 import { PaymentModal } from "@/components/billing/PaymentModal";
 import { ReceiptDialog } from "@/components/client-portal/ReceiptDialog";
 import { ChatBot } from "@/components/ChatBot";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 interface Invoice {
   id: string;
@@ -34,7 +35,9 @@ interface Invoice {
   due_date: string;
   amount: number;
   currency: string;
-  status: "pending" | "paid" | "overdue" | "failed";
+  status: "pending" | "partial" | "paid" | "overdue" | "failed";
+  paid_amount: number;
+  balance_due: number;
   payment_method?: string;
   paid_at?: string;
   event_date: string;
@@ -198,7 +201,7 @@ function ClientBillingPageInner() {
         case "amount":
           return b.amount - a.amount;
         case "status":
-          const statusOrder = { overdue: 0, pending: 1, paid: 2, failed: 3 } as const;
+          const statusOrder = { overdue: 0, partial: 1, pending: 2, paid: 3, failed: 4 } as const;
           return (statusOrder as any)[a.status] - (statusOrder as any)[b.status];
         default:
           return 0;
@@ -285,39 +288,34 @@ function ClientBillingPageInner() {
         }
       }
 
-      // Map the canonical invoice_status enum to the portal's four-bucket
-      // display state. partially_paid still rolls up as "pending" because
-      // the client experience is the same - something is still owed.
-      // Overdue is reinforced client-side too, so an admin who forgot to
-      // transition a sent invoice past its due_date still surfaces red.
+      // Map invoice workflow state to the same money-based labels used by
+      // the order and public payment views. A partial payment is visibly
+      // "Deposit Paid", not the misleading generic "Pending".
       const todayMS = Date.now();
       const mapped: Invoice[] = ((rows as any[]) || []).map((r) => {
         const totalAmount = Number(r.total_amount || 0);
         const balanceDue = Number(r.balance_due ?? totalAmount);
         const dueMS = r.due_date ? new Date(r.due_date).getTime() : null;
 
-        let status: Invoice["status"];
-        switch (r.status) {
-          case "paid":
-            status = "paid";
-            break;
-          case "overdue":
-            status = "overdue";
-            break;
-          case "partially_paid":
-          case "sent":
-          default:
-            status = "pending";
-            break;
-        }
-        if (status === "pending" && dueMS != null && dueMS < todayMS && balanceDue > 0) {
+        const payment = getOrderPaymentSummary({
+          totalAmount,
+          amountPaid: r.amount_paid,
+          balanceAmount: r.balance_due,
+          paymentStatus: r.status,
+        });
+        let status: Invoice["status"] = payment.state === "paid"
+          ? "paid"
+          : payment.state === "partial"
+            ? "partial"
+            : "pending";
+        if (status !== "paid" && dueMS != null && dueMS < todayMS && balanceDue > 0) {
           status = "overdue";
         }
 
         // Display amount: balance_due when something is still owed,
         // total_amount once the invoice is paid in full. Keeps the
         // Outstanding stat correct and the per-row figure honest.
-        const displayAmount = status === "paid" ? totalAmount : balanceDue;
+        const displayAmount = status === "paid" ? totalAmount : payment.balanceDue;
         const orderEmbed = (r as any).orders || {};
 
         return {
@@ -328,6 +326,8 @@ function ClientBillingPageInner() {
           invoice_date: r.invoice_date,
           due_date: r.due_date,
           amount: displayAmount,
+          paid_amount: payment.amountPaid,
+          balance_due: payment.balanceDue,
           // Wave 23 audit: hardcoded "R" rendered "R5,000" for UK / US / EU
           // tenants on the billing list. Resolve from the loaded company
           // currency with currency-symbol fallback.
@@ -338,7 +338,7 @@ function ClientBillingPageInner() {
           event_location:
             orderEmbed.venue_name || orderEmbed.venue_address || "",
           has_completed_payment:
-            paidInvoiceIds.has(r.id) || (Number(r.amount_paid || 0) > 0 && r.status === "paid"),
+            paidInvoiceIds.has(r.id) || Number(r.amount_paid || 0) > 0,
           items: Array.isArray(r.invoice_data?.items) ? r.invoice_data.items : undefined,
           total: totalAmount,
           subtotal: Number(r.invoice_data?.subtotal ?? totalAmount),
@@ -365,12 +365,14 @@ function ClientBillingPageInner() {
   const getStatusBadge = (status: Invoice["status"]) => {
     const variants = {
       pending: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20",
+      partial: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20",
       paid: "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/10 dark:text-brand-primary dark:border-brand-primary/20",
       overdue: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20",
       failed: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
     };
     const icons = {
       pending: Clock,
+      partial: CheckCircle,
       paid: CheckCircle,
       overdue: AlertCircle,
       failed: AlertCircle,
@@ -379,7 +381,7 @@ function ClientBillingPageInner() {
     return (
       <Badge className={`${variants[status]} border`}>
         <Icon className="w-3 h-3 mr-1" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status === "partial" ? "Deposit Paid" : status === "pending" ? "Awaiting Payment" : status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
   };
@@ -395,12 +397,11 @@ function ClientBillingPageInner() {
   };
 
   const totalOutstanding = invoices
-    .filter((inv) => inv.status === "pending" || inv.status === "overdue")
-    .reduce((sum, inv) => sum + inv.amount, 0);
+    .filter((inv) => inv.status === "pending" || inv.status === "partial" || inv.status === "overdue")
+    .reduce((sum, inv) => sum + inv.balance_due, 0);
 
   const totalPaid = invoices
-    .filter((inv) => inv.status === "paid")
-    .reduce((sum, inv) => sum + inv.amount, 0);
+    .reduce((sum, inv) => sum + inv.paid_amount, 0);
 
   const overdueCount = invoices.filter((inv) => inv.status === "overdue").length;
 
@@ -515,7 +516,8 @@ function ClientBillingPageInner() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All statuses</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="pending">Awaiting payment</SelectItem>
+                          <SelectItem value="partial">Deposit paid</SelectItem>
                           <SelectItem value="paid">Paid</SelectItem>
                           <SelectItem value="overdue">Overdue</SelectItem>
                         </SelectContent>
@@ -620,7 +622,7 @@ function ClientBillingPageInner() {
                                   Receipt
                                 </Button>
                               )}
-                              {(invoice.status === "pending" || invoice.status === "overdue") && (
+                              {(invoice.status === "pending" || invoice.status === "partial" || invoice.status === "overdue") && (
                                 <Button
                                   size="sm"
                                   onClick={() => handlePayInvoice(invoice)}

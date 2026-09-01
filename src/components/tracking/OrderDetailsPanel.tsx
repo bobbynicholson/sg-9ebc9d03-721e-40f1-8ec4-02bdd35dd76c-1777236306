@@ -286,6 +286,9 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
   const paid = payment.amountPaid;
   const hasPaymentInfo = total > 0 || deposit > 0;
   const hasOutstanding = payment.state !== "paid" && balance > 0;
+  const depositReceived = deposit > 0
+    ? paid + 0.01 >= deposit
+    : paid > 0;
 
   return (
     <div className="space-y-4">
@@ -559,7 +562,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
             </p>
             <div className="flex items-center gap-2 text-xs text-slate-600">
               <span>Deposit: {fmtMoney.format(deposit)}</span>
-              <span>{order.deposit_paid ? <Badge className="bg-brand-primary/15 text-brand-primary text-[10px]">Paid</Badge> : <Badge variant="outline" className="text-[10px]">Outstanding</Badge>}</span>
+              <span>{depositReceived ? <Badge className="bg-brand-primary/15 text-brand-primary text-[10px]">Paid</Badge> : <Badge variant="outline" className="text-[10px]">Outstanding</Badge>}</span>
             </div>
             {balance > 0 && (
               <div className="text-xs text-slate-600">Balance: <span className="font-semibold text-slate-900">{fmtMoney.format(balance)}</span></div>

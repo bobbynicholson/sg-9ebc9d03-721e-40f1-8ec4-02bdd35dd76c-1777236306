@@ -260,6 +260,12 @@ export default function ClientOrderPage() {
     depositPaid: order.deposit_paid,
     paymentStatus: order.payment_status,
   });
+  const depositAmount = Number(order.deposit_amount || 0);
+  const depositReceived = depositAmount > 0
+    ? paymentSummary.amountPaid + 0.01 >= depositAmount
+    : paymentSummary.amountPaid > 0;
+  const balanceSettled = paymentSummary.balanceDue <= 0.01;
+  const hasBalanceLine = Number(order.balance_amount || 0) > 0 || paymentSummary.balanceDue > 0;
   const paymentLabel = paymentSummary.label;
   const eventDate = new Date(order.event_date);
   const daysOut = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -617,7 +623,7 @@ export default function ClientOrderPage() {
           )}
 
           {/* Payment summary */}
-          {(order.deposit_amount || order.balance_amount || settledPayments.length > 0) && (
+          {(depositAmount > 0 || hasBalanceLine || settledPayments.length > 0) && (
             <Card className="border-0 shadow-lg">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -626,11 +632,11 @@ export default function ClientOrderPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-2">
-                {order.deposit_amount && (
-                  <Row label={`Deposit ${order.deposit_paid ? "(paid)" : "(due)"}`} value={fmtMoney.format(Number(order.deposit_amount))} paid={order.deposit_paid} />
+                {depositAmount > 0 && (
+                  <Row label={`Deposit ${depositReceived ? "(paid)" : "(due)"}`} value={fmtMoney.format(depositAmount)} paid={depositReceived} />
                 )}
-                {order.balance_amount && (
-                  <Row label={`Balance ${order.balance_paid ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(Number(order.balance_amount))} paid={order.balance_paid} />
+                {hasBalanceLine && (
+                  <Row label={`Balance ${balanceSettled ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(balanceSettled ? 0 : paymentSummary.balanceDue)} paid={balanceSettled} />
                 )}
                 {/* Itemised payment history - what landed and when. Each
                     line is one settled payment (deposit / balance), pulled
@@ -945,9 +951,9 @@ export default function ClientOrderPage() {
           companyName={view.company?.company_name || "the catering team"}
           companyPhone={view.company?.phone || null}
           termsInput={{
-            amountPaid: Number(view.order.amount_paid) || 0,
+            amountPaid: paymentSummary.amountPaid,
             depositAmount: Number(view.order.deposit_amount) || 0,
-            depositPaid: !!view.order.deposit_paid,
+            depositPaid: depositReceived,
             eventDate: view.order.event_date || new Date().toISOString().slice(0, 10),
             status: view.order.status || "pending",
             kitchenPrepStarted: !!view.order.kitchen_prep_started_at,

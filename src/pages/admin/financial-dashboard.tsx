@@ -36,6 +36,7 @@ import { CashflowContextBanner } from "@/components/admin/financial/CashflowCont
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { canAccessFinance } from "@/lib/authGuards";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -396,7 +397,15 @@ function FinancialDashboardInner() {
       .filter((o) => o.status !== "cancelled")
       .map((o) => {
         const total = Number(o.total_amount) || 0;
-        const paid = Number((o as { amount_paid?: number | string | null }).amount_paid) || 0;
+        const payment = getOrderPaymentSummary({
+          totalAmount: o.total_amount,
+          amountPaid: (o as any).amount_paid,
+          balanceAmount: (o as any).balance_amount,
+          depositAmount: (o as any).deposit_amount,
+          depositPaid: (o as any).deposit_paid,
+          paymentStatus: (o as any).payment_status,
+        });
+        const paid = payment.amountPaid;
         return { order: o, total, paid, outstanding: Math.max(0, total - paid) };
       })
       .sort((a, b) => b.outstanding - a.outstanding || b.total - a.total)
@@ -415,7 +424,14 @@ function FinancialDashboardInner() {
   const calculateCashReceived = (orders: Order[]) => {
     return orders
       .filter((o) => o.status !== "cancelled")
-      .reduce((sum, o) => sum + (Number((o as any).amount_paid) || 0), 0);
+      .reduce((sum, o) => sum + getOrderPaymentSummary({
+        totalAmount: o.total_amount,
+        amountPaid: (o as any).amount_paid,
+        balanceAmount: (o as any).balance_amount,
+        depositAmount: (o as any).deposit_amount,
+        depositPaid: (o as any).deposit_paid,
+        paymentStatus: (o as any).payment_status,
+      }).amountPaid, 0);
   };
 
   // `anchor` is the tenant-timezone "today" (local midnight) from
@@ -452,11 +468,23 @@ function FinancialDashboardInner() {
   const calculatePendingPayments = (orders: Order[]) => {
     return orders
       .filter((o) => o.status !== "cancelled"
-        && (o.payment_status === "pending" || o.payment_status === "partial"))
+        && getOrderPaymentSummary({
+          totalAmount: o.total_amount,
+          amountPaid: (o as any).amount_paid,
+          balanceAmount: (o as any).balance_amount,
+          depositAmount: (o as any).deposit_amount,
+          depositPaid: (o as any).deposit_paid,
+          paymentStatus: (o as any).payment_status,
+        }).balanceDue > 0)
       .reduce((sum, o) => {
-        const total = Number(o.total_amount) || 0;
-        const paid = Number((o as any).amount_paid) || 0;
-        return sum + Math.max(0, total - paid);
+        return sum + getOrderPaymentSummary({
+          totalAmount: o.total_amount,
+          amountPaid: (o as any).amount_paid,
+          balanceAmount: (o as any).balance_amount,
+          depositAmount: (o as any).deposit_amount,
+          depositPaid: (o as any).deposit_paid,
+          paymentStatus: (o as any).payment_status,
+        }).balanceDue;
       }, 0);
   };
 

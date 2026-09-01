@@ -395,6 +395,9 @@ function KitchenStaffPage() {
   const selectedServiceAlreadyAssigned = !!selectedServiceStaff &&
     Array.isArray(selectedServiceStaff.departments) &&
     selectedServiceStaff.departments.includes("service");
+  const serviceUnassignedCount = serviceStaffOptions.filter((candidate) =>
+    !Array.isArray(candidate.departments) || !candidate.departments.includes("service"),
+  ).length;
 
   const addExistingStaffToService = async () => {
     if (!serviceStaffId) return;
@@ -869,7 +872,10 @@ function KitchenStaffPage() {
                   <button
                     key={d.id}
                     type="button"
-                    onClick={() => setFilterDept(d.id)}
+                    onClick={() => {
+                      setFilterDept(d.id);
+                      setServiceStaffId("");
+                    }}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                       active
                         ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20"
@@ -885,19 +891,36 @@ function KitchenStaffPage() {
               })}
             </div>
             {filterDept === "service" && (
-              <div className="mb-3 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="mb-3 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-brand-primary shadow-sm ring-1 ring-slate-200">
+                      <Users className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-semibold text-slate-950">Service roster</h2>
+                      <p className="mt-0.5 text-xs leading-5 text-slate-600">
+                        Add an existing staff member without removing their other departments.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="w-fit rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200">
+                    {serviceUnassignedCount} available
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1 space-y-1.5">
-                    <Label htmlFor="add-existing-service-staff" className="flex items-center gap-1 text-sm font-semibold text-slate-900">
-                      Add existing staff to Service
+                    <Label htmlFor="add-existing-service-staff" className="text-xs font-medium text-slate-700">
+                      Staff member
                     </Label>
                     <select
                       id="add-existing-service-staff"
                       aria-label="Add existing staff to Service"
+                      aria-describedby="service-roster-help"
                       value={serviceStaffId}
                       onChange={(e) => setServiceStaffId(e.target.value)}
                       disabled={addingServiceStaff || serviceStaffOptions.length === 0}
-                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 disabled:bg-slate-100 disabled:text-slate-400"
+                      className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/15 disabled:bg-slate-100 disabled:text-slate-400"
                     >
                       <option value="">
                         {serviceStaffOptions.length === 0
@@ -916,8 +939,8 @@ function KitchenStaffPage() {
                         );
                       })}
                     </select>
-                    <p className="text-xs text-slate-600">
-                      This keeps their current departments and adds Service as an additional duty.
+                    <p id="service-roster-help" className="text-xs leading-5 text-slate-500">
+                      Inactive staff are included and will be reactivated when added.
                     </p>
                   </div>
                   <Button
@@ -925,19 +948,9 @@ function KitchenStaffPage() {
                     size="sm"
                     onClick={addExistingStaffToService}
                     disabled={!serviceStaffId || selectedServiceAlreadyAssigned || addingServiceStaff}
-                    className="h-9 bg-brand-primary text-white hover:opacity-90"
+                    className="h-10 shrink-0 rounded-lg bg-brand-primary px-4 text-white hover:opacity-90 sm:min-w-[132px]"
                   >
-                    {addingServiceStaff ? "Adding..." : "Add to Service"}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={openAdd}
-                    className="h-9"
-                  >
-                    <UserPlus className="mr-1.5 h-3.5 w-3.5" />
-                    New staff
+                    {addingServiceStaff ? "Adding…" : "Add to roster"}
                   </Button>
                 </div>
               </div>

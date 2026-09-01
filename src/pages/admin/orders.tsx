@@ -87,6 +87,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 // toLocaleDateString() call sites that defaulted to OS locale (US
 // machines showed 5/16/2026 on SA tenants).
 import { formatDate } from "@/lib/formatters";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 // OrderStats type + STATUS_CONFIG + WORKFLOW_STAGES + helpers
 // extracted to sibling files in the P2-13 Phase B split. Imported
@@ -1138,7 +1139,15 @@ function OrderProcessDashboard() {
         if (REALISED_STATUSES.has(order.status)) {
           realisedRevenue += orderTotal;
         }
-        if (order.payment_status === "paid") paidRevenue += orderTotal;
+        const payment = getOrderPaymentSummary({
+          totalAmount: order.total_amount,
+          amountPaid: order.amount_paid,
+          balanceAmount: order.balance_amount,
+          depositAmount: order.deposit_amount,
+          depositPaid: order.deposit_paid,
+          paymentStatus: order.payment_status,
+        });
+        if (payment.state === "paid") paidRevenue += orderTotal;
         else pendingRevenue += orderTotal;
       }
 

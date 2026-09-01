@@ -983,7 +983,7 @@ function AdminQuotesInner() {
           // word that's wrong when the order is still pending.
           // 2026-07-04: pull payment fields so "Won" means money received
           // (deposit paid), not just accepted - see rowStates override.
-          .select("id, order_number, event_date, event_name, guest_count, total_amount, amount_paid, venue_name, status, deposit_paid, balance_paid, payment_status")
+          .select("id, order_number, event_date, event_name, guest_count, total_amount, amount_paid, balance_amount, deposit_amount, venue_name, status, deposit_paid, balance_paid, payment_status")
           .eq("company_id", companyId)
           .in("id", orderIds);
         const byOrderId = new Map<string, any>();

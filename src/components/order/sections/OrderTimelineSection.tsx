@@ -56,6 +56,14 @@ interface OrderForTimeline {
   completed_at: string | null;
   cancelled_at: string | null;
   postponed_at: string | null;
+  deposit_amount?: number | null;
+  amount_paid?: number | null;
+  balance_amount?: number | null;
+  balance_due_date?: string | null;
+  deposit_paid_at?: string | null;
+  balance_paid_at?: string | null;
+  deposit_paid?: boolean | null;
+  balance_paid?: boolean | null;
   requires_waiter: boolean | null;
   waiter_service_required: boolean | null;
   equipment_return_method: string | null;

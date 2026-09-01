@@ -244,6 +244,21 @@ function MyOrdersInner() {
   const activeCount = orders.filter((o) => !["completed", "delivered", "cancelled"].includes(o.status)).length;
   const completedCount = orders.filter((o) => ["completed", "delivered"].includes(o.status)).length;
   const totalBookedValue = orders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+  const wizardPayment = wizardOrder
+    ? getOrderPaymentSummary({
+        totalAmount: wizardOrder.total_amount,
+        amountPaid: wizardOrder.amount_paid,
+        depositAmount: wizardOrder.deposit_amount,
+        depositPaid: wizardOrder.deposit_paid,
+        paymentStatus: wizardOrder.payment_status,
+      })
+    : null;
+  const wizardDepositAmount = Number(wizardOrder?.deposit_amount || 0);
+  const wizardDepositReceived = wizardPayment
+    ? wizardDepositAmount > 0
+      ? wizardPayment.amountPaid + 0.01 >= wizardDepositAmount
+      : wizardPayment.amountPaid > 0
+    : false;
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -772,9 +787,9 @@ function MyOrdersInner() {
           companyName={company?.company_name || "the catering team"}
           companyPhone={wizardCompanyPolicy?.phone || null}
           termsInput={{
-            amountPaid: Number(wizardOrder.amount_paid) || 0,
+            amountPaid: wizardPayment?.amountPaid || 0,
             depositAmount: Number(wizardOrder.deposit_amount) || 0,
-            depositPaid: !!wizardOrder.deposit_paid,
+            depositPaid: wizardDepositReceived,
             eventDate: wizardOrder.event_date,
             status: wizardOrder.status,
             kitchenPrepStarted: !!wizardOrder.kitchen_prep_started_at,

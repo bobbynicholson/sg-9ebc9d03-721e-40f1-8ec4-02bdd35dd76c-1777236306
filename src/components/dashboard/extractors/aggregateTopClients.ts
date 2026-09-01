@@ -8,6 +8,7 @@
  * Pure function: takes orders + clients, returns the chart shape.
  */
 import type { RevenueByMonthInput } from "./aggregateRevenueByMonth";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 export interface ClientLookupRow {
   id: string;
@@ -38,13 +39,14 @@ export interface TopClientRow {
 }
 
 const collectedFromOrder = (o: OrderForClientLTV): number => {
-  if (typeof o.amount_paid === "number" && o.amount_paid > 0) return o.amount_paid;
-  let sum = 0;
-  if (o.deposit_paid && typeof o.deposit_amount === "number") sum += o.deposit_amount;
-  if (o.balance_paid && typeof o.balance_amount === "number") sum += o.balance_amount;
-  if (sum > 0) return sum;
-  if (o.payment_status === "paid" && typeof o.total_amount === "number") return o.total_amount;
-  return 0;
+  return getOrderPaymentSummary({
+    totalAmount: o.total_amount,
+    amountPaid: o.amount_paid,
+    balanceAmount: o.balance_amount,
+    depositAmount: o.deposit_amount,
+    depositPaid: o.deposit_paid,
+    paymentStatus: o.payment_status,
+  }).amountPaid;
 };
 
 export function aggregateTopClients(

@@ -46,6 +46,7 @@ import { CashflowForecastCard } from "@/components/admin/financial/CashflowForec
 import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 interface CashflowMetrics {
   /** Cash received from orders flagged paid_in_full. */
@@ -195,7 +196,14 @@ function CashflowDashboardInner() {
       // rows is the source of truth for cash actually received.
       const cashReceived = scopedOrders
         .filter((o) => o.status !== "cancelled")
-        .reduce((sum, o) => sum + (Number((o as { amount_paid?: number | string | null }).amount_paid) || 0), 0);
+        .reduce((sum, o) => sum + getOrderPaymentSummary({
+          totalAmount: (o as any).total_amount,
+          amountPaid: (o as any).amount_paid,
+          balanceAmount: (o as any).balance_amount,
+          depositAmount: (o as any).deposit_amount,
+          depositPaid: (o as any).deposit_paid,
+          paymentStatus: (o as any).payment_status,
+        }).amountPaid, 0);
       const staffPaymentsOwed = ledger.totalOwed || 0;
       // CASH-A: projected revenue feeds the AI alert engine. Pre-CASH-A
       // this passed 0, which made cashFlowRatio = 0 / upcomingExpenses
@@ -317,11 +325,23 @@ function CashflowDashboardInner() {
       // mismatch the financial-dashboard had at FIN-B.
       const pendingPayments = scopedOrders
         .filter((o) => o.status !== "cancelled"
-          && (o.payment_status === "pending" || o.payment_status === "partial"))
+          && getOrderPaymentSummary({
+            totalAmount: (o as any).total_amount,
+            amountPaid: (o as any).amount_paid,
+            balanceAmount: (o as any).balance_amount,
+            depositAmount: (o as any).deposit_amount,
+            depositPaid: (o as any).deposit_paid,
+            paymentStatus: (o as any).payment_status,
+          }).balanceDue > 0)
         .reduce((sum, o) => {
-          const total = Number(o.total_amount) || 0;
-          const paid = Number((o as { amount_paid?: number | string | null }).amount_paid) || 0;
-          return sum + Math.max(0, total - paid);
+          return sum + getOrderPaymentSummary({
+            totalAmount: (o as any).total_amount,
+            amountPaid: (o as any).amount_paid,
+            balanceAmount: (o as any).balance_amount,
+            depositAmount: (o as any).deposit_amount,
+            depositPaid: (o as any).deposit_paid,
+            paymentStatus: (o as any).payment_status,
+          }).balanceDue;
         }, 0);
 
       setMetrics({

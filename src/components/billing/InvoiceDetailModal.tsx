@@ -16,7 +16,7 @@ interface Invoice {
   due_date: string;
   amount: number;
   currency: string;
-  status: "pending" | "paid" | "overdue" | "failed";
+  status: "pending" | "partial" | "paid" | "overdue" | "failed";
   payment_method?: string;
   paid_at?: string;
   event_date: string;
@@ -213,7 +213,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
                       : "bg-yellow-100 text-yellow-800"
                   }`}
                 >
-                  {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                  {invoice.status === "partial" ? "Deposit Paid" : invoice.status === "pending" ? "Awaiting Payment" : invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                 </span>
               </div>
               {invoice.paid_at && (

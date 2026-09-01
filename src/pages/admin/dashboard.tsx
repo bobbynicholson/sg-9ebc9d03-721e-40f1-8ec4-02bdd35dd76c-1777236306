@@ -54,6 +54,7 @@ import { DEFAULT_TENANT_TIMEZONE, tenantToday, toLocalISO } from "@/lib/localDat
 import { useTenantHref } from "@/lib/tenantUrl";
 import { isAutomatedTestOrder, isAutomatedTestQuote } from "@/lib/testDataDetection";
 import { OPEN_REFUND_STATUSES } from "@/lib/refundStatus";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 interface Stats {
   bookedRevenue: number;
@@ -396,7 +397,6 @@ function AdminDashboardPage() {
       // definitions across the platform - this is the first widget
       // adopting the shared classifier.
       for (const o of metricOrders) {
-        const pay    = String(o.payment_status || "").toLowerCase();
         const total  = Number(o.total_amount || 0);
 
         // Wave 70.52a - Collected calc still runs BEFORE the
@@ -404,14 +404,14 @@ function AdminDashboardPage() {
         // deposit IS cash in the bank; it stays in Collected until a
         // refund payment row is recorded (negative payment naturally
         // removes it).
-        let received = 0;
-        if (Number(o.amount_paid || 0) > 0) {
-          received = Number(o.amount_paid);
-        } else {
-          if (o.deposit_paid && Number(o.deposit_amount || 0) > 0) received += Number(o.deposit_amount);
-          if (o.balance_paid && Number(o.balance_amount || 0) > 0) received += Number(o.balance_amount);
-          if (received === 0 && (pay === "paid" || pay === "completed")) received = total;
-        }
+        const received = getOrderPaymentSummary({
+          totalAmount: o.total_amount,
+          amountPaid: o.amount_paid,
+          balanceAmount: o.balance_amount,
+          depositAmount: o.deposit_amount,
+          depositPaid: o.deposit_paid,
+          paymentStatus: o.payment_status,
+        }).amountPaid;
         if (received > 0) collectedOrders += 1;
         collectedRevenue += received;
 
