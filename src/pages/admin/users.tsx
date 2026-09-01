@@ -695,12 +695,18 @@ function AdminUsersPage() {
         throw new Error("Please select at least one valid department");
       }
 
-      const assignments: { department: UserRole; is_primary: boolean; }[] = normalizedDepartments.map(dept => ({
-        department: dept,
-        is_primary: dept === normalizedPrimary,
-      }));
-
-      await userManagementService.assignDepartments(userId, assignments, user!.id);
+      const response = await fetch(`/api/admin/users/${userId}/access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          departments: normalizedDepartments,
+          primaryRole: normalizedPrimary,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || "Failed to update user access");
+      }
 
       // Command-centre audit (2026-07-02): the affected user should hear
       // about an access change without waiting to trip over a missing
@@ -729,7 +735,9 @@ function AdminUsersPage() {
 
       toast({
         title: "Success",
-        description: "User departments updated successfully",
+        description: result.email?.userEmailSent
+          ? "User roles updated, account activated, and access email sent"
+          : "User roles updated and account activated; user email could not be sent",
       });
     } catch (error) {
       console.error("Error saving roles:", error);

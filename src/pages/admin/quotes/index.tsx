@@ -74,6 +74,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
 import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import {
   pushQuoteToAccounting,
   accountingProviderLabel,
@@ -106,6 +107,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { cn } from "@/lib/utils";
 import { toLocalISO } from "@/lib/localDate";
 import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
+import { notifyQuoteUpdated } from "@/services/quote/quoteNotifications";
 
 // TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for any
 // sibling helpers / dialogs that reference it from outside the main
@@ -537,6 +539,7 @@ function AdminQuotesInner() {
     /** 2026-07-04: has a deposit/payment actually landed on the linked
      *  order? Drives the Won-vs-Awaiting-deposit split. */
     depositReceived: boolean;
+    paymentLabel: "Awaiting Payment" | "Deposit Paid" | "Paid in Full";
   }>>(new Map());
 
   // Deep-link target from notifications + email links: clicking a
@@ -614,7 +617,12 @@ function AdminQuotesInner() {
           // deposit actually lands, so the Won bucket only ever holds
           // paid bookings and the team can chase the unpaid ones.
           if (resolved?.depositReceived) {
-            intelligence = { ...baseIntel, bucket: "won", label: "Won - deposit paid", tone: "neutral" };
+            intelligence = {
+              ...baseIntel,
+              bucket: "won",
+              label: `Won - ${resolved.paymentLabel}`,
+              tone: "neutral",
+            };
           } else {
             intelligence = {
               ...baseIntel,
@@ -975,7 +983,7 @@ function AdminQuotesInner() {
           // word that's wrong when the order is still pending.
           // 2026-07-04: pull payment fields so "Won" means money received
           // (deposit paid), not just accepted - see rowStates override.
-          .select("id, order_number, event_date, event_name, guest_count, total_amount, venue_name, status, deposit_paid, balance_paid, payment_status")
+          .select("id, order_number, event_date, event_name, guest_count, total_amount, amount_paid, venue_name, status, deposit_paid, balance_paid, payment_status")
           .eq("company_id", companyId)
           .in("id", orderIds);
         const byOrderId = new Map<string, any>();
@@ -986,13 +994,17 @@ function AdminQuotesInner() {
           if (!oid) continue;
           const o = byOrderId.get(oid);
           if (!o) continue;
-          // Deposit received? Any of: the deposit_paid flag, a payment_status
-          // that implies money in, or a fully-paid order.
+          // Derive this from money so a fully paid order never falls into
+          // the deposit-only label just because deposit_paid is true.
           const payStatus = String((o as any).payment_status || "").toLowerCase();
-          const depositReceived =
-            (o as any).deposit_paid === true ||
-            (o as any).balance_paid === true ||
-            ["partial", "partially_paid", "deposit_paid", "paid", "completed"].includes(payStatus);
+          const payment = getOrderPaymentSummary({
+            totalAmount: (o as any).total_amount,
+            amountPaid: (o as any).amount_paid,
+            depositAmount: (o as any).deposit_amount,
+            depositPaid: (o as any).deposit_paid,
+            paymentStatus: payStatus,
+          });
+          const depositReceived = payment.state !== "pending";
           next.set(q.id, {
             sourceOrderId: o.id,
             orderNumber: o.order_number ?? null,
@@ -1003,6 +1015,7 @@ function AdminQuotesInner() {
             venueName: o.venue_name ?? null,
             status: o.status ?? null,
             depositReceived,
+            paymentLabel: payment.label,
           });
         }
         if (!cancelled) setResolvedByQuoteId(next);
@@ -1566,6 +1579,11 @@ function AdminQuotesInner() {
           ? { ...q, status: "accepted", accepted_at: new Date().toISOString(), converted_to_order_id: (receipt.order as any).id } as Quote
           : q
       ));
+      const convertedOrderId = (receipt.order as any).id as string;
+      const needsWaiter = !!((receipt.order as any).requires_waiter || (receipt.order as any).waiter_service_required);
+      if (needsWaiter) {
+        setTimeout(() => router.push(withSlug(`/order/${convertedOrderId}?role=admin#section-waiter`)), 1800);
+      }
     } catch (err: any) {
       console.error("Accept on behalf failed:", err);
       toast({ title: "Accept failed", description: dbErrorMessage(err, { entity: "quote" }), variant: "destructive" });
@@ -2956,7 +2974,10 @@ function AdminQuotesInner() {
                   const existingNotes = (composeQuote as any).notes || "";
                   patch.notes = existingNotes ? `${existingNotes}\n\n${perkNote}` : perkNote;
                 }
-                await (supabase as any).from("quotes").update(patch).eq("id", composeQuote.id);
+                const { error: sweetenerUpdateError } = await (supabase as any)
+                  .from("quotes").update(patch).eq("id", composeQuote.id);
+                if (sweetenerUpdateError) throw sweetenerUpdateError;
+                void notifyQuoteUpdated({ quote: composeQuote as any, updates: patch });
                 setQuotes((prev) => prev.map((q) =>
                   q.id === composeQuote.id ? ({ ...q, ...patch } as Quote) : q,
                 ));
@@ -2991,10 +3012,15 @@ function AdminQuotesInner() {
                 const nowIso = new Date().toISOString();
                 const nextStatus = composeQuote.status === "draft" ? "sent" : composeQuote.status;
                 try {
-                  await (supabase as any)
+                  const { error: sentStampError } = await (supabase as any)
                     .from("quotes")
                     .update({ sent_at: nowIso, status: nextStatus })
                     .eq("id", composeQuote.id);
+                  if (sentStampError) throw sentStampError;
+                  void notifyQuoteUpdated({
+                    quote: composeQuote as any,
+                    updates: { sent_at: nowIso, status: nextStatus },
+                  });
                   setQuotes((prev) => prev.map((q) =>
                     q.id === composeQuote.id
                       ? ({ ...q, sent_at: nowIso, status: nextStatus } as Quote)

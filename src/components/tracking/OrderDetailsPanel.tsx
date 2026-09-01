@@ -54,6 +54,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { orderDisplayName } from "@/lib/orderDisplayName";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
 const fmtMoney = {
@@ -89,6 +90,7 @@ interface OrderLike {
   driver_lng?: number | null;
   last_updated?: string;
   total_amount?: number;
+  amount_paid?: number;
   deposit_amount?: number;
   deposit_paid?: boolean;
   balance_amount?: number;
@@ -272,10 +274,18 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
 
   const total = Number(order.total_amount) || 0;
   const deposit = Number(order.deposit_amount) || 0;
-  const balance = Number(order.balance_amount) || (total - deposit);
-  const paid = order.deposit_paid ? deposit : 0;
+  const payment = getOrderPaymentSummary({
+    totalAmount: total,
+    amountPaid: order.amount_paid,
+    balanceAmount: order.balance_amount,
+    depositAmount: deposit,
+    depositPaid: order.deposit_paid,
+    paymentStatus: order.payment_status,
+  });
+  const balance = payment.balanceDue;
+  const paid = payment.amountPaid;
   const hasPaymentInfo = total > 0 || deposit > 0;
-  const hasOutstanding = balance > 0 && order.payment_status !== "paid";
+  const hasOutstanding = payment.state !== "paid" && balance > 0;
 
   return (
     <div className="space-y-4">
@@ -539,7 +549,7 @@ export function OrderDetailsPanel({ order, fromName, companyName, onClose }: Pro
         <Card>
           <CardContent className="p-3 space-y-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 uppercase tracking-wide">
-              <CreditCard className="h-3 w-3" /> Payment
+              <CreditCard className="h-3 w-3" /> {payment.label}
             </div>
             <p className="text-sm text-slate-900">
               <span className="font-semibold">{fmtMoney.format(paid)}</span>

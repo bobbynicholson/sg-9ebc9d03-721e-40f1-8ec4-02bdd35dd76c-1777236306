@@ -1635,7 +1635,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
       </tr>
       ${data.depositPaid > 0 ? `
         <tr>
-          <td>Deposit Paid</td>
+          <td>${data.balanceDue <= 0.01 ? "Paid in Full" : "Deposit Paid"}</td>
           <td class="text-right">${fmtMoney(data.depositPaid)}</td>
         </tr>
         <tr style="background: #fff3cd; font-weight: bold;">

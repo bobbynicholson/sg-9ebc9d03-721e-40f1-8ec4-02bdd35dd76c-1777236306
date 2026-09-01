@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface PublicQuoteView {
   id: string;
+  updated_at: string | null;
   quote_number: string;
   quote_name: string;
   client_name: string | null;

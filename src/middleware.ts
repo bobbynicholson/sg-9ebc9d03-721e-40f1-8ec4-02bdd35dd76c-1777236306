@@ -204,14 +204,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 301); // Permanent redirect
   }
 
-  // 🔧 DEV MODE: Skip all auth checks on localhost if requested.
-  // Triple-gated: NODE_ENV must be non-production (compile-time on Vercel),
-  // hostname must be localhost/127.0.0.1, and ?dev query param must be present.
+  // 🔧 DEV MODE: Skip all auth checks on localhost.
+  // This is deliberately limited to non-production builds and loopback
+  // hosts. The client AuthContext and ProtectedRoute already use the same
+  // local-only dev identity, so requiring ?dev here made normal local
+  // navigation bounce back to login as soon as a link dropped the query.
   if (process.env.NODE_ENV !== "production") {
     const isDevEnvironment =
       (request.nextUrl.hostname === "localhost" ||
-       request.nextUrl.hostname === "127.0.0.1") &&
-      request.nextUrl.searchParams.has("dev");
+       request.nextUrl.hostname === "127.0.0.1");
 
     if (isDevEnvironment) {
       return NextResponse.next();

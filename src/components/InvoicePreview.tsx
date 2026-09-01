@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Users, MapPin, FileText } from "lucide-react";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 interface InvoicePreviewProps {
   invoiceNumber: string;
@@ -98,7 +99,12 @@ function companyInitials(name: string | null | undefined): string {
 
 export function InvoicePreview(props: InvoicePreviewProps) {
   const docTitle = props.companyVatRegistered ? "Tax Invoice" : "Invoice";
-  const isPaid = props.balanceDue <= 0;
+  const paymentSummary = getOrderPaymentSummary({
+    totalAmount: props.total,
+    amountPaid: Math.max(0, props.total - props.balanceDue),
+    balanceAmount: props.balanceDue,
+  });
+  const isPaid = paymentSummary.state === "paid";
   const today = format(new Date(), "d MMMM yyyy");
   const fmtMoney = buildFmtMoney(props.currencyCode || "ZAR");
 
@@ -149,7 +155,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
           </div>
           {isPaid ? (
             <Badge className="bg-brand-primary text-white border-0 px-3 py-1.5 text-sm">
-              Paid
+              {paymentSummary.label}
             </Badge>
           ) : (
             <Badge className="brand-print bg-brand-primary text-white border-0 px-3 py-1.5 text-sm">
@@ -282,7 +288,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
           {props.depositPaid > 0 && (
             <>
               <div className="flex justify-between text-sm pt-2">
-                <span className="text-stone-600">Deposit paid</span>
+                <span className="text-stone-600">{paymentSummary.label}</span>
                 <span className="text-brand-primary tabular-nums">
                   -{fmtMoney.format(props.depositPaid)}
                 </span>

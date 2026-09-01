@@ -43,6 +43,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
+import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 import { ChangeRequestPanel, ChangeReq } from "@/components/admin/quotes/ChangeRequestPanel";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -310,6 +311,33 @@ function AdminQuoteDetailInner() {
       .subscribe();
     return () => { (supabase as any).removeChannel(channel); };
   }, [id, loadChangeRequests]);
+
+  // A non-draft quote is read-only on this page, so it is safe to apply
+  // live row updates immediately. Draft pricing stays isolated from
+  // realtime replacement while the operator is typing.
+  useEffect(() => {
+    if (!id || typeof id !== "string" || isDraft) return;
+    const channel = (supabase as any)
+      .channel(`quote-live:${id}:${Math.random().toString(36).slice(2, 8)}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "quotes", filter: `id=eq.${id}` },
+        async () => {
+          try {
+            const fresh = await quoteService.getQuote(id);
+            if (fresh) {
+              setQuote(fresh);
+              setNotes((fresh as any).notes ?? "");
+              toast({ title: "Quote updated", description: "The latest quote details are now showing." });
+            }
+          } catch (error) {
+            console.warn("[quotes/[id]] live quote refresh failed:", error);
+          }
+        },
+      )
+      .subscribe();
+    return () => { (supabase as any).removeChannel(channel); };
+  }, [id, isDraft, toast]);
 
   // Deep-link capture. Runs once on mount so a subsequent setState or
   // route swap doesn't blank the highlight. We read the raw URL (not
@@ -669,12 +697,17 @@ function AdminQuoteDetailInner() {
       if (receipt.email?.sent) {
         lines.push(`Confirmation email sent to ${quote.client_email}.`);
       }
-      toast({ title: "Quote converted", description: lines.join(" ") });
+      const convertedOrderId = (receipt.order as any).id as string;
+      const needsWaiter = !!((receipt.order as any).requires_waiter || (receipt.order as any).waiter_service_required);
+      if (needsWaiter) {
+        lines.push("Next: assign the waiter in the Service team section.");
+      }
+      toast({ title: needsWaiter ? "Quote converted - assign waiter next" : "Quote converted", description: lines.join(" ") });
       // Slug-prefixed paths resolve via the rewrite chain, which can
       // turn this push into a full page load - that wiped the toast
       // before the operator could read it ("converted but nothing
       // happened?"). Give the receipt a beat on screen first.
-      setTimeout(() => router.push(withSlug("/admin/orders")), 1800);
+      setTimeout(() => router.push(withSlug(`/order/${convertedOrderId}?role=admin${needsWaiter ? "#section-waiter" : ""}`)), 1800);
     } catch (e: any) {
       toast({
         title: "Conversion failed",
@@ -1251,10 +1284,12 @@ function AdminQuoteDetailInner() {
                 </CardContent>
               </Card>
 
-              {/* Notes, editable when draft */}
-              <Card>
+              {/* Client-facing note, editable when draft. Private context
+                  belongs in the audit-logged thread below. */}
+              <Card className="border-slate-200 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-lg">Internal notes</CardTitle>
+                  <CardTitle className="text-lg">Note to the client</CardTitle>
+                  <p className="text-sm text-slate-500">Shown on the client quote page as “A note from us”.</p>
                 </CardHeader>
                 <CardContent>
                   {isDraft ? (
@@ -1262,7 +1297,8 @@ function AdminQuoteDetailInner() {
                       rows={4}
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Notes the client won't see (kitchen prep notes, special instructions, etc.)"
+                      placeholder="Add a warm, client-facing message for this quote…"
+                      className="resize-none"
                     />
                   ) : (
                     <p className="text-sm text-slate-700 whitespace-pre-wrap">
@@ -1271,6 +1307,16 @@ function AdminQuoteDetailInner() {
                   )}
                 </CardContent>
               </Card>
+
+              {id && typeof id === "string" && companyId && (
+                <EntityNotesThread
+                  entityType="quote"
+                  entityId={id}
+                  companyId={companyId}
+                  entityLabel={(quote as any)?.quote_number}
+                  placeholder="Add an internal update for the team…"
+                />
+              )}
 
               {/* Action bar */}
               <div className="flex flex-wrap gap-3">
@@ -1329,7 +1375,7 @@ function AdminQuoteDetailInner() {
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 mr-2" />
-                        Convert to order
+                        {(quote as any).waiter_service_required ? "Convert & assign waiter" : "Convert to order"}
                       </>
                     )}
                   </Button>

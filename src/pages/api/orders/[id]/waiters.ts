@@ -8,6 +8,7 @@ import { textMentionsWaiterService, waiterRequestSummary } from "@/lib/waiterReq
 import { staffOrderAbsoluteUrl } from "@/lib/orderUrls";
 import { emailService } from "@/services/emailService";
 import { UserRole } from "@/types/app";
+import { sendStaffAccessChangeEmails } from "@/lib/staffAccessChangeEmail";
 
 const ADMIN_ASSIGN_ROLES = new Set([
   "super_admin",
@@ -120,7 +121,7 @@ async function resolveCaller(req: NextApiRequest, res: NextApiResponse) {
 
   const { data: profile, error } = await ssr
     .from("profiles")
-    .select("id, role, active_role, company_id")
+    .select("id, email, full_name, role, active_role, company_id")
     .eq("id", user.id)
     .maybeSingle();
   if (error || !profile) {
@@ -157,7 +158,6 @@ async function loadWaiterCandidates(admin: any, companyId: string) {
     .select("id, full_name, email, role, active_role, is_active")
     .eq("company_id", companyId)
     .is("deleted_at", null)
-    .or("is_active.eq.true,is_active.is.null")
     .order("full_name", { ascending: true });
   if (error) throw error;
 
@@ -178,12 +178,16 @@ async function loadWaiterCandidates(admin: any, companyId: string) {
     }
   }
 
+  // Service assignment is also the onboarding point for an existing staff
+  // login. Keep client accounts out, but include inactive staff and staff
+  // who currently belong to another operational role. The POST path makes
+  // the selected person active and adds the waiter role.
   return profileRows
     .filter((p) => {
       const role = String(p.role || "");
       const activeRole = String(p.active_role || "");
       const departments = departmentMap.get(p.id) || [];
-      return role === "waiter" ||
+      return role !== "client" ||
         activeRole === "waiter" ||
         departments.some((department) => WAITER_DEPARTMENTS.has(department));
     })
@@ -193,8 +197,86 @@ async function loadWaiterCandidates(admin: any, companyId: string) {
       email: p.email || null,
       role: p.role || null,
       active_role: p.active_role || null,
+      is_active: p.is_active !== false,
       departments: departmentMap.get(p.id) || [],
     }));
+}
+
+async function activateAsWaiter(admin: any, companyId: string, waiterId: string, actorId: string) {
+  const { data: profile, error: profileError } = await admin
+    .from("profiles")
+    .select("id, email, full_name, company_id, role, active_role, is_active, deleted_at")
+    .eq("id", waiterId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || String(profile.role || "") === "client") {
+    throw new Error("That account is not an eligible staff user for this company");
+  }
+
+  // `profiles.role` is the legacy enum/base role and cannot represent all
+  // operational roles. `active_role` plus user_departments is the current
+  // multi-role access model, so update both and preserve existing roles.
+  const { error: updateProfileError } = await admin
+    .from("profiles")
+    .update({ is_active: true, active_role: UserRole.WAITER })
+    .eq("id", waiterId)
+    .eq("company_id", companyId);
+  if (updateProfileError) throw updateProfileError;
+
+  const { error: clearPrimaryError } = await admin
+    .from("user_departments")
+    .update({ is_primary: false })
+    .eq("user_id", waiterId)
+    .eq("company_id", companyId);
+  if (clearPrimaryError) throw clearPrimaryError;
+
+  const { error: waiterRoleError } = await admin
+    .from("user_departments")
+    .upsert({
+      user_id: waiterId,
+      company_id: companyId,
+      department: UserRole.WAITER,
+      is_primary: true,
+      assigned_by: actorId,
+    }, { onConflict: "user_id,company_id,department" });
+  if (waiterRoleError) throw waiterRoleError;
+
+  // If this login is linked to a Staff & Rates row, keep that roster row in
+  // sync as well. Unlinked profiles still work as portal users.
+  const { data: linkedStaff, error: linkedStaffError } = await admin
+    .from("kitchen_staff_members")
+    .select("id, departments")
+    .eq("company_id", companyId)
+    .eq("linked_profile_id", waiterId)
+    .maybeSingle();
+  if (linkedStaffError) throw linkedStaffError;
+  if (linkedStaff) {
+    const departments = Array.isArray(linkedStaff.departments)
+      ? linkedStaff.departments.map(String)
+      : [];
+    const nextDepartments = Array.from(new Set([...departments, "service"]));
+    const { error: staffError } = await admin
+      .from("kitchen_staff_members")
+      .update({
+        is_active: true,
+        deleted_at: null,
+        role_title: "Waiter",
+        departments: nextDepartments,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", linkedStaff.id)
+      .eq("company_id", companyId);
+    if (staffError) throw staffError;
+  }
+
+  return {
+    ...profile,
+    is_active: true,
+    active_role: UserRole.WAITER,
+    departments: [UserRole.WAITER],
+  };
 }
 
 async function loadWaiterRequests(admin: any, orderId: string) {
@@ -257,10 +339,34 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
 
       const candidates = await loadWaiterCandidates(admin, order.company_id);
-      const waiter = candidates.find((candidate) => candidate.id === waiterId);
-      if (!waiter) {
-        return res.status(400).json({ error: "That user is not an active waiter for this company" });
+      const candidate = candidates.find((item) => item.id === waiterId);
+      if (!candidate) {
+        return res.status(400).json({ error: "That account is not an eligible staff user for this company" });
       }
+
+      const activatedProfile = await activateAsWaiter(
+        admin,
+        order.company_id,
+        waiterId,
+        caller.user.id,
+      );
+      const waiter = {
+        ...candidate,
+        ...activatedProfile,
+        full_name: candidate.full_name,
+        email: candidate.email,
+      };
+
+      const origin = process.env.NEXT_PUBLIC_SITE_URL || req.headers.origin || `https://${req.headers.host || "cateringms.com"}`;
+      const accessEmail = await sendStaffAccessChangeEmails({
+        admin,
+        companyId: order.company_id,
+        baseUrl: String(origin).replace(/\/$/, ""),
+        target: { email: activatedProfile.email || candidate.email, fullName: activatedProfile.full_name || candidate.full_name },
+        actor: { email: caller.profile.email || null, fullName: caller.profile.full_name || null },
+        roles: Array.from(new Set([...(candidate.departments || []), UserRole.WAITER])),
+        primaryRole: UserRole.WAITER,
+      });
 
       const { data: assignment, error: upsertError } = await (admin as any)
         .from("event_attendance")
@@ -327,7 +433,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         console.warn("[orders/waiters] audit insert failed:", auditErr);
       }
 
-      return res.status(200).json({ ok: true, assignment, waiter });
+      return res.status(200).json({ ok: true, assignment, waiter, access_email: accessEmail });
     }
 
     if (req.method === "DELETE") {

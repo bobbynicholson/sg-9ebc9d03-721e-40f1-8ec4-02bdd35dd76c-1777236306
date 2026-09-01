@@ -39,6 +39,7 @@ import { clientOrderHref } from "@/lib/orderUrls";
 import { supabase } from "@/integrations/supabase/client";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 interface Order {
   id: string;
@@ -405,18 +406,27 @@ function MyOrdersInner() {
                               })}
                             </h3>
                             <Badge variant="outline" className={`capitalize ${getStatusColor(order.status)}`}>{order.status}</Badge>
-                            {order.payment_status && (
-                              <Badge
-                                variant="outline"
-                                className={
-                                  order.payment_status === "paid"
-                                    ? "capitalize bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30"
-                                    : "capitalize bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900"
-                                }
-                              >
-                                {order.payment_status}
-                              </Badge>
-                            )}
+                            {(() => {
+                              const payment = getOrderPaymentSummary({
+                                totalAmount: order.total_amount,
+                                amountPaid: order.amount_paid,
+                                depositAmount: order.deposit_amount,
+                                depositPaid: order.deposit_paid,
+                                paymentStatus: order.payment_status,
+                              });
+                              return (
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    payment.state === "paid"
+                                      ? "capitalize bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30"
+                                      : "capitalize bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900"
+                                  }
+                                >
+                                  {payment.label}
+                                </Badge>
+                              );
+                            })()}
                           </div>
                           <div className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
                             <div className="flex items-center gap-2">

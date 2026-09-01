@@ -26,7 +26,7 @@
  * operator opens, prints, attaches without an extra click.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
@@ -163,6 +163,8 @@ export default function PublicQuotePage() {
   const [quote, setQuote] = useState<PublicQuoteView | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [quoteUpdatedNotice, setQuoteUpdatedNotice] = useState(false);
+  const lastSeenUpdatedAtRef = useRef<string | null>(null);
 
   // Accept flow
   const [acceptOpen, setAcceptOpen] = useState(false);
@@ -316,6 +318,7 @@ export default function PublicQuotePage() {
         }
       }
       setQuote(data);
+      lastSeenUpdatedAtRef.current = data.updated_at || null;
       setLoading(false);
       // Fire-and-forget viewed_at stamp.
       recordView(token, data.viewed_at).catch(() => {});
@@ -323,6 +326,39 @@ export default function PublicQuotePage() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // Keep a client who has the quote open in sync when the team re-prices
+  // or edits the client-facing note. This uses the token-gated API rather
+  // than exposing the full quote row to an unauthenticated realtime feed.
+  useEffect(() => {
+    if (!token || !quote || autoPrint) return;
+    let cancelled = false;
+    let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = async () => {
+      const fresh = await fetchByToken(token);
+      if (!fresh || cancelled) return;
+      const previous = lastSeenUpdatedAtRef.current;
+      if (previous && fresh.updated_at && fresh.updated_at !== previous) {
+        setQuoteUpdatedNotice(true);
+        if (noticeTimer) clearTimeout(noticeTimer);
+        noticeTimer = setTimeout(() => setQuoteUpdatedNotice(false), 6500);
+      }
+      lastSeenUpdatedAtRef.current = fresh.updated_at || previous;
+      setQuote(fresh);
+    };
+    const onFocus = () => { void refresh(); };
+    const onVisibility = () => { if (document.visibilityState === "visible") void refresh(); };
+    const interval = window.setInterval(() => { void refresh(); }, 15000);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (noticeTimer) clearTimeout(noticeTimer);
+    };
+  }, [token, quote?.id, autoPrint]);
 
   // Auto-print when the admin 'Download PDF' button opens us with
   // ?print=1. Wait for the quote to render so the print preview
@@ -626,6 +662,13 @@ export default function PublicQuotePage() {
               {downloadingPdf ? "Preparing..." : "Download PDF"}
             </Button>
           </div>
+
+          {quoteUpdatedNotice && (
+            <div className="no-print mb-4 flex items-center gap-2 rounded-xl border border-brand-primary/20 bg-brand-primary/10 px-3.5 py-2.5 text-sm text-brand-primary shadow-sm">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>This quote was updated. You’re viewing the latest details.</span>
+            </div>
+          )}
 
           {/* BRANDED HEADER --
               White-label per tenant: header band tinted with the

@@ -118,6 +118,7 @@ import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
 import { savedQuantityWasOverridden } from "@/lib/quotes/revisionLifecycle";
+import { notifyQuoteUpdated } from "@/services/quote/quoteNotifications";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -1878,6 +1879,10 @@ function NewQuotePage() {
         if (updatePayload.client_id == null) delete updatePayload.client_id;
         const { error } = await supabase.from("quotes").update(updatePayload).eq("id", quoteId);
         if (error) throw error;
+        void notifyQuoteUpdated({
+          quote: { ...payload, id: quoteId, quote_number: quoteNumber, company_id: companyId },
+          updates: updatePayload as any,
+        });
         // TIGHTEN I.52 (2026-06-01): explicitly fire the JS-side
         // quote -> order propagation cascade after the quote UPDATE
         // for Case B (admin edited a converted quote). The block

@@ -56,6 +56,20 @@ export const dispatchMessageService = {
     return { ...(data as any), sender_name: (data as any).sender?.full_name };
   },
 
+  /** Fan a persisted driver/dispatcher message into the in-app bell.
+   * The server resolves the admin recipients so the browser cannot choose
+   * or enumerate notification targets. */
+  async notifyMessage(messageId: string): Promise<{ notified: number }> {
+    const response = await fetch("/api/orders/dispatch-chat-notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "The message was sent, but the admin alert could not be delivered.");
+    return { notified: Number(payload?.notified || 0) };
+  },
+
   async markRead(messageIds: string[]): Promise<void> {
     if (messageIds.length === 0) return;
     const { error } = await supabase

@@ -42,6 +42,10 @@ interface WaiterCandidate {
   id: string;
   full_name: string;
   email: string | null;
+  role?: string | null;
+  active_role?: string | null;
+  is_active?: boolean;
+  departments?: string[];
 }
 
 interface WaiterRequest {
@@ -301,13 +305,20 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
                 </option>
                 {availableCandidates.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
-                    {candidate.full_name}{candidate.email ? ` - ${candidate.email}` : ""}
+                    {candidate.full_name}
+                    {candidate.email ? ` - ${candidate.email}` : ""}
+                    {candidate.is_active === false ? " - Inactive (will reactivate)" : ""}
                   </option>
                 ))}
               </select>
+              {!adminLoading && candidates.length > 0 && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Existing staff can be selected even if inactive. Assignment activates the account and adds Waiter / Server access.
+                </p>
+              )}
               {!adminLoading && candidates.length === 0 && (
                 <p className="mt-1 text-xs text-slate-500">
-                  Add a staff user with the Waiter / Server role under Admin - Users first.
+                  Add a staff login under Admin - Users first.
                 </p>
               )}
             </div>

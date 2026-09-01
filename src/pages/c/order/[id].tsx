@@ -42,6 +42,7 @@ import { CancellationWizard } from "@/components/cancellation/CancellationWizard
 // and the existing amendment cascade does the money / quote / notify work.
 import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 import { orderDisplayName } from "@/lib/orderDisplayName";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 type OrderView = {
   ok: true;
@@ -236,7 +237,8 @@ export default function ClientOrderPage() {
   // Friendly payment label that AGREES with the pay page (/pay/i/[token])
   // and the deposit flags, instead of the raw enum ("partial"). Prefer the
   // invoice's paid/balance figures; fall back to the order's deposit flag.
-  const paidToDate = Number((invoice as any)?.amount_paid ?? 0);
+  const invoiceAmountPaid = (invoice as any)?.amount_paid;
+  const paidToDate = Number(invoiceAmountPaid ?? 0);
   const balanceDue = Number((invoice as any)?.balance_due ?? 0);
   // Payment history (deposits / balance). Populated by client_view_order,
   // which now also pulls payments tied to the order's invoice (not just
@@ -246,17 +248,19 @@ export default function ClientOrderPage() {
   const settledPayments = paymentsArr.filter(
     (p) => String(p?.status || "").toLowerCase() === "completed" && Number(p?.amount) > 0,
   );
-  const paymentLabel = invoice
-    ? balanceDue <= 0 && paidToDate > 0
-      ? "Paid"
-      : paidToDate > 0
-        ? "Deposit paid"
-        : "Awaiting payment"
-    : order.deposit_paid
-      ? "Deposit paid"
-      : String(order.payment_status || "").toLowerCase() === "paid"
-        ? "Paid"
-        : "Awaiting payment";
+  const settledAmountFromHistory = settledPayments.reduce(
+    (sum, p) => sum + (Number(p.amount) || 0),
+    0,
+  );
+  const paymentSummary = getOrderPaymentSummary({
+    totalAmount: (invoice as any)?.total_amount ?? order.total_amount,
+    amountPaid: invoice ? invoiceAmountPaid : (order.amount_paid ?? settledAmountFromHistory),
+    balanceAmount: invoice ? balanceDue : undefined,
+    depositAmount: order.deposit_amount,
+    depositPaid: order.deposit_paid,
+    paymentStatus: order.payment_status,
+  });
+  const paymentLabel = paymentSummary.label;
   const eventDate = new Date(order.event_date);
   const daysOut = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.

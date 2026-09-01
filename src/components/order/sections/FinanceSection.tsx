@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { Wallet, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { SectionSkeleton } from "./SectionSkeleton";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 
 interface Props {
   orderId: string;
@@ -116,15 +117,17 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
   }, [orderId]);
 
   const total = Number(money?.total_amount ?? 0);
-  const paid = Number(money?.amount_paid ?? 0);
-  // Prefer the persisted balance_amount column if filled - it
-  // already accounts for refunds + adjustments. Fall back to a
-  // straight total - paid calc when the column hasn't been
-  // backfilled on legacy rows.
-  const outstanding = money?.balance_amount != null
-    ? Math.max(0, Number(money.balance_amount))
-    : Math.max(0, total - paid);
-  const paymentStatus = money?.payment_status?.toLowerCase() || "pending";
+  const payment = getOrderPaymentSummary({
+    totalAmount: money?.total_amount,
+    amountPaid: money?.amount_paid,
+    balanceAmount: money?.balance_amount,
+    depositAmount: money?.deposit_amount,
+    depositPaid: money?.deposit_paid,
+    paymentStatus: money?.payment_status,
+  });
+  const paid = payment.amountPaid;
+  const outstanding = payment.balanceDue;
+  const paymentStatus = payment.label;
   const summary = loading
     ? "Loading..."
     : `${fmtZAR.format(total)} total · ${fmtZAR.format(paid)} paid · ${paymentStatus}`;
@@ -159,7 +162,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
             </div>
             <div className={`rounded-md border p-3 ${outstanding > 0 ? "bg-amber-50 border-amber-200" : "bg-brand-primary/10 border-brand-primary/20"}`}>
               <p className={`text-xs uppercase tracking-wider ${outstanding > 0 ? "text-amber-800" : "text-brand-primary"}`}>
-                {outstanding > 0 ? "Outstanding" : "Paid in full"}
+                {outstanding > 0 ? "Outstanding" : payment.label}
               </p>
               <p className={`text-sm font-bold tabular-nums mt-0.5 ${outstanding > 0 ? "text-amber-900" : "text-brand-primary"}`}>
                 {fmtZAR.format(outstanding)}

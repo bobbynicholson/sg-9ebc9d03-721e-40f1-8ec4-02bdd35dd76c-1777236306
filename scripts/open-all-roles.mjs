@@ -50,7 +50,8 @@ function cookieChunks(session) {
   for (let i = 0; i < enc.length; i += size) out.push({ name: `${storageKey}.${out.length}`, value: enc.slice(i, i + size) });
   return out;
 }
-// Add ?dev to URL to trigger the middleware dev bypass (skips all auth checks on localhost)
+// Keep the dev flag for compatibility with older local builds; current
+// middleware already bypasses auth on localhost in non-production mode.
 function withDev(landUrl) {
   const u = new URL(`${BASE}${landUrl}`);
   u.searchParams.set("dev", "1");

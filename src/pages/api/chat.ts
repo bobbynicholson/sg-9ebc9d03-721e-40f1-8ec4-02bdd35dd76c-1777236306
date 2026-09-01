@@ -61,11 +61,8 @@ function sessionHasExpired(session: { started_at?: string | null; ended_at?: str
 
 function isLocalDevBypass(req: NextApiRequest): boolean {
   const host = String(req.headers.host || "").split(":")[0].toLowerCase();
-  const devFlag = String(req.query.dev || "").toLowerCase();
-  const referrer = String(req.headers.referer || "");
   return process.env.NODE_ENV !== "production"
-    && (host === "localhost" || host === "127.0.0.1")
-    && (["true", "1"].includes(devFlag) || /[?&]dev(?:=true|=1)(?:&|$)/i.test(referrer));
+    && (host === "localhost" || host === "127.0.0.1");
 }
 
 function getLocalDevIdentity(): { user: { id: string }; identity: ChatIdentity } {

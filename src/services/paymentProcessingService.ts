@@ -359,7 +359,6 @@ class PaymentProcessingService {
         balance_paid: true,
         balance_paid_at: new Date().toISOString(),
         balance_transaction_id: transactionId,
-        payment_status: "completed",
       };
       if (!(priorBalance as any)?.confirmed_at) {
         moneyUpdate.confirmed_at = new Date().toISOString();

@@ -240,6 +240,7 @@ const NOTIFICATION_TYPE_ENUM_VALUES = new Set<string>([
   "postponement_approved", "postponement_rejected",
   // Added in 20260506170000_notification_type_enum_domain_verified.
   "domain_verified",
+  "quote_updated", "quote_internal_note",
   // Added in 20260514170000_notification_type_enum_quote_rejected.
   "quote_rejected",
   // Added in 20260520080000_notification_type_enum_new_job_available.

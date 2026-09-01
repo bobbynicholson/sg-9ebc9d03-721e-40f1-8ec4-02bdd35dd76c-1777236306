@@ -33,6 +33,7 @@ import { PayFastService } from "@/lib/payfastService";
 import { formatZAR } from "@/lib/formatters";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import {
   getInitialInvoicePaymentAmount,
   getInvoiceDueState,
@@ -525,11 +526,16 @@ export default function InvoicePaymentPage() {
 
   const company = invoice.companies;
   const companyName = company.company_name || "Your caterer";
-  const isPaid = invoice.balance_due <= 0;
+  const paymentSummary = getOrderPaymentSummary({
+    totalAmount: invoice.total_amount,
+    amountPaid: invoice.amount_paid,
+    balanceAmount: invoice.balance_due,
+  });
+  const isPaid = paymentSummary.state === "paid";
   // A deposit (or any part payment) has landed but the invoice isn't
   // settled yet. The client should see "Deposit paid" + how much of the
   // total is still outstanding, not a bare "Awaiting payment".
-  const isPartiallyPaid = !isPaid && Number(invoice.amount_paid) > 0;
+  const isPartiallyPaid = paymentSummary.state === "partial";
   const nowForInvoice = new Date();
   const dueState = getInvoiceDueState(invoice.due_date, nowForInvoice);
   const isOverdue = dueState.isOverdue && !isPaid;
@@ -685,12 +691,12 @@ export default function InvoicePaymentPage() {
               {isPaid ? (
                 <Badge className="bg-brand-primary text-white border-0 gap-1 px-3 py-1.5 text-sm">
                   <CheckCircle2 className="w-4 h-4" />
-                  Paid
+                  {paymentSummary.label}
                 </Badge>
               ) : isPartiallyPaid ? (
                 <Badge className="bg-brand-primary text-white border-0 gap-1 px-3 py-1.5 text-sm">
                   <CheckCircle2 className="w-4 h-4" />
-                  Deposit paid
+                  {paymentSummary.label}
                 </Badge>
               ) : isOverdue ? (
                 <Badge className="bg-rose-600 text-white border-0 px-3 py-1.5 text-sm">

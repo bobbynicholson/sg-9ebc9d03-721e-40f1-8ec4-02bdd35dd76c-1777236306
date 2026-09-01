@@ -6,6 +6,7 @@ import { AppOrder, Quote, UserRole } from "@/types/app";
 import { regionService } from "./regionService";
 import { lifecycleService } from "./lifecycleService";
 import { formatQuoteSubject } from "@/lib/email/subjectFormatters";
+import { notifyQuoteUpdated } from "./quote/quoteNotifications";
 
 /**
  * Phase 15 #3: clone an existing quote. Mirrors duplicateOrder
@@ -487,6 +488,8 @@ export const quoteService = {
     if (propagationReceipt) {
       (data as any)._propagationReceipt = propagationReceipt;
     }
+
+    void notifyQuoteUpdated({ quote: data as any, updates: updates as any });
 
     return data;
   },

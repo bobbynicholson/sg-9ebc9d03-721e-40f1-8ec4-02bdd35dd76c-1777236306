@@ -39,6 +39,8 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<"connecting" | "live" | "reconnecting">("connecting");
+  const [notificationStatus, setNotificationStatus] = useState<"idle" | "sending" | "sent" | "failed">("idle");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -63,6 +65,7 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
   // Realtime: subscribe to new messages on this order
   useEffect(() => {
     if (!orderId) return;
+    setConnectionStatus("connecting");
     const channel = supabase
       .channel(`dispatch-msgs-${orderId}`)
       .on("postgres_changes",
@@ -87,7 +90,10 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
           }
         },
       )
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") setConnectionStatus("live");
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setConnectionStatus("reconnecting");
+      });
     return () => { channel.unsubscribe(); };
   }, [orderId, senderRole]);
 
@@ -108,6 +114,14 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
         setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
         setBody("");
         inputRef.current?.focus();
+        setNotificationStatus("sending");
+        try {
+          await dispatchMessageService.notifyMessage(msg.id);
+          setNotificationStatus("sent");
+        } catch (notificationError) {
+          console.warn("[OrderChatPanel] admin notification failed", notificationError);
+          setNotificationStatus("failed");
+        }
       }
     } finally {
       setSending(false);
@@ -125,19 +139,35 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
   const pad = compact ? "px-2.5 py-1.5" : "px-3 py-2";
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-blue-50/60 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-600/20">
+            <MessageCircle className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900">Dispatch chat</p>
+            <p className="truncate text-[11px] text-slate-500">Dispatcher ↔ Driver · Messages stay with this order</p>
+          </div>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600">
+          <span className={`h-1.5 w-1.5 rounded-full ${connectionStatus === "live" ? "bg-emerald-500" : "bg-amber-400 animate-pulse"}`} />
+          {connectionStatus === "live" ? "Live" : connectionStatus === "reconnecting" ? "Reconnecting" : "Connecting"}
+        </span>
+      </div>
       {/* Messages */}
       <div
         ref={scrollRef}
-        className="overflow-y-auto rounded-md bg-slate-50 border border-slate-200 px-2 py-2 space-y-1.5"
+        className="overflow-y-auto bg-gradient-to-b from-slate-50 to-blue-50/30 px-3 py-4 space-y-3"
         style={{ maxHeight }}
       >
         {loading ? (
           <p className={`${text} text-slate-500 text-center py-4`}>Loading messages...</p>
         ) : messages.length === 0 ? (
-          <div className={`${text} text-slate-500 text-center py-6 flex flex-col items-center gap-2`}>
-            <MessageCircle className="w-6 h-6 text-slate-300" />
-            No messages yet. Send the first one.
+            <div className={`${text} text-slate-500 text-center py-8 flex flex-col items-center gap-2`}>
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600/10 text-blue-600"><MessageCircle className="w-5 h-5" /></span>
+            <span className="font-medium text-slate-700">No messages yet</span>
+            <span>Send the first update to start the handover.</span>
           </div>
         ) : messages.map(m => {
           const mine = m.sender_id === userId;
@@ -146,22 +176,18 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
               key={m.id}
               className={`flex ${mine ? "justify-end" : "justify-start"}`}
             >
-              <div className={`${pad} ${text} rounded-lg max-w-[80%] ${
+              <div className={`${pad} ${text} rounded-2xl max-w-[84%] shadow-sm ${
                 mine
-                  ? "bg-blue-600 text-white"
+                  ? "rounded-br-md bg-blue-600 text-white"
                   : m.sender_role === "dispatcher"
-                    ? "bg-white border border-slate-200 text-slate-900"
-                    : "bg-brand-primary/15 border border-brand-primary/20 text-brand-primary"
+                    ? "rounded-bl-md border border-slate-200 bg-white text-slate-900"
+                    : "rounded-bl-md border border-brand-primary/20 bg-brand-primary/10 text-brand-primary"
               }`}>
-                {!mine && (
-                  <p className="text-[10px] font-semibold opacity-70 mb-0.5">
-                    {m.sender_name ?? (m.sender_role === "dispatcher" ? "Dispatcher" : "Driver")}
-                  </p>
-                )}
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                <p className={`text-[10px] mt-0.5 ${mine ? "text-blue-100" : "text-slate-500"}`}>
+                <div className={`mb-1 flex items-baseline justify-between gap-3 text-[10px] ${mine ? "text-blue-100" : "text-slate-500"}`}>
+                  <span className={`font-semibold ${mine ? "text-white" : "text-slate-800"}`}>{mine ? "You" : (m.sender_name ?? (m.sender_role === "dispatcher" ? "Dispatcher" : "Driver"))}</span>
                   {relativeShort(m.created_at)}
-                </p>
+                </div>
+                <p className="whitespace-pre-wrap break-words leading-relaxed">{m.body}</p>
               </div>
             </div>
           );
@@ -169,7 +195,8 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
       </div>
 
       {/* Composer */}
-      <div className="mt-2 flex items-end gap-2">
+      <div className="border-t border-slate-200 bg-white p-3">
+        <div className="flex items-end gap-2">
         <textarea
           ref={inputRef}
           value={body}
@@ -177,20 +204,24 @@ export function OrderChatPanel({ companyId, orderId, userId, senderRole, compact
           onKeyDown={handleKey}
           placeholder={senderRole === "dispatcher" ? "Message the driver..." : "Message the dispatcher..."}
           rows={2}
-          className="flex-1 resize-none border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="min-h-11 flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           disabled={sending || !companyId}
         />
         <Button
           size="sm"
           onClick={handleSend}
           disabled={sending || !body.trim() || !companyId}
-          className="bg-blue-600 hover:bg-blue-700 gap-1.5 h-9"
+          className="h-11 rounded-xl bg-blue-600 px-4 shadow-sm shadow-blue-600/20 hover:bg-blue-700 gap-1.5"
         >
           <Send className="w-3.5 h-3.5" />
           Send
         </Button>
+        </div>
+      <p className="px-1 pt-1 text-[10px] text-slate-400">Enter to send · Shift+Enter for a new line</p>
+      {notificationStatus === "sending" && <p className="mt-2 rounded-lg bg-blue-50 px-2.5 py-2 text-[11px] text-blue-700">Message sent · notifying admins…</p>}
+      {notificationStatus === "sent" && <p className="mt-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-[11px] text-emerald-700">Message sent · admins received an in-app alert.</p>}
+      {notificationStatus === "failed" && <p className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] text-amber-700">Message sent, but the admin alert could not be delivered.</p>}
       </div>
-      <p className="text-[10px] text-slate-400 mt-1">Enter to send · Shift+Enter for newline</p>
     </div>
   );
 }
