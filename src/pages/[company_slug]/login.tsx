@@ -250,8 +250,10 @@ export default function CompanyStaffLoginPage({
       return;
     }
 
-    // Hard-navigate so middleware applies the slug-aware role landing.
-    window.location.assign("/");
+    // Let the authenticated user choose between every role assigned to this
+    // email before opening a portal. This prevents a driver/waiter or
+    // kitchen/cleaning user from being forced into active_role only.
+    window.location.assign("/auth/select-role");
   };
 
   const brandGradient = companyBrand
@@ -355,11 +357,11 @@ export default function CompanyStaffLoginPage({
         subcopy="Sign in to manage quotes, kitchen prep, dispatch and deliveries - your whole operation in one place."
         footerNote="Powered by CateringMS"
       >
-          <Card className="w-full max-w-md border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
+        <Card className="w-full max-w-md border border-slate-200/70 shadow-2xl shadow-slate-200/60 rounded-2xl">
           <CardContent className="p-6 sm:p-8">
             <div className="mb-7">
               <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Staff sign-in</h1>
-              <p className="text-sm text-stone-500 mt-1.5">Welcome back - sign in to your portal.</p>
+              <p className="text-sm text-stone-500 mt-1.5">Welcome back - sign in and choose any portal assigned to you.</p>
             </div>
             <form onSubmit={handleStaffLogin} className="space-y-5">
               {error && (

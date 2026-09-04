@@ -55,6 +55,17 @@ export interface OperationsSettings {
   deliveryCostPerKm: number;
 }
 
+/**
+ * Company-wide policy gates for staff who can carry more than one role.
+ * These are intentionally separate from a user's assigned departments:
+ * admins must opt into a compatible role pair before the future user-role
+ * picker can offer it.
+ */
+export interface RoleCompatibilitySettings {
+  allowDriverWaiterOverlap: boolean;
+  allowKitchenCleaningOverlap: boolean;
+}
+
 export interface CompanySettings {
   name: string;
   email: string;
@@ -85,6 +96,7 @@ export interface AdminSettings {
   automation: AutomationSettings;
   pricing: PricingSettings;
   operations: OperationsSettings;
+  roleCompatibility: RoleCompatibilitySettings;
   financial: FinancialSettings;
 }
 

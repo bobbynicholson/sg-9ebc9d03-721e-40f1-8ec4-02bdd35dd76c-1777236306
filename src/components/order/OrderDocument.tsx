@@ -50,6 +50,7 @@ import { DriverSection } from "./sections/DriverSection";
 import { ClientDeliverySection } from "./sections/ClientDeliverySection";
 import { ClientMenuSection } from "./sections/ClientMenuSection";
 import { WaiterSection } from "./sections/WaiterSection";
+import { OrderStaffingPanel } from "@/components/admin/orders/OrderStaffingPanel";
 import { CleaningSection } from "./sections/CleaningSection";
 import { FinanceSection } from "./sections/FinanceSection";
 import { FeedbackSection } from "./sections/FeedbackSection";
@@ -996,6 +997,11 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
             defaultOpen={primary === "admin"}
             highlight={primary === "admin"}
           />
+        )}
+        {canSeeFinance && (
+          <section id="section-staffing" className="mt-4">
+            <OrderStaffingPanel orderId={order.id} companyId={order.company_id} order={order} />
+          </section>
         )}
         {/* ODOC Wave E: customer feedback - only mounts post-delivery.
             Section returns null when not delivered so the doc stays

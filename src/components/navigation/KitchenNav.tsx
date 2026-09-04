@@ -166,7 +166,8 @@ export function KitchenNav(_: KitchenNavProps = {}) {
         title: "Manager",
         defaultOpen: true,
         items: [
-          { title: "Team overview", href: "/admin/teams/kitchen", icon: Users, description: "Roster, duties, prep broadcast" },
+          { title: "Manage team", href: "/team-portal/kitchen/management", icon: Users, description: "Roster, clock-ins and diary" },
+          { title: "Team overview", href: "/admin/teams/kitchen", icon: Users, description: "Prep intelligence and broadcasts" },
           { title: "Schedule", href: "/admin/kitchen-schedule", icon: CalendarClock, description: "Plan shifts + clock-ins" },
           { title: "Rules", href: "/admin/kitchen-settings", icon: Settings, description: "Prep timing + alerts" },
         ],

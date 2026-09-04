@@ -80,6 +80,12 @@ interface PendingInvitation {
 
 function AdminUsersPage() {
   const router = useRouter();
+  const sessionHeaders = async (): Promise<Record<string, string>> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : {};
+  };
   const [users, setUsers] = useState<UserWithDepartments[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
@@ -126,6 +132,9 @@ function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [selectedDepartments, setSelectedDepartments] = useState<UserRole[]>([]);
   const [primaryDepartment, setPrimaryDepartment] = useState<UserRole | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [bulkRole, setBulkRole] = useState<UserRole | undefined>(undefined);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -271,18 +280,10 @@ function AdminUsersPage() {
     return normalized ? roleConfig.find((role) => role.value === normalized) : undefined;
   };
 
-  // A manager's base `role` column is still the legacy team enum
-  // (kitchen_staff / cleaning_staff) while their real role sits in
-  // active_role. Without collapsing, a Kitchen Manager rendered BOTH
-  // "Kitchen Team" and "Kitchen Manager" - you couldn't tell at a glance
-  // who the manager was, and the manager was double-counted in the team
-  // headcount. When the user holds a manager role, suppress the matching
-  // team badge so they read clearly as just "Kitchen Manager".
-  const MANAGER_SUPPRESSES_TEAM: Partial<Record<UserRole, UserRole>> = {
-    [UserRole.KITCHEN_MANAGER]: UserRole.KITCHEN_STAFF,
-    [UserRole.CLEANING_MANAGER]: UserRole.CLEANING_STAFF,
-  };
-
+  // Build the complete effective access list from the legacy profile role,
+  // active portal, primary department, and every durable department row.
+  // The admin view must show all roles even when a manager also has the
+  // matching staff role; hiding one makes cross-trained access ambiguous.
   const userAccessRoles = (targetUser: UserWithDepartments): UserRole[] => {
     const baseRole = normalizeRoleValue(targetUser.role as string | null | undefined);
     const activeRole = normalizeRoleValue(targetUser.active_role, baseRole);
@@ -294,13 +295,7 @@ function AdminUsersPage() {
       ...(targetUser.departments || []).map((role) => normalizeRoleValue(role as string | null | undefined, fallbackRole)),
     ]
       .filter((role): role is UserRole => Boolean(role));
-    const deduped = Array.from(new Set(roles));
-    const suppressed = new Set<UserRole>();
-    for (const role of deduped) {
-      const teamRole = MANAGER_SUPPRESSES_TEAM[role];
-      if (teamRole) suppressed.add(teamRole);
-    }
-    return deduped.filter((role) => !suppressed.has(role));
+    return Array.from(new Set(roles));
   };
 
   // USR-D: group labels + intro copy for the picker. Pure data so
@@ -697,7 +692,7 @@ function AdminUsersPage() {
 
       const response = await fetch(`/api/admin/users/${userId}/access`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await sessionHeaders()) },
         body: JSON.stringify({
           departments: normalizedDepartments,
           primaryRole: normalizedPrimary,
@@ -742,12 +737,80 @@ function AdminUsersPage() {
     } catch (error) {
       console.error("Error saving roles:", error);
       toast({
-        title: "Error",
-        description: "Failed to update user departments",
+        title: "Could not save access",
+        description: error instanceof Error
+          ? error.message
+          : "We could not save these roles. Check the selections and try again.",
         variant: "destructive",
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const toggleUserSelection = (userId: string, checked: boolean) => {
+    setSelectedUserIds((current) => {
+      if (checked) return current.includes(userId) ? current : [...current, userId];
+      return current.filter((id) => id !== userId);
+    });
+  };
+
+  const toggleVisibleUserSelection = (checked: boolean) => {
+    const visibleIds = filteredUsers.map((targetUser) => targetUser.id);
+    setSelectedUserIds((current) => {
+      if (checked) return Array.from(new Set([...current, ...visibleIds]));
+      const visible = new Set(visibleIds);
+      return current.filter((id) => !visible.has(id));
+    });
+  };
+
+  const handleBulkAssignRole = async () => {
+    if (selectedUserIds.length === 0 || !bulkRole) {
+      toast({
+        title: "Choose users and a role",
+        description: "Select at least one staff user, then choose the role to add.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setBulkSaving(true);
+      const response = await fetch("/api/admin/users/bulk-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(await sessionHeaders()) },
+        credentials: "same-origin",
+        body: JSON.stringify({ user_ids: selectedUserIds, role: bulkRole }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.error || "Failed to assign the role");
+      }
+
+      await loadUsers();
+      setSelectedUserIds([]);
+      setBulkRole(undefined);
+      const roleLabel = roleMetaFor(bulkRole)?.label || bulkRole;
+      const assignedCount = Number(result.assigned_count || 0);
+      const alreadyAssignedCount = Number(result.already_assigned_count || 0);
+      const assignmentSummary = assignedCount > 0
+        ? `${roleLabel} added to ${assignedCount} user${assignedCount === 1 ? "" : "s"}.`
+        : `Every selected user already has ${roleLabel}.`;
+      const alreadySummary = assignedCount > 0 && alreadyAssignedCount > 0
+        ? ` ${alreadyAssignedCount} already had this role.`
+        : "";
+      toast({
+        title: "Role assigned",
+        description: `${assignmentSummary}${alreadySummary} Existing roles and primary roles were kept.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Could not assign role",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setBulkSaving(false);
     }
   };
 
@@ -790,6 +853,11 @@ function AdminUsersPage() {
     { limit: 0 },
   );
 
+  useEffect(() => {
+    const validIds = new Set(users.map((targetUser) => targetUser.id));
+    setSelectedUserIds((current) => current.filter((id) => validIds.has(id)));
+  }, [users]);
+
   const fuzzyOrAll = searchTerm ? fuzzyUsers : users;
 
   const userSortColumns: ColumnDef<UserWithDepartments>[] = useMemo(() => [
@@ -800,6 +868,8 @@ function AdminUsersPage() {
   ], []);
   const userSort = useSortable<UserWithDepartments>(fuzzyOrAll, userSortColumns, { defaultKey: "name", defaultDir: "asc" });
   const filteredUsers = userSort.rows;
+  const visibleUserIds = filteredUsers.map((targetUser) => targetUser.id);
+  const allVisibleUsersSelected = visibleUserIds.length > 0 && visibleUserIds.every((id) => selectedUserIds.includes(id));
   const activeUserCount = users.filter((u) => u.is_active).length;
   const inactiveUserCount = Math.max(users.length - activeUserCount, 0);
   const pendingInviteCount = invitations.length;
@@ -1120,6 +1190,78 @@ function AdminUsersPage() {
                   </div>
                 </div>
 
+                <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
+                      <Checkbox
+                        id="select-visible-users"
+                        checked={allVisibleUsersSelected}
+                        onCheckedChange={(checked) => toggleVisibleUserSelection(checked === true)}
+                        aria-label="Select all visible staff users"
+                      />
+                      <span>Select all visible users</span>
+                      {selectedUserIds.length > 0 && (
+                        <Badge className="border-slate-200 bg-white text-slate-700">
+                          {selectedUserIds.length} selected
+                        </Badge>
+                      )}
+                    </label>
+                    {selectedUserIds.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUserIds([]);
+                          setBulkRole(undefined);
+                        }}
+                        disabled={bulkSaving}
+                        className="w-full text-slate-600 sm:w-auto"
+                      >
+                        Clear selection
+                      </Button>
+                    )}
+                  </div>
+
+                  {selectedUserIds.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-blue-950">Add one role to the selected users</p>
+                          <p className="mt-0.5 text-xs text-blue-900/80">
+                            This adds the role to everyone selected. Their existing roles and login destination stay unchanged.
+                          </p>
+                        </div>
+                        <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
+                          <Select value={bulkRole} onValueChange={(value) => setBulkRole(value as UserRole)}>
+                            <SelectTrigger className="w-full bg-white sm:w-[220px]">
+                              <SelectValue placeholder="Choose a role to add" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {roleConfig
+                                .filter((role) => role.group !== "client")
+                                .map((role) => (
+                                  <SelectItem key={role.value} value={role.value}>
+                                    {role.label}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            onClick={handleBulkAssignRole}
+                            disabled={!bulkRole || bulkSaving}
+                            className="bg-brand-primary hover:bg-brand-primary/90"
+                          >
+                            {bulkSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Users className="mr-2 h-4 w-4" />}
+                            {bulkSaving ? "Assigning..." : "Assign role"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {filteredUsers.length === 0 ? (
                   <div className="p-10 text-center">
                     <Users className="mx-auto mb-3 h-12 w-12 text-slate-300" />
@@ -1132,18 +1274,29 @@ function AdminUsersPage() {
                   <div className="divide-y divide-slate-200">
                     {filteredUsers.map((targetUser) => {
                       const roles = userAccessRoles(targetUser);
-                      const primaryRole = roleMetaFor(targetUser.primary_department || targetUser.role);
-                      const PrimaryIcon = primaryRole?.icon || UserCircle;
                       const primaryFallbackRole = normalizeRoleValue(
                         targetUser.active_role,
                         normalizeRoleValue(targetUser.role as string | null | undefined),
                       );
+                      const primaryRoleValue = normalizeRoleValue(
+                        targetUser.primary_department,
+                        primaryFallbackRole,
+                      ) || primaryFallbackRole;
+                      const primaryRole = roleMetaFor(primaryRoleValue);
+                      const PrimaryIcon = primaryRole?.icon || UserCircle;
+                      const activeRoleValue = normalizeRoleValue(targetUser.active_role, primaryFallbackRole);
                       const activity = loginActivityBucket(targetUser.last_sign_in_at);
                       return (
                         <div key={targetUser.id} className="p-4 transition-colors hover:bg-slate-50/70">
                           <div className="grid gap-4 xl:grid-cols-[minmax(190px,1.1fr)_minmax(180px,1fr)_130px_176px] xl:items-start">
                             <div className="min-w-0">
                               <div className="flex min-w-0 items-center gap-3">
+                                <Checkbox
+                                  id={`select-user-${targetUser.id}`}
+                                  checked={selectedUserIds.includes(targetUser.id)}
+                                  onCheckedChange={(checked) => toggleUserSelection(targetUser.id, checked === true)}
+                                  aria-label={`Select ${targetUser.full_name || targetUser.email || "staff user"}`}
+                                />
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
                                   {(targetUser.full_name || targetUser.email || "?").slice(0, 2).toUpperCase()}
                                 </div>
@@ -1176,23 +1329,31 @@ function AdminUsersPage() {
                             </div>
 
                             <div className="min-w-0">
-                              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-500">
+                              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
                                 <PrimaryIcon className="h-3.5 w-3.5" />
                                 <span>Access</span>
+                                <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-semibold">
+                                  {roles.length} {roles.length === 1 ? "role" : "roles"}
+                                </Badge>
                               </div>
                               <div className="flex flex-wrap gap-1.5">
                                 {roles.length > 0 ? (
                                   roles.map((dept) => {
                                     const config = roleMetaFor(dept);
                                     const Icon = config?.icon || UserCircle;
-                                    const isPrimary = dept === normalizeRoleValue(targetUser.primary_department, primaryFallbackRole);
+                                    const isPrimary = dept === primaryRoleValue;
+                                    const isActive = dept === activeRoleValue;
                                     return (
                                       <Badge
                                         key={dept}
+                                        title={`${config?.label || dept}${isPrimary ? " · primary role" : ""}${isActive ? " · active portal" : ""}`}
+                                        aria-label={`${config?.label || dept}${isPrimary ? ", primary role" : ""}${isActive ? ", active portal" : ""}`}
                                         className={`max-w-full justify-start whitespace-normal text-left text-xs leading-4 ${config?.color} ${isPrimary ? "ring-2 ring-offset-1 ring-slate-500" : ""}`}
                                       >
                                         <Icon className="h-3 w-3 shrink-0" />
                                         <span className="min-w-0">{config?.label || dept}</span>
+                                        {isPrimary && <span className="ml-1 text-[10px] opacity-75">Primary</span>}
+                                        {isActive && <span className="ml-1 text-[10px] opacity-75">Active</span>}
                                       </Badge>
                                     );
                                   })

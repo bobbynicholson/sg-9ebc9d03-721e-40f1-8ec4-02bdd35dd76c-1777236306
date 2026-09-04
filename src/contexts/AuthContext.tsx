@@ -587,10 +587,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const switchRole = async (newRole: UserRole) => {
-    if (user) {
-      setActiveRole(newRole);
-      setUser({ ...user, active_role: newRole });
+    if (!userRoles.includes(newRole)) {
+      throw new Error("That portal is not assigned to your account. Ask an administrator to add it.");
     }
+
+    // Passwords are account-wide; switching roles must reuse the current
+    // Supabase session. Some login paths have the session in the browser
+    // client before SSR cookies are refreshed, so pass the short-lived
+    // access token to the same-origin API as a fallback credential.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const switchHeaders: Record<string, string> = { "Content-Type": "application/json" };
+    if (sessionData.session?.access_token) {
+      switchHeaders.Authorization = `Bearer ${sessionData.session.access_token}`;
+    }
+    const response = await fetch("/api/auth/switch-role", {
+      method: "POST",
+      headers: switchHeaders,
+      credentials: "same-origin",
+      body: JSON.stringify({ role: newRole }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.error || "We could not save your portal choice. Please try again.");
+    }
+
+    setActiveRole(newRole);
+    // The server session is the source of truth. The React user object can
+    // briefly be null while AuthContext rehydrates after navigation, so do
+    // not block a valid session-backed role switch on that transient state.
+    if (user) setUser({ ...user, active_role: newRole });
+    setProfile((current) => current ? { ...current, active_role: newRole } : current);
   };
 
   const signIn = async (email: string, password: string) => {

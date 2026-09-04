@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useRouter, NextRouter } from "next/router";
+import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -80,20 +80,19 @@ const DEV_USERS = [
   },
 ];
 
-// Route user after successful login. We hard-navigate to "/" and let
-// middleware do the slug-aware role landing redirect - single source of truth,
-// no duplicated client-side slug lookup.
-const routeAfterLogin = async (userId: string, router: NextRouter, redirectTo?: string) => {
-  if (redirectTo) {
-    window.location.assign(redirectTo);
-    return;
-  }
-  window.location.assign("/");
+// Route user after successful login. The authenticated session is sent to a
+// role chooser first so accounts with several assigned portals are not forced
+// into whichever role happens to be stored as active_role.
+const routeAfterLogin = async (redirectTo?: string) => {
+  const pickerUrl = redirectTo
+    ? `/auth/select-role?redirectTo=${encodeURIComponent(redirectTo)}`
+    : "/auth/select-role";
+  window.location.assign(pickerUrl);
 };
 
 export default function LoginPage() {
   const router = useRouter();
-  const { message, redirect } = router.query;
+  const { message, redirect, redirectTo } = router.query;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -173,17 +172,13 @@ export default function LoginPage() {
         throw new Error(signInError?.message || "Dev login failed");
       }
 
-      // Set dev mode flags
-      localStorage.setItem("dev_mode_active", "true");
-      localStorage.setItem("dev_mode_role", userRole);
-
       toast({
         title: "Dev Login Successful",
         description: `Logged in as ${userRole}`,
         duration: 2000,
       });
 
-      await routeAfterLogin(user.id, router, redirect as string);
+      await routeAfterLogin((redirectTo || redirect) as string);
     } catch (err: any) {
       console.error("Dev login error:", err);
       setError(err.message || "Dev login failed");
@@ -234,17 +229,13 @@ export default function LoginPage() {
         throw new Error(signInError?.message || "Couldn't sign you in. Please try again.");
       }
 
-      // Remove dev mode flags for normal login
-      localStorage.removeItem("dev_mode_active");
-      localStorage.removeItem("dev_mode_role");
-
       toast({
         title: "Login Successful",
-        description: "Welcome back!",
+        description: "Welcome back! We’ll show your assigned portals next.",
         duration: 2000,
       });
 
-      await routeAfterLogin(user.id, router, redirect as string);
+      await routeAfterLogin((redirectTo || redirect) as string);
     } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Login failed");
@@ -359,7 +350,7 @@ export default function LoginPage() {
             <div className="mb-7">
               <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">Welcome back</h1>
               <p className="text-sm text-stone-500 mt-1.5">
-                Sign in and we'll route you straight to your portal.
+                Sign in and choose any portal assigned to your email.
               </p>
             </div>
               <form onSubmit={handleNormalLogin} className="space-y-5">

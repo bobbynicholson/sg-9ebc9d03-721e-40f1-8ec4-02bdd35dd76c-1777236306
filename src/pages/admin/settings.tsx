@@ -28,6 +28,7 @@ import { AutomationSettingsTab } from "@/components/admin/settings/AutomationSet
 import { FinancialSettingsTab } from "@/components/admin/settings/FinancialSettingsTab";
 import { OperationsSettingsTab } from "@/components/admin/settings/OperationsSettingsTab";
 import { PricingSettingsTab } from "@/components/admin/settings/PricingSettingsTab";
+import { RoleCompatibilitySettingsTab } from "@/components/admin/settings/RoleCompatibilitySettingsTab";
 import type { AdminSettings } from "@/components/admin/settings/types";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Card, CardContent } from "@/components/ui/card";
@@ -68,6 +69,10 @@ const DEFAULT_SETTINGS: AdminSettings = {
     maxKitchenLoadPerDay: 0,
     driverRadius: 50,
     deliveryCostPerKm: 8.5,
+  },
+  roleCompatibility: {
+    allowDriverWaiterOverlap: false,
+    allowKitchenCleaningOverlap: false,
   },
   financial: {
     currency: "ZAR",
@@ -208,6 +213,7 @@ function SettingsPage() {
             "refund_process_days",
             "dispatch_settings",
             "kitchen_settings",
+            "role_compatibility_settings",
           ].join(", "))
           .eq("id", companyId)
           .maybeSingle();
@@ -285,13 +291,14 @@ function SettingsPage() {
     try {
       const { data: existing, error: existingError } = await (supabase as any)
         .from("companies")
-        .select("dispatch_settings, kitchen_settings")
+        .select("dispatch_settings, kitchen_settings, role_compatibility_settings")
         .eq("id", companyId)
         .maybeSingle();
       if (existingError) throw existingError;
 
       const priorDispatch = ((existing as any)?.dispatch_settings || {}) as Record<string, any>;
       const priorKitchen = ((existing as any)?.kitchen_settings || {}) as Record<string, any>;
+      const priorRoleCompatibility = ((existing as any)?.role_compatibility_settings || {}) as Record<string, any>;
 
       // Bug fix (restructure audit 2026-07-02): the previous
       // `Number(x) || fallback` pattern clobbered legitimate zeros on
@@ -341,6 +348,11 @@ function SettingsPage() {
           kitchen_settings: {
             ...priorKitchen,
             kitchenPrepHours: numberOr(settings.operations.kitchenPrepHours, 48),
+          },
+          role_compatibility_settings: {
+            ...priorRoleCompatibility,
+            allow_driver_waiter_overlap: settings.roleCompatibility.allowDriverWaiterOverlap,
+            allow_kitchen_cleaning_overlap: settings.roleCompatibility.allowKitchenCleaningOverlap,
           },
           updated_at: new Date().toISOString(),
         })
@@ -492,6 +504,7 @@ function SettingsPage() {
                   <TabsTrigger value="financial" className="whitespace-nowrap text-xs md:text-sm">Financial</TabsTrigger>
                   <TabsTrigger value="pricing" className="whitespace-nowrap text-xs md:text-sm">Pricing</TabsTrigger>
                   <TabsTrigger value="operations" className="whitespace-nowrap text-xs md:text-sm">Operations</TabsTrigger>
+                  <TabsTrigger value="roles" className="whitespace-nowrap text-xs md:text-sm">Team roles</TabsTrigger>
                   <TabsTrigger value="automation" className="whitespace-nowrap text-xs md:text-sm">Automation</TabsTrigger>
                   <TabsTrigger value="inventory" className="whitespace-nowrap text-xs md:text-sm">Inventory</TabsTrigger>
                   <TabsTrigger value="dispatch" className="whitespace-nowrap text-xs md:text-sm">Dispatch</TabsTrigger>
@@ -516,6 +529,13 @@ function SettingsPage() {
                   <OperationsSettingsTab
                     settings={settings.operations}
                     onUpdate={(key, value) => updateSetting("operations", key, value)}
+                  />
+                </TabsContent>
+
+                <TabsContent value="roles">
+                  <RoleCompatibilitySettingsTab
+                    settings={settings.roleCompatibility}
+                    onUpdate={(key, value) => updateSetting("roleCompatibility", key, value)}
                   />
                 </TabsContent>
 
@@ -599,6 +619,7 @@ function SettingsShortcutCard({ item, href }: { item: SettingsShortcut; href: st
 function companyToSettings(company: Record<string, any>, fallback: AdminSettings): AdminSettings {
   const dispatch = (company.dispatch_settings || {}) as Record<string, any>;
   const kitchen = (company.kitchen_settings || {}) as Record<string, any>;
+  const roleCompatibility = (company.role_compatibility_settings || {}) as Record<string, any>;
   const pricing = (dispatch.pricing || {}) as Record<string, any>;
   const automation = (dispatch.automation || {}) as Record<string, any>;
 
@@ -630,6 +651,10 @@ function companyToSettings(company: Record<string, any>, fallback: AdminSettings
       maxKitchenLoadPerDay: numberOr(dispatch.maxKitchenLoadPerDay, fallback.operations.maxKitchenLoadPerDay),
       driverRadius: numberOr(dispatch.driverRadius, fallback.operations.driverRadius),
       deliveryCostPerKm: numberOr(dispatch.deliveryCostPerKm, fallback.operations.deliveryCostPerKm),
+    },
+    roleCompatibility: {
+      allowDriverWaiterOverlap: Boolean(roleCompatibility.allow_driver_waiter_overlap),
+      allowKitchenCleaningOverlap: Boolean(roleCompatibility.allow_kitchen_cleaning_overlap),
     },
     financial: {
       currency: company.currency || fallback.financial.currency,
@@ -663,6 +688,7 @@ function mergeSettings(base: AdminSettings, patch: any): AdminSettings {
     automation: { ...base.automation, ...(patch?.automation || {}) },
     pricing: { ...base.pricing, ...(patch?.pricing || {}) },
     operations: { ...base.operations, ...(patch?.operations || {}) },
+    roleCompatibility: { ...base.roleCompatibility, ...(patch?.roleCompatibility || {}) },
     financial: { ...base.financial, ...(patch?.financial || {}) },
   };
 }

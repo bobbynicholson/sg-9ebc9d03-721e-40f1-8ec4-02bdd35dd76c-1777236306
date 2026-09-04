@@ -31,6 +31,7 @@ import { MobileSearchTrigger, MobileQuickActions } from "@/components/portal/Mob
 import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSection";
 import { buildIsActive } from "@/lib/navActiveMatcher";
 import { useBrandingRow } from "@/lib/branding/useBranding";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
 
 export interface PortalSidebarNavItem {
   title: string;
@@ -568,6 +569,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             </Link>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <RoleSwitcher variant="compact" showLabel={false} />
             <NotificationBell />
             <ThemeSwitch />
           </div>
@@ -618,6 +620,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     </div>
                   </Link>
                   <div className="flex items-center gap-2 shrink-0">
+                    <RoleSwitcher variant="compact" showLabel={false} />
                     <NotificationBell />
                     <ThemeSwitch />
                   </div>
@@ -626,11 +629,30 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
             ) : (
               <div className="flex flex-col items-center gap-3 w-full">
                 <LogoTile size="lg" />
+                {/* Keep role switching available even when the rail is
+                    collapsed; cross-trained staff must be able to return
+                    to their manager portal without signing in again. */}
+                <RoleSwitcher variant="compact" showLabel={false} />
                 <NotificationBell />
                 <ThemeSwitch />
               </div>
             )}
           </div>
+
+          {/* Every portal exposes assigned roles at the top of the rail.
+              RoleSwitcher only renders when multiple roles exist. */}
+          {!isCollapsed && (
+            <div
+              className={cn(
+                "border-b px-4 py-2",
+                forceBrand
+                  ? "border-white/15 bg-black/5"
+                  : "border-slate-200/80 bg-white/70 dark:border-slate-700 dark:bg-slate-900/60",
+              )}
+            >
+              <RoleSwitcher variant="default" showLabel />
+            </div>
+          )}
 
           {/* desktopScrollRef MUST live on this real desktop ScrollArea.
               It used to be wired only to NavBody's ScrollArea, which is

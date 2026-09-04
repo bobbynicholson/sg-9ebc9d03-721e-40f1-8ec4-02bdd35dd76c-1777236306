@@ -214,7 +214,8 @@ export function CleaningNav(_: CleaningNavProps = {}) {
         title: "Manager",
         defaultOpen: true,
         items: [
-          { title: "Team overview", href: "/admin/teams/cleaning", icon: Users, description: "Roster, live handovers, staffing" },
+          { title: "Manage team", href: "/team-portal/cleaning/management", icon: Users, description: "Roster, clock-ins and diary" },
+          { title: "Team overview", href: "/admin/teams/cleaning", icon: Users, description: "Live handovers and staffing" },
           { title: "Shift roster", href: "/admin/cleaning-schedule", icon: CalendarClock, description: "Plan staff shifts + duties" },
         ],
       }] : []),

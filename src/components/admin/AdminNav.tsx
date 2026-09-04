@@ -334,6 +334,7 @@ export function AdminNav(_: AdminNavProps = {}) {
           { title: "Wages",            href: "/admin/wages",             icon: Wallet,     description: "Hours, rates, overtime" },
           { title: "Staff rates",      href: "/admin/staff",             icon: Users,      description: "Pay rates" },
           { title: "Staff hours",      href: "/admin/staff-hours",       icon: Clock,      description: "Time worked" },
+          { title: "Monthly audit",    href: "/admin/staff-hours?tab=monthly-audit", icon: CalendarHeart, description: "Day-wise pay review" },
           { title: "Driver settlement", href: "/admin/driver-settlement", icon: Banknote, description: "Distance and callouts" },
           { title: "Kitchen settlement", href: "/admin/kitchen-settlement", icon: Banknote, description: "Kitchen payslips and balances" },
         ] : []),

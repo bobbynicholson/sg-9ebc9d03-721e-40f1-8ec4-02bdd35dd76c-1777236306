@@ -82,9 +82,9 @@ export default function AuthCallbackPage() {
             }
           }
 
-          // Regular login callback - hard-navigate to "/" and let middleware
-          // handle the slug-aware role landing redirect.
-          window.location.assign("/");
+          // Regular staff login callback - let the authenticated user choose
+          // among every portal assigned to this email.
+          window.location.assign("/auth/select-role");
         } else {
           router.push("/auth/login");
         }

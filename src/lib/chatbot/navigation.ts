@@ -56,6 +56,7 @@ const CORE_NAVIGATION_REFS: ChatNavigationRef[] = [
   { ref: "kitchen.production", label: "Kitchen production", href: "/team-portal/kitchen/production", description: "Production plan and handoffs", keywords: ["production", "prep", "preparation", "production plan", "handoff"], roles: ["kitchen_manager", "kitchen_staff"] },
   { ref: "kitchen.prep", label: "Kitchen prep list", href: "/team-portal/kitchen/prep-list", description: "Prep tasks and assignments", keywords: ["prep list", "prep task", "prep tasks", "assigned prep"], roles: ["kitchen_manager", "kitchen_staff"] },
   { ref: "kitchen.stock", label: "Kitchen stock", href: "/team-portal/kitchen/stock", description: "Ingredient stock for production", keywords: ["kitchen stock", "ingredients", "ingredient stock"], roles: ["kitchen_manager", "kitchen_staff"] },
+  { ref: "kitchen.management", label: "Kitchen team management", href: "/team-portal/kitchen/management", description: "Manage the kitchen roster, clock-ins, and daily work notes", keywords: ["kitchen team management", "manage kitchen team", "kitchen manager", "kitchen diary"], roles: ["kitchen_manager"] },
 
   { ref: "shopping.buy-list", label: "Buy list", href: "/team-portal/shopping/buy-list", description: "Current purchasing list", keywords: ["buy list", "shopping list", "purchase list", "what to buy"], roles: ["shopping_staff", "shopping"] },
   { ref: "shopping.inventory", label: "Shopping inventory", href: "/team-portal/shopping/inventory", description: "Procurement stock view", keywords: ["shopping inventory", "procurement stock", "stock for shopping"], roles: ["shopping_staff", "shopping"] },
@@ -74,6 +75,7 @@ const CORE_NAVIGATION_REFS: ChatNavigationRef[] = [
   { ref: "cleaning.damage", label: "Damage reports", href: "/team-portal/cleaning/damage", description: "Report and review damage", keywords: ["damage", "damaged", "damage report", "broken"], roles: ["cleaning_manager", "cleaning_staff"] },
   { ref: "cleaning.dashboard.verification", label: "Equipment verification", href: "/team-portal/cleaning/dashboard?tab=verification#cleaning-verification", description: "Verify returned equipment and readiness", keywords: ["equipment verification", "verify equipment", "returned equipment"], roles: ["cleaning_manager", "cleaning_staff"], targetType: "tab" },
   { ref: "cleaning.dashboard.damages", label: "Cleaning damages", href: "/team-portal/cleaning/dashboard?tab=damages#cleaning-damages", description: "Flag damaged or lost equipment", keywords: ["cleaning damages", "flag damage", "damages and losses"], roles: ["cleaning_manager", "cleaning_staff"], targetType: "tab" },
+  { ref: "cleaning.management", label: "Cleaning team management", href: "/team-portal/cleaning/management", description: "Manage the cleaning roster, clock-ins, and daily work notes", keywords: ["cleaning team management", "manage cleaning team", "cleaning manager", "cleaning diary"], roles: ["cleaning_manager"] },
 
   { ref: "client.dashboard", label: "Client dashboard", href: "/client-portal/dashboard", description: "Your event workspace", keywords: ["client dashboard", "my dashboard", "account overview"], roles: ["client"] },
   { ref: "client.dashboard.past-events", label: "Past events", href: "/client-portal/dashboard#past-events", description: "Previously completed events", keywords: ["past events", "previous events", "old events"], roles: ["client"] },
@@ -353,7 +355,7 @@ function isPlatformTechnologyCostQuestion(query: string, role: string): boolean 
 
 function isPlatformAuditQuestion(query: string, role: string): boolean {
   if (role !== "super_admin") return false;
-  return /\b(?:audit|activity|failed|suspicious|recent company changes?|recent subscription changes?|recent pricing changes?|permission changes?|who changed|deactivated)\b/i.test(query);
+  return /\b(?:audit|activity|failed|suspicious|recent company changes?|recent subscription changes?|recent pricing changes?|permission changes?|deactivated)\b/i.test(query);
 }
 
 function isPlatformAiQuestion(query: string, role: string): boolean {

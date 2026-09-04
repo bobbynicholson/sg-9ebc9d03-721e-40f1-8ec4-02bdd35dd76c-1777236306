@@ -36,6 +36,7 @@ const customJestConfig = {
     '<rootDir>/.next/',
     '<rootDir>/.next-verify/',
     '<rootDir>/.next-stale-ui/',
+    '<rootDir>/\\.next-[^/]+/',
     // impeccable/ is a separate skill toolkit with Bun-runtime tests
     // (import 'bun:test'); Jest can't load them and they aren't part of
     // the app test suite. Exclude so `test:ci` stays green.
@@ -52,6 +53,7 @@ const customJestConfig = {
     '<rootDir>/.next/',
     '<rootDir>/.next-verify/',
     '<rootDir>/.next-stale-ui/',
+    '<rootDir>/\\.next-[^/]+/',
   ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',

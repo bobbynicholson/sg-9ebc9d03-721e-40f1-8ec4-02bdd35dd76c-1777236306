@@ -59,6 +59,7 @@ import {
   CheckCircle2, ArrowRight, Package, CalendarDays,
 } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
+import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
 import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
 
@@ -563,6 +564,8 @@ function CleaningTeamPage() {
             }
           />
           <PageWorkbench />
+
+          <TeamManagerWorkspace department="cleaning" />
 
           {/* Command-centre audit (2026-07-02): visible load-failure
               state with Retry. captureException alone left the cards

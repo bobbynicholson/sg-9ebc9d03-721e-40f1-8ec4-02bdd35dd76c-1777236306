@@ -356,7 +356,12 @@ export async function middleware(request: NextRequest) {
   let subscriptionStatus: string | null = null;
   let cacheHit = false;
 
-  const cached = await readCachedProfile(request, user.id);
+  // The role chooser is the boundary where a freshly authenticated user
+  // must see the latest user_departments rows. Do not let the short-lived
+  // profile cache hide a role an administrator just added; this request also
+  // rewrites the cache with the complete, current role list.
+  const forceFreshProfile = pathname === "/auth/select-role";
+  const cached = forceFreshProfile ? null : await readCachedProfile(request, user.id);
   if (cached) {
     profileRole = normalizeRoleValue(cached.role) || cached.role;
     profileRoles = (cached.roles && cached.roles.length > 0 ? cached.roles : [cached.role])

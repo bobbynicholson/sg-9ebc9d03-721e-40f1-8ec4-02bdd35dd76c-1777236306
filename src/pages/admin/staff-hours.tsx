@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ import { PortalShell, PortalHeader,
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {  UserRole  } from "@/types/app";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { MonthlyPayrollAudit } from "@/components/admin/MonthlyPayrollAudit";
 
 export default function ProtectedStaffHoursPage() {
   return (
@@ -98,6 +100,7 @@ const sumEarningsCents = (rows: StaffSession[]) =>
   rows.reduce((sum, s) => sum + centsOf(s.total_earnings), 0);
 
 function StaffHoursPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
@@ -115,6 +118,7 @@ function StaffHoursPage() {
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [ledgerError, setLedgerError] = useState<string | null>(null);
   const [period, setPeriod] = useState<"week" | "month">("week");
+  const [activeTab, setActiveTab] = useState<"hours" | "ledger" | "monthly-audit">("hours");
   const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [paymentData, setPaymentData] = useState({
@@ -160,6 +164,9 @@ function StaffHoursPage() {
   // via the same supabase client; we only need id + full_name for
   // staff this company employs.
   const [roster, setRoster] = useState<Array<{ id: string; full_name: string | null }>>([]);
+  useEffect(() => {
+    if (router.isReady && router.query.tab === "monthly-audit") setActiveTab("monthly-audit");
+  }, [router.isReady, router.query.tab]);
   useEffect(() => {
     if (!user?.company_id) return;
     let cancelled = false;
@@ -746,11 +753,16 @@ function StaffHoursPage() {
             );
           })()}
 
-          <Tabs defaultValue="hours" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "hours" | "ledger" | "monthly-audit")} className="space-y-6">
             <TabsList>
               <TabsTrigger value="hours">Staff Hours</TabsTrigger>
               <TabsTrigger value="ledger">Payment Ledger</TabsTrigger>
+              <TabsTrigger value="monthly-audit">Monthly audit</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="monthly-audit" className="space-y-4">
+              <MonthlyPayrollAudit companyId={user?.company_id} />
+            </TabsContent>
 
             <TabsContent value="hours" className="space-y-4">
               {loading && sortedStaffEntries.length === 0 && (

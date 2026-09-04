@@ -1514,6 +1514,7 @@ export type Database = {
           logo_url: string | null
           notification_email: string | null
           notification_settings: Json | null
+          role_compatibility_settings: Json
           onboarding_completed_at: string | null
           onboarding_dismissed_at: string | null
           owner_id: string | null
@@ -1602,6 +1603,7 @@ export type Database = {
           logo_url?: string | null
           notification_email?: string | null
           notification_settings?: Json | null
+          role_compatibility_settings?: Json
           onboarding_completed_at?: string | null
           onboarding_dismissed_at?: string | null
           owner_id?: string | null
@@ -1690,6 +1692,7 @@ export type Database = {
           logo_url?: string | null
           notification_email?: string | null
           notification_settings?: Json | null
+          role_compatibility_settings?: Json
           onboarding_completed_at?: string | null
           onboarding_dismissed_at?: string | null
           owner_id?: string | null

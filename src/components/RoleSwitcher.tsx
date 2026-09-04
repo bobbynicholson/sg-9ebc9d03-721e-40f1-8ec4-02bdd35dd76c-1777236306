@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { roleService } from "@/services/roleService";
 import {
@@ -23,13 +23,6 @@ import {
   Shield,
   Loader2,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/types/app";
 
@@ -73,7 +66,7 @@ interface RoleSwitcherProps {
 }
 
 export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwitcherProps) {
-  const { userRoles, activeRole, switchRole } = useAuth();
+  const { userRoles, activeRole, switchRole, companySlug } = useAuth();
   const { toast } = useToast();
   const [switching, setSwitching] = useState(false);
 
@@ -94,11 +87,18 @@ export function RoleSwitcher({ variant = "default", showLabel = true }: RoleSwit
     try {
       setSwitching(true);
       await switchRole(newRole);
+      // Use a full navigation so the new request gets the fresh active_role
+      // from Supabase and rehydrates every portal context. The Supabase
+      // session cookie is retained, so switching never asks for the password
+      // again.
+      window.location.assign(roleService.getRoleDashboardUrl(newRole, companySlug || undefined));
     } catch (error) {
       console.error("Failed to switch role:", error);
       toast({
         title: "Role not switched",
-        description: "Refresh and try switching roles again.",
+        description: error instanceof Error
+          ? error.message
+          : "We could not open that portal. Refresh and try again.",
         variant: "destructive",
       });
     } finally {

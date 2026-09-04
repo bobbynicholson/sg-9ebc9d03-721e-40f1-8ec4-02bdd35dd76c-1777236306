@@ -62,6 +62,7 @@ import {
   Settings as SettingsIcon, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { KitchenRulesPanel } from "@/components/admin/KitchenRulesPanel";
+import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
 import { PageWorkbench, PortalHeader, PortalShell, StatTile } from "@/components/portal/ui";
 import { damageReporterName, type DamageReporterProfile } from "@/lib/damageReporter";
 import { teamBucketsForUser } from "@/lib/teamRoleBuckets";
@@ -606,6 +607,8 @@ function KitchenTeamPage() {
             }
           />
           <PageWorkbench className="no-print" />
+
+          <TeamManagerWorkspace department="kitchen" />
 
           {/* Command-centre audit (2026-07-02): visible load-failure
               state with Retry. captureException alone left the cards

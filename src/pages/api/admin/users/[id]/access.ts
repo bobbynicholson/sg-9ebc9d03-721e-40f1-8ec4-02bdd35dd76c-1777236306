@@ -41,10 +41,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     const ssr = createPagesServerClient({ req, res });
-    const { data: { user: callerAuth } } = await ssr.auth.getUser();
+    let { data: { user: callerAuth } } = await ssr.auth.getUser();
+    if (!callerAuth) {
+      const authorization = String(req.headers.authorization || "");
+      const accessToken = authorization.startsWith("Bearer ")
+        ? authorization.slice("Bearer ".length).trim()
+        : "";
+      if (accessToken) {
+        callerAuth = (await getServiceSupabase().auth.getUser(accessToken)).data.user;
+      }
+    }
     if (!callerAuth) return res.status(401).json({ error: "Not signed in" });
 
-    const { data: callerProfile, error: callerError } = await ssr
+    const admin = getServiceSupabase();
+    const { data: callerProfile, error: callerError } = await admin
       .from("profiles")
       .select("id, email, full_name, role, active_role, company_id")
       .eq("id", callerAuth.id)
@@ -67,7 +77,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "One or more selected roles are not assignable" });
     }
 
-    const admin = getServiceSupabase();
     const { data: target, error: targetError } = await admin
       .from("profiles")
       .select("id, email, full_name, role, company_id, deleted_at")
@@ -93,15 +102,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { error: deleteRolesError } = await admin
       .from("user_departments")
       .delete()
-      .eq("user_id", targetId)
-      .eq("company_id", companyId);
+      .eq("user_id", targetId);
     if (deleteRolesError) throw deleteRolesError;
 
     const { error: insertRolesError } = await admin
       .from("user_departments")
       .insert(requestedRoles.map((department) => ({
         user_id: targetId,
-        company_id: companyId,
         department,
         is_primary: department === primary,
         assigned_by: callerAuth.id,

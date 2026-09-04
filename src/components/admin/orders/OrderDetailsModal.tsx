@@ -56,6 +56,7 @@ import type { AppOrder, MenuItem, EquipmentItem } from "@/types/app";
 import { BookingFacts } from "@/components/booking/BookingFacts";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import { AssignedShiftsPanel } from "@/components/admin/orders/AssignedShiftsPanel";
+import { OrderStaffingPanel } from "@/components/admin/orders/OrderStaffingPanel";
 import { OrderReadinessChip } from "@/components/admin/orders/OrderReadinessChip";
 import { OrderTimesStrip } from "@/components/admin/orders/OrderTimesStrip";
 import { OrderHistoryTimeline } from "@/components/admin/orders/OrderHistoryTimeline";
@@ -1176,6 +1177,15 @@ return (
       {bookingFacts && bookingFacts.role === "admin" && (
         <div className="mb-4">
           <BookingFacts facts={bookingFacts} />
+        </div>
+      )}
+      {selectedOrder && companyId && (
+        <div className="mb-4">
+          <OrderStaffingPanel
+            orderId={selectedOrder.id}
+            companyId={companyId}
+            order={selectedOrder as any}
+          />
         </div>
       )}
 

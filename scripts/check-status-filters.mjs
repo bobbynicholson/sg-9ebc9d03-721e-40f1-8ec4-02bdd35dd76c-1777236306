@@ -222,7 +222,7 @@ const KNOWN_TABLES = new Set([
   // columns to fire the service-lane steps.
   "event_attendance",
   // order_attachments = per-order file uploads added in H.x.
-  "order_attachments",
+  "order_attachments","order_work_contributors",
   "exchange_rates","financial_depreciation","financial_predictions","fixed_costs",
   "floor_safety_inspections","fuel_stockpile","gamification_achievements",
   "gamification_points","gps_tracking","health_certificates","import_events",
@@ -247,7 +247,7 @@ const KNOWN_TABLES = new Set([
   "sa_tax_deductibility_rules","safety_checks","safety_equipment","shopping_list_items",
   "shopping_lists","staff_invitations","staff_payment_ledger","staff_shift_tasks",
   "staff_work_sessions","storage_locations","storage_racks","subscription_webhook_events",
-  "subscriptions","suppliers",
+  "subscriptions","suppliers","team_manager_notes",
   "supplier_payables","support_ticket_messages","support_tickets","temperature_logs","time_clock_entries",
   "training_materials","trial_expiry_notifications","user_access_audit","user_departments","user_saved_views",
   "vehicle_bookings","vehicle_maintenance_log","vehicles","waste_logs",
