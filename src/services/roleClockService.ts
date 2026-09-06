@@ -13,6 +13,17 @@ export type ClosedRoleClock = {
 export const DEFAULT_ROLE_SWITCH_NOTE =
   "Role switch: previous work was automatically closed. No additional note supplied.";
 
+const ROLE_LABELS: Record<WorkRole, string> = {
+  driver: "Driver",
+  waiter: "Waiter",
+  kitchen: "Kitchen",
+  cleaning: "Cleaning",
+};
+
+function roleLabel(role: WorkRole): string {
+  return ROLE_LABELS[role] || role;
+}
+
 let noteDialogQueue: Promise<unknown> = Promise.resolve();
 
 function queueNoteDialog<T>(factory: () => Promise<T>): Promise<T> {
@@ -168,16 +179,26 @@ export async function promptForRoleHandoffNote(
   nextRole?: WorkRole,
 ): Promise<string> {
   const sameRoleOrderHandoff = !!nextRole && closed.every((item) => item.role === nextRole);
+  const previousRoles = Array.from(new Set(closed.map((item) => item.role)));
+  const previous = previousRoles.map(roleLabel).join(", ");
+  const next = nextRole ? roleLabel(nextRole) : null;
   const fallback = sameRoleOrderHandoff
-    ? `Switched to another order; previous ${nextRole} work was automatically closed. No additional note supplied.`
-    : nextRole
-      ? `Switched to ${nextRole}; previous work was automatically closed. No additional note supplied.`
+    ? `Switched to another order; previous ${previous} work was automatically closed. No additional note supplied.`
+    : next
+      ? `Switched from ${previous} to ${next}; previous work was automatically closed. No additional note supplied.`
     : DEFAULT_ROLE_SWITCH_NOTE;
   if (!closed.length) return fallback;
-  const previous = Array.from(new Set(closed.map((item) => item.role))).join(", ");
+  const transitionTitle = next && previous
+    ? `${previous} → ${next} handoff`
+    : "Role timer handoff";
+  const description = sameRoleOrderHandoff
+    ? `You are changing orders while staying as ${previous}. What did you complete on the previous order?`
+    : next
+      ? `You are switching from ${previous} to ${next}. What did you complete as ${previous} before starting ${next}?`
+      : `What did you complete as ${previous} before your timer was closed?`;
   return showNoteDialog({
-    title: sameRoleOrderHandoff ? "Switching to another order" : "Role timer handoff",
-    description: `What did you complete as ${previous} before ${sameRoleOrderHandoff ? "switching to another order" : `switching${nextRole ? ` to ${nextRole}` : " roles"}`}?`,
+    title: sameRoleOrderHandoff ? "Switching to another order" : transitionTitle,
+    description,
     fallback,
     suggestions: [
       "Completed the assigned work.",
