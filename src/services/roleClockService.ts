@@ -24,6 +24,17 @@ function roleLabel(role: WorkRole): string {
   return ROLE_LABELS[role] || role;
 }
 
+function sourceClock(closed: ClosedRoleClock[]): ClosedRoleClock | null {
+  return [...closed]
+    .filter((item) => item.startedAt)
+    .sort((a, b) => {
+      const byStart = new Date(b.startedAt as string).getTime() - new Date(a.startedAt as string).getTime();
+      if (byStart !== 0) return byStart;
+      // The unified session is authoritative when timestamps are identical.
+      return Number(b.source === "role_work_session") - Number(a.source === "role_work_session");
+    })[0] || closed[0] || null;
+}
+
 let noteDialogQueue: Promise<unknown> = Promise.resolve();
 
 function queueNoteDialog<T>(factory: () => Promise<T>): Promise<T> {
@@ -178,9 +189,13 @@ export async function promptForRoleHandoffNote(
   closed: ClosedRoleClock[],
   nextRole?: WorkRole,
 ): Promise<string> {
-  const sameRoleOrderHandoff = !!nextRole && closed.every((item) => item.role === nextRole);
-  const previousRoles = Array.from(new Set(closed.map((item) => item.role)));
-  const previous = previousRoles.map(roleLabel).join(", ");
+  const source = sourceClock(closed);
+  // Several old role tables can contain an open row after a legacy session.
+  // They are all closed for consistency, but only the newest active source
+  // represents where the person was actually working immediately before
+  // this switch (e.g. Waiter -> Driver, not stale Kitchen -> Driver).
+  const previous = source ? roleLabel(source.role) : "your previous role";
+  const sameRoleOrderHandoff = !!nextRole && source?.role === nextRole;
   const next = nextRole ? roleLabel(nextRole) : null;
   const fallback = sameRoleOrderHandoff
     ? `Switched to another order; previous ${previous} work was automatically closed. No additional note supplied.`
