@@ -9,6 +9,8 @@ import {
   beginRoleClock,
   endCurrentRoleClock,
   promptForAutomaticRoleClockNote,
+  promptForRoleHandoffNote,
+  saveRoleHandoffNote,
 } from "@/services/roleClockService";
 
 // Admin-side roles that should receive kitchen-duty pings. Audit (May
@@ -89,12 +91,18 @@ export const kitchenDutyService = {
 
     if (companyId) {
       try {
-        await beginRoleClock({
+        const roleClock = await beginRoleClock({
           companyId,
           userId,
           role: "kitchen",
           orderId: orderId || null,
         });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(
+            roleClock.closed,
+            promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+          );
+        }
       } catch (roleErr) {
         console.warn("[kitchenDutyService.startDutyShift] role clock failed (non-blocking):", roleErr);
       }
