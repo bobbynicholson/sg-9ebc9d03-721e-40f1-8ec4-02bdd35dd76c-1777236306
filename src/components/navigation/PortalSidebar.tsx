@@ -212,6 +212,35 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   // cannot drift apart.
   const hrefForItem = (href: string) => withSlug(href);
 
+  // A fragment link needs a small explicit click assist. If the operator is
+  // already on the same URL (for example, /kitchen/duty#clock), clicking the
+  // sidebar item again does not fire a route or hash change, so the browser
+  // has nothing to do. The destination page still owns the post-load retry;
+  // this handles the same-page click for every portal that uses this rail.
+  const handleNavClick = (
+    item: PortalSidebarNavItem,
+    onClickAfterNav?: () => void,
+  ) => () => {
+    onClickAfterNav?.();
+
+    const hashIndex = item.href.indexOf("#");
+    if (hashIndex < 0 || typeof window === "undefined") return;
+
+    const rawHash = item.href.slice(hashIndex + 1);
+    let targetId = rawHash;
+    try {
+      targetId = decodeURIComponent(rawHash);
+    } catch {
+      // Keep the raw id if a malformed fragment was supplied.
+    }
+
+    const align = () => {
+      document.getElementById(targetId)?.scrollIntoView({ block: "start" });
+    };
+    window.setTimeout(align, 0);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(align));
+  };
+
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
   const BrandIcon = config.brandIcon;
 
@@ -285,7 +314,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
       <Link
         key={item.href}
         href={hrefForItem(item.href)}
-        onClick={onClickAfterNav}
+        onClick={handleNavClick(item, onClickAfterNav)}
         className={cn(
           // Wave 70.41b - overflow-hidden so long badges + descriptions
           // never bleed outside the sidebar's right edge. Matches the
