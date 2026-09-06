@@ -4,8 +4,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { WaiterPageShell } from "@/components/waiter/WaiterPageShell";
 import { WaiterServicePanel } from "@/components/waiter/WaiterServicePanel";
-import { DriverClockButton } from "@/components/driver/DriverClockButton";
-import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
+import { WaiterClockButton } from "@/components/waiter/WaiterClockButton";
 import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary";
 import { PortalOverview } from "@/components/portal/ui";
 
@@ -37,17 +36,11 @@ function WaiterDashboardInner() {
         </WidgetErrorBoundary>
       </div>
 
-      {/* Clock + history share the driver widgets; boundary-wrap them so
-          a crash in either can't take the whole service page down. */}
+      {/* Waiter has its own shared role clock. Reusing the driver clock here
+          made Waiter -> Kitchen handoffs appear as Driver -> Kitchen. */}
       <div id="clock" className="mb-4 sm:mb-6 scroll-mt-24">
         <WidgetErrorBoundary label="Shift clock">
-          <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
-        </WidgetErrorBoundary>
-      </div>
-
-      <div className="mb-4 sm:mb-6">
-        <WidgetErrorBoundary label="Shift history">
-          <DriverShiftHistory driverId={user?.id} />
+          <WaiterClockButton userId={user?.id} companyId={user?.company_id} />
         </WidgetErrorBoundary>
       </div>
     </WaiterPageShell>
