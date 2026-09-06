@@ -80,6 +80,7 @@ function showNoteDialog(args: {
       background: "#ffffff",
       color: "#0f172a",
       padding: "24px",
+      border: "1px solid rgb(var(--brand-primary-rgb, 37 99 235) / 0.2)",
       boxShadow: "0 24px 70px rgba(15, 23, 42, 0.35)",
       fontFamily: "system-ui, sans-serif",
     });
@@ -87,7 +88,7 @@ function showNoteDialog(args: {
     const title = document.createElement("h2");
     title.id = "role-clock-note-title";
     title.textContent = args.title;
-    Object.assign(title.style, { margin: "0 0 8px", fontSize: "20px", fontWeight: "700" });
+    Object.assign(title.style, { margin: "0 0 8px", fontSize: "20px", fontWeight: "700", color: "var(--brand-primary, #2563eb)" });
 
     const description = document.createElement("p");
     description.textContent = args.description;
@@ -145,7 +146,7 @@ function showNoteDialog(args: {
     const saveButton = document.createElement("button");
     saveButton.type = "button";
     saveButton.textContent = "Save note";
-    Object.assign(saveButton.style, { border: "0", borderRadius: "8px", background: "#0f766e", color: "#ffffff", padding: "9px 14px", cursor: "pointer", fontWeight: "600" });
+    Object.assign(saveButton.style, { border: "0", borderRadius: "8px", background: "rgb(var(--brand-primary-rgb, 37 99 235))", color: "#ffffff", padding: "9px 14px", cursor: "pointer", fontWeight: "600" });
     saveButton.addEventListener("click", () => finish(textarea.value));
 
     const onKeyDown = (event: KeyboardEvent) => {
