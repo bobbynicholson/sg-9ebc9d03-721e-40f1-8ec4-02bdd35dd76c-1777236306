@@ -140,6 +140,23 @@ export function CleaningDutyWidget() {
     return () => clearInterval(t);
   }, [loadOnDutyStaff]);
 
+  // A role handoff may be started from another department tab. Refresh on
+  // the shared session event so this card closes immediately instead of
+  // showing a stale Cleaning timer until the 30s poll.
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`role-clock-cleaning-${user.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "role_work_sessions",
+        filter: `user_id=eq.${user.id}`,
+      }, () => { void loadOnDutyStaff(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [loadOnDutyStaff, user?.id]);
+
   // CLN2-H (CLN2-68): best-effort GPS capture at clock-in. Resolves
   // with NULL coords on denial / unsupported / timeout so we still
   // let the cleaner start their shift. 8-second timeout matches the
@@ -187,22 +204,21 @@ export function CleaningDutyWidget() {
     if (!user?.id || !companyId) return;
     setBusy(true);
     try {
-      const { lat, lng, accuracyM } = await captureGeolocation();
-      try {
-        const roleClock = await beginRoleClock({
-          companyId,
-          userId: user.id,
-          role: "cleaning",
-        });
-        if (roleClock.closed.length > 0) {
-          await saveRoleHandoffNote(
-            roleClock.closed,
-            await promptForRoleHandoffNote(roleClock.closed, "cleaning"),
-          );
-        }
-      } catch (roleErr) {
-        console.warn("Could not apply cross-role cleaning handoff (non-blocking):", roleErr);
+      // Enforce the one-person/one-timer rule before GPS. GPS is optional
+      // and can take several seconds; it must never leave the old role open
+      // while the new cleaning timer starts.
+      const roleClock = await beginRoleClock({
+        companyId,
+        userId: user.id,
+        role: "cleaning",
+      });
+      if (roleClock.closed.length > 0) {
+        await saveRoleHandoffNote(
+          roleClock.closed,
+          await promptForRoleHandoffNote(roleClock.closed, "cleaning"),
+        );
       }
+      const { lat, lng, accuracyM } = await captureGeolocation();
       await equipmentTrackingService.startCleaningDuty({
         userId: user.id,
         companyId,

@@ -68,8 +68,23 @@ export function WaiterClockButton({ userId, companyId }: WaiterClockButtonProps)
 
   useEffect(() => {
     void refresh();
-    const timer = setInterval(() => setTick((value) => value + 1), 60_000);
-    return () => clearInterval(timer);
+    const timer = setInterval(() => {
+      setTick((value) => value + 1);
+      void refresh();
+    }, 15_000);
+    const channel = supabase
+      .channel(`role-clock-waiter-${userId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "role_work_sessions",
+        filter: `user_id=eq.${userId}`,
+      }, () => { void refresh(); })
+      .subscribe();
+    return () => {
+      clearInterval(timer);
+      void supabase.removeChannel(channel);
+    };
     // refresh uses stable props only; the interval is deliberately local to
     // this small clock card.
     // eslint-disable-next-line react-hooks/exhaustive-deps

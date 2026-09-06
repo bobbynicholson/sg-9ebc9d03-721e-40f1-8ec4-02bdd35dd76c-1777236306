@@ -993,7 +993,7 @@ ${companyName}`;
 
       const nowIso = new Date().toISOString();
       const closeNote = params.userId
-        ? promptForAutomaticRoleClockNote(
+        ? await promptForAutomaticRoleClockNote(
             "cleaning",
             "All cleaning jobs are complete, so this cleaning timer is closing automatically.",
           )

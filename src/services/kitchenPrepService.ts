@@ -882,23 +882,19 @@ export const kitchenPrepService = {
         (actorRole === "kitchen_manager" && isManagerWorkingNow(actor as any));
 
       if (isKitchenLabor && (updated as any)?.company_id) {
-        try {
-          const roleClock = await beginRoleClock({
-            client: supabase,
-            companyId: (updated as any).company_id,
-            userId: performedBy,
-            role: "kitchen",
-            orderId,
-            startedAt: nowIso,
-          });
-          if (roleClock.closed.length > 0) {
-            await saveRoleHandoffNote(
-              roleClock.closed,
-              await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
-            );
-          }
-        } catch (roleErr) {
-          console.warn("[kitchenPrepService] role clock failed (non-blocking):", roleErr);
+        const roleClock = await beginRoleClock({
+          client: supabase,
+          companyId: (updated as any).company_id,
+          userId: performedBy,
+          role: "kitchen",
+          orderId,
+          startedAt: nowIso,
+        });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(
+            roleClock.closed,
+            await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+          );
         }
       }
 

@@ -360,7 +360,7 @@ export async function beginRoleClock(args: {
     if (raced?.role === args.role) return { sessionId: raced.id, closed };
   }
   if (error) throw error;
-  return { sessionId: null, closed };
+  throw new Error("The shared work timer could not be started. No department timer was created.");
 }
 
 /** Close a role session explicitly; no-op if another request already closed it. */

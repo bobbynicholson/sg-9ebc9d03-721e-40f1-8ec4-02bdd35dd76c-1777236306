@@ -928,26 +928,21 @@ export const driverPayService = {
     client: Sb = defaultClient,
   ): Promise<{ ok: boolean; shiftId?: string | null; error?: string }> {
     try {
-      try {
-        // Pickup/in-transit is an order-context start, so it also claims the
-        // driver's single active role and closes any waiter/kitchen/cleaning
-        // duty clock held by the same person.
-        const roleClock = await beginRoleClock({
+      // Pickup/in-transit is an order-context start, so it must claim the
+      // driver's single active role before the legacy delivery row is opened.
+      const roleClock = await beginRoleClock({
+        client,
+        companyId: opts.companyId,
+        userId: opts.driverId,
+        role: "driver",
+        orderId: opts.orderId,
+      });
+      if (roleClock.closed.length > 0) {
+        await saveRoleHandoffNote(
+          roleClock.closed,
+          await promptForRoleHandoffNote(roleClock.closed, "driver"),
           client,
-          companyId: opts.companyId,
-          userId: opts.driverId,
-          role: "driver",
-          orderId: opts.orderId,
-        });
-        if (roleClock.closed.length > 0) {
-          await saveRoleHandoffNote(
-            roleClock.closed,
-            await promptForRoleHandoffNote(roleClock.closed, "driver"),
-            client,
-          );
-        }
-      } catch (roleErr) {
-        console.warn("[driverPayService] role clock switch unavailable:", roleErr);
+        );
       }
       // Check for an existing open shift on this order. Avoids dupe
       // rows when the driver hits "picked up" twice or the API

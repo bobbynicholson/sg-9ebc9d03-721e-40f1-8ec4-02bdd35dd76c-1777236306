@@ -161,6 +161,24 @@ export function DriverClockButton({
 
   useEffect(() => {
     void refresh();
+    const timer = setInterval(() => void refresh(), 15_000);
+    const channel = driverId
+      ? supabase
+        .channel(`role-clock-driver-${driverId}`)
+        .on("postgres_changes", {
+          event: "*",
+          schema: "public",
+          table: "role_work_sessions",
+          filter: `user_id=eq.${driverId}`,
+        }, () => { void refresh(); })
+        .subscribe()
+      : null;
+    return () => {
+      clearInterval(timer);
+      if (channel) void supabase.removeChannel(channel);
+    };
+    // refresh uses stable props only; the timer + realtime channel keep the
+    // legacy delivery card in sync when another role closes this shift.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverId, companyId]);
 
@@ -223,15 +241,12 @@ export function DriverClockButton({
     setBusy(true);
     try {
       const nowIso = new Date().toISOString();
-      try {
-        const roleClock = await beginRoleClock({ companyId, userId: driverId, role: "driver", startedAt: nowIso });
-        if (roleClock.closed.length > 0) {
-          await saveRoleHandoffNote(roleClock.closed, await promptForRoleHandoffNote(roleClock.closed, "driver"));
-        }
-      } catch (roleErr) {
-        // Keep the legacy driver clock usable while an older local database
-        // is waiting for the role-clock migration to be applied.
-        console.warn("[DriverClockButton] role switch lock unavailable:", roleErr);
+      // The shared role timer is authoritative. Do not fall back to the
+      // legacy driver row, otherwise a failed/racing handoff can create two
+      // active department timers for the same person.
+      const roleClock = await beginRoleClock({ companyId, userId: driverId, role: "driver", startedAt: nowIso });
+      if (roleClock.closed.length > 0) {
+        await saveRoleHandoffNote(roleClock.closed, await promptForRoleHandoffNote(roleClock.closed, "driver"));
       }
       // LOCAL date, not the UTC slice of nowIso. South Africa is
       // UTC+2, so between 00:00 and 02:00 SAST the UTC date is still

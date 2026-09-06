@@ -199,13 +199,9 @@ export function WaiterServicePanel() {
       // same person's driver/kitchen/cleaning clock is still closed at the
       // real first waiter action, not only when they tap "On site".
       if (phase !== "equipment_returned_at") {
-        try {
-          const roleClock = await beginRoleClock({ companyId: user.company_id, userId: user.id, role: "waiter", orderId, startedAt: nowIso });
-          if (roleClock.closed.length > 0) {
-            await saveRoleHandoffNote(roleClock.closed, await promptForRoleHandoffNote(roleClock.closed, "waiter"));
-          }
-        } catch (roleErr) {
-          console.warn("[WaiterServicePanel] role switch lock unavailable:", roleErr);
+        const roleClock = await beginRoleClock({ companyId: user.company_id, userId: user.id, role: "waiter", orderId, startedAt: nowIso });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(roleClock.closed, await promptForRoleHandoffNote(roleClock.closed, "waiter"));
         }
       }
       const phasePayload = {

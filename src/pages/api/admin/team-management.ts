@@ -7,6 +7,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { UserRole } from "@/types/app";
 import { teamBucketsForUser, type TeamRoleDepartmentRow } from "@/lib/teamRoleBuckets";
+import { beginRoleClock, endCurrentRoleClock, saveRoleHandoffNote } from "@/services/roleClockService";
 
 type Department = "kitchen" | "cleaning";
 type Member = {
@@ -183,6 +184,26 @@ async function handleClock(
   const now = new Date().toISOString();
   let shiftId: string | null = null;
 
+  // Admin clock actions still represent work by the selected person, not by
+  // the admin operating the screen. Claim the same shared one-role timer
+  // before touching either legacy department table.
+  if (action === "clock_in") {
+    const roleClock = await beginRoleClock({
+      client: admin,
+      companyId: team.company_id,
+      userId: memberId,
+      role: department,
+      startedAt: now,
+    });
+    if (roleClock.closed.length > 0) {
+      await saveRoleHandoffNote(
+        roleClock.closed,
+        `Manager clocked this person into ${department}; previous work was automatically closed. No additional note supplied.`,
+        admin,
+      );
+    }
+  }
+
   if (department === "cleaning") {
     if (action === "clock_in") {
       if (member.status.on_duty) throw Object.assign(new Error(`${member.full_name || "This team member"} is already clocked in`), { statusCode: 409 });
@@ -196,6 +217,15 @@ async function handleClock(
       shiftId = member.status.shift_id;
       const { error } = await (admin as any).from("cleaning_duty_logs").update({ on_duty: false, duty_ended_at: now }).eq("id", shiftId).eq("company_id", team.company_id);
       if (error) throw error;
+      await endCurrentRoleClock({
+        client: admin,
+        companyId: team.company_id,
+        userId: memberId,
+        role: "cleaning",
+        endedAt: now,
+        reason: "manual",
+        note: "Manager clocked this person out. No additional note supplied.",
+      });
     }
   } else {
     if (action === "clock_in") {
@@ -210,6 +240,15 @@ async function handleClock(
       shiftId = member.status.shift_id;
       const { error } = await (admin as any).from("kitchen_duty_shifts").update({ is_active: false, shift_end: now, updated_at: now }).eq("id", shiftId).eq("company_id", team.company_id);
       if (error) throw error;
+      await endCurrentRoleClock({
+        client: admin,
+        companyId: team.company_id,
+        userId: memberId,
+        role: "kitchen",
+        endedAt: now,
+        reason: "manual",
+        note: "Manager clocked this person out. No additional note supplied.",
+      });
     }
   }
 

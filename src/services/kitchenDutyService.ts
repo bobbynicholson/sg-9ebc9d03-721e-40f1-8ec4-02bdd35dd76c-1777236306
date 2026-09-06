@@ -90,21 +90,17 @@ export const kitchenDutyService = {
     const companyId = profile?.company_id || null;
 
     if (companyId) {
-      try {
-        const roleClock = await beginRoleClock({
-          companyId,
-          userId,
-          role: "kitchen",
-          orderId: orderId || null,
-        });
-        if (roleClock.closed.length > 0) {
-          await saveRoleHandoffNote(
-            roleClock.closed,
-            await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
-          );
-        }
-      } catch (roleErr) {
-        console.warn("[kitchenDutyService.startDutyShift] role clock failed (non-blocking):", roleErr);
+      const roleClock = await beginRoleClock({
+        companyId,
+        userId: staffId,
+        role: "kitchen",
+        orderId: orderId || null,
+      });
+      if (roleClock.closed.length > 0) {
+        await saveRoleHandoffNote(
+          roleClock.closed,
+          await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+        );
       }
     }
 

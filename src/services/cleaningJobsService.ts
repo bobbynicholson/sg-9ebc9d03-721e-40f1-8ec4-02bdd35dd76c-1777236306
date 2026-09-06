@@ -342,8 +342,14 @@ export async function startJob(
         startedAt,
       });
       closed = roleClock.closed;
-    } catch (roleErr) {
-      console.warn("[cleaningJobsService.startJob] role clock failed (non-blocking):", roleErr);
+    } catch (roleErr: any) {
+      // Never leave a cleaning job active without the shared one-timer lock.
+      // Otherwise another role can run at the same time for this person.
+      await sb.from("cleaning_jobs")
+        .update({ status: "queued", actual_start: null, started_by: null })
+        .eq("id", jobId)
+        .eq("status", "in_progress");
+      return { ok: false, error: roleErr?.message || "The shared work timer could not be started." };
     }
     try {
       const { data: activeDuty } = await sb

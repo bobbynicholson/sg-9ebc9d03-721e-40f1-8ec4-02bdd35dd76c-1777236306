@@ -649,21 +649,17 @@ function KitchenDutyRosterPageInner() {
       }
 
       const nowIso = new Date().toISOString();
-      try {
-        const roleClock = await beginRoleClock({
-          companyId: user.company_id,
-          userId: user.id,
-          role: "kitchen",
-          startedAt: nowIso,
-        });
-        if (roleClock.closed.length > 0) {
-          await saveRoleHandoffNote(
-            roleClock.closed,
-            await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
-          );
-        }
-      } catch (roleErr) {
-        console.warn("Could not apply cross-role kitchen handoff (non-blocking):", roleErr);
+      const roleClock = await beginRoleClock({
+        companyId: user.company_id,
+        userId: user.id,
+        role: "kitchen",
+        startedAt: nowIso,
+      });
+      if (roleClock.closed.length > 0) {
+        await saveRoleHandoffNote(
+          roleClock.closed,
+          await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+        );
       }
       const { data: insertedShift, error } = await supabase
         .from("kitchen_duty_shifts")

@@ -261,6 +261,33 @@ export function KitchenStaffTileBoard({
     if (busy.has(s.id)) return;
     setBusyFor(s.id, true);
     try {
+      // A linked staff tile represents the authenticated person. Keep its
+      // shared role timer in sync so starting kitchen work closes an active
+      // waiter/driver/cleaning timer for that same person. Do not do this
+      // when a manager is clocking in somebody else from the shared tablet.
+      // The linked profile is the actual person, so use it even when a
+      // manager is operating the shared tablet on that person's behalf.
+      const sharedUserId = s.linked_profile_id ||
+        ((s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ? user?.id : null) ||
+        ((!s.linked_profile_id && isLegacySharedTeamLogin) ? user?.id : null);
+      if (sharedUserId) {
+        const workRole = department === "cleaning" ? "cleaning" : "kitchen";
+        const roleClock = await beginRoleClock({
+          companyId,
+          userId: sharedUserId,
+          role: workRole,
+          startedAt: capturedAt.toISOString(),
+        });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(
+            roleClock.closed,
+            await promptForRoleHandoffNote(roleClock.closed, workRole),
+          );
+        }
+      }
+      // Open the department row only after the shared lock and any handoff
+      // note have completed. This prevents a brief second active timer and
+      // ensures a failed lock never creates an unprotected legacy shift.
       await kitchenStaffService.clockIn({
         companyId,
         staffMemberId: s.id,
@@ -269,33 +296,6 @@ export function KitchenStaffTileBoard({
         overrideStartAt: capturedAt.toISOString(),
       });
       setOpeningTarget(null);
-      // A linked staff tile represents the authenticated person. Keep its
-      // shared role timer in sync so starting kitchen work closes an active
-      // waiter/driver/cleaning timer for that same person. Do not do this
-      // when a manager is clocking in somebody else from the shared tablet.
-      const controlsOwnSharedClock =
-        s.linked_profile_id === user?.id ||
-        (!!s.email && !!user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ||
-        (!s.linked_profile_id && isLegacySharedTeamLogin);
-      if (controlsOwnSharedClock && user?.id) {
-        try {
-          const workRole = department === "cleaning" ? "cleaning" : "kitchen";
-          const roleClock = await beginRoleClock({
-            companyId,
-            userId: user.id,
-            role: workRole,
-            startedAt: capturedAt.toISOString(),
-          });
-          if (roleClock.closed.length > 0) {
-            await saveRoleHandoffNote(
-              roleClock.closed,
-              await promptForRoleHandoffNote(roleClock.closed, workRole),
-            );
-          }
-        } catch (roleErr) {
-          console.warn("[KitchenStaffTileBoard] shared role handoff failed (non-blocking):", roleErr);
-        }
-      }
       toast({
         title: `${s.full_name} is on shift`,
         description: "Their hours are tracking now - nice one.",
@@ -326,23 +326,17 @@ export function KitchenStaffTileBoard({
         clockedOutBy: user?.id || null,
         notes: note,
       });
-      const controlsOwnSharedClock =
-        s.linked_profile_id === user?.id ||
-        (!!s.email && !!user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ||
-        (!s.linked_profile_id && isLegacySharedTeamLogin);
-      if (controlsOwnSharedClock && companyId && user?.id) {
-        try {
-          const workRole = department === "cleaning" ? "cleaning" : "kitchen";
-          await endCurrentRoleClock({
-            companyId,
-            userId: user.id,
-            role: workRole,
-            reason: "manual",
-            note,
-          });
-        } catch (roleErr) {
-          console.warn("[KitchenStaffTileBoard] shared role clock-out failed (non-blocking):", roleErr);
-        }
+      const sharedUserId = s.linked_profile_id ||
+        ((s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ? user?.id : null) ||
+        ((!s.linked_profile_id && isLegacySharedTeamLogin) ? user?.id : null);
+      if (sharedUserId && companyId) {
+        await endCurrentRoleClock({
+          companyId,
+          userId: sharedUserId,
+          role: department === "cleaning" ? "cleaning" : "kitchen",
+          reason: "manual",
+          note,
+        });
       }
       toast({ title: "Clocked out", description: s.full_name });
       setCloseNote("");
@@ -447,6 +441,23 @@ export function KitchenStaffTileBoard({
       } else {
         // New back-dated shift - create it open, then close immediately if
         // an end time was provided.
+        if (!endIso && overrideTarget.staff.linked_profile_id) {
+          const roleClock = await beginRoleClock({
+            companyId,
+            userId: overrideTarget.staff.linked_profile_id,
+            role: department === "cleaning" ? "cleaning" : "kitchen",
+            startedAt: startIso,
+          });
+          if (roleClock.closed.length > 0) {
+            await saveRoleHandoffNote(
+              roleClock.closed,
+              await promptForRoleHandoffNote(
+                roleClock.closed,
+                department === "cleaning" ? "cleaning" : "kitchen",
+              ),
+            );
+          }
+        }
         const created = await kitchenStaffService.clockIn({
           companyId,
           staffMemberId: overrideTarget.staff.id,
