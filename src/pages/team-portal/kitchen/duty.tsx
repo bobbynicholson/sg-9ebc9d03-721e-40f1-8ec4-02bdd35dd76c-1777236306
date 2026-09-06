@@ -420,6 +420,42 @@ function KitchenDutyRosterPageInner() {
     load();
   }, [user?.company_id, load]);
 
+  // Sidebar links may arrive with #clock or #team. The browser's native
+  // fragment jump can happen before the async duty roster has replaced the
+  // loading shell, which leaves the final section below the viewport. Re-run
+  // the jump after the page has loaded and whenever the hash changes so both
+  // sidebar deep-links remain reliable.
+  useEffect(() => {
+    if (loading || typeof window === "undefined") return;
+
+    const alignToHash = () => {
+      const rawHash = window.location.hash.slice(1);
+      if (!rawHash) return;
+
+      let targetId = rawHash;
+      try {
+        targetId = decodeURIComponent(rawHash);
+      } catch {
+        // Keep the raw id if a malformed fragment was supplied.
+      }
+
+      const target = document.getElementById(targetId);
+      if (!target) return;
+
+      // Wait one frame for the loaded card/list layout to settle before the
+      // scroll, then repeat once for fonts or async content that changes its
+      // height immediately after the first paint.
+      window.requestAnimationFrame(() => {
+        target.scrollIntoView({ block: "start" });
+        window.requestAnimationFrame(() => target.scrollIntoView({ block: "start" }));
+      });
+    };
+
+    alignToHash();
+    window.addEventListener("hashchange", alignToHash);
+    return () => window.removeEventListener("hashchange", alignToHash);
+  }, [loading, lastLoadedAt]);
+
   // KIT3-F: realtime subscription on the three tables this page
   // shows live. kitchen_duty_shifts drives Live Floor + Recent shifts
   // + the chef's own earnings strip. kitchen_handoffs drives the
