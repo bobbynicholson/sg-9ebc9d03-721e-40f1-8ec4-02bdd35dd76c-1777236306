@@ -51,9 +51,8 @@ import {
 import {
   beginRoleClock,
   endCurrentRoleClock,
+  promptForRoleHandoffNote,
   saveRoleHandoffNote,
-  type ClosedRoleClock,
-  type WorkRole,
 } from "@/services/roleClockService";
 
 function fmtMins(mins: number): string {
@@ -155,12 +154,6 @@ export function KitchenStaffTileBoard({
     shift: KitchenShift;
   } | null>(null);
   const [closeNote, setCloseNote] = useState("");
-  const [handoffPrompt, setHandoffPrompt] = useState<{
-    closed: ClosedRoleClock[];
-    nextRole: WorkRole;
-  } | null>(null);
-  const [handoffNote, setHandoffNote] = useState("");
-  const handoffResolver = useRef<((note: string) => void) | null>(null);
   // Wave 45 follow-up - clock-in confirmation. Captures the moment
   // the operator tapped the tile so the dialog can show the exact
   // start time we'd record. Lets misclicks bail out without locking
@@ -239,29 +232,6 @@ export function KitchenStaffTileBoard({
     });
   };
 
-  const fallbackHandoffNote = (closed: ClosedRoleClock[], nextRole: WorkRole) => {
-    const sameRoleOrder = closed.length > 0 && closed.every((item) => item.role === nextRole);
-    return sameRoleOrder
-      ? `Switched to another order; previous ${nextRole} work was automatically closed. No additional note supplied.`
-      : `Switched to ${nextRole}; previous work was automatically closed. No additional note supplied.`;
-  };
-
-  const askForHandoffNote = (closed: ClosedRoleClock[], nextRole: WorkRole) => new Promise<string>((resolve) => {
-    handoffResolver.current = resolve;
-    setHandoffNote("");
-    setHandoffPrompt({ closed, nextRole });
-  });
-
-  const finishHandoffNote = (value?: string) => {
-    if (!handoffPrompt) return;
-    const resolver = handoffResolver.current;
-    handoffResolver.current = null;
-    const note = value?.trim() || fallbackHandoffNote(handoffPrompt.closed, handoffPrompt.nextRole);
-    setHandoffPrompt(null);
-    setHandoffNote("");
-    resolver?.(note);
-  };
-
   // Wave 45 follow-up - the tap captures the moment + opens the
   // confirmation dialog. Bobby's note: shift accuracy matters
   // (every minute = pay), AND misclicks happen, so we surface a
@@ -305,6 +275,7 @@ export function KitchenStaffTileBoard({
       // when a manager is clocking in somebody else from the shared tablet.
       const controlsOwnSharedClock =
         s.linked_profile_id === user?.id ||
+        (!!s.email && !!user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ||
         (!s.linked_profile_id && isLegacySharedTeamLogin);
       if (controlsOwnSharedClock && user?.id) {
         try {
@@ -316,8 +287,10 @@ export function KitchenStaffTileBoard({
             startedAt: capturedAt.toISOString(),
           });
           if (roleClock.closed.length > 0) {
-            const note = await askForHandoffNote(roleClock.closed, workRole);
-            await saveRoleHandoffNote(roleClock.closed, note);
+            await saveRoleHandoffNote(
+              roleClock.closed,
+              await promptForRoleHandoffNote(roleClock.closed, workRole),
+            );
           }
         } catch (roleErr) {
           console.warn("[KitchenStaffTileBoard] shared role handoff failed (non-blocking):", roleErr);
@@ -355,6 +328,7 @@ export function KitchenStaffTileBoard({
       });
       const controlsOwnSharedClock =
         s.linked_profile_id === user?.id ||
+        (!!s.email && !!user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ||
         (!s.linked_profile_id && isLegacySharedTeamLogin);
       if (controlsOwnSharedClock && companyId && user?.id) {
         try {
@@ -738,46 +712,6 @@ export function KitchenStaffTileBoard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog
-        open={!!handoffPrompt}
-        onOpenChange={(open) => { if (!open) finishHandoffNote(); }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>What did you complete before switching?</DialogTitle>
-            <DialogDescription>
-              Your previous {handoffPrompt?.closed.map((item) => item.role).filter((role, index, all) => all.indexOf(role) === index).join(", ")} timer was closed when this staff timer started. Add a note for the time already worked.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="role-handoff-note">Work completed</Label>
-            <Textarea
-              id="role-handoff-note"
-              rows={4}
-              value={handoffNote}
-              onChange={(e) => setHandoffNote(e.target.value)}
-              placeholder="Describe what you completed before switching."
-              autoFocus
-            />
-            <div className="flex flex-wrap gap-2">
-              {["Completed assigned service work.", "Finished the current task and handed it over.", "No additional work to report.", "Started the clock by mistake; no work completed."].map((suggestion) => (
-                <Button key={suggestion} type="button" variant="outline" size="sm" onClick={() => setHandoffNote(suggestion)} className="text-left text-xs">
-                  {suggestion}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => finishHandoffNote()}>
-              Use default note
-            </Button>
-            <Button type="button" onClick={() => finishHandoffNote(handoffNote)}>
-              Save note
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Clock-out confirm ─────────────────────────────────────────────
           Wave 45 follow-up - warmed up the copy. Same friendly-but-
