@@ -9,7 +9,7 @@
  * ShoppingNav, CleaningNav) that diverged only in icons, accent
  * colours, and section data.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
@@ -220,11 +220,15 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   const handleNavClick = (
     item: PortalSidebarNavItem,
     onClickAfterNav?: () => void,
-  ) => () => {
+  ) => (event: ReactMouseEvent<HTMLAnchorElement>) => {
     onClickAfterNav?.();
 
     const hashIndex = item.href.indexOf("#");
     if (hashIndex < 0 || typeof window === "undefined") return;
+
+    // Preserve standard browser behaviour for modified clicks (new tab,
+    // middle click, etc.). Only a normal primary click is handled here.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
     const rawHash = item.href.slice(hashIndex + 1);
     let targetId = rawHash;
@@ -237,8 +241,31 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     const align = () => {
       document.getElementById(targetId)?.scrollIntoView({ block: "start" });
     };
-    window.setTimeout(align, 0);
-    window.requestAnimationFrame(() => window.requestAnimationFrame(align));
+    const alignSoon = () => {
+      window.setTimeout(align, 0);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(align));
+    };
+
+    const href = hrefForItem(item.href);
+    const destination = new URL(href, window.location.href);
+    const current = new URL(window.location.href);
+    const sameDocument = destination.pathname === current.pathname
+      && destination.search === current.search
+      && destination.hash === current.hash;
+
+    if (sameDocument) {
+      // Clicking the already-selected /duty#clock item still needs to do
+      // something useful when the operator has scrolled away from it.
+      alignSoon();
+      return;
+    }
+
+    // Take control of fragment navigation when changing pages. This makes
+    // the sidebar deterministic even if Next has not mounted the destination
+    // anchor yet; the destination page's post-load effect handles the final
+    // alignment after its async data is ready.
+    event.preventDefault();
+    void router.push(href).then(alignSoon);
   };
 
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
