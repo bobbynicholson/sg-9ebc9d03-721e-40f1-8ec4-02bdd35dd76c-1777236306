@@ -45,6 +45,7 @@ import { UserRole } from "@/types/app";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
 import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { SharedRoleClockCard } from "@/components/portal/SharedRoleClockCard";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
 import { BarcodeScanFab } from "@/components/shopping/BarcodeScanFab";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
@@ -378,6 +379,9 @@ function ShoppingDashboardInner() {
           ) : undefined
         }
       >
+          <div id="clock" className="mb-4 sm:mb-6 scroll-mt-24">
+            <SharedRoleClockCard role="shopping" />
+          </div>
           {/* Recovery card: the list read failed. Never dress a failed
               load up as "no active shopping list". */}
           {loadFailed ? (

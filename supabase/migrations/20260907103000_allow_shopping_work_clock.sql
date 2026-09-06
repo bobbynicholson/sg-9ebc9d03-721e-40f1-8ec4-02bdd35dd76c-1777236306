@@ -1,5 +1,4 @@
--- Manager work clocks are separate from crew clocks, while the shared
--- one-open-session-per-user index still prevents simultaneous timers.
+-- Shopping staff use the same shared one-user timer as every other field role.
 alter table public.role_work_sessions
   drop constraint if exists role_work_sessions_role_check;
 

@@ -120,7 +120,9 @@ export function KitchenNav(_: KitchenNavProps = {}) {
             // "Live now" (always open) so staff can find it fast at the
             // start + end of a shift instead of hunting in Kitchen ops.
             title: "Clock",
-            href: "/team-portal/kitchen/duty#clock",
+            href: activeRole === "kitchen_manager"
+              ? "/team-portal/kitchen/management#clock"
+              : "/team-portal/kitchen/duty#clock",
             icon: Clock,
             description: "Clock in / out",
           },

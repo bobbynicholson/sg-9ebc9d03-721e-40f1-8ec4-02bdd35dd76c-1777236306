@@ -5,6 +5,7 @@ import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
 import { CleaningPageShell } from "@/components/cleaning/CleaningPageShell";
 import { Button } from "@/components/ui/button";
 import { UserRole } from "@/types/app";
+import { ManagerWorkModeCard } from "@/components/portal/ManagerWorkModeCard";
 
 function CleaningManagementPage() {
   return (
@@ -22,6 +23,9 @@ function CleaningManagementPage() {
         </Button>
       }
     >
+      <div id="clock" className="scroll-mt-24">
+        <ManagerWorkModeCard />
+      </div>
       <TeamManagerWorkspace department="cleaning" />
     </CleaningPageShell>
   );

@@ -1,6 +1,6 @@
 import { supabase as defaultClient } from "@/integrations/supabase/client";
 
-export type WorkRole = "driver" | "waiter" | "kitchen" | "cleaning" | "kitchen_manager" | "cleaning_manager";
+export type WorkRole = "driver" | "waiter" | "kitchen" | "cleaning" | "shopping" | "kitchen_manager" | "cleaning_manager";
 
 export type ClosedRoleClock = {
   source: "role_work_session" | "driver_shift" | "waiter_attendance" | "kitchen_duty" | "kitchen_staff_shift" | "cleaning_duty";
@@ -18,6 +18,7 @@ const ROLE_LABELS: Record<WorkRole, string> = {
   waiter: "Waiter",
   kitchen: "Kitchen",
   cleaning: "Cleaning",
+  shopping: "Shopping",
   kitchen_manager: "Kitchen manager",
   cleaning_manager: "Cleaning manager",
 };

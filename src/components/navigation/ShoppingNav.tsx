@@ -41,6 +41,7 @@
  */
 import {
   LayoutDashboard,
+  Clock,
   TrendingDown,
   ShoppingCart,
   Camera,
@@ -131,6 +132,12 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
               if (mode.unfiledReceiptsToday > 0) bits.push(`${mode.unfiledReceiptsToday} receipt${mode.unfiledReceiptsToday === 1 ? "" : "s"}`);
               return bits.length ? bits.join(" · ") : "All caught up";
             },
+          },
+          {
+            title: "Clock",
+            href: "/team-portal/shopping/dashboard#clock",
+            icon: Clock,
+            description: "Clock in / out for your shift",
           },
           {
             title: "Buy list",

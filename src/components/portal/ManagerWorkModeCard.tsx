@@ -38,7 +38,7 @@ function managerClockRole(role: string): WorkRole | null {
 export function ManagerWorkModeCard() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const activeRole = String(user?.active_role || "");
+  const activeRole = String(user?.active_role || user?.role || "");
   const userId = user?.id || "";
   const companyId = user?.company_id || "";
   const isManager = isManagerRole(activeRole);
@@ -141,7 +141,7 @@ export function ManagerWorkModeCard() {
       }
       setSaving(false);
     },
-    [userId, saving, working, companyId, activeRole, user?.full_name, toast],
+    [userId, saving, working, companyId, activeRole, user?.full_name, toast, workRole],
   );
 
   if (!isManager) return null;
@@ -155,12 +155,12 @@ export function ManagerWorkModeCard() {
           </div>
           <div>
             <div className="text-sm font-semibold">
-              {working ? "Working with the crew" : "Managing only"}
+              {working ? `Clocked in as ${workRole ? workRole.replace("_", " ") : "manager"}` : "Manager work clock is off"}
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground max-w-md">
               {working
-                ? "You receive the same task alerts as staff and count on the floor. Resets when you clock out."
-                : "Oversight mode. Turn this on when you want to pick up tasks and get crew alerts like staff."}
+                ? "You receive the same task alerts as staff. Turn this off when you finish; your work note will be saved."
+                : `Turn this on to clock in as ${workRole ? workRole.replace("_", " ") : "manager"} and work with the crew.`}
             </p>
           </div>
         </div>

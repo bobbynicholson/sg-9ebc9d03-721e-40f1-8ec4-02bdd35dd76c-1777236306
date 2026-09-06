@@ -376,7 +376,7 @@ function CleaningDashboardInner() {
           {/* Manager work-mode: renders only for cleaning_manager. Opt in to
               "Working" (crew task alerts + on the floor) vs managing-only
               oversight. Null for staff. */}
-          <div className="mb-6">
+          <div id={canClockCleaning ? undefined : "clock"} className="mb-6">
             <ManagerWorkModeCard />
           </div>
 
@@ -404,7 +404,7 @@ function CleaningDashboardInner() {
               4 stacked bugs in the widget itself (company_id scoped
               wrong, missing schema columns added via migration). */}
           {canClockCleaning && (
-            <div id="duty" className="scroll-mt-20 lg:scroll-mt-6">
+            <div id={canClockCleaning ? "clock" : "duty"} className="scroll-mt-20 lg:scroll-mt-6">
               <CleaningDutyWidget />
             </div>
           )}

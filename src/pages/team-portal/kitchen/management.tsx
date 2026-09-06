@@ -5,6 +5,7 @@ import { TeamManagerWorkspace } from "@/components/admin/TeamManagerWorkspace";
 import { KitchenPageShell } from "@/components/kitchen/KitchenPageShell";
 import { Button } from "@/components/ui/button";
 import { UserRole } from "@/types/app";
+import { ManagerWorkModeCard } from "@/components/portal/ManagerWorkModeCard";
 
 function KitchenManagementPage() {
   return (
@@ -22,6 +23,9 @@ function KitchenManagementPage() {
         </Button>
       }
     >
+      <div id="clock" className="scroll-mt-24">
+        <ManagerWorkModeCard />
+      </div>
       <TeamManagerWorkspace department="kitchen" />
     </KitchenPageShell>
   );

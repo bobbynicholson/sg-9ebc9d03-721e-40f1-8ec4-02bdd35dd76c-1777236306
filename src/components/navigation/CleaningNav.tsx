@@ -49,6 +49,7 @@ import {
   BookOpen,
   AlertTriangle,
   CalendarClock,
+  Clock,
   Bell,
   Settings,
   Users,
@@ -141,6 +142,12 @@ export function CleaningNav(_: CleaningNavProps = {}) {
               if (mode.activeHandovers > 0) bits.push(`${mode.activeHandovers} in wash`);
               return bits.join(" - ");
             },
+          },
+          {
+            title: "Clock",
+            href: "/team-portal/cleaning/dashboard#clock",
+            icon: Clock,
+            description: "Clock in / out for your shift",
           },
           {
             title: "Returns",
