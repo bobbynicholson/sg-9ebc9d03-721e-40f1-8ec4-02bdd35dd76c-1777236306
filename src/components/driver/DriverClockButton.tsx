@@ -27,6 +27,8 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, Play, Square, Loader2 } from "lucide-react";
 import { toLocalISO } from "@/lib/localDate";
@@ -34,6 +36,12 @@ import {
   decideDriverClockIn,
   type DriverClockShiftRow,
 } from "@/lib/driverClock";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  promptForRoleHandoffNote,
+  saveRoleHandoffNote,
+} from "@/services/roleClockService";
 
 interface OpenShift {
   id: string;
@@ -56,6 +64,13 @@ const fmtElapsed = (startIso: string): string => {
 };
 
 const STALE_OPEN_SHIFT_HOURS = 18;
+
+const DRIVER_CLOCK_OUT_SUGGESTIONS = [
+  "Completed deliveries and returned equipment.",
+  "Completed the assigned route; no issues to report.",
+  "Finished the shift; no additional work to report.",
+  "Started the clock by mistake; no work completed.",
+]; 
 
 const hoursSince = (startIso: string): number => {
   const start = new Date(startIso).getTime();
@@ -86,6 +101,8 @@ export function DriverClockButton({
   const [plannedToday, setPlannedToday] = useState<PlannedToday | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [clockOutDialogOpen, setClockOutDialogOpen] = useState(false);
+  const [clockOutNote, setClockOutNote] = useState("");
   const [tick, setTick] = useState(0);
   // React state does not update synchronously. A ref closes the tiny window
   // where a fast double tap can start two requests before `disabled={busy}`
@@ -206,6 +223,16 @@ export function DriverClockButton({
     setBusy(true);
     try {
       const nowIso = new Date().toISOString();
+      try {
+        const roleClock = await beginRoleClock({ companyId, userId: driverId, role: "driver", startedAt: nowIso });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(roleClock.closed, promptForRoleHandoffNote(roleClock.closed, "driver"));
+        }
+      } catch (roleErr) {
+        // Keep the legacy driver clock usable while an older local database
+        // is waiting for the role-clock migration to be applied.
+        console.warn("[DriverClockButton] role switch lock unavailable:", roleErr);
+      }
       // LOCAL date, not the UTC slice of nowIso. South Africa is
       // UTC+2, so between 00:00 and 02:00 SAST the UTC date is still
       // YESTERDAY - a blind UTC date would look at (and insert into)
@@ -291,6 +318,13 @@ export function DriverClockButton({
     }
   };
 
+  const requestClockOut = () => {
+    if (!busy) {
+      setClockOutNote("");
+      setClockOutDialogOpen(true);
+    }
+  };
+
   const clockOut = async () => {
     if (!openShift) return;
     if (actionInFlight.current) return;
@@ -298,14 +332,21 @@ export function DriverClockButton({
     setBusy(true);
     try {
       const nowIso = new Date().toISOString();
+      const note = clockOutNote.trim() || "Manual driver clock-out; no additional note supplied.";
       const { data, error } = await (supabase as any)
         .from("driver_shifts")
-        .update({ actual_end: nowIso, status: "completed" })
+        .update({ actual_end: nowIso, status: "completed", notes: note })
         .eq("id", openShift.id)
         .select("id");
       if (error) throw error;
       if (!data || data.length === 0) throw new Error("Clock-out was blocked. Ask your admin to check your account.");
+      try {
+        await endCurrentRoleClock({ companyId: companyId as string, userId: driverId as string, role: "driver", endedAt: nowIso, note });
+      } catch (roleErr) {
+        console.warn("[DriverClockButton] role clock-out note failed:", roleErr);
+      }
       toast({ title: "Clocked out", description: "Shift saved." });
+      setClockOutDialogOpen(false);
       await refresh();
     } catch (e: any) {
       toast({ title: "Could not clock out", description: e?.message || "Try again", variant: "destructive" });
@@ -329,8 +370,9 @@ export function DriverClockButton({
     const elapsedHours = hoursSince(openShift.actual_start);
     const staleOpenShift = elapsedHours >= STALE_OPEN_SHIFT_HOURS;
     return (
-      <Card className={staleOpenShift ? "border-amber-300 bg-amber-50" : "border-brand-primary/20 bg-brand-primary/5"}>
-        <CardContent className="p-3 flex items-center gap-3">
+      <>
+        <Card className={staleOpenShift ? "border-amber-300 bg-amber-50" : "border-brand-primary/20 bg-brand-primary/5"}>
+          <CardContent className="p-3 flex items-center gap-3">
           <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
             staleOpenShift ? "bg-amber-100" : "bg-brand-primary/10"
           }`}>
@@ -348,7 +390,7 @@ export function DriverClockButton({
           </div>
           <Button
             size="sm"
-            onClick={clockOut}
+            onClick={requestClockOut}
             disabled={busy}
             className={`text-white shrink-0 ${staleOpenShift ? "bg-amber-700 hover:bg-amber-800" : "bg-brand-primary hover:bg-brand-primary/90"}`}
             title={staleOpenShift ? "Clock out now only if this shift is genuinely still running." : undefined}
@@ -356,8 +398,32 @@ export function DriverClockButton({
             {busy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Square className="w-4 h-4 mr-1" />}
             {staleOpenShift ? "Clock out now" : "Clock out"}
           </Button>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        <Dialog open={clockOutDialogOpen} onOpenChange={(open) => !busy && setClockOutDialogOpen(open)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Clock out of driver shift</DialogTitle>
+              <DialogDescription>What work did you complete during this shift? Add a hand-off note for the admin and the next person. If you leave it blank, a default clock-out note will be saved.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick answers</p>
+              <div className="flex flex-wrap gap-2">
+                {DRIVER_CLOCK_OUT_SUGGESTIONS.map((suggestion) => (
+                  <Button key={suggestion} type="button" variant="outline" size="sm" onClick={() => setClockOutNote(suggestion)} className="text-left text-xs">
+                    {suggestion}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <Textarea value={clockOutNote} onChange={(event) => setClockOutNote(event.target.value)} rows={4} placeholder="e.g. Delivered Order 104, returned equipment, reported a damaged chafing dish" autoFocus />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setClockOutDialogOpen(false)} disabled={busy}>Cancel</Button>
+              <Button onClick={() => void clockOut()} disabled={busy} className="bg-brand-primary text-white hover:bg-brand-primary/90">{busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving</> : "Clock out"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 

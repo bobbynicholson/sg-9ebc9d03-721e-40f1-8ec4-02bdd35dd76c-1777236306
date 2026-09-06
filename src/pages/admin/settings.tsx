@@ -15,6 +15,7 @@ import {
   Save,
   Settings,
   Shield,
+  Sparkles,
   SlidersHorizontal,
   Zap,
 } from "lucide-react";
@@ -114,6 +115,13 @@ const SETTINGS_SHORTCUTS: SettingsShortcut[] = [
     href: "/admin/kitchen-settings",
     icon: CookingPot,
     source: "companies.kitchen_settings",
+  },
+  {
+    title: "Daily operations",
+    description: "Daily kitchen and equipment cleaning times, lead-time reminders, recipients, and task status.",
+    href: "/admin/daily-operations",
+    icon: Sparkles,
+    source: "company_daily_operations_settings",
   },
   {
     title: "Email delivery",

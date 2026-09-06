@@ -24,6 +24,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Clock, CheckCircle2, Activity, Play, Square, Sparkles, Calendar as CalendarIcon, AlertTriangle } from "lucide-react";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
@@ -31,6 +33,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toLocalISO } from "@/lib/localDate";
 import { useToast } from "@/hooks/use-toast";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  promptForRoleHandoffNote,
+  saveRoleHandoffNote,
+} from "@/services/roleClockService";
 
 interface DutyRow {
   id: string;
@@ -72,6 +80,8 @@ export function CleaningDutyWidget() {
   const [busy, setBusy] = useState(false);
   const [onDutyStaff, setOnDutyStaff] = useState<DutyRow[]>([]);
   const [myCurrentDuty, setMyCurrentDuty] = useState<DutyRow | null>(null);
+  const [endDialogOpen, setEndDialogOpen] = useState(false);
+  const [endNote, setEndNote] = useState("");
 
   // Wave 40.4: today's planned cleaning shift for the current
   // user. Shows "Rostered 13:00-17:00 today" + lateness chip --
@@ -178,6 +188,21 @@ export function CleaningDutyWidget() {
     setBusy(true);
     try {
       const { lat, lng, accuracyM } = await captureGeolocation();
+      try {
+        const roleClock = await beginRoleClock({
+          companyId,
+          userId: user.id,
+          role: "cleaning",
+        });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(
+            roleClock.closed,
+            promptForRoleHandoffNote(roleClock.closed, "cleaning"),
+          );
+        }
+      } catch (roleErr) {
+        console.warn("Could not apply cross-role cleaning handoff (non-blocking):", roleErr);
+      }
       await equipmentTrackingService.startCleaningDuty({
         userId: user.id,
         companyId,
@@ -203,12 +228,37 @@ export function CleaningDutyWidget() {
     }
   };
 
+  const requestEndDuty = () => {
+    if (!busy) {
+      setEndNote("");
+      setEndDialogOpen(true);
+    }
+  };
+
   const handleEndDuty = async () => {
     if (!myCurrentDuty) return;
     setBusy(true);
     try {
-      await equipmentTrackingService.endCleaningDuty(myCurrentDuty.id);
+      const nowIso = new Date().toISOString();
+      const note = endNote.trim() || "Manual cleaning clock-out; no additional note supplied.";
+      await equipmentTrackingService.endCleaningDuty(myCurrentDuty.id, {
+        reason: "manual",
+        note,
+      });
+      try {
+        await endCurrentRoleClock({
+          companyId: companyId!,
+          userId: user!.id,
+          role: "cleaning",
+          endedAt: nowIso,
+          reason: "manual",
+          note,
+        });
+      } catch (roleErr) {
+        console.warn("Could not close cross-role cleaning session (non-blocking):", roleErr);
+      }
       toast({ title: "Clocked out", description: "Shift saved. Don't forget the equipment check." });
+      setEndDialogOpen(false);
       await loadOnDutyStaff();
     } catch (e: any) {
       toast({
@@ -225,6 +275,7 @@ export function CleaningDutyWidget() {
   const otherStaff = onDutyStaff.filter((s) => s.user_id !== user?.id);
 
   return (
+    <>
     <Card
         className={`border-2 ${
           onShift
@@ -287,7 +338,7 @@ export function CleaningDutyWidget() {
           <div className="flex-shrink-0">
             {onShift ? (
               <Button
-                onClick={handleEndDuty}
+                onClick={requestEndDuty}
                 disabled={busy}
                 className="bg-rose-600 hover:bg-rose-700 gap-2"
               >
@@ -370,5 +421,17 @@ export function CleaningDutyWidget() {
         </div>
       </CardContent>
     </Card>
+    <Dialog open={endDialogOpen} onOpenChange={(open) => { if (!busy) setEndDialogOpen(open); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Clock out of cleaning shift</DialogTitle>
+          <DialogDescription>Tell us what you completed. Choose a quick answer or write your own note, then click Clock out. A blank note will use the default option.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick answers</p><div className="flex flex-wrap gap-2">{["Cleaned and sanitised all assigned areas.", "Completed the equipment clean; no issues to report.", "Finished the shift; no additional work to report.", "Started the clock by mistake; no work completed."].map((suggestion) => <Button key={suggestion} type="button" variant="outline" size="sm" onClick={() => setEndNote(suggestion)} className="text-left text-xs">{suggestion}</Button>)}</div></div>
+        <Textarea value={endNote} onChange={(event) => setEndNote(event.target.value)} rows={4} placeholder="e.g. Washed returned equipment, restocked detergent, reported one damaged tray" autoFocus />
+        <DialogFooter><Button variant="outline" onClick={() => setEndDialogOpen(false)} disabled={busy}>Cancel</Button><Button onClick={() => void handleEndDuty()} disabled={busy} className="bg-rose-600 text-white hover:bg-rose-700">{busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving</> : "Clock out"}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

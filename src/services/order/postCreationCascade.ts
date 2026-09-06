@@ -50,10 +50,11 @@ export interface PostOrderCascadeOpts {
   skipEquipment?: boolean;
   skipConflictCheck?: boolean;
   skipShoppingSuggestion?: boolean;
-  /** REG-D (regions follow-ups): opt out of the branch-driven driver
-   *  auto-assignment step. Manual operator flows that want to pick a
-   *  driver themselves should pass true. */
+  /** Legacy compatibility flag. New orders are left unassigned by default;
+   *  driver selection is an explicit dispatch action. */
   skipAutoAssign?: boolean;
+  /** Explicit server-side opt-in for legacy automatic assignment flows. */
+  allowAutoAssign?: boolean;
   /** TIGHTEN I.24: opt out of the cleaning-handover anticipation row
    *  Wave 70.24 added. Default off (handover IS created). Flows that
    *  don't need the cleaning portal pre-warmed pass true. */
@@ -79,11 +80,8 @@ export interface PostOrderCascadeReceipt {
   // Fires for every order_items line whose menu_item is fulfilment_type
   // 'outsourced' or 'hybrid' with a default_outsource_provider_id set.
   outsource?: { ok: boolean; assignmentsCreated?: number; reason?: string; skipped?: boolean };
-  // REG-D (regions follow-ups): branch-driven driver auto-assignment.
-  // Fires when the order's region has auto_assign_orders=true AND the
-  // order is at status='confirmed'. Delegates to
-  // dispatchService.assignDriverWithGate so every safety gate (capacity,
-  // time-conflict, cold-chain, vehicle availability) is honoured.
+  // Driver assignment is intentionally kept out of order creation. The
+  // order-level CTA and Dispatch queue are the explicit commit paths.
   autoAssign?: {
     ok: boolean;
     driverId?: string | null;
@@ -1037,7 +1035,10 @@ export async function postOrderCreationCascade(
   // (the operator hasn't committed yet) and for regions with the
   // flag off. Dynamic import to avoid circular dependency between
   // postCreationCascade and dispatchService.
-  if (!opts.skipAutoAssign) {
+  // Never attach a driver during quote/order creation. The ranked
+  // suggestion remains available from Dispatch, but assignment is an
+  // explicit admin decision for this order.
+  if (opts.allowAutoAssign === true && !opts.skipAutoAssign) {
     try {
       const { data: orderRow } = await (client as any)
         .from("orders")
@@ -1117,7 +1118,11 @@ export async function postOrderCreationCascade(
       receipt.autoAssign = { ok: false, reason: e?.message || "autoAssign step crashed" };
     }
   } else {
-    receipt.autoAssign = { ok: true, skipped: true, reason: "skipped_by_caller" };
+    receipt.autoAssign = {
+      ok: true,
+      skipped: true,
+      reason: opts.skipAutoAssign ? "skipped_by_caller" : "manual_assignment_required",
+    };
   }
 
   return receipt;

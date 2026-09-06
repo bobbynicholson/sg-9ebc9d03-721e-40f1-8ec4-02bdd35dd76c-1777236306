@@ -35,6 +35,10 @@ import {
 import { LogCleaningJobModal } from "./LogCleaningJobModal";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { JobDamageButton } from "./JobDamageButton";
+import {
+  promptForRoleHandoffNote,
+  saveRoleHandoffNote,
+} from "@/services/roleClockService";
 
 const METHOD_META: Record<CleaningMethod, { label: string; icon: any; chip: string }> = {
   dishwasher: {
@@ -106,6 +110,12 @@ export function CleaningJobsQueue() {
     if (!r.ok) {
       toast({ title: "Couldn't start", description: r.error, variant: "destructive" });
       return;
+    }
+    if (r.closed?.length) {
+      await saveRoleHandoffNote(
+        r.closed,
+        promptForRoleHandoffNote(r.closed, "cleaning"),
+      );
     }
     await refresh();
   };

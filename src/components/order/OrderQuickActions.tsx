@@ -24,7 +24,7 @@ import { canSeeOtherStaffPay } from "@/lib/authGuards";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { UserRole } from "@/types/app";
 import {
-  FileText, Eye, Copy, Receipt, Phone, MessageCircle, Mail, UserPlus,
+  FileText, Eye, Copy, Receipt, Phone, MessageCircle, Mail, UserPlus, Truck, ChefHat,
 } from "lucide-react";
 
 interface Props {
@@ -35,6 +35,8 @@ interface Props {
     client_phone: string | null;
     client_email: string | null;
     quote_id: string | null;
+    assigned_driver_id?: string | null;
+    assigned_chef_id?: string | null;
   };
 }
 
@@ -136,6 +138,22 @@ export function OrderQuickActions({ order }: Props) {
       >
         <Receipt className="w-3.5 h-3.5" />
         Invoice
+      </Link>
+      <Link
+        href={withSlug(`/admin/order-assignments?orderId=${order.id}`)}
+        className={`${chipBase} text-blue-800 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:text-blue-950`}
+        title="Choose the driver for this order"
+      >
+        <Truck className="w-3.5 h-3.5" />
+        {order.assigned_driver_id ? "Change driver" : "Assign driver"}
+      </Link>
+      <Link
+        href={withSlug(`/admin/orders/${order.id}/ticket`)}
+        className={`${chipBase} text-orange-800 bg-orange-50 border border-orange-200 hover:bg-orange-100 hover:text-orange-950`}
+        title="Choose kitchen team members for this order's prep tasks"
+      >
+        <ChefHat className="w-3.5 h-3.5" />
+        {order.assigned_chef_id ? "Change kitchen" : "Assign kitchen"}
       </Link>
       <Link
         href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)}

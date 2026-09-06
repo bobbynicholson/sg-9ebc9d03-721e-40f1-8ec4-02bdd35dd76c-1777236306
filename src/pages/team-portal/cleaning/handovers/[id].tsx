@@ -42,6 +42,10 @@ import {
 import { completeJob, startJob } from "@/services/cleaningJobsService";
 import { equipmentTrackingService } from "@/services/equipmentTrackingService";
 import { JobDamageButton } from "@/components/cleaning/JobDamageButton";
+import {
+  promptForRoleHandoffNote,
+  saveRoleHandoffNote,
+} from "@/services/roleClockService";
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return "--";
@@ -138,6 +142,12 @@ function HandoverDetailInner() {
     if (!r.ok) {
       toast({ title: "Couldn't start", description: r.error, variant: "destructive" });
       return;
+    }
+    if (r.closed?.length) {
+      await saveRoleHandoffNote(
+        r.closed,
+        promptForRoleHandoffNote(r.closed, "cleaning"),
+      );
     }
     void load();
   };

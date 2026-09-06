@@ -467,14 +467,20 @@ export function hasRestrictedCompanyAccess(userRole: UserRole): boolean {
  */
 export function getRoleLandingPage(userRole: UserRole, companySlug?: string): string {
   const landingPageFn = ROLE_LANDING_PAGES[userRole];
-  return landingPageFn(companySlug);
+  // Keep navigation fail-safe if a newly introduced/legacy role reaches a
+  // client bundle before its typed landing-page entry is added. Known roles
+  // still use the canonical map above; unknown strings fall through to the
+  // string-keyed resolver instead of throwing during a role switch.
+  return landingPageFn
+    ? landingPageFn(companySlug)
+    : getLandingPageForRoleString(String(userRole), companySlug);
 }
 
 /**
  * Get role display name
  */
 export function getRoleName(userRole: UserRole): string {
-  return ROLE_NAMES[userRole];
+  return ROLE_NAMES[userRole] || String(userRole);
 }
 
 /**

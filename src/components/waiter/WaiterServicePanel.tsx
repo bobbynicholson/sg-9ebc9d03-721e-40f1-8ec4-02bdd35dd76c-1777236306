@@ -37,6 +37,13 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { toLocalISO } from "@/lib/localDate";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { orderDisplayName } from "@/lib/orderDisplayName";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  promptForRoleHandoffNote,
+  promptForWorkNote,
+  saveRoleHandoffNote,
+} from "@/services/roleClockService";
 
 const ROUTE = "/team-portal/waiter/dashboard";
 
@@ -72,6 +79,8 @@ interface Attendance {
   service_ended_at: string | null;
   event_complete_at: string | null;
   equipment_returned_at: string | null;
+  work_started_at?: string | null;
+  work_ended_at?: string | null;
   notes: string | null;
 }
 
@@ -185,10 +194,31 @@ export function WaiterServicePanel() {
     try {
       const existing = attendance[orderId];
       const nowIso = new Date().toISOString();
+      // A waiter may open an event after arrival was already stamped by an
+      // admin/shared tablet. Claim the role on every service phase so the
+      // same person's driver/kitchen/cleaning clock is still closed at the
+      // real first waiter action, not only when they tap "On site".
+      if (phase !== "equipment_returned_at") {
+        try {
+          const roleClock = await beginRoleClock({ companyId: user.company_id, userId: user.id, role: "waiter", orderId, startedAt: nowIso });
+          if (roleClock.closed.length > 0) {
+            await saveRoleHandoffNote(roleClock.closed, promptForRoleHandoffNote(roleClock.closed, "waiter"));
+          }
+        } catch (roleErr) {
+          console.warn("[WaiterServicePanel] role switch lock unavailable:", roleErr);
+        }
+      }
+      const phasePayload = {
+        [phase]: nowIso,
+        ...(!existing?.work_started_at && phase !== "equipment_returned_at" ? { work_started_at: nowIso } : {}),
+        ...(["service_ended_at", "event_complete_at"].includes(phase)
+          ? { work_ended_at: nowIso, work_end_reason: "manual", work_end_note: "Service completed; no additional note supplied." }
+          : {}),
+      };
       if (existing) {
         const { error } = await (supabase as any)
           .from("event_attendance")
-          .update({ [phase]: nowIso })
+          .update(phasePayload)
           .eq("id", existing.id);
         if (error) throw error;
       } else {
@@ -198,9 +228,20 @@ export function WaiterServicePanel() {
             company_id: user.company_id,
             order_id: orderId,
             waiter_id: user.id,
-            [phase]: nowIso,
+            ...phasePayload,
           });
         if (error) throw error;
+      }
+      if (phase === "event_complete_at") {
+        const note = promptForWorkNote("What did you complete during this waiter service?", "Waiter service completed; no additional note supplied.");
+        try {
+          await endCurrentRoleClock({ companyId: user.company_id, userId: user.id, role: "waiter", endedAt: nowIso, note });
+          await (supabase as any).from("event_attendance")
+            .update({ work_end_note: note })
+            .eq("company_id", user.company_id).eq("order_id", orderId).eq("waiter_id", user.id);
+        } catch (roleErr) {
+          console.warn("[WaiterServicePanel] role clock-out note failed:", roleErr);
+        }
       }
       toast({ title: PHASE_LABELS[phase], description: "Stamped now" });
 

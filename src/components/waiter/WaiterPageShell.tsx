@@ -19,6 +19,7 @@ import { WaiterNav } from "@/components/navigation/WaiterNav";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PortalRoleSwitchBar } from "@/components/portal/PortalRoleSwitchBar";
 
 type ShellWidth = "narrow" | "wide" | "full";
 
@@ -81,6 +82,10 @@ export function WaiterPageShell({
           company-admin + driver + kitchen page treatment. */}
       <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell width={width === "narrow" ? "narrow" : "default"}>
+          <PortalRoleSwitchBar
+            borderClassName="border-cyan-200/80 dark:border-slate-700"
+            description="Move between your assigned portals without signing in again."
+          />
           <PortalHeader
             variant="hero"
             title={heading}

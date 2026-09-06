@@ -19,6 +19,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  type ClosedRoleClock,
+} from "@/services/roleClockService";
 
 export type CleaningMethod = "dishwasher" | "manual" | "outsourced_hire";
 export type CleaningJobStatus = "queued" | "in_progress" | "complete" | "cancelled";
@@ -301,19 +306,73 @@ export async function startJob(
   supabase: SupabaseClient,
   jobId: string,
   userId?: string | null,
-): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await (supabase as any)
+): Promise<{ ok: boolean; error?: string; closed?: ClosedRoleClock[] }> {
+  const sb = supabase as any;
+  const { data: job, error: jobErr } = await sb
     .from("cleaning_jobs")
-    .update({ status: "in_progress", actual_start: new Date().toISOString() })
-    .eq("id", jobId);
+    .select("id, company_id, triggered_by_event_id, status")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (jobErr) return { ok: false, error: jobErr.message };
+  if (!job) return { ok: false, error: "Cleaning job not found" };
+
+  const startedAt = new Date().toISOString();
+  const { data: started, error } = await sb
+    .from("cleaning_jobs")
+    .update({
+      status: "in_progress",
+      actual_start: startedAt,
+      ...(userId ? { started_by: userId } : {}),
+    })
+    .eq("id", jobId)
+    .eq("status", "queued")
+    .select("id")
+    .maybeSingle();
   if (error) return { ok: false, error: error.message };
+  if (!started && job.status !== "in_progress") return { ok: true };
+
+  let closed: ClosedRoleClock[] = [];
+  if (userId && job.company_id) {
+    try {
+      const roleClock = await beginRoleClock({
+        client: supabase,
+        companyId: job.company_id,
+        userId,
+        role: "cleaning",
+        orderId: job.triggered_by_event_id,
+        startedAt,
+      });
+      closed = roleClock.closed;
+    } catch (roleErr) {
+      console.warn("[cleaningJobsService.startJob] role clock failed (non-blocking):", roleErr);
+    }
+    try {
+      const { data: activeDuty } = await sb
+        .from("cleaning_duty_logs")
+        .select("id")
+        .eq("company_id", job.company_id)
+        .eq("user_id", userId)
+        .eq("on_duty", true)
+        .limit(1);
+      if (!(activeDuty || []).length) {
+        await sb.from("cleaning_duty_logs").insert({
+          company_id: job.company_id,
+          user_id: userId,
+          on_duty: true,
+          duty_started_at: startedAt,
+        });
+      }
+    } catch (dutyErr) {
+      console.warn("[cleaningJobsService.startJob] implicit duty clock-in failed (non-blocking):", dutyErr);
+    }
+  }
   // Track WHO cleaned, credited to the order(s) this equipment served.
   // Best-effort - the RPC no-ops if not deployed yet.
   if (userId) {
     try { await (supabase as any).rpc("record_cleaning_contributor", { p_job_id: jobId, p_user_id: userId }); }
     catch { /* best-effort contributor tracking */ }
   }
-  return { ok: true };
+  return { ok: true, closed: closed.length > 0 ? closed : undefined };
 }
 
 export async function completeJob(
@@ -344,7 +403,7 @@ export async function completeJob(
   // 1. Pull equipment_id + quantity for the bump.
   const { data: jobRow, error: readErr } = await sb
     .from("cleaning_jobs")
-    .select("company_id, equipment_id, quantity, triggered_by_event_id, method")
+    .select("company_id, equipment_id, quantity, triggered_by_event_id, method, status")
     .eq("id", jobId)
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
@@ -357,11 +416,16 @@ export async function completeJob(
   }
 
   // 2. Mark complete.
-  const { error: completeErr } = await sb
+  const endedAt = new Date().toISOString();
+  const { data: completed, error: completeErr } = await sb
     .from("cleaning_jobs")
-    .update({ status: "complete", actual_end: new Date().toISOString() })
-    .eq("id", jobId);
+    .update({ status: "complete", actual_end: endedAt })
+    .eq("id", jobId)
+    .eq("status", "in_progress")
+    .select("id")
+    .maybeSingle();
   if (completeErr) return { ok: false, error: completeErr.message };
+  if (!completed && jobRow?.status === "complete") return { ok: true };
 
   // 3. Bump inventory back. Non-blocking on the user-visible tick.
   if (jobRow?.equipment_id && Number.isFinite(Number(jobRow.quantity))) {
@@ -445,6 +509,30 @@ export async function completeJob(
         detail: { jobId, equipmentId: jobRow?.equipment_id ?? null, quantity: jobRow?.quantity ?? null },
       }));
     } catch { /* old browsers without CustomEvent polyfill */ }
+  }
+
+  if (userId && jobRow?.company_id) {
+    try {
+      const { data: remaining } = await sb
+        .from("cleaning_jobs")
+        .select("id")
+        .eq("company_id", jobRow.company_id)
+        .is("deleted_at", null)
+        .in("status", ["queued", "in_progress"]);
+      if (!(remaining || []).length) {
+        await endCurrentRoleClock({
+          client: supabase,
+          companyId: jobRow.company_id,
+          userId,
+          role: "cleaning",
+          endedAt,
+          reason: "auto_queue_clear",
+          note: "Cleaning queue cleared; shift closed automatically. No additional note supplied.",
+        });
+      }
+    } catch (roleErr) {
+      console.warn("[cleaningJobsService.completeJob] role clock close failed (non-blocking):", roleErr);
+    }
   }
 
   return { ok: true };

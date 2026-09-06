@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { UserRole } from "@/types/app";
+import { DailyOperationsTasks } from "@/components/operations/DailyOperationsTasks";
 
 interface Schedule {
   id: string;
@@ -264,6 +265,7 @@ function CleaningTasksPageInner() {
           ) : undefined
         }
       >
+          <DailyOperationsTasks audience="cleaning" />
           {/* Recovery card: the load failed. Keep any last-good list
               below, but never dress a failure up as an empty board. */}
           {loadError && (

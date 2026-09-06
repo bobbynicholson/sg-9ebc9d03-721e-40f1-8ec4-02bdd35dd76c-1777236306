@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[8602],{44444:(_,n,e)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/client-portal/feedback",function(){return e(90236)}])},90236:(_,n,e)=>{"use strict";e.r(n),e.d(n,{__N_SSP:()=>u,default:()=>r});var u=!0;function r(){return null}}},_=>{var n=n=>_(_.s=n);_.O(0,[636,6593,8792],()=>n(44444)),_N_E=_.O()}]);

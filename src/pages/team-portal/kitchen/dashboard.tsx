@@ -50,6 +50,7 @@ import { onCleaningReady } from "@/lib/events/cleaningEvents";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/observability";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { DailyOperationsTasks } from "@/components/operations/DailyOperationsTasks";
 
 type Order = Database["public"]["Tables"]["orders"]["Row"];
 type InventoryItem = Database["public"]["Tables"]["inventory_items"]["Row"];
@@ -1270,6 +1271,7 @@ function KitchenDashboardInner() {
           </>
         }
       >
+        <DailyOperationsTasks audience="kitchen" />
           {/* Recovery card: one or more of the primary board reads
               failed. Pre-restructure the failure was capture-only and
               the chef stared at an empty board that read as "day off". */}

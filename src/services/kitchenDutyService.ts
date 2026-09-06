@@ -5,6 +5,7 @@ import { notificationService } from "./notificationService";
 import { billingEmailService } from "./billingEmailService";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
+import { beginRoleClock, endCurrentRoleClock } from "@/services/roleClockService";
 
 // Admin-side roles that should receive kitchen-duty pings. Audit (May
 // 2026): every kitchen notification in this service was routed back to
@@ -81,6 +82,19 @@ export const kitchenDutyService = {
       .eq("id", staffId)
       .maybeSingle();
     const companyId = profile?.company_id || null;
+
+    if (companyId) {
+      try {
+        await beginRoleClock({
+          companyId,
+          userId,
+          role: "kitchen",
+          orderId: orderId || null,
+        });
+      } catch (roleErr) {
+        console.warn("[kitchenDutyService.startDutyShift] role clock failed (non-blocking):", roleErr);
+      }
+    }
 
     const shiftData: DutyShiftInsert = {
       user_id: userId,
@@ -203,7 +217,13 @@ export const kitchenDutyService = {
       for (const sh of shifts) {
         const { error: updErr } = await supabase
           .from("kitchen_duty_shifts")
-          .update({ is_active: false, shift_end: nowIso, updated_at: nowIso } as any)
+        .update({
+          is_active: false,
+          shift_end: nowIso,
+          updated_at: nowIso,
+          end_reason: "auto_queue_clear",
+          end_note: "Kitchen prep queue cleared; shift closed automatically. No additional note supplied.",
+        } as any)
           .eq("id", sh.id);
         if (updErr) {
           console.warn("[autoEndKitchenDutyIfClear] shift close failed:", updErr);
@@ -245,6 +265,11 @@ export const kitchenDutyService = {
 
   // End a duty shift
   async endDutyShift(shiftId: string, notes?: string): Promise<DutyShift> {
+    const endedAt = new Date().toISOString();
+    const note = notes?.trim() || "Kitchen duty closed; no additional note supplied.";
+    const reason = notes?.trim()?.toLowerCase().startsWith("auto clock-out")
+      ? "auto_order_complete"
+      : "manual";
     const { data, error } = await supabase
       .from("kitchen_duty_shifts")
       // kitchen_duty_shifts has no `notes` column - writing it 400s the
@@ -252,15 +277,34 @@ export const kitchenDutyService = {
       // closes any prior active shift via this fn) threw "Failed to
       // toggle duty status".
       .update({
-        shift_end: new Date().toISOString(),
+        shift_end: endedAt,
         is_active: false,
-        updated_at: new Date().toISOString(),
+        updated_at: endedAt,
+        end_reason: reason,
+        end_note: note,
       } as any)
       .eq("id", shiftId)
       .select()
       .single();
 
     if (error) throw error;
+
+    const actorId = (data as any)?.staff_id || (data as any)?.user_id;
+    const companyId = (data as any)?.company_id;
+    if (actorId && companyId) {
+      try {
+        await endCurrentRoleClock({
+          companyId,
+          userId: actorId,
+          role: "kitchen",
+          endedAt,
+          reason,
+          note,
+        });
+      } catch (roleErr) {
+        console.warn("[kitchenDutyService.endDutyShift] role clock close failed (non-blocking):", roleErr);
+      }
+    }
 
     // NOTIFICATION: Kitchen staff clocked out -> admins. The clock-IN +
     // task-complete paths were fixed (May 2026 audit) to broadcast to

@@ -19,8 +19,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { LucideIcon } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
-import { RoleSwitcher } from "@/components/RoleSwitcher";
-import { useAuth } from "@/contexts/AuthContext";
+import { PortalRoleSwitchBar } from "@/components/portal/PortalRoleSwitchBar";
 
 type ShellWidth = "narrow" | "wide" | "full";
 
@@ -69,8 +68,6 @@ export function CleaningPageShell({
   children,
   hideFooter = false,
 }: CleaningPageShellProps) {
-  const { userRoles } = useAuth();
-
   return (
     <>
       <NoIndexMeta />
@@ -85,15 +82,10 @@ export function CleaningPageShell({
           company-admin + driver + kitchen page treatment. */}
       <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell width={width === "narrow" ? "narrow" : "default"}>
-          {userRoles.length > 1 && (
-            <div className="sticky top-0 z-20 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-200/80 bg-white/95 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">Switch portal</p>
-                <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">Move between your assigned cleaning roles without signing in again.</p>
-              </div>
-              <RoleSwitcher variant="default" showLabel />
-            </div>
-          )}
+          <PortalRoleSwitchBar
+            borderClassName="border-violet-200/80 dark:border-slate-700"
+            description="Move between your assigned portals without signing in again."
+          />
           <PortalHeader
             variant="hero"
             title={heading}

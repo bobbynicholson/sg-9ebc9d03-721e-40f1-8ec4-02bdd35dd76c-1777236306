@@ -354,6 +354,7 @@ export function AdminNav(_: AdminNavProps = {}) {
         { title: "Company",               href: "/admin/company-profile",       icon: Building2,     description: "Address and routing" },
         { title: "Branding",              href: "/admin/white-label",           icon: Palette,       description: "Logo, colours, fonts" },
         { title: "Kitchen",               href: "/admin/kitchen-settings",      icon: CookingPot,    description: "Prep and dietary rules" },
+        { title: "Daily operations",      href: "/admin/daily-operations",      icon: Sparkles,      description: "Daily cleaning schedules" },
         { title: "Email",                 href: "/admin/email-settings",        icon: Mail,          description: "SMTP and providers" },
         { title: "Integrations",          href: "/admin/integrations",          icon: Zap,           description: "Apps and webhooks" },
         { title: "Lead forms",            href: "/admin/integrations/embed",    icon: Code2,         description: "Public forms" },

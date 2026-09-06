@@ -135,7 +135,8 @@ const emptyForm = (): RegionFormState => {
     operating_hours_start: "06:00",
     operating_hours_end: "22:00",
     delivery_radius_km: 50,
-    auto_assign_orders: true,
+    // New orders stay unassigned until an admin confirms a person.
+    auto_assign_orders: false,
     is_active: true,
     notes: "",
     vat_rate_override: "",
@@ -484,7 +485,7 @@ function RegionsPage() {
       operating_hours_start: region.operating_hours_start || "06:00",
       operating_hours_end: region.operating_hours_end || "22:00",
       delivery_radius_km: Number(region.delivery_radius_km ?? 50),
-      auto_assign_orders: region.auto_assign_orders ?? true,
+      auto_assign_orders: region.auto_assign_orders ?? false,
       is_active: region.is_active ?? true,
       notes: region.notes || "",
       vat_rate_override: (region as any).vat_rate != null ? String(Number((region as any).vat_rate) * 100) : "",
@@ -1087,8 +1088,8 @@ function RegionsPage() {
                     <div className="grid grid-cols-2 gap-3 mb-4 text-xs text-slate-500">
                       <div>All-time orders: <span className="font-semibold text-slate-700">{region.order_count || 0}</span></div>
                       <div className="flex items-center gap-1">
-                        Auto-assign: <span className="font-semibold text-slate-700">{region.auto_assign_orders ? "On" : "Off"}</span>
-                        <InfoTooltip content={"When on, the order post-creation cascade fires dispatchService.assignDriverWithGate immediately so a confirmed order lands on the best-fit driver without an operator click."} />
+                        Assignment: <span className="font-semibold text-slate-700">Manual</span>
+                        <InfoTooltip content={"New orders remain unassigned until an admin chooses a driver from the order CTA or Dispatch queue."} />
                       </div>
                     </div>
                     <div className="text-sm text-slate-600 space-y-1.5">
@@ -1409,9 +1410,9 @@ function RegionsPage() {
                 />
               </div>
               <div className="space-y-3 pt-6">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="auto-assign" className="font-normal">Auto-assign orders</Label>
-                  <Switch id="auto-assign" checked={form.auto_assign_orders} onCheckedChange={(v) => setForm({ ...form, auto_assign_orders: v })} />
+                <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                  <span className="font-semibold">Driver assignment: manual</span>
+                  <span className="block mt-0.5 text-blue-800/80">Every new order stays unassigned until an admin chooses a driver from the order CTA or Dispatch.</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <Label htmlFor="is-active" className="font-normal">Region is active</Label>

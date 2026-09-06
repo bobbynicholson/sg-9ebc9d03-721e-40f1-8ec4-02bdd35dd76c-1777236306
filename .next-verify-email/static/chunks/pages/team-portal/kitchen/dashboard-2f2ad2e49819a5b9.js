@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[9606],{43180:(_,n,a)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/team-portal/kitchen/dashboard",function(){return a(2894)}])}},_=>{var n=n=>_(_.s=n);_.O(0,[374,7208,8077,8075,1584,4156,112,8040,2388,9676,6610,8889,6296,1093,5545,636,6593,8792],()=>n(43180)),_N_E=_.O()}]);

@@ -19,6 +19,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getRecipe as getLegacyRecipe } from "./inventoryDeductionService";
 import { toLocalISO } from "@/lib/localDate";
+import { beginRoleClock, endCurrentRoleClock, promptForRoleHandoffNote, saveRoleHandoffNote } from "@/services/roleClockService";
 
 // ── Settings ────────────────────────────────────────────────────────────────
 
@@ -843,14 +844,15 @@ export const kitchenPrepService = {
 
   async startTask(taskId: string, performedBy: string): Promise<boolean> {
     const nowIso = new Date().toISOString();
-    const { data: updated, error } = await supabase
+    const { data: updated, error } = await (supabase as any)
       .from("kitchen_prep_tasks")
       .update({
         status: "in_progress",
         started_at: nowIso,
+        started_by: performedBy,
       })
       .eq("id", taskId)
-      .select("order_id")
+      .select("order_id, company_id")
       .single();
     if (error) throw error;
 
@@ -878,6 +880,27 @@ export const kitchenPrepService = {
       const isKitchenLabor =
         actorRole === "kitchen_staff" ||
         (actorRole === "kitchen_manager" && isManagerWorkingNow(actor as any));
+
+      if (isKitchenLabor && (updated as any)?.company_id) {
+        try {
+          const roleClock = await beginRoleClock({
+            client: supabase,
+            companyId: (updated as any).company_id,
+            userId: performedBy,
+            role: "kitchen",
+            orderId,
+            startedAt: nowIso,
+          });
+          if (roleClock.closed.length > 0) {
+            await saveRoleHandoffNote(
+              roleClock.closed,
+              promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+            );
+          }
+        } catch (roleErr) {
+          console.warn("[kitchenPrepService] role clock failed (non-blocking):", roleErr);
+        }
+      }
 
       // Track WHO cooked this order's kitchen work - only real cooks, never an
       // admin/owner starting on their behalf. Best-effort - RPC no-ops if not
@@ -1010,10 +1033,20 @@ export const kitchenPrepService = {
     if (taskCompanyId && performedBy) {
       try {
         const { kitchenDutyService } = await import("./kitchenDutyService");
-        await kitchenDutyService.autoEndKitchenDutyIfClear({
+        const closed = await kitchenDutyService.autoEndKitchenDutyIfClear({
           companyId: taskCompanyId,
           staffId: performedBy,
         });
+        if (closed.ended > 0) {
+          await endCurrentRoleClock({
+            client: supabase,
+            companyId: taskCompanyId,
+            userId: performedBy,
+            role: "kitchen",
+            reason: "auto_queue_clear",
+            note: "Kitchen prep queue cleared; shift closed automatically. No additional note supplied.",
+          });
+        }
       } catch (e) {
         console.warn("[kitchenPrepService] autoEndKitchenDutyIfClear failed:", e);
       }

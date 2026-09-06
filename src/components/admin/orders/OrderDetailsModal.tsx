@@ -22,7 +22,7 @@ import {
   Clock, CheckCircle2, Package, MapPin, AlertCircle, Save, X, FileText,
   Receipt, Pause, Copy, Star, RefreshCw, MoreHorizontal, Phone,
   MessageCircle, Mail, ArrowRight, Download, Trash2, Play,
-  UserPlus,
+  UserPlus, Truck, ChefHat,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -1120,6 +1120,24 @@ return (
             >
               <UserPlus className="w-3.5 h-3.5" />
               Assign waiter
+            </Link>
+            <Link
+              href={withSlug(`/admin/order-assignments?orderId=${selectedOrder.id}`)}
+              onClick={() => setIsModalOpen(false)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-900 bg-blue-50 border border-blue-200 rounded-md px-2 py-1 hover:bg-blue-100 transition"
+              title="Choose the driver for this order"
+            >
+              <Truck className="w-3.5 h-3.5" />
+              {(selectedOrder as any).assigned_driver_id ? "Change driver" : "Assign driver"}
+            </Link>
+            <Link
+              href={withSlug(`/admin/orders/${selectedOrder.id}/ticket`)}
+              onClick={() => setIsModalOpen(false)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-900 bg-orange-50 border border-orange-200 rounded-md px-2 py-1 hover:bg-orange-100 transition"
+              title="Choose kitchen team members for this order's prep tasks"
+            >
+              <ChefHat className="w-3.5 h-3.5" />
+              {(selectedOrder as any).assigned_chef_id ? "Change kitchen" : "Assign kitchen"}
             </Link>
           </div>
         )}

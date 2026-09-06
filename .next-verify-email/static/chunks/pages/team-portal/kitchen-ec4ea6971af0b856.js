@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[7691],{21045:(_,n,u)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/team-portal/kitchen",function(){return u(81140)}])},81140:(_,n,u)=>{"use strict";u.r(n),u.d(n,{__N_SSP:()=>e,default:()=>t});var e=!0;function t(){return null}}},_=>{var n=n=>_(_.s=n);_.O(0,[636,6593,8792],()=>n(21045)),_N_E=_.O()}]);

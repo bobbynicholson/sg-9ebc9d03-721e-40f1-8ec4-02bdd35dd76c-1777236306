@@ -5,6 +5,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { UserRole } from "@/types/app";
+import { deriveUserRoles } from "@/lib/roleDerivation";
 
 const ROLE_VALUES = new Set<string>(Object.values(UserRole));
 
@@ -74,12 +75,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .eq("user_id", authUser.id);
     if (assignmentsError) throw assignmentsError;
 
-    const assignedRoles = new Set([
-      String(profile.role || "").trim(),
-      String(profile.active_role || "").trim(),
-      ...(assignments || []).map((assignment) => String(assignment.department || "").trim()),
-    ].filter(Boolean));
-    if (!assignedRoles.has(requestedRole)) {
+    // Compare canonical roles, not raw department strings. Older accounts
+    // may still store aliases such as `kitchen`, `cleaning`, or `shopping`
+    // while the UI correctly exposes `kitchen_staff`, `cleaning_staff`, or
+    // `shopping_staff`.
+    const assignedRoles = deriveUserRoles({
+      profileRole: profile.role,
+      activeRole: profile.active_role,
+      departments: assignments || [],
+    }).roles;
+    if (!assignedRoles.includes(requestedRole as UserRole)) {
       return res.status(403).json({
         error: "That portal is not assigned to your account. Ask an administrator to add this role first.",
       });

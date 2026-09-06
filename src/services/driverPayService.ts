@@ -26,6 +26,7 @@
  */
 import { supabase as defaultClient } from "@/integrations/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { beginRoleClock } from "@/services/roleClockService";
 
 type Sb = SupabaseClient<any> | any;
 
@@ -921,6 +922,20 @@ export const driverPayService = {
     client: Sb = defaultClient,
   ): Promise<{ ok: boolean; shiftId?: string | null; error?: string }> {
     try {
+      try {
+        // Pickup/in-transit is an order-context start, so it also claims the
+        // driver's single active role and closes any waiter/kitchen/cleaning
+        // duty clock held by the same person.
+        await beginRoleClock({
+          client,
+          companyId: opts.companyId,
+          userId: opts.driverId,
+          role: "driver",
+          orderId: opts.orderId,
+        });
+      } catch (roleErr) {
+        console.warn("[driverPayService] role clock switch unavailable:", roleErr);
+      }
       // Check for an existing open shift on this order. Avoids dupe
       // rows when the driver hits "picked up" twice or the API
       // double-fires.

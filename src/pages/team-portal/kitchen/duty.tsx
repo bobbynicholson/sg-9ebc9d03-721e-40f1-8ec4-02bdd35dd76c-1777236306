@@ -20,6 +20,12 @@ import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
 import { PortalCard, StatTile } from "@/components/portal/ui";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  promptForRoleHandoffNote,
+  saveRoleHandoffNote,
+} from "@/services/roleClockService";
 
 interface Shift {
   id: string;
@@ -607,6 +613,22 @@ function KitchenDutyRosterPageInner() {
       }
 
       const nowIso = new Date().toISOString();
+      try {
+        const roleClock = await beginRoleClock({
+          companyId: user.company_id,
+          userId: user.id,
+          role: "kitchen",
+          startedAt: nowIso,
+        });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(
+            roleClock.closed,
+            promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+          );
+        }
+      } catch (roleErr) {
+        console.warn("Could not apply cross-role kitchen handoff (non-blocking):", roleErr);
+      }
       const { data: insertedShift, error } = await supabase
         .from("kitchen_duty_shifts")
         .insert([{
@@ -662,6 +684,8 @@ function KitchenDutyRosterPageInner() {
     setSaving(true);
     try {
       const nowIso = new Date().toISOString();
+      const noteText = handoffNotes.trim();
+      const closeNote = noteText || "Manual kitchen clock-out; no additional note supplied.";
       // Fix (2026-07-02): clocking out mid-break used to leave the
       // open break dangling - break_started_at stayed set on the
       // closed row and its minutes never landed in total_break_min,
@@ -682,6 +706,8 @@ function KitchenDutyRosterPageInner() {
                 total_break_min: (endingShift.total_break_min || 0) + closingBreakMin,
               }
             : {}),
+          end_reason: "manual",
+          end_note: closeNote,
         } as never)
         .eq("id", endingShift.id);
       if (user?.company_id) {
@@ -711,10 +737,24 @@ function KitchenDutyRosterPageInner() {
         }
       }
 
+      if (user?.id && user?.company_id) {
+        try {
+          await endCurrentRoleClock({
+            companyId: user.company_id,
+            userId: user.id,
+            role: "kitchen",
+            endedAt: nowIso,
+            reason: "manual",
+            note: closeNote,
+          });
+        } catch (roleErr) {
+          console.warn("Could not close cross-role kitchen session (non-blocking):", roleErr);
+        }
+      }
+
       // Phase 1: hand-off notes ALWAYS save now. The previous flow silently
       // dropped them when the shift had no order_id (the common case). They
       // go to kitchen_handoffs so anyone starting the next shift sees them.
-      const noteText = handoffNotes.trim();
       let noteSaved = false;
       if (noteText && user?.id && user.company_id) {
         const { error: hErr } = await supabase.from("kitchen_handoffs").insert([{
@@ -1644,6 +1684,16 @@ function KitchenDutyRosterPageInner() {
               Optional hand-off note for the next person on duty, e.g. "starter prep done, mains in the walk-in, oven on 180 for 20 more min".
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick answers</p>
+            <div className="flex flex-wrap gap-2">
+              {["Completed kitchen prep and service tasks.", "Cleaned and reset the kitchen work area.", "Finished the shift; no additional work to report.", "Started the clock by mistake; no work completed."].map((suggestion) => (
+                <Button key={suggestion} type="button" variant="outline" size="sm" onClick={() => setHandoffNotes(suggestion)} className="text-left text-xs">
+                  {suggestion}
+                </Button>
+              ))}
+            </div>
+          </div>
           <Textarea
             value={handoffNotes}
             onChange={(e) => setHandoffNotes(e.target.value)}

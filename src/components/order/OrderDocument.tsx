@@ -838,6 +838,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           client_phone: order.client_phone,
           client_email: order.client_email,
           quote_id: order.quote_id,
+          assigned_driver_id: order.assigned_driver_id,
+          assigned_chef_id: order.assigned_chef_id,
         }}
       />
 

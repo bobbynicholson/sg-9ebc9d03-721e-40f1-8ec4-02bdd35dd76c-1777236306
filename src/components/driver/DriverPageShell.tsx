@@ -18,6 +18,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
 import { LucideIcon } from "lucide-react";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { PortalRoleSwitchBar } from "@/components/portal/PortalRoleSwitchBar";
 
 type ShellWidth = "narrow" | "wide" | "full";
 
@@ -79,6 +80,10 @@ export function DriverPageShell({
           company-admin page treatment. */}
       <div className="min-h-screen overflow-x-hidden lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell width={width === "narrow" ? "narrow" : "default"}>
+          <PortalRoleSwitchBar
+            borderClassName="border-blue-200/80 dark:border-slate-700"
+            description="Move between your assigned portals without signing in again."
+          />
           <PortalHeader
             variant="hero"
             title={heading}

@@ -79,6 +79,16 @@ function cookieChunks(session) {
 
 const contexts = [];
 const statusPath = path.join(repoRoot, ".browser-profiles-local", "launch-status.json");
+// Never reuse a persistent profile between role launches. Supabase/browser
+// auth state can outlive the cookies we seed below, which lets a previous
+// role (for example kitchen) replace the intended user after hydration.
+// A fresh profile set makes each run deterministic and prevents false
+// "authenticated" checks that actually landed on another role's portal.
+const runProfileRoot = path.join(
+  repoRoot,
+  ".browser-profiles-local",
+  `run-${Date.now()}`,
+);
 mkdirSync(path.dirname(statusPath), { recursive: true });
 const launchStatus = [];
 const saveLaunchStatus = () => writeFileSync(statusPath, JSON.stringify(launchStatus, null, 2));
@@ -86,7 +96,7 @@ saveLaunchStatus();
 for (const u of USERS) {
   try {
     const session = await mint(u.email);
-    const profileDir = path.join(repoRoot, ".browser-profiles-local", u.role);
+    const profileDir = path.join(runProfileRoot, u.role);
     mkdirSync(profileDir, { recursive: true });
     const ctx = await chromium.launchPersistentContext(profileDir, {
       headless: false, viewport: null,
@@ -103,17 +113,22 @@ for (const u of USERS) {
     // page performs a browser-side Supabase network request, which is not
     // needed for a pre-seeded local test session and can fail independently
     // of the valid session.
-    await page.goto(`${BASE}${u.landing}`, { waitUntil: "domcontentloaded" }).catch(() => {});
+    const response = await page.goto(`${BASE}${u.landing}`, { waitUntil: "domcontentloaded" }).catch(() => null);
     await page.waitForTimeout(800);
     contexts.push(ctx);
-    const authCheck = await page.evaluate(async () => {
-      const response = await fetch("/api/chat?limit=1", { credentials: "include" });
-      return { status: response.status };
-    }).catch(() => ({ status: 0 }));
-    const authenticated = authCheck.status === 200;
-    launchStatus.push({ role: u.role, email: u.email, landing: u.landing, authenticated, status: authCheck.status, checkedAt: new Date().toISOString() });
+    // /api/chat is not an authentication health endpoint: it can return 500
+    // when chat persistence/provider configuration is unavailable even
+    // though the browser session is valid. The middleware's login redirect
+    // and the landing response are the correct local-session check.
+    const finalPath = new URL(page.url()).pathname;
+    const bouncedToLogin = /(^|\/)(login|auth\/login|client\/login)(\/|$)/.test(finalPath);
+    const expectedPath = new URL(`${BASE}${u.landing}`).pathname.replace(/\/$/, "");
+    const landedOnExpectedPortal = finalPath.replace(/\/$/, "") === expectedPath;
+    const pageStatus = response?.status?.() || 0;
+    const authenticated = !bouncedToLogin && landedOnExpectedPortal && pageStatus >= 200 && pageStatus < 400;
+    launchStatus.push({ role: u.role, email: u.email, landing: u.landing, authenticated, status: pageStatus, finalUrl: page.url(), checkedAt: new Date().toISOString() });
     saveLaunchStatus();
-    console.log(`${authenticated ? "AUTHENTICATED" : "OPENED (NOT AUTHENTICATED)"} [${u.role}] ${u.email} -> ${u.landing}`);
+    console.log(`${authenticated ? "AUTHENTICATED" : "FAILED PORTAL CHECK"} [${u.role}] ${u.email} -> ${page.url()}`);
   } catch (e) {
     launchStatus.push({ role: u.role, email: u.email, landing: u.landing, authenticated: false, status: 0, error: e.message, checkedAt: new Date().toISOString() });
     saveLaunchStatus();

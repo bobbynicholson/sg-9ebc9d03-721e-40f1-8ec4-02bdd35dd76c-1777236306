@@ -910,12 +910,18 @@ ${companyName}`;
   /**
    * End cleaning duty shift
    */
-  async endCleaningDuty(dutyLogId: string): Promise<CleaningDutyLog> {
+  async endCleaningDuty(
+    dutyLogId: string,
+    options: { reason?: string; note?: string } = {},
+  ): Promise<CleaningDutyLog> {
+    const endedAt = new Date().toISOString();
     const { data, error } = await supabase
       .from("cleaning_duty_logs")
       .update({
         on_duty: false,
-        duty_ended_at: new Date().toISOString(),
+        duty_ended_at: endedAt,
+        duty_end_reason: options.reason ?? "manual",
+        duty_end_note: options.note?.trim() || "No note supplied.",
       } as any)
       .eq("id", dutyLogId)
       .select()
@@ -986,7 +992,12 @@ ${companyName}`;
       for (const log of targets) {
         const { error: updErr } = await (supabase as any)
           .from("cleaning_duty_logs")
-          .update({ on_duty: false, duty_ended_at: nowIso } as any)
+          .update({
+            on_duty: false,
+            duty_ended_at: nowIso,
+            duty_end_reason: "auto_queue_clear",
+            duty_end_note: "Cleaning queue cleared; shift closed automatically. No additional note supplied.",
+          } as any)
           .eq("id", log.id);
         if (updErr) {
           console.warn("[autoEndCleaningDutyIfClear] duty close failed:", updErr);

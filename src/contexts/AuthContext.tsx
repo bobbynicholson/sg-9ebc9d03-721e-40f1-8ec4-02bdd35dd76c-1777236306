@@ -505,10 +505,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.error("[AuthContext] user_departments fetch failed:", departmentError);
           }
 
+          // The browser query is normally enough, but a deployment with an
+          // older/missing user_departments SELECT policy can return no rows
+          // even though the authenticated account has multiple portals.
+          // Hydrate the picker from the same authenticated server session so
+          // switching into one portal never hides the way back to another.
+          let resolvedDepartmentRows = departmentRows || [];
+          if (departmentError || resolvedDepartmentRows.length === 0) {
+            try {
+              const roleHeaders: Record<string, string> = {};
+              if (session.access_token) roleHeaders.Authorization = `Bearer ${session.access_token}`;
+              const roleResponse = await fetch("/api/auth/roles", {
+                headers: roleHeaders,
+                credentials: "same-origin",
+              });
+              const rolePayload = await roleResponse.json().catch(() => ({}));
+              if (roleResponse.ok && Array.isArray(rolePayload?.roles)) {
+                resolvedDepartmentRows = rolePayload.roles.map((role: UserRole) => ({
+                  department: role,
+                  is_primary: role === rolePayload.active_role,
+                }));
+              }
+            } catch (roleFallbackError) {
+              console.warn("[AuthContext] server role fallback failed:", roleFallbackError);
+            }
+          }
+
           const derivedRoles = deriveUserRoles({
             profileRole: userProfile.role,
             activeRole: userProfile.active_role,
-            departments: departmentRows || [],
+            departments: resolvedDepartmentRows,
           });
           const roleValue = derivedRoles.roles[0] || UserRole.CLIENT;
 

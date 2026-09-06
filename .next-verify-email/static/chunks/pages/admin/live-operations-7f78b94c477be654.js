@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[4413],{56360:(_,n,u)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/admin/live-operations",function(){return u(78995)}])},78995:(_,n,u)=>{"use strict";u.r(n),u.d(n,{__N_SSP:()=>e,default:()=>r});var e=!0;function r(){return null}}},_=>{var n=n=>_(_.s=n);_.O(0,[636,6593,8792],()=>n(56360)),_N_E=_.O()}]);
