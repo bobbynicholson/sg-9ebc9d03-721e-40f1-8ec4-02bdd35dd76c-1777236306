@@ -202,7 +202,7 @@ export function WaiterServicePanel() {
         try {
           const roleClock = await beginRoleClock({ companyId: user.company_id, userId: user.id, role: "waiter", orderId, startedAt: nowIso });
           if (roleClock.closed.length > 0) {
-            await saveRoleHandoffNote(roleClock.closed, promptForRoleHandoffNote(roleClock.closed, "waiter"));
+            await saveRoleHandoffNote(roleClock.closed, await promptForRoleHandoffNote(roleClock.closed, "waiter"));
           }
         } catch (roleErr) {
           console.warn("[WaiterServicePanel] role switch lock unavailable:", roleErr);
@@ -233,7 +233,7 @@ export function WaiterServicePanel() {
         if (error) throw error;
       }
       if (phase === "event_complete_at") {
-        const note = promptForWorkNote("What did you complete during this waiter service?", "Waiter service completed; no additional note supplied.");
+        const note = await promptForWorkNote("What did you complete during this waiter service?", "Waiter service completed; no additional note supplied.");
         try {
           await endCurrentRoleClock({ companyId: user.company_id, userId: user.id, role: "waiter", endedAt: nowIso, note });
           await (supabase as any).from("event_attendance")

@@ -226,7 +226,7 @@ export function DriverClockButton({
       try {
         const roleClock = await beginRoleClock({ companyId, userId: driverId, role: "driver", startedAt: nowIso });
         if (roleClock.closed.length > 0) {
-          await saveRoleHandoffNote(roleClock.closed, promptForRoleHandoffNote(roleClock.closed, "driver"));
+          await saveRoleHandoffNote(roleClock.closed, await promptForRoleHandoffNote(roleClock.closed, "driver"));
         }
       } catch (roleErr) {
         // Keep the legacy driver clock usable while an older local database

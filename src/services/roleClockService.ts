@@ -13,41 +13,193 @@ export type ClosedRoleClock = {
 export const DEFAULT_ROLE_SWITCH_NOTE =
   "Role switch: previous work was automatically closed. No additional note supplied.";
 
-export function promptForAutomaticRoleClockNote(
-  role: WorkRole,
-  reason: string,
-): string {
-  const fallback = `${reason} Your ${role} timer was closed automatically; no additional note supplied.`;
-  if (typeof window === "undefined") return fallback;
-  const answer = window.prompt(
-    `${reason} What work did you complete as ${role} before the timer closed?`,
-    "",
-  );
-  return answer?.trim() || fallback;
+let noteDialogQueue: Promise<unknown> = Promise.resolve();
+
+function queueNoteDialog<T>(factory: () => Promise<T>): Promise<T> {
+  const next = noteDialogQueue.then(factory, factory);
+  noteDialogQueue = next.then(() => undefined, () => undefined);
+  return next;
 }
 
-export function promptForRoleHandoffNote(
+function showNoteDialog(args: {
+  title: string;
+  description: string;
+  fallback: string;
+  suggestions: string[];
+}): Promise<string> {
+  if (typeof window === "undefined" || typeof document === "undefined" || !document.body) {
+    return Promise.resolve(args.fallback);
+  }
+
+  return queueNoteDialog(() => new Promise<string>((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.id = "role-clock-note-dialog";
+    overlay.setAttribute("role", "presentation");
+    Object.assign(overlay.style, {
+      position: "fixed",
+      inset: "0",
+      zIndex: "2147483647",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "16px",
+      background: "rgba(15, 23, 42, 0.55)",
+    });
+
+    const panel = document.createElement("div");
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "role-clock-note-title");
+    Object.assign(panel.style, {
+      width: "min(100%, 480px)",
+      maxHeight: "calc(100vh - 32px)",
+      overflowY: "auto",
+      borderRadius: "14px",
+      background: "#ffffff",
+      color: "#0f172a",
+      padding: "24px",
+      boxShadow: "0 24px 70px rgba(15, 23, 42, 0.35)",
+      fontFamily: "system-ui, sans-serif",
+    });
+
+    const title = document.createElement("h2");
+    title.id = "role-clock-note-title";
+    title.textContent = args.title;
+    Object.assign(title.style, { margin: "0 0 8px", fontSize: "20px", fontWeight: "700" });
+
+    const description = document.createElement("p");
+    description.textContent = args.description;
+    Object.assign(description.style, { margin: "0 0 16px", color: "#475569", lineHeight: "1.5", fontSize: "14px" });
+
+    const textarea = document.createElement("textarea");
+    textarea.rows = 4;
+    textarea.placeholder = "Describe what you completed before switching.";
+    textarea.setAttribute("aria-label", "Work completed");
+    Object.assign(textarea.style, {
+      display: "block",
+      boxSizing: "border-box",
+      width: "100%",
+      resize: "vertical",
+      border: "1px solid #cbd5e1",
+      borderRadius: "8px",
+      padding: "10px 12px",
+      font: "inherit",
+      fontSize: "14px",
+      outline: "none",
+    });
+
+    const suggestions = document.createElement("div");
+    Object.assign(suggestions.style, { display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "12px" });
+    for (const suggestion of args.suggestions) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = suggestion;
+      Object.assign(button.style, {
+        border: "1px solid #cbd5e1",
+        borderRadius: "999px",
+        background: "#ffffff",
+        color: "#334155",
+        padding: "6px 10px",
+        fontSize: "12px",
+        cursor: "pointer",
+      });
+      button.addEventListener("click", () => { textarea.value = suggestion; textarea.focus(); });
+      suggestions.appendChild(button);
+    }
+
+    const footer = document.createElement("div");
+    Object.assign(footer.style, { display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" });
+
+    const finish = (value?: string) => {
+      cleanup();
+      resolve(value?.trim() || args.fallback);
+    };
+    const defaultButton = document.createElement("button");
+    defaultButton.type = "button";
+    defaultButton.textContent = "Use default note";
+    Object.assign(defaultButton.style, { border: "1px solid #cbd5e1", borderRadius: "8px", background: "#ffffff", padding: "9px 12px", cursor: "pointer" });
+    defaultButton.addEventListener("click", () => finish());
+
+    const saveButton = document.createElement("button");
+    saveButton.type = "button";
+    saveButton.textContent = "Save note";
+    Object.assign(saveButton.style, { border: "0", borderRadius: "8px", background: "#0f766e", color: "#ffffff", padding: "9px 14px", cursor: "pointer", fontWeight: "600" });
+    saveButton.addEventListener("click", () => finish(textarea.value));
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") finish();
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") finish(textarea.value);
+    };
+    const cleanup = () => {
+      document.removeEventListener("keydown", onKeyDown);
+      overlay.remove();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) finish(); });
+
+    footer.append(defaultButton, saveButton);
+    panel.append(title, description, textarea, suggestions, footer);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    window.setTimeout(() => textarea.focus(), 0);
+  }));
+}
+
+export async function promptForAutomaticRoleClockNote(
+  role: WorkRole,
+  reason: string,
+): Promise<string> {
+  const fallback = `${reason} Your ${role} timer was closed automatically; no additional note supplied.`;
+  return showNoteDialog({
+    title: "Timer closed automatically",
+    description: `${reason} What work did you complete as ${role} before the timer closed?`,
+    fallback,
+    suggestions: [
+      "Completed the assigned work.",
+      "Finished the current task and handed it over.",
+      "No additional work to report.",
+      "Started the clock by mistake; no work completed.",
+    ],
+  });
+}
+
+export async function promptForRoleHandoffNote(
   closed: ClosedRoleClock[],
   nextRole?: WorkRole,
-): string {
+): Promise<string> {
   const sameRoleOrderHandoff = !!nextRole && closed.every((item) => item.role === nextRole);
   const fallback = sameRoleOrderHandoff
     ? `Switched to another order; previous ${nextRole} work was automatically closed. No additional note supplied.`
     : nextRole
       ? `Switched to ${nextRole}; previous work was automatically closed. No additional note supplied.`
     : DEFAULT_ROLE_SWITCH_NOTE;
-  if (!closed.length || typeof window === "undefined") return fallback;
+  if (!closed.length) return fallback;
   const previous = Array.from(new Set(closed.map((item) => item.role))).join(", ");
-  const answer = window.prompt(
-    `What did you complete as ${previous} before ${sameRoleOrderHandoff ? "switching to another order" : `switching${nextRole ? ` to ${nextRole}` : " roles"}`}?`,
-    "",
-  );
-  return answer?.trim() || fallback;
+  return showNoteDialog({
+    title: sameRoleOrderHandoff ? "Switching to another order" : "Role timer handoff",
+    description: `What did you complete as ${previous} before ${sameRoleOrderHandoff ? "switching to another order" : `switching${nextRole ? ` to ${nextRole}` : " roles"}`}?`,
+    fallback,
+    suggestions: [
+      "Completed the assigned work.",
+      "Finished the current task and handed it over.",
+      "No additional work to report.",
+      "Started the clock by mistake; no work completed.",
+    ],
+  });
 }
 
-export function promptForWorkNote(promptText: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  return window.prompt(promptText, "")?.trim() || fallback;
+export async function promptForWorkNote(promptText: string, fallback: string): Promise<string> {
+  return showNoteDialog({
+    title: "Add a work note",
+    description: promptText,
+    fallback,
+    suggestions: [
+      "Completed the assigned work.",
+      "Finished the current task and handed it over.",
+      "No additional work to report.",
+      "Started the clock by mistake; no work completed.",
+    ],
+  });
 }
 
 type Client = typeof defaultClient;

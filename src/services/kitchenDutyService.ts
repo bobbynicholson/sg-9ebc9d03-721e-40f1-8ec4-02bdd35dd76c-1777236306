@@ -100,7 +100,7 @@ export const kitchenDutyService = {
         if (roleClock.closed.length > 0) {
           await saveRoleHandoffNote(
             roleClock.closed,
-            promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+            await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
           );
         }
       } catch (roleErr) {
@@ -225,7 +225,7 @@ export const kitchenDutyService = {
       if (shifts.length === 0) return { ended: 0, remaining: 0 };
 
       const nowIso = new Date().toISOString();
-      const closeNote = promptForAutomaticRoleClockNote(
+      const closeNote = await promptForAutomaticRoleClockNote(
         "kitchen",
         "All kitchen prep is complete, so this kitchen timer is closing automatically.",
       );

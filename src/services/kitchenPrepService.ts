@@ -894,7 +894,7 @@ export const kitchenPrepService = {
           if (roleClock.closed.length > 0) {
             await saveRoleHandoffNote(
               roleClock.closed,
-              promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+              await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
             );
           }
         } catch (roleErr) {

@@ -146,7 +146,7 @@ function HandoverDetailInner() {
     if (r.closed?.length) {
       await saveRoleHandoffNote(
         r.closed,
-        promptForRoleHandoffNote(r.closed, "cleaning"),
+        await promptForRoleHandoffNote(r.closed, "cleaning"),
       );
     }
     void load();

@@ -197,7 +197,7 @@ export function CleaningDutyWidget() {
         if (roleClock.closed.length > 0) {
           await saveRoleHandoffNote(
             roleClock.closed,
-            promptForRoleHandoffNote(roleClock.closed, "cleaning"),
+            await promptForRoleHandoffNote(roleClock.closed, "cleaning"),
           );
         }
       } catch (roleErr) {

@@ -942,7 +942,7 @@ export const driverPayService = {
         if (roleClock.closed.length > 0) {
           await saveRoleHandoffNote(
             roleClock.closed,
-            promptForRoleHandoffNote(roleClock.closed, "driver"),
+            await promptForRoleHandoffNote(roleClock.closed, "driver"),
             client,
           );
         }
@@ -1028,7 +1028,7 @@ export const driverPayService = {
 
       const nowIso = new Date().toISOString();
       const startIso = (openShift as any).actual_start as string | null;
-      const closeNote = promptForAutomaticRoleClockNote(
+      const closeNote = await promptForAutomaticRoleClockNote(
         "driver",
         "This delivery timer is closing automatically because the delivery is complete.",
       );

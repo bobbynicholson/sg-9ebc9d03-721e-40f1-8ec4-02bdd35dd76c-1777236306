@@ -87,7 +87,7 @@ export function DailyOperationsTasks({ audience }: { audience: Audience }) {
       }
       const clock = await beginRoleClock({ companyId: user.company_id, userId: user.id, role: ROLE_BY_AUDIENCE[audience] });
       if (clock.closed.length) {
-        const note = promptForRoleHandoffNote(clock.closed, ROLE_BY_AUDIENCE[audience]);
+        const note = await promptForRoleHandoffNote(clock.closed, ROLE_BY_AUDIENCE[audience]);
         await saveRoleHandoffNote(clock.closed, note);
       }
       toast({ title: "Daily task started", description: task.title });
