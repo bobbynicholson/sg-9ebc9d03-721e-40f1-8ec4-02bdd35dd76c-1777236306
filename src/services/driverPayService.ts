@@ -26,7 +26,13 @@
  */
 import { supabase as defaultClient } from "@/integrations/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { beginRoleClock } from "@/services/roleClockService";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  promptForAutomaticRoleClockNote,
+  promptForRoleHandoffNote,
+  saveRoleHandoffNote,
+} from "@/services/roleClockService";
 
 type Sb = SupabaseClient<any> | any;
 
@@ -926,13 +932,20 @@ export const driverPayService = {
         // Pickup/in-transit is an order-context start, so it also claims the
         // driver's single active role and closes any waiter/kitchen/cleaning
         // duty clock held by the same person.
-        await beginRoleClock({
+        const roleClock = await beginRoleClock({
           client,
           companyId: opts.companyId,
           userId: opts.driverId,
           role: "driver",
           orderId: opts.orderId,
         });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(
+            roleClock.closed,
+            promptForRoleHandoffNote(roleClock.closed, "driver"),
+            client,
+          );
+        }
       } catch (roleErr) {
         console.warn("[driverPayService] role clock switch unavailable:", roleErr);
       }
@@ -1015,6 +1028,10 @@ export const driverPayService = {
 
       const nowIso = new Date().toISOString();
       const startIso = (openShift as any).actual_start as string | null;
+      const closeNote = promptForAutomaticRoleClockNote(
+        "driver",
+        "This delivery timer is closing automatically because the delivery is complete.",
+      );
 
       // Phase 2 #9: BCEA multiplier needs to look across every day the
       // shift touches, not just the day actual_end falls on. A
@@ -1065,9 +1082,27 @@ export const driverPayService = {
           status: "completed",
           rate_multiplier: multiplier,
           hours_worked: hoursWorked,
+          notes: closeNote,
         })
         .eq("id", (openShift as any).id);
       if (error) return { ok: false, error: error.message };
+
+      // Keep the shared one-timer record in lockstep with the legacy driver
+      // shift. This is also where the automatic-close note is stored for the
+      // order-specific user timer.
+      try {
+        await endCurrentRoleClock({
+          client,
+          companyId: opts.companyId,
+          userId: opts.driverId,
+          role: "driver",
+          endedAt: nowIso,
+          reason: "auto_order_complete",
+          note: closeNote,
+        });
+      } catch (roleErr) {
+        console.warn("[autoClockOut] shared driver role clock close failed (non-fatal):", roleErr);
+      }
 
       // Rate-locking. Snapshot the distance + callout pay onto
       // driver_assignments now that the delivery is closing. Once

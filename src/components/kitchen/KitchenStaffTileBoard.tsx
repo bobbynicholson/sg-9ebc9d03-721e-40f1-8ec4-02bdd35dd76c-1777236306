@@ -48,6 +48,12 @@ import {
   type KitchenStaffPublic,
   type KitchenShift,
 } from "@/services/kitchenStaffService";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  promptForRoleHandoffNote,
+  saveRoleHandoffNote,
+} from "@/services/roleClockService";
 
 function fmtMins(mins: number): string {
   if (!Number.isFinite(mins)) return "--";
@@ -147,6 +153,7 @@ export function KitchenStaffTileBoard({
     staff: KitchenStaffPublic;
     shift: KitchenShift;
   } | null>(null);
+  const [closeNote, setCloseNote] = useState("");
   // Wave 45 follow-up - clock-in confirmation. Captures the moment
   // the operator tapped the tile so the dialog can show the exact
   // start time we'd record. Lets misclicks bail out without locking
@@ -261,6 +268,29 @@ export function KitchenStaffTileBoard({
         department,
         overrideStartAt: capturedAt.toISOString(),
       });
+      // A linked staff tile represents the authenticated person. Keep its
+      // shared role timer in sync so starting kitchen work closes an active
+      // waiter/driver/cleaning timer for that same person. Do not do this
+      // when a manager is clocking in somebody else from the shared tablet.
+      if (s.linked_profile_id === user?.id) {
+        try {
+          const workRole = department === "cleaning" ? "cleaning" : "kitchen";
+          const roleClock = await beginRoleClock({
+            companyId,
+            userId: user.id,
+            role: workRole,
+            startedAt: capturedAt.toISOString(),
+          });
+          if (roleClock.closed.length > 0) {
+            await saveRoleHandoffNote(
+              roleClock.closed,
+              promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+            );
+          }
+        } catch (roleErr) {
+          console.warn("[KitchenStaffTileBoard] shared role handoff failed (non-blocking):", roleErr);
+        }
+      }
       toast({
         title: `${s.full_name} is on shift`,
         description: "Their hours are tracking now - nice one.",
@@ -276,6 +306,7 @@ export function KitchenStaffTileBoard({
   };
 
   const confirmClockOut = (s: KitchenStaffPublic, sh: KitchenShift) => {
+    setCloseNote("");
     setClosingTarget({ staff: s, shift: sh });
   };
 
@@ -285,11 +316,28 @@ export function KitchenStaffTileBoard({
     if (busy.has(s.id)) return;
     setBusyFor(s.id, true);
     try {
+      const note = closeNote.trim() || "Manual kitchen staff clock-out; no additional note supplied.";
       await kitchenStaffService.clockOut({
         shiftId: sh.id,
         clockedOutBy: user?.id || null,
+        notes: note,
       });
+      if (s.linked_profile_id === user?.id && companyId) {
+        try {
+          const workRole = department === "cleaning" ? "cleaning" : "kitchen";
+          await endCurrentRoleClock({
+            companyId,
+            userId: user.id,
+            role: workRole,
+            reason: "manual",
+            note,
+          });
+        } catch (roleErr) {
+          console.warn("[KitchenStaffTileBoard] shared role clock-out failed (non-blocking):", roleErr);
+        }
+      }
       toast({ title: "Clocked out", description: s.full_name });
+      setCloseNote("");
       setClosingTarget(null);
       load();
     } catch (e: any) {
@@ -683,6 +731,23 @@ export function KitchenStaffTileBoard({
                 </div>
                 <div className="text-xs text-slate-500">
                   Standard and overtime split happens automatically using their daily threshold - payroll stays honest both ways.
+                </div>
+                <div className="space-y-2 pt-1">
+                  <Label htmlFor="kitchen-staff-close-note">Work note (optional)</Label>
+                  <Textarea
+                    id="kitchen-staff-close-note"
+                    rows={2}
+                    value={closeNote}
+                    onChange={(e) => setCloseNote(e.target.value)}
+                    placeholder="What was completed? Leave blank to use the default note."
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {["Completed kitchen prep and service tasks.", "Cleaned and reset the kitchen work area.", "Finished the shift; no additional work to report.", "Started the clock by mistake; no work completed."].map((suggestion) => (
+                      <Button key={suggestion} type="button" variant="outline" size="sm" onClick={() => setCloseNote(suggestion)} className="text-left text-xs">
+                        {suggestion}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </AlertDialogDescription>

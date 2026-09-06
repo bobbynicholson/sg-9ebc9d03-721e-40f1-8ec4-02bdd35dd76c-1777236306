@@ -5,6 +5,10 @@ import { sendEmailViaAPI } from "@/lib/emailClient";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { notificationService } from "./notificationService";
 import { UserRole } from "@/types/app";
+import {
+  endCurrentRoleClock,
+  promptForAutomaticRoleClockNote,
+} from "@/services/roleClockService";
 
 type EquipmentHandover = Database["public"]["Tables"]["equipment_handovers"]["Row"];
 type EquipmentDamage = Database["public"]["Tables"]["equipment_damages"]["Row"];
@@ -988,6 +992,12 @@ ${companyName}`;
       if (targets.length === 0) return { ended: 0, remaining: 0 };
 
       const nowIso = new Date().toISOString();
+      const closeNote = params.userId
+        ? promptForAutomaticRoleClockNote(
+            "cleaning",
+            "All cleaning jobs are complete, so this cleaning timer is closing automatically.",
+          )
+        : "Cleaning queue cleared; shift closed automatically. No additional note supplied.";
       let ended = 0;
       for (const log of targets) {
         const { error: updErr } = await (supabase as any)
@@ -996,7 +1006,7 @@ ${companyName}`;
             on_duty: false,
             duty_ended_at: nowIso,
             duty_end_reason: "auto_queue_clear",
-            duty_end_note: "Cleaning queue cleared; shift closed automatically. No additional note supplied.",
+            duty_end_note: closeNote,
           } as any)
           .eq("id", log.id);
         if (updErr) {
@@ -1020,6 +1030,18 @@ ${companyName}`;
           } as any);
         } catch (notifyErr) {
           console.warn("[autoEndCleaningDutyIfClear] cleaner notify failed:", notifyErr);
+        }
+        try {
+          await endCurrentRoleClock({
+            companyId: params.companyId,
+            userId: log.user_id,
+            role: "cleaning",
+            endedAt: nowIso,
+            reason: "auto_queue_clear",
+            note: closeNote,
+          });
+        } catch (roleErr) {
+          console.warn("[autoEndCleaningDutyIfClear] shared cleaning role clock close failed:", roleErr);
         }
       }
       return { ended, remaining: 0 };

@@ -21,7 +21,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   beginRoleClock,
-  endCurrentRoleClock,
   type ClosedRoleClock,
 } from "@/services/roleClockService";
 
@@ -509,30 +508,6 @@ export async function completeJob(
         detail: { jobId, equipmentId: jobRow?.equipment_id ?? null, quantity: jobRow?.quantity ?? null },
       }));
     } catch { /* old browsers without CustomEvent polyfill */ }
-  }
-
-  if (userId && jobRow?.company_id) {
-    try {
-      const { data: remaining } = await sb
-        .from("cleaning_jobs")
-        .select("id")
-        .eq("company_id", jobRow.company_id)
-        .is("deleted_at", null)
-        .in("status", ["queued", "in_progress"]);
-      if (!(remaining || []).length) {
-        await endCurrentRoleClock({
-          client: supabase,
-          companyId: jobRow.company_id,
-          userId,
-          role: "cleaning",
-          endedAt,
-          reason: "auto_queue_clear",
-          note: "Cleaning queue cleared; shift closed automatically. No additional note supplied.",
-        });
-      }
-    } catch (roleErr) {
-      console.warn("[cleaningJobsService.completeJob] role clock close failed (non-blocking):", roleErr);
-    }
   }
 
   return { ok: true };

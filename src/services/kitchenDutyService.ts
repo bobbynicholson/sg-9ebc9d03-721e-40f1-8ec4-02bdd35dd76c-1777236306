@@ -5,7 +5,11 @@ import { notificationService } from "./notificationService";
 import { billingEmailService } from "./billingEmailService";
 import { UserRole } from "@/types/app";
 import { toLocalISO } from "@/lib/localDate";
-import { beginRoleClock, endCurrentRoleClock } from "@/services/roleClockService";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  promptForAutomaticRoleClockNote,
+} from "@/services/roleClockService";
 
 // Admin-side roles that should receive kitchen-duty pings. Audit (May
 // 2026): every kitchen notification in this service was routed back to
@@ -213,6 +217,10 @@ export const kitchenDutyService = {
       if (shifts.length === 0) return { ended: 0, remaining: 0 };
 
       const nowIso = new Date().toISOString();
+      const closeNote = promptForAutomaticRoleClockNote(
+        "kitchen",
+        "All kitchen prep is complete, so this kitchen timer is closing automatically.",
+      );
       let ended = 0;
       for (const sh of shifts) {
         const { error: updErr } = await supabase
@@ -222,7 +230,7 @@ export const kitchenDutyService = {
           shift_end: nowIso,
           updated_at: nowIso,
           end_reason: "auto_queue_clear",
-          end_note: "Kitchen prep queue cleared; shift closed automatically. No additional note supplied.",
+          end_note: closeNote,
         } as any)
           .eq("id", sh.id);
         if (updErr) {
@@ -255,6 +263,18 @@ export const kitchenDutyService = {
         } catch (notifyErr) {
           console.warn("[autoEndKitchenDutyIfClear] chef notify failed:", notifyErr);
         }
+      }
+      try {
+        await endCurrentRoleClock({
+          companyId: params.companyId,
+          userId: params.staffId,
+          role: "kitchen",
+          endedAt: nowIso,
+          reason: "auto_queue_clear",
+          note: closeNote,
+        });
+      } catch (roleErr) {
+        console.warn("[autoEndKitchenDutyIfClear] shared kitchen role clock close failed:", roleErr);
       }
       return { ended, remaining: 0 };
     } catch (e) {

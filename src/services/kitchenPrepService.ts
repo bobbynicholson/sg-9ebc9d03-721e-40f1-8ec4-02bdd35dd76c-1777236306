@@ -19,7 +19,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getRecipe as getLegacyRecipe } from "./inventoryDeductionService";
 import { toLocalISO } from "@/lib/localDate";
-import { beginRoleClock, endCurrentRoleClock, promptForRoleHandoffNote, saveRoleHandoffNote } from "@/services/roleClockService";
+import { beginRoleClock, promptForRoleHandoffNote, saveRoleHandoffNote } from "@/services/roleClockService";
 
 // ── Settings ────────────────────────────────────────────────────────────────
 
@@ -1033,20 +1033,10 @@ export const kitchenPrepService = {
     if (taskCompanyId && performedBy) {
       try {
         const { kitchenDutyService } = await import("./kitchenDutyService");
-        const closed = await kitchenDutyService.autoEndKitchenDutyIfClear({
+        await kitchenDutyService.autoEndKitchenDutyIfClear({
           companyId: taskCompanyId,
           staffId: performedBy,
         });
-        if (closed.ended > 0) {
-          await endCurrentRoleClock({
-            client: supabase,
-            companyId: taskCompanyId,
-            userId: performedBy,
-            role: "kitchen",
-            reason: "auto_queue_clear",
-            note: "Kitchen prep queue cleared; shift closed automatically. No additional note supplied.",
-          });
-        }
       } catch (e) {
         console.warn("[kitchenPrepService] autoEndKitchenDutyIfClear failed:", e);
       }

@@ -13,17 +13,33 @@ export type ClosedRoleClock = {
 export const DEFAULT_ROLE_SWITCH_NOTE =
   "Role switch: previous work was automatically closed. No additional note supplied.";
 
+export function promptForAutomaticRoleClockNote(
+  role: WorkRole,
+  reason: string,
+): string {
+  const fallback = `${reason} Your ${role} timer was closed automatically; no additional note supplied.`;
+  if (typeof window === "undefined") return fallback;
+  const answer = window.prompt(
+    `${reason} What work did you complete as ${role} before the timer closed?`,
+    "",
+  );
+  return answer?.trim() || fallback;
+}
+
 export function promptForRoleHandoffNote(
   closed: ClosedRoleClock[],
   nextRole?: WorkRole,
 ): string {
-  const fallback = nextRole
-    ? `Switched to ${nextRole}; previous work was automatically closed. No additional note supplied.`
+  const sameRoleOrderHandoff = !!nextRole && closed.every((item) => item.role === nextRole);
+  const fallback = sameRoleOrderHandoff
+    ? `Switched to another order; previous ${nextRole} work was automatically closed. No additional note supplied.`
+    : nextRole
+      ? `Switched to ${nextRole}; previous work was automatically closed. No additional note supplied.`
     : DEFAULT_ROLE_SWITCH_NOTE;
   if (!closed.length || typeof window === "undefined") return fallback;
   const previous = Array.from(new Set(closed.map((item) => item.role))).join(", ");
   const answer = window.prompt(
-    `What did you complete as ${previous} before switching${nextRole ? ` to ${nextRole}` : ""}?`,
+    `What did you complete as ${previous} before ${sameRoleOrderHandoff ? "switching to another order" : `switching${nextRole ? ` to ${nextRole}` : " roles"}`}?`,
     "",
   );
   return answer?.trim() || fallback;
@@ -115,16 +131,23 @@ export async function beginRoleClock(args: {
 }): Promise<{ sessionId: string | null; closed: ClosedRoleClock[] }> {
   const client = args.client || defaultClient;
   const at = args.startedAt || new Date().toISOString();
-  const defaultNote = `Role switch to ${args.role}; previous role was automatically closed. No additional note supplied.`;
+  const requestedOrderId = args.orderId || null;
   const { data: current } = await (client as any).from("role_work_sessions")
     .select("id, role, order_id, started_at")
     .eq("company_id", args.companyId).eq("user_id", args.userId)
     .is("ended_at", null).maybeSingle();
   const closed: ClosedRoleClock[] = [];
 
-  if (current && current.role !== args.role) {
+  const orderContextChanged = !!current && current.role === args.role && (current.order_id || null) !== requestedOrderId;
+  const roleChanged = !!current && current.role !== args.role;
+  const closeReason = orderContextChanged ? "order_switch" : "role_switch";
+  const defaultNote = orderContextChanged
+    ? `Switched to another order; previous ${current?.role || args.role} work was automatically closed. No additional note supplied.`
+    : `Role switch to ${args.role}; previous role was automatically closed. No additional note supplied.`;
+
+  if (current && (roleChanged || orderContextChanged)) {
     const { error } = await (client as any).from("role_work_sessions")
-      .update({ ended_at: at, end_reason: "role_switch", end_note: defaultNote })
+      .update({ ended_at: at, end_reason: closeReason, end_note: defaultNote })
       .eq("id", current.id).is("ended_at", null);
     if (!error) closed.push({ source: "role_work_session", id: current.id, role: current.role, orderId: current.order_id || null, startedAt: current.started_at || null });
   }
@@ -134,10 +157,10 @@ export async function beginRoleClock(args: {
   });
   closed.push(...legacyClosed);
 
-  if (current && current.role === args.role) return { sessionId: current.id, closed };
+  if (current && current.role === args.role && !orderContextChanged) return { sessionId: current.id, closed };
 
   const { data: created, error } = await (client as any).from("role_work_sessions")
-    .insert({ company_id: args.companyId, user_id: args.userId, role: args.role, order_id: args.orderId || null, started_at: at })
+    .insert({ company_id: args.companyId, user_id: args.userId, role: args.role, order_id: requestedOrderId, started_at: at })
     .select("id")
     .maybeSingle();
   if (!error && created?.id) return { sessionId: created.id, closed };
@@ -179,11 +202,18 @@ export async function endCurrentRoleClock(args: {
 }) {
   const client = args.client || defaultClient;
   const { data: current } = await (client as any).from("role_work_sessions")
-    .select("id")
+    .select("id, role, order_id, started_at")
     .eq("company_id", args.companyId).eq("user_id", args.userId).eq("role", args.role)
     .is("ended_at", null).maybeSingle();
-  if (!current?.id) return;
+  if (!current?.id) return null;
   await endRoleClock({ ...args, sessionId: current.id, client });
+  return {
+    source: "role_work_session",
+    id: current.id,
+    role: current.role,
+    orderId: current.order_id || null,
+    startedAt: current.started_at || null,
+  } as ClosedRoleClock;
 }
 
 /** Persist the note after the close prompt without changing the timestamps. */
