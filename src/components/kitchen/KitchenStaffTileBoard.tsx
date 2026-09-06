@@ -272,7 +272,10 @@ export function KitchenStaffTileBoard({
       // shared role timer in sync so starting kitchen work closes an active
       // waiter/driver/cleaning timer for that same person. Do not do this
       // when a manager is clocking in somebody else from the shared tablet.
-      if (s.linked_profile_id === user?.id) {
+      const controlsOwnSharedClock =
+        s.linked_profile_id === user?.id ||
+        (!s.linked_profile_id && isLegacySharedTeamLogin);
+      if (controlsOwnSharedClock && user?.id) {
         try {
           const workRole = department === "cleaning" ? "cleaning" : "kitchen";
           const roleClock = await beginRoleClock({
@@ -284,7 +287,7 @@ export function KitchenStaffTileBoard({
           if (roleClock.closed.length > 0) {
             await saveRoleHandoffNote(
               roleClock.closed,
-              promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+              promptForRoleHandoffNote(roleClock.closed, workRole),
             );
           }
         } catch (roleErr) {
@@ -322,7 +325,10 @@ export function KitchenStaffTileBoard({
         clockedOutBy: user?.id || null,
         notes: note,
       });
-      if (s.linked_profile_id === user?.id && companyId) {
+      const controlsOwnSharedClock =
+        s.linked_profile_id === user?.id ||
+        (!s.linked_profile_id && isLegacySharedTeamLogin);
+      if (controlsOwnSharedClock && companyId && user?.id) {
         try {
           const workRole = department === "cleaning" ? "cleaning" : "kitchen";
           await endCurrentRoleClock({
