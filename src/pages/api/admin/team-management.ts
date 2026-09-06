@@ -176,12 +176,18 @@ async function handleClock(
   department: Department,
   memberId: string,
   action: "clock_in" | "clock_out",
+  note?: string,
 ) {
   const { admin, caller } = context;
   const team = await loadTeam(context, department);
   const member = team.members.find((candidate) => candidate.id === memberId);
   if (!member) throw Object.assign(new Error("That user is not an active member of this team"), { statusCode: 400 });
+  const memberIsManager = member.active_role === `${department}_manager` || member.role === `${department}_manager`;
+  if (memberIsManager) {
+    throw Object.assign(new Error(`A ${department} manager must use the manager work clock, not the ${department} staff clock`), { statusCode: 409 });
+  }
   const now = new Date().toISOString();
+  const closeNote = text(note) || "Manager clocked this person out. No additional note supplied.";
   let shiftId: string | null = null;
 
   // Admin clock actions still represent work by the selected person, not by
@@ -215,7 +221,12 @@ async function handleClock(
     } else {
       if (!member.status.on_duty || !member.status.shift_id) throw Object.assign(new Error(`${member.full_name || "This team member"} is already clocked out`), { statusCode: 409 });
       shiftId = member.status.shift_id;
-      const { error } = await (admin as any).from("cleaning_duty_logs").update({ on_duty: false, duty_ended_at: now }).eq("id", shiftId).eq("company_id", team.company_id);
+      const { error } = await (admin as any).from("cleaning_duty_logs").update({
+        on_duty: false,
+        duty_ended_at: now,
+        duty_end_reason: "manual",
+        duty_end_note: closeNote,
+      }).eq("id", shiftId).eq("company_id", team.company_id);
       if (error) throw error;
       await endCurrentRoleClock({
         client: admin,
@@ -224,7 +235,7 @@ async function handleClock(
         role: "cleaning",
         endedAt: now,
         reason: "manual",
-        note: "Manager clocked this person out. No additional note supplied.",
+        note: closeNote,
       });
     }
   } else {
@@ -238,7 +249,13 @@ async function handleClock(
     } else {
       if (!member.status.on_duty || !member.status.shift_id) throw Object.assign(new Error(`${member.full_name || "This team member"} is already clocked out`), { statusCode: 409 });
       shiftId = member.status.shift_id;
-      const { error } = await (admin as any).from("kitchen_duty_shifts").update({ is_active: false, shift_end: now, updated_at: now }).eq("id", shiftId).eq("company_id", team.company_id);
+      const { error } = await (admin as any).from("kitchen_duty_shifts").update({
+        is_active: false,
+        shift_end: now,
+        updated_at: now,
+        end_reason: "manual",
+        end_note: closeNote,
+      }).eq("id", shiftId).eq("company_id", team.company_id);
       if (error) throw error;
       await endCurrentRoleClock({
         client: admin,
@@ -247,7 +264,7 @@ async function handleClock(
         role: "kitchen",
         endedAt: now,
         reason: "manual",
-        note: "Manager clocked this person out. No additional note supplied.",
+        note: closeNote,
       });
     }
   }
@@ -295,7 +312,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (action === "clock_in" || action === "clock_out") {
       const memberId = text(req.body?.member_id, 100);
       if (!memberId) return res.status(400).json({ error: "Choose a team member first" });
-      return res.status(200).json(await handleClock(context, department, memberId, action));
+      return res.status(200).json(await handleClock(context, department, memberId, action, req.body?.note));
     }
     if (action === "add_note") {
       const body = text(req.body?.body);

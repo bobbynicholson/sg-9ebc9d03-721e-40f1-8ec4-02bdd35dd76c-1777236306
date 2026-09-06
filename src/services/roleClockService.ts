@@ -1,9 +1,9 @@
 import { supabase as defaultClient } from "@/integrations/supabase/client";
 
-export type WorkRole = "driver" | "waiter" | "kitchen" | "cleaning";
+export type WorkRole = "driver" | "waiter" | "kitchen" | "cleaning" | "kitchen_manager" | "cleaning_manager";
 
 export type ClosedRoleClock = {
-  source: "role_work_session" | "driver_shift" | "waiter_attendance" | "kitchen_duty" | "cleaning_duty";
+  source: "role_work_session" | "driver_shift" | "waiter_attendance" | "kitchen_duty" | "kitchen_staff_shift" | "cleaning_duty";
   id: string;
   role: WorkRole;
   orderId: string | null;
@@ -18,6 +18,8 @@ const ROLE_LABELS: Record<WorkRole, string> = {
   waiter: "Waiter",
   kitchen: "Kitchen",
   cleaning: "Cleaning",
+  kitchen_manager: "Kitchen manager",
+  cleaning_manager: "Cleaning manager",
 };
 
 function roleLabel(role: WorkRole): string {
@@ -306,6 +308,33 @@ async function closeLegacyOtherRoleClocks(
       if (!error) closed.push({ source: "cleaning_duty", id: row.id, role: "cleaning", orderId: null, startedAt: row.duty_started_at || null });
     }
   }
+
+  // The kitchen tablet uses kitchen_staff_shifts, which is separate from
+  // kitchen_duty_shifts. Close a linked person's open tablet shift when they
+  // move to another role, otherwise the tablet and shared clock can diverge.
+  if (nextRole !== "kitchen") {
+    const { data: staffLinks } = await (client as any).from("kitchen_staff_members")
+      .select("id").eq("company_id", companyId).eq("linked_profile_id", userId)
+      .is("deleted_at", null);
+    const staffIds = (staffLinks || []).map((row: any) => row.id).filter(Boolean);
+    if (staffIds.length) {
+      const { data: rows } = await (client as any).from("kitchen_staff_shifts")
+        .select("id, shift_start, department").eq("company_id", companyId)
+        .in("staff_member_id", staffIds).is("shift_end", null).is("deleted_at", null);
+      for (const row of rows || []) {
+        const { error } = await (client as any).from("kitchen_staff_shifts")
+          .update({ shift_end: at, notes: note })
+          .eq("id", row.id).is("shift_end", null);
+        if (!error) closed.push({
+          source: "kitchen_staff_shift",
+          id: row.id,
+          role: row.department === "cleaning" ? "cleaning" : "kitchen",
+          orderId: null,
+          startedAt: row.shift_start || null,
+        });
+      }
+    }
+  }
   return closed;
 }
 
@@ -417,6 +446,8 @@ export async function saveRoleHandoffNote(closed: ClosedRoleClock[], note: strin
       await (client as any).from("event_attendance").update({ work_end_note: text }).eq("id", item.id);
     } else if (item.source === "kitchen_duty") {
       await (client as any).from("kitchen_duty_shifts").update({ end_note: text }).eq("id", item.id);
+    } else if (item.source === "kitchen_staff_shift") {
+      await (client as any).from("kitchen_staff_shifts").update({ notes: text }).eq("id", item.id);
     } else if (item.source === "cleaning_duty") {
       await (client as any).from("cleaning_duty_logs").update({ duty_end_note: text }).eq("id", item.id);
     }

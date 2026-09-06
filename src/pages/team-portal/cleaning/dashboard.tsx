@@ -51,6 +51,17 @@ function CleaningDashboardInner() {
     UserRole.OWNER,
     UserRole.REGION_ADMIN,
   ].includes(user?.role as UserRole);
+  // A cleaning manager has a separate management/work clock. Do not mount
+  // the crew Cleaning duty clock while the manager portal is active.
+  const activeRole = String(user?.active_role || user?.role || "").toLowerCase();
+  const canClockCleaning = [
+    UserRole.CLEANING_STAFF,
+    UserRole.COMPANY_ADMIN,
+    UserRole.ADMIN,
+    UserRole.SUPER_ADMIN,
+    UserRole.OWNER,
+    UserRole.REGION_ADMIN,
+  ].includes(activeRole as UserRole);
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
   const [activeTab, setActiveTab] = useState("verification");
@@ -392,7 +403,7 @@ function CleaningDashboardInner() {
               but was imported and never rendered. Wave 39 also fixed
               4 stacked bugs in the widget itself (company_id scoped
               wrong, missing schema columns added via migration). */}
-          {canManageCleaning && (
+          {canClockCleaning && (
             <div id="duty" className="scroll-mt-20 lg:scroll-mt-6">
               <CleaningDutyWidget />
             </div>

@@ -208,6 +208,8 @@ export function KitchenStaffTileBoard({
   const canManageThisBoard = department === "cleaning"
     ? canManageCleaningTeam(roleSet)
     : canManageKitchenTeam(roleSet);
+  const currentRole = String(activeRole || (user as any)?.active_role || (profile as any)?.active_role || "").toLowerCase();
+  const managerRoleForBoard = department === "cleaning" ? "cleaning_manager" : "kitchen_manager";
   const hasOwnLinkedTile = useMemo(
     () => !!user?.id && staff.some((s) => s.linked_profile_id === user.id),
     [staff, user?.id],
@@ -218,8 +220,13 @@ export function KitchenStaffTileBoard({
       (department === "cleaning" && roleSet.includes(UserRole.CLEANING_STAFF)) ||
       (department !== "cleaning" && roleSet.includes(UserRole.KITCHEN_STAFF))
     );
+  const isOwnManagerTile = (s: KitchenStaffPublic) =>
+    currentRole === managerRoleForBoard && !!user?.id && (
+      s.linked_profile_id === user.id ||
+      (!!s.email && !!user?.email && s.email.toLowerCase() === user.email.toLowerCase())
+    );
   const canControlStaff = (s: KitchenStaffPublic) =>
-    canManageThisBoard || isLegacySharedTeamLogin || (!!user?.id && s.linked_profile_id === user.id);
+    !isOwnManagerTile(s) && (canManageThisBoard || isLegacySharedTeamLogin || (!!user?.id && s.linked_profile_id === user.id));
 
   // ── Click handlers ───────────────────────────────────────────────────────
 

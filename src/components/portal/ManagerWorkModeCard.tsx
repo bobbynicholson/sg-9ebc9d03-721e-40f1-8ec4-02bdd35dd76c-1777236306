@@ -21,6 +21,19 @@ import {
   isManagerWorkingNow,
 } from "@/services/managerWorkModeService";
 import { notificationService } from "@/services/notificationService";
+import {
+  beginRoleClock,
+  endCurrentRoleClock,
+  promptForRoleHandoffNote,
+  promptForWorkNote,
+  saveRoleHandoffNote,
+  type WorkRole,
+} from "@/services/roleClockService";
+
+function managerClockRole(role: string): WorkRole | null {
+  if (role === "kitchen_manager" || role === "cleaning_manager") return role;
+  return null;
+}
 
 export function ManagerWorkModeCard() {
   const { user } = useAuth();
@@ -29,6 +42,7 @@ export function ManagerWorkModeCard() {
   const userId = user?.id || "";
   const companyId = user?.company_id || "";
   const isManager = isManagerRole(activeRole);
+  const workRole = managerClockRole(activeRole);
 
   const [working, setWorking] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -64,6 +78,35 @@ export function ManagerWorkModeCard() {
       setSaving(true);
       const prev = working;
       setWorking(next); // optimistic
+      let clockError: unknown = null;
+      if (next && workRole) {
+        try {
+          const roleClock = await beginRoleClock({ companyId, userId, role: workRole });
+          if (roleClock.closed.length > 0) {
+            const note = await promptForRoleHandoffNote(roleClock.closed, workRole);
+            await saveRoleHandoffNote(roleClock.closed, note);
+          }
+        } catch (error) {
+          clockError = error;
+        }
+      } else if (!next && workRole) {
+        try {
+          const roleLabel = workRole.replace("_", " ");
+          const note = await promptForWorkNote(
+            `What did you complete as ${roleLabel} before clocking out?`,
+            `Manual ${roleLabel} clock-out; no additional note supplied.`,
+          );
+          await endCurrentRoleClock({ companyId, userId, role: workRole, note, reason: "manual" });
+        } catch (error) {
+          clockError = error;
+        }
+      }
+      if (clockError) {
+        setWorking(prev);
+        toast({ title: "Could not update work clock", description: clockError instanceof Error ? clockError.message : "Try again.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
       const ok = await managerWorkModeService.setWorkMode(userId, next);
       if (!ok) {
         setWorking(prev);
