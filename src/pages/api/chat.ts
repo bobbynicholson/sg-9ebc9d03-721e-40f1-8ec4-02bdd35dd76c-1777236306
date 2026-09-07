@@ -15,6 +15,7 @@ import { getRelevantWorkflows } from "@/lib/chatbot/workflows";
 import { getChatAccessPolicy } from "@/server/chatbot/accessPolicy";
 import { routeChatQuestion } from "@/server/chatbot/router";
 import { loadDynamicTools, selectDynamicTools } from "@/server/chatbot/dynamicTools";
+import { classifyChatIntentWithOpenAI } from "@/server/chatbot/intentClassifier";
 
 const MAX_MESSAGE_LENGTH = 4_000;
 const MAX_GROUNDING_PASSES = 2;
@@ -271,12 +272,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    let route = routeChatQuestion(message);
+    // Normalize and classify before any tool or navigation selection. OpenAI
+    // may propose only an allowlisted intent id; the server still validates
+    // that id against the authenticated role and maps it to named tools.
+    const dynamicTools = await loadDynamicTools(db, identity);
+    const resolvedIntent = await classifyChatIntentWithOpenAI(message, identity.role, dynamicTools.map((tool) => ({
+      id: `dynamic:${tool.id}`,
+      label: tool.name,
+      description: tool.description,
+      roles: tool.roles,
+      keywords: tool.keywords,
+      category: "custom",
+    })));
+    let route = routeChatQuestion(message, identity.role, resolvedIntent);
     // Custom tool phrases are manager-defined, so the static intent router
     // cannot know them in advance. Check those definitions before deciding a
     // question is knowledge-only; an exact custom match is current data.
     if (!route.useLiveData && route.useKnowledge) {
-      const matchingCustomTool = selectDynamicTools(await loadDynamicTools(db, identity), message, 1)[0];
+      const matchingCustomTool = selectDynamicTools(dynamicTools, message, 1, resolvedIntent)[0];
       if (matchingCustomTool) {
         route = {
           route: "live_data",
@@ -294,14 +307,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       : null;
     const workflow = getRelevantWorkflows(message, identity.role, 1)[0];
     const trace: ChatTraceStep[] = [
-      { id: "plan", type: "plan", title: "Understood your request", status: "completed", detail: route.explanation },
+      {
+        id: "plan",
+        type: "plan",
+        title: "Understood your request",
+        status: "completed",
+        detail: route.intent
+          ? `${route.explanation} Intent: ${route.intent.id} (${Math.round(route.intent.confidence * 100)}% confidence).`
+          : route.explanation,
+      },
     ];
     if (workflow) {
       trace.push({ id: "workflow", type: "plan", title: `Mapped the ${workflow.label.toLowerCase()} process`, status: "completed", detail: `${workflow.steps.length} role-approved steps are available below.` });
     }
     const [liveContext, initialKnowledge] = await Promise.all([
       route.useLiveData
-        ? buildLiveContext(db, identity, accessPolicy || undefined, message)
+        ? buildLiveContext(db, identity, accessPolicy || undefined, message, resolvedIntent)
         : Promise.resolve("LIVE DATA ROUTE: This question was classified as knowledge-first. Do not invent current records; use indexed stable knowledge and navigation only."),
       route.useKnowledge ? retrieveKnowledge(db, identity.companyId, identity.role, message) : Promise.resolve([]),
     ]);
@@ -333,7 +354,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const navigation = getRelevantNavigation(message, identity.role, 3, {
       pathname: typeof req.body?.currentPath === "string" ? req.body.currentPath : "",
       sections: currentSections,
-    });
+    }, resolvedIntent);
     const currentControls = Array.isArray(req.body?.currentControls)
       ? req.body.currentControls
         .filter((item: any) => typeof item?.label === "string")
@@ -372,6 +393,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         role: identity.role,
         live_data_enabled: accessPolicy?.liveDataEnabled ?? false,
         intent_route: route.route,
+        ...(route.intent
+          ? {
+            intent_id: route.intent.id,
+            intent_confidence: route.intent.confidence,
+            intent_normalized_message: route.intent.normalizedMessage,
+            intent_source: route.intent.matchedBy,
+          }
+          : {}),
         navigation,
         ...(clientMessageId ? { client_message_id: clientMessageId } : {}),
       },

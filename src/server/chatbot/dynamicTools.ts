@@ -1,4 +1,5 @@
 import type { ChatIdentity } from "./brain";
+import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
 
 export type DynamicToolOperation = "count" | "list" | "sum" | "average";
 export type DynamicToolScope = "platform" | "company" | "current_user";
@@ -37,7 +38,9 @@ function scoreDynamicTool(tool: DynamicToolDefinition, message: string): number 
   }, 0);
 }
 
-export function selectDynamicTools(definitions: DynamicToolDefinition[], message: string, limit = 4): DynamicToolDefinition[] {
+export function selectDynamicTools(definitions: DynamicToolDefinition[], message: string, limit = 4, resolvedIntent?: ChatIntentMatch | null): DynamicToolDefinition[] {
+  const preferredIds = new Set((resolvedIntent?.toolIds || []).filter((id) => id.startsWith("dynamic:")).map((id) => id.slice("dynamic:".length)));
+  if (preferredIds.size) return definitions.filter((tool) => preferredIds.has(tool.id)).slice(0, limit);
   return definitions
     .map((tool) => ({ tool, score: scoreDynamicTool(tool, message) }))
     .filter((item) => item.score >= 2)
@@ -66,8 +69,8 @@ export async function loadDynamicTools(db: any, identity: ChatIdentity): Promise
   }
 }
 
-export async function runDynamicTools(db: any, identity: ChatIdentity, message: string): Promise<Record<string, any>> {
-  const definitions = selectDynamicTools(await loadDynamicTools(db, identity), message);
+export async function runDynamicTools(db: any, identity: ChatIdentity, message: string, resolvedIntent?: ChatIntentMatch | null): Promise<Record<string, any>> {
+  const definitions = selectDynamicTools(await loadDynamicTools(db, identity), message, 4, resolvedIntent);
   const results = await Promise.all(definitions.map(async (tool) => {
     try {
       const { data, error } = await db.rpc("ai_brain_run_dynamic_tool", { p_tool_id: tool.id });

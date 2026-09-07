@@ -15,7 +15,7 @@ import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
-import { indexChatPageSections } from "@/lib/chatbot/sectionAnchors";
+import { indexChatPageSections, scrollToChatHash } from "@/lib/chatbot/sectionAnchors";
 import "@/styles/globals.css";
 
 // Warm modern display serif for marketing headings (opt-in via Tailwind's
@@ -118,6 +118,46 @@ function GlobalChatAssistant() {
     observer.observe(document.body, { childList: true, subtree: true });
     return () => observer.disconnect();
   }, [isProductRoute, path]);
+
+  // A hash can arrive before a tab/section has mounted during a client-side
+  // navigation. Re-index and retry briefly so chatbot links land on the exact
+  // page section even when the target is rendered asynchronously.
+  useEffect(() => {
+    if (!isProductRoute || typeof window === "undefined") return;
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    let attempts = 0;
+
+    const clearRetry = () => {
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      retryTimer = undefined;
+    };
+    const syncAndScroll = () => {
+      if (cancelled) return;
+      indexChatPageSections();
+      if (scrollToChatHash()) return;
+      if (!window.location.hash || attempts >= 20) return;
+      attempts += 1;
+      retryTimer = window.setTimeout(syncAndScroll, 75);
+    };
+    const start = () => {
+      clearRetry();
+      attempts = 0;
+      window.requestAnimationFrame(syncAndScroll);
+    };
+
+    start();
+    router.events.on("routeChangeComplete", start);
+    router.events.on("hashChangeComplete", start);
+    window.addEventListener("hashchange", start);
+    return () => {
+      cancelled = true;
+      clearRetry();
+      router.events.off("routeChangeComplete", start);
+      router.events.off("hashChangeComplete", start);
+      window.removeEventListener("hashchange", start);
+    };
+  }, [isProductRoute, path, router]);
 
   if (!useGlobalAssistant || !user) return null;
   return <ChatBot global userRole={user.active_role || user.role} companyId={user.company_id || user.user_metadata?.company_id} />;

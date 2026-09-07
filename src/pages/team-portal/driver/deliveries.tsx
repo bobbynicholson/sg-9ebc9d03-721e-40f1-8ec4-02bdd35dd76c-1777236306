@@ -362,19 +362,19 @@ function DriverDeliveriesInner() {
               </div>
               <Tabs value={initialTab} onValueChange={handleTabChange}>
                 <TabsList className="mb-4 flex w-full gap-1 overflow-x-auto">
-                  <TabsTrigger
+                  <TabsTrigger id="driver-deliveries-all" data-chat-section="driver.deliveries.all" data-chat-section-label="All driver deliveries"
                     value="all"
                     className="flex-1 justify-center min-w-0 whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
                   >
                     All ({filteredOrders.length})
                   </TabsTrigger>
-                  <TabsTrigger
+                  <TabsTrigger id="driver-deliveries-upcoming" data-chat-section="driver.deliveries.upcoming" data-chat-section-label="Upcoming deliveries"
                     value="upcoming"
                     className="flex-1 justify-center min-w-0 whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
                   >
                     Upcoming ({upcomingFiltered.length})
                   </TabsTrigger>
-                  <TabsTrigger
+                  <TabsTrigger id="driver-deliveries-completed" data-chat-section="driver.deliveries.completed" data-chat-section-label="Completed deliveries"
                     value="completed"
                     className="flex-1 justify-center min-w-0 whitespace-nowrap data-[state=active]:bg-brand-primary data-[state=active]:text-white data-[state=active]:shadow-sm"
                   >

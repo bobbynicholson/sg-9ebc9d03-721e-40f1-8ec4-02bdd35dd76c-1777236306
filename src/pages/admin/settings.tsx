@@ -519,50 +519,50 @@ function SettingsPage() {
                   <TabsTrigger value="cancellation" className="whitespace-nowrap text-xs md:text-sm">Terms &amp; Policies</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="financial">
+                <TabsContent id="settings-financial" data-chat-section="admin.settings.financial" data-chat-section-label="Financial settings" value="financial">
                   <FinancialSettingsTab
                     settings={settings.financial}
                     onUpdate={(key, value) => updateSetting("financial", key, value)}
                   />
                 </TabsContent>
 
-                <TabsContent value="pricing">
+                <TabsContent id="settings-pricing" data-chat-section="admin.settings.pricing" data-chat-section-label="Pricing settings" value="pricing">
                   <PricingSettingsTab
                     settings={settings.pricing}
                     onUpdate={(key, value) => updateSetting("pricing", key, value)}
                   />
                 </TabsContent>
 
-                <TabsContent value="operations">
+                <TabsContent id="settings-operations" data-chat-section="admin.settings.operations" data-chat-section-label="Operations settings" value="operations">
                   <OperationsSettingsTab
                     settings={settings.operations}
                     onUpdate={(key, value) => updateSetting("operations", key, value)}
                   />
                 </TabsContent>
 
-                <TabsContent value="roles">
+                <TabsContent id="settings-roles" data-chat-section="admin.settings.roles" data-chat-section-label="Team roles settings" value="roles">
                   <RoleCompatibilitySettingsTab
                     settings={settings.roleCompatibility}
                     onUpdate={(key, value) => updateSetting("roleCompatibility", key, value)}
                   />
                 </TabsContent>
 
-                <TabsContent value="automation">
+                <TabsContent id="settings-automation" data-chat-section="admin.settings.automation" data-chat-section-label="Automation settings" value="automation">
                   <AutomationSettingsTab
                     settings={settings.automation}
                     onUpdate={(key, value) => updateSetting("automation", key, value)}
                   />
                 </TabsContent>
 
-                <TabsContent value="inventory">
+                <TabsContent id="settings-inventory" data-chat-section="admin.settings.inventory" data-chat-section-label="Inventory settings" value="inventory">
                   <InventorySettingsTab />
                 </TabsContent>
 
-                <TabsContent value="dispatch">
+                <TabsContent id="settings-dispatch" data-chat-section="admin.settings.dispatch" data-chat-section-label="Dispatch settings" value="dispatch">
                   <DispatchSettingsTab />
                 </TabsContent>
 
-                <TabsContent value="cancellation">
+                <TabsContent id="settings-cancellation" data-chat-section="admin.settings.cancellation" data-chat-section-label="Terms and policies" value="cancellation">
                   <CancellationPolicyTab />
                 </TabsContent>
               </Tabs>

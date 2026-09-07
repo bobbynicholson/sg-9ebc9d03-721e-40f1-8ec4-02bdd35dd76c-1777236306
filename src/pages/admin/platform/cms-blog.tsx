@@ -432,11 +432,11 @@ function CMSBlogPage() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "create" | "manage")}>
           <PortalCard className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <TabsList>
-              <TabsTrigger value="create" className="gap-2">
+              <TabsTrigger id="cms-blog-create" data-chat-section="platform.cms-blog.create" data-chat-section-label="CMS blog create" value="create" className="gap-2">
                 <Wand2 className="w-4 h-4" />
                 AI Writer
               </TabsTrigger>
-              <TabsTrigger value="manage" className="gap-2">
+              <TabsTrigger id="cms-blog-manage" data-chat-section="platform.cms-blog.manage" data-chat-section-label="CMS blog manage" value="manage" className="gap-2">
                 <FileText className="w-4 h-4" />
                 Manage Posts
               </TabsTrigger>

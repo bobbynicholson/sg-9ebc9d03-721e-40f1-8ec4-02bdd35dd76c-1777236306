@@ -388,7 +388,7 @@ function ProfileSettingsPage() {
             </TabsList>
 
             {/* Profile Tab */}
-            <TabsContent value="profile" className="space-y-6">
+            <TabsContent id="account-profile" data-chat-section="account.settings.profile" data-chat-section-label="Account profile" value="profile" className="space-y-6">
               <ProfileTab
                 profile={profile}
                 company={company}
@@ -404,7 +404,7 @@ function ProfileSettingsPage() {
             </TabsContent>
 
             {/* Security Tab */}
-            <TabsContent value="security" className="space-y-6">
+            <TabsContent id="security" data-chat-section="account.settings.security" data-chat-section-label="Password and security" value="security" className="space-y-6">
               <SecurityTab
                 passwordData={passwordData}
                 onFieldChange={handlePasswordChange}
@@ -415,7 +415,7 @@ function ProfileSettingsPage() {
 
             {/* Notifications Tab - self-contained, persists to the
                 email_notification_preferences row the DB mailers read */}
-            <TabsContent value="notifications" className="space-y-6">
+            <TabsContent id="account-notifications" data-chat-section="account.settings.notifications" data-chat-section-label="Account notifications" value="notifications" className="space-y-6">
               <NotificationsTab
                 userId={user.id}
                 companyId={((profile as any)?.company_id as string | undefined) || null}
@@ -424,7 +424,7 @@ function ProfileSettingsPage() {
 
             {/* Privacy Tab - self-contained, persists to
                 profiles.notification_preferences jsonb */}
-            <TabsContent value="privacy" className="space-y-6">
+            <TabsContent id="account-privacy" data-chat-section="account.settings.privacy" data-chat-section-label="Privacy" value="privacy" className="space-y-6">
               <PrivacyTab userId={user.id} />
             </TabsContent>
           </Tabs>

@@ -755,9 +755,9 @@ function StaffHoursPage() {
 
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "hours" | "ledger" | "monthly-audit")} className="space-y-6">
             <TabsList>
-              <TabsTrigger value="hours">Staff Hours</TabsTrigger>
-              <TabsTrigger value="ledger">Payment Ledger</TabsTrigger>
-              <TabsTrigger value="monthly-audit">Monthly audit</TabsTrigger>
+              <TabsTrigger id="staff-hours" data-chat-section="admin.staff-hours.hours" data-chat-section-label="Staff hours" value="hours">Staff Hours</TabsTrigger>
+              <TabsTrigger id="staff-payment-ledger" data-chat-section="admin.staff-hours.ledger" data-chat-section-label="Payment ledger" value="ledger">Payment Ledger</TabsTrigger>
+              <TabsTrigger id="staff-monthly-audit" data-chat-section="admin.staff-hours.monthly-audit" data-chat-section-label="Monthly hours audit" value="monthly-audit">Monthly audit</TabsTrigger>
             </TabsList>
 
             <TabsContent value="monthly-audit" className="space-y-4">

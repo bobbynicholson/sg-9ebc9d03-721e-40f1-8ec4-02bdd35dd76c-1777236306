@@ -1162,11 +1162,11 @@ function FinancialDashboardInner() {
           {/* Detailed Tabs */}
           <Tabs defaultValue="overview" className="space-y-4">
             <TabsList className={`grid w-full h-auto grid-cols-2 ${showBranchesTab ? "sm:grid-cols-3 lg:grid-cols-5" : "sm:grid-cols-4"}`}>
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="projections">Projections</TabsTrigger>
-              <TabsTrigger value="expenses">Expenses</TabsTrigger>
-              <TabsTrigger value="orders">Order Analysis</TabsTrigger>
-              {showBranchesTab && <TabsTrigger value="branches">Branches</TabsTrigger>}
+              <TabsTrigger id="financial-overview" data-chat-section="admin.financial-dashboard.overview" data-chat-section-label="Financial overview" value="overview">Overview</TabsTrigger>
+              <TabsTrigger id="financial-projections" data-chat-section="admin.financial-dashboard.projections" data-chat-section-label="Financial projections" value="projections">Projections</TabsTrigger>
+              <TabsTrigger id="financial-expenses" data-chat-section="admin.financial-dashboard.expenses" data-chat-section-label="Financial expenses" value="expenses">Expenses</TabsTrigger>
+              <TabsTrigger id="financial-orders" data-chat-section="admin.financial-dashboard.orders" data-chat-section-label="Financial order analysis" value="orders">Order Analysis</TabsTrigger>
+              {showBranchesTab && <TabsTrigger id="financial-branches" data-chat-section="admin.financial-dashboard.branches" data-chat-section-label="Financial branches" value="branches">Branches</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="overview" className="space-y-4">

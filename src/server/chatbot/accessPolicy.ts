@@ -4,6 +4,7 @@ import {
   type LiveToolId,
   type LiveToolPolicyMap,
 } from "./liveTools";
+import { normalizeChatRole } from "@/lib/chatbot/roles";
 
 export const CHAT_ACCESS_ROLES = [
   "owner",
@@ -54,7 +55,8 @@ export const CHAT_ACCESS_ROLE_DETAILS: Record<ChatAccessRole, { label: string; d
 };
 
 function defaultPolicy(role: string): ChatAccessPolicy {
-  const safeRole = (CHAT_ACCESS_ROLES as readonly string[]).includes(role) ? role as ChatAccessRole : "staff";
+  const normalizedRole = normalizeChatRole(role);
+  const safeRole = (CHAT_ACCESS_ROLES as readonly string[]).includes(normalizedRole) ? normalizedRole as ChatAccessRole : "staff";
   return { role: safeRole, liveDataEnabled: true, toolPolicies: defaultLiveToolPolicy(safeRole), source: "default" };
 }
 

@@ -1261,13 +1261,13 @@ return (
             Items", "Cancellations") at phone width. Scroll horizontally on
             mobile (tabs keep full labels, shrink-0), grid from sm up. */}
         <TabsList className="flex w-full justify-start overflow-x-auto [&>*]:shrink-0 sm:grid sm:grid-cols-7">
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="menu">Menu Items</TabsTrigger>
-          <TabsTrigger value="equipment">Equipment</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
-          <TabsTrigger value="amendments">Amendments</TabsTrigger>
-          <TabsTrigger value="cancellations">Cancellations</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger id="order-details" data-chat-section="admin.order-details.details" data-chat-section-label="Order details" value="details">Details</TabsTrigger>
+          <TabsTrigger id="order-menu" data-chat-section="admin.order-details.menu" data-chat-section-label="Order menu items" value="menu">Menu Items</TabsTrigger>
+          <TabsTrigger id="order-equipment" data-chat-section="admin.order-details.equipment" data-chat-section-label="Order equipment" value="equipment">Equipment</TabsTrigger>
+          <TabsTrigger id="order-messages" data-chat-section="admin.order-details.messages" data-chat-section-label="Order messages" value="messages">Messages</TabsTrigger>
+          <TabsTrigger id="order-amendments" data-chat-section="admin.order-details.amendments" data-chat-section-label="Order amendments" value="amendments">Amendments</TabsTrigger>
+          <TabsTrigger id="order-cancellations" data-chat-section="admin.order-details.cancellations" data-chat-section-label="Order cancellations" value="cancellations">Cancellations</TabsTrigger>
+          <TabsTrigger id="order-history" data-chat-section="admin.order-details.history" data-chat-section-label="Order history" value="history">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-4 mt-4">

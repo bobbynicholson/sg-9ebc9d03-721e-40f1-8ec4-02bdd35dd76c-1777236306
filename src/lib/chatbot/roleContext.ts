@@ -1,3 +1,5 @@
+import { normalizeChatRole } from "./roles";
+
 /**
  * Shared chatbot product and role contract.
  *
@@ -167,7 +169,7 @@ The assistant is a read-focused operational copilot in this first implementation
 `;
 
 export function getChatRoleDefinition(role: string): ChatRoleDefinition {
-  return CHAT_ROLE_DEFINITIONS[role] || CHAT_ROLE_DEFINITIONS.staff;
+  return CHAT_ROLE_DEFINITIONS[normalizeChatRole(role)] || CHAT_ROLE_DEFINITIONS.staff;
 }
 
 export function buildRoleContext(role: string): string {

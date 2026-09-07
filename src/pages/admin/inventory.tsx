@@ -1353,6 +1353,9 @@ function AdminInventory() {
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <button
                 type="button"
+                id="inventory-all"
+                data-chat-section="admin.inventory.all"
+                data-chat-section-label="All inventory"
                 onClick={() => setActiveTab("all")}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "all"
@@ -1364,6 +1367,9 @@ function AdminInventory() {
               </button>
               <button
                 type="button"
+                id="inventory-below-reorder"
+                data-chat-section="admin.inventory.below-reorder"
+                data-chat-section-label="Below-reorder inventory"
                 onClick={() => setActiveTab("below_reorder")}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "below_reorder"
@@ -1375,6 +1381,9 @@ function AdminInventory() {
               </button>
               <button
                 type="button"
+                id="inventory-out"
+                data-chat-section="admin.inventory.out"
+                data-chat-section-label="Out-of-stock inventory"
                 onClick={() => setActiveTab("out")}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "out"
@@ -1386,6 +1395,9 @@ function AdminInventory() {
               </button>
               <button
                 type="button"
+                id="inventory-expiring"
+                data-chat-section="admin.inventory.expiring"
+                data-chat-section-label="Perishable inventory"
                 onClick={() => setActiveTab("expiring")}
                 className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
                   activeTab === "expiring"

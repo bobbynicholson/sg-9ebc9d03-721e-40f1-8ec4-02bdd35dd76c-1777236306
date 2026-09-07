@@ -9,6 +9,8 @@ import { renderChatResponse, type ChatResponsePayload } from "@/lib/chatbot/resp
 import type { ChatWorkflow } from "@/lib/chatbot/workflows";
 import type { ChatAccessPolicy } from "@/server/chatbot/accessPolicy";
 import { getLiveToolsForRole, runLiveTools } from "./liveTools";
+import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
+import { normalizeChatRole } from "@/lib/chatbot/roles";
 import { isPlatformOverviewQuestion, type ChatIntentRoute } from "./router";
 
 type Db = any;
@@ -54,14 +56,14 @@ export async function resolveChatIdentity(db: Db, userId: string): Promise<ChatI
     .eq("id", userId)
     .maybeSingle();
   if (error || !data) return null;
-  const baseRole = String(data.role || "staff");
+  const baseRole = normalizeChatRole(data.role);
   const activeRole = String(data.active_role || "");
   // Owners and company admins remain the tenant authority even when an old
   // active_role value is still present on their profile. Delegated staff
   // continue to use active_role so their live context stays role-scoped.
   const role = ["super_admin", "owner", "company_admin"].includes(baseRole)
     ? baseRole
-    : activeRole || baseRole;
+    : normalizeChatRole(activeRole, baseRole);
   const isPlatformAdmin = role === "super_admin";
   return {
     userId,
@@ -100,13 +102,13 @@ function scopeRegionQuery(query: any, identity: ChatIdentity): any {
   return query.or(`region_id.in.(${regionIds.join(",")}),region_id.is.null`);
 }
 
-export async function buildLiveContext(db: Db, identity: ChatIdentity, accessPolicy?: ChatAccessPolicy, message = ""): Promise<string> {
+export async function buildLiveContext(db: Db, identity: ChatIdentity, accessPolicy?: ChatAccessPolicy, message = "", resolvedIntent?: ChatIntentMatch | null): Promise<string> {
   if (accessPolicy && !accessPolicy.liveDataEnabled) {
     return "LIVE AUTHORIZED CONTEXT:\nLive operational data access is disabled for this role by company policy. Do not infer or provide database-backed counts, statuses, records, assignments, financials, or personal data. You may still answer from approved stable knowledge and provide permitted navigation guidance.";
   }
   if (!identity.companyId) {
     if (identity.role === "super_admin") {
-      const platformTools = await runLiveTools(db, identity, message, accessPolicy?.toolPolicies || {});
+      const platformTools = await runLiveTools(db, identity, message, accessPolicy?.toolPolicies || {}, resolvedIntent);
       const registeredCompanies = platformTools.registered_companies;
       const platformUserCount = platformTools.platform_user_count;
       const platformSummary = Number.isFinite(Number(registeredCompanies?.total))
@@ -147,7 +149,7 @@ export async function buildLiveContext(db: Db, identity: ChatIdentity, accessPol
   // Live state is selected through named server-owned tools. The model never
   // chooses a table or writes SQL; the message only selects from tools that
   // are already eligible for the signed-in role and enabled by the company.
-  const liveTools = await runLiveTools(db, identity, message, accessPolicy?.toolPolicies || {});
+  const liveTools = await runLiveTools(db, identity, message, accessPolicy?.toolPolicies || {}, resolvedIntent);
   return `LIVE AUTHORIZED TOOL RESULTS (queried at ${new Date().toISOString()}):\n${compact(liveTools, MAX_CONTEXT_CHARS)}`;
 
   const role = identity.role;
@@ -1360,6 +1362,23 @@ function parsedAuthorizedToolResults(liveContext: string): Record<string, any> {
   }
 }
 
+function readableToolValue(value: unknown, depth = 0): string {
+  if (value == null) return "not provided";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (depth >= 2) return "[details available]";
+  if (Array.isArray(value)) return value.map((item) => readableToolValue(item, depth + 1)).filter(Boolean).join(", ");
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const primary = record.label ?? record.name ?? record.title ?? record.order_number ?? record.id;
+    if (primary != null) return readableToolValue(primary, depth + 1);
+    return Object.entries(record)
+      .slice(0, 6)
+      .map(([key, entry]) => `${key.replace(/_/g, " ")}: ${readableToolValue(entry, depth + 1)}`)
+      .join("; ");
+  }
+  return String(value);
+}
+
 function directDynamicToolAnswer(args: {
   liveContext: string;
   knowledge: RetrievedKnowledge[];
@@ -1378,13 +1397,13 @@ function directDynamicToolAnswer(args: {
     const total = Number(result.total);
     message = `${title}: ${total}.`;
   } else if (["sum", "average"].includes(operation) && result.value != null) {
-    message = `${title}: ${result.value}.`;
+    message = `${title}: ${readableToolValue(result.value)}.`;
   } else if (operation === "list" && Array.isArray(result.rows)) {
     message = result.rows.length
       ? `${title} returned ${result.rows.length} result${result.rows.length === 1 ? "" : "s"}.`
       : `${title} has no matching results right now.`;
     details = result.rows.slice(0, 20).map((row: any) => Object.entries(row || {})
-      .map(([key, value]) => `${key.replace(/_/g, " ")}: ${value == null ? "not provided" : String(value)}`)
+      .map(([key, value]) => `${key.replace(/_/g, " ")}: ${readableToolValue(value)}`)
       .join(" · "));
   }
   if (!message) return null;
@@ -1828,6 +1847,35 @@ function directNavigationAnswer(args: {
   return { text: rendered.text, provider: "navigation", retrievalCount: 0, rendered };
 }
 
+function directIntentClarificationAnswer(args: {
+  message: string;
+  knowledge: RetrievedKnowledge[];
+  navigation?: ChatNavigationRef[];
+  route?: ChatIntentRoute;
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  const intent = args.route?.intent;
+  if (!intent?.needsClarification || intent.confidence < 0.55) return null;
+
+  const entity = intent.entity.replace(/[_-]+/g, " ").trim();
+  const details: string[] = [];
+  if (intent.scope === "unknown") details.push("Should I check your own assigned records or the wider company records?");
+  if (intent.timeRange === "unspecified") details.push("Which period should I use: today, this week, this month, or all time?");
+  if (intent.scope === "order" || /order|booking|delivery|work|hours/.test(entity)) details.push("If this is for one order, send the order number or select the order first.");
+  if (!details.length) details.push("Please tell me the specific record, person, order, or period you want me to use.");
+
+  const firstDestination = args.navigation?.[0];
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "One detail needed",
+    message: "I can check this, but I need one more detail before I query live data so I do not guess.",
+    details: [
+      ...details,
+      ...(firstDestination ? [`You can also open ${firstDestination.label} and choose the exact tab or record.`] : []),
+    ],
+    actions: [],
+  }));
+  return { text: rendered.text, provider: "intent-clarification", retrievalCount: args.knowledge.length, rendered };
+}
+
 function directRoleBoundaryAnswer(args: {
   identity: ChatIdentity;
   message: string;
@@ -2028,6 +2076,8 @@ export async function generateChatReply(args: {
 }): Promise<{ text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload }> {
   const greetingAnswer = directGreetingAnswer(args.message);
   if (greetingAnswer) return greetingAnswer;
+  const clarificationAnswer = directIntentClarificationAnswer(args);
+  if (clarificationAnswer) return clarificationAnswer;
   const roleCapabilityAnswer = directRoleCapabilityAnswer(args);
   if (roleCapabilityAnswer) return roleCapabilityAnswer;
   const driverEarningsAnswer = directDriverEarningsAnswer(args);

@@ -478,8 +478,8 @@ function NotificationsPage() {
         <Tabs value={tab} onValueChange={(v) => setTab(v as "all" | "unread")} className="mb-6">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <TabsList>
-              <TabsTrigger value="all">All ({notifications.length})</TabsTrigger>
-              <TabsTrigger value="unread">Unread ({unreadCount})</TabsTrigger>
+              <TabsTrigger id="notifications-all" data-chat-section="admin.notifications.all" data-chat-section-label="All notifications" value="all">All ({notifications.length})</TabsTrigger>
+              <TabsTrigger id="notifications-unread" data-chat-section="admin.notifications.unread" data-chat-section-label="Unread notifications" value="unread">Unread ({unreadCount})</TabsTrigger>
               <InfoTooltip content={"All shows every notification for your role. Unread narrows it down to the ones you have not read yet."} className="ml-2" />
             </TabsList>
           </div>

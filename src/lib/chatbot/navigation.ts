@@ -8,6 +8,11 @@
  */
 
 import { PAGE_NAVIGATION_REFS, SECTION_NAVIGATION_REFS } from "./pageCatalog";
+import { classifyChatIntent } from "./intents/classifier";
+import { buildCompleteChatIntentRegistry } from "./intents/registry";
+import { getIntentNavigationRefs } from "./intents/policy";
+import type { ChatIntentMatch } from "./intents/types";
+import { normalizeChatRole } from "./roles";
 
 export interface ChatNavigationRef {
   ref: string;
@@ -30,7 +35,7 @@ const ALL_ROLES = [
   "waiter", "cleaning_manager", "cleaning_staff", "client", "staff",
 ];
 
-const CORE_NAVIGATION_REFS: ChatNavigationRef[] = [
+export const CORE_NAVIGATION_REFS: ChatNavigationRef[] = [
   { ref: "admin.dashboard", label: "Admin dashboard", href: "/admin/dashboard", description: "Live business overview", keywords: ["dashboard", "overview", "today", "summary", "metrics"], roles: ["super_admin", "owner", "company_admin", "region_admin", "sales_admin", "admin"] },
   { ref: "admin.dashboard.priority-actions", label: "Priority actions", href: "/admin/dashboard#priority-actions", description: "Urgent stock, quote, and upcoming-event actions", keywords: ["priority actions", "needs attention", "urgent", "immediate attention", "shortfall"], roles: ["super_admin", "owner", "company_admin", "region_admin", "sales_admin", "admin"] },
   { ref: "admin.dashboard.quick-actions", label: "Dashboard quick actions", href: "/admin/dashboard#quick-actions", description: "Common order, shopping, and admin shortcuts", keywords: ["quick actions", "shortcut", "shortcuts"], roles: ["super_admin", "owner", "company_admin", "region_admin", "sales_admin", "admin"] },
@@ -94,6 +99,11 @@ export const NAVIGATION_REFS: ChatNavigationRef[] = [
   ...PAGE_NAVIGATION_REFS.filter((candidate) => !CORE_NAVIGATION_REFS.some((item) => item.ref === candidate.ref)),
   ...SECTION_NAVIGATION_REFS.filter((candidate) => !CORE_NAVIGATION_REFS.some((item) => item.ref === candidate.ref)),
 ];
+
+// Navigation is also used by non-API callers (for example the client-side
+// assistant renderer). Give those callers the full page catalog instead of
+// the small core-only fallback used by the legacy matcher.
+const NAVIGATION_INTENT_REGISTRY = buildCompleteChatIntentRegistry([], NAVIGATION_REFS);
 
 const OVERVIEW_REFS_BY_ROLE: Record<string, string[]> = {
   super_admin: ["admin.dashboard", "admin.offering", "admin.orders"],
@@ -174,6 +184,13 @@ function isKitchenInventoryQuestion(query: string): boolean {
   const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
   return /\b(?:stock|inventory|ingredient|ingredients?|item|items|shortage|restock|reorder|too low|too less|not enough)\b/.test(normalized)
     && /\b(?:what|which|how much|how many|low|less|enough|need|have|check|show|current)\b/.test(normalized);
+}
+
+function hasExplicitNavigationKeyword(query: string, role: string): boolean {
+  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  return NAVIGATION_REFS
+    .filter((item) => isAllowed(item, role))
+    .some((item) => item.keywords.some((keyword) => normalized.includes(keyword.toLowerCase())));
 }
 
 function getSubscriptionNavigation(role: string, limit: number): ChatNavigationRef[] {
@@ -473,7 +490,25 @@ function navigationScore(query: string, item: ChatNavigationRef): number {
   return exactKeywordScore + Math.min(overlap, 4) * 0.5 + Math.min(fuzzyOverlap, 3) * 0.35;
 }
 
-export function getRelevantNavigation(query: string, role: string, limit = 3, currentPage?: CurrentPageNavigationContext): ChatNavigationRef[] {
+function preserveCurrentRecordContext(item: ChatNavigationRef, currentPath: string, pathname: string): ChatNavigationRef {
+  if (item.href.split(/[?#]/)[0] !== pathname) return item;
+  const queryText = currentPath.split("?")[1]?.split("#")[0] || "";
+  const currentParams = new URLSearchParams(queryText);
+  const recordId = currentParams.get("orderId");
+  if (!recordId) return item;
+
+  const [itemPathAndQuery, hash] = item.href.split("#");
+  const itemQueryText = itemPathAndQuery.split("?")[1] || "";
+  const targetParams = new URLSearchParams(itemQueryText);
+  targetParams.set("orderId", recordId);
+  return {
+    ...item,
+    href: `${pathname}?${targetParams.toString()}${hash ? `#${hash}` : ""}`,
+  };
+}
+
+export function getRelevantNavigation(query: string, role: string, limit = 3, currentPage?: CurrentPageNavigationContext, resolvedIntent?: ChatIntentMatch | null): ChatNavigationRef[] {
+  role = normalizeChatRole(role);
   const normalized = query.toLowerCase().trim();
   if (!normalized) return [];
   if (isSecurityRefusalQuestion(query)) return [];
@@ -491,6 +526,12 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   if (isPendingInvitationQuestion(query)) return getPendingInvitationNavigation(role, limit);
   if (isPasswordQuestion(query)) return getAccountSecurityNavigation(role, limit);
   if (isRoleAccessQuestion(query)) {
+    if (role === "super_admin"
+      && /^\s*(?:where|how|open|go|take me|show me)\b/i.test(normalized)
+      && !/\b(?:platform|role|roles|company|companies)\b/i.test(normalized)
+      && /\blive[- ]data access\b/i.test(normalized)) {
+      return getPlatformNavigation(role, "admin.ai-brain.access", limit);
+    }
     if (role === "super_admin") return getPlatformNavigation(role, "platform.ai-access.role-controls", limit);
     if (["owner", "company_admin"].includes(role)) return getPlatformNavigation(role, "admin.ai-brain.access", limit);
     return [];
@@ -508,6 +549,14 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   if (isPlatformTrialQuestion(query, role)) return getPlatformNavigation(role, "platform.trial-management", limit);
   if (isPlatformPlanQuestion(query, role)) return getPlatformNavigation(role, "platform.subscription-management", limit);
   if (isPlatformAiQuestion(query, role)) {
+    // A short "where can I ...?" page lookup should honour the canonical
+    // company AI-access destination. Platform-owner questions that explicitly
+    // mention roles/platform/company continue to use the platform controls.
+    if (/^\s*(?:where|how|open|go|take me|show me)\b/i.test(normalized)
+      && !/\b(?:platform|role|roles|company|companies)\b/i.test(normalized)
+      && /\blive[- ]data access\b/i.test(normalized)) {
+      return getPlatformNavigation(role, "admin.ai-brain.access", limit);
+    }
     if (/\b(?:ai access|live[- ]data access|role controls|enabled live tools|access settings|each role|drivers?|clients?|kitchen staff|cleaning staff|company admins?)\b/i.test(normalized)) {
       return getPlatformNavigation(role, "platform.ai-access.role-controls", limit);
     }
@@ -522,7 +571,11 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
     if (/\bpayment\b/i.test(normalized)) return getPlatformNavigation(role, "platform.payment-issues", limit);
     return getPlatformNavigation(role, "platform.tenant-health", limit);
   }
-  if (/\bchurn\b/i.test(normalized) && role === "super_admin") return getPlatformNavigation(role, "platform.financial-dashboard.churn", limit);
+  if (/\bchurn\b/i.test(normalized) && role === "super_admin") {
+    return /^(?:where|how|open|go|take me|show me)\b/i.test(normalized)
+      ? getPlatformNavigation(role, "platform.financial-dashboard", limit)
+      : getPlatformNavigation(role, "platform.financial-dashboard.churn", limit);
+  }
   if (isPlatformTechnologyCostQuestion(query, role)) {
     if (/\b(?:tenant cost|cost per tenant|average cost per tenant)\b/i.test(normalized)) return getPlatformNavigation(role, "platform.tech-costs.tenant-cost", limit);
     if (/\b(?:margin|margin analysis)\b/i.test(normalized)) return getPlatformNavigation(role, "platform.tech-costs.margin", limit);
@@ -564,6 +617,13 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   if (["kitchen_manager", "kitchen_staff"].includes(role) && isKitchenOverviewQuestion(query)) {
     return getOverviewNavigation(role, limit);
   }
+  const intentNavigation = getIntentNavigationRefs(resolvedIntent === undefined ? classifyChatIntent(query, role, NAVIGATION_INTENT_REGISTRY) : resolvedIntent, role)
+    .map((ref) => NAVIGATION_REFS.find((item) => item.ref === ref))
+    .filter((item): item is ChatNavigationRef => Boolean(item) && isAllowed(item, role));
+  // An explicit page phrase such as "cleaning damages" or "my earnings"
+  // must continue to resolve to that exact destination. Registry intents are
+  // the structured fallback for natural wording that has no page keyword.
+  if (intentNavigation.length && !platformScoped && !hasExplicitNavigationKeyword(query, role)) return intentNavigation.slice(0, limit);
   const currentPageMatches: ChatNavigationRef[] = [];
   if (currentPage?.pathname && currentPage.pathname.startsWith("/")) {
     const pathname = currentPage.pathname.replace(/^\/[^/]+(?=\/(?:admin|team-portal|client-portal|account)(?:\/|$))/, "").split("?")[0].split("#")[0];
@@ -592,7 +652,7 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
             || manual?.ref === "admin.ai-brain.access";
           if (manual && isAllowed(manual, role) && isPlatformDestination) {
             usedIds.add(id);
-            currentPageMatches.push(manual);
+            currentPageMatches.push(preserveCurrentRecordContext(manual, currentPage.pathname, pathname));
             return;
           }
           usedIds.add(id);

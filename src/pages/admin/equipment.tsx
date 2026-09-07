@@ -282,11 +282,11 @@ function EquipmentPage() {
 
           <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full md:w-auto h-auto">
-              <TabsTrigger value="catalog" className="text-xs md:text-sm">Catalog</TabsTrigger>
-              <TabsTrigger value="availability" className="text-xs md:text-sm">Availability</TabsTrigger>
-              <TabsTrigger value="shortages" className="text-xs md:text-sm">Shortages</TabsTrigger>
-              <TabsTrigger value="hire-in" className="text-xs md:text-sm">Hire-in orders</TabsTrigger>
-              <TabsTrigger value="damages" className="text-xs md:text-sm">Damages</TabsTrigger>
+              <TabsTrigger id="equipment-catalog" data-chat-section="admin.equipment.catalog" data-chat-section-label="Equipment catalogue" value="catalog" className="text-xs md:text-sm">Catalog</TabsTrigger>
+              <TabsTrigger id="equipment-availability" data-chat-section="admin.equipment.availability" data-chat-section-label="Equipment availability" value="availability" className="text-xs md:text-sm">Availability</TabsTrigger>
+              <TabsTrigger id="equipment-shortages" data-chat-section="admin.equipment.shortages" data-chat-section-label="Equipment shortages" value="shortages" className="text-xs md:text-sm">Shortages</TabsTrigger>
+              <TabsTrigger id="equipment-hire-in" data-chat-section="admin.equipment.hire-in" data-chat-section-label="Equipment hire-in" value="hire-in" className="text-xs md:text-sm">Hire-in orders</TabsTrigger>
+              <TabsTrigger id="equipment-damages" data-chat-section="admin.equipment.damages" data-chat-section-label="Equipment damages" value="damages" className="text-xs md:text-sm">Damages</TabsTrigger>
             </TabsList>
 
             <TabsContent value="catalog" className="mt-6">

@@ -21,12 +21,24 @@ function routeFile(href: string): string | null {
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
 
+function routeSourceFiles(href: string): string[] {
+  const page = routeFile(href);
+  if (!page) return [];
+  const files = [page];
+  // Order detail tabs are rendered by the shared modal imported by the
+  // orders page, not by the page file itself. Include that source when
+  // validating the catalog's component-backed deep links.
+  if (href.split(/[?#]/)[0] === "/admin/orders") {
+    files.push(path.join(ROOT, "src", "components", "admin", "orders", "OrderDetailsModal.tsx"));
+  }
+  return files.filter((file) => fs.existsSync(file));
+}
+
 function sectionAnchorExists(href: string): boolean {
   const hash = href.match(/#([^#]+)$/)?.[1];
   if (!hash) return true;
-  const file = routeFile(href);
-  if (!file) return false;
-  return fs.readFileSync(file, "utf8").includes(hash);
+  const files = routeSourceFiles(href);
+  return files.some((file) => fs.readFileSync(file, "utf8").includes(hash));
 }
 
 describe("chatbot local Phase 2 audit", () => {
@@ -190,6 +202,16 @@ describe("chatbot local Phase 2 audit", () => {
   it("keeps direct pricing navigation inside a company workspace", () => {
     expect(getRelevantNavigation("Open Pricing", "company_admin", 3).map((item) => item.ref))
       .toEqual(["admin.offering"]);
+  });
+
+  it("preserves the selected order when linking from an order detail tab", () => {
+    const navigation = getRelevantNavigation("show the menu items tab", "admin", 3, {
+      pathname: "/spit-braai-delivery/admin/orders?orderId=order-123",
+      sections: [{ id: "order-menu", label: "Order menu items", ref: "admin.order-details.menu", kind: "section" }],
+    });
+    expect(navigation[0]?.ref).toBe("admin.order-details.menu");
+    expect(navigation[0]?.href).toContain("orderId=order-123");
+    expect(navigation[0]?.href).toContain("tab=menu");
   });
 
   it("links password questions to shared account settings", () => {

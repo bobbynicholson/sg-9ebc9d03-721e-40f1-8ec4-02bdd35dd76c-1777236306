@@ -11,6 +11,8 @@ import { currencyMonitoringService } from "@/services/currencyMonitoringService"
 import { getPlatformTechnologyCostSummary } from "@/services/platformTechnologyCostService";
 import { driverPayService } from "@/services/driverPayService";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
+import { normalizeChatRole } from "@/lib/chatbot/roles";
 
 export type LiveToolId =
   | "current_user_profile"
@@ -55,6 +57,23 @@ export type LiveToolId =
   | "admin_invoices"
   | "team_members"
   | "staff_orders"
+  | "order_items"
+  | "inventory_movements"
+  | "catalogue_menu"
+  | "supplier_records"
+  | "delivery_tracking"
+  | "vehicle_status"
+  | "cleaning_schedules"
+  | "reviews_feedback"
+  | "supplier_payables"
+  | "notification_preferences"
+  | "work_clock_status"
+  | "work_hours"
+  | "order_work_hours"
+  | "daily_operations_tasks"
+  | "staff_shift_schedule"
+  | "waiter_service_assignments"
+  | "cleaning_work_tasks"
   | "user_notifications";
 
 export type LiveToolCategory = "identity" | "analytics" | "sales" | "operations" | "finance" | "people";
@@ -81,6 +100,9 @@ const CLEANING = ["super_admin", "owner", "company_admin", "admin", "cleaning_ma
 const DRIVER = ["super_admin", "owner", "company_admin", "admin", "driver"];
 const CLIENT = ["client"];
 const SHARED_STAFF = ["staff", "waiter"];
+const WORKER_ROLES = ["kitchen_manager", "kitchen_staff", "shopping_staff", "shopping", "driver", "waiter", "cleaning_manager", "cleaning_staff", "staff"];
+const WORK_HOURS_ROLES = [...WORKER_ROLES, "owner", "company_admin", "admin", "region_admin", "sales_admin"];
+const ALL_COMPANY_ROLES = [...ADMIN, ...SALES.filter((role) => !ADMIN.includes(role)), ...WORKER_ROLES];
 const CUSTOMER_ACCESS = ["owner", "company_admin", "region_admin", "sales_admin", "admin"];
 
 const BASE_LIVE_TOOL_DEFINITIONS = [
@@ -125,8 +147,25 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "operations_inventory", label: "Operations inventory", description: "Company-wide stock levels and reorder context", category: "operations", roles: OPERATIONS, keywords: ["inventory", "stock", "shortage", "reorder"] },
   { id: "admin_invoices", label: "Admin invoices", description: "Company invoice ledger, balances, and payment status", category: "finance", roles: ADMIN, keywords: ["invoice", "invoices", "finance", "financial", "balance", "payment", "revenue"] },
   { id: "team_members", label: "Team members", description: "Company staff directory and role context", category: "people", roles: ADMIN, keywords: ["team", "staff", "employee", "member", "driver", "chef"] },
-  { id: "staff_orders", label: "My work orders", description: "Orders and events assigned to the signed-in staff member", category: "operations", roles: SHARED_STAFF, keywords: ["order", "orders", "event", "job", "assignment", "work"] },
-  { id: "user_notifications", label: "My notifications", description: "Notifications addressed to the signed-in user", category: "identity", roles: [...ADMIN, ...SALES, ...KITCHEN, ...SHOPPING, ...CLEANING, ...DRIVER, ...CLIENT, ...SHARED_STAFF], keywords: ["notification", "notifications", "alert", "alerts", "message", "updates"] },
+  { id: "staff_orders", label: "My work orders", description: "Orders and events assigned to the signed-in operational staff member", category: "operations", roles: WORKER_ROLES, keywords: ["order", "orders", "event", "job", "jobs", "assignment", "assignments", "work", "today's work", "todays work", "my work"] },
+  { id: "order_items", label: "Order menu items", description: "Menu items, quantities, dietary instructions, and item notes on authorized orders", category: "operations", roles: [...KITCHEN, ...SALES, ...OPERATIONS, ...CLIENT], keywords: ["menu items", "order items", "items on order", "what items", "what is on the order", "food items", "dish", "dishes", "dietary", "allergens"] },
+  { id: "inventory_movements", label: "Inventory movements", description: "Stock receipts, usage, adjustments, and movement history", category: "operations", roles: [...KITCHEN, ...SHOPPING, ...OPERATIONS, ...ADMIN], keywords: ["inventory movement", "stock movement", "stock history", "inventory history", "used stock", "received stock", "adjustment"] },
+  { id: "catalogue_menu", label: "Menu and recipes", description: "Available menu items, recipes, preparation times, and recipe ingredients", category: "operations", roles: [...KITCHEN, ...SALES, ...OPERATIONS, ...ADMIN], keywords: ["menu", "menu items", "catalogue", "catalog", "recipe", "recipes", "preparation time", "food cost"] },
+  { id: "supplier_records", label: "Suppliers", description: "Supplier records and supplier-linked purchasing information", category: "operations", roles: [...SHOPPING, ...OPERATIONS, ...ADMIN], keywords: ["supplier", "suppliers", "vendor", "vendors", "supplier contact", "supplier product"] },
+  { id: "delivery_tracking", label: "Delivery tracking", description: "Assigned delivery routes, stops, statuses, and latest driver location records", category: "operations", roles: [...DRIVER, ...OPERATIONS, ...ADMIN], keywords: ["delivery tracking", "track delivery", "live location", "driver location", "route stops", "delivery stop", "where is the driver"] },
+  { id: "vehicle_status", label: "Vehicle status", description: "Delivery vehicles, availability, and maintenance context", category: "operations", roles: [...DRIVER, ...OPERATIONS, ...ADMIN], keywords: ["vehicle", "vehicles", "van", "delivery van", "vehicle availability", "vehicle maintenance"] },
+  { id: "cleaning_schedules", label: "Cleaning schedules", description: "Scheduled cleaning work and equipment-return cleaning windows", category: "operations", roles: [...CLEANING, ...OPERATIONS, ...ADMIN], keywords: ["cleaning schedule", "cleaning schedules", "cleaning rota", "scheduled cleaning", "my cleaning schedule"] },
+  { id: "reviews_feedback", label: "Reviews and feedback", description: "Customer reviews, delivery feedback, and complaint follow-up records", category: "sales", roles: [...SALES, ...OPERATIONS, ...ADMIN, ...CLIENT], keywords: ["review", "reviews", "feedback", "rating", "ratings", "complaint", "complaints", "customer feedback"] },
+  { id: "supplier_payables", label: "Supplier payables", description: "Supplier bills and payment due records", category: "finance", roles: [...SHOPPING, ...ADMIN, "owner", "company_admin"], keywords: ["supplier payable", "supplier payables", "supplier bills", "accounts payable", "purchase payment"] },
+  { id: "notification_preferences", label: "Notification preferences", description: "The signed-in user's saved email notification preferences", category: "identity", roles: [...ALL_COMPANY_ROLES, "client"], keywords: ["notification preferences", "email preferences", "email notifications", "what emails", "alerts preferences"] },
+  { id: "work_clock_status", label: "Work clock status", description: "The signed-in user's single active role timer, recent role switches, and end notes", category: "operations", roles: WORKER_ROLES, keywords: ["clock", "clocked in", "clocked out", "timer", "timers", "active timer", "active clock", "on duty", "off duty", "role switch", "work session"] },
+  { id: "work_hours", label: "Work hours", description: "The signed-in user's recorded work sessions and hours, or company staff hours for authorized administrators", category: "finance", roles: WORK_HOURS_ROLES, keywords: ["work hours", "hours worked", "worked hours", "timesheet", "timesheets", "shift hours", "my shifts", "my hours", "staff hours", "clock hours", "hours today", "hours this week", "hours this month"] },
+  { id: "order_work_hours", label: "Order-specific work hours", description: "Order-linked role sessions, duration, role, and handoff notes", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["order hours", "order-specific hours", "order specific hours", "hours for this order", "worked on this order", "who worked", "work on order", "time on order", "role hours", "hours by order"] },
+  { id: "daily_operations_tasks", label: "Daily operations tasks", description: "Configured daily kitchen and equipment cleaning tasks, schedule, assignment, status, and notifications", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["daily operations", "daily cleaning", "daily clean", "kitchen clean", "equipment clean", "clean equipment", "clean kitchen", "hygiene task", "cleaning reminder", "cleaning configuration"] },
+  { id: "staff_shift_schedule", label: "Staff shift schedule", description: "Planned and actual staff shifts and shift tasks for the signed-in role", category: "operations", roles: [...WORKER_ROLES, ...ADMIN, "region_admin"], keywords: ["schedule", "scheduled shift", "shift", "shifts", "roster", "rota", "work schedule", "my schedule", "planned work", "planned shift"] },
+  { id: "waiter_service_assignments", label: "Service assignments", description: "Waiter event attendance, service phases, timings, and service notes", category: "operations", roles: ["waiter", ...ADMIN, "region_admin"], keywords: ["waiter", "waitering", "service assignment", "service assignments", "event attendance", "event service", "service timing", "guests arrived", "service started"] },
+  { id: "cleaning_work_tasks", label: "Cleaning work tasks", description: "Cleaning jobs for equipment availability, planned windows, actual work, and status", category: "operations", roles: ["cleaning_manager", "cleaning_staff", "kitchen_manager", "kitchen_staff", ...ADMIN, "region_admin"], keywords: ["cleaning job", "cleaning jobs", "cleaning task", "cleaning tasks", "equipment cleaning task", "cleaning status", "planned cleaning", "cleaning window"] },
+  { id: "user_notifications", label: "My notifications", description: "Notifications addressed to the signed-in user", category: "identity", roles: [...ALL_COMPANY_ROLES, "client"], keywords: ["notification", "notifications", "alert", "alerts", "message", "updates"] },
 ];
 
 const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
@@ -171,7 +210,24 @@ const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
   operations_inventory: "Company-wide stock levels, shortages, and reorder context",
   admin_invoices: "Company invoice ledger, balances, payment status, and revenue context",
   team_members: "Company staff directory and role context; no unrelated tenants",
-  staff_orders: "Only work orders and events assigned to the signed-in staff member",
+  staff_orders: "Only work orders and events assigned to the signed-in operational staff member",
+  order_items: "Menu items and item-level instructions for orders the signed-in role is authorized to see",
+  inventory_movements: "Company inventory movement history, limited to authorized operational roles",
+  catalogue_menu: "Company menu items, recipes, and recipe ingredients, limited to authorized operational roles",
+  supplier_records: "Company supplier records and purchasing links, limited to authorized procurement and administration roles",
+  delivery_tracking: "Assigned or company-authorized delivery routes, stops, statuses, and location records",
+  vehicle_status: "Company delivery vehicle availability and maintenance context",
+  cleaning_schedules: "Company cleaning schedules and equipment-return cleaning work",
+  reviews_feedback: "Authorized company reviews, feedback, and complaint follow-up; client-facing results are limited to their own records",
+  supplier_payables: "Company supplier payment-due records, limited to authorized procurement and administration roles",
+  notification_preferences: "Only the signed-in user's saved notification preference record",
+  work_clock_status: "The signed-in user's shared one-active-role clock, recent role sessions, and handoff notes",
+  work_hours: "The signed-in user's recorded staff work sessions; authorized administrators may see company staff hours",
+  order_work_hours: "Order-linked role sessions and durations, restricted to the signed-in worker or authorized company administrators",
+  daily_operations_tasks: "Company-configured daily kitchen and equipment cleaning tasks, filtered to the signed-in worker's target roles or company administration",
+  staff_shift_schedule: "Planned and actual staff shifts and shift tasks for the signed-in worker or authorized company administration",
+  waiter_service_assignments: "Waiter event attendance and service phases for the signed-in waiter or authorized company administration",
+  cleaning_work_tasks: "Company cleaning jobs and planned equipment-availability windows, filtered to cleaning and kitchen operations",
   user_notifications: "Only notifications addressed to the signed-in user",
 };
 
@@ -189,17 +245,27 @@ export function getLiveToolDefinition(id: string): LiveToolDefinition | null {
 }
 
 export function getLiveToolsForRole(role: string): LiveToolDefinition[] {
-  return LIVE_TOOL_DEFINITIONS.filter((tool) => tool.roles.includes(role));
+  const normalizedRole = normalizeChatRole(role);
+  return LIVE_TOOL_DEFINITIONS.filter((tool) => tool.roles.includes(normalizedRole));
 }
 
 export function defaultLiveToolPolicy(role: string): LiveToolPolicyMap {
   return Object.fromEntries(getLiveToolsForRole(role).map((tool) => [tool.id, true]));
 }
 
-export function selectLiveTools(role: string, message: string, policy: LiveToolPolicyMap = {}): LiveToolDefinition[] {
+export function selectLiveTools(role: string, message: string, policy: LiveToolPolicyMap = {}, resolvedIntent?: ChatIntentMatch | null): LiveToolDefinition[] {
+  role = normalizeChatRole(role);
   const eligible = getLiveToolsForRole(role).filter((tool) => policy[tool.id] !== false);
   const normalized = message.toLowerCase();
-  const matching = eligible.filter((tool) => tool.keywords.some((keyword) => normalized.includes(keyword)));
+  const availableToolIds = new Set<string>(eligible.map((tool) => tool.id));
+  const intentToolIds = (resolvedIntent?.confidence || 0) >= 0.55
+    ? resolvedIntent!.toolIds.filter((toolId) => availableToolIds.has(toolId))
+    : [];
+  const keywordMatches = eligible.filter((tool) => tool.keywords.some((keyword) => normalized.includes(keyword)));
+  const intentMatches = intentToolIds
+    .map((toolId) => eligible.find((tool) => tool.id === toolId))
+    .filter((tool): tool is LiveToolDefinition => Boolean(tool));
+  const matching = Array.from(new Map([...intentMatches, ...keywordMatches].map((tool) => [tool.id, tool])).values());
   // Earnings must use the same pay calculation as the Driver earnings page.
   // Do not let the generic assigned-deliveries tool win merely because the
   // question contains the word "earnings"; that tool has assignments, not
@@ -293,6 +359,10 @@ export function selectLiveTools(role: string, message: string, policy: LiveToolP
       return [currencyTool, identity].filter((tool): tool is LiveToolDefinition => Boolean(tool));
     }
   }
+  if (intentMatches.length) {
+    const baseline = eligible.filter((tool) => ["current_user_profile", "company_profile", "user_notifications"].includes(tool.id));
+    return Array.from(new Map([...intentMatches, ...baseline].map((tool) => [tool.id, tool])).values()).slice(0, 8);
+  }
   const baseline = eligible.filter((tool) => (isPlatformCompanyQuestion
     ? ["current_user_profile"].includes(tool.id)
     : ["current_user_profile", "company_profile", "user_notifications"].includes(tool.id)));
@@ -325,12 +395,66 @@ function scopeRegionQuery(query: any, identity: ChatIdentity): any {
   return query.or(`region_id.in.(${regionIds.join(",")}),region_id.is.null`);
 }
 
-function dateRange(message: string): { start: string; end: string } | null {
-  const text = message.toLowerCase();
+function dateRangeFromIntent(timeRange: ChatIntentMatch["timeRange"], day: Date, dateOnly: (value: Date) => string): { start: string; end: string } | null {
+  if (!timeRange || timeRange === "unspecified" || timeRange === "all") return null;
+  const start = new Date(day);
+  const end = new Date(day);
+  switch (timeRange) {
+    case "yesterday":
+      start.setDate(start.getDate() - 1);
+      end.setDate(end.getDate() - 1);
+      break;
+    case "tomorrow":
+      start.setDate(start.getDate() + 1);
+      end.setDate(end.getDate() + 1);
+      break;
+    case "this_week": {
+      const mondayOffset = (start.getDay() + 6) % 7;
+      start.setDate(start.getDate() - mondayOffset);
+      end.setTime(start.getTime());
+      end.setDate(end.getDate() + 6);
+      break;
+    }
+    case "next_week": {
+      const mondayOffset = (start.getDay() + 6) % 7;
+      start.setDate(start.getDate() - mondayOffset + 7);
+      end.setTime(start.getTime());
+      end.setDate(end.getDate() + 6);
+      break;
+    }
+    case "this_month":
+      start.setDate(1);
+      end.setMonth(end.getMonth() + 1, 0);
+      break;
+    case "next_month":
+      start.setMonth(start.getMonth() + 1, 1);
+      end.setMonth(start.getMonth() + 1, 0);
+      break;
+    case "last_90_days":
+      start.setDate(start.getDate() - 90);
+      break;
+    case "upcoming":
+      end.setDate(end.getDate() + 30);
+      break;
+    case "today":
+      break;
+    default:
+      return null;
+  }
+  return { start: dateOnly(start), end: dateOnly(end) };
+}
+
+function dateRange(message: string, resolvedIntent?: ChatIntentMatch | null): { start: string; end: string } | null {
   const now = new Date();
   const day = new Date(now);
   day.setHours(0, 0, 0, 0);
   const dateOnly = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+  const intentRange = resolvedIntent && resolvedIntent.confidence >= 0.55
+    ? dateRangeFromIntent(resolvedIntent.timeRange, day, dateOnly)
+    : null;
+  if (intentRange) return intentRange;
+
+  const text = message.toLowerCase();
   if (text.includes("tomorrow")) {
     const tomorrow = new Date(day);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -366,13 +490,13 @@ function dateRange(message: string): { start: string; end: string } | null {
   return null;
 }
 
-function applyDateRange(query: any, column: string, message: string): any {
-  const range = dateRange(message);
+function applyDateRange(query: any, column: string, message: string, resolvedIntent?: ChatIntentMatch | null): any {
+  const range = dateRange(message, resolvedIntent);
   if (!range) return query;
   // Orders store event_date as DATE, while kitchen prep tasks store start_at
   // as a timestamp. A date-only <= filter on start_at would keep only rows at
   // midnight and make real prep tasks appear missing.
-  if (column === "start_at") {
+  if (["start_at", "started_at", "clock_in", "created_at", "planned_start"].includes(column)) {
     const exclusiveEnd = new Date(`${range.end}T00:00:00.000Z`);
     exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1);
     return query
@@ -394,11 +518,22 @@ function isoDate(date: Date): string {
  * page. The page defaults to the current month in the portal, so a plain
  * "my earnings" or "month earnings" question must also mean month-to-date.
  */
-function driverEarningsRange(message: string): { from: string; to: string; label: string } {
+function driverEarningsRange(message: string, resolvedIntent?: ChatIntentMatch | null): { from: string; to: string; label: string } {
   const text = message.toLowerCase();
   const now = new Date();
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
+
+  const intentRange = resolvedIntent && resolvedIntent.confidence >= 0.55 && resolvedIntent.timeRange && resolvedIntent.timeRange !== "unspecified" && resolvedIntent.timeRange !== "all" && resolvedIntent.timeRange !== "upcoming"
+    ? dateRangeFromIntent(resolvedIntent.timeRange, today, isoDate)
+    : null;
+  if (intentRange) {
+    return {
+      from: intentRange.start,
+      to: intentRange.end,
+      label: String(resolvedIntent?.timeRange || "selected period").replace(/_/g, " "),
+    };
+  }
 
   if (/\b(?:last|previous)\s+month\b/.test(text)) {
     const firstThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -546,7 +681,98 @@ function auditDateRange(message: string): { start: string; end: string } | null 
   return null;
 }
 
-export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToolDefinition, message = ""): Promise<any> {
+function hasCompanyStaffScope(role: string): boolean {
+  return ["super_admin", "owner", "company_admin", "region_admin", "admin"].includes(role);
+}
+
+function databaseWorkRole(role: string): string | null {
+  switch (normalizeChatRole(role)) {
+    case "driver": return "driver";
+    case "waiter": return "waiter";
+    case "kitchen_manager": return "kitchen_manager";
+    case "kitchen_staff": return "kitchen";
+    case "cleaning_manager": return "cleaning_manager";
+    case "cleaning_staff": return "cleaning";
+    case "shopping":
+    case "shopping_staff": return "shopping";
+    default: return null;
+  }
+}
+
+function durationHours(start: unknown, end: unknown): number | null {
+  if (!start) return null;
+  const startMs = new Date(String(start)).getTime();
+  const endMs = end ? new Date(String(end)).getTime() : Date.now();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return null;
+  return Math.round(((endMs - startMs) / 3_600_000) * 100) / 100;
+}
+
+async function loadAssignedWork(db: any, identity: ChatIdentity, message: string, resolvedIntent?: ChatIntentMatch | null): Promise<any> {
+  const role = normalizeChatRole(identity.role);
+  const companyId = identity.companyId;
+  const adminScope = hasCompanyStaffScope(role);
+  const result: Record<string, any> = { role, orders: [], tasks: [], attendance: [], as_of: new Date().toISOString() };
+
+  if (role === "driver") {
+    result.orders = await loadDriverDeliveries(db, identity);
+  }
+
+  if (role === "kitchen_manager" || role === "kitchen_staff" || adminScope) {
+    result.tasks = await rows(db, "kitchen_prep_tasks", (q) => {
+      let scoped = q.select("id, order_id, menu_item_name, task_type, status, start_at, duration_min, assigned_chef_id, notes")
+        .eq("company_id", companyId).is("deleted_at", null);
+      if (role === "kitchen_staff") scoped = scoped.eq("assigned_chef_id", identity.userId);
+      return applyDateRange(scoped, "start_at", message, resolvedIntent).order("start_at", { ascending: true }).limit(80);
+    });
+    result.orders = await rows(db, "orders", (q) => {
+      let scoped = q.select("id, order_number, event_name, event_date, event_time, venue_name, guest_count, status, assigned_chef_id")
+        .eq("company_id", companyId).is("deleted_at", null).not("status", "in", "(cancelled,paused)");
+      if (role === "kitchen_staff") scoped = scoped.eq("assigned_chef_id", identity.userId);
+      return applyDateRange(scoped, "event_date", message, resolvedIntent).order("event_date", { ascending: true }).limit(60);
+    });
+  }
+
+  if (role === "waiter" || (adminScope && role !== "client")) {
+    let attendanceQuery = db.from("event_attendance")
+      .select("id, order_id, waiter_id, arrived_at, setup_started_at, guests_arrived_at, service_started_at, service_ended_at, event_complete_at, equipment_returned_at, work_started_at, work_ended_at, work_end_reason, work_end_note, notes")
+      .eq("company_id", companyId).order("arrived_at", { ascending: true, nullsFirst: false }).limit(80);
+    if (role === "waiter") attendanceQuery = attendanceQuery.eq("waiter_id", identity.userId);
+    result.attendance = await rows(db, "event_attendance", () => attendanceQuery);
+    const orderIds = result.attendance.map((item: any) => item.order_id).filter(Boolean);
+    if (orderIds.length) {
+      result.orders = [...result.orders, ...await rows(db, "orders", (q) => q.select("id, order_number, event_name, event_date, event_time, venue_name, guest_count, status").eq("company_id", companyId).in("id", orderIds))];
+    }
+  }
+
+  if (role === "shopping" || role === "shopping_staff") {
+    result.tasks = await rows(db, "shopping_lists", (q) => {
+      let scoped = q.select("id, title, list_date, status, estimated_total, actual_total, shopper_id, notes").eq("company_id", companyId);
+      if (!adminScope) scoped = scoped.eq("shopper_id", identity.userId);
+      return applyDateRange(scoped, "list_date", message, resolvedIntent).order("list_date", { ascending: false }).limit(50);
+    });
+  }
+
+  if (role === "cleaning_manager" || role === "cleaning_staff" || role === "kitchen_manager" || role === "kitchen_staff" || adminScope) {
+    const shifts = await rows(db, "kitchen_shifts", (q) => {
+      let scoped = q.select("id, staff_id, shift_date, shift_type, status, planned_start, planned_end, actual_start, actual_end, notes")
+        .eq("company_id", companyId).is("deleted_at", null);
+      if (!adminScope) scoped = scoped.eq("staff_id", identity.userId);
+      return applyDateRange(scoped, "shift_date", message, resolvedIntent).order("shift_date", { ascending: true }).limit(80);
+    });
+    const shiftIds = shifts.map((item: any) => item.id).filter(Boolean);
+    const taskRows = shiftIds.length ? await rows(db, "staff_shift_tasks", (q) => q.select("id, shift_id, task_type, planned_start, planned_end, actual_start, actual_end, billable, related_entity_type, related_entity_id, notes").eq("company_id", companyId).in("shift_id", shiftIds).is("deleted_at", null).order("planned_start", { ascending: true }).limit(100)) : [];
+    result.tasks = [...result.tasks, ...taskRows, ...shifts];
+  }
+
+  return result;
+}
+
+export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToolDefinition, message = "", resolvedIntent?: ChatIntentMatch | null): Promise<any> {
+  // Direct callers (including portal adapters and tests) can still provide a
+  // legacy department label such as `kitchen` or `buyer`. Normalize here as
+  // well as during selection so the final authorization check and every
+  // per-role scope below use the same canonical role.
+  identity = { ...identity, role: normalizeChatRole(identity.role) };
   if (!tool.roles.includes(identity.role)) return null;
   // Platform tools must read through the server-side service client after the
   // signed-in profile has already been verified as super_admin. The request
@@ -1073,9 +1299,9 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       if (identity.role === "client") {
         const client = (await rows(db, "clients", (q) => q.select("id").eq("company_id", companyId).eq("user_id", identity.userId).maybeSingle()))[0];
         if (!client?.id) return [];
-        return rows(db, "orders", (q) => applyDateRange(q.select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status, total_amount, payment_status").eq("company_id", companyId).eq("client_id", client.id), "event_date", message).order("event_date", { ascending: true }).limit(30));
+        return rows(db, "orders", (q) => applyDateRange(q.select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status, total_amount, payment_status").eq("company_id", companyId).eq("client_id", client.id), "event_date", message, resolvedIntent).order("event_date", { ascending: true }).limit(30));
       }
-      return rows(db, "orders", (q) => applyDateRange(scopeRegionQuery(q.select("id, order_number, event_name, event_date, event_time, venue_name, guest_count, status, payment_status, region_id"), identity).eq("company_id", companyId), "event_date", message).order("event_date", { ascending: true }).limit(50));
+      return rows(db, "orders", (q) => applyDateRange(scopeRegionQuery(q.select("id, order_number, event_name, event_date, event_time, venue_name, guest_count, status, payment_status, region_id"), identity).eq("company_id", companyId), "event_date", message, resolvedIntent).order("event_date", { ascending: true }).limit(50));
     }
     case "customer_invoices": {
       if (identity.role === "client") {
@@ -1096,7 +1322,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       return loadDriverDeliveries(db, identity);
     case "driver_earnings": {
       if (identity.role !== "driver" || !identity.companyId) return null;
-      const period = driverEarningsRange(message);
+      const period = driverEarningsRange(message, resolvedIntent);
       try {
         const summary = await driverPayService.getPaySummary({
           companyId: identity.companyId,
@@ -1130,7 +1356,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       }
     }
     case "delivery_orders": {
-      const assignments = await runLiveTool(db, identity, getLiveToolDefinition("assigned_deliveries")!, message);
+      const assignments = await runLiveTool(db, identity, getLiveToolDefinition("assigned_deliveries")!, message, resolvedIntent);
       const ids = (assignments || []).map((item: any) => item.order_id).filter(Boolean);
       return ids.length ? rows(db, "orders", (q) => q.select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status, delivery_time, collection_time").eq("company_id", companyId).in("id", ids)) : [];
     }
@@ -1140,8 +1366,9 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
           .eq("company_id", companyId)
           .not("status", "in", "(cancelled,paused)")
           .is("deleted_at", null),
-        "event_date",
-        message,
+          "event_date",
+          message,
+          resolvedIntent,
       ).order("event_date", { ascending: true }).order("event_time", { ascending: true, nullsFirst: true }).limit(50));
     case "kitchen_prep_tasks":
       return rows(db, "kitchen_prep_tasks", async (q) => {
@@ -1151,6 +1378,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
             .is("deleted_at", null),
           "start_at",
           message,
+          resolvedIntent,
         ).order("start_at", { ascending: true }).limit(60);
         const data = Array.isArray(result?.data) ? result.data : [];
         return result?.error || result?.data == null
@@ -1174,18 +1402,18 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
     case "operations_inventory":
       return rows(db, "inventory_items", (q) => q.select("item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, preferred_supplier_id").eq("company_id", companyId).is("deleted_at", null).limit(150));
     case "shopping_lists":
-      return rows(db, "shopping_lists", (q) => applyDateRange(q.select("id, title, list_date, status, estimated_total, actual_total, shopper_id, notes").eq("company_id", companyId), "list_date", message).order("list_date", { ascending: false }).limit(30));
+      return rows(db, "shopping_lists", (q) => applyDateRange(q.select("id, title, list_date, status, estimated_total, actual_total, shopper_id, notes").eq("company_id", companyId), "list_date", message, resolvedIntent).order("list_date", { ascending: false }).limit(30));
     case "cleaning_equipment":
       return rows(db, "equipment", (q) => q.select("id, name, category, condition, quantity, available, requires_cleaning, next_available_at, last_cleaned").eq("company_id", companyId).limit(100));
     case "cleaning_damage_reports":
       return rows(db, "equipment_damages", (q) => q.select("id, equipment_id, damage_type, severity, status, description, reported_at").eq("company_id", companyId).order("reported_at", { ascending: false }).limit(60));
     case "sales_orders":
     case "operations_orders":
-      return rows(db, "orders", (q) => applyDateRange(scopeRegionQuery(q.select("id, order_number, event_name, event_date, event_time, venue_name, guest_count, status, total_amount, payment_status, region_id"), identity).eq("company_id", companyId), "event_date", message).order("event_date", { ascending: true }).limit(60));
+      return rows(db, "orders", (q) => applyDateRange(scopeRegionQuery(q.select("id, order_number, event_name, event_date, event_time, venue_name, guest_count, status, total_amount, payment_status, region_id"), identity).eq("company_id", companyId), "event_date", message, resolvedIntent).order("event_date", { ascending: true }).limit(60));
     case "sales_quotes":
-      return rows(db, "quotes", (q) => applyDateRange(scopeRegionQuery(q.select("quote_number, quote_name, event_date, guest_count, status, total_amount, valid_until, client_name, region_id"), identity).eq("company_id", companyId).is("deleted_at", null), "event_date", message).order("created_at", { ascending: false }).limit(60));
+      return rows(db, "quotes", (q) => applyDateRange(scopeRegionQuery(q.select("quote_number, quote_name, event_date, guest_count, status, total_amount, valid_until, client_name, region_id"), identity).eq("company_id", companyId).is("deleted_at", null), "event_date", message, resolvedIntent).order("created_at", { ascending: false }).limit(60));
     case "sales_leads":
-      return rows(db, "leads", (q) => applyDateRange(scopeRegionQuery(q.select("contact_name, client_name, event_date, event_type, guest_count, status, assigned_to, created_at, region_id"), identity).eq("company_id", companyId).is("deleted_at", null), "created_at", message).order("created_at", { ascending: false }).limit(60));
+      return rows(db, "leads", (q) => applyDateRange(scopeRegionQuery(q.select("contact_name, client_name, event_date, event_type, guest_count, status, assigned_to, created_at, region_id"), identity).eq("company_id", companyId).is("deleted_at", null), "created_at", message, resolvedIntent).order("created_at", { ascending: false }).limit(60));
     case "admin_invoices":
       return rows(db, "invoices", (q) => q.select("invoice_number, due_date, total_amount, amount_paid, balance_due, status, order_id").eq("company_id", companyId).is("deleted_at", null).order("due_date", { ascending: true }).limit(60));
     case "team_members": {
@@ -1197,7 +1425,164 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
         : members;
     }
     case "staff_orders":
-      return rows(db, "orders", (q) => applyDateRange(q.select("id, order_number, event_name, event_date, event_time, venue_name, status").eq("company_id", companyId).eq("user_id", identity.userId), "event_date", message).order("event_date", { ascending: true }).limit(30));
+      return loadAssignedWork(db, identity, message, resolvedIntent);
+    case "order_items": {
+      const clientOrderRows = identity.role === "client"
+        ? await (async () => {
+          const client = (await rows(db, "clients", (q) => q.select("id").eq("company_id", companyId).eq("user_id", identity.userId).maybeSingle()))[0];
+          return client?.id
+            ? await rows(db, "orders", (q) => applyDateRange(q.select("id, order_number, event_name, event_date, event_time, guest_count, venue_name, status, dietary_requirements, special_instructions").eq("company_id", companyId).eq("client_id", client.id).is("deleted_at", null), "event_date", message, resolvedIntent).order("event_date", { ascending: true }).limit(30))
+            : [];
+        })()
+        : await rows(db, "orders", (q) => applyDateRange(q.select("id, order_number, event_name, event_date, event_time, guest_count, venue_name, status, dietary_requirements, special_instructions").eq("company_id", companyId).is("deleted_at", null).not("status", "in", "(cancelled,paused)"), "event_date", message, resolvedIntent).order("event_date", { ascending: true }).limit(60));
+      const orderIds = clientOrderRows.map((order: any) => order.id).filter(Boolean);
+      const itemRows = orderIds.length
+        ? await rows(db, "order_items", (q) => q.select("id, order_id, menu_item_id, item_name, description, quantity, unit_price, line_total, special_instructions").in("order_id", orderIds).limit(300))
+        : [];
+      const itemsByOrder = new Map<string, any[]>();
+      for (const item of itemRows) {
+        const key = String(item.order_id);
+        itemsByOrder.set(key, [...(itemsByOrder.get(key) || []), item]);
+      }
+      return clientOrderRows.map((order: any) => ({ ...order, items: itemsByOrder.get(String(order.id)) || [] }));
+    }
+    case "inventory_movements":
+      return rows(db, "inventory_transactions", (q) => applyDateRange(q.select("id, inventory_item_id, transaction_type, quantity, unit_cost, order_id, supplier_id, reference_number, notes, performed_by, created_at").eq("company_id", companyId), "created_at", message, resolvedIntent).order("created_at", { ascending: false }).limit(120));
+    case "catalogue_menu": {
+      const menu = await rows(db, "menu_items", (q) => q.select("id, item_name, description, category, base_price, cost_per_unit, is_available, dietary_tags, allergen_info").eq("company_id", companyId).is("deleted_at", null).order("item_name", { ascending: true }).limit(200));
+      const menuIds = menu.map((item: any) => item.id).filter(Boolean);
+      const recipes = menuIds.length ? await rows(db, "recipes", (q) => q.select("id, menu_item_id, recipe_name, base_servings, prep_time_minutes, cook_time_minutes, instructions").eq("company_id", companyId).in("menu_item_id", menuIds).limit(200)) : [];
+      return { menu_items: menu, recipes };
+    }
+    case "supplier_records":
+      return rows(db, "suppliers", (q) => q.select("id, supplier_name, contact_person, email, phone, city, payment_terms, rating, is_active, notes").eq("company_id", companyId).is("deleted_at", null).order("supplier_name", { ascending: true }).limit(200));
+    case "delivery_tracking": {
+      const isDriver = identity.role === "driver";
+      const assignments = await rows(db, "driver_assignments", (q) => {
+        let scoped = q.select("id, order_id, driver_id, status, accepted_at, en_route_at, picked_up_at, arrived_at_venue_at, delivered_at, total_earnings, notes").eq("company_id", companyId).order("created_at", { ascending: false }).limit(100);
+        if (isDriver) scoped = scoped.eq("driver_id", identity.userId);
+        return scoped;
+      });
+      const assignmentIds = assignments.map((assignment: any) => assignment.id).filter(Boolean);
+      const locations = assignmentIds.length
+        ? await rows(db, "gps_tracking_logs", (q) => q.select("driver_id, assignment_id, latitude, longitude, accuracy_meters, speed_kmh, heading_degrees, recorded_at").in("assignment_id", assignmentIds).order("recorded_at", { ascending: false }).limit(100))
+        : [];
+      return { assignments, latest_locations: locations };
+    }
+    case "vehicle_status":
+      return rows(db, "vehicles", (q) => q.select("id, plate, vehicle_type, last_serviced_at, next_service_due, service_interval_days, current_odometer_km, created_at").eq("company_id", companyId).order("plate", { ascending: true, nullsFirst: false }).limit(100));
+    case "cleaning_schedules":
+      return rows(db, "cleaning_schedules", (q) => {
+        let scoped = q.select("id, area_name, description, frequency, scheduled_date, scheduled_time, assigned_to, status, started_at, completed_at, completed_by, notes").eq("company_id", companyId);
+        if (identity.role === "cleaning_staff") scoped = scoped.eq("assigned_to", identity.userId);
+        return applyDateRange(scoped, "scheduled_date", message, resolvedIntent).order("scheduled_date", { ascending: true }).order("scheduled_time", { ascending: true, nullsFirst: true }).limit(100);
+      });
+    case "reviews_feedback": {
+      if (identity.role === "client") {
+        const client = (await rows(db, "clients", (q) => q.select("id").eq("company_id", companyId).eq("user_id", identity.userId).maybeSingle()))[0];
+        return client?.id ? rows(db, "delivery_feedback", (q) => q.select("order_id, overall_rating, comments, is_public, created_at").eq("company_id", companyId).eq("client_id", client.id).order("created_at", { ascending: false }).limit(30)) : [];
+      }
+      const [feedback, complaints] = await Promise.all([
+        rows(db, "delivery_feedback", (q) => q.select("id, order_id, client_id, food_quality_rating, delivery_timeliness_rating, driver_professionalism_rating, overall_rating, comments, is_public, requires_follow_up, followed_up_at, created_at").eq("company_id", companyId).order("created_at", { ascending: false }).limit(100)),
+        rows(db, "complaint_tickets", (q) => q.select("id, ticket_number, order_id, complainant_name, category, severity, subject, status, created_at, resolved_at").eq("company_id", companyId).order("created_at", { ascending: false }).limit(100)),
+      ]);
+      return { feedback, complaints };
+    }
+    case "supplier_payables":
+      return rows(db, "supplier_payables", (q) => applyDateRange(q.select("id, supplier_id, amount_cents, due_date, invoice_ref, notes, status, paid_at, created_at").eq("company_id", companyId).is("deleted_at", null), "due_date", message, resolvedIntent).order("due_date", { ascending: true }).limit(120));
+    case "notification_preferences":
+      return (await rows(db, "email_notification_preferences", (q) => q.select("order_confirmed, order_status_changed, order_ready_for_pickup, order_delivered, order_cancelled, driver_assigned, task_assigned, payment_received, payment_due, invoice_sent, low_stock_alert, out_of_stock_alert, daily_summary, weekly_report, updated_at").eq("user_id", identity.userId).maybeSingle()))[0] || null;
+    case "work_clock_status": {
+      const sessions = await rows(db, "role_work_sessions", (q) => q.select("id, role, order_id, started_at, ended_at, end_reason, end_note, created_at, updated_at").eq("company_id", companyId).eq("user_id", identity.userId).order("started_at", { ascending: false }).limit(40));
+      return {
+        active: sessions.find((session: any) => !session.ended_at) || null,
+        sessions: sessions.map((session: any) => ({ ...session, duration_hours: durationHours(session.started_at, session.ended_at) })),
+        one_active_timer_rule: true,
+        as_of: new Date().toISOString(),
+      };
+    }
+    case "work_hours": {
+      const text = message.toLowerCase();
+      const companyWide = hasCompanyStaffScope(identity.role) && /\b(?:staff|team|employees?|everyone|all users?)\b/.test(text);
+      const queryRows = await rows(db, "staff_work_sessions", (q) => {
+        let scoped = q.select("id, staff_id, clock_in, clock_out, session_date, total_hours, total_earnings, payment_status, entered_manually, entry_reason")
+          .eq("company_id", companyId);
+        if (!companyWide) scoped = scoped.eq("staff_id", identity.userId);
+        return applyDateRange(scoped, "session_date", message, resolvedIntent).order("clock_in", { ascending: false }).limit(companyWide ? 500 : 100);
+      });
+      return {
+        scope: companyWide ? "company" : "me",
+        sessions: queryRows.map((session: any) => ({ ...session, calculated_hours: session.total_hours ?? durationHours(session.clock_in, session.clock_out) })),
+        total_hours: queryRows.reduce((sum: number, session: any) => sum + Number(session.total_hours ?? durationHours(session.clock_in, session.clock_out) ?? 0), 0),
+        as_of: new Date().toISOString(),
+      };
+    }
+    case "order_work_hours": {
+      const companyWide = hasCompanyStaffScope(identity.role);
+      const sessions = await rows(db, "role_work_sessions", (q) => {
+        let scoped = q.select("id, user_id, role, order_id, started_at, ended_at, end_reason, end_note").eq("company_id", companyId).not("order_id", "is", null);
+        if (!companyWide) scoped = scoped.eq("user_id", identity.userId);
+        return applyDateRange(scoped, "started_at", message, resolvedIntent).order("started_at", { ascending: false }).limit(250);
+      });
+      const orderIds = [...new Set(sessions.map((session: any) => session.order_id).filter(Boolean))];
+      const orders = orderIds.length ? await rows(db, "orders", (q) => q.select("id, order_number, event_name, event_date, event_time, venue_name").eq("company_id", companyId).in("id", orderIds)) : [];
+      const orderById = new Map(orders.map((order: any) => [String(order.id), order]));
+      return {
+        scope: companyWide ? "company" : "me",
+        sessions: sessions.map((session: any) => ({
+          ...session,
+          duration_hours: durationHours(session.started_at, session.ended_at),
+          order: orderById.get(String(session.order_id)) || null,
+        })),
+        total_hours: sessions.reduce((sum: number, session: any) => sum + Number(durationHours(session.started_at, session.ended_at) || 0), 0),
+        as_of: new Date().toISOString(),
+      };
+    }
+    case "daily_operations_tasks": {
+      const settings = (await rows(db, "company_daily_operations_settings", (q) => q.select("kitchen_cleaning_enabled, kitchen_cleaning_time, kitchen_cleaning_title, kitchen_cleaning_description, kitchen_cleaning_lead_hours, kitchen_cleaning_target, equipment_cleaning_enabled, equipment_cleaning_time, equipment_cleaning_title, equipment_cleaning_description, equipment_cleaning_lead_hours, equipment_cleaning_target, admin_notifications_enabled").eq("company_id", companyId).maybeSingle()))[0] || null;
+      const allTasks = await rows(db, "daily_operations_tasks", (q) => applyDateRange(q.select("id, task_kind, task_date, scheduled_time, scheduled_at, title, description, target_roles, status, assigned_to, started_at, completed_at, completed_by, notes, staff_notified_at, admin_notified_at").eq("company_id", companyId), "task_date", message, resolvedIntent).order("task_date", { ascending: true }).order("scheduled_time", { ascending: true }).limit(100));
+      const workerRole = databaseWorkRole(identity.role) || identity.role;
+      const tasks = hasCompanyStaffScope(identity.role)
+        ? allTasks
+        : allTasks.filter((task: any) => task.assigned_to === identity.userId || (Array.isArray(task.target_roles) && task.target_roles.some((target: string) => [workerRole, identity.role, "both", "all"].includes(String(target).toLowerCase()))));
+      return { settings, tasks, as_of: new Date().toISOString() };
+    }
+    case "staff_shift_schedule": {
+      const workerRole = databaseWorkRole(identity.role);
+      const shifts = await rows(db, "kitchen_shifts", (q) => {
+        let scoped = q.select("id, staff_id, shift_date, shift_type, planned_start, planned_end, actual_start, actual_end, status, notes, order_id")
+          .eq("company_id", companyId).is("deleted_at", null);
+        if (!hasCompanyStaffScope(identity.role)) scoped = scoped.eq("staff_id", identity.userId);
+        if (workerRole === "driver") scoped = scoped.in("shift_type", ["delivery", "general"]);
+        else if (workerRole === "cleaning" || workerRole === "cleaning_manager") scoped = scoped.in("shift_type", ["cleaning", "kitchen_and_cleaning", "general"]);
+        else if (workerRole === "kitchen" || workerRole === "kitchen_manager") scoped = scoped.in("shift_type", ["kitchen", "kitchen_and_cleaning", "general"]);
+        return applyDateRange(scoped, "shift_date", message, resolvedIntent).order("shift_date", { ascending: true }).limit(120);
+      });
+      const shiftIds = shifts.map((shift: any) => shift.id).filter(Boolean);
+      const tasks = shiftIds.length ? await rows(db, "staff_shift_tasks", (q) => q.select("id, shift_id, task_type, planned_start, planned_end, actual_start, actual_end, planned_minutes, billable, related_entity_type, related_entity_id, notes").eq("company_id", companyId).in("shift_id", shiftIds).is("deleted_at", null).order("planned_start", { ascending: true }).limit(200)) : [];
+      return { shifts, tasks, as_of: new Date().toISOString() };
+    }
+    case "waiter_service_assignments": {
+      const assignments = await rows(db, "event_attendance", (q) => {
+        let scoped = q.select("id, order_id, waiter_id, arrived_at, setup_started_at, guests_arrived_at, service_started_at, service_ended_at, event_complete_at, equipment_returned_at, work_started_at, work_ended_at, work_end_reason, work_end_note, notes")
+          .eq("company_id", companyId).order("arrived_at", { ascending: true, nullsFirst: false }).limit(100);
+        if (identity.role === "waiter") scoped = scoped.eq("waiter_id", identity.userId);
+        return scoped;
+      });
+      const orderIds = [...new Set(assignments.map((assignment: any) => assignment.order_id).filter(Boolean))];
+      const orders = orderIds.length ? await rows(db, "orders", (q) => q.select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status").eq("company_id", companyId).in("id", orderIds)) : [];
+      const orderById = new Map(orders.map((order: any) => [String(order.id), order]));
+      return { assignments: assignments.map((assignment: any) => ({ ...assignment, order: orderById.get(String(assignment.order_id)) || null, work_hours: durationHours(assignment.work_started_at, assignment.work_ended_at) })), as_of: new Date().toISOString() };
+    }
+    case "cleaning_work_tasks": {
+      const jobs = await rows(db, "cleaning_jobs", (q) => applyDateRange(q.select("id, equipment_id, quantity, method, machine_id, shift_task_id, planned_start, planned_end, actual_start, actual_end, status, triggered_by_event_id, notes").eq("company_id", companyId).is("deleted_at", null), "planned_start", message, resolvedIntent).order("planned_start", { ascending: true }).limit(120));
+      if (hasCompanyStaffScope(identity.role) || identity.role === "cleaning_manager") return { jobs, as_of: new Date().toISOString() };
+      const shifts = await rows(db, "kitchen_shifts", (q) => q.select("id").eq("company_id", companyId).eq("staff_id", identity.userId).is("deleted_at", null).limit(40));
+      const shiftIds = shifts.map((shift: any) => shift.id).filter(Boolean);
+      const assignedTasks = shiftIds.length ? await rows(db, "staff_shift_tasks", (q) => q.select("id").eq("company_id", companyId).in("shift_id", shiftIds).eq("task_type", "cleaning").is("deleted_at", null).limit(100)) : [];
+      const assignedIds = new Set(assignedTasks.map((task: any) => String(task.id)));
+      return { jobs: jobs.filter((job: any) => job.shift_task_id && assignedIds.has(String(job.shift_task_id))), as_of: new Date().toISOString() };
+    }
     case "user_notifications":
       return rows(db, "notifications", (q) => q.select("title, message, priority, created_at, is_read, action_url").eq("company_id", companyId).eq("user_id", identity.userId).order("created_at", { ascending: false }).limit(30));
     case "dashboard_stats": {
@@ -1214,11 +1599,11 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
   }
 }
 
-export async function runLiveTools(db: any, identity: ChatIdentity, message: string, policy: LiveToolPolicyMap = {}): Promise<Record<string, any>> {
-  const selected = selectLiveTools(identity.role, message, policy);
+export async function runLiveTools(db: any, identity: ChatIdentity, message: string, policy: LiveToolPolicyMap = {}, resolvedIntent?: ChatIntentMatch | null): Promise<Record<string, any>> {
+  const selected = selectLiveTools(normalizeChatRole(identity.role), message, policy, resolvedIntent);
   const [entries, dynamic] = await Promise.all([
-    Promise.all(selected.map(async (tool) => [tool.id, await runLiveTool(db, identity, tool, message)] as const)),
-    runDynamicTools(db, identity, message),
+    Promise.all(selected.map(async (tool) => [tool.id, await runLiveTool(db, identity, tool, message, resolvedIntent)] as const)),
+    runDynamicTools(db, identity, message, resolvedIntent),
   ]);
   // Custom tools matched the manager-defined question phrases, so keep them
   // first. Large built-in result sets must not push the requested result out

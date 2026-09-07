@@ -1,4 +1,5 @@
 import { NAVIGATION_REFS, type ChatNavigationRef } from "./navigation";
+import { normalizeChatRole } from "./roles";
 
 export interface ChatWorkflowStep {
   id: string;
@@ -39,7 +40,7 @@ const DRIVER = ["driver"];
 const CLEANING = ["cleaning_manager", "cleaning_staff"];
 const CLIENT = ["client"];
 
-const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
+export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
   {
     id: "sales-lead-to-invoice",
     label: "Lead to confirmed event",
@@ -168,6 +169,7 @@ function resolveStep(step: WorkflowStepDefinition, role: string): ChatWorkflowSt
 }
 
 export function getRelevantWorkflows(query: string, role: string, limit = 1): ChatWorkflow[] {
+  role = normalizeChatRole(role);
   return WORKFLOW_DEFINITIONS
     .filter((definition) => isAllowed(definition, role))
     .map((definition) => ({ definition, score: score(query, definition) }))

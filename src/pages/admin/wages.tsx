@@ -887,19 +887,19 @@ function WageDashboardPage() {
           {/* Department tabs */}
           <Tabs value={department} onValueChange={(v) => setDepartment(v as DepartmentKey)} className="mb-4">
             <TabsList className="grid grid-cols-3 sm:grid-cols-5 h-auto w-full md:w-auto">
-              <TabsTrigger value="all" className="gap-1.5 text-xs md:text-sm">
+              <TabsTrigger id="wages-all" data-chat-section="admin.wages.all" data-chat-section-label="All wages" value="all" className="gap-1.5 text-xs md:text-sm">
                 <Users className="w-3.5 h-3.5" />All
               </TabsTrigger>
-              <TabsTrigger value="kitchen" className="gap-1.5 text-xs md:text-sm">
+              <TabsTrigger id="wages-kitchen" data-chat-section="admin.wages.kitchen" data-chat-section-label="Kitchen wages" value="kitchen" className="gap-1.5 text-xs md:text-sm">
                 <ChefHat className="w-3.5 h-3.5" />Kitchen
               </TabsTrigger>
-              <TabsTrigger value="drivers" className="gap-1.5 text-xs md:text-sm">
+              <TabsTrigger id="wages-drivers" data-chat-section="admin.wages.drivers" data-chat-section-label="Driver wages" value="drivers" className="gap-1.5 text-xs md:text-sm">
                 <Truck className="w-3.5 h-3.5" />Drivers
               </TabsTrigger>
-              <TabsTrigger value="shopping" className="gap-1.5 text-xs md:text-sm">
+              <TabsTrigger id="wages-shopping" data-chat-section="admin.wages.shopping" data-chat-section-label="Shopping wages" value="shopping" className="gap-1.5 text-xs md:text-sm">
                 <ShoppingBag className="w-3.5 h-3.5" />Shopping
               </TabsTrigger>
-              <TabsTrigger value="cleaning" className="gap-1.5 text-xs md:text-sm">
+              <TabsTrigger id="wages-cleaning" data-chat-section="admin.wages.cleaning" data-chat-section-label="Cleaning wages" value="cleaning" className="gap-1.5 text-xs md:text-sm">
                 <Sparkles className="w-3.5 h-3.5" />Cleaning
               </TabsTrigger>
             </TabsList>
@@ -1180,8 +1180,8 @@ function WageDashboardPage() {
           {/* Sub-tabs */}
           <Tabs value={subTab} onValueChange={(v) => setSubTab(v as "summary" | "by-person")} className="w-full">
             <TabsList className="grid grid-cols-2 w-full md:w-72 mb-4">
-              <TabsTrigger value="summary">Summary</TabsTrigger>
-              <TabsTrigger value="by-person">By person</TabsTrigger>
+              <TabsTrigger id="wages-summary" data-chat-section="admin.wages.summary" data-chat-section-label="Wage summary" value="summary">Summary</TabsTrigger>
+              <TabsTrigger id="wages-by-person" data-chat-section="admin.wages.by-person" data-chat-section-label="Wages by person" value="by-person">By person</TabsTrigger>
             </TabsList>
 
             <TabsContent value="summary">

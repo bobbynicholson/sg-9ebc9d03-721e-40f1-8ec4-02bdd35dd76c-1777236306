@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { NAVIGATION_REFS } from "@/lib/chatbot/navigation";
+import { PAGE_NAVIGATION_REFS } from "@/lib/chatbot/pageCatalog";
 import { CHAT_ACCESS_ROLES } from "@/server/chatbot/accessPolicy";
 
 const PAGES_ROOT = path.join(process.cwd(), "src", "pages");
@@ -21,6 +22,10 @@ function catalogPaths(): Set<string> {
   return new Set(NAVIGATION_REFS.map((item) => item.href.split(/[?#]/)[0]));
 }
 
+function pageCatalogPaths(): Set<string> {
+  return new Set(PAGE_NAVIGATION_REFS.map((item) => item.href.split(/[?#]/)[0]));
+}
+
 function isChatbotProductRoute(route: string): boolean {
   return ["/account", "/admin", "/client", "/client-portal", "/team-portal", "/super-admin"].some((prefix) => route === prefix || route.startsWith(`${prefix}/`));
 }
@@ -36,6 +41,16 @@ describe("chatbot page coverage audit", () => {
     console.log(`[chatbot page coverage] source_pages=${routes.length} product_pages=${productRoutes.length} catalog_paths=${catalog.size} dynamic_record_pages=${dynamicRoutes.length} excluded_public_routes=${excludedPublicRoutes.length} uncovered_product_pages=${missing.length}`);
     if (missing.length) console.log(missing.join("\n"));
     if (dynamicRoutes.length) console.log(`[chatbot page coverage] dynamic routes require live record IDs: ${dynamicRoutes.join(", ")}`);
+    expect(missing).toEqual([]);
+  });
+
+  it("keeps every static product route represented by an explicit page catalog entry", () => {
+    const routes = pageRoutes(PAGES_ROOT);
+    const pageCatalog = pageCatalogPaths();
+    const productRoutes = routes.filter((route) => isChatbotProductRoute(route) && !route.includes("["));
+    const missing = productRoutes.filter((route) => !pageCatalog.has(route));
+    console.log(`[chatbot page catalog] product_pages=${productRoutes.length} explicit_page_paths=${pageCatalog.size} missing=${missing.length}`);
+    if (missing.length) console.log(missing.join("\n"));
     expect(missing).toEqual([]);
   });
 

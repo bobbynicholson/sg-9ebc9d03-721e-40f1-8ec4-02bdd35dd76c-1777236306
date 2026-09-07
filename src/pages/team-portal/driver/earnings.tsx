@@ -357,8 +357,8 @@ function DriverEarningsInner() {
             </p>
             <Tabs defaultValue="shifts">
               <TabsList className="mb-4">
-                <TabsTrigger value="shifts" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Shifts ({stats.shiftCount})</TabsTrigger>
-                <TabsTrigger value="deliveries" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Deliveries ({stats.deliveryCount})</TabsTrigger>
+                <TabsTrigger id="driver-shifts" data-chat-section="driver.earnings.shifts" data-chat-section-label="Driver shifts" value="shifts" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Shifts ({stats.shiftCount})</TabsTrigger>
+                <TabsTrigger id="driver-deliveries" data-chat-section="driver.earnings.deliveries" data-chat-section-label="Driver delivery pay" value="deliveries" className="data-[state=active]:bg-brand-primary data-[state=active]:text-white">Deliveries ({stats.deliveryCount})</TabsTrigger>
               </TabsList>
               <TabsContent value="shifts">
                 <ShiftTable summary={summary} formatR={formatR} />

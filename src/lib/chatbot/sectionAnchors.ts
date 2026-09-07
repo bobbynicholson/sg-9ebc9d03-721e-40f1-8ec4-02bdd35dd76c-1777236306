@@ -73,3 +73,30 @@ export function indexChatPageSections(): ChatPageSection[] {
   });
   return sections;
 }
+
+/**
+ * Scroll the current page to a chatbot section target.
+ *
+ * Next's client-side router can finish changing the URL before a page's
+ * async/content-driven section has mounted. Calling this after indexing (and
+ * retrying from the app shell) makes `/page#section` reliable for both
+ * explicit `data-chat-section` targets and generated heading anchors.
+ */
+export function scrollToChatHash(hash?: string): boolean {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+  const rawHash = hash ?? window.location.hash;
+  if (!rawHash) return false;
+
+  let id = rawHash.replace(/^#/, "");
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    // Keep the raw value when a malformed URL-encoded hash is supplied.
+  }
+  if (!id) return false;
+
+  const target = document.getElementById(id);
+  if (!target) return false;
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  return true;
+}

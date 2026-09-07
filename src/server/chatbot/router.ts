@@ -1,3 +1,8 @@
+import { classifyChatIntent } from "@/lib/chatbot/intents/classifier";
+import { intentNeedsLiveData } from "@/lib/chatbot/intents/policy";
+import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
+import { normalizeChatRole } from "@/lib/chatbot/roles";
+
 export type ChatRoute = "knowledge" | "live_data" | "hybrid" | "action_request";
 
 export interface ChatIntentRoute {
@@ -5,6 +10,7 @@ export interface ChatIntentRoute {
   useKnowledge: boolean;
   useLiveData: boolean;
   explanation: string;
+  intent?: ChatIntentMatch | null;
 }
 
 const LIVE_SIGNALS = [
@@ -113,18 +119,30 @@ function isFastStableQuestion(message: string): boolean {
  * the model out of the security decision. A future LLM router may enrich the
  * intent, but the server must still validate every tool and tenant scope.
  */
-export function routeChatQuestion(input: string): ChatIntentRoute {
+export function routeChatQuestion(input: string, role?: string, resolvedIntent?: ChatIntentMatch | null): ChatIntentRoute {
   const message = input.trim().toLowerCase();
+  const normalizedRole = normalizeChatRole(role);
+  const intent = resolvedIntent === undefined ? classifyChatIntent(message, normalizedRole) : resolvedIntent;
+  if (intent?.needsClarification && intent.confidence >= 0.55) {
+    return {
+      route: "knowledge",
+      useKnowledge: false,
+      useLiveData: false,
+      explanation: "The classified request is ambiguous; ask for the missing scope, period, or record before querying live data.",
+      intent,
+    };
+  }
   if (isFastStableQuestion(message)) {
     return {
       route: "knowledge",
       useKnowledge: false,
       useLiveData: false,
       explanation: "This is a greeting or basic product overview answered from the built-in CateringMS context.",
+      intent,
     };
   }
   const policyPhrase = message.includes("cancellation policy") || message.includes("cancellation procedure");
-  const live = (hasSignal(message, LIVE_SIGNALS) || isPlatformCompanyStatusQuestion(message) || isPlatformSubscriptionQuestion(message) || isPlatformPlanUsageQuestion(message) || isPlatformCompanySwitchQuestion(message) || isPlatformCompanyOwnerQuestion(message) || isCurrencyConfigurationQuestion(message) || isTechnologyCostQuestion(message) || isPlatformAuditQuestion(message) || isPlatformAiQuestion(message) || isPlatformRoleAccessQuestion(message) || isPlatformHealthQuestion(message) || isCurrentSubscriptionQuestion(message) || isPlatformOverviewQuestion(message))
+  const live = (intentNeedsLiveData(intent) || hasSignal(message, LIVE_SIGNALS) || isPlatformCompanyStatusQuestion(message) || isPlatformSubscriptionQuestion(message) || isPlatformPlanUsageQuestion(message) || isPlatformCompanySwitchQuestion(message) || isPlatformCompanyOwnerQuestion(message) || isCurrencyConfigurationQuestion(message) || isTechnologyCostQuestion(message) || isPlatformAuditQuestion(message) || isPlatformAiQuestion(message) || isPlatformRoleAccessQuestion(message) || isPlatformHealthQuestion(message) || isCurrentSubscriptionQuestion(message) || isPlatformOverviewQuestion(message))
     && !(policyPhrase && !hasSignal(message, ["how many", "count", "this month", "this week", "today", "data", "records"]));
   const knowledge = hasSignal(message, KNOWLEDGE_SIGNALS);
   const action = hasSignal(message, ACTION_SIGNALS);
@@ -135,9 +153,10 @@ export function routeChatQuestion(input: string): ChatIntentRoute {
       useKnowledge: true,
       useLiveData: live,
       explanation: "The request appears to ask for a write action; the assistant remains read-focused and can provide guidance or navigation.",
+      intent,
     };
   }
-  if (live && knowledge) return { route: "hybrid", useKnowledge: true, useLiveData: true, explanation: "The question combines stable product knowledge with current operational data." };
-  if (live) return { route: "live_data", useKnowledge: false, useLiveData: true, explanation: "The question asks about current tenant data, so approved live tools are authoritative." };
-  return { route: "knowledge", useKnowledge: true, useLiveData: false, explanation: "The question asks for stable product or process knowledge, so vector RAG is used." };
+  if (live && knowledge) return { route: "hybrid", useKnowledge: true, useLiveData: true, explanation: "The question combines stable product knowledge with current operational data.", intent };
+  if (live) return { route: "live_data", useKnowledge: false, useLiveData: true, explanation: "The question asks about current tenant data, so approved live tools are authoritative.", intent };
+  return { route: "knowledge", useKnowledge: true, useLiveData: false, explanation: "The question asks for stable product or process knowledge, so vector RAG is used.", intent };
 }

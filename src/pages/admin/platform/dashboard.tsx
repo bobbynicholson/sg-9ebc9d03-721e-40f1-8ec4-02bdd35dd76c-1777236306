@@ -284,10 +284,10 @@ function PlatformDashboard() {
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="customers">Customers</TabsTrigger>
-            <TabsTrigger value="plans">Plans</TabsTrigger>
-            <TabsTrigger value="geography">Geography</TabsTrigger>
+            <TabsTrigger id="platform-overview" data-chat-section="platform.dashboard.overview" data-chat-section-label="Platform overview" value="overview">Overview</TabsTrigger>
+            <TabsTrigger id="platform-customers" data-chat-section="platform.dashboard.customers" data-chat-section-label="Platform customers" value="customers">Customers</TabsTrigger>
+            <TabsTrigger id="platform-plans" data-chat-section="platform.dashboard.plans" data-chat-section-label="Platform plans" value="plans">Plans</TabsTrigger>
+            <TabsTrigger id="platform-geography" data-chat-section="platform.dashboard.geography" data-chat-section-label="Platform geography" value="geography">Geography</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
