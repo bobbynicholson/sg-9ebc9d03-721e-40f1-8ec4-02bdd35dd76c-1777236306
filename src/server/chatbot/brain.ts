@@ -1509,6 +1509,34 @@ function directGreetingAnswer(message: string): { text: string; provider: string
 }
 
 /**
+ * Capability questions are intentionally deterministic. They are the first
+ * thing a user sees when testing a new portal, so a model must not drift from
+ * the authenticated role into the platform-admin description in the product
+ * context above.
+ */
+function directRoleCapabilityAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  const message = args.message.trim();
+  const asksCapabilities = /\bhow\s+can\s+you\s+help\b|\bwhat\s+can\s+you\s+do\b|\bwhat\s+do\s+you\s+help\s+with\b|\bwhat\s+can\s+i\s+ask\s+you\b|\bwhat\s+are\s+you\s+able\s+to\s+do\b/i.test(message);
+  if (!asksCapabilities) return null;
+
+  const definition = getChatRoleDefinition(args.identity.role);
+  const capabilityText = definition.capabilities.slice(0, 4).join(", ");
+  const details = definition.capabilities.slice(0, 4).map((capability) =>
+    capability.charAt(0).toUpperCase() + capability.slice(1),
+  );
+  const rendered = renderChatResponse(JSON.stringify({
+    title: `${definition.label} assistant`,
+    message: `I’m your ${definition.label.toLowerCase()} assistant. I can help with ${capabilityText}.`,
+    details,
+    actions: [],
+  }));
+  return { text: rendered.text, provider: "role-guidance", retrievalCount: 0, rendered };
+}
+
+/**
  * Keep email-delivery answers deterministic. A model must never infer that a
  * quote was saved in Gmail, especially when the signed-in platform owner has
  * no tenant context and no delivery record was supplied to the chat.
@@ -1756,6 +1784,8 @@ export async function generateChatReply(args: {
 }): Promise<{ text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload }> {
   const greetingAnswer = directGreetingAnswer(args.message);
   if (greetingAnswer) return greetingAnswer;
+  const roleCapabilityAnswer = directRoleCapabilityAnswer(args);
+  if (roleCapabilityAnswer) return roleCapabilityAnswer;
   const securityAnswer = directSecurityAnswer(args);
   if (securityAnswer) return securityAnswer;
   const roleBoundaryAnswer = directRoleBoundaryAnswer(args);

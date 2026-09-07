@@ -61,8 +61,11 @@ function sessionHasExpired(session: { started_at?: string | null; ended_at?: str
 
 function isLocalDevBypass(req: NextApiRequest): boolean {
   const host = String(req.headers.host || "").split(":")[0].toLowerCase();
+  const explicitDev = req.query.dev === "true"
+    || req.query.dev?.[0] === "true";
   return process.env.NODE_ENV !== "production"
-    && (host === "localhost" || host === "127.0.0.1");
+    && (host === "localhost" || host === "127.0.0.1")
+    && explicitDev;
 }
 
 function getLocalDevIdentity(): { user: { id: string }; identity: ChatIdentity } {
