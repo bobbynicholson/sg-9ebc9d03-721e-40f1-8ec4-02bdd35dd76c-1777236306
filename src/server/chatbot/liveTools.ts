@@ -13,6 +13,7 @@ import { driverPayService } from "@/services/driverPayService";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
 import { normalizeChatRole } from "@/lib/chatbot/roles";
+import { normalizeChatMessage } from "@/lib/chatbot/intents/normalize";
 
 export type LiveToolId =
   | "current_user_profile"
@@ -56,6 +57,7 @@ export type LiveToolId =
   | "operations_inventory"
   | "admin_invoices"
   | "team_members"
+  | "team_roster"
   | "staff_orders"
   | "order_items"
   | "inventory_movements"
@@ -147,6 +149,7 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "operations_inventory", label: "Operations inventory", description: "Company-wide stock levels and reorder context", category: "operations", roles: OPERATIONS, keywords: ["inventory", "stock", "shortage", "reorder"] },
   { id: "admin_invoices", label: "Admin invoices", description: "Company invoice ledger, balances, and payment status", category: "finance", roles: ADMIN, keywords: ["invoice", "invoices", "finance", "financial", "balance", "payment", "revenue"] },
   { id: "team_members", label: "Team members", description: "Company staff directory and role context", category: "people", roles: ADMIN, keywords: ["team", "staff", "employee", "member", "driver", "chef"] },
+  { id: "team_roster", label: "Team roster", description: "Names and operational roles in the signed-in user's department", category: "people", roles: [...ADMIN, ...WORKER_ROLES], keywords: ["team", "staff", "employee", "member", "members", "roster", "kitchen", "cleaning", "driver", "waiter", "shopper", "chef"] },
   { id: "staff_orders", label: "My work orders", description: "Orders and events assigned to the signed-in operational staff member", category: "operations", roles: WORKER_ROLES, keywords: ["order", "orders", "event", "job", "jobs", "assignment", "assignments", "work", "today's work", "todays work", "my work"] },
   { id: "order_items", label: "Order menu items", description: "Menu items, quantities, dietary instructions, and item notes on authorized orders", category: "operations", roles: [...KITCHEN, ...SALES, ...OPERATIONS, ...CLIENT], keywords: ["menu items", "order items", "items on order", "what items", "what is on the order", "food items", "dish", "dishes", "dietary", "allergens"] },
   { id: "inventory_movements", label: "Inventory movements", description: "Stock receipts, usage, adjustments, and movement history", category: "operations", roles: [...KITCHEN, ...SHOPPING, ...OPERATIONS, ...ADMIN], keywords: ["inventory movement", "stock movement", "stock history", "inventory history", "used stock", "received stock", "adjustment"] },
@@ -210,6 +213,7 @@ const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
   operations_inventory: "Company-wide stock levels, shortages, and reorder context",
   admin_invoices: "Company invoice ledger, balances, payment status, and revenue context",
   team_members: "Company staff directory and role context; no unrelated tenants",
+  team_roster: "Names and operational roles for the signed-in user's department; private contact and pay fields are excluded",
   staff_orders: "Only work orders and events assigned to the signed-in operational staff member",
   order_items: "Menu items and item-level instructions for orders the signed-in role is authorized to see",
   inventory_movements: "Company inventory movement history, limited to authorized operational roles",
@@ -256,7 +260,7 @@ export function defaultLiveToolPolicy(role: string): LiveToolPolicyMap {
 export function selectLiveTools(role: string, message: string, policy: LiveToolPolicyMap = {}, resolvedIntent?: ChatIntentMatch | null): LiveToolDefinition[] {
   role = normalizeChatRole(role);
   const eligible = getLiveToolsForRole(role).filter((tool) => policy[tool.id] !== false);
-  const normalized = message.toLowerCase();
+  const normalized = normalizeChatMessage(message);
   const availableToolIds = new Set<string>(eligible.map((tool) => tool.id));
   const intentToolIds = (resolvedIntent?.confidence || 0) >= 0.55
     ? resolvedIntent!.toolIds.filter((toolId) => availableToolIds.has(toolId))
@@ -292,8 +296,8 @@ export function selectLiveTools(role: string, message: string, policy: LiveToolP
     && /\b(?:company\s+)?owners?\b/.test(normalized)
     && /\b(?:show|list|which|who|all|how many|find)\b/.test(normalized);
   const isRoleAccessQuestion = ["super_admin", "owner", "company_admin"].includes(role)
-    && /\b(?:allow|disable|enable|access|permission|permissions|which roles?|what data|role controls?|live[- ]data|platform[- ]level tools?|platform knowledge|whole database|unrestricted sql)\b/.test(normalized)
-    && /\b(?:kitchen staff|cleaning staff|company admins?|drivers?|clients?|inventory|stock|invoice data|customer data|equipment data|tools?|sql)\b/.test(normalized);
+    && /\b(?:allow|disable|enable|access|permission|permissions|which roles?|what data|what can|role controls?|live[- ]data|platform[- ]level tools?|platform knowledge|limitations?|restrictions?|boundaries?|whole database|unrestricted sql|can|see|view)\b/.test(normalized)
+    && /\b(?:kitchen staff|cleaning staff|company admins?|drivers?|clients?|inventory|stock|invoice data|customer data|equipment data|team members?|roster|visibility|limitations?|restrictions?|boundaries?|tools?|sql)\b/.test(normalized);
   if (isPlatformCompanySwitchQuestion) {
     const companies = eligible.find((tool) => tool.id === "registered_companies");
     const identity = eligible.find((tool) => tool.id === "current_user_profile");
@@ -454,17 +458,17 @@ function dateRange(message: string, resolvedIntent?: ChatIntentMatch | null): { 
     : null;
   if (intentRange) return intentRange;
 
-  const text = message.toLowerCase();
+  const text = normalizeChatMessage(message);
   if (text.includes("tomorrow")) {
     const tomorrow = new Date(day);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return { start: dateOnly(tomorrow), end: dateOnly(tomorrow) };
   }
   if (text.includes("today")) return { start: dateOnly(day), end: dateOnly(day) };
-  // Kitchen production and prep screens use a forward planning window. Keep
-  // the chatbot aligned with that behavior for both the correctly-spelled
-  // and common mistyped form of "upcoming".
-  if (/\bupcom(?:ing|ming)\b/.test(text) || /\bfuture\b/.test(text)) {
+  // Kitchen production and prep screens use a forward planning window. The
+  // shared normalizer also handles transpositions and missing letters in
+  // temporal phrases before this filter is built.
+  if (/\bupcoming\b/.test(text) || /\bfuture\b/.test(text)) {
     const end = new Date(day);
     end.setDate(end.getDate() + 30);
     return { start: dateOnly(day), end: dateOnly(end) };
@@ -697,6 +701,40 @@ function databaseWorkRole(role: string): string | null {
     case "shopping_staff": return "shopping";
     default: return null;
   }
+}
+
+type TeamDepartment = "kitchen" | "cleaning" | "shopping" | "driver" | "waiter" | "staff";
+
+function teamDepartmentForRole(role: string): TeamDepartment | null {
+  switch (normalizeChatRole(role)) {
+    case "kitchen_manager":
+    case "kitchen_staff": return "kitchen";
+    case "cleaning_manager":
+    case "cleaning_staff": return "cleaning";
+    case "shopping":
+    case "shopping_staff": return "shopping";
+    case "driver": return "driver";
+    case "waiter": return "waiter";
+    case "staff": return "staff";
+    default: return null;
+  }
+}
+
+function requestedTeamDepartment(message: string): TeamDepartment | null {
+  const text = normalizeChatMessage(message);
+  if (/\b(?:kitchen|chef|cooks?)\b/.test(text)) return "kitchen";
+  if (/\b(?:cleaning|cleaner|cleaners)\b/.test(text)) return "cleaning";
+  if (/\b(?:shopping|shopper|shoppers|buying)\b/.test(text)) return "shopping";
+  if (/\b(?:driver|drivers|delivery)\b/.test(text)) return "driver";
+  if (/\b(?:waiter|waiters|waitering|service team)\b/.test(text)) return "waiter";
+  return null;
+}
+
+function profileBelongsToTeam(profile: any, departmentRows: any[], department: TeamDepartment): boolean {
+  const roleValues = [profile.role, profile.active_role].map((value) => String(value || "").toLowerCase());
+  if (roleValues.some((value) => value === department || value === `${department}_staff` || value === `${department}_manager`)) return true;
+  if (department === "staff" && roleValues.includes("staff")) return true;
+  return departmentRows.some((row) => row.user_id === profile.id && String(row.department || "").toLowerCase() === department);
 }
 
 function durationHours(start: unknown, end: unknown): number | null {
@@ -1423,6 +1461,34 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       return identity.role === "company_admin"
         ? members.filter((member: any) => member.role !== "owner" && member.active_role !== "owner")
         : members;
+    }
+    case "team_roster": {
+      const profiles = await rows(db, "profiles", (q) => q.select("id, full_name, role, active_role, is_active").eq("company_id", companyId).neq("is_active", false).is("deleted_at", null).order("full_name", { ascending: true }).limit(300));
+      const profileIds = profiles.map((profile: any) => profile.id).filter(Boolean);
+      const departmentRows = profileIds.length
+        ? await rows(db, "user_departments", (q) => q.select("user_id, department").in("user_id", profileIds))
+        : [];
+      // Workers can inspect the public roster for their own department. Office
+      // roles may name a department in the question; without one they get
+      // the complete non-private company roster.
+      const requested = requestedTeamDepartment(message);
+      const department = hasCompanyStaffScope(identity.role)
+        ? requested
+        : teamDepartmentForRole(identity.role);
+      const filtered = department
+        ? profiles.filter((profile: any) => profileBelongsToTeam(profile, departmentRows, department))
+        : profiles;
+      return {
+        department,
+        members: filtered.map((profile: any) => ({
+          id: profile.id,
+          full_name: profile.full_name,
+          role: profile.role,
+          active_role: profile.active_role,
+          is_active: profile.is_active !== false,
+        })),
+        private_fields_excluded: ["email", "phone", "hourly_rate", "earnings"],
+      };
     }
     case "staff_orders":
       return loadAssignedWork(db, identity, message, resolvedIntent);

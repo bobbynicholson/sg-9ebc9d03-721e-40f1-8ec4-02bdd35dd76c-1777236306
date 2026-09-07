@@ -10,7 +10,7 @@ import {
 } from "@/server/chatbot/brain";
 import type { ChatFrontendContext, ChatIdentity } from "@/server/chatbot/brain";
 import { getRelevantNavigation } from "@/lib/chatbot/navigation";
-import type { ChatTraceStep } from "@/lib/chatbot/responseRenderer";
+import { beautifyChatResponse, type ChatTraceStep } from "@/lib/chatbot/responseRenderer";
 import { getRelevantWorkflows } from "@/lib/chatbot/workflows";
 import { getChatAccessPolicy } from "@/server/chatbot/accessPolicy";
 import { routeChatQuestion } from "@/server/chatbot/router";
@@ -376,7 +376,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       tags: currentTags,
     };
     const answer = await generateChatReply({ identity, message, history, liveContext, knowledge, navigation, route, workflow, frontend });
-    const rendered = { ...answer.rendered, ...(workflow ? { workflow } : {}), trace: [...trace, { id: "final", type: "final" as const, title: "Answer prepared", status: "completed" as const }] };
+    // Final response boundary: every provider, live tool, and direct handler
+    // is beautified again before it is stored or sent to the browser.
+    const rendered = { ...beautifyChatResponse(answer.rendered), ...(workflow ? { workflow } : {}), trace: [...trace, { id: "final", type: "final" as const, title: "Answer prepared", status: "completed" as const }] };
     const assistantRow = {
       session_id: sessionId,
       company_id: identity.companyId,

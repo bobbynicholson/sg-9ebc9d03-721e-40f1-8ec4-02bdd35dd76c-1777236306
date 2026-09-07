@@ -108,7 +108,7 @@ function parsePayload(raw: string): { payload: Record<string, unknown>; structur
   for (const candidate of candidates) {
     try {
       const value = JSON.parse(candidate);
-      if (value && typeof value === "object" && typeof (value as any).message === "string") {
+      if (value && typeof value === "object" && (typeof (value as any).message === "string" || ((value as any).message && typeof (value as any).message === "object"))) {
         return { payload: value as Record<string, unknown>, structured: true };
       }
     } catch {
@@ -118,9 +118,22 @@ function parsePayload(raw: string): { payload: Record<string, unknown>; structur
   return { payload: { message: raw }, structured: false };
 }
 
+function responseInputText(raw: unknown): string {
+  if (raw == null) return "";
+  if (typeof raw === "string") return raw.trim();
+  if (typeof raw === "object") {
+    try {
+      return JSON.stringify(raw);
+    } catch {
+      return readableValue(raw);
+    }
+  }
+  return String(raw).trim();
+}
+
 function details(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value.map((item) => cleanText(item)).filter(Boolean).slice(0, 6);
+  return value.map((item) => cleanText(item)).filter(Boolean).slice(0, 24);
 }
 
 function actions(value: unknown): ChatAction[] {
@@ -143,12 +156,27 @@ function actions(value: unknown): ChatAction[] {
  * a provider returns JSON, markdown, or plain text.
  */
 export function renderChatResponse(raw: unknown): ChatResponsePayload {
-  const rawText = String(raw || "").trim();
+  const rawText = responseInputText(raw);
   const parsed = parsePayload(rawText);
-  const message = cleanText(parsed.payload.message) || "I'm here to help.";
-  const title = cleanText(parsed.payload.title);
-  const renderedDetails = details(parsed.payload.details);
-  const renderedActions = actions(parsed.payload.actions);
+  // Providers and older persisted messages can wrap a structured live-data
+  // payload inside an outer "Current information" message. Unwrap those
+  // layers here so every caller gets one consistent human-readable response.
+  let payload = parsed.payload;
+  for (let depth = 0; depth < 3; depth += 1) {
+    const nestedValue = payload.message;
+    if (nestedValue && typeof nestedValue === "object" && !Array.isArray(nestedValue)) {
+      payload = { ...payload, ...(nestedValue as Record<string, unknown>) };
+      continue;
+    }
+    if (typeof nestedValue !== "string") break;
+    const nested = parsePayload(nestedValue);
+    if (!nested.structured) break;
+    payload = { ...payload, ...nested.payload };
+  }
+  const message = cleanText(payload.message) || "I'm here to help.";
+  const title = cleanText(payload.title);
+  const renderedDetails = details(payload.details);
+  const renderedActions = actions(payload.actions);
   const blocks = [title, message].filter(Boolean);
   if (renderedDetails.length) blocks.push(renderedDetails.map((item) => `• ${item}`).join("\n"));
   if (renderedActions.length) blocks.push(`Next: ${renderedActions.map((item) => item.label).join(" · ")}`);
@@ -160,4 +188,14 @@ export function renderChatResponse(raw: unknown): ChatResponsePayload {
     text: blocks.join("\n\n").trim(),
     style: parsed.structured ? "structured" : "clean_text",
   };
+}
+
+/**
+ * Final response boundary shared by every chatbot entry point. Keep this
+ * named separately so API handlers, persisted-history loaders, tests, and
+ * future channels can call the same beautifier without knowing the payload
+ * shape returned by a model or live tool.
+ */
+export function beautifyChatResponse(raw: unknown): ChatResponsePayload {
+  return renderChatResponse(raw);
 }

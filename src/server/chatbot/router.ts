@@ -2,6 +2,7 @@ import { classifyChatIntent } from "@/lib/chatbot/intents/classifier";
 import { intentNeedsLiveData } from "@/lib/chatbot/intents/policy";
 import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
 import { normalizeChatRole } from "@/lib/chatbot/roles";
+import { normalizeChatMessage } from "@/lib/chatbot/intents/normalize";
 
 export type ChatRoute = "knowledge" | "live_data" | "hybrid" | "action_request";
 
@@ -120,7 +121,7 @@ function isFastStableQuestion(message: string): boolean {
  * intent, but the server must still validate every tool and tenant scope.
  */
 export function routeChatQuestion(input: string, role?: string, resolvedIntent?: ChatIntentMatch | null): ChatIntentRoute {
-  const message = input.trim().toLowerCase();
+  const message = normalizeChatMessage(input);
   const normalizedRole = normalizeChatRole(role);
   const intent = resolvedIntent === undefined ? classifyChatIntent(message, normalizedRole) : resolvedIntent;
   if (intent?.needsClarification && intent.confidence >= 0.55) {

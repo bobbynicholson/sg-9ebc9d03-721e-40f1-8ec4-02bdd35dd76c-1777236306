@@ -11,6 +11,7 @@ import type { ChatAccessPolicy } from "@/server/chatbot/accessPolicy";
 import { getLiveToolsForRole, runLiveTools } from "./liveTools";
 import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
 import { normalizeChatRole } from "@/lib/chatbot/roles";
+import { normalizeChatMessage } from "@/lib/chatbot/intents/normalize";
 import { isPlatformOverviewQuestion, type ChatIntentRoute } from "./router";
 
 type Db = any;
@@ -1257,27 +1258,60 @@ function directPlatformAiAccessAnswer(args: {
   liveContext: string;
   knowledge: RetrievedKnowledge[];
 }): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
-  const normalized = args.message.toLowerCase();
-  if (!/\b(?:ai access|live[- ]data|role access|role controls|enabled live tools|access settings|platform-level tools|platform knowledge|invoice data|customer data|equipment data|inventory|whole database|unrestricted sql)\b/.test(normalized)) return null;
+  const normalized = normalizeChatMessage(args.message);
+  const requestedRole = requestedAccessRole(normalized);
+  const asksOwnAccess = /\b(?:my|our|this)\s+(?:role\s+)?(?:access|permissions?|visibility|capabilities)\b|\bwhat\s+can\s+i\s+(?:access|see|view|use)\b|\bwhat\s+am\s+i\s+allowed\s+to\b/.test(normalized);
+  const asksRoleAccess = /\b(?:ai access|live[- ]data|role access|role controls|enabled live tools|access settings|permissions?|permission settings|visibility|allowed|can|what can|what does|what do|who can)\b/.test(normalized)
+    && (Boolean(requestedRole) || asksOwnAccess || /\b(?:platform-level tools|platform knowledge|invoice data|customer data|equipment data|inventory|stock|team members?|staff|whole database|unrestricted sql)\b/.test(normalized));
+  if (!asksRoleAccess) return null;
   if (/\b(?:open|go to|navigate)\b/.test(normalized) && !/\b(?:what|which|can|show|explain)\b/.test(normalized)) return null;
-  const asksKitchenInventory = /\bkitchen staff\b/.test(normalized) && /\b(?:inventory|stock)\b/.test(normalized);
-  const asksCleaningEquipment = /\bcleaning staff\b/.test(normalized) && /\bequipment\b/.test(normalized);
-  const asksSpecificRoleAccess = asksKitchenInventory || asksCleaningEquipment;
+  const asksKitchenInventory = requestedRole === "kitchen_staff" && /\b(?:inventory|stock)\b/.test(normalized);
+  const asksCleaningEquipment = requestedRole === "cleaning_staff" && /\bequipment\b/.test(normalized);
+  const asksTeamVisibility = /\b(?:team members?|staff|employees?|roster)\b/.test(normalized)
+    && /\b(?:access|see|view|visibility|permissions?|can)\b/.test(normalized);
   const isManager = ["super_admin", "owner", "company_admin"].includes(args.identity.role);
-  if (!isManager && asksSpecificRoleAccess) {
+  const targetRole = requestedRole || (asksOwnAccess ? normalizeChatRole(args.identity.role) : null);
+  const asksAnotherRole = Boolean(targetRole && targetRole !== normalizeChatRole(args.identity.role));
+  const asksChangeAccess = /\b(?:allow|enable|disable|change|set|grant|remove|turn)\b/.test(normalized);
+  if (!isManager && (asksAnotherRole || asksChangeAccess)) {
     const rendered = renderChatResponse(JSON.stringify({
       title: "Role access",
-      message: "Only the company owner or a company administrator can change access for another role. Your own assistant access remains limited to your approved company work.",
+      message: "Only the company owner or a company administrator can inspect or change another role's policy. I can explain your own role access, but I cannot change access from this account.",
       details: [
-        "No access setting was changed.",
-        "Ask an owner or company administrator to review Role controls.",
+        `You are signed in as ${getChatRoleDefinition(args.identity.role).label}; another role's policy is not shown in your workspace.`,
+        "Your own assistant access remains limited to approved company work and named read-only tools.",
+        "Ask an owner or company administrator to review Role controls if you need another role checked.",
       ],
     }));
     return { text: rendered.text, provider: "policy", retrievalCount: args.knowledge.length, rendered };
   }
-  if (!isManager) return null;
+  if (!isManager && !targetRole) return null;
   const resultKey = args.identity.role === "super_admin" ? "platform_ai_access" : "company_ai_access";
   const result = parsedAuthorizedToolResults(args.liveContext)[resultKey] as any;
+  // Workers can ask about their own scope without receiving the administrator's
+  // policy table. Their effective baseline is the role's approved tool catalog.
+  if (!isManager) {
+    const roleId = targetRole || normalizeChatRole(args.identity.role);
+    const roleLabel = getChatRoleDefinition(roleId).label.replace(/ member$/i, "");
+    const tools = getLiveToolsForRole(roleId).filter((tool) => !["current_user_profile", "company_profile", "company_ai_access", "platform_ai_access"].includes(tool.id));
+    const teamTool = tools.find((tool) => tool.id === "team_roster");
+    const names = tools.slice(0, 10).map((tool) => tool.label);
+    const details = [
+      `Your signed-in role is ${roleLabel}.`,
+      names.length ? `Approved work areas: ${names.join(", ")}.` : "No additional live-data tools are enabled for this role.",
+      ...(teamTool && asksTeamVisibility ? ["Team visibility is limited to names and operational roles in your own department; private contact and pay details are excluded."] : []),
+      `Limitations: ${getChatRoleDefinition(roleId).restrictions.join(" ")}`,
+      "This is read-only, company-scoped access. It does not include another department's private records or unrestricted database access.",
+    ];
+    const rendered = renderChatResponse(JSON.stringify({
+      title: `${roleLabel} access`,
+      message: names.length
+        ? `Your ${roleLabel.toLowerCase()} assistant can use the approved work areas shown below.`
+        : "No additional live-data access is enabled for your role.",
+      details,
+    }));
+    return { text: rendered.text, provider: "role-policy", retrievalCount: args.knowledge.length, rendered };
+  }
   if (!result || !Array.isArray(result.roles)) {
     const platformRestricted = args.identity.role !== "super_admin" && /\bplatform(?:-level)? tools?|platform knowledge\b/.test(normalized);
     const rendered = renderChatResponse(JSON.stringify({
@@ -1292,25 +1326,44 @@ function directPlatformAiAccessAnswer(args: {
     }));
     return { text: rendered.text, provider: "live-data-unavailable", retrievalCount: args.knowledge.length, rendered };
   }
-  if (asksKitchenInventory || asksCleaningEquipment) {
-    const roleId = asksKitchenInventory ? "kitchen_staff" : "cleaning_staff";
-    const toolId = asksKitchenInventory ? "kitchen_inventory" : "cleaning_equipment";
-    const roleLabel = asksKitchenInventory ? "Kitchen staff" : "Cleaning staff";
-    const subject = asksKitchenInventory ? "company stock and ingredient information" : "company equipment information";
-    const savedRole = result.roles.find((role: any) => String(role?.role || "").toLowerCase().replace(/[-\s]+/g, "_") === roleId);
+  if (targetRole && (asksKitchenInventory || asksCleaningEquipment || asksTeamVisibility || requestedRole)) {
+    const roleId = targetRole;
+    const roleDefinition = getChatRoleDefinition(roleId);
+    const roleLabel = roleDefinition.label.replace(/ member$/i, "");
+    const toolId = asksKitchenInventory ? "kitchen_inventory" : asksCleaningEquipment ? "cleaning_equipment" : asksTeamVisibility ? "team_roster" : null;
+    const subject = asksKitchenInventory
+      ? "company stock and ingredient information"
+      : asksCleaningEquipment
+        ? "company equipment information"
+        : asksTeamVisibility
+          ? "department-scoped team names and operational roles"
+          : "the approved work areas for this role";
+    const savedRole = result.roles.find((role: any) => normalizeAccessRole(role?.role) === roleId);
     const defaultAllowed = getLiveToolsForRole(roleId).some((tool) => tool.id === toolId);
     const allowed = savedRole
-      ? savedRole.liveDataEnabled !== false && Array.isArray(savedRole.tools) && savedRole.tools.includes(toolId)
+      ? savedRole.liveDataEnabled !== false && (!toolId || (Array.isArray(savedRole.tools) && savedRole.tools.includes(toolId)))
       : defaultAllowed;
+    const configuredTools = savedRole && Array.isArray(savedRole.tools) ? savedRole.tools : [];
+    const visibleTools = savedRole
+      ? configuredTools.map((toolId: string) => getLiveToolsForRole(roleId).find((tool) => tool.id === toolId)?.label || toolId).slice(0, 12)
+      : getLiveToolsForRole(roleId)
+        .filter((tool) => !["current_user_profile", "company_profile", "company_ai_access", "platform_ai_access"].includes(tool.id))
+        .map((tool) => tool.label)
+        .slice(0, 12);
     const rendered = renderChatResponse(JSON.stringify({
       title: `${roleLabel} access`,
-      message: allowed
-        ? `Yes. ${roleLabel} can access ${subject} under the current role rules.`
-        : `No. ${roleLabel} do not currently have access to ${subject}.`,
+      message: toolId
+        ? (allowed
+          ? `Yes. ${roleLabel} can access ${subject} under the current role rules.`
+          : `No. ${roleLabel} do not currently have access to ${subject}.`)
+        : `${roleLabel} has ${savedRole?.liveDataEnabled === false ? "live data disabled" : `${visibleTools.length} approved live work area${visibleTools.length === 1 ? "" : "s"}`}.`,
       details: [
         savedRole
           ? `This answer uses the saved ${roleLabel.toLowerCase()} role setting.`
           : `No saved override exists for ${roleLabel.toLowerCase()}, so the built-in role rules apply.`,
+        ...(visibleTools.length && !toolId ? [`Approved areas: ${visibleTools.join(", ")}.`] : []),
+        ...(asksTeamVisibility && allowed ? ["Only department names and operational roles are exposed; private contact and pay details remain excluded."] : []),
+        `Limitations: ${roleDefinition.restrictions.join(" ")}`,
         "This is read-only access; it does not change the role setting.",
       ],
     }));
@@ -1320,9 +1373,51 @@ function directPlatformAiAccessAnswer(args: {
   const rendered = renderChatResponse(JSON.stringify({
     title: "AI access",
     message: "Access is controlled by role, company scope, and named read-only tools. Company admins can manage their company’s tool permissions, but platform knowledge and platform-wide tools remain restricted to platform administrators.",
-    details: details.length ? details : ["No saved platform role overrides are present; the built-in role defaults apply."],
+    details: [
+      ...(details.length ? details : ["No saved platform role overrides are present; the built-in role defaults apply."]),
+      "Limitations: access is company-scoped, read-only, and limited to named tools. Private records, another tenant's data, unrestricted SQL, and platform-wide controls remain restricted.",
+    ],
   }));
   return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
+function normalizeAccessRole(value: unknown): string {
+  const raw = String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const aliases: Record<string, string> = {
+    kitchen: "kitchen_staff",
+    chef: "kitchen_staff",
+    cleaner: "cleaning_staff",
+    cleaning: "cleaning_staff",
+    shopper: "shopping_staff",
+    buyer: "shopping_staff",
+    server: "waiter",
+    waitering: "waiter",
+    employee: "staff",
+    team_member: "staff",
+  };
+  return aliases[raw] || raw;
+}
+
+function requestedAccessRole(message: string): string | null {
+  const normalized = normalizeChatMessage(message);
+  const patterns: Array<[RegExp, string]> = [
+    [/\bplatform\s+administrators?\b|\bplatform\s+admins?\b|\bsuper\s+admins?\b/, "super_admin"],
+    [/\bcompany\s+administrators?\b|\bcompany\s+admins?\b/, "company_admin"],
+    [/\bbusiness\s+owners?\b|\bowners?\b/, "owner"],
+    [/\bregion\s+administrators?\b|\bregion\s+admins?\b/, "region_admin"],
+    [/\bsales\s+administrators?\b|\bsales\s+admins?\b/, "sales_admin"],
+    [/\boperations\s+administrators?\b|\boperations\s+admins?\b/, "admin"],
+    [/\bkitchen\s+managers?\b/, "kitchen_manager"],
+    [/\bkitchen\s+(?:staff|team|members?)\b|\bchefs?\b/, "kitchen_staff"],
+    [/\bcleaning\s+managers?\b/, "cleaning_manager"],
+    [/\bclean(?:er|ing)\s+(?:staff|team|members?)\b|\bcleaners?\b/, "cleaning_staff"],
+    [/\bshopping\s+staff\b|\bshopping\s+team\b|\bshoppers?\b|\bbuyers?\b/, "shopping_staff"],
+    [/\bdrivers?\b/, "driver"],
+    [/\bwaiters?\b|\bservice\s+staff\b|\bservers?\b/, "waiter"],
+    [/\bclients?\b|\bcustomers?\b/, "client"],
+    [/\bstaff\b|\bemployees?\b|\bteam\s+members?\b/, "staff"],
+  ];
+  return patterns.find(([pattern]) => pattern.test(normalized))?.[1] || null;
 }
 
 function liveToolResult(liveContext: string, toolId: string): Record<string, any> | null {
@@ -1508,17 +1603,54 @@ function directCompanyCustomerAnswer(args: {
   return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
 
+function directTeamRosterAnswer(args: {
+  identity: ChatIdentity;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  const roster = liveToolResult(args.liveContext, "team_roster");
+  if (!roster || !Array.isArray(roster.members)) return null;
+  const department = String(roster.department || "").trim();
+  const label = department ? `${department.charAt(0).toUpperCase()}${department.slice(1)}` : "Company";
+  const members = roster.members.filter((member: any) => member && String(member.full_name || member.role || "").trim());
+  const details = members.slice(0, 30).map((member: any) => {
+    const name = String(member.full_name || "Unnamed team member").trim();
+    const role = String(member.active_role || member.role || "team member").replace(/[_-]+/g, " ").trim();
+    return `${name} — ${role}.`;
+  });
+  if (members.length > details.length) details.push(`${members.length - details.length} more team member${members.length - details.length === 1 ? "" : "s"} are listed.`);
+  if (!members.length) {
+    details.push(`No active ${department || "team"} members are currently listed. Ask a company administrator to assign users to this department.`);
+  }
+  details.push("Names and work roles are shown here; private contact details and pay information are not included.");
+  const rendered = renderChatResponse(JSON.stringify({
+    title: `${label} team members`,
+    message: members.length
+      ? `I found ${members.length} active ${department || "company"} team member${members.length === 1 ? "" : "s"}.`
+      : `I could not find any active ${department || "company"} team members in the current records.`,
+    details,
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
 function directKitchenTodayAnswer(args: {
   identity: ChatIdentity;
   message: string;
   liveContext: string;
   knowledge: RetrievedKnowledge[];
+  route?: ChatIntentRoute;
 }): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
   if (!(["kitchen_manager", "kitchen_staff"].includes(args.identity.role))) return null;
-  const asksToday = /\b(?:today|today's|todays|current)\b/i.test(args.message);
-  const asksUpcoming = /\b(?:upcom(?:ing|ming)|future)\b/i.test(args.message);
-  const asksKitchenSchedule = /\b(?:work|job|jobs|task|tasks|prep|production|orders?|event|events|schedule|scheduled)\b/i.test(args.message);
-  if ((!asksToday && !asksUpcoming) || (!asksKitchenSchedule && !asksUpcoming)) return null;
+  const normalizedMessage = normalizeChatMessage(args.message);
+  const intent = args.route?.intent;
+  const isKitchenScheduleIntent = intent?.domain === "kitchen"
+    && intent.action === "read"
+    && intent.toolIds.some((toolId) => ["kitchen_orders", "kitchen_prep_tasks"].includes(toolId));
+  const asksToday = intent?.timeRange === "today" || /\b(?:today|current)\b/.test(normalizedMessage);
+  const asksThisWeek = intent?.timeRange === "this_week" || /\bthis week\b/.test(normalizedMessage);
+  const asksUpcoming = intent?.timeRange === "upcoming" || /\b(?:upcoming|future)\b/.test(normalizedMessage);
+  const asksKitchenSchedule = isKitchenScheduleIntent || /\b(?:work|job|jobs|task|tasks|prep|production|orders?|event|events|schedule|scheduled|anything|something|have)\b/.test(normalizedMessage);
+  if ((!asksToday && !asksThisWeek && !asksUpcoming) || (!asksKitchenSchedule && !asksThisWeek && !asksUpcoming)) return null;
 
   const orders = liveToolRows(args.liveContext, "kitchen_orders");
   const prepTasks = liveToolRows(args.liveContext, "kitchen_prep_tasks");
@@ -1526,8 +1658,8 @@ function directKitchenTodayAnswer(args: {
 
   const orderRows = orders || [];
   const taskRows = prepTasks || [];
-  const timeScope = asksUpcoming && !asksToday ? "the next 30 days" : "today";
-  const title = asksUpcoming && !asksToday ? "Upcoming Kitchen Work" : "Today's Kitchen Work";
+  const timeScope = asksThisWeek && !asksToday ? "this week" : asksUpcoming && !asksToday ? "the next 30 days" : "today";
+  const title = asksThisWeek && !asksToday ? "Kitchen Work This Week" : asksUpcoming && !asksToday ? "Upcoming Kitchen Work" : "Today's Kitchen Work";
   const details: string[] = [
     `Orders: ${orderRows.length}.`,
     `Prep tasks: ${taskRows.length}.`,
@@ -2154,9 +2286,11 @@ export async function generateChatReply(args: {
   }
   const directCompanyCustomerSummary = directCompanyCustomerAnswer(args);
   if (directCompanyCustomerSummary) return directCompanyCustomerSummary;
+  const directTeamRoster = directTeamRosterAnswer(args);
+  if (directTeamRoster) return directTeamRoster;
   const directKitchenInventory = directKitchenInventoryAnswer(args);
   if (directKitchenInventory) return directKitchenInventory;
-  const directKitchenToday = directKitchenTodayAnswer(args);
+  const directKitchenToday = directKitchenTodayAnswer({ ...args, route: args.route });
   if (directKitchenToday) return directKitchenToday;
   const system = systemPrompt(args.identity, args.liveContext, args.knowledge, args.navigation || [], args.route, args.workflow, args.frontend);
   const history = args.history.filter((item) => item.content.trim()).slice(-MAX_HISTORY);

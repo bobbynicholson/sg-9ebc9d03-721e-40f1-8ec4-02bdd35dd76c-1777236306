@@ -4,6 +4,7 @@ import { getRelevantWorkflows } from "@/lib/chatbot/workflows";
 import { getRelevantNavigation } from "@/lib/chatbot/navigation";
 import { generateChatReply } from "@/server/chatbot/brain";
 import { buildRoleContext } from "@/lib/chatbot/roleContext";
+import { routeChatQuestion } from "@/server/chatbot/router";
 
 describe("chatbot live-data policy catalog", () => {
   it("documents every tool and keeps every role in the access matrix", () => {
@@ -27,6 +28,65 @@ describe("chatbot live-data policy catalog", () => {
     expect(selected.some((tool) => tool.id === "customer_summary")).toBe(true);
     expect(selected.some((tool) => tool.id === "registered_companies")).toBe(false);
     expect(selected.some((tool) => tool.id === "active_subscription_plans")).toBe(false);
+  });
+
+  it("lets a kitchen user see the safe kitchen roster without private fields", async () => {
+    const selected = selectLiveTools("kitchen_staff", "What are the members I have in my kitchen?");
+    expect(selected.some((tool) => tool.id === "team_roster")).toBe(true);
+
+    const answer = await generateChatReply({
+      identity: { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
+      message: "What are the members I have in my kitchen?",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({
+        team_roster: {
+          department: "kitchen",
+          members: [{ full_name: "Chef John", role: "kitchen_staff", active_role: "kitchen_staff" }],
+          private_fields_excluded: ["email", "phone", "hourly_rate", "earnings"],
+        },
+      })}`,
+      knowledge: [],
+      navigation: [],
+    });
+
+    expect(answer.rendered.title).toBe("Kitchen team members");
+    expect(answer.rendered.message).toContain("1 active kitchen team member");
+    expect(answer.rendered.details.join(" ")).toContain("Chef John");
+    expect(answer.text).not.toContain("email");
+  });
+
+  it("filters the roster to the signed-in worker's department", async () => {
+    const profiles = [
+      { id: "kitchen-1", full_name: "Chef John", role: "kitchen_staff", active_role: "kitchen_staff", is_active: true },
+      { id: "driver-1", full_name: "Driver Mike", role: "driver", active_role: "driver", is_active: true },
+    ];
+    const builderFor = (table: string) => {
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        neq: () => builder,
+        is: () => builder,
+        in: () => builder,
+        order: () => builder,
+        limit: () => builder,
+        then: (resolve: (value: any) => void) => resolve({
+          data: table === "profiles" ? profiles : [],
+          error: null,
+        }),
+      };
+      return builder;
+    };
+
+    const result = await runLiveTool(
+      { from: (table: string) => builderFor(table) },
+      { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
+      getLiveToolDefinition("team_roster")!,
+      "What are the members in my kitchen?",
+    );
+
+    expect(result).toMatchObject({ department: "kitchen", members: [{ full_name: "Chef John" }] });
+    expect(result.members).toHaveLength(1);
+    expect(result.members[0]).not.toHaveProperty("email");
   });
 
   it("selects the canonical current-subscription tool for company plan questions", () => {
@@ -296,6 +356,26 @@ describe("chatbot live-data policy catalog", () => {
     expect(answer.text).not.toContain("[object Object]");
   });
 
+  it("answers a typo-tolerant weekly kitchen question from live rows", async () => {
+    const answer = await generateChatReply({
+      identity: { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
+      message: "Is there anything for hti sweek?",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({
+        kitchen_orders: [{ order_number: "ORD-100", event_name: "Office braai", event_date: "2026-09-09", status: "confirmed" }],
+        kitchen_prep_tasks: [],
+      })}`,
+      knowledge: [],
+      navigation: [],
+      route: routeChatQuestion("Is there anything for hti sweek?", "kitchen_staff"),
+    });
+
+    expect(answer.provider).toBe("live-data");
+    expect(answer.rendered.title).toBe("Kitchen Work This Week");
+    expect(answer.rendered.message).toContain("this week");
+    expect(answer.rendered.details.join(" ")).toContain("ORD-100");
+  });
+
   it("reads the real kitchen prep-task columns and applies an upcoming window", async () => {
     const calls: string[] = [];
     const builder: any = {
@@ -327,6 +407,12 @@ describe("chatbot live-data policy catalog", () => {
     expect(calls).toContain("is:deleted_at");
     expect(calls.some((call) => call.includes("task_name") || call.includes("scheduled_start"))).toBe(false);
     expect(result).toMatchObject([{ task_name: "Prep lamb", scheduled_start: "2026-09-09T10:00:00.000Z" }]);
+  });
+
+  it("selects kitchen live data for a typo-tolerant weekly question", () => {
+    const selected = selectLiveTools("kitchen_staff", "Is there anything for hti sweek?");
+
+    expect(selected.map((tool) => tool.id)).toEqual(expect.arrayContaining(["kitchen_orders", "kitchen_prep_tasks"]));
   });
 
   it("answers kitchen inventory questions from stock rows instead of inventing menu items", async () => {
@@ -503,6 +589,37 @@ describe("chatbot live-data policy catalog", () => {
     });
     expect(staffAnswer.provider).toBe("policy");
     expect(staffAnswer.rendered.message).toContain("Only the company owner or a company administrator");
+  });
+
+  it("answers broad role-access and team-visibility questions from the effective role scope", async () => {
+    expect(selectLiveTools("owner", "Can kitchen staff see team members?").map((tool) => tool.id))
+      .toEqual(["company_ai_access", "current_user_profile"]);
+
+    const adminAnswer = await generateChatReply({
+      identity: { userId: "owner-1", companyId: "company-1", role: "owner", fullName: "Owner", regionId: null, regionsCovered: [] },
+      message: "Can kitchen staff see team members?",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({ company_ai_access: { roles: [], note: "Named, read-only tools" } })}`,
+      knowledge: [],
+      navigation: [{ ref: "admin.ai-brain.access.role-controls", label: "Role controls", href: "/admin/ai-brain/access#role-access-controls", description: "Review company assistant access by role", keywords: ["role controls"] }],
+    });
+    expect(adminAnswer.provider).toBe("live-data");
+    expect(adminAnswer.rendered.title).toBe("Kitchen staff access");
+    expect(adminAnswer.rendered.message).toContain("Yes");
+    expect(adminAnswer.rendered.details.join(" ")).toContain("private contact and pay details remain excluded");
+
+    const workerAnswer = await generateChatReply({
+      identity: { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef", regionId: null, regionsCovered: [] },
+      message: "What can I access?",
+      history: [],
+      liveContext: "",
+      knowledge: [],
+      navigation: [],
+    });
+    expect(workerAnswer.provider).toBe("role-policy");
+    expect(workerAnswer.rendered.title).toBe("Kitchen staff access");
+    expect(workerAnswer.rendered.details.join(" ")).toContain("Kitchen orders");
+    expect(workerAnswer.rendered.details.join(" ")).toContain("read-only, company-scoped access");
   });
 
   it("uses the company list when a platform owner asks to switch views", async () => {

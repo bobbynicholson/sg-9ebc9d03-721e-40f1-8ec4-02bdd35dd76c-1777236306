@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useRouter } from "next/router";
-import { renderChatResponse, type ChatResponsePayload } from "@/lib/chatbot/responseRenderer";
+import { beautifyChatResponse, type ChatResponsePayload } from "@/lib/chatbot/responseRenderer";
 import { filterRelevantNavigation } from "@/lib/chatbot/navigation";
 
 interface NavigationLink {
@@ -37,15 +37,17 @@ interface ChatRequestError extends Error {
   retryable?: boolean;
 }
 
-function normaliseStoredResponse(value: unknown): ChatResponsePayload | undefined {
-  if (!value || typeof value !== "object") return undefined;
+function normaliseStoredResponse(value: unknown, fallbackText?: string): ChatResponsePayload | undefined {
+  if (!value || typeof value !== "object") {
+    return fallbackText?.trim() ? beautifyChatResponse(fallbackText) : undefined;
+  }
   const payload = value as Partial<ChatResponsePayload>;
-  const hasObjectDetails = Array.isArray(payload.details) && payload.details.some((item) => typeof item !== "string");
-  const hasObjectMessage = typeof payload.message !== "string";
-  const hasBrokenText = typeof payload.text === "string" && payload.text.includes("[object Object]");
-  return hasObjectDetails || hasObjectMessage || hasBrokenText
-    ? renderChatResponse(JSON.stringify(value))
-    : value as ChatResponsePayload;
+  const rendered = beautifyChatResponse(value);
+  return {
+    ...rendered,
+    ...(payload.trace ? { trace: payload.trace } : {}),
+    ...(payload.workflow ? { workflow: payload.workflow } : {}),
+  };
 }
 
 interface RoleConfig {
@@ -512,7 +514,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
             content: assistant.content,
             timestamp: new Date(assistant.created_at),
             navigation: filterRelevantNavigation(assistant.content, resolvedUserRole, payload.navigation || assistant.metadata?.navigation || []),
-            rendered: normaliseStoredResponse(payload.response_payload || assistant.metadata?.response_payload),
+            rendered: normaliseStoredResponse(payload.response_payload || assistant.metadata?.response_payload, assistant.content),
             intentRoute: payload.intent_route || assistant.metadata?.intent_route,
           },
         ]);

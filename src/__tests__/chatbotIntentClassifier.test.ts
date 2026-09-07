@@ -24,6 +24,15 @@ describe("chatbot structured intent layer", () => {
     });
   });
 
+  it("corrects transposed and extra letters in a time phrase", () => {
+    const intent = classifyChatIntent("Is there anything for hti sweek?", "kitchen_staff");
+
+    expect(intent?.id).toBe("kitchen.schedule.upcoming");
+    expect(intent?.timeRange).toBe("this_week");
+    expect(intent?.normalizedMessage).toContain("this week");
+    expect(routeChatQuestion("Is there anything for hti sweek?", "kitchen_staff")).toMatchObject({ route: "live_data" });
+  });
+
   it("keeps intent tools role-scoped", () => {
     expect(classifyChatIntent("Which ingredients are too low?", "driver")).toBeNull();
     expect(classifyChatIntent("What are my month earnings?", "driver")?.id).toBe("driver.earnings");
