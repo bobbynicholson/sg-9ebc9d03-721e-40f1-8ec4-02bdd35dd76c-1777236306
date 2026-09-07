@@ -1489,6 +1489,100 @@ function directCompanyCustomerAnswer(args: {
   return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
 
+function directKitchenTodayAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (!(["kitchen_manager", "kitchen_staff"].includes(args.identity.role))) return null;
+  const asksToday = /\b(?:today|today's|todays|current)\b/i.test(args.message);
+  const asksUpcoming = /\b(?:upcom(?:ing|ming)|future)\b/i.test(args.message);
+  const asksKitchenSchedule = /\b(?:work|job|jobs|task|tasks|prep|production|orders?|event|events|schedule|scheduled)\b/i.test(args.message);
+  if ((!asksToday && !asksUpcoming) || (!asksKitchenSchedule && !asksUpcoming)) return null;
+
+  const orders = liveToolRows(args.liveContext, "kitchen_orders");
+  const prepTasks = liveToolRows(args.liveContext, "kitchen_prep_tasks");
+  if (orders == null && prepTasks == null) return null;
+
+  const orderRows = orders || [];
+  const taskRows = prepTasks || [];
+  const timeScope = asksUpcoming && !asksToday ? "the next 30 days" : "today";
+  const title = asksUpcoming && !asksToday ? "Upcoming Kitchen Work" : "Today's Kitchen Work";
+  const details: string[] = [
+    `Orders: ${orderRows.length}.`,
+    `Prep tasks: ${taskRows.length}.`,
+  ];
+  for (const order of orderRows.slice(0, 8)) {
+    const reference = String(order.order_number || order.event_name || "Kitchen order").trim();
+    const event = order.event_name && order.event_name !== reference ? ` — ${String(order.event_name).trim()}` : "";
+    const date = order.event_date ? ` on ${String(order.event_date).slice(0, 10)}` : "";
+    const time = order.event_time ? ` at ${String(order.event_time).slice(0, 5)}` : "";
+    const guests = order.guest_count != null ? `; ${order.guest_count} guests` : "";
+    const status = order.status ? `; status ${String(order.status).replace(/[_-]+/g, " ")}` : "";
+    details.push(`${reference}${event}${date}${time}${guests}${status}.`);
+  }
+  for (const task of taskRows.slice(0, 8)) {
+    const name = String(task.task_name || task.menu_item_name || "Prep task").trim();
+    const status = task.status ? `; status ${String(task.status).replace(/[_-]+/g, " ")}` : "";
+    const startAt = task.scheduled_start || task.start_at;
+    const start = startAt ? `; starts ${new Date(String(startAt)).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : "";
+    details.push(`${name}${start}${status}.`);
+  }
+  if (orderRows.length > 8 || taskRows.length > 8) details.push("Only the first eight orders and prep tasks are shown; open Kitchen today for the full list.");
+
+  const rendered = renderChatResponse(JSON.stringify({
+    title,
+    message: orderRows.length || taskRows.length
+      ? `Here is the kitchen work scheduled for ${timeScope}.`
+      : `There are no kitchen orders or prep tasks scheduled for ${timeScope}.`,
+    details,
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
+function directKitchenInventoryAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (!( ["kitchen_manager", "kitchen_staff"].includes(args.identity.role))) return null;
+  const asksInventory = /\b(?:stock|inventory|ingredient|ingredients?|item|items|shortage|restock|reorder|too low|too less|not enough)\b/i.test(args.message);
+  const asksStatus = /\b(?:what|which|how much|how many|low|less|enough|need|have|check|show|current)\b/i.test(args.message);
+  if (!asksInventory || !asksStatus) return null;
+
+  const inventory = liveToolRows(args.liveContext, "kitchen_inventory");
+  if (inventory == null) return null;
+
+  const rows = inventory
+    .map((item: any) => ({
+      name: String(item.item_name || "Unnamed ingredient").trim(),
+      unit: String(item.unit_of_measure || "unit").trim(),
+      current: Number(item.current_stock ?? 0),
+      minimum: Number(item.minimum_stock ?? 0),
+      reorder: Number(item.reorder_quantity ?? 0),
+    }))
+    .filter((item: any) => item.name);
+  const low = rows.filter((item: any) => item.current <= item.minimum);
+  const shown = (low.length ? low : rows).slice(0, 20);
+  const details = shown.map((item: any) => {
+    const status = item.current <= item.minimum ? "low" : "okay";
+    const reorder = item.reorder > 0 ? `; suggested reorder ${item.reorder} ${item.unit}` : "";
+    return `${item.name}: ${item.current} ${item.unit} on hand; minimum ${item.minimum} ${item.unit}; status ${status}${reorder}.`;
+  });
+  if (rows.length > shown.length) details.push(`Showing ${shown.length} of ${rows.length} inventory items.`);
+
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "Kitchen Inventory",
+    message: low.length
+      ? `${low.length} of ${rows.length} kitchen inventory item${rows.length === 1 ? " is" : "s are"} at or below the minimum level.`
+      : `I found ${rows.length} kitchen inventory item${rows.length === 1 ? "" : "s"}; none are at or below the configured minimum level.`,
+    details: details.length ? details : ["No kitchen inventory items are available in the current company data."],
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
 function directSecurityAnswer(args: {
   identity: ChatIdentity;
   message: string;
@@ -1620,6 +1714,69 @@ function directDriverDeliveriesAnswer(args: {
   }
 
   const rendered = renderChatResponse(JSON.stringify({ title, message, details, actions: [] }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
+function driverMoney(value: unknown, currency: unknown): string {
+  const amount = Number(value || 0);
+  const code = /^[A-Z]{3}$/.test(String(currency || "")) ? String(currency) : "ZAR";
+  if (!Number.isFinite(amount)) return "not available";
+  try {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${code} ${amount.toFixed(2)}`;
+  }
+}
+
+function directDriverEarningsAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (args.identity.role !== "driver") return null;
+  const normalized = args.message.toLowerCase();
+  const asksEarnings = /\b(?:earning|earnings|pay|wage|wages|worked hours?|shift hours?)\b/.test(normalized);
+  if (!asksEarnings) return null;
+
+  const summary = liveToolResult(args.liveContext, "driver_earnings");
+  const company = liveToolResult(args.liveContext, "company_profile");
+  if (!summary || !summary.totals || !summary.period) {
+    const rendered = renderChatResponse(JSON.stringify({
+      title: "Driver earnings",
+      message: "I could not verify your earnings from the current information available right now.",
+      details: ["Open Driver earnings to review the period breakdown."],
+      actions: [],
+    }));
+    return { text: rendered.text, provider: "live-data-unavailable", retrievalCount: args.knowledge.length, rendered };
+  }
+
+  const totals = summary.totals;
+  const shifts = Array.isArray(summary.shifts) ? summary.shifts : [];
+  const deliveries = Array.isArray(summary.deliveries) ? summary.deliveries : [];
+  const currency = company?.currency || company?.billing_currency || "ZAR";
+  const period = summary.period;
+  const from = String(period.from || "");
+  const to = String(period.to || "");
+  const periodText = from && to ? `${period.label || "selected period"} (${from} to ${to})` : String(period.label || "selected period");
+  const hours = Number(totals.hours_total || 0);
+  const total = driverMoney(totals.grand_total, currency);
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "Driver earnings",
+    message: `For ${periodText}, you earned ${total} from ${hours.toFixed(1)} hours across ${shifts.length} shift${shifts.length === 1 ? "" : "s"}.`,
+    details: [
+      `Hourly pay: ${driverMoney(totals.hourly_pay, currency)} at ${driverMoney(summary.rates?.hourly_rate, currency)} per hour.`,
+      `Completed delivery pay: ${driverMoney(Number(totals.distance_pay || 0) + Number(totals.callout_pay || 0), currency)} across ${deliveries.length} completed deliver${deliveries.length === 1 ? "y" : "ies"}.`,
+      `Distance: ${Number(totals.distance_total_km || 0).toFixed(1)} km; callout pay: ${driverMoney(totals.callout_pay, currency)}.`,
+      ...(deliveries.length === 0 ? ["Upcoming or uncompleted assignments are not included until the delivery is completed."] : []),
+    ],
+    actions: [],
+  }));
   return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
 
@@ -1873,6 +2030,8 @@ export async function generateChatReply(args: {
   if (greetingAnswer) return greetingAnswer;
   const roleCapabilityAnswer = directRoleCapabilityAnswer(args);
   if (roleCapabilityAnswer) return roleCapabilityAnswer;
+  const driverEarningsAnswer = directDriverEarningsAnswer(args);
+  if (driverEarningsAnswer) return driverEarningsAnswer;
   const driverDeliveriesAnswer = directDriverDeliveriesAnswer(args);
   if (driverDeliveriesAnswer) return driverDeliveriesAnswer;
   const securityAnswer = directSecurityAnswer(args);
@@ -1945,6 +2104,10 @@ export async function generateChatReply(args: {
   }
   const directCompanyCustomerSummary = directCompanyCustomerAnswer(args);
   if (directCompanyCustomerSummary) return directCompanyCustomerSummary;
+  const directKitchenInventory = directKitchenInventoryAnswer(args);
+  if (directKitchenInventory) return directKitchenInventory;
+  const directKitchenToday = directKitchenTodayAnswer(args);
+  if (directKitchenToday) return directKitchenToday;
   const system = systemPrompt(args.identity, args.liveContext, args.knowledge, args.navigation || [], args.route, args.workflow, args.frontend);
   const history = args.history.filter((item) => item.content.trim()).slice(-MAX_HISTORY);
   const anthropicMessages = [...history, { role: "user" as const, content: args.message }];

@@ -136,6 +136,14 @@ function DriverDeliveriesInner() {
   const router = useRouter();
   const requestedTab = typeof router.query.tab === "string" ? router.query.tab : "all";
   const initialTab = ["all", "upcoming", "completed"].includes(requestedTab) ? requestedTab : "all";
+  const handleTabChange = (next: string) => {
+    if (!["all", "upcoming", "completed"].includes(next)) return;
+    void router.replace(
+      { pathname: router.pathname, query: { ...router.query, tab: next } },
+      undefined,
+      { shallow: true },
+    );
+  };
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const [orders, setOrders] = useState<DriverOrder[]>([]);
@@ -352,7 +360,7 @@ function DriverDeliveriesInner() {
                   className="pl-9"
                 />
               </div>
-              <Tabs defaultValue={initialTab} key={initialTab}>
+              <Tabs value={initialTab} onValueChange={handleTabChange}>
                 <TabsList className="mb-4 flex w-full gap-1 overflow-x-auto">
                   <TabsTrigger
                     value="all"

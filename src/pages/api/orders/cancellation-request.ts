@@ -289,6 +289,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           to: clientEmail,
           subject,
           template: "transactional",
+          notificationPreference: request_type === "cancel" ? "order_cancelled" : "order_status_changed",
           orderId: order_id,
           variables: {
             clientName: (orderForEmail as any).client_name,

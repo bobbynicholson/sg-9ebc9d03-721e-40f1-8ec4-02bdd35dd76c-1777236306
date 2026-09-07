@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import type { UserRole } from "@/types/app";
 import { isManagerRole, crewRoleForManager, isManagerWorkingNow } from "@/services/managerWorkModeService";
+import {
+  type EmailNotificationPreferenceKey,
+} from "@/lib/emailNotificationPreferences";
 
 export type Notification = Tables<"notifications">;
 
@@ -273,6 +276,81 @@ function isMissingMetadataColumn(
   );
 }
 
+function emailPreferenceForOperationalNotification(
+  type: string,
+  title: string,
+  message: string,
+): EmailNotificationPreferenceKey | null {
+  const text = `${title} ${message}`.toLowerCase();
+  if (type === "driver_assigned") return "driver_assigned";
+  if ([
+    "task_assigned",
+    "shift_task_assigned",
+    "kitchen_task_assigned",
+    "cleaning_task_assigned",
+    "daily_operations_task",
+  ].includes(type)) {
+    return "task_assigned";
+  }
+  if (type === "stock_low") {
+    return /out\s+of\s+stock|out\s+of\s+stock\b|newstock\s*[:=]?\s*0/.test(text)
+      ? "out_of_stock_alert"
+      : "low_stock_alert";
+  }
+  // Status and payment emails already have dedicated producers. Do not
+  // turn their in-app rows into a second email here.
+  return null;
+}
+
+async function sendOperationalNotificationEmail(args: {
+  sb: any;
+  companyId: string | null;
+  recipientId: string;
+  type: string;
+  title: string;
+  message: string;
+  link?: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  profile?: { email?: string | null; full_name?: string | null; role?: string | null; active_role?: string | null };
+}): Promise<void> {
+  const preferenceKey = emailPreferenceForOperationalNotification(args.type, args.title, args.message);
+  if (!preferenceKey || !args.companyId) return;
+
+  try {
+    const profile = args.profile || (await args.sb
+      .from("profiles")
+      .select("email, full_name, role, active_role")
+      .eq("id", args.recipientId)
+      .maybeSingle()).data;
+    if (!profile?.email) return;
+
+    // The client-facing driver_assigned notification is also written by the
+    // order workflow. Only the driver recipient should receive the driver
+    // assignment email; the client still receives the dedicated client mail.
+    const activeRole = String(profile.active_role || profile.role || "").toLowerCase();
+    if (preferenceKey === "driver_assigned" && activeRole !== "driver") return;
+
+    const { emailService } = await import("@/services/emailService");
+    const result = await emailService.sendEmailDetailed({
+      companyId: args.companyId,
+      to: profile.email,
+      subject: args.title,
+      body: `${args.message}${args.link ? `\n\nOpen in CateringMS: ${args.link}` : ""}`,
+      notificationPreference: preferenceKey,
+      orderId: args.relatedEntityType === "order" ? args.relatedEntityId : undefined,
+      _client: args.sb,
+    } as any);
+    if (!result.success && result.error_code !== "notification_disabled") {
+      console.warn("[notificationService] operational email failed:", result.error || result.error_code);
+    }
+  } catch (error) {
+    // Email is a side effect. Never make an in-app notification or the
+    // underlying operational write fail because the provider is unavailable.
+    console.warn("[notificationService] operational email failed:", error);
+  }
+}
+
 export const notificationService = {
   // ==================== CORE CRUD OPERATIONS ====================
   
@@ -519,6 +597,18 @@ export const notificationService = {
       throw error;
     }
 
+    await sendOperationalNotificationEmail({
+      sb,
+      companyId,
+      recipientId: notification.recipient_id ?? notification.user_id ?? "",
+      type: resolvedType,
+      title: notification.title,
+      message: notification.message,
+      link: notification.link,
+      relatedEntityType: notification.related_entity_type,
+      relatedEntityId: notification.related_entity_id,
+    });
+
     return data;
   },
 
@@ -698,7 +788,7 @@ export const notificationService = {
     try {
       const { data: profiles, error: profileError } = await sb
         .from("profiles")
-        .select("id, role, active_role, region_id, regions_covered, manager_working, manager_working_since")
+        .select("id, email, full_name, role, active_role, region_id, regions_covered, manager_working, manager_working_since")
         .eq("company_id", params.companyId);
 
       if (profileError) {
@@ -847,6 +937,23 @@ export const notificationService = {
         console.error("Error broadcasting notifications:", insertError);
         return 0;
       }
+
+      await Promise.all(
+        (recipientFilteredProfiles as Array<any>).map((profile) =>
+          sendOperationalNotificationEmail({
+            sb,
+            companyId: params.companyId,
+            recipientId: profile.id,
+            type: params.type,
+            title: params.title,
+            message: params.message,
+            link: params.link,
+            relatedEntityType: params.relatedEntityType,
+            relatedEntityId: params.relatedEntityId,
+            profile,
+          }),
+        ),
+      );
 
       // WA-A (task #99, 2026-05-24): WhatsApp fan-out for the
       // same recipients. Enqueue rows into whatsapp_messages

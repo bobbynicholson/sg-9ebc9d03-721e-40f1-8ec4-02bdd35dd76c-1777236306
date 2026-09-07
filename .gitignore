@@ -71,6 +71,7 @@ dev-server.log
 # Dev-server build output (dev runs with a separate distDir)
 .next-dev/
 .next-verify/
+.next-local-notification-check/
 
 # One-off scratch scripts (keep real tooling un-prefixed)
 scripts/_tmp_*

@@ -9,6 +9,7 @@ import type { ChatIdentity } from "./brain";
 import { runDynamicTools } from "./dynamicTools";
 import { currencyMonitoringService } from "@/services/currencyMonitoringService";
 import { getPlatformTechnologyCostSummary } from "@/services/platformTechnologyCostService";
+import { driverPayService } from "@/services/driverPayService";
 import { getServiceSupabase } from "@/lib/supabase/service";
 
 export type LiveToolId =
@@ -37,6 +38,7 @@ export type LiveToolId =
   | "customer_bookings"
   | "customer_invoices"
   | "assigned_deliveries"
+  | "driver_earnings"
   | "delivery_orders"
   | "kitchen_orders"
   | "kitchen_prep_tasks"
@@ -107,10 +109,11 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "customer_bookings", label: "Customer bookings", description: "Bookings and events visible to the signed-in user or sales team", category: "operations", roles: [...CLIENT, ...SALES], keywords: ["booking", "bookings", "event", "order", "appointment", "reservation"] },
   { id: "customer_invoices", label: "Customer invoices", description: "Invoices, balances, and payment status visible to the signed-in user", category: "finance", roles: [...CLIENT, ...SALES], keywords: ["invoice", "invoices", "billing", "payment", "balance", "paid", "due"] },
   { id: "assigned_deliveries", label: "Assigned deliveries", description: "The signed-in driver’s delivery assignments and earnings", category: "operations", roles: DRIVER, keywords: ["delivery", "deliveries", "route", "assignment", "assigned", "earnings", "driving"] },
+  { id: "driver_earnings", label: "Driver earnings", description: "The signed-in driver’s shift hours, delivery pay, and total earnings for a selected period", category: "finance", roles: ["driver"], keywords: ["earning", "earnings", "pay", "wage", "wages", "worked hours", "shift hours", "hours worked"] },
   { id: "delivery_orders", label: "Delivery order details", description: "Order and venue details for approved delivery work", category: "operations", roles: DRIVER, keywords: ["delivery", "venue", "address", "order details", "guest"] },
   { id: "kitchen_orders", label: "Kitchen orders", description: "Confirmed and active orders used for kitchen production", category: "operations", roles: KITCHEN, keywords: ["kitchen", "production", "order", "prep", "ready", "cooking"] },
   { id: "kitchen_prep_tasks", label: "Kitchen prep tasks", description: "Prep tasks, assignments, schedules, and completion status", category: "operations", roles: KITCHEN, keywords: ["prep", "task", "tasks", "chef", "production"] },
-  { id: "kitchen_inventory", label: "Kitchen inventory", description: "Stock levels and reorder thresholds used for prep", category: "operations", roles: KITCHEN, keywords: ["stock", "inventory", "ingredient", "shortage", "reorder"] },
+  { id: "kitchen_inventory", label: "Kitchen inventory", description: "Stock levels and reorder thresholds used for prep", category: "operations", roles: KITCHEN, keywords: ["stock", "inventory", "ingredient", "ingredients", "item", "items", "shortage", "reorder", "too low", "too less", "not enough", "restock"] },
   { id: "shopping_inventory", label: "Shopping inventory", description: "Purchasing stock, par levels, and reorder context", category: "operations", roles: SHOPPING, keywords: ["stock", "inventory", "restock", "buy", "shortage", "supplier"] },
   { id: "shopping_lists", label: "Shopping lists", description: "Purchase lists, totals, status, and notes", category: "operations", roles: SHOPPING, keywords: ["shopping", "purchase", "buy list", "supplier", "receipt"] },
   { id: "cleaning_equipment", label: "Cleaning equipment", description: "Equipment condition, availability, and cleaning status", category: "operations", roles: CLEANING, keywords: ["equipment", "cleaning", "available", "condition", "return"] },
@@ -152,6 +155,7 @@ const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
   customer_bookings: "The client's own bookings, or company bookings permitted for sales roles",
   customer_invoices: "The client's own invoices and payment status, or approved sales visibility",
   assigned_deliveries: "Only deliveries assigned to the signed-in driver",
+  driver_earnings: "Only the signed-in driver’s own calculated shift and completed-delivery pay for the requested date range",
   delivery_orders: "Only order and venue details linked to the driver's assignments",
   kitchen_orders: "Confirmed and active company orders needed for kitchen production",
   kitchen_prep_tasks: "Kitchen prep tasks, assignments, schedules, and completion status",
@@ -196,6 +200,18 @@ export function selectLiveTools(role: string, message: string, policy: LiveToolP
   const eligible = getLiveToolsForRole(role).filter((tool) => policy[tool.id] !== false);
   const normalized = message.toLowerCase();
   const matching = eligible.filter((tool) => tool.keywords.some((keyword) => normalized.includes(keyword)));
+  // Earnings must use the same pay calculation as the Driver earnings page.
+  // Do not let the generic assigned-deliveries tool win merely because the
+  // question contains the word "earnings"; that tool has assignments, not
+  // shift rows or period totals.
+  const driverEarnings = role === "driver" && matching.find((tool) => tool.id === "driver_earnings")
+    && /\b(?:earning|earnings|pay|wage|wages|worked|hours?|shift)\b/.test(normalized);
+  if (driverEarnings) {
+    const identity = eligible.find((tool) => tool.id === "current_user_profile");
+    const company = eligible.find((tool) => tool.id === "company_profile");
+    return [matching.find((tool) => tool.id === "driver_earnings"), identity, company]
+      .filter((tool): tool is LiveToolDefinition => Boolean(tool));
+  }
   // Always include identity and notifications as a small baseline. If there
   // is no clear intent, run the role's approved tools so the answer is still
   // grounded in current state rather than guessing from an empty context.
@@ -291,7 +307,11 @@ export function selectLiveTools(role: string, message: string, policy: LiveToolP
 async function rows(db: any, table: string, query: (builder: any) => any): Promise<any[]> {
   try {
     const result = await query(db.from(table));
-    if (result.error || result.data == null) return [];
+    if (result.error) {
+      console.error(`[chatbot] ${table} query failed:`, result.error.code || result.error.message || "unknown error");
+      return [];
+    }
+    if (result.data == null) return [];
     return Array.isArray(result.data) ? result.data : [result.data];
   } catch {
     return [];
@@ -310,36 +330,108 @@ function dateRange(message: string): { start: string; end: string } | null {
   const now = new Date();
   const day = new Date(now);
   day.setHours(0, 0, 0, 0);
+  const dateOnly = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
   if (text.includes("tomorrow")) {
     const tomorrow = new Date(day);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return { start: tomorrow.toISOString().slice(0, 10), end: tomorrow.toISOString().slice(0, 10) };
+    return { start: dateOnly(tomorrow), end: dateOnly(tomorrow) };
   }
-  if (text.includes("today")) return { start: day.toISOString().slice(0, 10), end: day.toISOString().slice(0, 10) };
+  if (text.includes("today")) return { start: dateOnly(day), end: dateOnly(day) };
+  // Kitchen production and prep screens use a forward planning window. Keep
+  // the chatbot aligned with that behavior for both the correctly-spelled
+  // and common mistyped form of "upcoming".
+  if (/\bupcom(?:ing|ming)\b/.test(text) || /\bfuture\b/.test(text)) {
+    const end = new Date(day);
+    end.setDate(end.getDate() + 30);
+    return { start: dateOnly(day), end: dateOnly(end) };
+  }
   if (text.includes("this week") || text.includes("current week")) {
     const start = new Date(day);
     const mondayOffset = (start.getDay() + 6) % 7;
     start.setDate(start.getDate() - mondayOffset);
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: dateOnly(start), end: dateOnly(end) };
   }
   if (text.includes("this month")) {
     const start = new Date(day.getFullYear(), day.getMonth(), 1);
     const end = new Date(day.getFullYear(), day.getMonth() + 1, 0);
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+    return { start: dateOnly(start), end: dateOnly(end) };
   }
   if (text.includes("last 90 days") || text.includes("past 90 days")) {
     const start = new Date(day);
     start.setDate(start.getDate() - 90);
-    return { start: start.toISOString().slice(0, 10), end: day.toISOString().slice(0, 10) };
+    return { start: dateOnly(start), end: dateOnly(day) };
   }
   return null;
 }
 
 function applyDateRange(query: any, column: string, message: string): any {
   const range = dateRange(message);
-  return range ? query.gte(column, range.start).lte(column, range.end) : query;
+  if (!range) return query;
+  // Orders store event_date as DATE, while kitchen prep tasks store start_at
+  // as a timestamp. A date-only <= filter on start_at would keep only rows at
+  // midnight and make real prep tasks appear missing.
+  if (column === "start_at") {
+    const exclusiveEnd = new Date(`${range.end}T00:00:00.000Z`);
+    exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1);
+    return query
+      .gte(column, `${range.start}T00:00:00.000Z`)
+      .lt(column, exclusiveEnd.toISOString());
+  }
+  return query.gte(column, range.start).lte(column, range.end);
+}
+
+function isoDate(date: Date): string {
+  // These values are date-only database filters. Using toISOString() here
+  // would convert local midnight to the previous UTC date in positive-offset
+  // time zones, making the chatbot disagree with the browser earnings page.
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Driver earnings uses the same inclusive date semantics as the earnings
+ * page. The page defaults to the current month in the portal, so a plain
+ * "my earnings" or "month earnings" question must also mean month-to-date.
+ */
+function driverEarningsRange(message: string): { from: string; to: string; label: string } {
+  const text = message.toLowerCase();
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  if (/\b(?:last|previous)\s+month\b/.test(text)) {
+    const firstThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastPreviousMonth = new Date(firstThisMonth);
+    lastPreviousMonth.setDate(0);
+    const firstPreviousMonth = new Date(lastPreviousMonth.getFullYear(), lastPreviousMonth.getMonth(), 1);
+    return { from: isoDate(firstPreviousMonth), to: isoDate(lastPreviousMonth), label: "last month" };
+  }
+
+  if (/\b(?:this|current)\s+week\b/.test(text)) {
+    const monday = new Date(today);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    return { from: isoDate(monday), to: isoDate(sunday), label: "this week" };
+  }
+
+  if (/\b(?:today|current day)\b/.test(text)) {
+    return { from: isoDate(today), to: isoDate(today), label: "today" };
+  }
+
+  // This covers both "this month" and the natural shorter phrasing used in
+  // the portal, such as "month earning".
+  if (/\b(?:this|current|the|my)?\s*month(?:ly)?\b/.test(text) || /\b(?:earning|earnings|pay|wage|wages)\b/.test(text)) {
+    const firstThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    return { from: isoDate(firstThisMonth), to: isoDate(today), label: "this month" };
+  }
+
+  // Keep the chatbot aligned with the page's default period when no range
+  // is stated: the last 30 days, inclusive.
+  const from = new Date(today);
+  from.setDate(from.getDate() - 30);
+  return { from: isoDate(from), to: isoDate(today), label: "the last 30 days" };
 }
 
 const DRIVER_DELIVERY_ORDER_COLUMNS = "id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status, delivery_status, delivery_time, collection_time, pickup_time, assigned_driver_id, driver_id, secondary_driver_id";
@@ -1002,15 +1094,81 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
     }
     case "assigned_deliveries":
       return loadDriverDeliveries(db, identity);
+    case "driver_earnings": {
+      if (identity.role !== "driver" || !identity.companyId) return null;
+      const period = driverEarningsRange(message);
+      try {
+        const summary = await driverPayService.getPaySummary({
+          companyId: identity.companyId,
+          driverId: identity.userId,
+          range: { from: period.from, to: period.to },
+        }, db);
+        return {
+          period: { from: period.from, to: period.to, label: period.label },
+          rates: summary.rates,
+          totals: summary.totals,
+          shifts: summary.shifts.map((shift) => ({
+            date: shift.shift_date || null,
+            hours: shift.hours,
+            multiplier: shift.multiplier,
+            hourly_rate: shift.hourly_rate,
+            pay: shift.pay,
+          })),
+          deliveries: summary.deliveries.map((delivery) => ({
+            order_number: delivery.order_number || delivery.order_id,
+            event_name: delivery.event_name || null,
+            distance_km: delivery.distance_km,
+            distance_pay: delivery.distance_pay,
+            callout_fee: delivery.callout_fee,
+            total: delivery.total,
+          })),
+          as_of: new Date().toISOString(),
+        };
+      } catch (error: any) {
+        console.error("[chatbot] driver earnings tool failed:", error?.message || "unknown error");
+        return null;
+      }
+    }
     case "delivery_orders": {
       const assignments = await runLiveTool(db, identity, getLiveToolDefinition("assigned_deliveries")!, message);
       const ids = (assignments || []).map((item: any) => item.order_id).filter(Boolean);
       return ids.length ? rows(db, "orders", (q) => q.select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status, delivery_time, collection_time").eq("company_id", companyId).in("id", ids)) : [];
     }
     case "kitchen_orders":
-      return rows(db, "orders", (q) => applyDateRange(q.select("id, order_number, event_name, event_date, event_time, guest_count, venue_name, status, kitchen_instructions").eq("company_id", companyId).in("status", ["confirmed", "preparing", "prep", "ready"]), "event_date", message).order("event_date", { ascending: true }).limit(50));
+      return rows(db, "orders", (q) => applyDateRange(
+        q.select("id, order_number, event_name, event_date, event_time, guest_count, venue_name, status, kitchen_instructions, assigned_chef_id")
+          .eq("company_id", companyId)
+          .not("status", "in", "(cancelled,paused)")
+          .is("deleted_at", null),
+        "event_date",
+        message,
+      ).order("event_date", { ascending: true }).order("event_time", { ascending: true, nullsFirst: true }).limit(50));
     case "kitchen_prep_tasks":
-      return rows(db, "kitchen_prep_tasks", (q) => applyDateRange(q.select("id, order_id, task_name, status, scheduled_start, scheduled_end, assigned_chef_id, notes").eq("company_id", companyId), "scheduled_start", message).order("scheduled_start", { ascending: true }).limit(60));
+      return rows(db, "kitchen_prep_tasks", async (q) => {
+        const result = await applyDateRange(
+          q.select("id, order_id, menu_item_name, task_type, status, start_at, duration_min, assigned_chef_id, notes")
+            .eq("company_id", companyId)
+            .is("deleted_at", null),
+          "start_at",
+          message,
+        ).order("start_at", { ascending: true }).limit(60);
+        const data = Array.isArray(result?.data) ? result.data : [];
+        return result?.error || result?.data == null
+          ? result
+          : {
+            ...result,
+            data: data.map((task: any) => ({
+              ...task,
+              // Keep the chatbot payload vocabulary readable while matching
+              // the real kitchen_prep_tasks schema used by the portal.
+              task_name: task.menu_item_name,
+              scheduled_start: task.start_at,
+              scheduled_end: task.start_at && task.duration_min != null
+                ? new Date(new Date(task.start_at).getTime() + Number(task.duration_min) * 60_000).toISOString()
+                : null,
+            })),
+          };
+      });
     case "kitchen_inventory":
     case "shopping_inventory":
     case "operations_inventory":

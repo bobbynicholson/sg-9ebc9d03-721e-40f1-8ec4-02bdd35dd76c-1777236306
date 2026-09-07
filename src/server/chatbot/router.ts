@@ -11,7 +11,7 @@ const LIVE_SIGNALS = [
   "how many", "count", "number of", "open leads", "leads", "quotes", "orders", "bookings",
   "appointments", "invoice", "invoices", "balance", "payment", "revenue", "sales", "inventory",
   "stock", "shortage", "delivery", "deliveries", "assigned", "assignment", "status", "notifications",
-  "today", "tomorrow", "this week", "current week", "this month", "last 90 days", "past 90 days",
+  "today", "tomorrow", "this week", "current week", "this month", "upcoming", "upcomming", "future", "event", "events", "items", "ingredients", "inventory", "stock", "too low", "too less", "not enough", "shortage", "restock", "last 90 days", "past 90 days",
   "recent", "latest", "my ", "who is", "which customer", "which client", "cancell", "earnings",
   "customer", "customers", "client", "clients", "contact", "contacts", "registered client",
   "currency", "currencies", "exchange rate", "exchange rates",

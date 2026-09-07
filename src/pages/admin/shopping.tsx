@@ -240,6 +240,14 @@ function SmartShoppingPage() {
   // can deep-link straight to the receipts tab.
   const queryTab = typeof router.query.tab === "string" ? router.query.tab : null;
   const initialTab = queryTab && VALID_TABS.has(queryTab) ? queryTab : "buy_now";
+  const handleTabChange = (next: string) => {
+    if (!VALID_TABS.has(next)) return;
+    void router.replace(
+      { pathname: router.pathname, query: { ...router.query, tab: next } },
+      undefined,
+      { shallow: true },
+    );
+  };
 
   const [outlook, setOutlook] = useState<OutlookRow[]>([]);
   const [details, setDetails] = useState<Record<string, InvDetail>>({});
@@ -1438,7 +1446,7 @@ function SmartShoppingPage() {
               <p className="text-sm">Add items in <Link href={withSlug("/admin/inventory")} className="text-brand-primary">Inventory</Link>, link them to recipes, and this page lights up.</p>
             </CardContent></Card>
           ) : (
-            <Tabs defaultValue={initialTab} key={initialTab}>
+            <Tabs value={initialTab} onValueChange={handleTabChange}>
               <TabsList className="mb-4 grid h-auto w-full grid-cols-1 gap-1 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-4">
                 <TabsTrigger value="buy_now" className="min-h-10 justify-center gap-1.5 whitespace-normal px-2 text-xs sm:text-sm data-[state=active]:bg-white">
                   <Flame className="w-3.5 h-3.5" /> Buy now

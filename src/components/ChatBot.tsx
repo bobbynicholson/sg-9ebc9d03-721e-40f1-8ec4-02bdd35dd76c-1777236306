@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useRouter } from "next/router";
-import type { ChatResponsePayload } from "@/lib/chatbot/responseRenderer";
+import { renderChatResponse, type ChatResponsePayload } from "@/lib/chatbot/responseRenderer";
 import { filterRelevantNavigation } from "@/lib/chatbot/navigation";
 
 interface NavigationLink {
@@ -35,6 +35,17 @@ interface Message {
 interface ChatRequestError extends Error {
   code?: string;
   retryable?: boolean;
+}
+
+function normaliseStoredResponse(value: unknown): ChatResponsePayload | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const payload = value as Partial<ChatResponsePayload>;
+  const hasObjectDetails = Array.isArray(payload.details) && payload.details.some((item) => typeof item !== "string");
+  const hasObjectMessage = typeof payload.message !== "string";
+  const hasBrokenText = typeof payload.text === "string" && payload.text.includes("[object Object]");
+  return hasObjectDetails || hasObjectMessage || hasBrokenText
+    ? renderChatResponse(JSON.stringify(value))
+    : value as ChatResponsePayload;
 }
 
 interface RoleConfig {
@@ -361,7 +372,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
           content: item.content,
           timestamp: new Date(item.created_at),
           navigation: filterRelevantNavigation(item.content, resolvedUserRole, item.metadata?.navigation || []),
-          rendered: item.metadata?.response_payload,
+          rendered: normaliseStoredResponse(item.metadata?.response_payload),
           intentRoute: item.metadata?.intent_route,
         }));
         setSessionId(payload.sessionId || null);
@@ -405,11 +416,11 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
             const localIndex = current.findIndex((item) => item.id === `local-${clientMessageId}`);
             if (localIndex >= 0) {
               const next = [...current];
-              next[localIndex] = { id: row.id, role: row.role, content: row.content, timestamp: new Date(row.created_at), navigation: filterRelevantNavigation(row.content, resolvedUserRole, row.metadata?.navigation || []), rendered: row.metadata?.response_payload, intentRoute: row.metadata?.intent_route };
+              next[localIndex] = { id: row.id, role: row.role, content: row.content, timestamp: new Date(row.created_at), navigation: filterRelevantNavigation(row.content, resolvedUserRole, row.metadata?.navigation || []), rendered: normaliseStoredResponse(row.metadata?.response_payload), intentRoute: row.metadata?.intent_route };
               return next;
             }
           }
-          return [...current, { id: row.id, role: row.role, content: row.content, timestamp: new Date(row.created_at), navigation: filterRelevantNavigation(row.content, resolvedUserRole, row.metadata?.navigation || []), rendered: row.metadata?.response_payload, intentRoute: row.metadata?.intent_route }];
+          return [...current, { id: row.id, role: row.role, content: row.content, timestamp: new Date(row.created_at), navigation: filterRelevantNavigation(row.content, resolvedUserRole, row.metadata?.navigation || []), rendered: normaliseStoredResponse(row.metadata?.response_payload), intentRoute: row.metadata?.intent_route }];
         });
       })
       .subscribe();
@@ -501,7 +512,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
             content: assistant.content,
             timestamp: new Date(assistant.created_at),
             navigation: filterRelevantNavigation(assistant.content, resolvedUserRole, payload.navigation || assistant.metadata?.navigation || []),
-            rendered: payload.response_payload || assistant.metadata?.response_payload,
+            rendered: normaliseStoredResponse(payload.response_payload || assistant.metadata?.response_payload),
             intentRoute: payload.intent_route || assistant.metadata?.intent_route,
           },
         ]);

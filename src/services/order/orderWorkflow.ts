@@ -2130,6 +2130,13 @@ async function sendStatusNotifications(order: any) {
           to: order.client_email,
           subject: resolved.subject,
           body: resolved.bodyHtml,
+          notificationPreference: {
+            confirmed: "order_confirmed",
+            preparing: "order_status_changed",
+            ready: "order_ready_for_pickup",
+            in_transit: "order_status_changed",
+            delivered: "order_delivered",
+          }[status] as any,
           _client: supabase,
         } as any);
       } catch (e) {

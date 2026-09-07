@@ -25,7 +25,7 @@ async function handler(
       // off-site options sent together). When set alongside
       // attachQuotePdf=true a second PDF is rendered and attached.
       quoteId2,
-      emailType, bypassQuarantine,
+      emailType, bypassQuarantine, notificationPreference,
       // Optional, server-rendered Quote PDF attachment. When the
       // caller sets attachQuotePdf=true the route hydrates the
       // QuotePdfData from the quotes + companies tables (using the
@@ -515,6 +515,7 @@ async function handler(
         variables,
         orderId,
         quoteId,
+        notificationPreference,
         ...(attachments.length > 0 ? { attachments } : {}),
         _client: getServiceSupabase(),
       } as any);

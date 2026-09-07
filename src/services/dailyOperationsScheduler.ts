@@ -35,25 +35,23 @@ function humanTime(value: string): string {
 
 async function notifyUsers(sb: any, userIds: string[], payload: Record<string, any>) {
   if (!userIds.length) return 0;
-  const rows = userIds.map((id) => ({
+  // Route scheduled kitchen/cleaning reminders through the same service as
+  // ordinary assignments. The old bulk insert created only an in-app row,
+  // so task_assigned email preferences and email delivery were bypassed.
+  const { notificationService } = await import("@/services/notificationService");
+  await Promise.all(userIds.map((id) => notificationService.createNotification({
     company_id: payload.company_id,
     user_id: id,
     recipient_id: id,
     notification_type: "daily_operations_task",
-    type: "daily_operations_task",
     title: payload.title,
     message: payload.message,
     priority: payload.priority || "normal",
-    target_role: payload.target_role || null,
     link: payload.link || TASK_LINK,
-    action_url: payload.link || TASK_LINK,
     related_entity_type: "daily_operations_task",
     related_entity_id: payload.task_id,
-    is_read: false,
-  }));
-  const { error } = await sb.from("notifications").insert(rows);
-  if (error) throw error;
-  return rows.length;
+  }, sb)));
+  return userIds.length;
 }
 
 async function notifyTask(sb: any, task: any, companyId: string, adminNotifications: boolean) {

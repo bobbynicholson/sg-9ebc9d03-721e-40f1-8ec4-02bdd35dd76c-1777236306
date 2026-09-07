@@ -116,6 +116,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                     to,
                     subject,
                     template: "transactional",
+                    notificationPreference: "payment_due",
                     variables: { link, count: String(agg.count), total: totalLabel },
                     html: `<p>${body.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br />")}</p>`,
                     text: body,

@@ -13,6 +13,7 @@ export interface SendEmailParams {
   variables?: Record<string, any>;
   orderId?: string;
   quoteId?: string;
+  notificationPreference?: string;
   /**
    * Critical-comm carve-out. When true, the time-bounded import
    * quarantine pause is ignored (comms_paused_until). The block list

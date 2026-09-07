@@ -65,8 +65,8 @@ const CORE_NAVIGATION_REFS: ChatNavigationRef[] = [
   { ref: "driver.dashboard", label: "Driver dashboard", href: "/team-portal/driver/dashboard", description: "Assigned driving work", keywords: ["driver dashboard", "my jobs", "my assignments", "assigned jobs"], roles: ["driver"] },
   { ref: "driver.routes", label: "My routes", href: "/team-portal/driver/routes", description: "Assigned routes and stops", keywords: ["my route", "my routes", "route", "stops"], roles: ["driver"] },
   { ref: "driver.deliveries", label: "My deliveries", href: "/team-portal/driver/deliveries", description: "Collections and deliveries", keywords: ["delivery", "deliveries", "collection", "collections", "proof of delivery"], roles: ["driver"] },
-  { ref: "driver.deliveries.upcoming", label: "Upcoming deliveries", href: "/team-portal/driver/deliveries?tab=upcoming#delivery-history", description: "Upcoming assigned deliveries", keywords: ["upcoming deliveries", "next deliveries", "future deliveries"], roles: ["driver"] },
-  { ref: "driver.deliveries.completed", label: "Completed deliveries", href: "/team-portal/driver/deliveries?tab=completed#delivery-history", description: "Completed delivery history", keywords: ["completed deliveries", "delivery history", "past deliveries"], roles: ["driver"] },
+  { ref: "driver.deliveries.upcoming", label: "Upcoming deliveries", href: "/team-portal/driver/deliveries?tab=upcoming#delivery-history", description: "Upcoming assigned deliveries", keywords: ["upcoming deliveries", "next deliveries", "future deliveries"], roles: ["driver"], targetType: "tab" },
+  { ref: "driver.deliveries.completed", label: "Completed deliveries", href: "/team-portal/driver/deliveries?tab=completed#delivery-history", description: "Completed delivery history", keywords: ["completed deliveries", "delivery history", "past deliveries"], roles: ["driver"], targetType: "tab" },
   { ref: "driver.tracking", label: "Delivery tracking", href: "/team-portal/driver/tracking", description: "Live delivery tracking", keywords: ["tracking", "gps", "live location", "where am i"], roles: ["driver"] },
 
   { ref: "cleaning.dashboard", label: "Cleaning dashboard", href: "/team-portal/cleaning/dashboard", description: "Cleaning work overview", keywords: ["cleaning dashboard", "cleaning overview"], roles: ["cleaning_manager", "cleaning_staff"] },
@@ -102,8 +102,8 @@ const OVERVIEW_REFS_BY_ROLE: Record<string, string[]> = {
   region_admin: ["admin.dashboard", "admin.offering", "admin.orders"],
   sales_admin: ["admin.dashboard", "admin.offering", "admin.orders"],
   admin: ["admin.dashboard", "admin.offering", "admin.orders"],
-  kitchen_manager: ["kitchen.dashboard", "kitchen.production", "kitchen.stock"],
-  kitchen_staff: ["kitchen.dashboard", "kitchen.production", "kitchen.stock"],
+  kitchen_manager: ["kitchen.today", "kitchen.production", "kitchen.stock"],
+  kitchen_staff: ["kitchen.today", "kitchen.production", "kitchen.stock"],
   shopping_staff: ["shopping.dashboard", "shopping.buy-list", "shopping.inventory"],
   shopping: ["shopping.dashboard", "shopping.buy-list", "shopping.inventory"],
   driver: ["driver.dashboard", "driver.routes", "driver.deliveries"],
@@ -165,8 +165,32 @@ function isCurrentSubscriptionQuestion(query: string): boolean {
   return asksAboutSubscription && asksForCurrentState && !asksPlatformWide;
 }
 
+function isKitchenOverviewQuestion(query: string): boolean {
+  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  return /\b(?:how can you help|what(?:'s| is| are) my (?:work|tasks?|duties)|what do i have (?:today|to do)|today(?:'s)? work|today(?:'s)? tasks?|kitchen work|production work|upcom(?:ing|ming)|future|events?|scheduled)\b/.test(normalized);
+}
+
+function isKitchenInventoryQuestion(query: string): boolean {
+  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  return /\b(?:stock|inventory|ingredient|ingredients?|item|items|shortage|restock|reorder|too low|too less|not enough)\b/.test(normalized)
+    && /\b(?:what|which|how much|how many|low|less|enough|need|have|check|show|current)\b/.test(normalized);
+}
+
 function getSubscriptionNavigation(role: string, limit: number): ChatNavigationRef[] {
   return ["admin.subscription"]
+    .map((ref) => NAVIGATION_REFS.find((item) => item.ref === ref))
+    .filter((item): item is ChatNavigationRef => Boolean(item) && isAllowed(item, role))
+    .slice(0, limit);
+}
+
+function isPasswordQuestion(query: string): boolean {
+  const normalized = query.toLowerCase();
+  return /\bpasswords?\b/.test(normalized)
+    && /\b(?:change|update|reset|forgot|new|security|help|how|where)\b/.test(normalized);
+}
+
+function getAccountSecurityNavigation(role: string, limit: number): ChatNavigationRef[] {
+  return ["account.settings.security"]
     .map((ref) => NAVIGATION_REFS.find((item) => item.ref === ref))
     .filter((item): item is ChatNavigationRef => Boolean(item) && isAllowed(item, role))
     .slice(0, limit);
@@ -465,6 +489,7 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   const directNavigation = getDirectNavigation(query, role, platformScoped);
   if (directNavigation) return directNavigation.slice(0, 1);
   if (isPendingInvitationQuestion(query)) return getPendingInvitationNavigation(role, limit);
+  if (isPasswordQuestion(query)) return getAccountSecurityNavigation(role, limit);
   if (isRoleAccessQuestion(query)) {
     if (role === "super_admin") return getPlatformNavigation(role, "platform.ai-access.role-controls", limit);
     if (["owner", "company_admin"].includes(role)) return getPlatformNavigation(role, "admin.ai-brain.access", limit);
@@ -530,6 +555,15 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   // Current-plan questions belong to the subscription screen. Do not let
   // generic words such as "active" or "current" attach nearby sales links.
   if (isCurrentSubscriptionQuestion(query)) return getSubscriptionNavigation(role, limit);
+  if (["kitchen_manager", "kitchen_staff"].includes(role) && isKitchenInventoryQuestion(query)) {
+    return ["kitchen.stock", "kitchen.today", "kitchen.production"]
+      .map((ref) => NAVIGATION_REFS.find((item) => item.ref === ref))
+      .filter((item): item is ChatNavigationRef => Boolean(item))
+      .slice(0, limit);
+  }
+  if (["kitchen_manager", "kitchen_staff"].includes(role) && isKitchenOverviewQuestion(query)) {
+    return getOverviewNavigation(role, limit);
+  }
   const currentPageMatches: ChatNavigationRef[] = [];
   if (currentPage?.pathname && currentPage.pathname.startsWith("/")) {
     const pathname = currentPage.pathname.replace(/^\/[^/]+(?=\/(?:admin|team-portal|client-portal|account)(?:\/|$))/, "").split("?")[0].split("#")[0];
@@ -584,9 +618,20 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
     .sort((a, b) => b.score - a.score || a.item.label.localeCompare(b.item.label))
     .slice(0, limit)
     .map(({ item }) => item);
-  return [...currentPageMatches, ...registryMatches]
+  const matchedNavigation = [...currentPageMatches, ...registryMatches]
     .filter((item, index, items) => items.findIndex((candidate) => candidate.ref === item.ref) === index)
     .slice(0, limit);
+
+  // Kitchen users should always have a useful way into their workspace. A
+  // broad question such as "how can you help?" or "what is my work today?"
+  // often has no exact page keyword, so do not leave the assistant without
+  // links. Keep this scoped to the signed-in kitchen role and after all
+  // specific/security/platform routing above has had a chance to match.
+  if (!matchedNavigation.length && ["kitchen_manager", "kitchen_staff"].includes(role) && !platformScoped) {
+    return getOverviewNavigation(role, limit);
+  }
+
+  return matchedNavigation;
 }
 
 /**

@@ -140,6 +140,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/notification-digests",
+      "schedule": "0 7 * * *"
+    },
+    {
       "path": "/api/cron/deposit-paid-sweeper",
       "schedule": "30 * * * *"
     },

@@ -276,6 +276,85 @@ describe("chatbot live-data policy catalog", () => {
     expect(thresholdAnswer.text).not.toContain("[object Object]");
   });
 
+  it("renders today's kitchen work from live orders and prep tasks", async () => {
+    const answer = await generateChatReply({
+      identity: { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
+      message: "Tell me about today's work that I have",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({
+        kitchen_orders: [{ order_number: "ORD-100", event_name: "Office braai", event_time: "12:30:00", guest_count: 40, status: "preparing" }],
+        kitchen_prep_tasks: [{ menu_item_name: "Prep lamb", task_type: "prep", status: "in_progress", start_at: "2026-09-07T10:00:00.000Z" }],
+      })}`,
+      knowledge: [],
+      navigation: [],
+    });
+
+    expect(answer.provider).toBe("live-data");
+    expect(answer.rendered.title).toBe("Today's Kitchen Work");
+    expect(answer.rendered.details.join(" ")).toContain("ORD-100");
+    expect(answer.rendered.details.join(" ")).toContain("Prep lamb");
+    expect(answer.text).not.toContain("[object Object]");
+  });
+
+  it("reads the real kitchen prep-task columns and applies an upcoming window", async () => {
+    const calls: string[] = [];
+    const builder: any = {
+      select: (columns: string) => { calls.push(`select:${columns}`); return builder; },
+      eq: (column: string) => { calls.push(`eq:${column}`); return builder; },
+      is: (column: string) => { calls.push(`is:${column}`); return builder; },
+      not: (column: string) => { calls.push(`not:${column}`); return builder; },
+      gte: (column: string) => { calls.push(`gte:${column}`); return builder; },
+      lte: (column: string) => { calls.push(`lte:${column}`); return builder; },
+      lt: (column: string) => { calls.push(`lt:${column}`); return builder; },
+      order: (column: string) => { calls.push(`order:${column}`); return builder; },
+      limit: () => builder,
+      then: (resolve: (value: any) => void) => resolve({
+        data: [{ id: "task-1", menu_item_name: "Prep lamb", task_type: "prep", status: "pending", start_at: "2026-09-09T10:00:00.000Z", duration_min: 45 }],
+        error: null,
+      }),
+    };
+
+    const result = await runLiveTool(
+      { from: () => builder },
+      { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
+      getLiveToolDefinition("kitchen_prep_tasks")!,
+      "Is there any upcomming kitchen work?",
+    );
+
+    expect(calls).toContain("select:id, order_id, menu_item_name, task_type, status, start_at, duration_min, assigned_chef_id, notes");
+    expect(calls).toContain("gte:start_at");
+    expect(calls).toContain("lt:start_at");
+    expect(calls).toContain("is:deleted_at");
+    expect(calls.some((call) => call.includes("task_name") || call.includes("scheduled_start"))).toBe(false);
+    expect(result).toMatchObject([{ task_name: "Prep lamb", scheduled_start: "2026-09-09T10:00:00.000Z" }]);
+  });
+
+  it("answers kitchen inventory questions from stock rows instead of inventing menu items", async () => {
+    expect(selectLiveTools("kitchen_staff", "What items do we have and which are too less?")
+      .some((tool) => tool.id === "kitchen_inventory")).toBe(true);
+
+    const answer = await generateChatReply({
+      identity: { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
+      message: "What items do we have and which are too less?",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({
+        kitchen_inventory: [
+          { item_name: "Chicken Breast", unit_of_measure: "kg", current_stock: 2, minimum_stock: 5, reorder_quantity: 10 },
+          { item_name: "Rice", unit_of_measure: "kg", current_stock: 20, minimum_stock: 5, reorder_quantity: 10 },
+        ],
+      })}`,
+      knowledge: [{ id: "stale", source: "menu-guide", content: "Chicken Breast and Rice are menu items.", score: 0.9 }],
+      navigation: [{ ref: "kitchen.stock", label: "Kitchen stock", href: "/team-portal/kitchen/stock", description: "Ingredient stock", keywords: ["stock"] }],
+    });
+
+    expect(answer.provider).toBe("live-data");
+    expect(answer.rendered.title).toBe("Kitchen Inventory");
+    expect(answer.rendered.message).toContain("1 of 2");
+    expect(answer.rendered.details.join(" ")).toContain("Chicken Breast: 2 kg on hand");
+    expect(answer.rendered.details.join(" ")).not.toContain("Order #1023");
+    expect(answer.text).not.toContain("[object Object]");
+  });
+
   it("routes technology-cost questions to the platform cost model", async () => {
     expect(selectLiveTools("super_admin", "What are our current technology costs?")[0]?.id)
       .toBe("platform_technology_costs");

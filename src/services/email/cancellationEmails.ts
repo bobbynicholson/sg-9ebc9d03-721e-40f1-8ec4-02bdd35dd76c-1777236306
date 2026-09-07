@@ -256,6 +256,7 @@ export async function sendCancellationEmail(
       to: order.client_email,
       subject: resolved.subject,
       body: resolved.bodyHtml,
+      notificationPreference: "order_cancelled",
       bypassQuarantine: true,
       // Wave 17 audit: server-side caller; pass the resolved client
       // so getEmailConfig can read email_provider_settings under

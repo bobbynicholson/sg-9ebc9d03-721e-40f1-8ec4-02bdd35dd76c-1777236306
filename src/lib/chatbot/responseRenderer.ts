@@ -38,9 +38,39 @@ export interface ChatResponsePayload {
   workflow?: ChatWorkflow;
 }
 
+function readableValue(value: unknown, depth = 0): string {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (depth > 2) return "";
+  if (Array.isArray(value)) {
+    return value.map((item) => readableValue(item, depth + 1)).filter(Boolean).join("; ");
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const primary = record.label ?? record.title ?? record.name ?? record.task_name ?? record.order_number;
+    const secondary = record.description ?? record.message ?? record.status;
+    if (primary != null || secondary != null) {
+      return [readableValue(primary, depth + 1), readableValue(secondary, depth + 1)]
+        .filter(Boolean)
+        .join(secondary != null ? ": " : "");
+    }
+    return Object.entries(record)
+      .slice(0, 8)
+      .map(([key, entry]) => {
+        const text = readableValue(entry, depth + 1);
+        return text ? `${key.replace(/_/g, " ")}: ${text}` : "";
+      })
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return String(value);
+}
+
 function cleanText(value: unknown): string {
   const links: string[] = [];
-  const protectedText = String(value || "").replace(/\[[^\]]+\]\([^)]*\)/g, (link) => {
+  const protectedText = readableValue(value).replace(/\[[^\]]+\]\([^)]*\)/g, (link) => {
     const token = `§§CMS_CHAT_LINK_${links.length}§§`;
     links.push(link);
     return token;
@@ -90,7 +120,7 @@ function parsePayload(raw: string): { payload: Record<string, unknown>; structur
 
 function details(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value.map(cleanText).filter(Boolean).slice(0, 6);
+  return value.map((item) => cleanText(item)).filter(Boolean).slice(0, 6);
 }
 
 function actions(value: unknown): ChatAction[] {

@@ -122,6 +122,9 @@ export const emailNotificationService = {
             companyId: companyId,
             to: email.recipient_email,
             subject: email.subject,
+            // Preserve the queued event name so the central transport can
+            // apply the same account preference gate to legacy queued rows.
+            template: email.template_type,
             body: emailBody,
             orderId: email.order_id,
             quoteId: (email as any).quote_id,

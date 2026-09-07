@@ -7,6 +7,10 @@ import {
   appendPlatformLegalFooter,
 } from "@/services/email/legalEmailFooter";
 import { ensureRequiredOrderLink } from "@/lib/email/requiredCustomerLinks";
+import {
+  resolveEmailNotificationPreference,
+  type EmailNotificationPreferenceKey,
+} from "@/lib/emailNotificationPreferences";
 
 export interface EmailSettings {
   id: string;
@@ -69,10 +73,18 @@ export interface SendEmailPayload {
   to: string;
   subject: string;
   template?: string;
+  /** Legacy callers often use templateType instead of template. */
+  templateType?: string;
   body?: string;
   variables?: Record<string, any>;
   orderId?: string;
   quoteId?: string;
+  /**
+   * Optional explicit per-user preference gate. When omitted, the transport
+   * infers it from known operational template names. Unknown/manual/system
+   * mail remains unaffected.
+   */
+  notificationPreference?: EmailNotificationPreferenceKey;
   /**
    * Set to true for service-critical comms (cancellation, refund-paid,
    * postponement) that must reach the recipient regardless of import
@@ -160,6 +172,7 @@ export type EmailErrorCode =
   | "smtp_other"
   | "blocked_recipient"
   | "quarantined_recipient"
+  | "notification_disabled"
   | "missing_fields"
   | "unknown";
 
@@ -425,7 +438,7 @@ export const emailService = {
     orderId?: string,
     quoteId?: string,
     client?: any,
-    statusOverride?: "sent" | "failed" | "simulated" | "blocked" | "quarantined",
+    statusOverride?: "sent" | "failed" | "simulated" | "blocked" | "quarantined" | "skipped",
     failureReason?: string,
   ): Promise<EmailLog | null> {
     // Mirrors getEmailConfig: server-side callers pass a service-role
@@ -517,6 +530,7 @@ export const emailService = {
             orderId: payload.orderId,
             quoteId: payload.quoteId,
             bypassQuarantine: (payload as any).bypassQuarantine,
+            notificationPreference: payload.notificationPreference,
             ...(wireAttachments && wireAttachments.length > 0 ? { attachments: wireAttachments } : {}),
           }),
         });
@@ -610,6 +624,58 @@ export const emailService = {
     const recipientLower = String(payload.to || "").toLowerCase().trim();
     if (recipientLower) {
       try {
+        // Account settings are real delivery controls, not presentation
+        // toggles. Resolve the recipient by email, then apply the matching
+        // preference before any provider work happens. Missing profiles,
+        // preference rows, or an unapplied migration fail open so legacy
+        // recipients do not lose mail unexpectedly.
+        const preferenceKey = resolveEmailNotificationPreference(
+          payload.template || payload.templateType,
+          payload.notificationPreference,
+        );
+        if (preferenceKey) {
+          const { data: recipientProfile, error: profileError } = await sb
+            .from("profiles")
+            .select("id")
+            .ilike("email", recipientLower)
+            .limit(1)
+            .maybeSingle();
+          if (profileError) {
+            console.warn("[emailService] notification preference profile lookup failed; proceeding:", profileError);
+          } else if (recipientProfile?.id) {
+            const { data: preferenceRow, error: preferenceError } = await sb
+              .from("email_notification_preferences")
+              .select(preferenceKey)
+              .eq("user_id", recipientProfile.id)
+              .limit(1)
+              .maybeSingle();
+            if (preferenceError) {
+              console.warn("[emailService] notification preference lookup failed; proceeding:", preferenceError);
+            } else if (preferenceRow && (preferenceRow as Record<string, unknown>)[preferenceKey] === false) {
+              const reason = `Recipient disabled ${preferenceKey} email notifications`;
+              console.info(`[emailService] skipped ${preferenceKey} email for ${recipientLower}`);
+              await this.logEmailSent(
+                payload.companyId,
+                payload.template || preferenceKey,
+                payload.to,
+                payload.variables?.clientName || payload.variables?.client_name || "N/A",
+                payload.subject,
+                payload.orderId,
+                payload.quoteId,
+                (payload as any)._client,
+                "skipped",
+                reason,
+              );
+              return {
+                success: false,
+                error: "The recipient has disabled this email notification.",
+                error_code: "notification_disabled",
+                context: { preference: preferenceKey },
+              };
+            }
+          }
+        }
+
         const { data: blocks, error: blocksErr } = await sb
           .from("blocked_contacts")
           .select("email_lower")

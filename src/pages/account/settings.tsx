@@ -19,6 +19,16 @@ import type {
   PasswordFormData,
 } from "@/components/account/settings/types";
 
+const ACCOUNT_SETTINGS_TABS = new Set(["profile", "security", "notifications", "privacy"]);
+
+function tabFromLocation(): string {
+  if (typeof window === "undefined") return "profile";
+  const hashTab = window.location.hash.replace(/^#/, "").trim().toLowerCase();
+  const queryTab = new URLSearchParams(window.location.search).get("tab")?.trim().toLowerCase() || "";
+  const candidate = hashTab || queryTab;
+  return ACCOUNT_SETTINGS_TABS.has(candidate) ? candidate : "profile";
+}
+
 function ProfileSettingsPage() {
   // Pull `company` alongside `profile` so we can show the canonical
   // company name even when profiles.company_name (a denormalised cache)
@@ -32,7 +42,36 @@ function ProfileSettingsPage() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState("profile");
+  // Read the deep-linked tab during initial client render as well as in the
+  // effect below. This prevents a brief/stale Privacy panel when a chatbot
+  // link opens `/account/settings#security` in an already-mounted app.
+  const [activeTab, setActiveTab] = useState(tabFromLocation);
+
+  // Account settings is also a chatbot destination. Honour a direct tab
+  // target such as /account/settings#security so a user lands on the
+  // password form instead of having to find the tab again.
+  useEffect(() => {
+    const readTab = () => {
+      setActiveTab(tabFromLocation());
+    };
+    readTab();
+    window.addEventListener("hashchange", readTab);
+    window.addEventListener("popstate", readTab);
+    window.addEventListener("pageshow", readTab);
+    return () => {
+      window.removeEventListener("hashchange", readTab);
+      window.removeEventListener("popstate", readTab);
+      window.removeEventListener("pageshow", readTab);
+    };
+  }, []);
+
+  const handleTabChange = (nextTab: string) => {
+    setActiveTab(nextTab);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.hash = nextTab;
+    window.history.replaceState(null, "", `${url.pathname}${url.search}#${nextTab}`);
+  };
   
   const [formData, setFormData] = useState<ProfileFormData>({
     full_name: "",
@@ -340,7 +379,7 @@ function ProfileSettingsPage() {
           )}
 
           {/* Tabs for different sections */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>

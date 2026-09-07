@@ -109,6 +109,15 @@ describe("chatbot local Phase 2 audit", () => {
     expect(navigation.some((item) => ["admin.onboarding.import", "account.settings", "admin.company-profile"].includes(item.ref))).toBe(false);
   });
 
+  it("keeps broad kitchen questions linked to the signed-in kitchen workspace", () => {
+    for (const role of ["kitchen_manager", "kitchen_staff"]) {
+      expect(getRelevantNavigation("Tell me how you can help me here", role, 3).map((item) => item.ref))
+        .toEqual(["kitchen.today", "kitchen.production", "kitchen.stock"]);
+      expect(getRelevantNavigation("Tell me about today's work that I have", role, 3).map((item) => item.ref))
+        .toEqual(["kitchen.today", "kitchen.production", "kitchen.stock"]);
+    }
+  });
+
   it("returns only the destination requested by an operational question", () => {
     const inventory = getRelevantNavigation("Where can I check current inventory levels?", "admin", 3);
     expect(inventory[0]?.ref).toBe("admin.inventory");
@@ -181,6 +190,12 @@ describe("chatbot local Phase 2 audit", () => {
   it("keeps direct pricing navigation inside a company workspace", () => {
     expect(getRelevantNavigation("Open Pricing", "company_admin", 3).map((item) => item.ref))
       .toEqual(["admin.offering"]);
+  });
+
+  it("links password questions to shared account settings", () => {
+    const navigation = getRelevantNavigation("I want to change my password", "driver", 3);
+    expect(navigation.map((item) => item.ref)).toEqual(["account.settings.security"]);
+    expect(navigation[0]?.href).toBe("/account/settings#security");
   });
 
   it("does not offer links for data outside a role's scope", () => {

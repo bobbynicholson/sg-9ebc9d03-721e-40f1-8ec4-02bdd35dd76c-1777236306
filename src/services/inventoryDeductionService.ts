@@ -615,27 +615,24 @@ export async function deductInventoryForOrder(
           ? `${ingredientName} is out of stock (used in order #${orderId.slice(-8)})`
           : `${ingredientName} is low on stock (${newStock} ${inventoryItem.unit_of_measure} remaining after order #${orderId.slice(-8)})`;
 
-        const { error: notifError } = await supabase
-          .from("notifications")
-          .insert({
+        try {
+          // Use the shared notification path so this recipient gets both the
+          // in-app alert and the configured low/out-of-stock email. Direct
+          // table inserts bypass the email-preference enforcement layer.
+          const { notificationService } = await import("@/services/notificationService");
+          await notificationService.createNotification({
             company_id: companyId,
-            // The bell query filters on recipient_id + notification_type
-            // (notificationService.getNotifications). Setting only
-            // user_id + the enum `type` left recipient_id/notification_type
-            // NULL, so this alert never surfaced in anyone's inbox.
-            // Ops audit 2026-06-15.
             recipient_id: performedBy,
             user_id: performedBy,
-            type: 'stock_low',
-            notification_type: 'stock_low',
+            type: "stock_low",
+            notification_type: "stock_low",
             title,
             message,
-            related_entity_type: 'inventory_item',
-            related_entity_id: inventoryItem.id
-          });
-
-        if (notifError) {
-          console.error('Failed to create low stock notification:', notifError);
+            related_entity_type: "inventory_item",
+            related_entity_id: inventoryItem.id,
+          }, supabase);
+        } catch (notifError) {
+          console.error("Failed to create low stock notification:", notifError);
         }
 
         // Role-fanout to shopping_staff so the procurement team's
@@ -1006,22 +1003,24 @@ export async function manualInventoryDeduction(
     
     // Check for low stock
     if (newStock <= item.minimum_stock) {
-      await supabase
-        .from("notifications")
-        .insert({
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        const title = newStock === 0 ? "Out of Stock Alert" : "Low Stock Alert";
+        const message = `${item.item_name} is ${newStock === 0 ? "out of" : "low on"} stock (${newStock} ${item.unit_of_measure} remaining)`;
+        await notificationService.createNotification({
           company_id: companyId,
-          // recipient_id + notification_type required for the bell to
-          // see it (ops audit 2026-06-15) - manualInventoryDeduction has
-          // no broadcast fallback, so without these the alert was lost.
           recipient_id: performedBy,
           user_id: performedBy,
-          type: 'stock_low',
-          notification_type: 'stock_low',
-          title: newStock === 0 ? 'Out of Stock Alert' : 'Low Stock Alert',
-          message: `${item.item_name} is ${newStock === 0 ? 'out of' : 'low on'} stock (${newStock} ${item.unit_of_measure} remaining)`,
-          related_entity_type: 'inventory_item',
-          related_entity_id: inventoryItemId
-        });
+          type: "stock_low",
+          notification_type: "stock_low",
+          title,
+          message,
+          related_entity_type: "inventory_item",
+          related_entity_id: inventoryItemId,
+        }, supabase);
+      } catch (notificationError) {
+        console.error("Failed to create low stock notification:", notificationError);
+      }
     }
     
     return { success: true };

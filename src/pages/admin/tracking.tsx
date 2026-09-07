@@ -171,6 +171,15 @@ function AdminTrackingInner() {
     if (scope === "today" || scope === "all") setOperationsScope(scope);
   }, [router.query.status, router.query.view, router.query.scope]);
 
+  const handleViewChange = (next: "map" | "list") => {
+    setActiveTab(next);
+    void router.replace(
+      { pathname: router.pathname, query: { ...router.query, view: next } },
+      undefined,
+      { shallow: true },
+    );
+  };
+
   // Load dispatch settings once for the arrival buffer (used in at-risk calc).
   useEffect(() => {
     if (!user?.company_id) return;
@@ -907,7 +916,7 @@ function AdminTrackingInner() {
           </PortalCard>
 
           {/* Main Content */}
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "map" | "list")} className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => handleViewChange(v as "map" | "list")} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="map">Map View <span className="ml-1 tabular-nums">({filteredOrders.length})</span></TabsTrigger>
               <TabsTrigger value="list">List View <span className="ml-1 tabular-nums">({filteredOrders.length})</span></TabsTrigger>
