@@ -27,6 +27,10 @@ function roleLabel(role: WorkRole): string {
   return ROLE_LABELS[role] || role;
 }
 
+function isManagerWorkRole(role: WorkRole): boolean {
+  return role === "kitchen_manager" || role === "cleaning_manager";
+}
+
 function sourceClock(closed: ClosedRoleClock[]): ClosedRoleClock | null {
   return [...closed]
     .filter((item) => item.startedAt)
@@ -363,6 +367,16 @@ export async function beginRoleClock(args: {
   const defaultNote = orderContextChanged
     ? `Switched to another order; previous ${current?.role || args.role} work was automatically closed. No additional note supplied.`
     : `Role switch to ${args.role}; previous role was automatically closed. No additional note supplied.`;
+
+  // A manager's working flag is UI state that accompanies the manager role
+  // clock. Clear it whenever the person starts a crew/department clock so a
+  // role switch cannot leave the manager card saying "working" after its
+  // manager timer has been closed.
+  if (!isManagerWorkRole(args.role)) {
+    await (client as any).from("profiles")
+      .update({ manager_working: false, manager_working_since: null })
+      .eq("id", args.userId);
+  }
 
   if (current && (roleChanged || orderContextChanged)) {
     const { error } = await (client as any).from("role_work_sessions")
