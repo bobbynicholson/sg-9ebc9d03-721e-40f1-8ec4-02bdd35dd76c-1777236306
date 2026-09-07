@@ -1324,14 +1324,26 @@ function directPlatformAiAccessAnswer(args: {
 }
 
 function liveToolResult(liveContext: string, toolId: string): Record<string, any> | null {
-  const marker = "LIVE AUTHORIZED TOOL RESULTS:";
-  const start = liveContext.indexOf(marker);
+  const markerStart = liveContext.indexOf("LIVE AUTHORIZED TOOL RESULTS");
+  const start = markerStart < 0 ? -1 : liveContext.indexOf("{", markerStart);
   if (start < 0) return null;
-  const jsonText = liveContext.slice(start + marker.length).trim();
+  const jsonText = liveContext.slice(start).trim();
   try {
     const parsed = JSON.parse(jsonText);
     const value = parsed?.[toolId];
     return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function liveToolRows(liveContext: string, toolId: string): any[] | null {
+  const markerStart = liveContext.indexOf("LIVE AUTHORIZED TOOL RESULTS");
+  const start = markerStart < 0 ? -1 : liveContext.indexOf("{", markerStart);
+  if (start < 0) return null;
+  try {
+    const parsed = JSON.parse(liveContext.slice(start).trim());
+    return Array.isArray(parsed?.[toolId]) ? parsed[toolId] : null;
   } catch {
     return null;
   }
@@ -1534,6 +1546,81 @@ function directRoleCapabilityAnswer(args: {
     actions: [],
   }));
   return { text: rendered.text, provider: "role-guidance", retrievalCount: 0, rendered };
+}
+
+function driverTodayInTimezone(liveContext: string): string {
+  const company = liveToolResult(liveContext, "company_profile");
+  const timezone = String(company?.timezone || "Africa/Johannesburg");
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function driverDeliveryLabel(row: any): string {
+  const date = String(row.event_date || row.scheduled_for || "").slice(0, 10);
+  const dateLabel = date
+    ? new Intl.DateTimeFormat("en-ZA", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`))
+    : "Date not provided";
+  const time = String(row.pickup_time || row.collection_time || row.event_time || "").slice(0, 5);
+  const timeLabel = time ? ` at ${time}` : "";
+  const order = String(row.order_number || "Assigned delivery");
+  const address = String(row.venue_address || row.venue_name || "Venue not provided");
+  return `${dateLabel} · ${order}${timeLabel} · ${address}`;
+}
+
+function directDriverDeliveriesAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (args.identity.role !== "driver") return null;
+  const normalized = args.message.toLowerCase();
+  const asksDeliverySummary = /\b(?:today|upcoming|next|future|later|this week|my deliveries?|my collections?|what are|do i have)\b/.test(normalized)
+    && /\b(?:deliver(?:y|ies)|collection(?:s)?|pickup(?:s)?|jobs?)\b/.test(normalized);
+  if (!asksDeliverySummary) return null;
+  const rows = liveToolRows(args.liveContext, "assigned_deliveries");
+  if (!Array.isArray(rows)) return null;
+
+  const today = driverTodayInTimezone(args.liveContext);
+  const dated = rows.filter((row: any) => String(row?.event_date || row?.scheduled_for || "").slice(0, 10));
+  const closedStatuses = new Set(["cancelled", "canceled", "deleted"]);
+  const todayRows = dated.filter((row: any) => String(row.event_date || row.scheduled_for).slice(0, 10) === today && !closedStatuses.has(String(row.status || "").toLowerCase()));
+  const upcomingRows = dated.filter((row: any) => String(row.event_date || row.scheduled_for).slice(0, 10) > today && !closedStatuses.has(String(row.status || "").toLowerCase()) && !["completed", "delivered"].includes(String(row.status || "").toLowerCase()));
+  const asksUpcoming = /\b(?:upcoming|next|future|later|this week)\b/.test(normalized) && !/\btoday\b/.test(normalized);
+  const selected = asksUpcoming ? upcomingRows : todayRows;
+  const title = asksUpcoming ? "Upcoming deliveries" : "Today's deliveries";
+  const details: string[] = [];
+  if (selected.length) {
+    details.push(...selected.slice(0, 8).map(driverDeliveryLabel));
+    if (selected.length > 8) details.push(`${selected.length - 8} more assigned deliver${selected.length - 8 === 1 ? "y" : "ies"} are available in All deliveries.`);
+  }
+
+  let message = "";
+  if (asksUpcoming) {
+    message = upcomingRows.length
+      ? `You have ${upcomingRows.length} upcoming assigned deliver${upcomingRows.length === 1 ? "y" : "ies"}.`
+      : "You have no upcoming deliveries scheduled.";
+  } else {
+    message = todayRows.length
+      ? `You have ${todayRows.length} assigned deliver${todayRows.length === 1 ? "y" : "ies"} for today.`
+      : "You have no deliveries assigned for today.";
+    if (!todayRows.length && upcomingRows.length) {
+      details.unshift(`Your next assigned delivery is ${driverDeliveryLabel(upcomingRows[0])}.`);
+    } else if (todayRows.length && upcomingRows.length) {
+      details.push(`Next upcoming delivery: ${driverDeliveryLabel(upcomingRows[0])}.`);
+    }
+  }
+
+  const rendered = renderChatResponse(JSON.stringify({ title, message, details, actions: [] }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
 
 /**
@@ -1786,6 +1873,8 @@ export async function generateChatReply(args: {
   if (greetingAnswer) return greetingAnswer;
   const roleCapabilityAnswer = directRoleCapabilityAnswer(args);
   if (roleCapabilityAnswer) return roleCapabilityAnswer;
+  const driverDeliveriesAnswer = directDriverDeliveriesAnswer(args);
+  if (driverDeliveriesAnswer) return driverDeliveriesAnswer;
   const securityAnswer = directSecurityAnswer(args);
   if (securityAnswer) return securityAnswer;
   const roleBoundaryAnswer = directRoleBoundaryAnswer(args);

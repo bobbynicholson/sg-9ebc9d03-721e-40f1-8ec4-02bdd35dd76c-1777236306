@@ -342,6 +342,84 @@ function applyDateRange(query: any, column: string, message: string): any {
   return range ? query.gte(column, range.start).lte(column, range.end) : query;
 }
 
+const DRIVER_DELIVERY_ORDER_COLUMNS = "id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, status, delivery_status, delivery_time, collection_time, pickup_time, assigned_driver_id, driver_id, secondary_driver_id";
+
+/**
+ * Driver pages use order assignment columns as the source of truth because a
+ * confirmed order can exist before dispatch creates a driver_assignments row.
+ * The assistant must use the same source, then add dispatch status when a
+ * matching assignment exists. This also prevents a stale assignment status
+ * from hiding a still-upcoming order.
+ */
+async function loadDriverDeliveries(db: any, identity: ChatIdentity): Promise<any[]> {
+  const assignments = await rows(db, "driver_assignments", (q) =>
+    q.select("id, order_id, assignment_type, scheduled_for, status, en_route_at, arrived_at_venue_at, delivered_at, total_earnings, notes")
+      .eq("company_id", identity.companyId)
+      .eq("driver_id", identity.userId)
+      .order("scheduled_for", { ascending: true, nullsFirst: false })
+      .limit(100),
+  );
+  const assignmentByOrder = new Map<string, any>();
+  for (const assignment of assignments) {
+    if (assignment?.order_id && !assignmentByOrder.has(String(assignment.order_id))) {
+      assignmentByOrder.set(String(assignment.order_id), assignment);
+    }
+  }
+
+  const directOrders = await rows(db, "orders", (q) =>
+    q.select(DRIVER_DELIVERY_ORDER_COLUMNS)
+      .eq("company_id", identity.companyId)
+      .is("deleted_at", null)
+      .or(`assigned_driver_id.eq.${identity.userId},driver_id.eq.${identity.userId},secondary_driver_id.eq.${identity.userId}`)
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true, nullsFirst: true })
+      .limit(100),
+  );
+  const directIds = new Set(directOrders.map((order: any) => String(order?.id || "")).filter(Boolean));
+  const missingLinkedIds = assignments
+    .map((assignment: any) => String(assignment?.order_id || ""))
+    .filter((id: string) => id && !directIds.has(id));
+  const linkedOrders = missingLinkedIds.length
+    ? await rows(db, "orders", (q) => q.select(DRIVER_DELIVERY_ORDER_COLUMNS).eq("company_id", identity.companyId).is("deleted_at", null).in("id", missingLinkedIds))
+    : [];
+
+  const merged = new Map<string, any>();
+  for (const order of [...directOrders, ...linkedOrders]) {
+    const orderId = String(order?.id || "");
+    if (!orderId) continue;
+    const assignment = assignmentByOrder.get(orderId);
+    merged.set(orderId, {
+      id: assignment?.id || orderId,
+      order_id: orderId,
+      assignment_type: assignment?.assignment_type || "delivery",
+      scheduled_for: assignment?.scheduled_for || null,
+      assignment_status: assignment?.status || null,
+      en_route_at: assignment?.en_route_at || null,
+      arrived_at_venue_at: assignment?.arrived_at_venue_at || null,
+      delivered_at: assignment?.delivered_at || null,
+      total_earnings: assignment?.total_earnings ?? null,
+      notes: assignment?.notes || null,
+      order_number: order.order_number || null,
+      event_name: order.event_name || null,
+      event_date: order.event_date || null,
+      event_time: order.event_time || null,
+      venue_name: order.venue_name || null,
+      venue_address: order.venue_address || null,
+      guest_count: order.guest_count ?? null,
+      status: order.status || null,
+      delivery_status: order.delivery_status || null,
+      delivery_time: order.delivery_time || null,
+      collection_time: order.collection_time || null,
+      pickup_time: order.pickup_time || null,
+    });
+  }
+  return [...merged.values()].sort((left, right) => {
+    const leftKey = `${String(left.event_date || "9999-12-31")}T${String(left.event_time || "23:59:59")}`;
+    const rightKey = `${String(right.event_date || "9999-12-31")}T${String(right.event_time || "23:59:59")}`;
+    return leftKey.localeCompare(rightKey);
+  });
+}
+
 function auditDateRange(message: string): { start: string; end: string } | null {
   const text = message.toLowerCase();
   const now = new Date();
@@ -824,7 +902,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       }
     }
     case "company_profile": {
-      const company = (await rows(db, "companies", (q) => q.select("company_name, slug, currency, subscription_status, subscription_plan").eq("id", companyId).maybeSingle()))[0] || null;
+      const company = (await rows(db, "companies", (q) => q.select("company_name, slug, currency, timezone, subscription_status, subscription_plan").eq("id", companyId).maybeSingle()))[0] || null;
       if (!company) return null;
       // The company summary fields are a cache used by feature gates. The
       // subscription screen reads the subscription ledger for the current
@@ -923,7 +1001,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       return rows(db, "invoices", (q) => q.select("invoice_number, due_date, total_amount, amount_paid, balance_due, status, order_id").eq("company_id", companyId).is("deleted_at", null).order("due_date", { ascending: true }).limit(50));
     }
     case "assigned_deliveries":
-      return rows(db, "driver_assignments", (q) => applyDateRange(q.select("id, order_id, assignment_type, scheduled_for, status, en_route_at, arrived_at_venue_at, delivered_at, total_earnings, notes").eq("company_id", companyId).eq("driver_id", identity.userId), "scheduled_for", message).order("scheduled_for", { ascending: true }).limit(30));
+      return loadDriverDeliveries(db, identity);
     case "delivery_orders": {
       const assignments = await runLiveTool(db, identity, getLiveToolDefinition("assigned_deliveries")!, message);
       const ids = (assignments || []).map((item: any) => item.order_id).filter(Boolean);

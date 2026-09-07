@@ -212,11 +212,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   // cannot drift apart.
   const hrefForItem = (href: string) => withSlug(href);
 
-  // A fragment link needs a small explicit click assist. If the operator is
+  // Sidebar clicks get a small explicit navigation assist. If the operator is
   // already on the same URL (for example, /kitchen/duty#clock), clicking the
-  // sidebar item again does not fire a route or hash change, so the browser
-  // has nothing to do. The destination page still owns the post-load retry;
-  // this handles the same-page click for every portal that uses this rail.
+  // item again does not fire a route or hash change, so the browser has
+  // nothing to do. The destination page still owns the post-load retry;
+  // this handles same-page and cross-page clicks for every portal.
   const handleNavClick = (
     item: PortalSidebarNavItem,
     onClickAfterNav?: () => void,
@@ -224,13 +224,13 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     onClickAfterNav?.();
 
     const hashIndex = item.href.indexOf("#");
-    if (hashIndex < 0 || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
 
     // Preserve standard browser behaviour for modified clicks (new tab,
     // middle click, etc.). Only a normal primary click is handled here.
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
 
-    const rawHash = item.href.slice(hashIndex + 1);
+    const rawHash = hashIndex >= 0 ? item.href.slice(hashIndex + 1) : "";
     let targetId = rawHash;
     try {
       targetId = decodeURIComponent(rawHash);
@@ -239,7 +239,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     }
 
     const align = () => {
-      document.getElementById(targetId)?.scrollIntoView({ block: "start" });
+      if (targetId) document.getElementById(targetId)?.scrollIntoView({ block: "start" });
     };
     const alignSoon = () => {
       window.setTimeout(align, 0);
@@ -256,16 +256,17 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     if (sameDocument) {
       // Clicking the already-selected /duty#clock item still needs to do
       // something useful when the operator has scrolled away from it.
-      alignSoon();
+      if (hashIndex >= 0) alignSoon();
       return;
     }
 
-    // Take control of fragment navigation when changing pages. This makes
-    // the sidebar deterministic even if Next has not mounted the destination
-    // anchor yet; the destination page's post-load effect handles the final
-    // alignment after its async data is ready.
+    // Take control of every primary sidebar navigation. Normal links usually
+    // work through Next's anchor handler, but an open mobile Sheet or a
+    // rapidly changing role context can unmount that anchor before the
+    // default navigation completes. One explicit tenant-aware push keeps
+    // normal pages and fragment destinations deterministic alike.
     event.preventDefault();
-    void router.push(href).then(alignSoon);
+    void router.push(href).then(() => { if (hashIndex >= 0) alignSoon(); });
   };
 
   const desktopScrollRef = useNavScrollRestore<HTMLDivElement>(`${config.role}-nav`);
