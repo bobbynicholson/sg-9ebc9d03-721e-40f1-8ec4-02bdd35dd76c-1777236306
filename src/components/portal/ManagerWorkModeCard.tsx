@@ -8,8 +8,8 @@
 // Renders NOTHING for non-manager roles, so it is safe to mount on any shared
 // manager page.
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, UserCheck, Eye } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+import { Loader2, UserCheck, Eye, Play, Square } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PortalCard } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -160,13 +160,22 @@ export function ManagerWorkModeCard() {
             <p className="mt-0.5 text-xs text-muted-foreground max-w-md">
               {working
                 ? "You receive the same task alerts as staff. Turn this off when you finish; your work note will be saved."
-                : `Turn this on to clock in as ${workRole ? workRole.replace("_", " ") : "manager"} and work with the crew.`}
+                : `Clock in as ${workRole ? workRole.replace("_", " ") : "manager"} when you start working with the crew.`}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 pt-0.5">
           {(loading || saving) && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-          <Switch checked={working} disabled={loading || saving} onCheckedChange={onToggle} aria-label="Toggle working mode" />
+          <Button
+            size="sm"
+            disabled={loading || saving}
+            onClick={() => void onToggle(!working)}
+            className={working ? "gap-2 bg-rose-600 text-white hover:bg-rose-700" : "gap-2 bg-brand-primary text-white hover:bg-brand-primary/90"}
+            aria-label={working ? "Clock out as manager" : "Clock in as manager"}
+          >
+            {working ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+            {working ? "Clock out" : "Clock in"}
+          </Button>
         </div>
       </div>
     </PortalCard>
