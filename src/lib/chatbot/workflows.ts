@@ -126,7 +126,7 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
     id: "client-event",
     label: "Client event journey",
     description: "Guide a client from quote response through booking, payment, and delivery tracking.",
-    keywords: ["client process", "my event process", "event journey", "booking process", "customer steps", "what happens next", "client workflow"],
+    keywords: ["client process", "my event process", "event journey", "booking process", "customer steps", "what happens next", "what do i need to do next", "what should i do next", "next steps", "client workflow"],
     roles: CLIENT,
     steps: [
       { id: "quote", title: "Review the quote", description: "Open quotes waiting for your response and review the event offer.", ref: "client.quotes.waiting" },

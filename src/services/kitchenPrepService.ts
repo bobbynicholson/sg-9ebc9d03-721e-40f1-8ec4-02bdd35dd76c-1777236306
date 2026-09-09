@@ -805,7 +805,7 @@ export const kitchenPrepService = {
    * Assign (or unassign with null) a prep task to a kitchen team member.
    * Notifies the assignee unless they assigned it to themselves.
    */
-  async assignTask(taskId: string, assigneeId: string | null, assignedById?: string | null): Promise<void> {
+  async assignTask(taskId: string, assigneeId: string | null, assignedById?: string | null): Promise<{ notificationCreated: boolean }> {
     const { data: task, error } = await (supabase as any)
       .from("kitchen_prep_tasks")
       .update({ assigned_chef_id: assigneeId })
@@ -814,6 +814,7 @@ export const kitchenPrepService = {
       .single();
     if (error) throw error;
 
+    let notificationCreated = false;
     if (assigneeId && assigneeId !== assignedById) {
       try {
         const { notificationService } = await import("@/services/notificationService");
@@ -822,7 +823,7 @@ export const kitchenPrepService = {
           .select("order_number")
           .eq("id", (task as any).order_id)
           .maybeSingle();
-        await notificationService.createNotification({
+        const notification = await notificationService.createNotification({
           company_id: (task as any).company_id,
           recipient_id: assigneeId,
           user_id: assigneeId,
@@ -834,10 +835,12 @@ export const kitchenPrepService = {
           related_entity_type: "order",
           related_entity_id: (task as any).order_id,
         } as any);
+        notificationCreated = !!notification;
       } catch (notifyErr) {
         console.warn("[kitchenPrepService] assignee notification failed (non-blocking):", notifyErr);
       }
     }
+    return { notificationCreated };
   },
 
   // ── Tick-off ──────────────────────────────────────────────────────────────

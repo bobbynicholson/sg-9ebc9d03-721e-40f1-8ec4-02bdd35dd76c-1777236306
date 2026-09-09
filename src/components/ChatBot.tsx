@@ -139,12 +139,16 @@ const ROLE_CONFIGS: Record<string, RoleConfig> = {
   },
   client: {
     title: "Event Assistant",
-    greeting: "Welcome! I can help you track your orders, answer questions about your events, and assist with bookings.",
+    greeting: "Welcome! I can explain how your CateringMS portal works, guide you through your event journey, and give you current insights from your own bookings, quotes, payments, and feedback.",
     examples: [
-      "When is my next event?",
-      "Update my event details",
-      "What's included in my package?",
-      "Payment schedule for my order"
+      "How does CateringMS work for my event?",
+      "Give me my booking and payment insights",
+      "What do I need to do next?",
+      "Show my next event and booking details",
+      "What is included in my order?",
+      "Explain my quote, booking, and delivery process",
+      "How much have I paid and what is still due?",
+      "How can I share feedback after my event?"
     ],
     color: "from-blue-500 to-brand-secondary",
     icon: "🎉"
@@ -374,7 +378,10 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
           content: item.content,
           timestamp: new Date(item.created_at),
           navigation: filterRelevantNavigation(item.content, resolvedUserRole, item.metadata?.navigation || []),
-          rendered: normaliseStoredResponse(item.metadata?.response_payload),
+          // Older assistant rows may not have the structured payload saved in
+          // metadata. Re-render their canonical content too, otherwise a
+          // legacy JSON answer bypasses the shared beautifier on history load.
+          rendered: normaliseStoredResponse(item.metadata?.response_payload, item.content),
           intentRoute: item.metadata?.intent_route,
         }));
         setSessionId(payload.sessionId || null);
@@ -418,11 +425,11 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
             const localIndex = current.findIndex((item) => item.id === `local-${clientMessageId}`);
             if (localIndex >= 0) {
               const next = [...current];
-              next[localIndex] = { id: row.id, role: row.role, content: row.content, timestamp: new Date(row.created_at), navigation: filterRelevantNavigation(row.content, resolvedUserRole, row.metadata?.navigation || []), rendered: normaliseStoredResponse(row.metadata?.response_payload), intentRoute: row.metadata?.intent_route };
+              next[localIndex] = { id: row.id, role: row.role, content: row.content, timestamp: new Date(row.created_at), navigation: filterRelevantNavigation(row.content, resolvedUserRole, row.metadata?.navigation || []), rendered: normaliseStoredResponse(row.metadata?.response_payload, row.content), intentRoute: row.metadata?.intent_route };
               return next;
             }
           }
-          return [...current, { id: row.id, role: row.role, content: row.content, timestamp: new Date(row.created_at), navigation: filterRelevantNavigation(row.content, resolvedUserRole, row.metadata?.navigation || []), rendered: normaliseStoredResponse(row.metadata?.response_payload), intentRoute: row.metadata?.intent_route }];
+          return [...current, { id: row.id, role: row.role, content: row.content, timestamp: new Date(row.created_at), navigation: filterRelevantNavigation(row.content, resolvedUserRole, row.metadata?.navigation || []), rendered: normaliseStoredResponse(row.metadata?.response_payload, row.content), intentRoute: row.metadata?.intent_route }];
         });
       })
       .subscribe();

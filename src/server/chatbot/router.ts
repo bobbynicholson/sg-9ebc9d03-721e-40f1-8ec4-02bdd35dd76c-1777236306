@@ -102,6 +102,12 @@ function isCurrentSubscriptionQuestion(message: string): boolean {
     && !/\b(?:pricing|price|cost|how do i|how can i|configure|change|update)\b/.test(message);
 }
 
+function isClientInsightQuestion(message: string, role: string): boolean {
+  if (role !== "client") return false;
+  return /\b(?:insights?|statistics?|stats?|numbers?|totals?|overview|summary|history|spend|activity)\b/.test(message)
+    && /\b(?:my|me|booking|bookings|event|events|order|orders|payment|payments|invoice|invoices|catering|account|client)\b/.test(message);
+}
+
 export function isPlatformOverviewQuestion(message: string): boolean {
   if (/\bplatform financial dashboard\b/.test(message)) return false;
   return /\b(?:platform|whole platform|all companies)\b[\s\S]*\b(?:overview|summary|metrics|dashboard)\b/.test(message)
@@ -143,7 +149,7 @@ export function routeChatQuestion(input: string, role?: string, resolvedIntent?:
     };
   }
   const policyPhrase = message.includes("cancellation policy") || message.includes("cancellation procedure");
-  const live = (intentNeedsLiveData(intent) || hasSignal(message, LIVE_SIGNALS) || isPlatformCompanyStatusQuestion(message) || isPlatformSubscriptionQuestion(message) || isPlatformPlanUsageQuestion(message) || isPlatformCompanySwitchQuestion(message) || isPlatformCompanyOwnerQuestion(message) || isCurrencyConfigurationQuestion(message) || isTechnologyCostQuestion(message) || isPlatformAuditQuestion(message) || isPlatformAiQuestion(message) || isPlatformRoleAccessQuestion(message) || isPlatformHealthQuestion(message) || isCurrentSubscriptionQuestion(message) || isPlatformOverviewQuestion(message))
+  const live = (intentNeedsLiveData(intent) || hasSignal(message, LIVE_SIGNALS) || isClientInsightQuestion(message, normalizedRole) || isPlatformCompanyStatusQuestion(message) || isPlatformSubscriptionQuestion(message) || isPlatformPlanUsageQuestion(message) || isPlatformCompanySwitchQuestion(message) || isPlatformCompanyOwnerQuestion(message) || isCurrencyConfigurationQuestion(message) || isTechnologyCostQuestion(message) || isPlatformAuditQuestion(message) || isPlatformAiQuestion(message) || isPlatformRoleAccessQuestion(message) || isPlatformHealthQuestion(message) || isCurrentSubscriptionQuestion(message) || isPlatformOverviewQuestion(message))
     && !(policyPhrase && !hasSignal(message, ["how many", "count", "this month", "this week", "today", "data", "records"]));
   const knowledge = hasSignal(message, KNOWLEDGE_SIGNALS);
   const action = hasSignal(message, ACTION_SIGNALS);

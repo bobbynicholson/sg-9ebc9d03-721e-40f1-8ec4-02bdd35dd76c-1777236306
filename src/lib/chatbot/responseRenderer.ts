@@ -101,6 +101,89 @@ function cleanText(value: unknown): string {
   return cleaned;
 }
 
+function readJsonStringField(raw: string, field: string): string | null {
+  const key = raw.match(new RegExp(`\\"${field.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}\\"\\s*:`));
+  if (!key || key.index == null) return null;
+  let index = key.index + key[0].length;
+  while (/\s/.test(raw[index] || "")) index += 1;
+  if (raw[index] !== '"') return null;
+  const start = index;
+  index += 1;
+  let escaped = false;
+  for (; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      try {
+        return JSON.parse(raw.slice(start, index + 1));
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+function readPartialDetails(raw: string): string[] {
+  const key = raw.match(/"details"\s*:\s*\[/i);
+  if (!key || key.index == null) return [];
+  let index = key.index + key[0].length;
+  const values: string[] = [];
+  while (index < raw.length) {
+    while (/\s|,/.test(raw[index] || "")) index += 1;
+    if (raw[index] === "]") break;
+    if (raw[index] !== '"') {
+      index += 1;
+      continue;
+    }
+    const start = index;
+    index += 1;
+    let escaped = false;
+    let closed = false;
+    for (; index < raw.length; index += 1) {
+      const char = raw[index];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        try {
+          values.push(JSON.parse(raw.slice(start, index + 1)));
+        } catch {
+          // Ignore a detail that was itself cut off or malformed.
+        }
+        index += 1;
+        closed = true;
+        break;
+      }
+    }
+    if (!closed) break;
+  }
+  return values;
+}
+
+function salvagePartialPayload(raw: string): Record<string, unknown> | null {
+  const message = readJsonStringField(raw, "message");
+  if (!message) return null;
+  const title = readJsonStringField(raw, "title");
+  return {
+    ...(title ? { title } : {}),
+    message,
+    details: readPartialDetails(raw),
+  };
+}
+
 function parsePayload(raw: string): { payload: Record<string, unknown>; structured: boolean } {
   const candidates = [raw.trim()];
   const match = raw.match(/\{[\s\S]*\}/);
@@ -114,8 +197,26 @@ function parsePayload(raw: string): { payload: Record<string, unknown>; structur
     } catch {
       // The model may have returned ordinary text. That is a valid fallback.
     }
+    const partial = salvagePartialPayload(candidate);
+    if (partial) return { payload: partial, structured: true };
   }
   return { payload: { message: raw }, structured: false };
+}
+
+function nestedResponsePayload(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    if (
+      typeof record.message === "string" ||
+      (record.message && typeof record.message === "object" && !Array.isArray(record.message))
+    ) {
+      return record;
+    }
+    return null;
+  }
+  if (typeof value !== "string") return null;
+  const nested = parsePayload(value);
+  return nested.structured ? nested.payload : null;
 }
 
 function responseInputText(raw: unknown): string {
@@ -164,14 +265,24 @@ export function renderChatResponse(raw: unknown): ChatResponsePayload {
   let payload = parsed.payload;
   for (let depth = 0; depth < 3; depth += 1) {
     const nestedValue = payload.message;
-    if (nestedValue && typeof nestedValue === "object" && !Array.isArray(nestedValue)) {
-      payload = { ...payload, ...(nestedValue as Record<string, unknown>) };
+    const nestedMessage = nestedResponsePayload(nestedValue);
+    if (nestedMessage) {
+      payload = { ...payload, ...nestedMessage };
       continue;
     }
-    if (typeof nestedValue !== "string") break;
-    const nested = parsePayload(nestedValue);
-    if (!nested.structured) break;
-    payload = { ...payload, ...nested.payload };
+
+    // Some live-tool adapters put the structured answer in a detail row while
+    // leaving the outer guidance sentence in `message`. Unwrap that shape too;
+    // otherwise the browser receives the inner JSON as a visible bullet.
+    const nestedDetail = Array.isArray(payload.details)
+      ? payload.details.map(nestedResponsePayload).find(Boolean)
+      : null;
+    if (nestedDetail) {
+      payload = { ...payload, ...nestedDetail };
+      continue;
+    }
+
+    break;
   }
   const message = cleanText(payload.message) || "I'm here to help.";
   const title = cleanText(payload.title);

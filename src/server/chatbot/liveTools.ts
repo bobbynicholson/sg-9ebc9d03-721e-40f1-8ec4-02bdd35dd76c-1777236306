@@ -40,6 +40,7 @@ export type LiveToolId =
   | "customer_profile"
   | "customer_bookings"
   | "customer_invoices"
+  | "client_insights"
   | "assigned_deliveries"
   | "driver_earnings"
   | "delivery_orders"
@@ -132,6 +133,7 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "customer_profile", label: "Customer profile", description: "A client’s own profile or approved customer details", category: "identity", roles: [...CLIENT, ...SALES], keywords: ["customer", "client", "contact", "profile", "john", "details"] },
   { id: "customer_bookings", label: "Customer bookings", description: "Bookings and events visible to the signed-in user or sales team", category: "operations", roles: [...CLIENT, ...SALES], keywords: ["booking", "bookings", "event", "order", "appointment", "reservation"] },
   { id: "customer_invoices", label: "Customer invoices", description: "Invoices, balances, and payment status visible to the signed-in user", category: "finance", roles: [...CLIENT, ...SALES], keywords: ["invoice", "invoices", "billing", "payment", "balance", "paid", "due"] },
+  { id: "client_insights", label: "Client event insights", description: "Personal booking, guest, quote, payment, and feedback statistics for the signed-in client", category: "analytics", roles: CLIENT, keywords: ["insight", "insights", "stat", "stats", "statistics", "overview", "summary", "history", "spend", "totals", "how am i doing", "my journey", "my activity", "my numbers"] },
   { id: "assigned_deliveries", label: "Assigned deliveries", description: "The signed-in driver’s delivery assignments and earnings", category: "operations", roles: DRIVER, keywords: ["delivery", "deliveries", "route", "assignment", "assigned", "earnings", "driving"] },
   { id: "driver_earnings", label: "Driver earnings", description: "The signed-in driver’s shift hours, delivery pay, and total earnings for a selected period", category: "finance", roles: ["driver"], keywords: ["earning", "earnings", "pay", "wage", "wages", "worked hours", "shift hours", "hours worked"] },
   { id: "delivery_orders", label: "Delivery order details", description: "Order and venue details for approved delivery work", category: "operations", roles: DRIVER, keywords: ["delivery", "venue", "address", "order details", "guest"] },
@@ -151,7 +153,7 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "team_members", label: "Team members", description: "Company staff directory and role context", category: "people", roles: ADMIN, keywords: ["team", "staff", "employee", "member", "driver", "chef"] },
   { id: "team_roster", label: "Team roster", description: "Names and operational roles in the signed-in user's department", category: "people", roles: [...ADMIN, ...WORKER_ROLES], keywords: ["team", "staff", "employee", "member", "members", "roster", "kitchen", "cleaning", "driver", "waiter", "shopper", "chef"] },
   { id: "staff_orders", label: "My work orders", description: "Orders and events assigned to the signed-in operational staff member", category: "operations", roles: WORKER_ROLES, keywords: ["order", "orders", "event", "job", "jobs", "assignment", "assignments", "work", "today's work", "todays work", "my work"] },
-  { id: "order_items", label: "Order menu items", description: "Menu items, quantities, dietary instructions, and item notes on authorized orders", category: "operations", roles: [...KITCHEN, ...SALES, ...OPERATIONS, ...CLIENT], keywords: ["menu items", "order items", "items on order", "what items", "what is on the order", "food items", "dish", "dishes", "dietary", "allergens"] },
+  { id: "order_items", label: "Order menu items", description: "Menu items, quantities, dietary instructions, and item notes on authorized orders", category: "operations", roles: [...KITCHEN, ...SALES, ...OPERATIONS, ...CLIENT], keywords: ["menu items", "order items", "items on order", "what items", "what is on the order", "what's included", "whats included", "included in my order", "package", "food items", "dish", "dishes", "dietary", "allergens"] },
   { id: "inventory_movements", label: "Inventory movements", description: "Stock receipts, usage, adjustments, and movement history", category: "operations", roles: [...KITCHEN, ...SHOPPING, ...OPERATIONS, ...ADMIN], keywords: ["inventory movement", "stock movement", "stock history", "inventory history", "used stock", "received stock", "adjustment"] },
   { id: "catalogue_menu", label: "Menu and recipes", description: "Available menu items, recipes, preparation times, and recipe ingredients", category: "operations", roles: [...KITCHEN, ...SALES, ...OPERATIONS, ...ADMIN], keywords: ["menu", "menu items", "catalogue", "catalog", "recipe", "recipes", "preparation time", "food cost"] },
   { id: "supplier_records", label: "Suppliers", description: "Supplier records and supplier-linked purchasing information", category: "operations", roles: [...SHOPPING, ...OPERATIONS, ...ADMIN], keywords: ["supplier", "suppliers", "vendor", "vendors", "supplier contact", "supplier product"] },
@@ -196,6 +198,7 @@ const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
   customer_profile: "The client's own profile, or approved customer contact details for sales roles",
   customer_bookings: "The client's own bookings, or company bookings permitted for sales roles",
   customer_invoices: "The client's own invoices and payment status, or approved sales visibility",
+  client_insights: "Aggregated statistics from the signed-in client's own bookings, quotes, invoices, and feedback; no other client's records",
   assigned_deliveries: "Only deliveries assigned to the signed-in driver",
   driver_earnings: "Only the signed-in driver’s own calculated shift and completed-delivery pay for the requested date range",
   delivery_orders: "Only order and venue details linked to the driver's assignments",
@@ -320,6 +323,20 @@ export function selectLiveTools(role: string, message: string, policy: LiveToolP
     const access = eligible.find((tool) => tool.id === (role === "super_admin" ? "platform_ai_access" : "company_ai_access"));
     const identity = eligible.find((tool) => tool.id === "current_user_profile");
     return [access, identity].filter((tool): tool is LiveToolDefinition => Boolean(tool));
+  }
+  const asksTeamRoster = /\b(?:team|staff|employee|employees?|member|members?|roster|names?)\b/.test(normalized)
+    && /\b(?:who|which|what|show|list|give|name|names|overview|details|have|all)\b/.test(normalized)
+    && !/\b(?:schedule|scheduled|shift|shifts|clock|hours?|work\s+time)\b/.test(normalized);
+  if (asksTeamRoster) {
+    const roster = eligible.find((tool) => tool.id === "team_roster");
+    const identity = eligible.find((tool) => tool.id === "current_user_profile");
+    return [roster, identity].filter((tool): tool is LiveToolDefinition => Boolean(tool));
+  }
+  const asksStaffSchedule = /\b(?:schedules?|scheduled|shifts?|rota|planned\s+(?:work|shift))\b/.test(normalized);
+  if (asksStaffSchedule) {
+    const schedule = eligible.find((tool) => tool.id === "staff_shift_schedule");
+    const identity = eligible.find((tool) => tool.id === "current_user_profile");
+    return [schedule, identity].filter((tool): tool is LiveToolDefinition => Boolean(tool));
   }
   const pendingInvitations = role === "super_admin" && matching.find((tool) => tool.id === "platform_pending_invitations");
   if (pendingInvitations) {
@@ -1356,6 +1373,107 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       }
       return rows(db, "invoices", (q) => q.select("invoice_number, due_date, total_amount, amount_paid, balance_due, status, order_id").eq("company_id", companyId).is("deleted_at", null).order("due_date", { ascending: true }).limit(50));
     }
+    case "client_insights": {
+      if (identity.role !== "client" || !companyId) return null;
+
+      const clientRows = await rows(db, "clients", (q) =>
+        q.select("id, client_name").eq("company_id", companyId).eq("user_id", identity.userId).limit(20),
+      );
+      const clientIds = clientRows.map((row: any) => row.id).filter(Boolean);
+      const ownEmail = String(identity.email || "").trim().toLowerCase();
+      const clientFilter = (query: any, column = "client_id") => {
+        if (clientIds.length) return ownEmail
+          ? query.or(`${column}.in.(${clientIds.join(",")}),client_email.eq.${ownEmail}`)
+          : query.in(column, clientIds);
+        return ownEmail ? query.eq("client_email", ownEmail) : query.in(column, ["00000000-0000-0000-0000-000000000000"]);
+      };
+
+      const [orders, quotes, invoices, feedback] = await Promise.all([
+        rows(db, "orders", (q) => clientFilter(
+          q.select("id, order_number, event_name, event_date, event_time, venue_name, guest_count, status, total_amount, payment_status")
+            .eq("company_id", companyId).is("deleted_at", null),
+        ).order("event_date", { ascending: true }).limit(200)),
+        rows(db, "quotes", (q) => clientFilter(q.select("quote_number, status, total_amount, total, event_date, valid_until").eq("company_id", companyId).is("deleted_at", null)).order("created_at", { ascending: false }).limit(200)),
+        clientIds.length
+          ? rows(db, "invoices", (q) => q.select("invoice_number, total_amount, amount_paid, balance_due, status, due_date").eq("company_id", companyId).is("deleted_at", null).in("client_id", clientIds).order("due_date", { ascending: false }).limit(200))
+          : Promise.resolve([]),
+        clientIds.length
+          ? rows(db, "delivery_feedback", (q) => q.select("overall_rating, created_at").eq("company_id", companyId).in("client_id", clientIds).order("created_at", { ascending: false }).limit(100))
+          : Promise.resolve([]),
+      ]);
+
+      const today = new Date().toISOString().slice(0, 10);
+      const normaliseStatus = (value: unknown) => String(value || "unknown").trim().toLowerCase() || "unknown";
+      const closedStatuses = new Set(["cancelled", "canceled", "deleted"]);
+      const completedStatuses = new Set(["completed", "delivered", "closed", "fulfilled"]);
+      const upcoming = orders.filter((order: any) => {
+        const date = String(order.event_date || "").slice(0, 10);
+        return date >= today && !closedStatuses.has(normaliseStatus(order.status));
+      });
+      const completed = orders.filter((order: any) => completedStatuses.has(normaliseStatus(order.status)));
+      const totalGuests = orders.reduce((sum: number, order: any) => sum + Math.max(0, Number(order.guest_count) || 0), 0);
+      const orderValue = orders
+        .filter((order: any) => !closedStatuses.has(normaliseStatus(order.status)))
+        .reduce((sum: number, order: any) => sum + (Number(order.total_amount) || 0), 0);
+      const invoiceTotal = invoices.reduce((sum: number, invoice: any) => sum + (Number(invoice.total_amount) || 0), 0);
+      const amountPaid = invoices.reduce((sum: number, invoice: any) => sum + (Number(invoice.amount_paid) || 0), 0);
+      const balanceDue = invoices.reduce((sum: number, invoice: any) => sum + Math.max(0, Number(invoice.balance_due) || 0), 0);
+      const ratings = feedback.map((row: any) => Number(row.overall_rating)).filter((value: number) => Number.isFinite(value) && value > 0);
+      const quoteStatuses = quotes.reduce((counts: Record<string, number>, quote: any) => {
+        const status = normaliseStatus(quote.status);
+        counts[status] = (counts[status] || 0) + 1;
+        return counts;
+      }, {});
+      const orderStatuses = orders.reduce((counts: Record<string, number>, order: any) => {
+        const status = normaliseStatus(order.status);
+        counts[status] = (counts[status] || 0) + 1;
+        return counts;
+      }, {});
+      const nextEvent = upcoming[0] || null;
+      const lastEvent = [...orders]
+        .filter((order: any) => String(order.event_date || "").slice(0, 10) < today)
+        .sort((left: any, right: any) => String(right.event_date || "").localeCompare(String(left.event_date || "")))[0] || null;
+
+      return {
+        client_name: clientRows[0]?.client_name || null,
+        totals: {
+          bookings: orders.length,
+          upcoming_bookings: upcoming.length,
+          completed_bookings: completed.length,
+          cancelled_bookings: orders.filter((order: any) => closedStatuses.has(normaliseStatus(order.status))).length,
+          total_guests: totalGuests,
+          average_guests_per_booking: orders.length ? Math.round((totalGuests / orders.length) * 10) / 10 : 0,
+          booking_value: Math.round(orderValue * 100) / 100,
+          quotes: quotes.length,
+          invoices: invoices.length,
+          invoice_total: Math.round(invoiceTotal * 100) / 100,
+          amount_paid: Math.round(amountPaid * 100) / 100,
+          balance_due: Math.round(balanceDue * 100) / 100,
+          payment_completion_percent: invoiceTotal > 0 ? Math.round((amountPaid / invoiceTotal) * 1000) / 10 : null,
+          feedback_submissions: ratings.length,
+          average_rating: ratings.length ? Math.round((ratings.reduce((sum, value) => sum + value, 0) / ratings.length) * 10) / 10 : null,
+        },
+        booking_statuses: orderStatuses,
+        quote_statuses: quoteStatuses,
+        next_event: nextEvent ? {
+          order_number: nextEvent.order_number || null,
+          event_name: nextEvent.event_name || null,
+          event_date: nextEvent.event_date || null,
+          event_time: nextEvent.event_time || null,
+          venue_name: nextEvent.venue_name || null,
+          guest_count: nextEvent.guest_count ?? null,
+          status: nextEvent.status || null,
+        } : null,
+        last_event: lastEvent ? {
+          order_number: lastEvent.order_number || null,
+          event_name: lastEvent.event_name || null,
+          event_date: lastEvent.event_date || null,
+          status: lastEvent.status || null,
+        } : null,
+        as_of: new Date().toISOString(),
+        scope: "signed-in client only",
+      };
+    }
     case "assigned_deliveries":
       return loadDriverDeliveries(db, identity);
     case "driver_earnings": {
@@ -1478,6 +1596,11 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
       const filtered = department
         ? profiles.filter((profile: any) => profileBelongsToTeam(profile, departmentRows, department))
         : profiles;
+      const filteredIds = filtered.map((profile: any) => profile.id).filter(Boolean);
+      const activeSessions = filteredIds.length
+        ? await rows(db, "role_work_sessions", (q) => q.select("user_id, started_at").eq("company_id", companyId).in("user_id", filteredIds).is("ended_at", null))
+        : [];
+      const activeByUser = new Map(activeSessions.map((session: any) => [String(session.user_id), session]));
       return {
         department,
         members: filtered.map((profile: any) => ({
@@ -1486,6 +1609,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
           role: profile.role,
           active_role: profile.active_role,
           is_active: profile.is_active !== false,
+          duty_status: activeByUser.has(String(profile.id)) ? "on duty" : "off duty",
         })),
         private_fields_excluded: ["email", "phone", "hourly_rate", "earnings"],
       };

@@ -120,10 +120,10 @@ export const CHAT_ROLE_DEFINITIONS: Record<string, ChatRoleDefinition> = {
   },
   client: {
     label: "Client",
-    purpose: "Help the client understand their own bookings, event details, payments, and next steps.",
-    capabilities: ["their orders", "their event details", "their invoice and payment status", "booking guidance"],
-    liveData: ["the client's own client record", "the client's own orders", "the client's own invoices"],
-    restrictions: [INTERNAL_RESTRICTION, "Never reveal internal notes, staff data, supplier data, or another client's records."],
+    purpose: "Help the client understand the CateringMS portal, follow their event journey, and make informed decisions about their own bookings.",
+    capabilities: ["portal and event-process guidance", "their bookings and event details", "personal booking and payment insights", "quotes, tracking, billing, notifications, and feedback"],
+    liveData: ["the client's own client record", "the client's own bookings and quotes", "the client's own invoices and payment status", "the client's own feedback and safe aggregate insights"],
+    restrictions: [INTERNAL_RESTRICTION, "Never reveal internal notes, staff data, supplier data, operational costs, or another client's records."],
   },
   staff: {
     label: "Staff member",

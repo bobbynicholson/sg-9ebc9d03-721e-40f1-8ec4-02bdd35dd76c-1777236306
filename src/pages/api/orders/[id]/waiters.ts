@@ -59,8 +59,8 @@ function formatEventTime(value: string | null | undefined): string {
   return String(value).slice(0, 5);
 }
 
-async function sendWaiterAssignmentEmail(admin: any, order: any, waiter: any) {
-  if (!waiter?.email) return;
+async function sendWaiterAssignmentEmail(admin: any, order: any, waiter: any): Promise<boolean> {
+  if (!waiter?.email) return false;
 
   const { data: company } = await admin
     .from("companies")
@@ -112,6 +112,7 @@ async function sendWaiterAssignmentEmail(admin: any, order: any, waiter: any) {
   if (!result.success) {
     console.warn("[orders/waiters] waiter assignment email failed:", result.error || result.error_code);
   }
+  return !!result.success;
 }
 
 async function resolveCaller(req: NextApiRequest, res: NextApiResponse) {
@@ -390,9 +391,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         } as any)
         .eq("id", orderId);
 
+      let notificationCreated = false;
       try {
         const { notificationService } = await import("@/services/notificationService");
-        await notificationService.createNotification({
+        const notification = await notificationService.createNotification({
           company_id: order.company_id,
           recipient_id: waiterId,
           user_id: caller.user.id,
@@ -406,12 +408,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           related_entity_id: orderId,
           dedup: true,
         }, admin);
+        notificationCreated = !!notification;
       } catch (notifyErr) {
         console.warn("[orders/waiters] waiter notification failed:", notifyErr);
       }
 
+      let assignmentEmailSent = false;
       try {
-        await sendWaiterAssignmentEmail(admin, order, waiter);
+        assignmentEmailSent = await sendWaiterAssignmentEmail(admin, order, waiter);
       } catch (emailErr) {
         console.warn("[orders/waiters] waiter assignment email crashed:", emailErr);
       }
@@ -433,7 +437,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         console.warn("[orders/waiters] audit insert failed:", auditErr);
       }
 
-      return res.status(200).json({ ok: true, assignment, waiter, access_email: accessEmail });
+      return res.status(200).json({
+        ok: true,
+        assignment,
+        waiter,
+        access_email: accessEmail,
+        notification_created: notificationCreated,
+        assignment_email_sent: assignmentEmailSent,
+      });
     }
 
     if (req.method === "DELETE") {

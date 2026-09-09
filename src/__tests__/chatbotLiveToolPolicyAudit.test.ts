@@ -356,6 +356,36 @@ describe("chatbot live-data policy catalog", () => {
     expect(answer.text).not.toContain("[object Object]");
   });
 
+  it("answers kitchen recipe and pricing questions directly from catalogue data", async () => {
+    const answer = await generateChatReply({
+      identity: { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
+      message: "Tell me all recipes and pricing",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({
+        catalogue_menu: {
+          menu_items: [
+            { id: "menu-1", item_name: "Lamb Ribs Half Portion", base_price: 250 },
+            { id: "menu-2", item_name: "Malva Pudding & Custard", category: "Dessert", base_price: null },
+          ],
+          recipes: [
+            { menu_item_id: "menu-1", recipe_name: "Lamb Ribs Half Portion", base_servings: 10, prep_time_minutes: 15, cook_time_minutes: 30 },
+            { menu_item_id: "menu-2", recipe_name: "Malva Pudding & Custard", base_servings: 6, prep_time_minutes: 10, cook_time_minutes: 0 },
+          ],
+        },
+      })}`,
+      knowledge: [],
+      navigation: [],
+    });
+
+    expect(answer.provider).toBe("live-data");
+    expect(answer.rendered.title).toBe("Recipes & Pricing");
+    expect(answer.rendered.details.join(" ")).toContain("Lamb Ribs Half Portion");
+    expect(answer.rendered.details.join(" ")).toContain("price R 250,00");
+    expect(answer.rendered.details.join(" ")).toContain("Malva Pudding & Custard");
+    expect(answer.rendered.details.join(" ")).toContain("price not available");
+    expect(answer.rendered.text).not.toContain('{"title"');
+  });
+
   it("answers a typo-tolerant weekly kitchen question from live rows", async () => {
     const answer = await generateChatReply({
       identity: { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
@@ -413,6 +443,32 @@ describe("chatbot live-data policy catalog", () => {
     const selected = selectLiveTools("kitchen_staff", "Is there anything for hti sweek?");
 
     expect(selected.map((tool) => tool.id)).toEqual(expect.arrayContaining(["kitchen_orders", "kitchen_prep_tasks"]));
+  });
+
+  it("keeps valid team wording on the roster tool instead of fuzzy-matching it to inventory", () => {
+    expect(selectLiveTools("kitchen_staff", "give me team overview").map((tool) => tool.id))
+      .toEqual(["team_roster", "current_user_profile"]);
+  });
+
+  it("selects and answers the staff schedule tool for plural schedule wording", async () => {
+    expect(selectLiveTools("kitchen_staff", "what are my schedules tell me here now").map((tool) => tool.id))
+      .toEqual(["staff_shift_schedule", "current_user_profile"]);
+    const answer = await generateChatReply({
+      identity: { userId: "kitchen-1", companyId: "company-1", role: "kitchen_staff", fullName: "Chef John", regionId: null, regionsCovered: [] },
+      message: "what are my schedules tell me here now",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({
+        staff_shift_schedule: {
+          shifts: [{ shift_date: "2026-09-09", shift_type: "kitchen", planned_start: "2026-09-09T10:00:00.000Z", planned_end: "2026-09-09T14:00:00.000Z", status: "planned" }],
+          tasks: [],
+        },
+      })}`,
+      knowledge: [],
+      navigation: [],
+    });
+    expect(answer.rendered.title).toBe("My schedule");
+    expect(answer.rendered.details.join(" ")).toContain("2026-09-09");
+    expect(answer.text).not.toContain('{"title"');
   });
 
   it("answers kitchen inventory questions from stock rows instead of inventing menu items", async () => {

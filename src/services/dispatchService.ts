@@ -18,8 +18,26 @@ import { shiftService } from "./shiftService";
  * Nothing here mutates state silently. Every assignment writes to
  * order_assignment_audit so dispatch decisions are traceable.
  */
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { notificationService } from "./notificationService";
+
+// Dispatch is used by browser pages and by the server-side order cascade.
+// The server path must use service role; the browser client has no session in
+// cron/webhook execution and would make the assignment itself + its audit and
+// notification writes fail behind RLS.
+function resolveServerClient(): any {
+  if (typeof window !== "undefined") return browserSupabase;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+    return getServiceSupabase();
+  } catch {
+    return browserSupabase;
+  }
+}
+const supabase: any = resolveServerClient();
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,6 +129,18 @@ export interface DispatchSuggestion {
   capacity: { ok: boolean; current: number; max: number | null; reason?: string };
   feasibility: { ok: boolean; etaMinutes: number | null; reason?: string };
   vehicle: { ok: boolean; reason?: string; refrigerated?: boolean };
+  /** A hard schedule conflict is never assignable, regardless of other gates. */
+  scheduleConflict?: {
+    orderId: string;
+    orderNumber: string;
+    eventTime: string;
+    reason: string;
+  };
+}
+
+export interface DriverUnassignResult {
+  ok: boolean;
+  reason?: string;
 }
 
 // ── Geo helpers ──────────────────────────────────────────────────────────────
@@ -411,16 +441,21 @@ export const dispatchService = {
 
     let q = supabase
       .from("orders")
-      .select("id, order_number, event_time")
-      .eq("assigned_driver_id", driverId)
+      .select("id, order_number, event_time, assigned_driver_id, driver_id")
       .eq("event_date", eventDate)
       .in("status", ["confirmed", "preparing", "ready", "in_transit"])
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      // Older dispatch rows may only have driver_id populated. Read both
+      // columns while the schema is being migrated so those assignments
+      // cannot bypass the overlap gate.
+      .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId}`);
     if (ignoreOrderId) q = q.neq("id", ignoreOrderId);
     const { data, error } = await q;
     if (error) {
       console.warn("Error checking double-booking:", error);
-      return { ok: true };
+      // A missing schedule read must never be treated as a clean schedule.
+      // Fail closed so a transient/RLS error cannot create a double-booking.
+      return { ok: false, reason: "We could not verify this driver's schedule. Refresh and try again before assigning." };
     }
 
     const minutesOf = (hhmm: string | null) => {
@@ -434,7 +469,7 @@ export const dispatchService = {
     if (newMin === null) return { ok: true };
     const bufMin = buffer * 60;
 
-    for (const row of (data || []) as Array<{ id: string; order_number: string | null; event_time: string | null }>) {
+    for (const row of (data || []) as Array<{ id: string; order_number: string | null; event_time: string | null; assigned_driver_id?: string | null; driver_id?: string | null }>) {
       const otherMin = minutesOf(row.event_time);
       if (otherMin === null) continue;
       if (Math.abs(newMin - otherMin) < bufMin) {
@@ -443,7 +478,7 @@ export const dispatchService = {
           conflictOrderId: row.id,
           conflictOrderNumber: row.order_number ?? row.id.slice(0, 8),
           conflictTime: row.event_time ?? undefined,
-          reason: `Driver already on order ${row.order_number ?? row.id.slice(0, 8)} at ${row.event_time} (within ${buffer}h window).`,
+          reason: `This driver is already assigned to order ${row.order_number ?? row.id.slice(0, 8)} at ${row.event_time}. The two jobs are scheduled too close together and may overlap.`,
         };
       }
     }
@@ -512,6 +547,40 @@ export const dispatchService = {
     const loadMap = await this.getDriverLoadMap(driverIds, order.event_date);
     const metricsByDriver = await this.getDriverDispatchMetrics(companyId, driverIds, 30);
 
+    // Load the same-day assignments once so the picker can put a clean
+    // driver first and make a conflicting driver visibly unavailable. The
+    // final assign gate below still re-checks this immediately before the
+    // write, so a concurrent dispatcher cannot bypass the rule.
+    const { data: sameDayOrders } = await supabase
+      .from("orders")
+      .select("id, assigned_driver_id, driver_id, order_number, event_time")
+      .eq("company_id", companyId)
+      .eq("event_date", order.event_date)
+      .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+      .is("deleted_at", null);
+    const timeToMinutes = (value: string | null | undefined) => {
+      if (!value) return null;
+      const [h, m] = value.split(":").map((part) => Number(part));
+      if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+      return h * 60 + m;
+    };
+    const requestedMinutes = timeToMinutes(order.event_time);
+    const conflictByDriver: Record<string, DispatchSuggestion["scheduleConflict"]> = {};
+    if (requestedMinutes !== null) {
+      for (const row of (sameDayOrders || []) as Array<{ id: string; assigned_driver_id: string | null; driver_id: string | null; order_number: string | null; event_time: string | null }>) {
+        const rowDriverId = row.assigned_driver_id ?? row.driver_id;
+        if (!rowDriverId || row.id === order.id) continue;
+        const otherMinutes = timeToMinutes(row.event_time);
+        if (otherMinutes === null || Math.abs(requestedMinutes - otherMinutes) >= 3 * 60) continue;
+        conflictByDriver[rowDriverId] = {
+          orderId: row.id,
+          orderNumber: row.order_number ?? row.id.slice(0, 8),
+          eventTime: row.event_time ?? "the scheduled time",
+          reason: `Already assigned to ${row.order_number ?? row.id.slice(0, 8)} at ${row.event_time}. The two jobs are scheduled too close together and may overlap.`,
+        };
+      }
+    }
+
     // Current location for each driver - single-row-per-driver lookup
     // off driver_locations (P1-23 split).
     const { data: gpsRows } = await (supabase as any)
@@ -570,11 +639,12 @@ export const dispatchService = {
             : { ok: true, refrigerated: true }
         : { ok: true, refrigerated: !!driverVehicle?.refrigerated };
 
-      return { driver: driverWithMetrics, score, capacity, feasibility, vehicle };
+      return { driver: driverWithMetrics, score, capacity, feasibility, vehicle, scheduleConflict: conflictByDriver[d.id] };
     });
 
     // Sort by score desc, demoting candidates that fail any hard gate.
     suggestions.sort((a, b) => {
+      if (!!a.scheduleConflict !== !!b.scheduleConflict) return a.scheduleConflict ? 1 : -1;
       if (a.capacity.ok    !== b.capacity.ok)    return a.capacity.ok    ? -1 : 1;
       if (a.vehicle.ok     !== b.vehicle.ok)     return a.vehicle.ok     ? -1 : 1;
       if (a.feasibility.ok !== b.feasibility.ok) return a.feasibility.ok ? -1 : 1;
@@ -698,9 +768,9 @@ export const dispatchService = {
     skipVehicleAutoBook?: boolean;
   }): Promise<{ ok: boolean; reason?: string; vehicleNote?: string; conflictWarning?: string }> {
     // Fetch existing assignment to capture from_driver_id
-    const { data: existing } = await supabase
-      .from("orders")
-      .select("assigned_driver_id, event_date, event_time, venue_lat, venue_lng, requires_refrigeration, guest_count, requires_waiter, region_id, order_number")
+      const { data: existing } = await supabase
+        .from("orders")
+        .select("assigned_driver_id, client_id, event_date, event_time, venue_lat, venue_lng, requires_refrigeration, guest_count, requires_waiter, region_id, order_number")
       .eq("id", payload.orderId)
       .maybeSingle();
 
@@ -713,11 +783,9 @@ export const dispatchService = {
     // overlapping job, so the same driver could land two events three
     // hours apart with no warning. New shape:
     //   - enforceGates=true  -> refuse on conflict (current strict)
-    //   - enforceGates=false -> assign anyway, attach conflictWarning
-    //                            to the result, broadcast a high-
-    //                            priority admin notification so the
-    //                            operator sees it in the bell, not
-    //                            just on the dispatch page.
+    //   - a time conflict is always refused. Capacity, feasibility, and
+    //     vehicle gates may still use the existing explicit override flow,
+    //     but one driver must never be assigned to overlapping events.
     let conflictWarning: string | undefined;
     if (existing) {
       if (payload.enforceGates) {
@@ -738,44 +806,7 @@ export const dispatchService = {
         ignoreOrderId: payload.orderId,
       });
       if (!conflict.ok) {
-        if (payload.enforceGates) {
-          return { ok: false, reason: conflict.reason };
-        }
-        // Warn path: stash the message, fire an admin broadcast, and
-        // keep going. The dispatcher chose this driver knowingly; we
-        // just make sure no one is surprised later.
-        conflictWarning = conflict.reason;
-        try {
-          const { notificationService } = await import("./notificationService");
-          const { data: driverProfile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", payload.driverId)
-            .maybeSingle();
-          await notificationService.broadcastNotification({
-            companyId: payload.companyId,
-            regionId: (existing as any).region_id || null,
-            targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
-            title: `Driver double-booked`,
-            message:
-              `${(driverProfile as any)?.full_name || "Driver"} is now on order ` +
-              `${(existing as any).order_number || payload.orderId.slice(0, 8)} ` +
-              `at ${(existing as any).event_time || "?"}, but already has ` +
-              `${conflict.conflictOrderNumber} at ${conflict.conflictTime}. ` +
-              `Reassign one of them before the events clash.`,
-            type: "driver_double_booked",
-            priority: "high",
-            link: `/order/${payload.orderId}?role=admin`,
-            relatedEntityType: "order",
-            relatedEntityId: payload.orderId,
-            metadata: {
-              driverId: payload.driverId,
-              conflictOrderId: conflict.conflictOrderId,
-            },
-          } as any);
-        } catch (notifErr) {
-          console.warn("[assignDriverWithGate] conflict broadcast failed:", notifErr);
-        }
+        return { ok: false, reason: conflict.reason };
       }
     }
 
@@ -922,9 +953,36 @@ export const dispatchService = {
         related_entity_type: "order",
         related_entity_id: payload.orderId,
         dedup: true,
-      });
+      }, supabase);
     } catch (notifyErr) {
       console.warn("[dispatchService] driver-assigned notification failed:", notifyErr);
+    }
+
+    // Keep the client informed from the active dispatch path as well. The
+    // legacy orderWorkflow.assignDriver helper had this side effect, but the
+    // dispatch queue uses assignDriverWithGate directly. Client recipients
+    // are intentionally excluded from the driver email preference inside
+    // notificationService; their normal order-status/customer mail remains
+    // the email source of truth.
+    try {
+      const clientUserId = await resolveClientUserId(supabase, (existing as any)?.client_id || null);
+      if (clientUserId) {
+        await notificationService.createNotification({
+          company_id: payload.companyId,
+          recipient_id: clientUserId,
+          user_id: clientUserId,
+          notification_type: "driver_assigned",
+          title: "Your driver is assigned",
+          message: `A driver has been assigned to deliver order ${(existing as any)?.order_number || payload.orderId}. You will receive tracking updates when the delivery starts.`,
+          priority: "normal",
+          link: `/client-portal/tracking?orderId=${encodeURIComponent(payload.orderId)}`,
+          related_entity_type: "order",
+          related_entity_id: payload.orderId,
+          dedup: true,
+        }, supabase);
+      }
+    } catch (clientNotifyErr) {
+      console.warn("[dispatchService] client driver-assigned notification failed:", clientNotifyErr);
     }
 
     // Auto-book the best vehicle for the run, unless the caller has
@@ -1032,22 +1090,82 @@ export const dispatchService = {
     orderId: string;
     performedBy: string;
     reason?: string;
-  }): Promise<boolean> {
+  }): Promise<DriverUnassignResult> {
     const { data: existing } = await supabase
       .from("orders")
-      .select("assigned_driver_id")
+      .select("company_id, assigned_driver_id, driver_id, status, picked_up_at, arrived_at_venue_at, delivered_at")
       .eq("id", payload.orderId)
       .maybeSingle();
-    const fromDriverId = existing?.assigned_driver_id ?? null;
+    if (!existing) return { ok: false, reason: "This order could not be found. Refresh the dispatch queue and try again." };
+    if (existing.company_id !== payload.companyId) return { ok: false, reason: "This order belongs to a different company." };
+    // Keep legacy driver_id in the fallback while old rows are still being
+    // normalised. This lets an admin remove a stale assignment as well.
+    const fromDriverId = existing?.assigned_driver_id ?? existing?.driver_id ?? null;
+    if (!fromDriverId) return { ok: false, reason: "This order does not currently have a driver assigned." };
+
+    // Removing a driver is a pre-start action only. Check both canonical
+    // order milestones and the delivery assignment row because older flows
+    // may stamp one before the other.
+    const orderStarted = ["in_transit", "delivered", "completed"].includes(String(existing.status)) ||
+      !!existing.picked_up_at || !!existing.arrived_at_venue_at || !!existing.delivered_at;
+    const { data: assignmentRows, error: assignmentError } = await (supabase as any)
+      .from("driver_assignments")
+      .select("id, status, en_route_at, picked_up_at, arrived_at_venue_at, delivered_at")
+      .eq("company_id", payload.companyId)
+      .eq("order_id", payload.orderId)
+      .eq("driver_id", fromDriverId)
+      .eq("assignment_type", "delivery");
+    if (assignmentError) {
+      console.warn("[dispatchService] could not verify driver assignment state:", assignmentError);
+      return { ok: false, reason: "The delivery start state could not be verified. Refresh and try again." };
+    }
+    const startedStatuses = new Set(["en_route", "picked_up", "at_venue", "delivered", "completed"]);
+    const assignmentStarted = (assignmentRows || []).some((row: any) =>
+      startedStatuses.has(String(row.status)) ||
+      !!row.en_route_at || !!row.picked_up_at || !!row.arrived_at_venue_at || !!row.delivered_at,
+    );
+    if (orderStarted || assignmentStarted) {
+      return { ok: false, reason: "This driver cannot be removed because the delivery has already started." };
+    }
 
     // Mirror the unassign on the legacy column so reads that still
     // route through driver_id (deliveries view, dashboard
     // subscriptions) don't keep the stale link visible.
-    const { error } = await supabase
+    const { data: updatedOrders, error } = await supabase
       .from("orders")
       .update({ assigned_driver_id: null, driver_id: null, assignment_score: null })
-      .eq("id", payload.orderId);
+      .eq("id", payload.orderId)
+      .eq("company_id", payload.companyId)
+      .or(`assigned_driver_id.eq.${fromDriverId},driver_id.eq.${fromDriverId}`)
+      .select("id");
     if (error) throw error;
+    if (!updatedOrders || updatedOrders.length === 0) {
+      return { ok: false, reason: "The assignment changed while you were removing it. Refresh the dispatch queue and try again." };
+    }
+
+    // Also retire the pre-start assignment row. Clearing only the order
+    // columns leaves the old driver able to see the job through the
+    // driver_assignments feed. Keep it for audit/history, but make it
+    // terminal so it no longer appears as actionable work.
+    if ((assignmentRows || []).length > 0) {
+      const { error: cancelError } = await (supabase as any)
+        .from("driver_assignments")
+        .update({
+          status: "cancelled",
+          rejection_reason: payload.reason ?? "Driver unassigned before delivery started",
+        })
+        .eq("company_id", payload.companyId)
+        .eq("order_id", payload.orderId)
+        .eq("driver_id", fromDriverId)
+        .eq("assignment_type", "delivery")
+        .in("status", ["assigned", "accepted"]);
+      if (cancelError) {
+        // The order link is already cleared, so do not report a false
+        // success silently. The warning is retained for diagnosis while
+        // the order remains safely unassigned.
+        console.warn("[dispatchService] driver assignment retirement failed:", cancelError);
+      }
+    }
 
     // Flow audit Leg E P0-13: previously unassignDriver only flipped
     // the order column. The downstream cascade (release the vehicle
@@ -1079,7 +1197,7 @@ export const dispatchService = {
       performed_by: payload.performedBy,
       reason: payload.reason ?? "Unassigned",
     }]);
-    return true;
+    return { ok: true };
   },
 
   // ── KPIs ──────────────────────────────────────────────────────────────────

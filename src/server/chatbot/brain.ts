@@ -21,6 +21,7 @@ export interface ChatIdentity {
   companyId: string | null;
   role: string;
   fullName: string;
+  email?: string | null;
   regionId: string | null;
   regionsCovered: string[];
 }
@@ -53,7 +54,7 @@ const EMBEDDING_MAX_ATTEMPTS = 3;
 export async function resolveChatIdentity(db: Db, userId: string): Promise<ChatIdentity | null> {
   const { data, error } = await db
     .from("profiles")
-    .select("id, company_id, role, active_role, full_name, region_id, regions_covered")
+    .select("id, company_id, role, active_role, full_name, email, region_id, regions_covered")
     .eq("id", userId)
     .maybeSingle();
   if (error || !data) return null;
@@ -73,6 +74,7 @@ export async function resolveChatIdentity(db: Db, userId: string): Promise<ChatI
     companyId: isPlatformAdmin ? null : data.company_id || null,
     role,
     fullName: String(data.full_name || "there"),
+    email: data.email || null,
     regionId: data.region_id || null,
     regionsCovered: Array.isArray(data.regions_covered) ? data.regions_covered.filter(Boolean).map(String) : [],
   };
@@ -1613,6 +1615,9 @@ function directTeamRosterAnswer(args: {
   const department = String(roster.department || "").trim();
   const label = department ? `${department.charAt(0).toUpperCase()}${department.slice(1)}` : "Company";
   const members = roster.members.filter((member: any) => member && String(member.full_name || member.role || "").trim());
+  const onDuty = members.filter((member: any) => String(member.duty_status || "").toLowerCase() === "on duty").length;
+  const hasDutyStatus = members.some((member: any) => member.duty_status);
+  const offDuty = Math.max(members.length - onDuty, 0);
   const details = members.slice(0, 30).map((member: any) => {
     const name = String(member.full_name || "Unnamed team member").trim();
     const role = String(member.active_role || member.role || "team member").replace(/[_-]+/g, " ").trim();
@@ -1622,13 +1627,105 @@ function directTeamRosterAnswer(args: {
   if (!members.length) {
     details.push(`No active ${department || "team"} members are currently listed. Ask a company administrator to assign users to this department.`);
   }
+  if (hasDutyStatus) details.unshift(`Duty status: ${onDuty} on duty; ${offDuty} off duty.`);
   details.push("Names and work roles are shown here; private contact details and pay information are not included.");
   const rendered = renderChatResponse(JSON.stringify({
     title: `${label} team members`,
     message: members.length
-      ? `I found ${members.length} active ${department || "company"} team member${members.length === 1 ? "" : "s"}.`
+      ? `I found ${members.length} active ${department || "company"} team member${members.length === 1 ? "" : "s"}${hasDutyStatus ? `; ${onDuty} currently on duty.` : "."}`
       : `I could not find any active ${department || "company"} team members in the current records.`,
     details,
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
+function directStaffScheduleAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (!args.identity.companyId || !/\b(?:schedules?|scheduled|shifts?|rota|planned\s+(?:work|shift))\b/i.test(args.message)) return null;
+  const schedule = liveToolResult(args.liveContext, "staff_shift_schedule");
+  if (!schedule) return null;
+  const shifts = Array.isArray(schedule.shifts) ? schedule.shifts : [];
+  const tasks = Array.isArray(schedule.tasks) ? schedule.tasks : [];
+  const details: string[] = shifts.slice(0, 30).map((shift: any, index: number) => {
+    const date = String(shift.shift_date || "Date not provided").slice(0, 10);
+    const type = String(shift.shift_type || "general").replace(/[_-]+/g, " ");
+    const start = shift.planned_start ? ` from ${String(shift.planned_start).slice(11, 16)}` : "";
+    const end = shift.planned_end ? ` to ${String(shift.planned_end).slice(11, 16)}` : "";
+    const status = shift.status ? `; status ${String(shift.status).replace(/[_-]+/g, " ")}` : "";
+    return `${index + 1}. ${date} — ${type}${start}${end}${status}.`;
+  });
+  details.push(...tasks.slice(0, 20).map((task: any) => {
+    const type = String(task.task_type || "scheduled task").replace(/[_-]+/g, " ");
+    const start = task.planned_start ? ` at ${String(task.planned_start).slice(11, 16)}` : "";
+    const end = task.planned_end ? `–${String(task.planned_end).slice(11, 16)}` : "";
+    return `Task: ${type}${start}${end}.`;
+  }));
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "My schedule",
+    message: shifts.length || tasks.length
+      ? `I found ${shifts.length} scheduled shift${shifts.length === 1 ? "" : "s"}${tasks.length ? ` and ${tasks.length} scheduled task${tasks.length === 1 ? "" : "s"}` : ""}.`
+      : "There are no scheduled shifts or tasks for you in the selected period.",
+    details: details.length ? details : ["No shift or task details are currently recorded."],
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
+function kitchenMoney(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return null;
+  return new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency: "ZAR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function directKitchenCatalogueAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (!( ["kitchen_manager", "kitchen_staff"].includes(args.identity.role))) return null;
+  if (!/\b(?:recipe|recipes|menu|menus|catalogue|catalog|dessert|desserts)\b/i.test(args.message)) return null;
+
+  const catalogue = liveToolResult(args.liveContext, "catalogue_menu");
+  if (!catalogue) return null;
+  const menuItems = Array.isArray(catalogue.menu_items) ? catalogue.menu_items : [];
+  const recipes = Array.isArray(catalogue.recipes) ? catalogue.recipes : [];
+  const menuById = new Map(menuItems.map((item: any) => [String(item.id), item]));
+  const asksDessert = /\b(?:dessert|desserts|sweet|sweets)\b/i.test(args.message);
+  const recipeRows = recipes
+    .map((recipe: any) => ({ recipe, menu: menuById.get(String(recipe.menu_item_id)) }))
+    .filter(({ recipe, menu }) => !asksDessert || /dessert|sweet/i.test(`${recipe.recipe_name || ""} ${menu?.item_name || ""} ${menu?.category || ""}`));
+  const rows = recipeRows.length ? recipeRows : menuItems
+    .filter((item: any) => !asksDessert || /dessert|sweet/i.test(`${item.item_name || ""} ${item.category || ""}`))
+    .map((menu: any) => ({ recipe: null, menu }));
+
+  const details = rows.slice(0, 24).map(({ recipe, menu }: { recipe: any; menu: any }, index) => {
+    const name = String(recipe?.recipe_name || menu?.item_name || "Unnamed recipe").trim();
+    const servings = recipe?.base_servings != null ? `${recipe.base_servings} servings` : "servings not provided";
+    const prep = recipe?.prep_time_minutes != null ? `${recipe.prep_time_minutes} min prep` : "prep time not provided";
+    const cook = recipe?.cook_time_minutes != null ? `${recipe.cook_time_minutes} min cook` : "cook time not provided";
+    const price = kitchenMoney(menu?.base_price);
+    return `${index + 1}. ${name} — ${servings}, ${prep}, ${cook}; price ${price || "not available"}.`;
+  });
+  if (rows.length > details.length) details.push(`Showing ${details.length} of ${rows.length} catalogue items.`);
+
+  const priced = rows.filter(({ menu }: { menu: any }) => kitchenMoney(menu?.base_price) != null).length;
+  const title = asksDessert ? "Desserts" : "Recipes & Pricing";
+  const rendered = renderChatResponse(JSON.stringify({
+    title,
+    message: rows.length
+      ? `I found ${rows.length} ${asksDessert ? "dessert" : "recipe"}${rows.length === 1 ? "" : "s"} in the kitchen catalogue. ${priced ? `${priced} include pricing.` : "Pricing is not available in the current catalogue data."}`
+      : `I could not find any ${asksDessert ? "dessert" : "recipe"} items in the current kitchen catalogue.`,
+    details: details.length ? details : ["No catalogue items are available for this request."],
   }));
   return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
@@ -1791,6 +1888,86 @@ function directRoleCapabilityAnswer(args: {
     actions: [],
   }));
   return { text: rendered.text, provider: "role-guidance", retrievalCount: 0, rendered };
+}
+
+function directClientJourneyAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (args.identity.role !== "client") return null;
+  const normalized = normalizeChatMessage(args.message);
+  const asksJourney = /\b(?:how does|how will|how do|what happens|walk me through|explain|describe)\b[\s\S]{0,100}\b(?:cateringms|catering|client|portal|booking|event|quote|system|work|process|journey)\b/.test(normalized)
+    || /\b(?:cateringms|client portal|booking process|event journey|client journey)\b[\s\S]{0,100}\b(?:work|process|steps|happen|operate|operates)\b/.test(normalized)
+    || /\b(?:what do i need to do next|what should i do next|what are my next steps|next step)\b/.test(normalized)
+    || /\bwhat is cateringms\b/.test(normalized);
+  if (!asksJourney) return null;
+
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "How your CateringMS journey works",
+    message: "CateringMS keeps your catering event organised from quote to delivery and follow-up. You use the client portal for your decisions and visibility, while the catering team uses the confirmed details to prepare and deliver the event.",
+    details: [
+      "1. Quote: review the quote, event details, and validity period; accept it or request changes.",
+      "2. Booking: once confirmed, your event, guest count, venue, menu, and service details become the shared plan.",
+      "3. Preparation: the catering team uses the confirmed booking to coordinate kitchen production, stock, equipment, and delivery planning.",
+      "4. Delivery: when the order is in transit, Order Tracking shows the available progress for your event.",
+      "5. Billing and aftercare: review invoices and payments, then leave feedback after the event so the team can follow up.",
+    ],
+    actions: [],
+  }));
+  return { text: rendered.text, provider: "client-guidance", retrievalCount: 0, rendered };
+}
+
+function directClientInsightsAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (args.identity.role !== "client") return null;
+  const normalized = normalizeChatMessage(args.message);
+  const asksInsights = /\b(?:insights?|statistics?|stats?|numbers?|totals?|overview|summary|history|spend|activity)\b/.test(normalized)
+    && /\b(?:my|me|booking|bookings|event|events|order|orders|payment|payments|invoice|invoices|catering|account|client)\b/.test(normalized);
+  if (!asksInsights) return null;
+
+  const summary = liveToolResult(args.liveContext, "client_insights");
+  const company = liveToolResult(args.liveContext, "company_profile");
+  if (!summary?.totals) {
+    const unavailable = renderChatResponse(JSON.stringify({
+      title: "Client insights",
+      message: "I could not verify your personal event statistics from the current information available right now.",
+      details: ["Open your Client Dashboard or My Orders to review the individual records."],
+      actions: [],
+    }));
+    return { text: unavailable.text, provider: "live-data-unavailable", retrievalCount: args.knowledge.length, rendered: unavailable };
+  }
+
+  const totals = summary.totals;
+  const currency = company?.currency || "ZAR";
+  const money = (value: unknown) => driverMoney(value, currency);
+  const countBreakdown = (value: unknown) => Object.entries((value && typeof value === "object" ? value : {}) as Record<string, unknown>)
+    .map(([status, count]) => `${status.replace(/[_-]+/g, " ")}: ${Number(count) || 0}`)
+    .join(" · ");
+  const detailParts: string[] = [
+    `Bookings: ${Number(totals.bookings || 0)} total · ${Number(totals.upcoming_bookings || 0)} upcoming · ${Number(totals.completed_bookings || 0)} completed · ${Number(totals.cancelled_bookings || 0)} cancelled.`,
+    `Guest volume: ${Number(totals.total_guests || 0).toLocaleString()} total guests · ${Number(totals.average_guests_per_booking || 0).toFixed(1)} average per booking.`,
+    `Quotes: ${Number(totals.quotes || 0)}${countBreakdown(summary.quote_statuses) ? ` · ${countBreakdown(summary.quote_statuses)}` : ""}.`,
+    `Invoices: ${Number(totals.invoices || 0)} · ${money(totals.invoice_total)} invoiced · ${money(totals.amount_paid)} paid · ${money(totals.balance_due)} outstanding${totals.payment_completion_percent == null ? "" : ` · ${Number(totals.payment_completion_percent).toFixed(1)}% of invoice value paid`}.`,
+    `Feedback: ${Number(totals.feedback_submissions || 0)} submission${Number(totals.feedback_submissions || 0) === 1 ? "" : "s"}${totals.average_rating == null ? "" : ` · ${Number(totals.average_rating).toFixed(1)}/5 average rating`}.`,
+  ];
+  if (countBreakdown(summary.booking_statuses)) detailParts.splice(1, 0, `Booking status: ${countBreakdown(summary.booking_statuses)}.`);
+  const next = summary.next_event;
+  if (next?.event_date) {
+    detailParts.unshift(`Next event: ${next.event_name || next.order_number || "Upcoming booking"} on ${String(next.event_date).slice(0, 10)}${next.venue_name ? ` at ${next.venue_name}` : ""}${next.guest_count == null ? "" : ` for ${next.guest_count} guests`}.`);
+  } else {
+    detailParts.unshift("Next event: no upcoming booking is currently recorded.");
+  }
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "Your CateringMS insights",
+    message: `Here is your personal event snapshot${summary.client_name ? `, ${summary.client_name}` : ""}, based on the records currently available to your account.`,
+    details: detailParts,
+    actions: [],
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
 
 function driverTodayInTimezone(liveContext: string): string {
@@ -2212,6 +2389,10 @@ export async function generateChatReply(args: {
   if (clarificationAnswer) return clarificationAnswer;
   const roleCapabilityAnswer = directRoleCapabilityAnswer(args);
   if (roleCapabilityAnswer) return roleCapabilityAnswer;
+  const clientJourneyAnswer = directClientJourneyAnswer(args);
+  if (clientJourneyAnswer) return clientJourneyAnswer;
+  const clientInsightsAnswer = directClientInsightsAnswer(args);
+  if (clientInsightsAnswer) return clientInsightsAnswer;
   const driverEarningsAnswer = directDriverEarningsAnswer(args);
   if (driverEarningsAnswer) return driverEarningsAnswer;
   const driverDeliveriesAnswer = directDriverDeliveriesAnswer(args);
@@ -2288,6 +2469,10 @@ export async function generateChatReply(args: {
   if (directCompanyCustomerSummary) return directCompanyCustomerSummary;
   const directTeamRoster = directTeamRosterAnswer(args);
   if (directTeamRoster) return directTeamRoster;
+  const directStaffSchedule = directStaffScheduleAnswer(args);
+  if (directStaffSchedule) return directStaffSchedule;
+  const directKitchenCatalogue = directKitchenCatalogueAnswer(args);
+  if (directKitchenCatalogue) return directKitchenCatalogue;
   const directKitchenInventory = directKitchenInventoryAnswer(args);
   if (directKitchenInventory) return directKitchenInventory;
   const directKitchenToday = directKitchenTodayAnswer({ ...args, route: args.route });

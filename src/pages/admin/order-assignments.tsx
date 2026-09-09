@@ -607,6 +607,15 @@ function DispatchQueuePage() {
   const handleAssignPick = async (driverId: string, score?: number, reason?: string) => {
     const target = assignTarget;
     if (!target) return;
+    const candidate = suggestions.find((s) => s.driver.id === driverId);
+    if (candidate?.scheduleConflict) {
+      toast({
+        title: "Choose a different driver",
+        description: candidate.scheduleConflict.reason,
+        variant: "destructive",
+      });
+      return;
+    }
     setAssignSaving(true);
     try {
       const r = await dispatchService.assignDriverWithGate({
@@ -620,15 +629,18 @@ function DispatchQueuePage() {
       if (!r.ok) {
         const reason = r.reason || "";
         const lower = reason.toLowerCase();
+        const isScheduleConflict = /overlap|already assigned|too close together|verify.*schedule/.test(lower);
         let hint = reason || "Capacity, vehicle or feasibility check rejected this driver.";
-        if (lower.includes("shift")) {
+        if (isScheduleConflict) {
+          hint = `${reason} Choose another driver or review the existing assignment first.`;
+        } else if (lower.includes("shift")) {
           hint = `${reason}. Check the driver's shift on the Drivers page or pick someone still on shift.`;
         } else if (lower.includes("capacity") || lower.includes("load")) {
           hint = `${reason}. The driver is at their max for this slot. Try another suggestion.`;
         } else if (lower.includes("vehicle")) {
           hint = `${reason}. Assign or override the vehicle, then retry.`;
         }
-        toast({ title: "Could not assign driver", description: hint, variant: "destructive" });
+        toast({ title: isScheduleConflict ? "Driver not assigned — schedule overlap" : "Could not assign driver", description: hint, variant: "destructive" });
         return;
       }
       const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
@@ -638,8 +650,8 @@ function DispatchQueuePage() {
       // just put this driver on two overlapping events.
       if (r.conflictWarning) {
         toast({
-          title: `${driverName} assigned with conflict`,
-          description: r.conflictWarning,
+          title: `${driverName} assigned — schedule overlap`,
+          description: `${r.conflictWarning} Please review both jobs and reassign one if needed.`,
           variant: "destructive",
         });
       } else {
@@ -650,10 +662,14 @@ function DispatchQueuePage() {
             <ToastAction
               altText="Undo this assignment"
               onClick={async () => {
-                await dispatchService.unassignDriver({
+                const result = await dispatchService.unassignDriver({
                   companyId, orderId: target.id, performedBy: userId,
                   reason: "Undo assign",
                 });
+                if (!result.ok) {
+                  toast({ title: "Assignment was not reverted", description: result.reason, variant: "destructive" });
+                  return;
+                }
                 loadAll();
                 toast({ title: "Reverted", description: target.client_name });
                 // Wave 70.40 - ping listeners; driver was unassigned.
@@ -760,9 +776,17 @@ function DispatchQueuePage() {
   const handleUnassign = async (order: OrderRow) => {
     setUnassignBusy(order.id);
     try {
-      await dispatchService.unassignDriver({
+      const result = await dispatchService.unassignDriver({
         companyId, orderId: order.id, performedBy: userId, reason: "Unassigned from queue",
       });
+      if (!result.ok) {
+        toast({
+          title: "Driver was not removed",
+          description: result.reason || "The delivery may already have started. Refresh and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({
         title: `Driver removed from ${order.client_name}`,
         description: order.assigned_driver_name
@@ -1690,7 +1714,7 @@ function DispatchQueuePage() {
                           key={interest.id}
                           type="button"
                           onClick={() => handleAssignPick(interest.driver_id, match?.score.total, "Driver expressed interest")}
-                          disabled={assignSaving}
+                          disabled={assignSaving || !!match?.scheduleConflict}
                           className="w-full rounded-md border border-brand-primary/20 bg-white p-2.5 text-left transition-colors hover:bg-brand-primary/5"
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -1732,7 +1756,7 @@ function DispatchQueuePage() {
               )}
 
               {suggestions.map((s, idx) => {
-                const blocked = !s.capacity.ok || !s.feasibility.ok || !s.vehicle.ok;
+                const blocked = !s.capacity.ok || !s.feasibility.ok || !s.vehicle.ok || !!s.scheduleConflict;
                 const isInterested = assignInterestedDrivers.some((interest) => interest.driver_id === s.driver.id);
                 return (
                   <button
@@ -1783,11 +1807,16 @@ function DispatchQueuePage() {
                               {s.vehicle.reason}
                             </span>
                           )}
-                          {!s.feasibility.ok && (
+                        {!s.feasibility.ok && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                               {s.feasibility.reason}
                             </span>
-                          )}
+                        )}
+                        {s.scheduleConflict && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
+                            Schedule conflict: {s.scheduleConflict.orderNumber} at {s.scheduleConflict.eventTime}
+                          </span>
+                        )}
                           {s.vehicle.refrigerated && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
                               Refrigerated

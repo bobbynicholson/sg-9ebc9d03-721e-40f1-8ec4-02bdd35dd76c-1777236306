@@ -70,4 +70,57 @@ describe("chatbot response renderer", () => {
     expect(response.text).not.toContain("[object Object]");
     expect(response.text).not.toContain('{"title"');
   });
+
+  it("unwraps a structured payload accidentally placed in a detail row", () => {
+    const response = renderChatResponse({
+      title: "Product guidance",
+      message: "I can provide the recipe details.",
+      details: [JSON.stringify({
+        title: "Recipe & Pricing Info",
+        message: "I can provide the recipe details, but pricing is not available.",
+        details: ["Chocolate Brownie & Cream", "Malva Pudding & Custard"],
+      })],
+    });
+
+    expect(response.title).toBe("Recipe & Pricing Info");
+    expect(response.message).toBe("I can provide the recipe details, but pricing is not available.");
+    expect(response.details).toEqual(["Chocolate Brownie & Cream", "Malva Pudding & Custard"]);
+    expect(response.text).not.toContain('{"title"');
+  });
+
+  it("repairs the legacy persisted payload shape from kitchen chat history", () => {
+    const inner = JSON.stringify({
+      title: "Recipe & Pricing Info",
+      message: "I can share the recipes, but pricing is not available.",
+      details: ["1. Lamb Ribs Half Portion", "2. Malva Pudding & Custard"],
+    });
+    const response = beautifyChatResponse({
+      text: inner,
+      style: "structured",
+      title: "",
+      message: inner,
+      details: [""],
+      actions: [],
+    });
+
+    expect(response.title).toBe("Recipe & Pricing Info");
+    expect(response.message).toBe("I can share the recipes, but pricing is not available.");
+    expect(response.details).toEqual(["1. Lamb Ribs Half Portion", "2. Malva Pudding & Custard"]);
+    expect(response.text).not.toContain('{"title"');
+  });
+
+  it("recovers completed fields when an inner JSON answer is truncated", () => {
+    const truncated = '{"title":"Recipes & Pricing","message":"Here are all the recipes we have on hand. Pricing details are not available in the current data set.","details":["1. Lamb Ribs Half Portion – 10 servings, 15 min prep, 30 min cook","2. Lamb Spit Full Portion – 10 servings, 20 min prep, 150 min cook","3. Sticky Chicken Wings – 10 servings, 10 min prep,';
+    const response = beautifyChatResponse({
+      title: "",
+      message: truncated,
+      details: [""],
+      actions: [],
+    });
+
+    expect(response.title).toBe("Recipes & Pricing");
+    expect(response.message).toContain("Here are all the recipes we have on hand.");
+    expect(response.details).toHaveLength(2);
+    expect(response.text).not.toContain('{"title"');
+  });
 });

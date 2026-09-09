@@ -64,9 +64,11 @@ function correctKnownTypos(message: string): string {
     if (FUZZY_CANONICAL_TERM_SET.has(token)) return token;
     const cached = FUZZY_TOKEN_CACHE.get(token);
     if (cached) return cached;
-    // Short words commonly contain a transposition plus a missing/extra
-    // letter, such as `hti` -> `this`; longer words use a stricter threshold.
-    const maxDistance = token.length <= 4 ? 2 : 1;
+    // Very short words can contain a transposition plus a missing/extra
+    // letter, such as `hti` -> `this`. For four or more characters, only a
+    // one-edit correction is safe; a two-edit threshold incorrectly turned
+    // valid words such as `team` into `item` and `give` into `have`.
+    const maxDistance = token.length <= 3 ? 2 : 1;
     const candidates = Array.from({ length: maxDistance * 2 + 1 }, (_, index) => token.length - maxDistance + index)
       .flatMap((length) => FUZZY_TERMS_BY_LENGTH.get(length) || [])
       .map((term) => ({ term, distance: editDistance(token, term) }))

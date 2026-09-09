@@ -81,6 +81,15 @@ export function ReassignDriverDialog({
 
   const handlePick = async (driverId: string, score?: number, blocked?: boolean) => {
     if (!companyId) return;
+    const candidate = suggestions.find((s) => s.driver.id === driverId);
+    if (candidate?.scheduleConflict) {
+      toast({
+        title: "Choose a different driver",
+        description: candidate.scheduleConflict.reason,
+        variant: "destructive",
+      });
+      return;
+    }
     // Phase 3 #5: when the dispatcher picks a driver who has at
     // least one gate failure (capacity, feasibility, vehicle), make
     // them write a reason. Audit trail then has the "why" for the
@@ -105,7 +114,13 @@ export function ReassignDriverDialog({
         reason: reason.trim() || (blocked ? "Reassigned (gate override)" : "Reassigned"),
       });
       if (!r.ok) {
-        toast({ title: "Could not reassign", description: r.reason, variant: "destructive" });
+        const reasonText = r.reason || "The driver could not be reassigned.";
+        const isScheduleConflict = /overlap|already assigned|too close together|verify.*schedule/i.test(reasonText);
+        toast({
+          title: isScheduleConflict ? "Driver not reassigned — schedule overlap" : "Could not reassign",
+          description: isScheduleConflict ? `${reasonText} Choose another driver or review the existing assignment first.` : reasonText,
+          variant: "destructive",
+        });
         return;
       }
       const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
@@ -116,8 +131,8 @@ export function ReassignDriverDialog({
       // bell.
       if (r.conflictWarning) {
         toast({
-          title: "Reassigned with conflict",
-          description: `${baseDesc}. ${r.conflictWarning}`,
+          title: "Driver reassigned — schedule overlap",
+          description: `${baseDesc}. ${r.conflictWarning} Please review both jobs and reassign one if needed.`,
           variant: "destructive",
         });
       } else {
@@ -137,12 +152,20 @@ export function ReassignDriverDialog({
     if (!companyId) return;
     setSaving(true);
     try {
-      await dispatchService.unassignDriver({
+      const result = await dispatchService.unassignDriver({
         companyId,
         orderId: order.id,
         performedBy,
         reason: reason.trim() || "Unassigned from order",
       });
+      if (!result.ok) {
+        toast({
+          title: "Driver was not removed",
+          description: result.reason || "The delivery may already have started. Refresh and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
       toast({ title: "Driver removed", description: order.client_name || "" });
       onOpenChange(false);
       onUnassigned?.();
@@ -219,13 +242,13 @@ export function ReassignDriverDialog({
         ) : (
           <div className="space-y-2">
             {suggestions.map((s, idx) => {
-              const blocked = !s.capacity.ok || !s.feasibility.ok || !s.vehicle.ok;
+              const blocked = !s.capacity.ok || !s.feasibility.ok || !s.vehicle.ok || !!s.scheduleConflict;
               return (
                 <button
                   key={s.driver.id}
                   type="button"
                   onClick={() => handlePick(s.driver.id, s.score.total, blocked)}
-                  disabled={saving}
+                  disabled={saving || !!s.scheduleConflict}
                   className={`w-full text-left rounded-lg border p-3 transition-all ${
                     idx === 0 && !blocked
                       ? "border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 ring-2 ring-brand-primary/20"
@@ -261,6 +284,11 @@ export function ReassignDriverDialog({
                         {!s.feasibility.ok && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
                             {s.feasibility.reason}
+                          </span>
+                        )}
+                        {s.scheduleConflict && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
+                            Schedule conflict: {s.scheduleConflict.orderNumber} at {s.scheduleConflict.eventTime}
                           </span>
                         )}
                         {s.feasibility.etaMinutes != null && s.feasibility.ok && (

@@ -107,10 +107,11 @@ function CleaningTasksPageInner() {
         .eq("id", t.id).eq("company_id", user.company_id);
       if (error) throw error;
       // Tell the assignee - unless the manager grabbed it for themselves.
+      let notificationCreated = false;
       if (value && value !== user.id) {
         try {
           const { notificationService } = await import("@/services/notificationService");
-          await notificationService.createNotification({
+          const notification = await notificationService.createNotification({
             company_id: user.company_id,
             recipient_id: value,
             user_id: value,
@@ -120,11 +121,19 @@ function CleaningTasksPageInner() {
             priority: "normal",
             link: "/team-portal/cleaning/tasks",
           } as any);
+          notificationCreated = !!notification;
         } catch (notifyErr) {
           console.warn("[cleaning/tasks] assignee notification failed (non-blocking):", notifyErr);
         }
       }
-      toast({ title: value ? "Task assigned" : "Task unassigned", description: value ? `${teamNames.get(value) || "Team member"} has been notified.` : undefined });
+      toast({
+        title: value ? "Task assigned" : "Task unassigned",
+        description: value
+          ? notificationCreated
+            ? `${teamNames.get(value) || "Team member"} has an in-app alert. Email follows their assignment preference.`
+            : `${teamNames.get(value) || "Team member"} was assigned, but no notification row was created.`
+          : undefined,
+      });
     } catch (e: any) {
       toast({ title: "Could not assign", description: e?.message ?? undefined, variant: "destructive" });
       void load();

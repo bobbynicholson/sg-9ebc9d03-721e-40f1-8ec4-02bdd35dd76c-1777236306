@@ -213,7 +213,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
       if (!res.ok || !data?.ok) throw new Error(data?.error || `Assign failed (${res.status})`);
       toast({
         title: "Waiter assigned",
-        description: `${data.waiter?.full_name || "Staff member"} can now see this event in the waiter portal.`,
+        description: `${data.waiter?.full_name || "Staff member"} can now see this event in the waiter portal. ${data.assignment_email_sent ? "In-app and email notifications sent." : "In-app notification saved; assignment email was not sent (check their settings/provider)."}`,
       });
       setSelectedWaiterId("");
       await Promise.all([loadRows(), loadAdminContext()]);

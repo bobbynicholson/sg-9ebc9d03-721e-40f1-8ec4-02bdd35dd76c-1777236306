@@ -276,7 +276,10 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
       }
       const picked = companyDrivers.find((d) => d.id === driverId) || null;
       if (picked) setSecondaryDriver({ full_name: picked.full_name, phone: picked.phone });
-      toast({ title: "Secondary driver assigned", description: `${picked?.full_name || "Driver"} added + notified.` });
+      const emailNote = json.email_sent
+        ? "In-app and email notifications sent."
+        : "In-app notification saved; email was not sent (check their email settings/provider).";
+      toast({ title: "Secondary driver assigned", description: `${picked?.full_name || "Driver"} added. ${emailNote}` });
     } catch (e: any) {
       toast({ title: "Could not assign", description: e?.message || "Try again.", variant: "destructive" });
     } finally {

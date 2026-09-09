@@ -48,6 +48,7 @@ const schema = z.object({
     orderConfirmation: z.boolean(),
     orderUpdates: z.boolean(),
     paymentReceived: z.boolean(),
+    staffAssignments: z.boolean(),
     dailySummary: z.boolean(),
   }),
   push: z.object({
@@ -80,6 +81,7 @@ const DEFAULTS: FormValues = {
     orderConfirmation: true,
     orderUpdates: true,
     paymentReceived: true,
+    staffAssignments: true,
     dailySummary: false,
   },
   push: {
@@ -283,11 +285,11 @@ function NotificationSettingsPage() {
             order_confirmed: values.email.orderConfirmation,
             order_status_changed: values.email.orderUpdates,
             payment_received: values.email.paymentReceived,
+            driver_assigned: values.email.staffAssignments,
+            task_assigned: values.email.staffAssignments,
             daily_summary: values.email.dailySummary,
             low_stock_alert: values.push.inventoryAlerts,
             out_of_stock_alert: values.push.inventoryAlerts,
-            driver_assigned: values.push.staffUpdates,
-            task_assigned: values.push.staffUpdates,
             payment_due: values.sms.paymentReminders,
             updated_at: new Date().toISOString(),
           },
@@ -388,6 +390,7 @@ function NotificationSettingsPage() {
                 <ToggleRow control={control} name="email.orderConfirmation" id="orderConfirmation" title="Order Confirmations" desc="Get notified when new orders are placed" />
                 <ToggleRow control={control} name="email.orderUpdates" id="orderUpdates" title="Order Updates" desc="Status changes and modifications" />
                 <ToggleRow control={control} name="email.paymentReceived" id="paymentReceived" title="Payment Confirmations" desc="When payments are received" />
+                <ToggleRow control={control} name="email.staffAssignments" id="staffAssignments" title="Staff assignments" desc="When a driver, kitchen, waiter or cleaning task is assigned to you" />
                 <ToggleRow control={control} name="email.dailySummary" id="dailySummary" title="Daily Summary" desc="End of day business summary" />
               </CardContent>
             </Card>

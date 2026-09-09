@@ -93,9 +93,16 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
     const value = assigneeId || null;
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, assigned_chef_id: value } : t)));
     try {
-      await kitchenPrepService.assignTask(taskId, value, user?.id);
+      const result = await kitchenPrepService.assignTask(taskId, value, user?.id);
       const who = value ? (team.find((m) => m.id === value)?.full_name || "team member") : null;
-      toast({ title: value ? "Task assigned" : "Task unassigned", description: who ? `${who} has been notified.` : undefined });
+      toast({
+        title: value ? "Task assigned" : "Task unassigned",
+        description: who
+          ? result.notificationCreated
+            ? `${who} has an in-app alert. Email follows their assignment preference.`
+            : `${who} was assigned, but no notification row was created.`
+          : undefined,
+      });
     } catch (e: any) {
       toast({ title: "Could not assign", description: e?.message, variant: "destructive" });
       void load();

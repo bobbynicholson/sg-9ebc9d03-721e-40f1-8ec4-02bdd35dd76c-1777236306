@@ -13,6 +13,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { notificationService } from "@/services/notificationService";
+import { emailService } from "@/services/emailService";
 
 const ALLOWED_ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner", "region_admin", "sales_admin"]);
 
@@ -54,7 +56,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // The chosen driver must be a driver in the same company.
     const { data: driver } = await admin
       .from("profiles")
-      .select("id, full_name, role, company_id")
+      .select("id, full_name, email, role, company_id")
       .eq("id", driverId)
       .maybeSingle();
     if (!driver || (driver as any).company_id !== (order as any).company_id || (driver as any).role !== "driver") {
@@ -69,15 +71,71 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: dbErrorMessage(updErr) || "Could not assign secondary driver" });
     }
 
-    // NOTE: the secondary-driver notification is sent by the DB trigger
-    // trg_notify_secondary_driver (fires on secondary_driver_id change),
-    // so we deliberately DON'T insert it here - doing both produced two
-    // identical "Secondary delivery assignment" rows in the driver's bell.
-    // The trigger is the single source of truth for this ping.
+    // The DB trigger inserts the in-app row in the same transaction. Keep a
+    // deduplicated application-side fallback for environments where the
+    // migration has not reached the database yet; when the trigger exists,
+    // this returns null and does not create a duplicate row.
+    let notificationCreated = false;
+    let notificationAlreadyPresent = false;
+    try {
+      const row = await notificationService.createNotification({
+        company_id: (order as any).company_id,
+        recipient_id: driverId,
+        user_id: driverId,
+        notification_type: "driver_assigned",
+        title: "Secondary delivery assignment",
+        message: `You're the second driver on order ${(order as any).order_number || orderId.slice(0, 8)}. Open Deliveries for the details.`,
+        priority: "high",
+        link: "/team-portal/driver/deliveries",
+        related_entity_type: "order",
+        related_entity_id: orderId,
+        target_role: "driver" as any,
+        dedup: true,
+      }, admin);
+      notificationCreated = !!row;
+      notificationAlreadyPresent = row === null;
+    } catch (notificationError) {
+      console.warn("[assign-secondary-driver] in-app notification fallback failed:", notificationError);
+    }
+
+    // Database triggers cannot call the email provider. Send the secondary
+    // driver's email here, using the same preference/provider gates as the
+    // primary assignment path. This is deliberately independent of the
+    // trigger so the in-app row and email cannot block the order update.
+    let emailSent = false;
+    try {
+      // If the application fallback inserted the row, createNotification has
+      // already applied the central email preference/provider gate. Only send
+      // directly when the trigger already supplied the row or the fallback
+      // could not insert it, preventing duplicate emails in the normal path.
+      if ((driver as any).email && (notificationAlreadyPresent || !notificationCreated)) {
+        const result = await emailService.sendEmailDetailed({
+          companyId: (order as any).company_id,
+          to: (driver as any).email,
+          subject: `Secondary delivery assignment - ${(order as any).order_number || orderId.slice(0, 8)}`,
+          body:
+            `Hi ${(driver as any).full_name || "there"},\n\n` +
+            `You have been assigned as the second driver for order ${(order as any).order_number || orderId.slice(0, 8)}.\n` +
+            `Open Deliveries in CateringMS for the full run details.\n\n` +
+            `Thanks,\nCateringMS`,
+          notificationPreference: "driver_assigned",
+          orderId,
+          _client: admin,
+        } as any);
+        emailSent = !!result.success;
+        if (!result.success && result.error_code !== "notification_disabled") {
+          console.warn("[assign-secondary-driver] assignment email failed:", result.error || result.error_code);
+        }
+      }
+    } catch (emailError) {
+      console.warn("[assign-secondary-driver] assignment email crashed:", emailError);
+    }
 
     return res.status(200).json({
       ok: true,
       driver: { id: (driver as any).id, full_name: (driver as any).full_name },
+      notification_created: notificationCreated,
+      email_sent: emailSent,
     });
   } catch (err: any) {
     console.error("[assign-secondary-driver] crashed:", err);

@@ -4,8 +4,10 @@ import type { Tables } from "@/integrations/supabase/types";
 import type { UserRole } from "@/types/app";
 import { isManagerRole, crewRoleForManager, isManagerWorkingNow } from "@/services/managerWorkModeService";
 import {
-  type EmailNotificationPreferenceKey,
-} from "@/lib/emailNotificationPreferences";
+  emailPreferenceForOperationalNotification,
+  profileHasRole,
+  profileMatchesTargetRoles,
+} from "@/lib/notificationAudience";
 
 export type Notification = Tables<"notifications">;
 
@@ -274,32 +276,6 @@ function isMissingMetadataColumn(
     msg.includes("schema cache") ||
     msg.includes("does not exist")
   );
-}
-
-function emailPreferenceForOperationalNotification(
-  type: string,
-  title: string,
-  message: string,
-): EmailNotificationPreferenceKey | null {
-  const text = `${title} ${message}`.toLowerCase();
-  if (type === "driver_assigned") return "driver_assigned";
-  if ([
-    "task_assigned",
-    "shift_task_assigned",
-    "kitchen_task_assigned",
-    "cleaning_task_assigned",
-    "daily_operations_task",
-  ].includes(type)) {
-    return "task_assigned";
-  }
-  if (type === "stock_low") {
-    return /out\s+of\s+stock|out\s+of\s+stock\b|newstock\s*[:=]?\s*0/.test(text)
-      ? "out_of_stock_alert"
-      : "low_stock_alert";
-  }
-  // Status and payment emails already have dedicated producers. Do not
-  // turn their in-app rows into a second email here.
-  return null;
 }
 
 async function sendOperationalNotificationEmail(args: {
@@ -831,11 +807,11 @@ export const notificationService = {
           }
           if (!params.targetRoles || params.targetRoles.length === 0) {
             // No role restriction; still apply region scoping below.
-          } else if (!params.targetRoles.includes(profile.role as UserRole)) {
+          } else if (!profileMatchesTargetRoles(profile, params.targetRoles as readonly string[])) {
             return false;
           }
           if (!regionScope) return true;  // company-wide broadcast
-          if (CROSS_BRANCH_ROLES.has(profile.role as string)) return true;
+          if (CROSS_BRANCH_ROLES.has(String(profile.active_role || profile.role || ""))) return true;
           const covered = (profile as any).regions_covered as string[] | null;
           const primary = (profile as any).region_id as string | null;
           if (covered && covered.length > 0) return covered.includes(regionScope);
@@ -887,8 +863,7 @@ export const notificationService = {
 
       const notifications = recipientFilteredProfiles
         .map((profile: any) => {
-          const isDriverRecipient =
-            profile.role === "driver" || profile.active_role === "driver";
+          const isDriverRecipient = profileHasRole(profile, "driver");
           const recipientLink =
             isDriverRecipient && params.relatedEntityId
               ? `/team-portal/driver/dashboard?chatOrderId=${encodeURIComponent(params.relatedEntityId)}`
