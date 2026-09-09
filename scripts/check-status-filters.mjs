@@ -197,6 +197,10 @@ const KNOWN_TABLES = new Set([
   "billing_history","blocked_contacts","blog_posts","booking_packages",
   "cancellation_requests","chat_messages","chat_sessions","cleaning_duty_logs","cleaning_event_checklists","cleaning_event_handovers","cleaning_jobs","cleaning_machines",
   "cleaning_schedules","client_access_log","client_access_tokens","clients","cms_pages",
+  // Operational cleaning/task support tables queried by the cleaning and
+  // shared clock components. These are real public tables; keep them in the
+  // existence guard so `.from(...)` is not reported as a stale status filter.
+  "company_daily_operations_settings","daily_operations_tasks","role_work_sessions",
   "companies","company_number_settings","company_number_settings_audit",
   // Shopping portal settings (migration 20260705130000). Verified live in
   // prod via PostgREST on 2026-07-06.
