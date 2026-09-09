@@ -1970,6 +1970,108 @@ function directClientInsightsAnswer(args: {
   return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
 
+function directClientBalanceAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (args.identity.role !== "client") return null;
+  const normalized = normalizeChatMessage(args.message);
+  const asksAmount = /\b(?:how much|what(?:'s| is)|amount|money)\b/.test(normalized)
+    && /\b(?:owe|owing|pay|remaining|left|due|outstanding|balance)\b/.test(normalized);
+  const asksBalance = /\b(?:outstanding balance|balance due|amount due|remaining to pay|left to pay|owe|owing)\b/.test(normalized);
+  if (!asksAmount && !asksBalance) return null;
+
+  const company = liveToolResult(args.liveContext, "company_profile");
+  const currency = company?.currency || "ZAR";
+  const result = liveToolResult(args.liveContext, "client_balance");
+  const invoiceRows = result ? null : liveToolRows(args.liveContext, "customer_invoices");
+  const invoices = result && Array.isArray(result.invoices)
+    ? result.invoices
+    : Array.isArray(invoiceRows)
+      ? invoiceRows
+        .map((invoice: any) => ({ ...invoice, balance_due: Math.max(0, Number(invoice.balance_due) || 0) }))
+        .filter((invoice: any) => invoice.balance_due > 0.005)
+      : null;
+  if (!invoices) {
+    const unavailable = renderChatResponse(JSON.stringify({
+      title: "Outstanding balance",
+      message: "I could not verify the amount remaining on your current invoices right now.",
+      details: ["Open Billing and payments to review the live invoice balance, or try asking me again in a moment."],
+      actions: [],
+    }));
+    return { text: unavailable.text, provider: "live-data-unavailable", retrievalCount: args.knowledge.length, rendered: unavailable };
+  }
+
+  const requestedInvoice = normalized.match(/\b(?:invoice\s*)?(inv[-\s]?\d+)\b/i)?.[1]?.replace(/\s+/g, "-").toUpperCase() || null;
+  const selected = requestedInvoice
+    ? invoices.filter((invoice: any) => String(invoice.invoice_number || "").replace(/\s+/g, "-").toUpperCase() === requestedInvoice)
+    : invoices;
+  if (requestedInvoice && !selected.length) {
+    const notFound = renderChatResponse(JSON.stringify({
+      title: "Invoice balance",
+      message: `I could not find ${requestedInvoice} in your current invoice records.`,
+      details: ["Open Billing and payments to check the invoice number and current payment status."],
+      actions: [],
+    }));
+    return { text: notFound.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered: notFound };
+  }
+
+  const total = selected.reduce((sum: number, invoice: any) => sum + Math.max(0, Number(invoice.balance_due) || 0), 0);
+  const money = (value: unknown) => driverMoney(value, currency);
+  const details = selected.slice(0, 10).map((invoice: any) => {
+    const due = invoice.due_date ? ` · due ${String(invoice.due_date).slice(0, 10)}` : "";
+    return `${invoice.invoice_number || "Invoice"}: ${money(invoice.balance_due)} outstanding${due}.`;
+  });
+  if (selected.length > 10) details.push(`${selected.length - 10} more unpaid invoices are included in the total.`);
+  if (!selected.length || total <= 0.005) {
+    details.push("All current invoices are paid or have no remaining balance.");
+  }
+  const rendered = renderChatResponse(JSON.stringify({
+    title: requestedInvoice ? "Invoice balance" : "Outstanding balance",
+    message: total > 0.005
+      ? `You have ${money(total)} remaining to pay${requestedInvoice ? ` on ${requestedInvoice}` : ""}.`
+      : `You have no outstanding amount to pay right now. Your current balance is ${money(0)}.`,
+    details,
+    actions: [],
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
+function directCustomerBalancesAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  const adminRoles = new Set(["super_admin", "owner", "company_admin", "region_admin", "sales_admin", "admin"]);
+  if (!adminRoles.has(args.identity.role)) return null;
+  const normalized = normalizeChatMessage(args.message);
+  if (!/\b(?:customer|customers|client|clients)\b/.test(normalized)
+    || !/\b(?:owe|owing|outstanding|balance|due|money)\b/.test(normalized)) return null;
+  const result = liveToolResult(args.liveContext, "customer_balances");
+  if (!result || !Array.isArray(result.customers)) return null;
+  const company = liveToolResult(args.liveContext, "company_profile");
+  const currency = company?.currency || "ZAR";
+  const money = (value: unknown) => driverMoney(value, currency);
+  const customers = result.customers as Array<{ client_name?: string; email?: string | null; outstanding_balance?: number; unpaid_invoices?: number }>;
+  const total = Number(result.total_outstanding || 0);
+  const details = customers.slice(0, 15).map((customer) =>
+    `${customer.client_name || "Unnamed client"}${customer.email ? ` (${customer.email})` : ""}: ${money(customer.outstanding_balance)} outstanding across ${Number(customer.unpaid_invoices || 0)} invoice${Number(customer.unpaid_invoices || 0) === 1 ? "" : "s"}.`,
+  );
+  if (customers.length > 15) details.push(`${customers.length - 15} more customers have outstanding balances in the current records.`);
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "Customer outstanding balances",
+    message: customers.length
+      ? `${customers.length} customer${customers.length === 1 ? " has" : "s have"} an outstanding balance totalling ${money(total)}.`
+      : "No customer has an outstanding balance in the current company or regional records.",
+    details: details.length ? details : ["All current customer invoices are paid or have no remaining balance."],
+    actions: [],
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
 function driverTodayInTimezone(liveContext: string): string {
   const company = liveToolResult(liveContext, "company_profile");
   const timezone = String(company?.timezone || "Africa/Johannesburg");
@@ -2391,6 +2493,10 @@ export async function generateChatReply(args: {
   if (roleCapabilityAnswer) return roleCapabilityAnswer;
   const clientJourneyAnswer = directClientJourneyAnswer(args);
   if (clientJourneyAnswer) return clientJourneyAnswer;
+  const clientBalanceAnswer = directClientBalanceAnswer(args);
+  if (clientBalanceAnswer) return clientBalanceAnswer;
+  const customerBalancesAnswer = directCustomerBalancesAnswer(args);
+  if (customerBalancesAnswer) return customerBalancesAnswer;
   const clientInsightsAnswer = directClientInsightsAnswer(args);
   if (clientInsightsAnswer) return clientInsightsAnswer;
   const driverEarningsAnswer = directDriverEarningsAnswer(args);

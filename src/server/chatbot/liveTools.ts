@@ -40,6 +40,8 @@ export type LiveToolId =
   | "customer_profile"
   | "customer_bookings"
   | "customer_invoices"
+  | "client_balance"
+  | "customer_balances"
   | "client_insights"
   | "assigned_deliveries"
   | "driver_earnings"
@@ -133,6 +135,8 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "customer_profile", label: "Customer profile", description: "A client’s own profile or approved customer details", category: "identity", roles: [...CLIENT, ...SALES], keywords: ["customer", "client", "contact", "profile", "john", "details"] },
   { id: "customer_bookings", label: "Customer bookings", description: "Bookings and events visible to the signed-in user or sales team", category: "operations", roles: [...CLIENT, ...SALES], keywords: ["booking", "bookings", "event", "order", "appointment", "reservation"] },
   { id: "customer_invoices", label: "Customer invoices", description: "Invoices, balances, and payment status visible to the signed-in user", category: "finance", roles: [...CLIENT, ...SALES], keywords: ["invoice", "invoices", "billing", "payment", "balance", "paid", "due"] },
+  { id: "client_balance", label: "Client outstanding balance", description: "The signed-in client's exact total amount remaining to pay and unpaid invoice breakdown", category: "finance", roles: CLIENT, keywords: ["owe", "owing", "remaining", "left to pay", "outstanding", "outstanding balance", "balance due", "amount due", "money left", "pay now", "how much to pay"] },
+  { id: "customer_balances", label: "Customer outstanding balances", description: "Company or regional customer balances grouped by client for authorized admin and sales roles", category: "finance", roles: SALES, keywords: ["customer balance", "customer balances", "client balance", "client balances", "outstanding balances", "amount due by client", "who owes", "owing customers", "money owed", "customers", "clients", "owe", "money"] },
   { id: "client_insights", label: "Client event insights", description: "Personal booking, guest, quote, payment, and feedback statistics for the signed-in client", category: "analytics", roles: CLIENT, keywords: ["insight", "insights", "stat", "stats", "statistics", "overview", "summary", "history", "spend", "totals", "how am i doing", "my journey", "my activity", "my numbers"] },
   { id: "assigned_deliveries", label: "Assigned deliveries", description: "The signed-in driver’s delivery assignments and earnings", category: "operations", roles: DRIVER, keywords: ["delivery", "deliveries", "route", "assignment", "assigned", "earnings", "driving"] },
   { id: "driver_earnings", label: "Driver earnings", description: "The signed-in driver’s shift hours, delivery pay, and total earnings for a selected period", category: "finance", roles: ["driver"], keywords: ["earning", "earnings", "pay", "wage", "wages", "worked hours", "shift hours", "hours worked"] },
@@ -198,6 +202,8 @@ const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
   customer_profile: "The client's own profile, or approved customer contact details for sales roles",
   customer_bookings: "The client's own bookings, or company bookings permitted for sales roles",
   customer_invoices: "The client's own invoices and payment status, or approved sales visibility",
+  client_balance: "The signed-in client's exact outstanding balance and unpaid invoice breakdown; no other client's financial records",
+  customer_balances: "Customer outstanding balances grouped by client, limited to the authorized company or region",
   client_insights: "Aggregated statistics from the signed-in client's own bookings, quotes, invoices, and feedback; no other client's records",
   assigned_deliveries: "Only deliveries assigned to the signed-in driver",
   driver_earnings: "Only the signed-in driver’s own calculated shift and completed-delivery pay for the requested date range",
@@ -1372,6 +1378,72 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
           : [];
       }
       return rows(db, "invoices", (q) => q.select("invoice_number, due_date, total_amount, amount_paid, balance_due, status, order_id").eq("company_id", companyId).is("deleted_at", null).order("due_date", { ascending: true }).limit(50));
+    }
+    case "client_balance": {
+      if (identity.role !== "client") return null;
+      const client = (await rows(db, "clients", (q) =>
+        q.select("id").eq("company_id", companyId).eq("user_id", identity.userId).maybeSingle(),
+      ))[0];
+      if (!client?.id) return { invoice_count: 0, outstanding_balance: 0, invoices: [] };
+      const invoices = await rows(db, "invoices", (q) =>
+        q.select("invoice_number, due_date, total_amount, amount_paid, balance_due, status, order_id")
+          .eq("company_id", companyId).eq("client_id", client.id).is("deleted_at", null)
+          .order("due_date", { ascending: true }).limit(50),
+      );
+      const closedStatuses = new Set(["paid", "void", "voided", "cancelled", "canceled", "deleted"]);
+      const unpaidInvoices = invoices
+        .map((invoice: any) => ({
+          ...invoice,
+          balance_due: Math.max(0, Number(invoice.balance_due) || 0),
+        }))
+        .filter((invoice: any) => invoice.balance_due > 0.005 && !closedStatuses.has(String(invoice.status || "").toLowerCase()));
+      return {
+        invoice_count: unpaidInvoices.length,
+        outstanding_balance: Math.round(unpaidInvoices.reduce((sum: number, invoice: any) => sum + invoice.balance_due, 0) * 100) / 100,
+        invoices: unpaidInvoices,
+        as_of: new Date().toISOString(),
+      };
+    }
+    case "customer_balances": {
+      if (!SALES.includes(identity.role)) return null;
+      const clients = await rows(db, "clients", (q) => scopeRegionQuery(
+        q.select("id, client_name, email, region_id").eq("company_id", companyId).is("deleted_at", null).limit(2000),
+        identity,
+      ));
+      const clientIds = clients.map((client: any) => client.id).filter(Boolean);
+      if (!clientIds.length) return { customer_count: 0, total_outstanding: 0, customers: [] };
+      const invoices = await rows(db, "invoices", (q) =>
+        q.select("client_id, invoice_number, due_date, balance_due, status")
+          .eq("company_id", companyId).is("deleted_at", null).in("client_id", clientIds).limit(5000),
+      );
+      const closedStatuses = new Set(["paid", "void", "voided", "cancelled", "canceled", "deleted"]);
+      const byClient = new Map<string, { client_id: string; client_name: string; email: string | null; outstanding_balance: number; unpaid_invoices: number }>();
+      for (const client of clients) {
+        byClient.set(String(client.id), {
+          client_id: String(client.id),
+          client_name: String(client.client_name || "Unnamed client"),
+          email: client.email ? String(client.email) : null,
+          outstanding_balance: 0,
+          unpaid_invoices: 0,
+        });
+      }
+      for (const invoice of invoices) {
+        const balance = Math.max(0, Number(invoice.balance_due) || 0);
+        if (balance <= 0.005 || closedStatuses.has(String(invoice.status || "").toLowerCase())) continue;
+        const customer = byClient.get(String(invoice.client_id));
+        if (!customer) continue;
+        customer.outstanding_balance = Math.round((customer.outstanding_balance + balance) * 100) / 100;
+        customer.unpaid_invoices += 1;
+      }
+      const customers = [...byClient.values()]
+        .filter((customer) => customer.outstanding_balance > 0)
+        .sort((left, right) => right.outstanding_balance - left.outstanding_balance);
+      return {
+        customer_count: customers.length,
+        total_outstanding: Math.round(customers.reduce((sum, customer) => sum + customer.outstanding_balance, 0) * 100) / 100,
+        customers,
+        as_of: new Date().toISOString(),
+      };
     }
     case "client_insights": {
       if (identity.role !== "client" || !companyId) return null;

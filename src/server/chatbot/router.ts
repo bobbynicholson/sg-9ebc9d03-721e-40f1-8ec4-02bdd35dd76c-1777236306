@@ -152,7 +152,10 @@ export function routeChatQuestion(input: string, role?: string, resolvedIntent?:
   const live = (intentNeedsLiveData(intent) || hasSignal(message, LIVE_SIGNALS) || isClientInsightQuestion(message, normalizedRole) || isPlatformCompanyStatusQuestion(message) || isPlatformSubscriptionQuestion(message) || isPlatformPlanUsageQuestion(message) || isPlatformCompanySwitchQuestion(message) || isPlatformCompanyOwnerQuestion(message) || isCurrencyConfigurationQuestion(message) || isTechnologyCostQuestion(message) || isPlatformAuditQuestion(message) || isPlatformAiQuestion(message) || isPlatformRoleAccessQuestion(message) || isPlatformHealthQuestion(message) || isCurrentSubscriptionQuestion(message) || isPlatformOverviewQuestion(message))
     && !(policyPhrase && !hasSignal(message, ["how many", "count", "this month", "this week", "today", "data", "records"]));
   const knowledge = hasSignal(message, KNOWLEDGE_SIGNALS);
-  const action = hasSignal(message, ACTION_SIGNALS);
+  // “How much do I still have to pay?” is a read-only balance question. The
+  // generic action signal for “pay” must not route it as a write request.
+  const readOnlyBalanceIntent = intent?.id === "client.billing.balance" || intent?.id === "customer.balances";
+  const action = hasSignal(message, ACTION_SIGNALS) && !readOnlyBalanceIntent;
 
   if (action) {
     return {

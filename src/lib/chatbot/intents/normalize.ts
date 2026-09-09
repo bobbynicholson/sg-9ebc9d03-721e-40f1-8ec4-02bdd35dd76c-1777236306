@@ -1,5 +1,6 @@
 const TYPO_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\bupcomming\b/g, "upcoming"],
+  [/\bremmaing\b/g, "remaining"],
   [/\btodays\b/g, "today"],
   [/\btooo+\b/g, "too"],
   [/\btoo\s+less\b/g, "too low"],

@@ -19,6 +19,13 @@ describe("client chatbot guidance and insights", () => {
     expect(selectLiveTools("client", "What is included in my order?").some((tool) => tool.id === "order_items")).toBe(true);
   });
 
+  it("routes a natural-language balance question to the exact client balance tool", () => {
+    const message = "How much money are remmaing for me to pay now?";
+    expect(routeChatQuestion(message, "client").route).toBe("live_data");
+    expect(selectLiveTools("client", message).some((tool) => tool.id === "client_balance")).toBe(true);
+    expect(getLiveToolDefinition("client_balance")?.roles).toEqual(["client"]);
+  });
+
   it("explains the client journey without exposing internal operations", async () => {
     const answer = await generateChatReply({
       identity: clientIdentity,
@@ -73,5 +80,56 @@ describe("client chatbot guidance and insights", () => {
     expect(answer.rendered.details.join(" ")).toContain("420 total guests");
     expect(answer.rendered.details.join(" ")).toContain("72.0% of invoice value paid");
     expect(answer.rendered.details.join(" ")).toContain("4.5/5 average rating");
+  });
+
+  it("returns the exact outstanding amount and invoice breakdown", async () => {
+    const answer = await generateChatReply({
+      identity: clientIdentity,
+      message: "How much money are remmaing for me to pay now?",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({
+        company_profile: { currency: "ZAR" },
+        client_balance: {
+          invoice_count: 2,
+          outstanding_balance: 35500,
+          invoices: [
+            { invoice_number: "INV-005589", balance_due: 25000, due_date: "2026-09-15", status: "sent" },
+            { invoice_number: "INV-005590", balance_due: 10500, due_date: "2026-10-01", status: "partially_paid" },
+          ],
+        },
+      })}`,
+      knowledge: [],
+      navigation: [],
+    });
+
+    expect(answer.provider).toBe("live-data");
+    expect(answer.rendered.title).toBe("Outstanding balance");
+    expect(answer.rendered.message).toMatch(/35[\s\u00a0]500,00/);
+    expect(answer.rendered.details.join(" ")).toContain("INV-005589");
+    expect(answer.rendered.details.join(" ")).toContain("INV-005590");
+  });
+
+  it("makes customer balances available to authorized admin roles", async () => {
+    expect(routeChatQuestion("Which clients owe money?", "company_admin").route).toBe("live_data");
+    expect(selectLiveTools("company_admin", "Which clients owe money?").some((tool) => tool.id === "customer_balances")).toBe(true);
+    const adminAnswer = await generateChatReply({
+      identity: { ...clientIdentity, role: "company_admin", fullName: "Company Admin" },
+      message: "Which clients owe money?",
+      history: [],
+      liveContext: `LIVE AUTHORIZED TOOL RESULTS:\n${JSON.stringify({
+        company_profile: { currency: "ZAR" },
+        customer_balances: {
+          customer_count: 1,
+          total_outstanding: 4200,
+          customers: [{ client_name: "Example Client", email: "client@example.com", outstanding_balance: 4200, unpaid_invoices: 1 }],
+        },
+      })}`,
+      knowledge: [],
+      navigation: [],
+    });
+
+    expect(adminAnswer.rendered.title).toBe("Customer outstanding balances");
+    expect(adminAnswer.rendered.message).toMatch(/4[\s\u00a0]200,00/);
+    expect(adminAnswer.rendered.details.join(" ")).toContain("Example Client");
   });
 });
