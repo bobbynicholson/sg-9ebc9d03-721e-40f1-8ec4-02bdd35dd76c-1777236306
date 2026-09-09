@@ -77,9 +77,14 @@ export const CORE_NAVIGATION_REFS: ChatNavigationRef[] = [
   { ref: "cleaning.dashboard", label: "Cleaning dashboard", href: "/team-portal/cleaning/dashboard", description: "Cleaning work overview", keywords: ["cleaning dashboard", "cleaning overview"], roles: ["cleaning_manager", "cleaning_staff"] },
   { ref: "cleaning.tasks", label: "Cleaning tasks", href: "/team-portal/cleaning/tasks", description: "Assigned cleaning tasks", keywords: ["cleaning task", "cleaning tasks", "cleaning work"], roles: ["cleaning_manager", "cleaning_staff"] },
   { ref: "cleaning.equipment", label: "Cleaning equipment", href: "/team-portal/cleaning/equipment", description: "Equipment condition and cleaning", keywords: ["equipment cleaning", "cleaning equipment", "inspection"], roles: ["cleaning_manager", "cleaning_staff"] },
+  { ref: "cleaning.supplies", label: "Cleaning supplies", href: "/team-portal/cleaning/supplies", description: "Detergents, consumables, and cleaning stock", keywords: ["cleaning supplies", "supplies", "detergent", "sanitiser", "sanitizer", "soap", "cleaning stock", "consumables"], roles: ["cleaning_manager", "cleaning_staff"] },
+  { ref: "cleaning.workflows", label: "Cleaning workflows", href: "/team-portal/cleaning/workflows", description: "Equipment-specific wash and sanitising SOPs", keywords: ["cleaning workflow", "cleaning workflows", "wash procedure", "washing procedure", "sanitising procedure", "sanitizing procedure", "SOP", "how to clean"], roles: ["cleaning_manager", "cleaning_staff"] },
+  { ref: "cleaning.schedules", label: "Cleaning schedules", href: "/team-portal/cleaning/schedules", description: "Planned cleaning work and assigned schedule", keywords: ["cleaning schedule", "cleaning schedules", "cleaning rota", "cleaning calendar", "scheduled cleaning"], roles: ["cleaning_manager", "cleaning_staff"] },
   { ref: "cleaning.damage", label: "Damage reports", href: "/team-portal/cleaning/damage", description: "Report and review damage", keywords: ["damage", "damaged", "damage report", "broken"], roles: ["cleaning_manager", "cleaning_staff"] },
   { ref: "cleaning.dashboard.verification", label: "Equipment verification", href: "/team-portal/cleaning/dashboard?tab=verification#cleaning-verification", description: "Verify returned equipment and readiness", keywords: ["equipment verification", "verify equipment", "returned equipment"], roles: ["cleaning_manager", "cleaning_staff"], targetType: "tab" },
   { ref: "cleaning.dashboard.damages", label: "Cleaning damages", href: "/team-portal/cleaning/dashboard?tab=damages#cleaning-damages", description: "Flag damaged or lost equipment", keywords: ["cleaning damages", "flag damage", "damages and losses"], roles: ["cleaning_manager", "cleaning_staff"], targetType: "tab" },
+  { ref: "cleaning.notifications", label: "Cleaning notifications", href: "/team-portal/cleaning/notifications", description: "Cleaning alerts, assignments, returns, and updates", keywords: ["cleaning notifications", "cleaning alerts", "cleaning updates"], roles: ["cleaning_manager", "cleaning_staff"] },
+  { ref: "cleaning.settings", label: "Cleaning settings", href: "/team-portal/cleaning/settings", description: "Cleaning workspace preferences", keywords: ["cleaning settings", "cleaning preferences"], roles: ["cleaning_manager", "cleaning_staff"] },
   { ref: "cleaning.management", label: "Cleaning team management", href: "/team-portal/cleaning/management", description: "Manage the cleaning roster, clock-ins, and daily work notes", keywords: ["cleaning team management", "manage cleaning team", "cleaning manager", "cleaning diary"], roles: ["cleaning_manager"] },
 
   { ref: "client.dashboard", label: "Client dashboard", href: "/client-portal/dashboard", description: "Your event workspace", keywords: ["client dashboard", "my dashboard", "account overview"], roles: ["client"] },
@@ -117,8 +122,8 @@ const OVERVIEW_REFS_BY_ROLE: Record<string, string[]> = {
   shopping_staff: ["shopping.dashboard", "shopping.buy-list", "shopping.inventory"],
   shopping: ["shopping.dashboard", "shopping.buy-list", "shopping.inventory"],
   driver: ["driver.dashboard", "driver.routes", "driver.deliveries"],
-  cleaning_manager: ["cleaning.dashboard", "cleaning.tasks", "cleaning.equipment"],
-  cleaning_staff: ["cleaning.dashboard", "cleaning.tasks", "cleaning.equipment"],
+  cleaning_manager: ["cleaning.dashboard", "cleaning.tasks", "cleaning.equipment", "cleaning.supplies"],
+  cleaning_staff: ["cleaning.dashboard", "cleaning.tasks", "cleaning.equipment", "cleaning.supplies"],
   client: ["client.dashboard", "client.orders", "client.tracking"],
 };
 
@@ -178,6 +183,34 @@ function isCurrentSubscriptionQuestion(query: string): boolean {
 function isKitchenOverviewQuestion(query: string): boolean {
   const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
   return /\b(?:how can you help|what(?:'s| is| are) my (?:work|tasks?|duties)|what do i have (?:today|to do)|today(?:'s)? work|today(?:'s)? tasks?|kitchen work|production work|upcom(?:ing|ming)|future|events?|scheduled)\b/.test(normalized);
+}
+
+function isCleaningOverviewQuestion(query: string): boolean {
+  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  return /\b(?:how can you help|what can you help with|what can i ask|what should i ask|which types? of questions?|what questions?|what do you provide|what are you providing|what do i have (?:today|to do)|today(?:'s)? work|today(?:'s)? tasks?|cleaning work|cleaning duties?|cleaning workflow)\b/.test(normalized);
+}
+
+function isCleaningScheduleQuestion(query: string): boolean {
+  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  return /\b(?:cleaning|wash(?:ing)?|equipment|return(?:s|ed)?)\b/.test(normalized)
+    && /\b(?:schedule|scheduled|rota|planned)\b/.test(normalized);
+}
+
+function isCleaningDamageQuestion(query: string): boolean {
+  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  return /\b(?:damage|damages|damaged|broken|missing|loss|losses)\b/.test(normalized)
+    && /\b(?:any|who|what|which|show|find|report|reported|logged|check|have|is|are)\b/.test(normalized);
+}
+
+function isCleaningManagementQuestion(query: string): boolean {
+  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
+  return /\b(?:cleaning|cleaner|cleaners|wash(?:ing)?)\b/.test(normalized)
+    && /\b(?:team|staff|roster|assignment|assignments|assigned|unassigned|on duty|manager|employee|employees)\b/.test(normalized);
+}
+
+function isCleaningNotificationQuestion(query: string): boolean {
+  return /\b(?:cleaning|cleaner|washing|equipment)\b/i.test(query)
+    && /\b(?:notification|notifications|alert|alerts|update|updates)\b/i.test(query);
 }
 
 function isKitchenInventoryQuestion(query: string): boolean {
@@ -617,6 +650,25 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   if (["kitchen_manager", "kitchen_staff"].includes(role) && isKitchenOverviewQuestion(query)) {
     return getOverviewNavigation(role, limit);
   }
+  if (["cleaning_manager", "cleaning_staff"].includes(role) && isCleaningOverviewQuestion(query)) {
+    return getOverviewNavigation(role, limit);
+  }
+  if (role === "cleaning_manager" && isCleaningManagementQuestion(query)) {
+    const management = NAVIGATION_REFS.find((item) => item.ref === "cleaning.management");
+    return management && isAllowed(management, role) ? [management] : [];
+  }
+  if (["cleaning_manager", "cleaning_staff"].includes(role) && isCleaningScheduleQuestion(query)) {
+    const schedule = NAVIGATION_REFS.find((item) => item.ref === "cleaning.schedules");
+    return schedule && isAllowed(schedule, role) ? [schedule] : [];
+  }
+  if (["cleaning_manager", "cleaning_staff"].includes(role) && isCleaningDamageQuestion(query)) {
+    const damage = NAVIGATION_REFS.find((item) => item.ref === "cleaning.damage");
+    return damage && isAllowed(damage, role) ? [damage] : [];
+  }
+  if (["cleaning_manager", "cleaning_staff"].includes(role) && isCleaningNotificationQuestion(query)) {
+    const notifications = NAVIGATION_REFS.find((item) => item.ref === "cleaning.notifications");
+    return notifications && isAllowed(notifications, role) ? [notifications] : [];
+  }
   const intentNavigation = getIntentNavigationRefs(resolvedIntent === undefined ? classifyChatIntent(query, role, NAVIGATION_INTENT_REGISTRY) : resolvedIntent, role)
     .map((ref) => NAVIGATION_REFS.find((item) => item.ref === ref))
     .filter((item): item is ChatNavigationRef => Boolean(item) && isAllowed(item, role));
@@ -687,7 +739,7 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   // often has no exact page keyword, so do not leave the assistant without
   // links. Keep this scoped to the signed-in kitchen role and after all
   // specific/security/platform routing above has had a chance to match.
-  if (!matchedNavigation.length && ["kitchen_manager", "kitchen_staff"].includes(role) && !platformScoped) {
+  if (!matchedNavigation.length && ["kitchen_manager", "kitchen_staff", "cleaning_manager", "cleaning_staff"].includes(role) && !platformScoped) {
     return getOverviewNavigation(role, limit);
   }
 

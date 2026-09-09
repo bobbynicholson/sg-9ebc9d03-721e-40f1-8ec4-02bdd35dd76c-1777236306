@@ -7,6 +7,10 @@ const TYPO_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\bnot\s+enough\b/g, "too low"],
   [/\brunn?ing\s+out\b/g, "low stock"],
   [/\bshort[- ]fall\b/g, "shortage"],
+  [/\bclokcing\b/g, "clocking"],
+  [/\bretures\b/g, "returns"],
+  [/\bwwashiig\b/g, "washing"],
+  [/\bchekc\b/g, "check"],
 ];
 
 // Correct likely misspellings against the assistant's known vocabulary rather
@@ -19,6 +23,7 @@ const FUZZY_CANONICAL_TERMS = [
   "delivery", "deliveries", "collection", "collections", "driver", "waiter", "cleaning", "cleaner",
   "shopping", "supplier", "notification", "notifications", "password", "profile", "security", "help",
   "assigned", "available", "completed", "pending", "current", "anything", "something", "have", "show",
+  "clock", "clocking", "clocked", "shift", "shifts", "hours", "wash", "washing", "washed", "return", "returns", "returned", "inspection", "inspections", "handover", "handovers", "supplies", "supply", "detergent", "damage", "damages", "check", "checks",
 ] as const;
 const FUZZY_CANONICAL_TERM_SET = new Set<string>(FUZZY_CANONICAL_TERMS);
 const FUZZY_TERMS_BY_LENGTH = new Map<number, readonly string[]>();

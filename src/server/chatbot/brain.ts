@@ -1674,6 +1674,62 @@ function directStaffScheduleAnswer(args: {
   return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
 
+function directCleaningScheduleAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (!["cleaning_staff", "cleaning_manager"].includes(args.identity.role)) return null;
+  if (!/\b(?:cleaning|equipment|return|returns|washing|wash)\b/i.test(args.message) || !/\b(?:schedule|scheduled|rota|planned)\b/i.test(args.message)) return null;
+  const rows = liveToolRows(args.liveContext, "cleaning_schedules");
+  if (rows == null) return null;
+  const details = rows.slice(0, 30).map((item: any, index: number) => {
+    const date = String(item.scheduled_date || "Date not provided").slice(0, 10);
+    const time = item.scheduled_time ? " at " + String(item.scheduled_time).slice(0, 5) : "";
+    const area = String(item.area_name || "Cleaning task").trim();
+    const frequency = item.frequency ? "; " + String(item.frequency).replace(/[_-]+/g, " ") : "";
+    const status = item.status ? "; status " + String(item.status).replace(/[_-]+/g, " ") : "";
+    return (index + 1) + ". " + date + time + " — " + area + frequency + status + ".";
+  });
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "Cleaning schedules",
+    message: rows.length
+      ? "I found " + rows.length + " cleaning schedule item" + (rows.length === 1 ? "" : "s") + " in the Cleaning Schedules records."
+      : "There are no cleaning schedule items in the current Cleaning Schedules records.",
+    details: details.length ? details : ["Open Cleaning Schedules to create or review planned cleaning work."],
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
+function directCleaningDamageAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (!["cleaning_staff", "cleaning_manager"].includes(args.identity.role)) return null;
+  if (!/\b(?:damage|damages|damaged|broken|missing|loss|losses)\b/i.test(args.message)) return null;
+  const rows = liveToolRows(args.liveContext, "cleaning_damage_reports");
+  if (rows == null) return null;
+  const details = rows.slice(0, 30).map((item: any, index: number) => {
+    const itemName = String(item.equipment_name || "Equipment not identified").trim();
+    const type = String(item.damage_type || "damage").replace(/[_-]+/g, " ");
+    const reporter = String(item.reporter_name || "Reporter not recorded").trim();
+    const when = item.created_at ? `; reported ${new Date(item.created_at).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}` : "";
+    const state = item.resolved === true ? "; resolved" : "; unresolved";
+    return `${index + 1}. ${itemName} — ${type}; reported by ${reporter}${when}${state}.`;
+  });
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "Damage reports",
+    message: rows.length
+      ? `I found ${rows.length} damage report${rows.length === 1 ? "" : "s"} in the current cleaning records.`
+      : "There are no damage reports in the current cleaning records.",
+    details: details.length ? details : ["Open Damage Reports to review or record equipment damage."],
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
 function kitchenMoney(value: unknown): string | null {
   if (value == null || value === "") return null;
   const amount = Number(value);
@@ -1888,6 +1944,48 @@ function directRoleCapabilityAnswer(args: {
     actions: [],
   }));
   return { text: rendered.text, provider: "role-guidance", retrievalCount: 0, rendered };
+}
+
+/**
+ * Cleaning has a small set of workflow terms that are easy to confuse in a
+ * generic answer (returns, washing, inspections, and duty time). Keep the
+ * explanation deterministic and tied to the actual cleaning dashboard.
+ */
+function directCleaningWorkflowAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (!["cleaning_staff", "cleaning_manager"].includes(args.identity.role)) return null;
+  const normalized = normalizeChatMessage(args.message);
+  const asksCapability = /\b(?:what|which)\b[\s\w]*\b(?:provide|providing|offer|include|help|do|questions?)\b/.test(normalized)
+    || /\b(?:how can|what can)\s+(?:you|i)\s+help\b/.test(normalized);
+  const asksClock = /\b(?:clock|clocking|clocked|shift|duty|hours?)\b/.test(normalized);
+  const asksReturnsOrWash = /\b(?:return|returns|returned|washing|wash|washed|inspection|inspections?)\b/.test(normalized);
+  const asksManagement = args.identity.role === "cleaning_manager"
+    && /\b(?:team|staff|roster|assignment|assignments|assigned|unassigned|on duty|manager|employees?)\b/.test(normalized);
+  if (!asksCapability && !asksClock && !asksReturnsOrWash && !asksManagement) return null;
+
+  // Give the complete compact workflow even when the user asks about only one
+  // term. Cleaning staff commonly ask with short or misspelled messages and
+  // need to understand how returns, washing, inspection, damage, and time fit
+  // together.
+  const details = [
+    "Returns: verify equipment coming back from an event on the Cleaning Dashboard or Equipment page; record missing or damaged quantities.",
+    "Washing: open the cleaning queue, select Start when you begin, follow the listed manual or dishwasher method, then hold Complete after the item is clean and inspected. Completed equipment becomes available again.",
+    "Inspections and damage: check condition before releasing equipment. Use Damage Reports for broken, missing, or unsafe items; do not mark damaged equipment available.",
+    "Supplies and SOPs: use Cleaning Supplies for detergents, sanitiser, gloves, cloths, and low-stock items. Use Cleaning Workflows for the equipment-specific wash, sanitise, rinse, dry, inspect, and store procedure.",
+    "Schedules and alerts: use Cleaning Schedules for planned work and Cleaning Notifications for assignments, returns, damage alerts, and updates. Cleaning Settings contains workspace preferences.",
+    "Shift time: use Clock in and Clock out on the Cleaning Dashboard. Your recorded shift time is used for work-hour and payroll records; ask a manager to correct a missed time.",
+  ];
+  if (asksManagement) details.push("Manager oversight: use Cleaning Team Management for the cleaning roster, duty status, assignments, work notes, and team follow-up. Use Cleaning Tasks and Cleaning Schedules to review planned and unassigned work.");
+
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "Cleaning staff workflow",
+    message: "For cleaning staff, CateringMS covers returned equipment, washing jobs, inspections, damage reporting, and shift time in one cleaning workflow.",
+    details,
+    actions: [],
+  }));
+  return { text: rendered.text, provider: "cleaning-guidance", retrievalCount: 0, rendered };
 }
 
 function directClientJourneyAnswer(args: {
@@ -2491,6 +2589,8 @@ export async function generateChatReply(args: {
   if (clarificationAnswer) return clarificationAnswer;
   const roleCapabilityAnswer = directRoleCapabilityAnswer(args);
   if (roleCapabilityAnswer) return roleCapabilityAnswer;
+  const cleaningWorkflowAnswer = directCleaningWorkflowAnswer(args);
+  if (cleaningWorkflowAnswer) return cleaningWorkflowAnswer;
   const clientJourneyAnswer = directClientJourneyAnswer(args);
   if (clientJourneyAnswer) return clientJourneyAnswer;
   const clientBalanceAnswer = directClientBalanceAnswer(args);
@@ -2577,6 +2677,10 @@ export async function generateChatReply(args: {
   if (directTeamRoster) return directTeamRoster;
   const directStaffSchedule = directStaffScheduleAnswer(args);
   if (directStaffSchedule) return directStaffSchedule;
+  const directCleaningSchedule = directCleaningScheduleAnswer(args);
+  if (directCleaningSchedule) return directCleaningSchedule;
+  const directCleaningDamage = directCleaningDamageAnswer(args);
+  if (directCleaningDamage) return directCleaningDamage;
   const directKitchenCatalogue = directKitchenCatalogueAnswer(args);
   if (directKitchenCatalogue) return directKitchenCatalogue;
   const directKitchenInventory = directKitchenInventoryAnswer(args);

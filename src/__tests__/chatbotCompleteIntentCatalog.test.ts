@@ -64,7 +64,7 @@ describe("complete chatbot intent catalog", () => {
       "order_items", "inventory_movements", "catalogue_menu", "supplier_records", "delivery_tracking",
       "vehicle_status", "cleaning_schedules", "reviews_feedback", "supplier_payables", "notification_preferences",
       "work_clock_status", "work_hours", "order_work_hours", "daily_operations_tasks", "staff_shift_schedule",
-      "waiter_service_assignments", "cleaning_work_tasks",
+      "waiter_service_assignments", "cleaning_work_tasks", "cleaning_supplies",
     ];
     for (const id of expected) expect(registry.some((intent) => intent.toolIds.includes(id as any))).toBe(true);
   });

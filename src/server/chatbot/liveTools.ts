@@ -52,6 +52,7 @@ export type LiveToolId =
   | "shopping_inventory"
   | "shopping_lists"
   | "cleaning_equipment"
+  | "cleaning_supplies"
   | "cleaning_damage_reports"
   | "sales_orders"
   | "sales_quotes"
@@ -147,6 +148,7 @@ const BASE_LIVE_TOOL_DEFINITIONS = [
   { id: "shopping_inventory", label: "Shopping inventory", description: "Purchasing stock, par levels, and reorder context", category: "operations", roles: SHOPPING, keywords: ["stock", "inventory", "restock", "buy", "shortage", "supplier"] },
   { id: "shopping_lists", label: "Shopping lists", description: "Purchase lists, totals, status, and notes", category: "operations", roles: SHOPPING, keywords: ["shopping", "purchase", "buy list", "supplier", "receipt"] },
   { id: "cleaning_equipment", label: "Cleaning equipment", description: "Equipment condition, availability, and cleaning status", category: "operations", roles: CLEANING, keywords: ["equipment", "cleaning", "available", "condition", "return"] },
+  { id: "cleaning_supplies", label: "Cleaning supplies", description: "Cleaning consumables, stock levels, par levels, and usage context", category: "operations", roles: CLEANING, keywords: ["cleaning supplies", "supplies", "detergent", "sanitiser", "sanitizer", "soap", "gloves", "cloths", "mops", "cleaning stock", "consumables"] },
   { id: "cleaning_damage_reports", label: "Damage reports", description: "Recent equipment damage and resolution status", category: "operations", roles: CLEANING, keywords: ["damage", "damaged", "broken", "missing", "repair"] },
   { id: "sales_orders", label: "Sales orders", description: "Orders visible to sales and regional administration", category: "sales", roles: SALES, keywords: ["order", "orders", "booking", "revenue", "event"] },
   { id: "sales_quotes", label: "Sales quotes", description: "Quotes, values, statuses, and validity dates", category: "sales", roles: SALES, keywords: ["quote", "quotes", "proposal", "valid", "value"] },
@@ -214,6 +216,7 @@ const LIVE_TOOL_DATA_SCOPES: Record<LiveToolId, string> = {
   shopping_inventory: "Purchasing stock, par levels, shortages, and reorder context",
   shopping_lists: "Company purchase lists, totals, status, and procurement notes",
   cleaning_equipment: "Equipment condition, availability, and cleaning status",
+  cleaning_supplies: "Cleaning consumables and supplies, filtered using the same cleaning-category and product-name rules as the Cleaning Supplies page",
   cleaning_damage_reports: "Company equipment damage reports and resolution status",
   sales_orders: "Company sales orders, filtered by assigned region where applicable",
   sales_quotes: "Company quotes, values, statuses, and validity dates",
@@ -330,6 +333,15 @@ export function selectLiveTools(role: string, message: string, policy: LiveToolP
     const identity = eligible.find((tool) => tool.id === "current_user_profile");
     return [access, identity].filter((tool): tool is LiveToolDefinition => Boolean(tool));
   }
+  const asksCleaningWashQueue = ["cleaning_manager", "cleaning_staff"].includes(role)
+    && /\b(?:washing|washed|being washed|wash queue|cleaning jobs?|cleaning tasks?)\b/.test(normalized)
+    && /\b(?:which|what|show|list|currently|now|today|have|status|items?|equipment|jobs?|tasks?)\b/.test(normalized);
+  if (asksCleaningWashQueue) {
+    const jobs = eligible.find((tool) => tool.id === "cleaning_work_tasks");
+    const equipment = eligible.find((tool) => tool.id === "cleaning_equipment");
+    const identity = eligible.find((tool) => tool.id === "current_user_profile");
+    return [jobs, equipment, identity].filter((tool): tool is LiveToolDefinition => Boolean(tool));
+  }
   const asksTeamRoster = /\b(?:team|staff|employee|employees?|member|members?|roster|names?)\b/.test(normalized)
     && /\b(?:who|which|what|show|list|give|name|names|overview|details|have|all)\b/.test(normalized)
     && !/\b(?:schedule|scheduled|shift|shifts|clock|hours?|work\s+time)\b/.test(normalized);
@@ -340,7 +352,9 @@ export function selectLiveTools(role: string, message: string, policy: LiveToolP
   }
   const asksStaffSchedule = /\b(?:schedules?|scheduled|shifts?|rota|planned\s+(?:work|shift))\b/.test(normalized);
   if (asksStaffSchedule) {
-    const schedule = eligible.find((tool) => tool.id === "staff_shift_schedule");
+    const asksCleaningSchedule = ["cleaning_manager", "cleaning_staff"].includes(role)
+      && /\b(?:cleaning|equipment|return|returns|washing|wash)\b/.test(normalized);
+    const schedule = eligible.find((tool) => tool.id === (asksCleaningSchedule ? "cleaning_schedules" : "staff_shift_schedule"));
     const identity = eligible.find((tool) => tool.id === "current_user_profile");
     return [schedule, identity].filter((tool): tool is LiveToolDefinition => Boolean(tool));
   }
@@ -1632,9 +1646,35 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
     case "shopping_lists":
       return rows(db, "shopping_lists", (q) => applyDateRange(q.select("id, title, list_date, status, estimated_total, actual_total, shopper_id, notes").eq("company_id", companyId), "list_date", message, resolvedIntent).order("list_date", { ascending: false }).limit(30));
     case "cleaning_equipment":
-      return rows(db, "equipment", (q) => q.select("id, name, category, condition, quantity, available, requires_cleaning, next_available_at, last_cleaned").eq("company_id", companyId).limit(100));
+      return rows(db, "equipment", (q) => q.select("id, name, category, condition, quantity, available_quantity, is_available, requires_cleaning, dishwasher_safe, cleaning_time_manual_minutes, cleaning_time_dishwasher_minutes, cleaning_time_hours, next_service_due, last_serviced_at").eq("company_id", companyId).is("deleted_at", null).limit(100));
+    case "cleaning_supplies": {
+      const keywords = ["detergent", "cleaner", "soap", "bleach", "sanitiser", "sanitizer", "cloth", "glove", "wipe", "mop", "broom", "spray", "polish", "degreaser", "cleaning", "disinfect", "scrubb", "rubber", "bin liner", "paper towel"];
+      const items = await rows(db, "inventory_items", (q) => q.select("id, item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, storage_location, notes").eq("company_id", companyId).is("deleted_at", null).limit(500));
+      return items.filter((item: any) => {
+        const category = String(item.category || "").toLowerCase();
+        const name = String(item.item_name || "").toLowerCase();
+        return category.includes("clean") || category.includes("consumable") || keywords.some((keyword) => name.includes(keyword));
+      });
+    }
     case "cleaning_damage_reports":
-      return rows(db, "equipment_damages", (q) => q.select("id, equipment_id, damage_type, severity, status, description, reported_at").eq("company_id", companyId).order("reported_at", { ascending: false }).limit(60));
+    {
+      const reports = await rows(db, "equipment_damages", (q) => q.select("id, equipment_id, damage_type, notes, reported_by, created_at, resolved, repair_cost").eq("company_id", companyId).order("created_at", { ascending: false }).limit(60));
+      const equipmentIds = [...new Set(reports.map((report: any) => report.equipment_id).filter(Boolean))];
+      const reporterIds = [...new Set(reports.map((report: any) => report.reported_by).filter(Boolean))];
+      const equipment = equipmentIds.length
+        ? await rows(db, "equipment", (q) => q.select("id, name").eq("company_id", companyId).in("id", equipmentIds))
+        : [];
+      const reporters = reporterIds.length
+        ? await rows(db, "profiles", (q) => q.select("id, full_name, email, role, active_role").in("id", reporterIds))
+        : [];
+      const equipmentById = new Map(equipment.map((item: any) => [String(item.id), item.name]));
+      const reporterById = new Map(reporters.map((item: any) => [String(item.id), item.full_name || item.email || "Staff member"]));
+      return reports.map((report: any) => ({
+        ...report,
+        equipment_name: equipmentById.get(String(report.equipment_id)) || "Equipment not identified",
+        reporter_name: reporterById.get(String(report.reported_by)) || "Reporter not recorded",
+      }));
+    }
     case "sales_orders":
     case "operations_orders":
       return rows(db, "orders", (q) => applyDateRange(scopeRegionQuery(q.select("id, order_number, event_name, event_date, event_time, venue_name, guest_count, status, total_amount, payment_status, region_id"), identity).eq("company_id", companyId), "event_date", message, resolvedIntent).order("event_date", { ascending: true }).limit(60));
@@ -1838,12 +1878,18 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
     }
     case "cleaning_work_tasks": {
       const jobs = await rows(db, "cleaning_jobs", (q) => applyDateRange(q.select("id, equipment_id, quantity, method, machine_id, shift_task_id, planned_start, planned_end, actual_start, actual_end, status, triggered_by_event_id, notes").eq("company_id", companyId).is("deleted_at", null), "planned_start", message, resolvedIntent).order("planned_start", { ascending: true }).limit(120));
-      if (hasCompanyStaffScope(identity.role) || identity.role === "cleaning_manager") return { jobs, as_of: new Date().toISOString() };
+      const equipmentIds = [...new Set(jobs.map((job: any) => job.equipment_id).filter(Boolean))];
+      const equipment = equipmentIds.length
+        ? await rows(db, "equipment", (q) => q.select("id, name, category, condition, available_quantity, is_available, dishwasher_safe, cleaning_time_manual_minutes, cleaning_time_dishwasher_minutes, cleaning_time_hours").eq("company_id", companyId).in("id", equipmentIds))
+        : [];
+      const equipmentById = new Map(equipment.map((item: any) => [String(item.id), item]));
+      const enrichedJobs = jobs.map((job: any) => ({ ...job, equipment: equipmentById.get(String(job.equipment_id)) || null }));
+      if (hasCompanyStaffScope(identity.role) || identity.role === "cleaning_manager") return { jobs: enrichedJobs, as_of: new Date().toISOString() };
       const shifts = await rows(db, "kitchen_shifts", (q) => q.select("id").eq("company_id", companyId).eq("staff_id", identity.userId).is("deleted_at", null).limit(40));
       const shiftIds = shifts.map((shift: any) => shift.id).filter(Boolean);
       const assignedTasks = shiftIds.length ? await rows(db, "staff_shift_tasks", (q) => q.select("id").eq("company_id", companyId).in("shift_id", shiftIds).eq("task_type", "cleaning").is("deleted_at", null).limit(100)) : [];
       const assignedIds = new Set(assignedTasks.map((task: any) => String(task.id)));
-      return { jobs: jobs.filter((job: any) => job.shift_task_id && assignedIds.has(String(job.shift_task_id))), as_of: new Date().toISOString() };
+      return { jobs: enrichedJobs.filter((job: any) => job.shift_task_id && assignedIds.has(String(job.shift_task_id))), as_of: new Date().toISOString() };
     }
     case "user_notifications":
       return rows(db, "notifications", (q) => q.select("title, message, priority, created_at, is_read, action_url").eq("company_id", companyId).eq("user_id", identity.userId).order("created_at", { ascending: false }).limit(30));

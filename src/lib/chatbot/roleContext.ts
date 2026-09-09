@@ -107,15 +107,15 @@ export const CHAT_ROLE_DEFINITIONS: Record<string, ChatRoleDefinition> = {
   cleaning_manager: {
     label: "Cleaning manager",
     purpose: "Coordinate equipment cleaning, inspections, damage, and team tasks.",
-    capabilities: ["equipment status", "damage reports", "cleaning tasks", "schedules", "handoffs"],
-    liveData: ["equipment", "equipment damages", "cleaning schedules and tasks", "notifications"],
+    capabilities: ["equipment status", "damage reports", "cleaning tasks", "schedules", "handoffs", "cleaning team roster", "staff duty and work hours", "assignments and unresolved work", "supplies and cleaning settings"],
+    liveData: ["equipment", "equipment damages", "cleaning schedules and tasks", "cleaning staff roster and duty records", "cleaning supplies", "notifications"],
     restrictions: [INTERNAL_RESTRICTION],
   },
   cleaning_staff: {
     label: "Cleaning staff member",
-    purpose: "Help with today's assigned cleaning, equipment, and inspection work.",
-    capabilities: ["assigned cleaning tasks", "equipment status", "damage reporting"],
-    liveData: ["assigned cleaning tasks", "equipment", "equipment damages"],
+    purpose: "Help with today's returned-equipment work, washing queue, inspections, shift time, and damage reporting.",
+    capabilities: ["returned equipment and washing queue", "assigned cleaning tasks and inspections", "clock-in, clock-out, and work hours", "damage and missing-item reporting"],
+    liveData: ["assigned cleaning tasks", "returned equipment and cleaning jobs", "equipment and inspection status", "equipment damages", "your work clock and hours"],
     restrictions: [INTERNAL_RESTRICTION, "Do not expose payroll or unrelated client records."],
   },
   client: {
