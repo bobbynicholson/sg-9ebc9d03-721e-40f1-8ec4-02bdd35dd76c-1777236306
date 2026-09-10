@@ -422,6 +422,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .eq("id", orderId);
 
       let notificationCreated = false;
+      let adminNotificationsCreated = 0;
       try {
         const { notificationService } = await import("@/services/notificationService");
         const notification = await notificationService.createNotification({
@@ -439,6 +440,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           dedup: true,
         }, admin);
         notificationCreated = !!notification;
+
+        // Keep the office informed as well as the assigned waiter. Use a
+        // separate type so the admin fan-out is not deduplicated by the
+        // waiter-specific notification row above.
+        adminNotificationsCreated = await notificationService.broadcastNotification({
+          companyId: order.company_id,
+          type: "waiter_assignment_admin",
+          title: "Waiter assigned",
+          message: `${waiter.full_name || waiter.email || "A waiter"} was assigned to ${order.event_name || order.order_number || "an event"}.`,
+          targetRoles: [
+            UserRole.SUPER_ADMIN,
+            UserRole.OWNER,
+            UserRole.COMPANY_ADMIN,
+            UserRole.ADMIN,
+            UserRole.REGION_ADMIN,
+          ],
+          priority: "normal",
+          link: `/order/${orderId}?role=admin#section-waiter`,
+          relatedEntityType: "order",
+          relatedEntityId: orderId,
+          dedup: true,
+          dedupWindowMinutes: 60,
+        }, admin);
       } catch (notifyErr) {
         console.warn("[orders/waiters] waiter notification failed:", notifyErr);
       }
@@ -473,6 +497,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         waiter,
         access_email: accessEmail,
         notification_created: notificationCreated,
+        admin_notifications_created: adminNotificationsCreated,
         assignment_email_sent: assignmentEmailSent,
       });
     }
