@@ -1,0 +1,20 @@
+"use strict";(()=>{var e={};e.id=64955,e.ids=[64955],e.modules={29021:e=>{e.exports=require("fs")},33538:(e,t,a)=>{a.a(e,async(e,n)=>{try{a.r(t),a.d(t,{config:()=>d,default:()=>l});var o=a(47026),r=a(35587),i=a(96153),s=a(96588),u=e([o]);o=(u.then?(await u)():u)[0];let d={api:{bodyParser:{sizeLimit:"8kb"}}};async function c(e,t){if((0,r.I5)(t),"OPTIONS"===e.method)return t.status(204).end();if("GET"!==e.method&&"POST"!==e.method)return t.setHeader("Allow","GET, POST, OPTIONS"),t.status(405).json({ok:!1});let a=String(e.query.token||"");if(!(0,r.O1)(a))return t.status(404).json({ok:!1,error:"Not found"});let n=await (0,o.getRequestSupabase)(),i=(0,r.T1)(e),u=(0,r.aS)(i);if(!(await (0,r.kU)(a,u,n,{limit:120,bucket:"hour"})).allowed)return t.status(429).json({ok:!1,error:"Too many requests"});let{data:c,error:d}=await n.from("quotes").select(`
+      id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+      region_id,
+      venue_address, menu_items, equipment_items, notes, terms_and_conditions,
+      subtotal, tax_amount, discount_amount, total, total_amount, status,
+      deposit_percentage,
+      delivery_fee, delivery_distance_km, delivery_rate_per_km,
+      collection_fee, collection_distance_km, collection_rate_per_km,
+      valid_until, sent_at, viewed_at, accepted_at,
+      converted_to_order_id,
+      company:company_id (
+        id, slug, company_name, logo_url, email, phone, website,
+        address_line1, address_line2, city,
+        vat_registered, vat_number, vat_rate, pricing_includes_vat,
+        registration_number, tax_number,
+        primary_color, secondary_color, accent_color,
+        brand_font_body, brand_font_display,
+        currency, deposit_percent
+      )
+    `).eq("public_token",a).is("deleted_at",null).maybeSingle();if(d)return console.error("[public/quotes/get] fetch failed:",d),t.status(500).json({ok:!1,error:"Lookup failed"});if(!c)return t.status(404).json({ok:!1,error:"Not found"});try{let{count:e}=await n.from("quote_change_requests").select("id",{count:"exact",head:!0}).eq("quote_id",c.id).eq("status","pending");c.pending_change_request=(e||0)>0}catch(e){console.warn("[public/quotes/get] pending change-request probe failed:",e),c.pending_change_request=!1}c.event_capacity=null;try{let e=c?.company?.id,t=c?.event_date,a=!!c?.converted_to_order_id||["accepted","rejected","expired"].includes(String(c?.status||"").toLowerCase());if(e&&t&&!a){let a=await (0,s.kf)(n,{companyId:e,eventDate:t,includeOpenQuotes:!1,excludeQuoteId:c.id,candidateEventCount:1,candidateGuestCount:c.guest_count}),o=a.blocksPublicAcceptance;c.event_capacity={status:a.status,accepting_blocked:o,message:o?(0,s.tH)(c?.company?.company_name||null):null}}}catch(e){console.warn("[public/quotes/get] capacity probe failed:",e)}let l=Number(c?.company?.deposit_percent),_=Number(c?.deposit_percentage);return c.deposit_percentage=Number.isFinite(l)&&l>0?l:Number.isFinite(_)&&_>0?_:null,t.status(200).json({ok:!0,quote:c})}let l=(0,i.k)(c);n()}catch(e){n(e)}})},33873:e=>{e.exports=require("path")},55511:e=>{e.exports=require("crypto")},75600:e=>{e.exports=require("next/dist/compiled/next-server/pages-api.runtime.prod.js")},89408:(e,t,a)=>{a.a(e,async(e,n)=>{try{a.r(t),a.d(t,{config:()=>d,default:()=>c,routeModule:()=>l});var o=a(33480),r=a(8667),i=a(86435),s=a(33538),u=e([s]);s=(u.then?(await u)():u)[0];let c=(0,i.M)(s,"default"),d=(0,i.M)(s,"config"),l=new o.PagesAPIRouteModule({definition:{kind:r.A.PAGES_API,page:"/api/public/quotes/[token]/get",pathname:"/api/public/quotes/[token]/get",bundlePath:"",filename:""},userland:s});n()}catch(e){n(e)}})},93721:e=>{e.exports=import("@supabase/supabase-js")}};var t=require("../../../../../webpack-api-runtime.js");t.C(e);var a=e=>t(t.s=e),n=t.X(0,[78972,43095],()=>a(89408));module.exports=n})();

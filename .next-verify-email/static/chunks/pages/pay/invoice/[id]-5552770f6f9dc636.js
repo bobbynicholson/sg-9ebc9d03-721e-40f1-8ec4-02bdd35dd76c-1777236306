@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[7292],{41064:(_,n,u)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/pay/invoice/[id]",function(){return u(97154)}])},97154:(_,n,u)=>{"use strict";u.r(n),u.d(n,{__N_SSP:()=>e,default:()=>i});var e=!0;function i(){return null}}},_=>{var n=n=>_(_.s=n);_.O(0,[636,6593,8792],()=>n(41064)),_N_E=_.O()}]);

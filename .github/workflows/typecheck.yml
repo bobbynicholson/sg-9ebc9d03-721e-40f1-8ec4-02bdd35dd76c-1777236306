@@ -1,0 +1,62 @@
+name: TypeScript check
+
+# Runs on every push and PR to main. Fails fast (≈30 seconds) if there's a
+# type error, so we hear about it before Vercel runs the full build (~3 minutes).
+# GitHub will email the commit author on failure by default -- no setup needed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        # `npm install` (not `npm ci`) so a stale package-lock.json doesn't
+        # fail this job. Vercel does the same on production builds, so CI
+        # stays consistent with what actually deploys.
+        run: npm install --prefer-offline --no-audit --no-fund
+
+      - name: Run TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Check Supabase status filters
+        # A.17 #1 - guards against the literal-string status-filter
+        # drift that produced 8 production bugs in the 2026-05-18
+        # audit (A.10 + A.16). The eslint rule from PR #61 covers
+        # the write side via `as any`; this script covers the
+        # `.eq("status", "X")` / `.in("status", [...])` /
+        # `status: "X"` payload sites against a hardcoded
+        # table->CHECK/enum vocab map.
+        run: npm run check:status-filters
+
+      - name: Check migration RLS
+        # Phase 1 audit guard - fails the build if a post-baseline
+        # migration creates a public table without enabling RLS in
+        # the same file. Override with `-- RLS_OPT_OUT: <reason>`.
+        # See docs/security-posture.md section 6.
+        run: npm run check:migration-rls
+
+      - name: Check realtime channel scoping
+        # Phase 6 audit follow-up - fails the build if any
+        # .channel(...) call uses a string literal (no interpolation).
+        # The audit found two cross-tenant amplification leaks from
+        # globally-named channels. Template literals with any ${...}
+        # are accepted on the assumption that reviewers verify the
+        # interpolated value is tenant-bound. Override with a
+        # `// CHANNEL_OPT_OUT: <reason>` comment above the call.
+        # See docs/perf-and-ops.md section 2.
+        run: npm run check:realtime-channels

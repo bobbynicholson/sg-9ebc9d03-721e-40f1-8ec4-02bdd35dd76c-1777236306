@@ -1,0 +1,19 @@
+{
+  "name": "CateringMS Driver",
+  "short_name": "CateringMS",
+  "description": "Driver portal for catering deliveries -- assigned routes, navigation, POD capture, GPS tracking.",
+  "start_url": "/team-portal/driver/dashboard",
+  "scope": "/team-portal/driver/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ]
+}

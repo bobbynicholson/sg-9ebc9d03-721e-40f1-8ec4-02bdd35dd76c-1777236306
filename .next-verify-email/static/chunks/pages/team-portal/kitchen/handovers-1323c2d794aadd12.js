@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[9246],{42680:(_,n,e)=>{"use strict";e.r(n),e.d(n,{__N_SSP:()=>u,default:()=>r});var u=!0;function r(){return null}},78152:(_,n,e)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/team-portal/kitchen/handovers",function(){return e(42680)}])}},_=>{var n=n=>_(_.s=n);_.O(0,[636,6593,8792],()=>n(78152)),_N_E=_.O()}]);

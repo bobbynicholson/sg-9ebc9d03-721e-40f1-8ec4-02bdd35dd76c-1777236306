@@ -1,0 +1,581 @@
+
+<!DOCTYPE html>
+<html class="no-js" lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="pingback" href="https://spitbraaidelivery.co.za/xmlrpc.php">
+<meta name='robots' content='index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' />
+	<style>img:is([sizes="auto" i], [sizes^="auto," i]) { contain-intrinsic-size: 3000px 1500px }</style>
+	
+	<!-- This site is optimized with the Yoast SEO plugin v27.4 - https://yoast.com/product/yoast-seo-wordpress/ -->
+	<title>Request a quote - Spit Braai Delivery</title>
+	<meta name="description" content="Our 2 minute request a quote form will help us establish your needs so we can send you the best possible quote  :-)" />
+	<link rel="canonical" href="https://spitbraaidelivery.co.za/request-a-quote/" />
+	<meta property="og:locale" content="en_US" />
+	<meta property="og:type" content="article" />
+	<meta property="og:title" content="Request a quote - Spit Braai Delivery" />
+	<meta property="og:description" content="Our 2 minute request a quote form will help us establish your needs so we can send you the best possible quote  :-)" />
+	<meta property="og:url" content="https://spitbraaidelivery.co.za/request-a-quote/" />
+	<meta property="og:site_name" content="Spit Braai Delivery" />
+	<meta property="article:publisher" content="https://facebook.com/spitbraaidelivery" />
+	<meta property="article:modified_time" content="2016-07-05T00:59:13+00:00" />
+	<meta property="og:image" content="https://spitbraaidelivery.co.za/wp-content/uploads/2015/04/Facebookpic-72.jpg" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:type" content="image/jpeg" />
+	<meta name="twitter:label1" content="Est. reading time" />
+	<meta name="twitter:data1" content="2 minutes" />
+	<script type="application/ld+json" class="yoast-schema-graph">{"@context":"https:\/\/schema.org","@graph":[{"@type":"WebPage","@id":"https:\/\/spitbraaidelivery.co.za\/request-a-quote\/","url":"https:\/\/spitbraaidelivery.co.za\/request-a-quote\/","name":"Request a quote - Spit Braai Delivery","isPartOf":{"@id":"https:\/\/spitbraaidelivery.co.za\/#website"},"primaryImageOfPage":{"@id":"https:\/\/spitbraaidelivery.co.za\/request-a-quote\/#primaryimage"},"image":{"@id":"https:\/\/spitbraaidelivery.co.za\/request-a-quote\/#primaryimage"},"thumbnailUrl":"http:\/\/spitbraaidelivery.co.za\/wp-content\/uploads\/2014\/10\/thumbs-up-spit-braai.png","datePublished":"2013-10-27T16:45:34+00:00","dateModified":"2016-07-05T00:59:13+00:00","description":"Our 2 minute request a quote form will help us establish your needs so we can send you the best possible quote  :-)","inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https:\/\/spitbraaidelivery.co.za\/request-a-quote\/"]}]},{"@type":"ImageObject","inLanguage":"en-US","@id":"https:\/\/spitbraaidelivery.co.za\/request-a-quote\/#primaryimage","url":"https:\/\/spitbraaidelivery.co.za\/wp-content\/uploads\/2014\/10\/thumbs-up-spit-braai.png","contentUrl":"https:\/\/spitbraaidelivery.co.za\/wp-content\/uploads\/2014\/10\/thumbs-up-spit-braai.png","width":50,"height":75,"caption":"spit braai thumbs up"},{"@type":"WebSite","@id":"https:\/\/spitbraaidelivery.co.za\/#website","url":"https:\/\/spitbraaidelivery.co.za\/","name":"Spit Braai Delivery","description":"Spit roasted to perfection","publisher":{"@id":"https:\/\/spitbraaidelivery.co.za\/#organization"},"potentialAction":[{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https:\/\/spitbraaidelivery.co.za\/?s={search_term_string}"},"query-input":{"@type":"PropertyValueSpecification","valueRequired":true,"valueName":"search_term_string"}}],"inLanguage":"en-US"},{"@type":"Organization","@id":"https:\/\/spitbraaidelivery.co.za\/#organization","name":"Spit Braai Delivery","url":"https:\/\/spitbraaidelivery.co.za\/","logo":{"@type":"ImageObject","inLanguage":"en-US","@id":"https:\/\/spitbraaidelivery.co.za\/#\/schema\/logo\/image\/","url":"https:\/\/spitbraaidelivery.co.za\/wp-content\/uploads\/2015\/10\/Spit-braai-delivery-logo-rebrand-2015-220w.png","contentUrl":"https:\/\/spitbraaidelivery.co.za\/wp-content\/uploads\/2015\/10\/Spit-braai-delivery-logo-rebrand-2015-220w.png","width":220,"height":208,"caption":"Spit Braai Delivery"},"image":{"@id":"https:\/\/spitbraaidelivery.co.za\/#\/schema\/logo\/image\/"},"sameAs":["https:\/\/facebook.com\/spitbraaidelivery","https:\/\/x.com\/spitbraaiSA","https:\/\/www.linkedin.com\/company\/spit-braai-delivery","http:\/\/www.youtube.com\/channel\/UCRcPqLZOEcEUa3zQas3wkCQ"]}]}</script>
+	<!-- / Yoast SEO plugin. -->
+
+
+<link rel="alternate" type="application/rss+xml" title="Spit Braai Delivery &raquo; Feed" href="https://spitbraaidelivery.co.za/feed/" />
+<link rel="alternate" type="application/rss+xml" title="Spit Braai Delivery &raquo; Comments Feed" href="https://spitbraaidelivery.co.za/comments/feed/" />
+<link rel="alternate" type="application/rss+xml" title="Spit Braai Delivery &raquo; Request a Quote Comments Feed" href="https://spitbraaidelivery.co.za/request-a-quote/feed/" />
+<script type="text/javascript">
+/* <![CDATA[ */
+window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/16.0.1\/72x72\/","ext":".png","svgUrl":"https:\/\/s.w.org\/images\/core\/emoji\/16.0.1\/svg\/","svgExt":".svg","source":{"concatemoji":"https:\/\/spitbraaidelivery.co.za\/wp-includes\/js\/wp-emoji-release.min.js?ver=6d753a03cfcb882df1aee6bcd9e7e071"}};
+/*! This file is auto-generated */
+!function(s,n){var o,i,e;function c(e){try{var t={supportTests:e,timestamp:(new Date).valueOf()};sessionStorage.setItem(o,JSON.stringify(t))}catch(e){}}function p(e,t,n){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);var t=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data),a=(e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(n,0,0),new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data));return t.every(function(e,t){return e===a[t]})}function u(e,t){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);for(var n=e.getImageData(16,16,1,1),a=0;a<n.data.length;a++)if(0!==n.data[a])return!1;return!0}function f(e,t,n,a){switch(t){case"flag":return n(e,"\ud83c\udff3\ufe0f\u200d\u26a7\ufe0f","\ud83c\udff3\ufe0f\u200b\u26a7\ufe0f")?!1:!n(e,"\ud83c\udde8\ud83c\uddf6","\ud83c\udde8\u200b\ud83c\uddf6")&&!n(e,"\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f","\ud83c\udff4\u200b\udb40\udc67\u200b\udb40\udc62\u200b\udb40\udc65\u200b\udb40\udc6e\u200b\udb40\udc67\u200b\udb40\udc7f");case"emoji":return!a(e,"\ud83e\udedf")}return!1}function g(e,t,n,a){var r="undefined"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope?new OffscreenCanvas(300,150):s.createElement("canvas"),o=r.getContext("2d",{willReadFrequently:!0}),i=(o.textBaseline="top",o.font="600 32px Arial",{});return e.forEach(function(e){i[e]=t(o,e,n,a)}),i}function t(e){var t=s.createElement("script");t.src=e,t.defer=!0,s.head.appendChild(t)}"undefined"!=typeof Promise&&(o="wpEmojiSettingsSupports",i=["flag","emoji"],n.supports={everything:!0,everythingExceptFlag:!0},e=new Promise(function(e){s.addEventListener("DOMContentLoaded",e,{once:!0})}),new Promise(function(t){var n=function(){try{var e=JSON.parse(sessionStorage.getItem(o));if("object"==typeof e&&"number"==typeof e.timestamp&&(new Date).valueOf()<e.timestamp+604800&&"object"==typeof e.supportTests)return e.supportTests}catch(e){}return null}();if(!n){if("undefined"!=typeof Worker&&"undefined"!=typeof OffscreenCanvas&&"undefined"!=typeof URL&&URL.createObjectURL&&"undefined"!=typeof Blob)try{var e="postMessage("+g.toString()+"("+[JSON.stringify(i),f.toString(),p.toString(),u.toString()].join(",")+"));",a=new Blob([e],{type:"text/javascript"}),r=new Worker(URL.createObjectURL(a),{name:"wpTestEmojiSupports"});return void(r.onmessage=function(e){c(n=e.data),r.terminate(),t(n)})}catch(e){}c(n=g(i,f,p,u))}t(n)}).then(function(e){for(var t in e)n.supports[t]=e[t],n.supports.everything=n.supports.everything&&n.supports[t],"flag"!==t&&(n.supports.everythingExceptFlag=n.supports.everythingExceptFlag&&n.supports[t]);n.supports.everythingExceptFlag=n.supports.everythingExceptFlag&&!n.supports.flag,n.DOMReady=!1,n.readyCallback=function(){n.DOMReady=!0}}).then(function(){return e}).then(function(){var e;n.supports.everything||(n.readyCallback(),(e=n.source||{}).concatemoji?t(e.concatemoji):e.wpemoji&&e.twemoji&&(t(e.twemoji),t(e.wpemoji)))}))}((window,document),window._wpemojiSettings);
+/* ]]> */
+</script>
+<link rel='stylesheet' id='wp-customer-reviews-3-frontend-css' href='https://spitbraaidelivery.co.za/wp-content/plugins/wp-customer-reviews/css/wp-customer-reviews.css?ver=3.7.7' type='text/css' media='all' />
+<style id='wp-emoji-styles-inline-css' type='text/css'>
+
+	img.wp-smiley, img.emoji {
+		display: inline !important;
+		border: none !important;
+		box-shadow: none !important;
+		height: 1em !important;
+		width: 1em !important;
+		margin: 0 0.07em !important;
+		vertical-align: -0.1em !important;
+		background: none !important;
+		padding: 0 !important;
+	}
+</style>
+<link rel='stylesheet' id='wp-block-library-css' href='https://spitbraaidelivery.co.za/wp-includes/css/dist/block-library/style.min.css?ver=6d753a03cfcb882df1aee6bcd9e7e071' type='text/css' media='all' />
+<style id='wp-block-library-theme-inline-css' type='text/css'>
+.wp-block-audio :where(figcaption){color:#555;font-size:13px;text-align:center}.is-dark-theme .wp-block-audio :where(figcaption){color:#ffffffa6}.wp-block-audio{margin:0 0 1em}.wp-block-code{border:1px solid #ccc;border-radius:4px;font-family:Menlo,Consolas,monaco,monospace;padding:.8em 1em}.wp-block-embed :where(figcaption){color:#555;font-size:13px;text-align:center}.is-dark-theme .wp-block-embed :where(figcaption){color:#ffffffa6}.wp-block-embed{margin:0 0 1em}.blocks-gallery-caption{color:#555;font-size:13px;text-align:center}.is-dark-theme .blocks-gallery-caption{color:#ffffffa6}:root :where(.wp-block-image figcaption){color:#555;font-size:13px;text-align:center}.is-dark-theme :root :where(.wp-block-image figcaption){color:#ffffffa6}.wp-block-image{margin:0 0 1em}.wp-block-pullquote{border-bottom:4px solid;border-top:4px solid;color:currentColor;margin-bottom:1.75em}.wp-block-pullquote cite,.wp-block-pullquote footer,.wp-block-pullquote__citation{color:currentColor;font-size:.8125em;font-style:normal;text-transform:uppercase}.wp-block-quote{border-left:.25em solid;margin:0 0 1.75em;padding-left:1em}.wp-block-quote cite,.wp-block-quote footer{color:currentColor;font-size:.8125em;font-style:normal;position:relative}.wp-block-quote:where(.has-text-align-right){border-left:none;border-right:.25em solid;padding-left:0;padding-right:1em}.wp-block-quote:where(.has-text-align-center){border:none;padding-left:0}.wp-block-quote.is-large,.wp-block-quote.is-style-large,.wp-block-quote:where(.is-style-plain){border:none}.wp-block-search .wp-block-search__label{font-weight:700}.wp-block-search__button{border:1px solid #ccc;padding:.375em .625em}:where(.wp-block-group.has-background){padding:1.25em 2.375em}.wp-block-separator.has-css-opacity{opacity:.4}.wp-block-separator{border:none;border-bottom:2px solid;margin-left:auto;margin-right:auto}.wp-block-separator.has-alpha-channel-opacity{opacity:1}.wp-block-separator:not(.is-style-wide):not(.is-style-dots){width:100px}.wp-block-separator.has-background:not(.is-style-dots){border-bottom:none;height:1px}.wp-block-separator.has-background:not(.is-style-wide):not(.is-style-dots){height:2px}.wp-block-table{margin:0 0 1em}.wp-block-table td,.wp-block-table th{word-break:normal}.wp-block-table :where(figcaption){color:#555;font-size:13px;text-align:center}.is-dark-theme .wp-block-table :where(figcaption){color:#ffffffa6}.wp-block-video :where(figcaption){color:#555;font-size:13px;text-align:center}.is-dark-theme .wp-block-video :where(figcaption){color:#ffffffa6}.wp-block-video{margin:0 0 1em}:root :where(.wp-block-template-part.has-background){margin-bottom:0;margin-top:0;padding:1.25em 2.375em}
+</style>
+<style id='classic-theme-styles-inline-css' type='text/css'>
+/*! This file is auto-generated */
+.wp-block-button__link{color:#fff;background-color:#32373c;border-radius:9999px;box-shadow:none;text-decoration:none;padding:calc(.667em + 2px) calc(1.333em + 2px);font-size:1.125em}.wp-block-file__button{background:#32373c;color:#fff;text-decoration:none}
+</style>
+<style id='global-styles-inline-css' type='text/css'>
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgba(6,147,227,1) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgba(252,185,0,1) 0%,rgba(255,105,0,1) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgba(255,105,0,1) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgba(255, 255, 255, 1), 6px 6px rgba(0, 0, 0, 1);--wp--preset--shadow--crisp: 6px 6px 0px rgba(0, 0, 0, 1);}:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}
+:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}
+:root :where(.wp-block-pullquote){font-size: 1.5em;line-height: 1.6;}
+</style>
+<link rel='stylesheet' id='contact-form-7-css' href='https://spitbraaidelivery.co.za/wp-content/plugins/contact-form-7/includes/css/styles.css?ver=6.1.5' type='text/css' media='all' />
+<link rel='stylesheet' id='wpcf7-redirect-script-frontend-css' href='https://spitbraaidelivery.co.za/wp-content/plugins/wpcf7-redirect/build/assets/frontend-script.css?ver=2c532d7e2be36f6af233' type='text/css' media='all' />
+<link rel='stylesheet' id='x-stack-css' href='https://spitbraaidelivery.co.za/wp-content/themes/x/framework/dist/css/site/stacks/renew.css?ver=10.8.1' type='text/css' media='all' />
+<link rel='stylesheet' id='js_composer_front-css' href='https://spitbraaidelivery.co.za/wp-content/plugins/js_composer/assets/css/js_composer.min.css?ver=8.7.2' type='text/css' media='all' />
+<style id='cs-inline-css' type='text/css'>
+@media (min-width:1200px){.x-hide-xl{display:none !important;}}@media (min-width:979px) and (max-width:1199px){.x-hide-lg{display:none !important;}}@media (min-width:767px) and (max-width:978px){.x-hide-md{display:none !important;}}@media (min-width:480px) and (max-width:766px){.x-hide-sm{display:none !important;}}@media (max-width:479px){.x-hide-xs{display:none !important;}} a,h1 a:hover,h2 a:hover,h3 a:hover,h4 a:hover,h5 a:hover,h6 a:hover,.x-comment-time:hover,#reply-title small a,.comment-reply-link:hover,.x-comment-author a:hover,.x-recent-posts a:hover .h-recent-posts{color:rgb(12,1,76);}a:hover,#reply-title small a:hover{color:hsl(249,97%,25%);}.entry-title i,.entry-title svg{color:#dddddd;}a.x-img-thumbnail:hover,li.bypostauthor > article.comment{border-color:rgb(12,1,76);}.flex-direction-nav a,.flex-control-nav a:hover,.flex-control-nav a.flex-active,.x-dropcap,.x-skill-bar .bar,.x-pricing-column.featured h2,.h-comments-title small,.x-pagination a:hover,.woocommerce-pagination a:hover,.x-entry-share .x-share:hover,.entry-thumb,.widget_tag_cloud .tagcloud a:hover,.widget_product_tag_cloud .tagcloud a:hover,.x-highlight,.x-recent-posts .x-recent-posts-img:after,.x-portfolio-filters{background-color:rgb(12,1,76);}.x-portfolio-filters:hover{background-color:hsl(249,97%,25%);}.x-main{width:calc(74% - 3.20197%);}.x-sidebar{width:calc(100% - 3.20197% - 74%);}.h-landmark{font-weight:inherit;}.x-comment-author a{color:#28323f;}.x-comment-author a,.comment-form-author label,.comment-form-email label,.comment-form-url label,.comment-form-rating label,.comment-form-comment label,.widget_calendar #wp-calendar caption,.widget_calendar #wp-calendar th,.x-accordion-heading .x-accordion-toggle,.x-nav-tabs > li > a:hover,.x-nav-tabs > .active > a,.x-nav-tabs > .active > a:hover{color:#2c3e50;}.widget_calendar #wp-calendar th{border-bottom-color:#2c3e50;}.x-pagination span.current,.woocommerce-pagination span[aria-current],.x-portfolio-filters-menu,.widget_tag_cloud .tagcloud a,.h-feature-headline span i,.widget_price_filter .ui-slider .ui-slider-handle{background-color:#2c3e50;}@media (max-width:978.98px){}html{font-size:14px;}@media (min-width:479px){html{font-size:14px;}}@media (min-width:766px){html{font-size:14px;}}@media (min-width:978px){html{font-size:14px;}}@media (min-width:1199px){html{font-size:14px;}}body{font-style:normal;font-weight:inherit;color:#28323f;background:rgba(47,119,191,0.2);}.w-b{font-weight:inherit !important;}h1,h2,h3,h4,h5,h6,.h1,.h2,.h3,.h4,.h5,.h6,.x-text-headline{font-family:inherit;font-style:normal;font-weight:inherit;}h1,.h1{letter-spacing:-0.017em;}h2,.h2{letter-spacing:-0.025em;}h3,.h3{letter-spacing:-0.031em;}h4,.h4{letter-spacing:-0.042em;}h5,.h5{letter-spacing:-0.048em;}h6,.h6{letter-spacing:-0.071em;}.w-h{font-weight:inherit !important;}.x-container.width{width:75%;}.x-container.max{max-width:1020px;}.x-bar-content.x-container.width{flex-basis:75%;}.x-main.full{float:none;clear:both;display:block;width:auto;}@media (max-width:978.98px){.x-main.full,.x-main.left,.x-main.right,.x-sidebar.left,.x-sidebar.right{float:none;display:block;width:auto !important;}}.entry-header,.entry-content{font-size:1rem;}body,input,button,select,textarea{font-family:inherit;}h1,h2,h3,h4,h5,h6,.h1,.h2,.h3,.h4,.h5,.h6,h1 a,h2 a,h3 a,h4 a,h5 a,h6 a,.h1 a,.h2 a,.h3 a,.h4 a,.h5 a,.h6 a,blockquote{color:#2c3e50;}.cfc-h-tx{color:#2c3e50 !important;}.cfc-h-bd{border-color:#2c3e50 !important;}.cfc-h-bg{background-color:#2c3e50 !important;}.cfc-b-tx{color:#28323f !important;}.cfc-b-bd{border-color:#28323f !important;}.cfc-b-bg{background-color:#28323f !important;}.x-btn,.button,[type="submit"]{color:#ffffff;border-color:#0014f4;background-color:#0e52f2;text-shadow:0 0.075em 0.075em rgba(0,0,0,0.5);border-radius:0.25em;}.x-btn:hover,.button:hover,[type="submit"]:hover{color:#000000;border-color:#0004f9;background-color:#0e52f2;text-shadow:0 0.075em 0.075em rgba(0,0,0,0.5);}.x-btn.x-btn-real,.x-btn.x-btn-real:hover{margin-bottom:0.25em;text-shadow:0 0.075em 0.075em rgba(0,0,0,0.65);}.x-btn.x-btn-real{box-shadow:0 0.25em 0 0 #a71000,0 4px 9px rgba(0,0,0,0.75);}.x-btn.x-btn-real:hover{box-shadow:0 0.25em 0 0 #a71000,0 4px 9px rgba(0,0,0,0.75);}.x-btn.x-btn-flat,.x-btn.x-btn-flat:hover{margin-bottom:0;text-shadow:0 0.075em 0.075em rgba(0,0,0,0.65);box-shadow:none;}.x-btn.x-btn-transparent,.x-btn.x-btn-transparent:hover{margin-bottom:0;border-width:3px;text-shadow:none;text-transform:uppercase;background-color:transparent;box-shadow:none;}.x-topbar .p-info,.x-topbar .p-info a,.x-topbar .x-social-global a{color:#8d9df4;}.x-topbar .p-info a:hover{color:#959baf;}.x-topbar{background-color:#0950c6;}.x-navbar .desktop .x-nav > li:before{padding-top:34px;}.x-navbar .desktop .x-nav > li > a,.x-navbar .desktop .sub-menu li > a,.x-navbar .mobile .x-nav li a{color:#224cd6;}.x-navbar .desktop .x-nav > li > a:hover,.x-navbar .desktop .x-nav > .x-active > a,.x-navbar .desktop .x-nav > .current-menu-item > a,.x-navbar .desktop .sub-menu li > a:hover,.x-navbar .desktop .sub-menu li.x-active > a,.x-navbar .desktop .sub-menu li.current-menu-item > a,.x-navbar .desktop .x-nav .x-megamenu > .sub-menu > li > a,.x-navbar .mobile .x-nav li > a:hover,.x-navbar .mobile .x-nav li.x-active > a,.x-navbar .mobile .x-nav li.current-menu-item > a{color:#272727;}.x-btn-navbar,.x-btn-navbar:hover{color:#939393;}.x-navbar .desktop .sub-menu li:before,.x-navbar .desktop .sub-menu li:after{background-color:#224cd6;}.x-navbar,.x-navbar .sub-menu{background-color:#f4f4f4 !important;}.x-btn-navbar,.x-btn-navbar.collapsed:hover{background-color:#476481;}.x-btn-navbar.collapsed{background-color:#81d742;}.x-navbar .desktop .x-nav > li > a:hover > span,.x-navbar .desktop .x-nav > li.x-active > a > span,.x-navbar .desktop .x-nav > li.current-menu-item > a > span{box-shadow:0 2px 0 0 #272727;}.x-navbar .desktop .x-nav > li > a{height:90px;padding-top:34px;}.x-navbar .desktop .x-nav > li ul{top:90px;}.x-colophon.bottom{background-color:#0950c6;}.x-colophon.bottom,.x-colophon.bottom a,.x-colophon.bottom .x-social-global a{color:#ffffff;}.x-navbar-inner{min-height:90px;}.x-brand{margin-top:5px;font-family:inherit;font-size:54px;font-style:normal;font-weight:inherit;letter-spacing:-0.056em;color:#ffffff;}.x-brand:hover,.x-brand:focus{color:#ffffff;}.x-brand img{width:calc(230px / 2);}.x-navbar .x-nav-wrap .x-nav > li > a{font-family:inherit;font-style:normal;font-weight:inherit;letter-spacing:0.07em;}.x-navbar .desktop .x-nav > li > a{font-size:12px;}.x-navbar .desktop .x-nav > li > a:not(.x-btn-navbar-woocommerce){padding-left:18px;padding-right:18px;}.x-navbar .desktop .x-nav > li > a > span{margin-right:-0.07em;}.x-btn-navbar{margin-top:20px;}.x-btn-navbar,.x-btn-navbar.collapsed{font-size:24px;}@media (max-width:979px){.x-widgetbar{left:0;right:0;}}.x-colophon.bottom{background-color:#0950c6;}.x-colophon.bottom,.x-colophon.bottom a,.x-colophon.bottom .x-social-global a{color:#ffffff;}.bg .mejs-container,.x-video .mejs-container{position:unset !important;} @font-face{font-family:'FontAwesomePro';font-style:normal;font-weight:900;font-display:block;src:url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-solid-900.woff2?ver=6.7.2') format('woff2'),url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-solid-900.ttf?ver=6.7.2') format('truetype');}[data-x-fa-pro-icon]{font-family:"FontAwesomePro" !important;}[data-x-fa-pro-icon]:before{content:attr(data-x-fa-pro-icon);}[data-x-icon],[data-x-icon-o],[data-x-icon-l],[data-x-icon-s],[data-x-icon-b],[data-x-icon-sr],[data-x-icon-ss],[data-x-icon-sl],[data-x-fa-pro-icon],[class*="cs-fa-"]{display:inline-flex;font-style:normal;font-weight:400;text-decoration:inherit;text-rendering:auto;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}[data-x-icon].left,[data-x-icon-o].left,[data-x-icon-l].left,[data-x-icon-s].left,[data-x-icon-b].left,[data-x-icon-sr].left,[data-x-icon-ss].left,[data-x-icon-sl].left,[data-x-fa-pro-icon].left,[class*="cs-fa-"].left{margin-right:0.5em;}[data-x-icon].right,[data-x-icon-o].right,[data-x-icon-l].right,[data-x-icon-s].right,[data-x-icon-b].right,[data-x-icon-sr].right,[data-x-icon-ss].right,[data-x-icon-sl].right,[data-x-fa-pro-icon].right,[class*="cs-fa-"].right{margin-left:0.5em;}[data-x-icon]:before,[data-x-icon-o]:before,[data-x-icon-l]:before,[data-x-icon-s]:before,[data-x-icon-b]:before,[data-x-icon-sr]:before,[data-x-icon-ss]:before,[data-x-icon-sl]:before,[data-x-fa-pro-icon]:before,[class*="cs-fa-"]:before{line-height:1;}@font-face{font-family:'FontAwesome';font-style:normal;font-weight:900;font-display:block;src:url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-solid-900.woff2?ver=6.7.2') format('woff2'),url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-solid-900.ttf?ver=6.7.2') format('truetype');}[data-x-icon],[data-x-icon-s],[data-x-icon][class*="cs-fa-"]{font-family:"FontAwesome" !important;font-weight:900;}[data-x-icon]:before,[data-x-icon][class*="cs-fa-"]:before{content:attr(data-x-icon);}[data-x-icon-s]:before{content:attr(data-x-icon-s);}@font-face{font-family:'FontAwesomeRegular';font-style:normal;font-weight:400;font-display:block;src:url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-regular-400.woff2?ver=6.7.2') format('woff2'),url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-regular-400.ttf?ver=6.7.2') format('truetype');}@font-face{font-family:'FontAwesomePro';font-style:normal;font-weight:400;font-display:block;src:url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-regular-400.woff2?ver=6.7.2') format('woff2'),url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-regular-400.ttf?ver=6.7.2') format('truetype');}[data-x-icon-o]{font-family:"FontAwesomeRegular" !important;}[data-x-icon-o]:before{content:attr(data-x-icon-o);}@font-face{font-family:'FontAwesomeLight';font-style:normal;font-weight:300;font-display:block;src:url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-light-300.woff2?ver=6.7.2') format('woff2'),url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-light-300.ttf?ver=6.7.2') format('truetype');}@font-face{font-family:'FontAwesomePro';font-style:normal;font-weight:300;font-display:block;src:url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-light-300.woff2?ver=6.7.2') format('woff2'),url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-light-300.ttf?ver=6.7.2') format('truetype');}[data-x-icon-l]{font-family:"FontAwesomeLight" !important;font-weight:300;}[data-x-icon-l]:before{content:attr(data-x-icon-l);}@font-face{font-family:'FontAwesomeBrands';font-style:normal;font-weight:normal;font-display:block;src:url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-brands-400.woff2?ver=6.7.2') format('woff2'),url('https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/fonts/fa-brands-400.ttf?ver=6.7.2') format('truetype');}[data-x-icon-b]{font-family:"FontAwesomeBrands" !important;}[data-x-icon-b]:before{content:attr(data-x-icon-b);}.widget.widget_rss li .rsswidget:before{content:"\f35d";padding-right:0.4em;font-family:"FontAwesome";}h2 {margin:0.3em 0 0.3em;}h3 {margin:0.3em 0 0.3em;}
+</style>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-includes/js/jquery/jquery.min.js?ver=3.7.1" id="jquery-core-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1" id="jquery-migrate-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/wp-customer-reviews/js/wp-customer-reviews.js?ver=3.7.7" id="wp-customer-reviews-3-frontend-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/WP_Estimation_Form/assets/js/lfb_frontend.min.js?ver=10.231" id="lfb_frontendGlobal-js"></script>
+<script></script><link rel="https://api.w.org/" href="https://spitbraaidelivery.co.za/wp-json/" /><link rel="alternate" title="JSON" type="application/json" href="https://spitbraaidelivery.co.za/wp-json/wp/v2/pages/29" /><link rel='shortlink' href='https://spitbraaidelivery.co.za/?p=29' />
+<link rel="alternate" title="oEmbed (JSON)" type="application/json+oembed" href="https://spitbraaidelivery.co.za/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fspitbraaidelivery.co.za%2Frequest-a-quote%2F" />
+<link rel="alternate" title="oEmbed (XML)" type="text/xml+oembed" href="https://spitbraaidelivery.co.za/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fspitbraaidelivery.co.za%2Frequest-a-quote%2F&#038;format=xml" />
+<script type='text/javascript' data-cfasync='false'>var _mmunch = {'front': false, 'page': false, 'post': false, 'category': false, 'author': false, 'search': false, 'attachment': false, 'tag': false};_mmunch['page'] = true; _mmunch['pageData'] = {"ID":29,"post_name":"request-a-quote","post_title":"Request a Quote","post_type":"page","post_author":"1","post_status":"publish"};</script><script data-cfasync="false" src="//a.mailmunch.co/app/v1/site.js" id="mailmunch-script" data-plugin="mailmunch" data-mailmunch-site-id="7399" async></script><link rel="shortcut icon" href="https://spitbraaidelivery.co.za/wp-content/plugins/multicons/images/favicon.ico" />
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) return;
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_GB/sdk.js#xfbml=1&version=v2.5&appId=443899429105926";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+<script type="text/javascript">
+	var $mcGoal = {'settings':{'uuid':'1da22f28c4c6fbe649ef457be','dc':'us3'}};
+	(function() {
+		 var sp = document.createElement('script'); sp.type = 'text/javascript'; sp.async = true; sp.defer = true;
+		sp.src = ('https:' == document.location.protocol ? 'https://s3.amazonaws.com/downloads.mailchimp.com' : 'http://downloads.mailchimp.com') + '/js/goal.min.js';
+		var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(sp, s);
+	})(); 
+</script>
+
+<!-- Facebook Pixel Code --> <script> !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod? n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n; n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0; t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window, document,'script','https://connect.facebook.net/en_US/fbevents.js'); fbq('init', '711972802201491'); fbq('track', "PageView");</script> <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=711972802201491&ev=PageView&noscript=1" /></noscript> <!-- End Facebook Pixel Code -->
+
+
+
+
+      <script type="text/javascript">
+(function(url){
+	if(/(?:Chrome\/26\.0\.1410\.63 Safari\/537\.31|WordfenceTestMonBot)/.test(navigator.userAgent)){ return; }
+	var addEvent = function(evt, handler) {
+		if (window.addEventListener) {
+			document.addEventListener(evt, handler, false);
+		} else if (window.attachEvent) {
+			document.attachEvent('on' + evt, handler);
+		}
+	};
+	var removeEvent = function(evt, handler) {
+		if (window.removeEventListener) {
+			document.removeEventListener(evt, handler, false);
+		} else if (window.detachEvent) {
+			document.detachEvent('on' + evt, handler);
+		}
+	};
+	var evts = 'contextmenu dblclick drag dragend dragenter dragleave dragover dragstart drop keydown keypress keyup mousedown mousemove mouseout mouseover mouseup mousewheel scroll'.split(' ');
+	var logHuman = function() {
+		if (window.wfLogHumanRan) { return; }
+		window.wfLogHumanRan = true;
+		var wfscr = document.createElement('script');
+		wfscr.type = 'text/javascript';
+		wfscr.async = true;
+		wfscr.src = url + '&r=' + Math.random();
+		(document.getElementsByTagName('head')[0]||document.getElementsByTagName('body')[0]).appendChild(wfscr);
+		for (var i = 0; i < evts.length; i++) {
+			removeEvent(evts[i], logHuman);
+		}
+	};
+	for (var i = 0; i < evts.length; i++) {
+		addEvent(evts[i], logHuman);
+	}
+})('//spitbraaidelivery.co.za/?wordfence_lh=1&hid=F1F79E9BDC7D7083C870390B39DF123C');
+</script><meta name="generator" content="Powered by WPBakery Page Builder - drag and drop page builder for WordPress."/>
+<meta name="generator" content="Powered by Slider Revolution 6.7.38 - responsive, Mobile-Friendly Slider Plugin for WordPress with comfortable drag and drop interface." />
+<script>function setREVStartSize(e){
+			//window.requestAnimationFrame(function() {
+				window.RSIW = window.RSIW===undefined ? window.innerWidth : window.RSIW;
+				window.RSIH = window.RSIH===undefined ? window.innerHeight : window.RSIH;
+				try {
+					var pw = document.getElementById(e.c).parentNode.offsetWidth,
+						newh;
+					pw = pw===0 || isNaN(pw) || (e.l=="fullwidth" || e.layout=="fullwidth") ? window.RSIW : pw;
+					e.tabw = e.tabw===undefined ? 0 : parseInt(e.tabw);
+					e.thumbw = e.thumbw===undefined ? 0 : parseInt(e.thumbw);
+					e.tabh = e.tabh===undefined ? 0 : parseInt(e.tabh);
+					e.thumbh = e.thumbh===undefined ? 0 : parseInt(e.thumbh);
+					e.tabhide = e.tabhide===undefined ? 0 : parseInt(e.tabhide);
+					e.thumbhide = e.thumbhide===undefined ? 0 : parseInt(e.thumbhide);
+					e.mh = e.mh===undefined || e.mh=="" || e.mh==="auto" ? 0 : parseInt(e.mh,0);
+					if(e.layout==="fullscreen" || e.l==="fullscreen")
+						newh = Math.max(e.mh,window.RSIH);
+					else{
+						e.gw = Array.isArray(e.gw) ? e.gw : [e.gw];
+						for (var i in e.rl) if (e.gw[i]===undefined || e.gw[i]===0) e.gw[i] = e.gw[i-1];
+						e.gh = e.el===undefined || e.el==="" || (Array.isArray(e.el) && e.el.length==0)? e.gh : e.el;
+						e.gh = Array.isArray(e.gh) ? e.gh : [e.gh];
+						for (var i in e.rl) if (e.gh[i]===undefined || e.gh[i]===0) e.gh[i] = e.gh[i-1];
+											
+						var nl = new Array(e.rl.length),
+							ix = 0,
+							sl;
+						e.tabw = e.tabhide>=pw ? 0 : e.tabw;
+						e.thumbw = e.thumbhide>=pw ? 0 : e.thumbw;
+						e.tabh = e.tabhide>=pw ? 0 : e.tabh;
+						e.thumbh = e.thumbhide>=pw ? 0 : e.thumbh;
+						for (var i in e.rl) nl[i] = e.rl[i]<window.RSIW ? 0 : e.rl[i];
+						sl = nl[0];
+						for (var i in nl) if (sl>nl[i] && nl[i]>0) { sl = nl[i]; ix=i;}
+						var m = pw>(e.gw[ix]+e.tabw+e.thumbw) ? 1 : (pw-(e.tabw+e.thumbw)) / (e.gw[ix]);
+						newh =  (e.gh[ix] * m) + (e.tabh + e.thumbh);
+					}
+					var el = document.getElementById(e.c);
+					if (el!==null && el) el.style.height = newh+"px";
+					el = document.getElementById(e.c+"_wrapper");
+					if (el!==null && el) {
+						el.style.height = newh+"px";
+						el.style.display = "block";
+					}
+				} catch(e){
+					console.log("Failure at Presize of Slider:" + e)
+				}
+			//});
+		  };</script>
+		<style type="text/css" id="wp-custom-css">
+			/*
+You can add your own CSS here.
+
+Click the help icon above to learn more.
+*/
+
+.wpcf7-textarea {height: 60px;}		</style>
+		<noscript><style> .wpb_animate_when_almost_visible { opacity: 1; }</style></noscript></head>
+<body class="wp-singular page-template page-template-template-blank-4 page-template-template-blank-4-php page page-id-29 wp-theme-x x-renew x-full-width-layout-active x-content-sidebar-active x-page-title-disabled wpb-js-composer js-comp-ver-8.7.2 vc_responsive x-navbar-static-active cornerstone-v7_7_9 x-v10_8_1">
+
+  
+  
+  <div id="x-root" class="x-root">
+
+    
+    <div id="top" class="site">
+
+    <header class="masthead masthead-inline" role="banner">
+
+  <div class="x-topbar">
+    <div class="x-topbar-inner x-container max width">
+            <div class="x-social-global"><a href="http://facebook.com/spitbraaidelivery" class="facebook" title="Facebook" target="_blank" rel=""><i class='x-framework-icon x-icon-facebook-square' data-x-icon-b='&#xf082;' aria-hidden=true></i><span class="visually-hidden">Facebook</span></a><a href="http://twitter.com/SpitBraaiSA" class="x twitter" title="X" target="_blank" rel=""><i class='x-framework-icon x-icon-x-square' data-x-icon-b='&#xe61a;' aria-hidden=true></i><span class="visually-hidden">X</span></a><a href="https://www.linkedin.com/company/spit-braai-delivery" class="linkedin" title="LinkedIn" target="_blank" rel=""><i class='x-framework-icon x-icon-linkedin-square' data-x-icon-b='&#xf08c;' aria-hidden=true></i><span class="visually-hidden">LinkedIn</span></a><a href="https://www.youtube.com/channel/UCRcPqLZOEcEUa3zQas3wkCQ" class="youtube" title="YouTube" target="_blank" rel=""><i class='x-framework-icon x-icon-youtube-square' data-x-icon-b='&#xf431;' aria-hidden=true></i><span class="visually-hidden">YouTube</span></a><a href="https://za.pinterest.com/spitbraaiSA/" class="pinterest" title="Pinterest" target="_blank" rel=""><i class='x-framework-icon x-icon-pinterest-square' data-x-icon-b='&#xf0d3;' aria-hidden=true></i><span class="visually-hidden">Pinterest</span></a><a href="https://www.tumblr.com/blog/spitbraaidelivery" class="tumblr" title="Tumblr" target="_blank" rel=""><i class='x-framework-icon x-icon-tumblr-square' data-x-icon-b='&#xf174;' aria-hidden=true></i><span class="visually-hidden">Tumblr</span></a></div>    </div>
+  </div>
+
+
+
+  <div class="x-navbar-wrap">
+    <div class="x-navbar">
+      <div class="x-navbar-inner">
+        <div class="x-container max width">
+          
+<a href="https://spitbraaidelivery.co.za/" class="x-brand img">
+  <img src="//spitbraaidelivery.co.za/wp-content/uploads/2015/09/Spit-braai-delivery-logo-rebrand-2015-220w1.png" alt="Spit Braai Delivery"></a>
+          
+<a href="#" id="x-btn-navbar" class="x-btn-navbar collapsed" data-x-toggle="collapse-b" data-x-toggleable="x-nav-wrap-mobile" aria-expanded="false" aria-controls="x-nav-wrap-mobile" role="button">
+  <i class='x-framework-icon x-icon-bars' data-x-icon-s='&#xf0c9;' aria-hidden=true></i>  <span class="visually-hidden">Navigation</span>
+</a>
+
+<nav class="x-nav-wrap desktop" role="navigation">
+  <ul id="menu-temp" class="x-nav"><li id="menu-item-3246" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-3246"><a href="https://spitbraaidelivery.co.za/"><span>Home<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+<li id="menu-item-718" class="menu-item menu-item-type-post_type menu-item-object-page current-menu-item page_item page-item-29 current_page_item menu-item-718"><a href="https://spitbraaidelivery.co.za/request-a-quote/" aria-current="page"><span>Request Quote<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+<li id="menu-item-1645" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1645"><a href="https://spitbraaidelivery.co.za/testimonials/"><span>Client Reviews<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+<li id="menu-item-1759" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-1759"><a href="#"><span>About us<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a>
+<ul class="sub-menu">
+	<li id="menu-item-763" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-763"><a href="https://spitbraaidelivery.co.za/about-us/"><span>About us<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+	<li id="menu-item-1758" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1758"><a href="https://spitbraaidelivery.co.za/community-program/"><span>Community Program<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+	<li id="menu-item-761" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-761"><a href="https://spitbraaidelivery.co.za/testimonials/"><span>Client Reviews<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+</ul>
+</li>
+<li id="menu-item-488" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-488"><a href="https://spitbraaidelivery.co.za/terms-of-service/"><span>Terms<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+<li id="menu-item-697" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-697 tax-item tax-item-5"><a href="https://spitbraaidelivery.co.za/category/everything-lamb/"><span>Blog<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+</ul></nav>
+
+<div id="x-nav-wrap-mobile" class="x-nav-wrap mobile x-collapsed" data-x-toggleable="x-nav-wrap-mobile" data-x-toggle-collapse="1" aria-hidden="true" aria-labelledby="x-btn-navbar">
+  <ul id="menu-temp-1" class="x-nav"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-3246"><a href="https://spitbraaidelivery.co.za/"><span>Home<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page current-menu-item page_item page-item-29 current_page_item menu-item-718"><a href="https://spitbraaidelivery.co.za/request-a-quote/" aria-current="page"><span>Request Quote<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1645"><a href="https://spitbraaidelivery.co.za/testimonials/"><span>Client Reviews<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-1759"><a href="#"><span>About us<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a>
+<ul class="sub-menu">
+	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-763"><a href="https://spitbraaidelivery.co.za/about-us/"><span>About us<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1758"><a href="https://spitbraaidelivery.co.za/community-program/"><span>Community Program<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+	<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-761"><a href="https://spitbraaidelivery.co.za/testimonials/"><span>Client Reviews<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+</ul>
+</li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-488"><a href="https://spitbraaidelivery.co.za/terms-of-service/"><span>Terms<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-697 tax-item tax-item-5"><a href="https://spitbraaidelivery.co.za/category/everything-lamb/"><span>Blog<i class="x-icon x-framework-icon x-framework-icon-menu" aria-hidden="true" data-x-icon-s="&#xf103;"></i></span></a></li>
+</ul></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</header>
+
+  <div class="x-main full" role="main">
+
+    
+      <article id="post-29" class="post-29 page type-page status-publish hentry no-post-thumbnail">
+        
+
+<div class="entry-content content">
+
+
+  <div class='mailmunch-forms-before-post' style='display: none !important;'></div><div id="x-content-band-1" class="x-content-band vc man" style="background-color: transparent; padding-top: 0px; padding-bottom: 0px;"><div class="x-container wpb_row"><div  class="x-column x-sm vc x-1-1" style="" ><hr  class="x-gap" style="margin: 1em 0 0 0;"></div></div></div><div id="x-content-band-2" class="x-content-band vc border-left" style="background-color: rgba(35,84,219,0.34); padding-top: 10px; padding-bottom: 20px;"><div class="x-container max width wpb_row"><div  class="x-column x-sm vc x-1-2" style="" ><p><b><img decoding="async" class="alignleft size-full wp-image-1604" src="http://spitbraaidelivery.co.za/wp-content/uploads/2014/10/thumbs-up-spit-braai.png" alt="spit braai thumbs up" width="50" height="75" />Build your own menu</b></p>
+<p>Give us a bit more info below so we can make sure your day is amazing 🙂 The info you submit will help us compile a comprehensive itemised quotation just for you.</p>
+<div class='mailmunch-forms-in-post-middle' style='display: none !important;'></div>
+<p><strong>Callum: 082 6411 373</strong> | <a href="mailto:hello@spitbraaidelivery.co.za?Subject=Spit Braai Enquiry" target="_top"> Click to e-mail us directly</a></p>
+
+<div class="wpcf7 no-js" id="wpcf7-f3661-p29-o1" lang="en-US" dir="ltr" data-wpcf7-id="3661">
+<div class="screen-reader-response"><p role="status" aria-live="polite" aria-atomic="true"></p> <ul></ul></div>
+<form action="/request-a-quote/#wpcf7-f3661-p29-o1" method="post" class="wpcf7-form init" aria-label="Contact form" novalidate="novalidate" data-status="init">
+<fieldset class="hidden-fields-container"><input type="hidden" name="_wpcf7" value="3661" /><input type="hidden" name="_wpcf7_version" value="6.1.5" /><input type="hidden" name="_wpcf7_locale" value="en_US" /><input type="hidden" name="_wpcf7_unit_tag" value="wpcf7-f3661-p29-o1" /><input type="hidden" name="_wpcf7_container_post" value="29" /><input type="hidden" name="_wpcf7_posted_data_hash" value="" /><input type="hidden" name="_wpcf7_recaptcha_response" value="" />
+</fieldset>
+<input class="wpcf7-form-control wpcf7-hidden" value="" type="hidden" name="SageQuoteNumber" />
+<input class="wpcf7-form-control wpcf7-hidden" value="" type="hidden" name="SageQuoteDate" />
+<p><span class="wpcf7-form-control-wrap" data-name="Name"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text wpcf7-validates-as-required" aria-required="true" aria-invalid="false" placeholder="First Name" value="" type="text" name="Name" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Surname"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text wpcf7-validates-as-required" aria-required="true" aria-invalid="false" placeholder="Surname" value="" type="text" name="Surname" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="ContactNumber"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text wpcf7-validates-as-required" aria-required="true" aria-invalid="false" placeholder="Contact Number" value="" type="text" name="ContactNumber" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="your-email"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-email wpcf7-validates-as-required wpcf7-text wpcf7-validates-as-email" aria-required="true" aria-invalid="false" placeholder="Email*" value="" type="email" name="your-email" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="TypeofFunctionParty"><select class="wpcf7-form-control wpcf7-select wpcf7-validates-as-required" aria-required="true" aria-invalid="false" name="TypeofFunctionParty"><option value="Type of Party? Click to Select">Type of Party? Click to Select</option><option value="Birthday">Birthday</option><option value="Corporate">Corporate</option><option value="Wedding">Wedding</option><option value="School function">School function</option><option value="Year-end Function">Year-end Function</option><option value="Bachelors">Bachelors</option><option value="Other">Other</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="DateofCelebration"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text" aria-invalid="false" placeholder="Date of Celebration?" value="" type="text" name="DateofCelebration" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="EatingTime"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text" aria-invalid="false" placeholder="Eating Time?" value="" type="text" name="EatingTime" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="FunctionAddress"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text" aria-invalid="false" placeholder="Function Address?" value="" type="text" name="FunctionAddress" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="HowManyAdults"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text wpcf7-validates-as-required" aria-required="true" aria-invalid="false" placeholder="How Many Adults?" value="" type="text" name="HowManyAdults" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="HowManyKids"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text" aria-invalid="false" placeholder="How Many Kids Meals?" value="" type="text" name="HowManyKids" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="BirthdayBoyorGirl"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text" aria-invalid="false" placeholder="Birthday Boy or Girls Name?" value="" type="text" name="BirthdayBoyorGirl" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="OnSiteorDelivered"><select class="wpcf7-form-control wpcf7-select wpcf7-validates-as-required" aria-required="true" aria-invalid="false" name="OnSiteorDelivered"><option value="Spit Braai On-Site or Delivered? Click to Select">Spit Braai On-Site or Delivered? Click to Select</option><option value="On-Site with Dedicated Chef (4 hours)">On-Site with Dedicated Chef (4 hours)</option><option value="Deliver the Lamb Spit &amp; Setup a Buffet (Save R900)">Deliver the Lamb Spit &amp; Setup a Buffet (Save R900)</option><option value="Please Quote for Both Options">Please Quote for Both Options</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="MeatCarvedandDeboned"><select class="wpcf7-form-control wpcf7-select wpcf7-validates-as-required" aria-required="true" aria-invalid="false" name="MeatCarvedandDeboned"><option value="Lamb only - 200grams per person">Lamb only - 200grams per person</option><option value="Lamb (200g pp) + a Chicken Quarter per person">Lamb (200g pp) + a Chicken Quarter per person</option><option value="Lamb (100g pp) + a Chicken Quarter per person">Lamb (100g pp) + a Chicken Quarter per person</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="ExtraLambRibs"><select class="wpcf7-form-control wpcf7-select wpcf7-validates-as-required" aria-required="true" aria-invalid="false" name="ExtraLambRibs"><option value="Extra Lamb Ribs? Click to select">Extra Lamb Ribs? Click to select</option><option value="Extra Lamb Ribs - 300g per person">Extra Lamb Ribs - 300g per person</option><option value="Extra Lamb Ribs - 600g per person">Extra Lamb Ribs - 600g per person</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Boerewors"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Boerewors"><option value="Extra Boerewors? Click to Select">Extra Boerewors? Click to Select</option><option value="Yes">Yes</option><option value="No">No</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Burgers"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Burgers"><option value="Extra Burgers? Click to Select">Extra Burgers? Click to Select</option><option value="Yes">Yes</option><option value="No">No</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Starch"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Starch"><option value="Starch? Click to Select">Starch? Click to Select</option><option value="Baby Potatoes">Baby Potatoes</option><option value="Potato Salad">Potato Salad</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Side1"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Side1"><option value="Side 1? Click to Select">Side 1? Click to Select</option><option value="Green Salad">Green Salad</option><option value="Greek Salad">Greek Salad</option><option value="Pasta Vinaigrette">Pasta Vinaigrette</option><option value="Curry-Noodle Pasta">Curry-Noodle Pasta</option><option value="Pasta Salad">Pasta Salad</option><option value="Coleslaw">Coleslaw</option><option value="Rice Salad">Rice Salad</option><option value="Mixed Chunky Veg">Mixed Chunky Veg</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Side2"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Side2"><option value="Side 2? Click to Select">Side 2? Click to Select</option><option value="Green Salad">Green Salad</option><option value="Greek Salad">Greek Salad</option><option value="Pasta Vinaigrette">Pasta Vinaigrette</option><option value="Curry-Noodle Pasta">Curry-Noodle Pasta</option><option value="Pasta Salad">Pasta Salad</option><option value="Coleslaw">Coleslaw</option><option value="Rice Salad">Rice Salad</option><option value="Mixed Chunky Veg">Mixed Chunky Veg</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="GarlicBread"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="GarlicBread"><option value="Garlic Bread? Click to Select">Garlic Bread? Click to Select</option><option value="Yes">Yes</option><option value="No">No</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Pudding"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Pudding"><option value="Pudding? Click to Select">Pudding? Click to Select</option><option value="Malva Pudding &amp; Custard">Malva Pudding &amp; Custard</option><option value="Peppermint Crisp Tart">Peppermint Crisp Tart</option><option value="Chocolate Fudge Brownie &amp; Cream">Chocolate Fudge Brownie &amp; Cream</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Starters"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Starters"><option value="Starters? Click to Select">Starters? Click to Select</option><option value="Lamb Rib Starter">Lamb Rib Starter</option><option value="Sticky Chicken Wings">Sticky Chicken Wings</option><option value="Spicy Beef Strips">Spicy Beef Strips</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="VegetarianLasagne"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text" aria-invalid="false" placeholder="Vegetarian Lasagne? How Many people...?" value="" type="text" name="VegetarianLasagne" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="CutleryCrockery"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="CutleryCrockery"><option value="Cutlery &amp; Crockery? Click to Select">Cutlery &amp; Crockery? Click to Select</option><option value="Knives, Forks &amp; Plates">Knives, Forks &amp; Plates</option><option value="Knives, Forks, Plates, Bowls &amp; Spoons">Knives, Forks, Plates, Bowls &amp; Spoons</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Waiter"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Waiter"><option value="Need a Waiter? Click to Select">Need a Waiter? Click to Select</option><option value="Yes (Setup, Serve, Clean up, Leave @ R300/2hrs)">Yes (Setup, Serve, Clean up, Leave @ R300/2hrs)</option><option value="No">No</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="BudgetPerPerson"><input size="40" maxlength="400" class="wpcf7-form-control wpcf7-text" aria-invalid="false" placeholder="Have you Got a Budget/Person?" value="" type="text" name="BudgetPerPerson" /></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="Matchmaker"><select class="wpcf7-form-control wpcf7-select" aria-invalid="false" name="Matchmaker"><option value="Who&#039;s our Matchmaker? Click to Select">Who&#039;s our Matchmaker? Click to Select</option><option value="Google">Google</option><option value="Facebook">Facebook</option><option value="Friend Referral">Friend Referral</option><option value="Return Customer">Return Customer</option><option value="Instagram">Instagram</option><option value="I&#039;m Back for More">I&#039;m Back for More</option><option value="Other">Other</option></select></span>
+</p>
+<p><span class="wpcf7-form-control-wrap" data-name="AdditionalInfo"><textarea cols="40" rows="10" maxlength="2000" class="wpcf7-form-control wpcf7-textarea" aria-invalid="false" placeholder="Additional Requests or Queries?" name="AdditionalInfo"></textarea></span>
+</p>
+<p><input class="wpcf7-form-control wpcf7-submit has-spinner" type="submit" value="Best Quote Please" />
+</p><p style="display: none !important;" class="akismet-fields-container" data-prefix="_wpcf7_ak_"><label>&#916;<textarea name="_wpcf7_ak_hp_textarea" cols="45" rows="8" maxlength="100"></textarea></label><input type="hidden" id="ak_js_1" name="_wpcf7_ak_js" value="167"/><script type="text/javascript">
+/* <![CDATA[ */
+document.getElementById( "ak_js_1" ).setAttribute( "value", ( new Date() ).getTime() );
+/* ]]&gt; */
+</script>
+</p><div class="wpcf7-response-output" aria-hidden="true"></div>
+</form>
+</div>
+</div><div  class="x-column x-sm vc x-1-4" style="" ><hr  class="x-gap" style="margin: 3em 0 0 0;"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/06/spit-braai-machine.jpg" alt="spit braai machine"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/06/lamb-carved-off-the-spit.jpg" alt="lamb carved off the spit"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2014/11/delivery.jpg" alt="delivery"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/05/lamb-spit-buffet.jpg" alt="delivery"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/05/greek-salad1.jpg" alt="greek salad"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/06/apple-tart-cream.jpg" alt="apple tart &amp; cream"></div><div  class="x-column x-sm vc x-1-4" style="" ><hr  class="x-gap" style="margin: 3em 0 0 0;"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/06/lamb-on-a-spit.jpg" alt="lamb on a spit"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/06/chafing-dish.jpg" alt="chafing dish"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/05/Lamb-spit-baby-potatoes.jpg" alt="Lamb spit &amp; baby potatoes"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/05/knives-forks-and-plates.jpg" alt="knives, forks and plates"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/04/process300-e1467679781183.gif" alt="Spit Braai Meal"><img decoding="async"  class="x-img x-img-none none"  src="https://spitbraaidelivery.co.za/wp-content/uploads/2015/05/mixed-chunky-veg.jpg" alt="mixed chunky veg"></div></div></div>
+<div class='mailmunch-forms-after-post' style='display: none !important;'></div>  
+
+</div>
+
+      </article>
+
+    
+  </div>
+
+
+
+  
+
+  <footer class="x-colophon top">
+    <div class="x-container max width">
+
+      <div class="x-column x-md x-1-3"><div id="text-4" class="widget widget_text"><h4 class="h-widget">Contact</h4>			<div class="textwidget">Callum: 082 641 1373 | <strong><a href="mailto:hello@spitbraaidelivery.co.za?Subject=Spit Braai Enquiry" target="_top"> Click to e-mail</a></strong>
+<h5>Operating Hours</h5>
+Monday: 8:00 AM - 6:00 PM<br>
+Tuesday-Friday: 8:00 AM - 7:00 PM<br>
+Saturday: 8:00 AM - 8:00 PM<br>
+Sunday: 8:00 AM - 6:00 PM
+</div>
+		</div></div><div class="x-column x-md x-1-3"><div id="text-26" class="widget widget_text"><h4 class="h-widget">Location</h4>			<div class="textwidget"><strong>Brackenfell Branch: Kitchen & Pub</strong>: Corner Old Paarl Road & Brackenfell Boulevard, Shop 7a, Aroma Village Center, World Sports Betting Complex, Brackenfell, Cape Town, 7560<br>
+<strong>Milnerton Branch: Kitchen & Pub</strong>: Coming Soon<br>
+<strong>Office</strong>: 39 Carl Cronje Drive, Willowbridge Shopping Centre, Tyger Valley, Bellville, Cape Town, 7530, ZA</div>
+		</div></div><div class="x-column x-md x-1-3 last"><div id="text-27" class="widget widget_text"><h4 class="h-widget">#TeamSBD</h4>			<div class="textwidget">Bobby, Callum, Hilton,<br>
+Patricia, Edwin, Nancy,<br> 
+Simon, Liam, Edwin, Sune, <br>
+Erica, Fasuug, Gabor, Paul,<br>
+Ferencz, Andre, JJ, MC, Jessica<br>
+</div>
+		</div></div>
+    </div>
+  </footer>
+
+
+  
+    <footer class="x-colophon bottom" role="contentinfo">
+      <div class="x-container max width">
+
+                  <div class="x-social-global"><a href="http://facebook.com/spitbraaidelivery" class="facebook" title="Facebook" target="_blank" rel=""><i class='x-framework-icon x-icon-facebook-square' data-x-icon-b='&#xf082;' aria-hidden=true></i><span class="visually-hidden">Facebook</span></a><a href="http://twitter.com/SpitBraaiSA" class="x twitter" title="X" target="_blank" rel=""><i class='x-framework-icon x-icon-x-square' data-x-icon-b='&#xe61a;' aria-hidden=true></i><span class="visually-hidden">X</span></a><a href="https://www.linkedin.com/company/spit-braai-delivery" class="linkedin" title="LinkedIn" target="_blank" rel=""><i class='x-framework-icon x-icon-linkedin-square' data-x-icon-b='&#xf08c;' aria-hidden=true></i><span class="visually-hidden">LinkedIn</span></a><a href="https://www.youtube.com/channel/UCRcPqLZOEcEUa3zQas3wkCQ" class="youtube" title="YouTube" target="_blank" rel=""><i class='x-framework-icon x-icon-youtube-square' data-x-icon-b='&#xf431;' aria-hidden=true></i><span class="visually-hidden">YouTube</span></a><a href="https://za.pinterest.com/spitbraaiSA/" class="pinterest" title="Pinterest" target="_blank" rel=""><i class='x-framework-icon x-icon-pinterest-square' data-x-icon-b='&#xf0d3;' aria-hidden=true></i><span class="visually-hidden">Pinterest</span></a><a href="https://www.tumblr.com/blog/spitbraaidelivery" class="tumblr" title="Tumblr" target="_blank" rel=""><i class='x-framework-icon x-icon-tumblr-square' data-x-icon-b='&#xf174;' aria-hidden=true></i><span class="visually-hidden">Tumblr</span></a></div>        
+                  
+<ul id="menu-temp-2" class="x-nav"><li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-3246"><a href="https://spitbraaidelivery.co.za/">Home</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page current-menu-item page_item page-item-29 current_page_item menu-item-718"><a href="https://spitbraaidelivery.co.za/request-a-quote/" aria-current="page">Request Quote</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1645"><a href="https://spitbraaidelivery.co.za/testimonials/">Client Reviews</a></li>
+<li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1759"><a href="#">About us</a></li>
+<li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-488"><a href="https://spitbraaidelivery.co.za/terms-of-service/">Terms</a></li>
+<li class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-697 tax-item tax-item-5"><a href="https://spitbraaidelivery.co.za/category/everything-lamb/">Blog</a></li>
+</ul>        
+                  <div class="x-colophon-content">
+            <a href="#"><img decoding="async" src="https://spitbraaidelivery.co.za/wp-content/uploads/2016/03/RapidSSL_SEAL-90x50.gif" alt="Site Secured by RapidSSL"></a>
+<p><p>
+Copyright Spit Braai Delivery © 2013 | <a href="http://spitbraaidelivery.co.za/privacy-policy/" target="_blank">Privacy Policy</a> |
+<a href="http://justdodigital.co.za" target="_blank">Search Marketing Agency | <a href="https://spitbraaidelivery.co.za/page-sitemap.xml"> Pages & <a href="https://spitbraaidelivery.co.za/post-sitemap.xml">Posts </a> <hr> 
+<div class="fb-share-button" data-href="https://spitbraaidelivery.co.za" data-layout="button_count"></div>          </div>
+        
+      </div>
+    </footer>
+
+  
+
+    
+    </div> <!-- END .x-site -->
+
+    
+    <span class="x-scroll-top right fade" title="Back to Top" data-rvt-scroll-top>
+      <i class='x-framework-icon x-icon-angle-up' data-x-icon-s='&#xf106;' aria-hidden=true></i>    </span>
+
+  
+  </div> <!-- END .x-root -->
+
+
+		<script>
+			window.RS_MODULES = window.RS_MODULES || {};
+			window.RS_MODULES.modules = window.RS_MODULES.modules || {};
+			window.RS_MODULES.waiting = window.RS_MODULES.waiting || [];
+			window.RS_MODULES.defered = true;
+			window.RS_MODULES.moduleWaiting = window.RS_MODULES.moduleWaiting || {};
+			window.RS_MODULES.type = 'compiled';
+		</script>
+		<script type="speculationrules">
+{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"\/*"},{"not":{"href_matches":["\/wp-*.php","\/wp-admin\/*","\/wp-content\/uploads\/*","\/wp-content\/*","\/wp-content\/plugins\/*","\/wp-content\/themes\/x\/*","\/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}
+</script>
+<link rel='stylesheet' id='responsive-progressbar-style-css' href='https://spitbraaidelivery.co.za/wp-content/plugins/responsive-progress-bar/assets/css/style.css?ver=6d753a03cfcb882df1aee6bcd9e7e071' type='text/css' media='all' />
+<link rel='stylesheet' id='rs-plugin-settings-css' href='//spitbraaidelivery.co.za/wp-content/plugins/revslider/sr6/assets/css/rs6.css?ver=6.7.38' type='text/css' media='all' />
+<style id='rs-plugin-settings-inline-css' type='text/css'>
+.tp-caption a{color:#ff7302;text-shadow:none;-webkit-transition:all 0.2s ease-out;-moz-transition:all 0.2s ease-out;-o-transition:all 0.2s ease-out;-ms-transition:all 0.2s ease-out}.tp-caption a:hover{color:#ffa902}.tp-caption a{color:#ff7302;text-shadow:none;-webkit-transition:all 0.2s ease-out;-moz-transition:all 0.2s ease-out;-o-transition:all 0.2s ease-out;-ms-transition:all 0.2s ease-out}.tp-caption a:hover{color:#ffa902}
+</style>
+<script type="text/javascript" id="cs-js-extra">
+/* <![CDATA[ */
+var csJsData = {"linkSelector":"#x-root a[href*=\"#\"]","bp":{"base":4,"ranges":[0,480,767,979,1200],"count":4}};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/cornerstone/assets/js/site/cs-classic.7.7.9.js?ver=7.7.9" id="cs-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-includes/js/dist/hooks.min.js?ver=4d63a3d491d11ffd8ac6" id="wp-hooks-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-includes/js/dist/i18n.min.js?ver=5e580eb46a90c2b997e6" id="wp-i18n-js"></script>
+<script type="text/javascript" id="wp-i18n-js-after">
+/* <![CDATA[ */
+wp.i18n.setLocaleData( { 'text direction\u0004ltr': [ 'ltr' ] } );
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/contact-form-7/includes/swv/js/index.js?ver=6.1.5" id="swv-js"></script>
+<script type="text/javascript" id="contact-form-7-js-before">
+/* <![CDATA[ */
+var wpcf7 = {
+    "api": {
+        "root": "https:\/\/spitbraaidelivery.co.za\/wp-json\/",
+        "namespace": "contact-form-7\/v1"
+    },
+    "cached": 1
+};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/contact-form-7/includes/js/index.js?ver=6.1.5" id="contact-form-7-js"></script>
+<script type="text/javascript" src="//spitbraaidelivery.co.za/wp-content/plugins/revslider/sr6/assets/js/rbtools.min.js?ver=6.7.38" defer async id="tp-tools-js"></script>
+<script type="text/javascript" src="//spitbraaidelivery.co.za/wp-content/plugins/revslider/sr6/assets/js/rs6.min.js?ver=6.7.38" defer async id="revmin-js"></script>
+<script type="text/javascript" id="wpcf7-redirect-script-js-extra">
+/* <![CDATA[ */
+var wpcf7r = {"ajax_url":"https:\/\/spitbraaidelivery.co.za\/wp-admin\/admin-ajax.php"};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/wpcf7-redirect/build/assets/frontend-script.js?ver=2c532d7e2be36f6af233" id="wpcf7-redirect-script-js"></script>
+<script type="text/javascript" id="x-site-js-extra">
+/* <![CDATA[ */
+var xJsData = {"scrollTop":"0.5","icons":{"down":"<i class='x-framework-icon x-icon-angle-double-down' data-x-icon-s='&#xf103;' aria-hidden=true><\/i>","subindicator":"<i class=\"x-icon x-framework-icon x-icon-angle-double-down\" aria-hidden=\"true\" data-x-icon-s=\"&#xf103;\"><\/i>","previous":"<i class='x-framework-icon x-icon-previous' data-x-icon-s='&#xf053;' aria-hidden=true><\/i>","next":"<i class='x-framework-icon x-icon-next' data-x-icon-s='&#xf054;' aria-hidden=true><\/i>","star":"<i class='x-framework-icon x-icon-star' data-x-icon-s='&#xf005;' aria-hidden=true><\/i>"}};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/themes/x/framework/dist/js/site/x.js?ver=10.8.1" id="x-site-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-includes/js/comment-reply.min.js?ver=6d753a03cfcb882df1aee6bcd9e7e071" id="comment-reply-js" async="async" data-wp-strategy="async"></script>
+<script type="text/javascript" src="https://www.google.com/recaptcha/api.js?render=6LdFYNUpAAAAALdvXekRCtgu7jLdr15NNtkv9wkE&amp;ver=3.0" id="google-recaptcha-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-includes/js/dist/vendor/wp-polyfill.min.js?ver=3.15.0" id="wp-polyfill-js"></script>
+<script type="text/javascript" id="wpcf7-recaptcha-js-before">
+/* <![CDATA[ */
+var wpcf7_recaptcha = {
+    "sitekey": "6LdFYNUpAAAAALdvXekRCtgu7jLdr15NNtkv9wkE",
+    "actions": {
+        "homepage": "homepage",
+        "contactform": "contactform"
+    }
+};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/contact-form-7/modules/recaptcha/index.js?ver=6.1.5" id="wpcf7-recaptcha-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/responsive-progress-bar/assets/js/responsive-progressbar.js?ver=6d753a03cfcb882df1aee6bcd9e7e071" id="responsive-progressbar-script-js"></script>
+<script type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/js_composer/assets/js/dist/js_composer_front.min.js?ver=8.7.2" id="wpb_composer_front_js-js"></script>
+<script defer type="text/javascript" src="https://spitbraaidelivery.co.za/wp-content/plugins/akismet/_inc/akismet-frontend.js?ver=1776992716" id="akismet-frontend-js"></script>
+<script></script><script type="text/javascript">
+window.addEventListener("load", function(event) {
+jQuery(".cfx_form_main,.wpcf7-form,.wpforms-form,.gform_wrapper form").each(function(){
+var form=jQuery(this); 
+var screen_width=""; var screen_height="";
+ if(screen_width == ""){
+ if(screen){
+   screen_width=screen.width;  
+ }else{
+     screen_width=jQuery(window).width();
+ }    }  
+  if(screen_height == ""){
+ if(screen){
+   screen_height=screen.height;  
+ }else{
+     screen_height=jQuery(window).height();
+ }    }
+form.append('<input type="hidden" name="vx_width" value="'+screen_width+'">');
+form.append('<input type="hidden" name="vx_height" value="'+screen_height+'">');
+form.append('<input type="hidden" name="vx_url" value="'+window.location.href+'">');  
+}); 
+
+});
+</script> 
+<script id="cornerstone-custom-js" type="text/javascript">
+/* <![CDATA[ */
+<script type="text/javascript">
+var js = document.createElement('script'); js.type = 'text/javascript'; js.async = true; js.id = 'AddShoppers';
+js.src = ('https:' == document.location.protocol ? 'https://shop.pe/widget/' : 'http://cdn.shop.pe/widget/') + 'widget_async.js#546c5faca38764546c6f3e9f';
+document.getElementsByTagName("head")[0].appendChild(js);
+</script>
+
+<meta name="google-site-verification" content="PezJ-3BiGnbeMQqCWS1DJ4s2StRpwfU6WI877p_2zgg" />
+
+<script>(function() {
+  var _fbq = window._fbq || (window._fbq = []);
+  if (!_fbq.loaded) {
+    var fbds = document.createElement('script');
+    fbds.async = true;
+    fbds.src = '//connect.facebook.net/en_US/fbds.js';
+    var s = document.getElementsByTagName('script')[0];
+    s.parentNode.insertBefore(fbds, s);
+    _fbq.loaded = true;
+  }
+  _fbq.push(['addPixelId', '711972802201491']);
+})();
+window._fbq = window._fbq || [];
+window._fbq.push(['track', 'PixelInitialized', {}]);
+</script>
+<noscript><img height="1" width="1" alt="" style="display:none" src="https://www.facebook.com/tr?id=711972802201491&amp;ev=PixelInitialized" /></noscript>
+
+<!-- Facebook Conversion Code for Requested a quote -->
+<script>(function() {
+  var _fbq = window._fbq || (window._fbq = []);
+  if (!_fbq.loaded) {
+    var fbds = document.createElement('script');
+    fbds.async = true;
+    fbds.src = '//connect.facebook.net/en_US/fbds.js';
+    var s = document.getElementsByTagName('script')[0];
+    s.parentNode.insertBefore(fbds, s);
+    _fbq.loaded = true;
+  }
+})();
+window._fbq = window._fbq || [];
+window._fbq.push(['track', '6018119929534', {'value':'0.00','currency':'ZAR'}]);
+</script>
+<noscript><img height="1" width="1" alt="" style="display:none" src="https://www.facebook.com/tr?ev=6018119929534&amp;cd[value]=0.00&amp;cd[currency]=ZAR&amp;noscript=1" /></noscript>
+
+
+
+
+/* ]]> */
+</script>
+
+</body>
+</html>
+<!-- Cached by WP-Optimize (gzip) - https://teamupdraft.com/wp-optimize/ - Last modified: April 25, 2026 4:49 am (UTC:2) -->

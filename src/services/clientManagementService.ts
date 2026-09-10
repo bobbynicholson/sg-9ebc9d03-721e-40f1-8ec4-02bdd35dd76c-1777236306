@@ -1,0 +1,319 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type Lead = Database["public"]["Tables"]["leads"]["Row"];
+
+export interface ClientWithActivity extends Profile {
+  total_orders: number;
+  total_quotes: number;
+  total_leads: number;
+  total_spent: number;
+  last_order_date: string | null;
+  last_activity_date: string | null;
+}
+
+export const clientManagementService = {
+  /**
+   * Get all clients for a company (users who have interacted with the company)
+   */
+  async getCompanyClients(companyId: string): Promise<ClientWithActivity[]> {
+    try {
+      // Get all profiles associated with this company
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+
+      if (profilesError) throw profilesError;
+
+      // Get all client_ids from orders for this company
+      const { data: orders, error: ordersError } = await supabase
+        .from("orders")
+        .select("client_id, total_amount, created_at")
+        .eq("company_id", companyId)
+        .not("client_id", "is", null);
+
+      if (ordersError) throw ordersError;
+
+      // Get all quotes for this company
+      const { data: quotes, error: quotesError } = await supabase
+        .from("quotes")
+        .select("client_email, created_at")
+        .eq("company_id", companyId);
+
+      if (quotesError) throw quotesError;
+
+      // Get all leads for this company
+      const { data: leads, error: leadsError } = await supabase
+        .from("leads")
+        .select("client_email, created_at")
+        .eq("company_id", companyId);
+
+      if (leadsError) throw leadsError;
+
+      // Collect all unique client IDs from orders
+      const clientIds = new Set<string>();
+      orders?.forEach((order) => {
+        if (order.client_id) clientIds.add(order.client_id);
+      });
+
+      // Get profiles for all clients
+      let allClientProfiles: Profile[] = [];
+      if (clientIds.size > 0) {
+        const { data: clientProfiles, error: clientProfilesError } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", Array.from(clientIds));
+
+        if (clientProfilesError) throw clientProfilesError;
+        allClientProfiles = clientProfiles || [];
+      }
+
+      // Merge company staff and order clients
+      const uniqueProfiles = new Map<string, Profile>();
+      [...(profiles || []), ...allClientProfiles].forEach((profile) => {
+        if (!uniqueProfiles.has(profile.id)) {
+          uniqueProfiles.set(profile.id, profile);
+        }
+      });
+
+      // Calculate activity for each client
+      const clientsWithActivity: ClientWithActivity[] = Array.from(uniqueProfiles.values()).map(
+        (profile) => {
+          const clientOrders = orders?.filter((o) => o.client_id === profile.id) || [];
+          const clientQuotes =
+            quotes?.filter((q) => q.client_email === profile.email) || [];
+          const clientLeads = leads?.filter((l) => l.client_email === profile.email) || [];
+
+          const totalSpent = clientOrders.reduce(
+            (sum, order) => sum + Number(order.total_amount || 0),
+            0
+          );
+
+          const allActivityDates = [
+            ...clientOrders.map((o) => o.created_at),
+            ...clientQuotes.map((q) => q.created_at),
+            ...clientLeads.map((l) => l.created_at),
+          ].filter(Boolean);
+
+          const lastActivityDate =
+            allActivityDates.length > 0
+              ? allActivityDates.sort().reverse()[0]
+              : null;
+
+          const lastOrderDate =
+            clientOrders.length > 0
+              ? clientOrders
+                  .map((o) => o.created_at)
+                  .sort()
+                  .reverse()[0]
+              : null;
+
+          return {
+            ...profile,
+            total_orders: clientOrders.length,
+            total_quotes: clientQuotes.length,
+            total_leads: clientLeads.length,
+            total_spent: totalSpent,
+            last_order_date: lastOrderDate,
+            last_activity_date: lastActivityDate,
+          };
+        }
+      );
+
+      return clientsWithActivity;
+    } catch (error) {
+      console.error("Error fetching company clients:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get client details with full activity history
+   */
+  async getClientDetails(clientId: string, companyId: string) {
+    try {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", clientId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const { data: orders, error: ordersError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("client_id", clientId)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+
+      if (ordersError) throw ordersError;
+
+      const { data: quotes, error: quotesError } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("client_email", profile.email)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+
+      if (quotesError) throw quotesError;
+
+      const { data: leads, error: leadsError } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("client_email", profile.email)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+
+      if (leadsError) throw leadsError;
+
+      return {
+        profile,
+        orders: orders || [],
+        quotes: quotes || [],
+        leads: leads || [],
+      };
+    } catch (error) {
+      console.error("Error fetching client details:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add a new client manually to the company by creating a lead.
+   */
+  async addClient(
+    companyId: string,
+    userId: string,
+    clientData: {
+      email: string;
+      full_name: string;
+      phone?: string;
+    }
+  ): Promise<Lead> {
+    try {
+      // Check if a lead already exists for this email and company
+      const { data: existingLead, error: checkError } = await supabase
+        .from("leads")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("client_email", clientData.email)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existingLead) {
+        throw new Error("A client with this email already exists as a lead.");
+      }
+
+      // Create a new lead for the client
+      const { data: newLead, error: createError } = await supabase
+        .from("leads")
+        .insert({
+          company_id: companyId,
+          user_id: userId, // The admin/owner creating the lead
+          client_name: clientData.full_name,
+          client_email: clientData.email,
+          client_phone: clientData.phone,
+          status: 'manual_add',
+          source: 'manual',
+        } as any)
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      return newLead;
+    } catch (error) {
+      console.error("Error adding client as lead:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove client from company (deactivate)
+   */
+  async removeClient(clientId: string, companyId: string): Promise<void> {
+    try {
+      // Verify the client belongs to this company
+      const { data: profile, error: checkError } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("id", clientId)
+        .single();
+
+      if (checkError) throw checkError;
+
+      if (profile.company_id !== companyId) {
+        throw new Error("Client does not belong to this company");
+      }
+
+      // Deactivate the client
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_active: false })
+        .eq("id", clientId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error removing client:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Search clients by name or email
+   */
+  async searchClients(
+    companyId: string,
+    searchTerm: string
+  ): Promise<ClientWithActivity[]> {
+    try {
+      const allClients = await this.getCompanyClients(companyId);
+
+      const term = searchTerm.toLowerCase();
+      return allClients.filter(
+        (client) =>
+          client.full_name?.toLowerCase().includes(term) ||
+          client.email?.toLowerCase().includes(term) ||
+          client.phone?.toLowerCase().includes(term)
+      );
+    } catch (error) {
+      console.error("Error searching clients:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get client statistics for the company
+   */
+  async getClientStats(companyId: string) {
+    try {
+      const clients = await this.getCompanyClients(companyId);
+
+      const totalClients = clients.length;
+      const activeClients = clients.filter((c) => c.total_orders > 0).length;
+      const totalOrders = clients.reduce((sum, c) => sum + c.total_orders, 0);
+      const totalRevenue = clients.reduce((sum, c) => sum + c.total_spent, 0);
+      const totalQuotes = clients.reduce((sum, c) => sum + c.total_quotes, 0);
+      const totalLeads = clients.reduce((sum, c) => sum + c.total_leads, 0);
+
+      return {
+        totalClients,
+        activeClients,
+        totalOrders,
+        totalRevenue,
+        totalQuotes,
+        totalLeads,
+        averageOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
+      };
+    } catch (error) {
+      console.error("Error fetching client stats:", error);
+      throw error;
+    }
+  },
+};

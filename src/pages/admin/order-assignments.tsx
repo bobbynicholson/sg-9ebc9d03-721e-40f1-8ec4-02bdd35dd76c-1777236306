@@ -1,0 +1,2026 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useRouter } from "next/router";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader,
+  PageWorkbench, PortalCard,
+} from "@/components/portal/ui";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AlertTriangle, Truck, Clock, Users, Search, RefreshCw, Sparkles, ChevronDown, ChevronRight, X, CheckCircle2, MapPin, ArrowUpRight, ExternalLink, User as UserIcon, Truck as TruckIcon, Snowflake as SnowflakeIcon, Users as UsersIcon, Download, Printer, Star } from "lucide-react";
+import Link from "next/link";
+import Head from "next/head";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { useAuth } from "@/contexts/AuthContext";
+import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
+import { useToast } from "@/hooks/use-toast";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { ToastAction } from "@/components/ui/toast";
+import { supabase } from "@/integrations/supabase/client";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { captureException } from "@/lib/observability";
+import {
+  dispatchService,
+  type DispatchSettings,
+  type DispatchSuggestion,
+  minutesUntilSlaBreach,
+  formatMinutesAsCountdown,
+} from "@/services/dispatchService";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useSortable, type ColumnDef } from "@/lib/useSortable";
+import { SortHeader } from "@/components/ui/sort-header";
+import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDialog";
+import { toLocalISO, tenantToday } from "@/lib/localDate";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { staffOrderHref } from "@/lib/orderUrls";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import {
+  orderDriverInterestService,
+  type DriverInterestSummary,
+} from "@/services/orderDriverInterestService";
+
+interface OrderRow {
+  id: string;
+  order_number: string | null;
+  client_id: string | null;
+  client_name: string;
+  event_date: string;
+  event_time: string | null;
+  region_id: string | null;
+  venue: string;
+  status: string;
+  total_amount: number;
+  venue_lat: number | null;
+  venue_lng: number | null;
+  confirmed_at: string | null;
+  assigned_driver_id: string | null;
+  assigned_driver_name: string | null;
+  assigned_at: string | null;
+  assignment_score: number | null;
+  assigned_chef_id: string | null;
+  assigned_chef_name: string | null;
+  // Fleet fields surfaced on the dispatch queue so the operator can
+  // see the booked vehicle inline and override it from the row.
+  assigned_vehicle_id: string | null;
+  assigned_vehicle_plate: string | null;
+  assigned_vehicle_refrigerated: boolean | null;
+  secondary_vehicle_id: string | null;
+  secondary_vehicle_plate: string | null;
+  requires_two_drivers: boolean;
+  requires_refrigeration: boolean;
+  requires_waiter: boolean;
+  guest_count: number | null;
+  // Wave 66.3 - pickup_time is the time the driver leaves the
+  // kitchen with the order. Used by kitchenPrepService to backplan
+  // prep tasks. Now editable inline in the dispatch expanded drawer
+  // because the readiness chip's "Pickup time missing" Fix-it link
+  // routes here when only pickup is missing (it's a dispatch
+  // decision, not an order detail).
+  pickup_time: string | null;
+}
+
+const STATUSES: Array<{ value: string; label: string }> = [
+  { value: "all",        label: "All confirmed" },
+  { value: "unassigned", label: "No driver" },
+  { value: "assigned",   label: "Driver assigned" },
+  { value: "at_risk",    label: "At risk (SLA)" },
+];
+
+function formatDriverRating(interest: DriverInterestSummary): string {
+  if (interest.average_rating == null || interest.rating_count === 0) return "No rating yet";
+  return `${interest.average_rating.toFixed(1)} rating (${interest.rating_count})`;
+}
+
+function formatCandidateRating(driver: DispatchSuggestion["driver"]): string {
+  const count = Number(driver.rating_count || 0);
+  if (driver.average_rating == null || count === 0) return "No client rating yet";
+  return `${Number(driver.average_rating).toFixed(1)} driver rating (${count})`;
+}
+
+function formatCandidateOnTime(driver: DispatchSuggestion["driver"]): string {
+  const completed = Number(driver.completed_jobs_30d || 0);
+  if (completed === 0) return "No completed jobs in 30d";
+  if (driver.on_time_rate == null) return `${completed} jobs, no delivery-time data`;
+  return `${Math.round(driver.on_time_rate * 100)}% on-time (${completed} jobs)`;
+}
+
+function DispatchQueuePage() {
+  const router = useRouter();
+  const { user, profile } = useAuth() as any;
+  // Wave 27.3: tenant-slug wrapper for internal navigations.
+  const { withSlug } = useTenantHref();
+  const { toast } = useToast();
+  const companyId = profile?.company_id ?? user?.company_id ?? null;
+  // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
+  const refreshSignal = useOrderRefreshSignal(companyId);
+  const userId = user?.id ?? "";
+  // Phase 10 #1: tenant currency for the order_total render in
+  // each row of the dispatch queue.
+  const tenantCurrency = useTenantCurrency(companyId);
+  const C = tenantCurrency.symbol;
+
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  // Audit fix (2026-07-02): a failed load only fired a transient
+  // toast; the queue then rendered its "No upcoming orders" empty
+  // state, which reads as "nothing to dispatch". Persist the error
+  // so the table area shows a Retry panel instead.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<DispatchSettings | null>(null);
+  // Audit fix (2026-07-02): the queue window's "today" lower bound
+  // was anchored to the browser clock. An operator in a different
+  // timezone from the tenant saw today's events drop off (or
+  // yesterday's linger). Anchor to companies.timezone like
+  // /admin/orders does; tenantToday falls back sensibly while null.
+  const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("companies")
+        .select("timezone")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (error) {
+        console.error("[admin/order-assignments] companies.timezone fetch failed:", error);
+      }
+      if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
+    })();
+    return () => { cancelled = true; };
+  }, [companyId]);
+  const [kpis, setKpis] = useState<{
+    unassignedAtRisk: number;
+    unassignedTotal: number;
+    medianTimeToAssignMinutes: number | null;
+    onShiftDrivers: number;
+  } | null>(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  // Wave 70.60: debounced mirror of searchTerm. The filter useMemo
+  // reads from this so a fast typist doesn't re-run sortable +
+  // useMemo on every keystroke. 150ms covers human typing cadence
+  // without feeling laggy.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 150);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  // DI-E: server-side date window. Default 30 days ahead - covers
+  // the dispatcher's planning horizon without dragging back hundreds
+  // of rows on a busy tenant. Selectable to 14 / 30 / 90 from the
+  // toolbar when the dispatcher needs to look further out.
+  const [daysAhead, setDaysAhead] = useState<14 | 30 | 90>(30);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  // Wave 70.65: total count of orders matching the current
+  // server-side filter (date window + status set). Used by the
+  // truncation banner when the cap (500) is reached so the
+  // dispatcher knows to narrow.
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_CAP = 500;
+  // Wave 66.3 - inline pickup_time editor state. Per-row local draft
+  // so multiple drawers can be open in series without state collision;
+  // savingId is set while the supabase update is in-flight to dim
+  // the save button.
+  const [pickupDraft, setPickupDraft] = useState<Record<string, string>>({});
+  const [pickupSavingId, setPickupSavingId] = useState<string | null>(null);
+
+  // Assign dialog
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<OrderRow | null>(null);
+  const [suggestions, setSuggestions] = useState<DispatchSuggestion[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [assignSaving, setAssignSaving] = useState(false);
+
+  // Vehicle picker dialog
+  const [vehicleTarget, setVehicleTarget] = useState<OrderRow | null>(null);
+
+  // Bulk dialog
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkDriverId, setBulkDriverId] = useState("");
+  const [bulkDrivers, setBulkDrivers] = useState<Array<{ id: string; full_name: string }>>([]);
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  // Audit log per order
+  const [auditByOrder, setAuditByOrder] = useState<Record<string, any[]>>({});
+  const [interestByOrder, setInterestByOrder] = useState<Record<string, DriverInterestSummary[]>>({});
+
+  const searchRef = useRef<HTMLInputElement | null>(null);
+
+  // ── Loaders ───────────────────────────────────────────────────────────────
+
+  const loadAll = useCallback(async () => {
+    if (!companyId) { setLoading(false); return; }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [s, k] = await Promise.all([
+        dispatchService.getDispatchSettings(companyId),
+        // Wave 70.59: thread the same horizon through to the KPI
+        // tile so "No driver" doesn't disagree with the table.
+        dispatchService.getDispatchKpis(companyId, daysAhead),
+      ]);
+      setSettings(s);
+      setKpis(k);
+
+      // Window bounds anchored to the tenant wall clock (see the
+      // tenantTimezone state above).
+      const todayLocal = tenantToday(tenantTimezone);
+      const todayISO = toLocalISO(todayLocal);
+      // DI-E: server-side upper bound. Previously the query was
+      // .gte today onwards with no ceiling - a tenant with 500
+      // confirmed events booked months ahead would haul all 500
+      // back to the client even though dispatch only acts on the
+      // next few weeks. The selectable horizon (14 / 30 / 90)
+      // keeps the wire payload predictable.
+      const horizon = new Date(todayLocal);
+      horizon.setDate(horizon.getDate() + daysAhead);
+      const horizonISO = toLocalISO(horizon);
+      const { data: rows, error, count } = await supabase
+        .from("orders")
+        .select(`
+          id, order_number, client_id, client_name, event_date, event_time, pickup_time, status, total_amount,
+          venue_lat, venue_lng, venue_name, venue_address,
+          confirmed_at, assigned_driver_id, assigned_at, assignment_score, region_id,
+          assigned_chef_id,
+          guest_count, requires_refrigeration, requires_waiter, requires_two_drivers,
+          assigned_vehicle_id, secondary_vehicle_id,
+          driver:assigned_driver_id(full_name),
+          chef:assigned_chef_id(full_name),
+          assigned_vehicle:assigned_vehicle_id(id, plate, refrigerated),
+          secondary_vehicle:secondary_vehicle_id(id, plate)
+        `, { count: "exact" })
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .gte("event_date", todayISO)
+        .lte("event_date", horizonISO)
+        // Wave 70.59: dropped 'in_transit' to match the KPI set.
+        // An in-transit order MUST already have a driver (the
+        // truck's rolling). Keeping it in the queue was confusing
+        // operators - the page reads as "waiting on a driver" but
+        // an in_transit order is past that phase. The tracking
+        // surface (/admin/tracking) is the right place to
+        // watch in-flight orders.
+        .in("status", ["confirmed", "preparing", "ready"])
+        .order("event_date", { ascending: true })
+        .order("event_time", { ascending: true, nullsFirst: false })
+        // Wave 70.65: server-side cap. The queue is a dispatcher
+        // working surface, not an archive - a tenant whose 90d
+        // horizon legitimately has 500+ confirmed events doesn't
+        // benefit from hauling all of them to the browser at once.
+        // Cap at 500 + count exact so we can surface a "showing
+        // first 500 of N - narrow the range or search" banner.
+        // Page-style pagination deferred until a tenant hits the
+        // cap (none yet). 500 covers ~17 events per day across the
+        // 30d default, ~6 per day across 90d - well above current
+        // tenants' volume.
+        .range(0, PAGE_CAP - 1);
+
+      if (error) {
+        console.error("Order load error:", error);
+        setOrders([]);
+        setInterestByOrder({});
+        setTotalCount(0);
+        // Silent-failure audit: an empty queue after a failed load
+        // read as "nothing to dispatch". Tell the dispatcher, and
+        // keep a persistent error panel (the toast disappears).
+        setLoadError(dbErrorMessage(error, {
+          entity: "order",
+          fallback: "The order list couldn't be fetched. Refresh to try again.",
+        }));
+        return;
+      }
+      const mapped: OrderRow[] = (rows || []).map((r: any) => ({
+        id: r.id,
+        order_number: r.order_number ?? null,
+        client_id: r.client_id ?? null,
+        client_name: r.client_name ?? "Unnamed",
+        event_date: r.event_date,
+        event_time: r.event_time ?? null,
+        region_id: r.region_id ?? null,
+        venue: r.venue_name ?? r.venue_address ?? "-",
+        status: r.status ?? "confirmed",
+        total_amount: Number(r.total_amount ?? 0),
+        venue_lat: r.venue_lat ?? null,
+        venue_lng: r.venue_lng ?? null,
+        confirmed_at: r.confirmed_at ?? null,
+        assigned_driver_id: r.assigned_driver_id ?? null,
+        assigned_driver_name: r.driver?.full_name ?? null,
+        assigned_at: r.assigned_at ?? null,
+        assignment_score: r.assignment_score ?? null,
+        assigned_chef_id: r.assigned_chef_id ?? null,
+        assigned_chef_name: r.chef?.full_name ?? null,
+        assigned_vehicle_id: r.assigned_vehicle_id ?? null,
+        assigned_vehicle_plate: r.assigned_vehicle?.plate ?? null,
+        assigned_vehicle_refrigerated: r.assigned_vehicle?.refrigerated ?? null,
+        secondary_vehicle_id: r.secondary_vehicle_id ?? null,
+        secondary_vehicle_plate: r.secondary_vehicle?.plate ?? null,
+        requires_two_drivers: !!r.requires_two_drivers,
+        requires_refrigeration: !!r.requires_refrigeration,
+        requires_waiter: !!r.requires_waiter,
+        guest_count: r.guest_count ?? null,
+        pickup_time: r.pickup_time ?? null,
+      }));
+      setOrders(mapped);
+      setInterestByOrder(
+        await orderDriverInterestService.getInterestedDriversForOrders(
+          companyId,
+          mapped.map((order) => order.id),
+        ),
+      );
+      // Wave 70.65: total in the window from PostgREST's
+      // Content-Range header (count='exact' on select). Used by
+      // the truncation banner so the dispatcher can see when
+      // narrowing search or date range is recommended.
+      setTotalCount(typeof count === "number" ? count : mapped.length);
+    } catch (e: any) {
+      // Settings / KPI / interest fetch threw. Without this catch the
+      // rejection escaped the callback and the page silently showed a
+      // stale (or empty) queue.
+      console.error("[admin/order-assignments] loadAll failed:", e);
+      setLoadError(e?.message || "The dispatch queue couldn't be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, daysAhead, tenantTimezone]);
+
+  useEffect(() => { loadAll(); }, [loadAll, refreshSignal]);
+
+  // Realtime: any order change for THIS tenant refetches KPIs + queue.
+  // Phase 6 audit fix: the channel was previously global with
+  // no postgres_changes filter, so cross-tenant order edits triggered
+  // re-fetches here. Same amplification + row-content-in-transit issue
+  // as /admin/dashboard. Per-tenant channel name + company_id filter
+  // close both. See docs/perf-and-ops.md section 2.
+  useEffect(() => {
+    if (!companyId) return;
+    const sub = supabase
+      .channel(`order-assignments:${companyId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        () => loadAll(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_assignment_audit", filter: `company_id=eq.${companyId}` },
+        () => loadAll(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "order_driver_interest", filter: `company_id=eq.${companyId}` },
+        () => loadAll(),
+      )
+      .subscribe();
+    // Wave 70.59: removeChannel is the supabase-js v2-recommended
+    // teardown path. sub.unsubscribe() detaches the binding but
+    // leaves the channel object in the client's registry, so a
+    // remount that re-channels on the same name can collide.
+    return () => { supabase.removeChannel(sub); };
+  }, [companyId, loadAll]);
+
+  // Wave 70.60 - URL persistence for filter state. The dispatch
+  // lead refreshes this page constantly through the day; without
+  // URL state every refresh dropped them back on default (30d,
+  // All confirmed, empty search). Now: daysAhead -> ?days, status
+  // chip -> ?filter, search box -> ?q. State is hydrated once on
+  // mount (router.isReady), then synced back to the URL via
+  // shallow replace on every change. Shallow means no full page
+  // refetch from Next; the existing loadAll deps fire as before.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!router.isReady || hydratedRef.current) return;
+    hydratedRef.current = true;
+    const q = router.query;
+    if (typeof q.days === "string") {
+      const n = Number(q.days);
+      if (n === 14 || n === 30 || n === 90) setDaysAhead(n);
+    }
+    if (typeof q.filter === "string") setStatusFilter(q.filter);
+    if (typeof q.q === "string") {
+      setSearchTerm(q.q);
+      setDebouncedSearch(q.q);
+    }
+  }, [router.isReady, router.query]);
+  useEffect(() => {
+    if (!router.isReady || !hydratedRef.current) return;
+    const next: Record<string, string> = {};
+    if (daysAhead !== 30) next.days = String(daysAhead);
+    if (statusFilter !== "all") next.filter = statusFilter;
+    if (debouncedSearch.trim()) next.q = debouncedSearch.trim();
+    // Preserve any other query keys (e.g. ?orderId deeplinks).
+    const preserved = ["orderId"];
+    for (const k of preserved) {
+      const v = router.query[k];
+      if (typeof v === "string") next[k] = v;
+    }
+    const currentQs = new URLSearchParams(window.location.search).toString();
+    const nextQs = new URLSearchParams(next).toString();
+    if (currentQs === nextQs) return;
+    router.replace(
+      { pathname: router.pathname, query: next },
+      undefined,
+      { shallow: true },
+    );
+  // router.replace identity changes on every render but is stable enough.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [daysAhead, statusFilter, debouncedSearch, router.isReady]);
+
+  // Wave 66.3 - deeplink detection. When the URL carries
+  // ?orderId=X (the readiness chip's "Pickup time missing - Fix
+  // it" link points here when only pickup is missing), auto-expand
+  // that row once orders have loaded so the operator lands on the
+  // inline editor instead of a generic queue page. Self-clears the
+  // pickupDraft when navigating away.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const targetId = typeof router.query.orderId === "string" ? router.query.orderId : null;
+    if (!targetId || orders.length === 0) return;
+    if (orders.some((o) => o.id === targetId)) {
+      setExpandedRowId(targetId);
+      // Scroll the row into view after the next paint so the expansion
+      // animation doesn't fight the scroll position.
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`dispatch-row-${targetId}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  }, [router.isReady, router.query.orderId, orders]);
+
+  // Wave 66.3 - persist pickup_time inline. Direct supabase update
+  // keeps the round-trip tight (no orderService.updateOrder cascades
+  // are wanted here - pickup_time changes don't ripple to invoices
+  // or quotes). Empty input clears to NULL so kitchenPrepService
+  // falls back to event_time defaults.
+  const savePickupTime = async (orderId: string) => {
+    const draft = pickupDraft[orderId] ?? "";
+    const next = draft.trim() || null;
+    setPickupSavingId(orderId);
+    try {
+      // Wave 70.59: tenant-scope guard. RLS would already block a
+      // cross-tenant write, but the explicit company_id eq turns
+      // the wrong-tenant case into a clear "0 rows updated" we can
+      // surface rather than a silent success.
+      const { error } = await supabase
+        .from("orders")
+        .update({ pickup_time: next })
+        .eq("id", orderId)
+        .eq("company_id", companyId);
+      if (error) {
+        toast({ title: "Could not save", description: dbErrorMessage(error, { entity: "order assignment" }), variant: "destructive" });
+        return;
+      }
+      // Optimistic local update so the operator sees the saved time
+      // immediately without a full requeue refetch.
+      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, pickup_time: next } : o));
+      // DI-D: kitchen prep backplans from pickup_time. Without this
+      // broadcast the kitchen lead won't see the new ready-by until
+      // their next refresh. Listeners on /kitchen and the readiness
+      // chip refetch on this event.
+      emitOrderUpdated(orderId, "dispatch:pickup-time", ["prep"]);
+      toast({ title: "Pickup time saved", description: next ? `Driver leaves the kitchen at ${next}.` : "Pickup time cleared." });
+    } finally {
+      setPickupSavingId(null);
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      const typing = tag === "input" || tag === "textarea" || tag === "select" || t?.isContentEditable;
+      if (e.key === "Escape") {
+        if (expandedRowId) { setExpandedRowId(null); return; }
+        if (selected.size > 0) { setSelected(new Set()); return; }
+        if (searchTerm) { setSearchTerm(""); return; }
+        return;
+      }
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      switch (e.key) {
+        case "/": e.preventDefault(); searchRef.current?.focus(); break;
+        case "b": case "B": e.preventDefault(); if (selected.size > 0) openBulk(); break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedRowId, selected, searchTerm]);
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+
+  const filteredRaw = useMemo(() => {
+    let list = orders;
+    if (statusFilter === "unassigned") list = list.filter(o => !o.assigned_driver_id);
+    else if (statusFilter === "assigned") list = list.filter(o => o.assigned_driver_id);
+    else if (statusFilter === "at_risk" && settings) {
+      list = list.filter(o => {
+        if (o.assigned_driver_id) return false;
+        return minutesUntilSlaBreach(o.event_date, o.event_time, settings.slaAssignMinutes) <= 0;
+      });
+    }
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      list = list.filter(o =>
+        o.client_name.toLowerCase().includes(q) ||
+        (o.order_number || "").toLowerCase().includes(q) ||
+        o.id.toLowerCase().includes(q) ||
+        (o.venue || "").toLowerCase().includes(q) ||
+        (o.assigned_driver_name || "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [orders, statusFilter, debouncedSearch, settings]);
+
+  // Click-to-sort on every queue column. Default to event date so the
+  // soonest events bubble to the top when dispatch opens the page.
+  const sortColumns: ColumnDef<any>[] = useMemo(() => [
+    { key: "client", accessor: (o) => o.client_name,                 type: "string" },
+    { key: "event",  accessor: (o) => `${o.event_date} ${o.event_time || ""}`, type: "string" },
+    { key: "venue",  accessor: (o) => o.venue,                       type: "string" },
+    { key: "driver", accessor: (o) => o.assigned_driver_name || "",  type: "string" },
+    { key: "chef",   accessor: (o) => o.assigned_chef_name || "",    type: "string" },
+  ], []);
+  const sortedView = useSortable<any>(filteredRaw, sortColumns, { defaultKey: "event", defaultDir: "asc" });
+  const filtered = sortedView.rows;
+
+  // ── Selection ─────────────────────────────────────────────────────────────
+
+  const toggleSelected = (id: string) => {
+    setSelected(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+
+  const selectAllVisible = () => {
+    const ids = filtered.map(o => o.id);
+    setSelected(prev => {
+      const all = ids.every(id => prev.has(id));
+      const n = new Set(prev);
+      ids.forEach(id => { if (all) n.delete(id); else n.add(id); });
+      return n;
+    });
+  };
+
+  // ── Assign dialog ─────────────────────────────────────────────────────────
+
+  const openAssign = async (order: OrderRow) => {
+    setAssignTarget(order);
+    setAssignOpen(true);
+    setSuggestions([]);
+    setSuggestLoading(true);
+    try {
+      const result = await dispatchService.suggestDriversForOrder(companyId, {
+        id: order.id,
+        event_date: order.event_date,
+        event_time: order.event_time,
+        venue_lat: order.venue_lat,
+        venue_lng: order.venue_lng,
+        region_id: order.region_id,
+        requires_refrigeration: order.requires_refrigeration,
+        // Was capped at 3, which hid the rest of the fleet - operators
+        // couldn't pick a driver outside the top suggestions. Return the
+        // whole scored list (best-first); the dialog scrolls. 200 is an
+        // effectively-unlimited ceiling for any catering fleet.
+      }, 200);
+      setSuggestions(result);
+    } finally {
+      setSuggestLoading(false);
+    }
+  };
+
+  const handleAssignPick = async (driverId: string, score?: number, reason?: string) => {
+    const target = assignTarget;
+    if (!target) return;
+    const candidate = suggestions.find((s) => s.driver.id === driverId);
+    if (candidate?.scheduleConflict) {
+      toast({
+        title: "Choose a different driver",
+        description: candidate.scheduleConflict.reason,
+        variant: "destructive",
+      });
+      return;
+    }
+    setAssignSaving(true);
+    try {
+      const r = await dispatchService.assignDriverWithGate({
+        companyId,
+        orderId: target.id,
+        driverId,
+        performedBy: userId,
+        score,
+        reason: reason ?? "Assigned from dispatch queue",
+      });
+      if (!r.ok) {
+        const reason = r.reason || "";
+        const lower = reason.toLowerCase();
+        const isScheduleConflict = /overlap|already assigned|too close together|verify.*schedule/.test(lower);
+        let hint = reason || "Capacity, vehicle or feasibility check rejected this driver.";
+        if (isScheduleConflict) {
+          hint = `${reason} Choose another driver or review the existing assignment first.`;
+        } else if (lower.includes("shift")) {
+          hint = `${reason}. Check the driver's shift on the Drivers page or pick someone still on shift.`;
+        } else if (lower.includes("capacity") || lower.includes("load")) {
+          hint = `${reason}. The driver is at their max for this slot. Try another suggestion.`;
+        } else if (lower.includes("vehicle")) {
+          hint = `${reason}. Assign or override the vehicle, then retry.`;
+        }
+        toast({ title: isScheduleConflict ? "Driver not assigned — schedule overlap" : "Could not assign driver", description: hint, variant: "destructive" });
+        return;
+      }
+      const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
+      const eventLabel = target.event_date + (target.event_time ? ` at ${target.event_time}` : "");
+      // Phase 2 #4: surface a double-booking warning on warn-and-allow.
+      // The assignment landed but the dispatcher needs to know they
+      // just put this driver on two overlapping events.
+      if (r.conflictWarning) {
+        toast({
+          title: `${driverName} assigned — schedule overlap`,
+          description: `${r.conflictWarning} Please review both jobs and reassign one if needed.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: `${driverName} assigned to ${target.client_name}`,
+          description: `Event ${eventLabel}. Driver app updated.`,
+          action: (
+            <ToastAction
+              altText="Undo this assignment"
+              onClick={async () => {
+                const result = await dispatchService.unassignDriver({
+                  companyId, orderId: target.id, performedBy: userId,
+                  reason: "Undo assign",
+                });
+                if (!result.ok) {
+                  toast({ title: "Assignment was not reverted", description: result.reason, variant: "destructive" });
+                  return;
+                }
+                loadAll();
+                toast({ title: "Reverted", description: target.client_name });
+                // Wave 70.40 - ping listeners; driver was unassigned.
+                emitOrderUpdated(target.id, "dispatch:unassign-driver", ["driver"]);
+              }}
+            >Undo</ToastAction>
+          ),
+        });
+      }
+      setAssignOpen(false);
+      loadAll();
+      // Wave 70.40 - broadcast so the calendar's per-event "No
+      // driver assigned" issue badge clears + readiness chip on
+      // /admin/orders flips green without a refresh.
+      emitOrderUpdated(target.id, "dispatch:assign-driver", ["driver"]);
+    } catch (e: any) {
+      captureException(e, {
+        tags: {
+          route: "/admin/order-assignments",
+          step: "assign-driver",
+          companyId,
+          orderId: target.id,
+          driverId,
+          userId,
+        },
+      });
+      toast({
+        title: "Could not assign driver",
+        description: dbErrorMessage(e, {
+          entity: "order assignment",
+          fallback: "Server rejected the assignment. Refresh and try again.",
+        }),
+        variant: "destructive",
+      });
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+  // ── Bulk dialog ───────────────────────────────────────────────────────────
+
+  const openBulk = async () => {
+    setBulkOpen(true);
+    setBulkDriverId("");
+    if (companyId && bulkDrivers.length === 0) {
+      const list = await dispatchService.getDriversForCompany(companyId);
+      setBulkDrivers(list.map(d => ({ id: d.id, full_name: d.full_name })));
+    }
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkDriverId) return;
+    setBulkSaving(true);
+    try {
+      const ids = Array.from(selected);
+      const r = await dispatchService.bulkAssign({
+        companyId, orderIds: ids, driverId: bulkDriverId, performedBy: userId,
+      });
+      const driverName = bulkDrivers.find(d => d.id === bulkDriverId)?.full_name ?? "Driver";
+      const errSuffix = r.errors.length > 0
+        ? ` · ${r.errors.length} skipped (capacity, vehicle or feasibility). Expand a row to see why`
+        : "";
+      toast({
+        title: `${driverName} assigned on ${r.assigned} of ${ids.length} order${ids.length === 1 ? "" : "s"}`,
+        description: `Driver app updated.${errSuffix}`,
+        variant: r.errors.length > 0 && r.assigned === 0 ? "destructive" : undefined,
+      });
+      setSelected(new Set());
+      setBulkOpen(false);
+      loadAll();
+      // Wave 70.40 - broadcast for every successfully-assigned order.
+      const successIds = ids.filter(id => !r.errors.some((e: any) => e.orderId === id));
+      for (const id of successIds) {
+        emitOrderUpdated(id, "dispatch:bulk-assign", ["driver"]);
+      }
+    } catch (e: any) {
+      captureException(e, {
+        tags: {
+          route: "/admin/order-assignments",
+          step: "bulk-assign-driver",
+          companyId,
+          driverId: bulkDriverId,
+          userId,
+        },
+        extra: { orderIds: Array.from(selected) },
+      });
+      toast({
+        title: "Could not bulk assign",
+        description: dbErrorMessage(e, {
+          entity: "order assignment",
+          fallback: "Server rejected one of the assignments. Refresh and try again.",
+        }),
+        variant: "destructive",
+      });
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  // ── Unassign ──────────────────────────────────────────────────────────────
+
+  const [unassignBusy, setUnassignBusy] = useState<string | null>(null);
+
+  const handleUnassign = async (order: OrderRow) => {
+    setUnassignBusy(order.id);
+    try {
+      const result = await dispatchService.unassignDriver({
+        companyId, orderId: order.id, performedBy: userId, reason: "Unassigned from queue",
+      });
+      if (!result.ok) {
+        toast({
+          title: "Driver was not removed",
+          description: result.reason || "The delivery may already have started. Refresh and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: `Driver removed from ${order.client_name}`,
+        description: order.assigned_driver_name
+          ? `${order.assigned_driver_name} no longer on this run. Order is back in the unassigned queue.`
+          : "Order is back in the unassigned queue.",
+      });
+      loadAll();
+      // Wave 70.40 - ping listeners; driver was unassigned.
+      emitOrderUpdated(order.id, "dispatch:unassign-driver", ["driver"]);
+    } catch (e: any) {
+      toast({
+        title: "Could not remove driver",
+        description: dbErrorMessage(e, { entity: "order assignment", fallback: "Server rejected the change. Refresh and try again." }),
+        variant: "destructive",
+      });
+    } finally {
+      setUnassignBusy(null);
+    }
+  };
+
+  // ── Row expand: lazy load audit ───────────────────────────────────────────
+
+  const toggleRow = async (orderId: string) => {
+    if (expandedRowId === orderId) { setExpandedRowId(null); return; }
+    setExpandedRowId(orderId);
+    if (!auditByOrder[orderId]) {
+      // Wave 70.59: thread companyId so the audit fetch carries
+      // belt-and-braces tenant scoping in addition to RLS.
+      const audit = await dispatchService.getAssignmentAudit(orderId, companyId);
+      setAuditByOrder(a => ({ ...a, [orderId]: audit }));
+    }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  const assignInterestedDrivers = assignTarget ? interestByOrder[assignTarget.id] || [] : [];
+
+  return (
+    <>
+      <NoIndexMeta />
+      <Head><title>Dispatch queue - CateringMS</title></Head>
+      <AdminNav />
+
+      <div className="admin-page-shell">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+
+          <PortalHeader
+            variant="hero"
+            title="Dispatch queue"
+            icon={Truck}
+            subtitle="Confirmed orders waiting on a driver. Auto-suggest a driver per order with capacity, vehicle, and shift checks, or override manually. Bulk-assign by date when prep is locked in."
+            meta={
+              kpis && !loading ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {kpis.unassignedTotal} awaiting a driver
+                  </span>
+                  {kpis.unassignedAtRisk > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/30 bg-rose-400/15 px-2.5 py-1 text-[11px] font-semibold text-rose-200">
+                      <AlertTriangle className="h-3 w-3" />
+                      {kpis.unassignedAtRisk} at SLA risk
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    {kpis.onShiftDrivers} driver{kpis.onShiftDrivers === 1 ? "" : "s"} on shift
+                  </span>
+                </>
+              ) : null
+            }
+            actions={
+            <>
+              {/* DI-E: server-side date window selector. Default 30
+                  days covers the dispatcher's planning horizon. 90
+                  is for the "look ahead a quarter" planning view;
+                  14 trims to a tight today + fortnight on busy
+                  tenants. Glass styling for the dark hero band;
+                  options keep dark text for the native popup. */}
+              <select
+                value={daysAhead}
+                onChange={(e) => setDaysAhead(Number(e.target.value) as 14 | 30 | 90)}
+                className="h-9 rounded-md border border-white/15 bg-white/10 px-2 text-sm text-white hover:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 [&>option]:text-slate-900"
+                title="Date window"
+              >
+                <option value={14}>Next 14 days</option>
+                <option value={30}>Next 30 days</option>
+                <option value={90}>Next 90 days</option>
+              </select>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 p-0 text-slate-300 hover:text-white"
+                onClick={loadAll}
+                title="Refresh"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={openBulk}
+                disabled={selected.size === 0}
+              >
+                <Users className="w-4 h-4" />
+                Bulk assign ({selected.size})
+              </Button>
+              {/* Phase 20 #4: dispatch queue CSV export. Operations
+                  lead regularly hands the queue off to a colleague,
+                  drops it into a daily standup deck, or audits SLA
+                  outcomes - having a flat file beats screenshots.
+                  Walks 'filtered' so the status + search + sort all
+                  flow through. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  if (filtered.length === 0) {
+                    toast({ title: "Nothing to export", description: "Adjust the filter / search until at least one order is visible." });
+                    return;
+                  }
+                  const esc = (v: any) => {
+                    if (v == null) return "";
+                    const s = String(v).replace(/"/g, '""');
+                    return /[",\n]/.test(s) ? `"${s}"` : s;
+                  };
+                  const headers = [
+                    "Order", "Event date", "Event time", "Client", "Venue", "Guests",
+                    "Status", "Driver", "Vehicle", "Refrigeration",
+                    "Two drivers", "Total amount", "Assigned at",
+                  ];
+                  const lines = [headers.join(",")];
+                  for (const o of filtered as any[]) {
+                    lines.push([
+                      esc(o.order_number || o.id || ""),
+                      esc(o.event_date || ""),
+                      esc(o.event_time || ""),
+                      esc(o.client_name || ""),
+                      esc(o.venue || ""),
+                      esc(o.guest_count ?? ""),
+                      esc(o.status || ""),
+                      esc(o.assigned_driver_name || ""),
+                      esc(o.assigned_vehicle_plate || ""),
+                      esc(o.assigned_vehicle_refrigerated ? "yes" : "no"),
+                      esc(o.requires_two_drivers ? "yes" : "no"),
+                      esc(Number(o.total_amount || 0).toFixed(2)),
+                      esc(o.assigned_at ? new Date(o.assigned_at).toISOString() : ""),
+                    ].join(","));
+                  }
+                  // UTF-8 BOM so Excel-ZA opens the export as UTF-8
+                  // (same fix as calendar / financial exports).
+                  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `order-assignments-${toLocalISO(new Date())}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </Button>
+              {/* DI-B: print-friendly day's dispatch sheet. Dispatcher
+                  with a coffee at 6am wants paper. Walks 'filtered'
+                  so the visible status + search + sort all flow
+                  through to the printed sheet. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  if (filtered.length === 0) {
+                    toast({ title: "Nothing to print", description: "Adjust the filter / search until at least one order is visible." });
+                    return;
+                  }
+                  setTimeout(() => window.print(), 100);
+                }}
+              >
+                <Printer className="w-4 h-4" />
+                Print run sheet
+              </Button>
+            </>
+            }
+          />
+          <PageWorkbench />
+
+          {/* KPIs. Kept as custom tiles (not StatTile) because the
+              first two are click-to-filter buttons; grid recipe
+              matches the command-centre standard. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("at_risk")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setStatusFilter("at_risk");
+                }
+              }}
+              className={`text-left rounded-lg border bg-white p-4 shadow-sm hover:shadow transition-all ${
+                (kpis?.unassignedAtRisk ?? 0) > 0 ? "ring-2 ring-rose-200 border-rose-300" : "border-slate-200"
+              } ${statusFilter === "at_risk" ? "ring-2 ring-rose-200" : ""}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  At risk (SLA)
+                  <InfoTooltip content={"Unassigned orders whose event is within the SLA window. The number that should be zero by end of day."} />
+                </p>
+                <AlertTriangle className={`w-4 h-4 ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-rose-500" : "text-slate-300"}`} />
+              </div>
+              <p className={`text-2xl font-semibold ${(kpis?.unassignedAtRisk ?? 0) > 0 ? "text-rose-700" : "text-slate-900"}`}>
+                {kpis?.unassignedAtRisk ?? "-"}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {settings ? `event in < ${(settings.slaAssignMinutes / 60).toFixed(0)}h` : "-"}
+              </p>
+            </div>
+
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("unassigned")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setStatusFilter("unassigned");
+                }
+              }}
+              className={`text-left rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow transition-all ${statusFilter === "unassigned" ? "ring-2 ring-slate-300" : ""}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  No driver
+                  <InfoTooltip content={"Confirmed orders with no driver assigned yet. Sort by event date."} />
+                </p>
+                <Truck className="w-4 h-4 text-amber-500" />
+              </div>
+              <p className="text-2xl font-semibold text-slate-900">{kpis?.unassignedTotal ?? "-"}</p>
+              <p className="text-xs text-slate-500 mt-1">click to filter</p>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  Median time to assign
+                  <InfoTooltip content={"From order confirmed to driver assigned. Last 14 days. Shorter is better."} />
+                </p>
+                <Clock className="w-4 h-4 text-blue-500" />
+              </div>
+              <p className="text-2xl font-semibold text-slate-900">
+                {kpis?.medianTimeToAssignMinutes != null
+                  // Wave 70.59: clamp to 0 instead of strip-sign.
+                  // The math in dispatchService already filters
+                  // a >= c, so negative deltas shouldn't reach
+                  // here, but if they do .replace("-", "") was
+                  // silently turning -5m into 5m. Math.max keeps
+                  // the formatter honest.
+                  ? formatMinutesAsCountdown(Math.max(0, kpis.medianTimeToAssignMinutes))
+                  : "-"}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">last 14 days</p>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  Drivers on shift
+                  <InfoTooltip content={"Drivers actively on a scheduled shift right now. Falls back to drivers with a GPS ping in the last hour on tenants who haven't set up shift schedules yet."} />
+                </p>
+                <Users className="w-4 h-4 text-brand-primary" />
+              </div>
+              <p className="text-2xl font-semibold text-slate-900">{kpis?.onShiftDrivers ?? "-"}</p>
+              <p className="text-xs text-slate-500 mt-1">last hour</p>
+            </div>
+          </div>
+
+          {/* Wave 70.65: server-side cap notice. Renders only when the
+              date window legitimately exceeds the fetch cap (PAGE_CAP).
+              Tells the dispatcher exactly what they're missing and
+              the lever to narrow it. Self-hides on every working day
+              for current-volume tenants (none hit 500 yet). */}
+          {totalCount > orders.length && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-900 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
+              <div>
+                <strong>Showing first {orders.length} of {totalCount}.</strong>{" "}
+                Narrow the date range or refine the search to surface
+                older / further-out orders. Per-page pagination is
+                planned once a tenant routinely hits the cap.
+              </div>
+            </div>
+          )}
+
+          {/* Search + filters: one toolbar card. */}
+          <PortalCard className="mb-4" padded={false}>
+            <div className="p-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  placeholder="Search client, order, venue, region, driver"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-12 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary/40 focus:border-brand-primary"
+                />
+                <kbd className="hidden sm:inline-block absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">/</kbd>
+              </div>
+              {/* Wave 70.59: removed the "Filters" button. It was
+                  rendered with disabled+"Coming soon" placeholder
+                  copy and never wired up. The status chip strip
+                  below already covers the filter surface the
+                  dispatch lead actually uses; the disabled button
+                  just signalled "broken" to the operator. */}
+            </div>
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              {STATUSES.map(s => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => setStatusFilter(s.value)}
+                  className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                    statusFilter === s.value
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            </div>
+          </PortalCard>
+
+          {/* Bulk actions bar */}
+          {selected.size > 0 && (
+            <div className="sticky top-2 z-20 mb-3 rounded-lg border border-slate-900 bg-slate-900 text-white shadow-lg flex items-center justify-between gap-3 px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">{selected.size} selected</span>
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="text-xs text-slate-300 hover:text-white inline-flex items-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Clear
+                </button>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openBulk}
+                className="text-white hover:bg-slate-800 gap-1.5 h-8"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Assign to driver
+              </Button>
+            </div>
+          )}
+
+          {/* Queue table */}
+          <PortalCard padded={false} className="overflow-hidden mb-6">
+            {/* Header */}
+            <div className="hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider items-center">
+              <div className="flex justify-center">
+                <input
+                  type="checkbox"
+                  className="accent-brand-primary cursor-pointer"
+                  checked={filtered.length > 0 && filtered.every(o => selected.has(o.id))}
+                  ref={cb => {
+                    if (cb) {
+                      const all = filtered.length > 0 && filtered.every(o => selected.has(o.id));
+                      const any = filtered.some(o => selected.has(o.id));
+                      cb.indeterminate = any && !all;
+                    }
+                  }}
+                  onChange={selectAllVisible}
+                />
+              </div>
+              <div></div>
+              <div>
+                <SortHeader sortKey="client" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Order / Client
+                </SortHeader>
+              </div>
+              <div>
+                <SortHeader sortKey="event" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Event
+                </SortHeader>
+              </div>
+              <div>
+                <SortHeader sortKey="venue" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Venue
+                </SortHeader>
+              </div>
+              <div>
+                <SortHeader sortKey="driver" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Driver
+                </SortHeader>
+              </div>
+              <div>
+                <SortHeader sortKey="chef" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
+                  Chef
+                </SortHeader>
+              </div>
+              <div className="text-right">Actions</div>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full mx-auto mb-3" />
+                <p className="text-sm text-slate-500">Loading queue...</p>
+              </div>
+            ) : loadError ? (
+              <div className="text-center py-12 px-4">
+                <AlertTriangle className="w-8 h-8 text-rose-600 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-rose-900">Couldn't load the dispatch queue</p>
+                <p className="text-xs text-slate-600 mt-1 mb-4">{loadError}</p>
+                <Button size="sm" onClick={loadAll} className="bg-brand-primary hover:bg-brand-primary/90">
+                  <RefreshCw className="w-4 h-4 mr-2" /> Retry
+                </Button>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-12 px-4">
+                <CheckCircle2 className="w-12 h-12 text-brand-primary mx-auto mb-3" />
+                <p className="text-sm font-medium text-slate-700">
+                  {orders.length === 0 ? "No upcoming orders" : "Nothing matches this filter"}
+                </p>
+                <p className="text-xs text-slate-500 mt-1 mb-4">
+                  {orders.length === 0
+                    ? "Confirmed orders land here the moment they come in."
+                    : "Try a different filter or clear the search."}
+                </p>
+                <div className="inline-flex flex-wrap justify-center gap-2">
+                  {orders.length === 0 ? (
+                    <Link href={withSlug("/admin/orders")}>
+                      <Button variant="outline" size="sm">Open the order book</Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { setStatusFilter("all"); setSearchTerm(""); }}
+                    >
+                      Clear filter and search
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              filtered.map(order => {
+                const slaSlack = settings
+                  ? minutesUntilSlaBreach(order.event_date, order.event_time, settings.slaAssignMinutes)
+                  : Number.POSITIVE_INFINITY;
+                const isAtRisk = !order.assigned_driver_id && slaSlack <= 0;
+                const isUnassigned = !order.assigned_driver_id;
+                const interestedDrivers = interestByOrder[order.id] || [];
+                const eventDt = order.event_time
+                  ? new Date(`${order.event_date}T${order.event_time}`)
+                  : new Date(`${order.event_date}T12:00`);
+                const minsToEvent = (eventDt.getTime() - Date.now()) / 60_000;
+                const countdownTone =
+                  isAtRisk        ? "text-rose-700 font-semibold" :
+                  minsToEvent < 1440 ? "text-amber-700 font-semibold" :
+                                       "text-slate-700";
+
+                const leftBorder =
+                  isAtRisk     ? "border-l-red-500" :
+                  isUnassigned ? "border-l-amber-500" :
+                                 "border-l-transparent";
+
+                const isExpanded = expandedRowId === order.id;
+
+                return (
+                  <div key={order.id} id={`dispatch-row-${order.id}`} className={`border-b border-slate-100 border-l-4 ${leftBorder}`}>
+                    {/* Desktop row */}
+                    <div
+                      // Wave 70.59: row is now keyboard-activable
+                      // and exposes aria-expanded so screen-readers
+                      // announce the disclosure state. The whole
+                      // row remains a click target.
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-controls={`dispatch-row-${order.id}-detail`}
+                      className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/60 focus-visible:ring-offset-1 ${
+                        selected.has(order.id) ? "bg-brand-primary/10 hover:bg-brand-primary/15" :
+                        isAtRisk ? "hover:bg-rose-50/40" :
+                        "hover:bg-slate-50"
+                      }`}
+                      onClick={() => toggleRow(order.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleRow(order.id);
+                        }
+                      }}
+                    >
+                      <div className="flex justify-center" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="accent-brand-primary cursor-pointer"
+                          checked={selected.has(order.id)}
+                          onChange={() => toggleSelected(order.id)}
+                        />
+                      </div>
+                      <div className="flex justify-center text-slate-400">
+                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">{order.client_name}</p>
+                        <p className="text-xs text-slate-500 truncate">
+                          {order.order_number || order.id.slice(0, 8)} · {order.venue}
+                        </p>
+                        {/* Quick drilldowns - jump to the underlying order
+                            or client without leaving the queue. */}
+                        <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                          <Link
+                            href={withSlug(staffOrderHref(order.id, "driver"))}
+                            className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Order
+                          </Link>
+                          {order.client_id ? (
+                            <Link
+                              href={withSlug(`/admin/contacts?clientId=${order.client_id}`)}
+                              className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
+                            >
+                              <UserIcon className="w-3 h-3" />
+                              Client
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-700 tabular-nums">{order.event_date}</p>
+                        <p className={`text-xs tabular-nums flex items-center gap-1 ${countdownTone}`}>
+                          {isAtRisk ? (
+                            <>
+                              <span className="font-semibold">SLA breached</span>
+                              <InfoTooltip
+                                content={`Service Level Agreement: every confirmed order must have a driver assigned at least ${settings ? Math.round(settings.slaAssignMinutes / 60) : 24}h before the event. We're past that cutoff and this row still has no driver, so dispatch should jump on it now.\n\nChange the cutoff in Dispatch settings (top right of this page).`}
+                              />
+                              <span>·</span>
+                            </>
+                          ) : null}
+                          {formatMinutesAsCountdown(minsToEvent).replace("-", "in ")}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        {order.venue ? (
+                          <span className="text-xs text-slate-600 truncate inline-flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                            {order.venue.split(",")[0]}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">-</span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        {order.assigned_driver_name ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge className="text-[10px] font-normal bg-brand-primary/15 text-brand-primary border-0">
+                              <CheckCircle2 className="w-3 h-3 mr-0.5" />
+                              {order.assigned_driver_name}
+                            </Badge>
+                          </div>
+                        ) : isAtRisk ? (
+                          <Badge className="text-[10px] font-semibold bg-rose-100 text-rose-800 border-0">
+                            <AlertTriangle className="w-3 h-3 mr-0.5" />
+                            URGENT
+                          </Badge>
+                        ) : (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs text-amber-700 font-medium">Unassigned</span>
+                            {interestedDrivers.length > 0 && (
+                              <Badge className="text-[10px] font-semibold bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
+                                <Star className="w-3 h-3 mr-0.5" />
+                                {interestedDrivers.length} interested
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {/* Vehicle chip - click to open the picker. Shows a
+                            'No vehicle' affordance even when the driver is
+                            assigned, so the dispatcher can spot a mid-air
+                            mismatch (driver booked, vehicle isn't). */}
+                        <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setVehicleTarget(order)}
+                            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                              order.assigned_vehicle_id
+                                ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 italic"
+                            }`}
+                            title="Pick or override the vehicle on this order"
+                          >
+                            {order.assigned_vehicle_refrigerated
+                              ? <SnowflakeIcon className="w-3 h-3" />
+                              : <TruckIcon className="w-3 h-3" />}
+                            {order.assigned_vehicle_plate
+                              ? <span className="font-mono">{order.assigned_vehicle_plate}</span>
+                              : "Pick vehicle"}
+                            {order.secondary_vehicle_plate && (
+                              <>
+                                <span className="text-slate-400">+</span>
+                                <span className="font-mono">{order.secondary_vehicle_plate}</span>
+                              </>
+                            )}
+                          </button>
+                          {order.requires_two_drivers && (
+                            <span
+                              className="inline-flex items-center gap-1 ml-1.5 rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700"
+                              title="This run needs two drivers based on vehicle, guest count or waiter service."
+                            >
+                              <UsersIcon className="w-3 h-3" />
+                              2 drivers
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex items-center gap-1 flex-wrap">
+                        {order.assigned_chef_name && (
+                          <Badge variant="outline" className="text-[10px] font-normal">
+                            🧑‍🍳 {order.assigned_chef_name.split(" ")[0]}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
+                        {order.assigned_driver_id ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                                <ArrowUpRight className="w-3.5 h-3.5" />
+                                Manage
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openAssign(order)}>
+                                <Sparkles className="w-4 h-4 mr-2 text-brand-primary" />
+                                Reassign with suggestions
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setVehicleTarget(order)}>
+                                <TruckIcon className="w-4 h-4 mr-2 text-blue-600" />
+                                Pick vehicle / add second
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleUnassign(order)}
+                                disabled={unassignBusy === order.id}
+                              >
+                                <X className="w-4 h-4 mr-2 text-rose-600" />
+                                {unassignBusy === order.id ? "Unassigning..." : "Unassign"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-8 gap-1.5 bg-brand-primary hover:opacity-90 text-white"
+                            onClick={() => openAssign(order)}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Assign driver
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Mobile compact card. Wave 70.60: now carries
+                        the bulk-select checkbox so the dispatch lead
+                        on a phone can multi-select + bulk-assign. The
+                        checkbox is the leading element, large enough
+                        for a thumb tap, and stops propagation so the
+                        whole card stays a tap-to-expand target. */}
+                    <div
+                      className={`md:hidden p-3 cursor-pointer ${
+                        selected.has(order.id) ? "bg-brand-primary/10" :
+                        isAtRisk ? "bg-rose-50/40" :
+                        "hover:bg-slate-50"
+                      }`}
+                      onClick={() => toggleRow(order.id)}
+                    >
+                      <div className="flex items-start gap-3 mb-2">
+                        <div
+                          className="pt-0.5 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${order.client_name}`}
+                            className="w-5 h-5 accent-brand-primary cursor-pointer"
+                            checked={selected.has(order.id)}
+                            onChange={() => toggleSelected(order.id)}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{order.client_name}</p>
+                          <p className="text-xs text-slate-500 truncate">{order.venue}</p>
+                          <p className={`text-xs tabular-nums mt-0.5 ${countdownTone}`}>
+                            {order.event_date}
+                            {" · "}
+                            {formatMinutesAsCountdown(minsToEvent).replace("-", "in ")}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1" onClick={(e) => e.stopPropagation()}>
+                            <Link
+                              href={withSlug(staffOrderHref(order.id, "driver"))}
+                              className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              Order
+                            </Link>
+                            {order.client_id ? (
+                              <Link
+                                href={withSlug(`/admin/contacts?clientId=${order.client_id}`)}
+                                className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 hover:text-slate-900 hover:underline"
+                              >
+                                <UserIcon className="w-3 h-3" />
+                                Client
+                              </Link>
+                            ) : null}
+                          </div>
+                        </div>
+                        {isAtRisk && (
+                          <Badge className="text-[10px] font-semibold bg-rose-100 text-rose-800 border-0 shrink-0">
+                            URGENT
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          className={`flex-1 gap-1.5 ${order.assigned_driver_id ? "bg-slate-700 hover:bg-slate-800" : "bg-brand-primary hover:opacity-90"} text-white`}
+                          onClick={(e) => { e.stopPropagation(); openAssign(order); }}
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          {order.assigned_driver_id ? `Reassign · ${order.assigned_driver_name}` : "Assign driver"}
+                        </Button>
+                        {order.assigned_driver_id && (
+                          // Wave 70.60: unassign reachable on mobile.
+                          // Was desktop-only inside the Manage menu.
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            onClick={(e) => { e.stopPropagation(); void handleUnassign(order); }}
+                            disabled={unassignBusy === order.id}
+                            aria-label="Unassign driver"
+                            title="Unassign driver"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Expanded drawer */}
+                    {isExpanded && (
+                      <div
+                        id={`dispatch-row-${order.id}-detail`}
+                        className="bg-slate-50 border-t border-slate-200 px-4 py-4 space-y-4"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Event</p>
+                            <p className="text-slate-900">{order.event_date} {order.event_time ? `at ${order.event_time}` : ""}</p>
+                            <p className="text-slate-600">{order.venue}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Status</p>
+                            <p className="text-slate-900 capitalize">{order.status.replace(/_/g, " ")}</p>
+                            {order.assignment_score && (
+                              <p className="text-slate-600 flex items-center gap-1">
+                                Match score: {order.assignment_score}/100
+                                {/* DI-D: tooltip explaining the assignment_score
+                                    scale. Operator can see the number but no
+                                    way to read good/bad without this. Mirrors
+                                    the dispatchService.scoreDriverForOrder
+                                    weighting (distance + load + region +
+                                    on-time). Rating is displayed as context
+                                    in the picker, not used for selection. */}
+                                <InfoTooltip content={"Score 0-100. Weighted blend of distance to venue, jobs already booked today, region match, and real 30-day on-time rate. Client driver rating is shown as context in the picker, but it is not used to rank drivers. 70+ is a strong match; under 50 is worth a manual override."} />
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Total</p>
+                            <p className="text-slate-900 tabular-nums">
+                              {/* Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding. */}
+                              {C}{new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(order.total_amount).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Wave 66.3 - inline pickup_time editor. The
+                            readiness chip's "Pickup time missing - Fix
+                            it" link routes here when only pickup is
+                            missing (it's a dispatch decision: when to
+                            send the driver out, given route + prep
+                            readiness + driver availability). Rose-tinted
+                            warning when the value is missing so the
+                            operator sees the gap inside the drawer. */}
+                        <div className={`rounded-md border p-3 ${order.pickup_time ? "border-slate-200 bg-white" : "border-rose-200 bg-rose-50/40"}`}>
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                                Pickup from kitchen
+                              </p>
+                              <p className="text-[11px] text-slate-600 mt-0.5">
+                                {order.pickup_time
+                                  ? `Driver leaves the kitchen at ${order.pickup_time}.`
+                                  : "Driver doesn't know when to leave the kitchen yet - set the time below."}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={pickupDraft[order.id] ?? order.pickup_time ?? ""}
+                                onChange={(e) => setPickupDraft((p) => ({ ...p, [order.id]: e.target.value }))}
+                                className="h-8 w-32"
+                                aria-label="Pickup time from kitchen"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => savePickupTime(order.id)}
+                                disabled={pickupSavingId === order.id || (pickupDraft[order.id] ?? order.pickup_time ?? "") === (order.pickup_time ?? "")}
+                              >
+                                {pickupSavingId === order.id ? "Saving..." : "Save"}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">
+                            Assignment history
+                          </p>
+                          {(auditByOrder[order.id] || []).length === 0 ? (
+                            <p className="text-xs text-slate-500">No assignments yet.</p>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {(auditByOrder[order.id] || []).map((a: any) => (
+                                <li key={a.id} className="text-xs flex items-start justify-between gap-3 py-1 border-b border-slate-200 last:border-b-0">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-slate-700">
+                                      {a.from_driver?.full_name && a.to_driver?.full_name ? (
+                                        <>Reassigned {a.from_driver.full_name} → <span className="font-medium">{a.to_driver.full_name}</span></>
+                                      ) : a.to_driver?.full_name ? (
+                                        <>Assigned <span className="font-medium">{a.to_driver.full_name}</span></>
+                                      ) : a.from_driver?.full_name ? (
+                                        <>Unassigned {a.from_driver.full_name}</>
+                                      ) : (
+                                        "Updated"
+                                      )}
+                                    </span>
+                                    {a.reason && <span className="text-slate-500"> · {a.reason}</span>}
+                                    {a.actor?.full_name && <span className="text-slate-500"> · by {a.actor.full_name}</span>}
+                                  </div>
+                                  <span className="text-slate-500 tabular-nums whitespace-nowrap">
+                                    {new Date(a.created_at).toLocaleString()}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </PortalCard>
+        </PortalShell>
+      </div>
+
+      {/* ── Assign dialog ──────────────────────────────────────────────── */}
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-brand-primary" />
+              Assign driver · {assignTarget?.client_name}
+            </DialogTitle>
+            <DialogDescription>
+              Every active driver is scored with real dispatch data: distance, current load, branch match, vehicle fit and 30-day on-time rate. Client driver rating is shown for context, not used to rank drivers.
+            </DialogDescription>
+          </DialogHeader>
+
+          {suggestLoading ? (
+            <div className="py-8 text-center text-sm text-slate-500">
+              <div className="animate-spin w-5 h-5 border-2 border-brand-primary/80 border-t-transparent rounded-full mx-auto mb-2" />
+              Scoring drivers...
+            </div>
+          ) : suggestions.length === 0 && assignInterestedDrivers.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-500">
+              <p>No active drivers available.</p>
+              <p className="mt-1">Add drivers from the Drivers page first.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+              {assignInterestedDrivers.length > 0 && (
+                <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-2.5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-brand-primary">
+                      Interested drivers
+                    </p>
+                    <Badge className="bg-brand-primary/15 text-brand-primary border-0">
+                      {assignInterestedDrivers.length}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {assignInterestedDrivers.map((interest) => {
+                      const match = suggestions.find((s) => s.driver.id === interest.driver_id);
+                      return (
+                        <button
+                          key={interest.id}
+                          type="button"
+                          onClick={() => handleAssignPick(interest.driver_id, match?.score.total, "Driver expressed interest")}
+                          disabled={assignSaving || !!match?.scheduleConflict}
+                          className="w-full rounded-md border border-brand-primary/20 bg-white p-2.5 text-left transition-colors hover:bg-brand-primary/5"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-900">
+                                {interest.driver_name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-slate-600">
+                                {formatDriverRating(interest)}
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-slate-500">
+                                Tapped Interested {new Date(interest.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                            {match ? (
+                              <div className="text-right">
+                                <p className="text-lg font-bold tabular-nums text-brand-primary">
+                                  {match.score.total}
+                                </p>
+                                <p className="text-[10px] uppercase tracking-wide text-slate-500">score</p>
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="border-brand-primary/20 text-brand-primary">
+                                Interested
+                              </Badge>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {suggestions.length > 0 && assignInterestedDrivers.length > 0 && (
+                <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  All scored drivers
+                </p>
+              )}
+
+              {suggestions.map((s, idx) => {
+                const blocked = !s.capacity.ok || !s.feasibility.ok || !s.vehicle.ok || !!s.scheduleConflict;
+                const isInterested = assignInterestedDrivers.some((interest) => interest.driver_id === s.driver.id);
+                return (
+                  <button
+                    key={s.driver.id}
+                    type="button"
+                    onClick={() => handleAssignPick(s.driver.id, s.score.total, idx === 0 ? "Top suggestion" : `Suggestion #${idx + 1}`)}
+                    disabled={assignSaving}
+                    className={`w-full text-left rounded-lg border p-3 transition-all ${
+                      idx === 0 && !blocked
+                        ? "border-brand-primary bg-brand-primary/10 hover:bg-brand-primary/15 ring-2 ring-brand-primary/20"
+                        : blocked
+                          ? "border-rose-200 bg-rose-50/40 hover:bg-rose-50"
+                          : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {idx === 0 && !blocked && (
+                            <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary text-white px-1.5 py-0.5 rounded">
+                              Top match
+                            </span>
+                          )}
+                          {isInterested && (
+                            <span className="text-[9px] font-semibold uppercase tracking-wide bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded">
+                              Interested
+                            </span>
+                          )}
+                          <p className="text-sm font-medium text-slate-900">{s.driver.full_name}</p>
+                        </div>
+                        <p className="text-xs text-slate-600">
+                          Why: {s.score.reasons.join(" · ")}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">
+                            {formatCandidateOnTime(s.driver)}
+                          </span>
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">
+                            {formatCandidateRating(s.driver)}
+                          </span>
+                          {!s.capacity.ok && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
+                              {s.capacity.reason}
+                            </span>
+                          )}
+                          {!s.vehicle.ok && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
+                              {s.vehicle.reason}
+                            </span>
+                          )}
+                        {!s.feasibility.ok && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
+                              {s.feasibility.reason}
+                            </span>
+                        )}
+                        {s.scheduleConflict && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
+                            Schedule conflict: {s.scheduleConflict.orderNumber} at {s.scheduleConflict.eventTime}
+                          </span>
+                        )}
+                          {s.vehicle.refrigerated && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                              Refrigerated
+                            </span>
+                          )}
+                          {s.feasibility.etaMinutes != null && s.feasibility.ok && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                              ETA ~{s.feasibility.etaMinutes}m
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className={`text-2xl font-bold tabular-nums ${
+                          s.score.total >= 75 ? "text-brand-primary" :
+                          s.score.total >= 50 ? "text-blue-700" :
+                                                "text-amber-700"
+                        }`}>
+                          {s.score.total}
+                        </p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wide">score</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bulk assign dialog ─────────────────────────────────────────── */}
+      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-brand-primary" />
+              Bulk assign {selected.size} order{selected.size === 1 ? "" : "s"}
+            </DialogTitle>
+            <DialogDescription>
+              Pick a driver and the system assigns all selected orders. Capacity checks run silently.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="bulk_driver">Driver</Label>
+              <select
+                id="bulk_driver"
+                value={bulkDriverId}
+                onChange={e => setBulkDriverId(e.target.value)}
+                className="mt-1 w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
+              >
+                <option value="">Pick a driver...</option>
+                {bulkDrivers.map(d => (
+                  <option key={d.id} value={d.id}>{d.full_name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" disabled={bulkSaving}>Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={handleBulkAssign}
+              disabled={!bulkDriverId || bulkSaving}
+              className="bg-brand-primary hover:opacity-90"
+            >
+              {bulkSaving ? "Assigning..." : `Assign ${selected.size}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vehicle picker - per-order override + secondary vehicle. */}
+      {vehicleTarget && (
+        <VehiclePickerDialog
+          open={!!vehicleTarget}
+          onOpenChange={(o) => { if (!o) setVehicleTarget(null); }}
+          companyId={companyId}
+          order={{
+            id: vehicleTarget.id,
+            client_name: vehicleTarget.client_name,
+            event_date: vehicleTarget.event_date,
+            event_time: vehicleTarget.event_time,
+            guest_count: vehicleTarget.guest_count,
+            requires_refrigeration: vehicleTarget.requires_refrigeration,
+            requires_waiter: vehicleTarget.requires_waiter,
+            assigned_driver_id: vehicleTarget.assigned_driver_id,
+            assigned_vehicle_id: vehicleTarget.assigned_vehicle_id,
+            secondary_vehicle_id: vehicleTarget.secondary_vehicle_id,
+          }}
+          onChanged={() => { loadAll(); }}
+        />
+      )}
+
+      {/* DI-B: print-only view of the day's dispatch sheet. Hidden on
+          screen via the print CSS below; only renders to paper. One
+          row per filtered order with checkbox + driver/vehicle/pickup
+          so the dispatcher can mark off in the field. Walks the same
+          'filtered' list as the on-screen table so what you see is
+          what prints. */}
+      <div id="print-dispatch-sheet" className="print-only">
+        <h1 style={{ fontSize: "18pt", marginBottom: "6pt", fontFamily: "sans-serif" }}>
+          Dispatch run sheet
+        </h1>
+        <p style={{ fontSize: "10pt", color: "#475569", marginBottom: "14pt", fontFamily: "sans-serif" }}>
+          {new Date().toLocaleDateString("en-ZA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          {" - "}
+          {filtered.length} order{filtered.length === 1 ? "" : "s"} on the queue
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9.5pt", fontFamily: "sans-serif" }}>
+          <thead>
+            <tr style={{ borderBottom: "2px solid #0f172a" }}>
+              <th style={{ width: "22pt", textAlign: "left", padding: "4pt" }}> </th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Event</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Pickup</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Client</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Venue</th>
+              <th style={{ textAlign: "right", padding: "4pt" }}>Guests</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Driver</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Vehicle</th>
+              <th style={{ textAlign: "left", padding: "4pt" }}>Reqs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(filtered as OrderRow[]).map((o) => {
+              const reqs: string[] = [];
+              if (o.requires_two_drivers) reqs.push("2-DRV");
+              if (o.requires_refrigeration) reqs.push("REFRIG");
+              if (o.requires_waiter) reqs.push("WAIT");
+              return (
+                <tr key={o.id} style={{ borderBottom: "1px solid #cbd5e1", pageBreakInside: "avoid" }}>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    <span style={{ display: "inline-block", width: "14pt", height: "14pt", border: "1.5pt solid #0f172a", verticalAlign: "middle" }} />
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    <strong>{o.event_date}</strong>
+                    {o.event_time ? <span style={{ color: "#64748b" }}> {o.event_time}</span> : null}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    {o.pickup_time
+                      ? <strong>{o.pickup_time}</strong>
+                      : <span style={{ color: "#dc2626", fontWeight: 700 }}>SET</span>}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>{o.client_name}</td>
+                  <td style={{ padding: "6pt 4pt" }}>{o.venue || ""}</td>
+                  <td style={{ padding: "6pt 4pt", textAlign: "right" }}>{o.guest_count ?? ""}</td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    {o.assigned_driver_name
+                      ? o.assigned_driver_name
+                      : <span style={{ color: "#dc2626", fontWeight: 700 }}>UNASSIGNED</span>}
+                  </td>
+                  <td style={{ padding: "6pt 4pt" }}>
+                    {o.assigned_vehicle_plate || ""}
+                    {o.assigned_vehicle_refrigerated ? <span style={{ marginLeft: "4pt", color: "#0284c7" }}>(refrig)</span> : null}
+                  </td>
+                  <td style={{ padding: "6pt 4pt", fontSize: "8.5pt", color: "#dc2626", fontWeight: 700 }}>
+                    {reqs.join(" ")}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p style={{ marginTop: "18pt", fontSize: "9pt", color: "#64748b", fontFamily: "sans-serif" }}>
+          Generated {new Date().toLocaleString("en-ZA")} from CateringMS Dispatch
+        </p>
+      </div>
+
+      <style jsx global>{`
+        @media print {
+          @page { margin: 12mm; size: landscape; }
+          body * { visibility: hidden !important; }
+          #print-dispatch-sheet, #print-dispatch-sheet * { visibility: visible !important; }
+          #print-dispatch-sheet {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+          }
+        }
+        @media not print {
+          .print-only { display: none !important; }
+        }
+      `}</style>
+    </>
+  );
+}
+
+export default function ProtectedDispatchQueuePage() {
+  // Restructure audit (2026-07-02): OWNER added - the baseline admin
+  // tier is SUPER_ADMIN / OWNER / COMPANY_ADMIN / ADMIN and dispatch
+  // is not finance-gated, so owner was missing for no reason.
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN]}>
+      <DispatchQueuePage />
+    </ProtectedRoute>
+  );
+}

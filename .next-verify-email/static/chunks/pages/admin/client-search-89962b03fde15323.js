@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[7866],{38668:(_,n,u)=>{"use strict";u.r(n),u.d(n,{__N_SSP:()=>e,default:()=>r});var e=!0;function r(){return null}},56380:(_,n,u)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/admin/client-search",function(){return u(38668)}])}},_=>{var n=n=>_(_.s=n);_.O(0,[636,6593,8792],()=>n(56380)),_N_E=_.O()}]);

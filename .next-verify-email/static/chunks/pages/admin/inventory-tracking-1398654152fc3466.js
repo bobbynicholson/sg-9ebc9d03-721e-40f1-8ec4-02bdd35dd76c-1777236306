@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[2138],{780:(n,_,u)=>{"use strict";u.r(_),u.d(_,{__N_SSP:()=>r,default:()=>e});var r=!0;function e(){return null}},48828:(n,_,u)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/admin/inventory-tracking",function(){return u(780)}])}},n=>{var _=_=>n(n.s=_);n.O(0,[636,6593,8792],()=>_(48828)),_N_E=n.O()}]);

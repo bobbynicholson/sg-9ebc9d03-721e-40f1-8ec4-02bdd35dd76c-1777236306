@@ -1,0 +1,246 @@
+{
+  "menuItems": [
+    {
+      "name": "Classic Spit Braai Lamb",
+      "description": "Succulent lamb slow-roasted on a traditional spit, served with mint jelly and roasted vegetables",
+      "category": "mains",
+      "basePrice": 12500,
+      "preparationTime": 180,
+      "servingSize": 1,
+      "allergens": [],
+      "isAvailable": true
+    },
+    {
+      "name": "Boerewors Roll Platter",
+      "description": "Traditional South African sausage served in fresh rolls with chakalaka and tomato relish",
+      "category": "appetizers",
+      "basePrice": 4500,
+      "preparationTime": 30,
+      "servingSize": 1,
+      "allergens": ["gluten"],
+      "isAvailable": true
+    },
+    {
+      "name": "Pap & Sheba",
+      "description": "Traditional maize porridge served with savory chakalaka and tomato-onion gravy",
+      "category": "sides",
+      "basePrice": 3500,
+      "preparationTime": 45,
+      "servingSize": 1,
+      "allergens": [],
+      "isAvailable": true
+    },
+    {
+      "name": "Braai Chicken Wings",
+      "description": "Flame-grilled chicken wings marinated in peri-peri sauce",
+      "category": "appetizers",
+      "basePrice": 5500,
+      "preparationTime": 45,
+      "servingSize": 1,
+      "allergens": [],
+      "isAvailable": true
+    },
+    {
+      "name": "Sosaties",
+      "description": "Traditional Cape Malay curry-marinated meat skewers with dried apricots",
+      "category": "mains",
+      "basePrice": 8500,
+      "preparationTime": 60,
+      "servingSize": 1,
+      "allergens": [],
+      "isAvailable": true
+    },
+    {
+      "name": "Potato Salad",
+      "description": "Creamy potato salad with herbs and a tangy dressing",
+      "category": "sides",
+      "basePrice": 2500,
+      "preparationTime": 30,
+      "servingSize": 1,
+      "allergens": ["eggs", "dairy"],
+      "isAvailable": true
+    },
+    {
+      "name": "Green Salad",
+      "description": "Fresh mixed greens with cherry tomatoes, cucumber, and balsamic vinaigrette",
+      "category": "sides",
+      "basePrice": 2000,
+      "preparationTime": 15,
+      "servingSize": 1,
+      "allergens": [],
+      "isAvailable": true
+    },
+    {
+      "name": "Roosterkoek",
+      "description": "Traditional South African grilled bread rolls, perfect for filling with braai meats",
+      "category": "sides",
+      "basePrice": 1500,
+      "preparationTime": 20,
+      "servingSize": 1,
+      "allergens": ["gluten"],
+      "isAvailable": true
+    },
+    {
+      "name": "Malva Pudding",
+      "description": "Classic South African sweet sponge pudding with apricot jam and custard",
+      "category": "desserts",
+      "basePrice": 4000,
+      "preparationTime": 45,
+      "servingSize": 1,
+      "allergens": ["gluten", "dairy", "eggs"],
+      "isAvailable": true
+    },
+    {
+      "name": "Koeksister Platter",
+      "description": "Traditional braided pastry deep-fried and soaked in syrup",
+      "category": "desserts",
+      "basePrice": 3500,
+      "preparationTime": 60,
+      "servingSize": 1,
+      "allergens": ["gluten"],
+      "isAvailable": true
+    }
+  ],
+  "inventoryItems": [
+    {
+      "itemName": "Lamb Leg (Whole)",
+      "category": "meat",
+      "unit": "kg",
+      "currentStock": 50,
+      "minimumStock": 20,
+      "costPerUnit": 18000,
+      "supplierId": null
+    },
+    {
+      "itemName": "Chicken Wings",
+      "category": "meat",
+      "unit": "kg",
+      "currentStock": 30,
+      "minimumStock": 15,
+      "costPerUnit": 6500,
+      "supplierId": null
+    },
+    {
+      "itemName": "Boerewors",
+      "category": "meat",
+      "unit": "kg",
+      "currentStock": 25,
+      "minimumStock": 10,
+      "costPerUnit": 8500,
+      "supplierId": null
+    },
+    {
+      "itemName": "Pork Sosaties",
+      "category": "meat",
+      "unit": "kg",
+      "currentStock": 20,
+      "minimumStock": 10,
+      "costPerUnit": 9500,
+      "supplierId": null
+    },
+    {
+      "itemName": "Potatoes",
+      "category": "vegetables",
+      "unit": "kg",
+      "currentStock": 100,
+      "minimumStock": 40,
+      "costPerUnit": 1200,
+      "supplierId": null
+    },
+    {
+      "itemName": "Mixed Salad Greens",
+      "category": "vegetables",
+      "unit": "kg",
+      "currentStock": 15,
+      "minimumStock": 8,
+      "costPerUnit": 3500,
+      "supplierId": null
+    },
+    {
+      "itemName": "Cherry Tomatoes",
+      "category": "vegetables",
+      "unit": "kg",
+      "currentStock": 10,
+      "minimumStock": 5,
+      "costPerUnit": 4500,
+      "supplierId": null
+    },
+    {
+      "itemName": "Bread Flour",
+      "category": "dry_goods",
+      "unit": "kg",
+      "currentStock": 80,
+      "minimumStock": 30,
+      "costPerUnit": 1500,
+      "supplierId": null
+    },
+    {
+      "itemName": "Maize Meal (Pap)",
+      "category": "dry_goods",
+      "unit": "kg",
+      "currentStock": 60,
+      "minimumStock": 25,
+      "costPerUnit": 1000,
+      "supplierId": null
+    },
+    {
+      "itemName": "Peri-Peri Sauce",
+      "category": "condiments",
+      "unit": "l",
+      "currentStock": 12,
+      "minimumStock": 6,
+      "costPerUnit": 8500,
+      "supplierId": null
+    },
+    {
+      "itemName": "Apricot Jam",
+      "category": "condiments",
+      "unit": "kg",
+      "currentStock": 8,
+      "minimumStock": 4,
+      "costPerUnit": 5500,
+      "supplierId": null
+    },
+    {
+      "itemName": "Cooking Oil",
+      "category": "condiments",
+      "unit": "l",
+      "currentStock": 25,
+      "minimumStock": 10,
+      "costPerUnit": 3500,
+      "supplierId": null
+    }
+  ],
+  "suppliers": [
+    {
+      "supplierName": "Cape Meat Wholesalers",
+      "contactPerson": "Johan van der Merwe",
+      "email": "johan@capemeat.co.za",
+      "phone": "+27 21 555 1234",
+      "address": "15 Industrial Road, Epping, Cape Town",
+      "category": "meat",
+      "paymentTerms": "Net 30",
+      "isActive": true
+    },
+    {
+      "supplierName": "Fresh Produce Market",
+      "contactPerson": "Sarah Johnson",
+      "email": "sarah@freshproduce.co.za",
+      "phone": "+27 21 555 5678",
+      "address": "Bellville Market, Cape Town",
+      "category": "vegetables",
+      "paymentTerms": "Net 7",
+      "isActive": true
+    },
+    {
+      "supplierName": "Dry Goods Direct",
+      "contactPerson": "David Naidoo",
+      "email": "david@drygoodsdirect.co.za",
+      "phone": "+27 21 555 9012",
+      "address": "23 Commerce Street, Parow, Cape Town",
+      "category": "dry_goods",
+      "paymentTerms": "Net 30",
+      "isActive": true
+    }
+  ]
+}

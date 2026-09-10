@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Request a quote</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #F8FAFC; margin: 0; padding: 16px; color: #0F172A; }
+    .wrap { max-width: 640px; margin: 0 auto; padding: 8px 0 40px; }
+    .card { background: #fff; border: 1px solid #E5E7EB; border-radius: 16px; padding: 22px; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+    .err { font: 14px system-ui, sans-serif; color: #991B1B; padding: 12px; border: 1px solid #FECACA; border-radius: 8px; background: #FEF2F2; }
+    .powered { text-align: center; font-size: 11px; color: #94A3B8; margin-top: 14px; }
+    .powered a { color: #64748B; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <!--
+    Hosted lead-capture form. Unlike demo.html (admin preview: data-demo
+    renders placeholder fields and NEVER submits), this page mounts the
+    REAL configured form for the tenant token + form slug in the URL and
+    submissions create real leads. Share it anywhere a snippet can't be
+    embedded: WhatsApp, Instagram bio, QR codes, email signatures.
+
+    Usage: /embed/form.html?token=<company embed_token>&slug=<form slug>
+  -->
+  <div class="wrap">
+    <div class="card">
+      <div id="mount"></div>
+    </div>
+    <p class="powered">Powered by <a href="https://cateringms.com" rel="noopener">CateringMS</a></p>
+  </div>
+
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var token = params.get('token') || '';
+      var slug = params.get('slug') || 'default';
+      var mountEl = document.getElementById('mount');
+
+      // The submit API validates the token as a UUID; mirror that here so
+      // a mangled link shows a clear message instead of a dead spinner.
+      var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!UUID_RE.test(token)) {
+        mountEl.innerHTML = '<div class="err">This form link is incomplete or invalid. Please ask for a fresh link.</div>';
+        return;
+      }
+
+      var div = document.createElement('div');
+      div.setAttribute('data-embed-form', '');
+      div.setAttribute('data-token', token);
+      div.setAttribute('data-slug', slug);
+      // NO data-demo and NO data-template: the loader fetches the real
+      // config (fields, template, brand colours, pricing tiers) from the
+      // API and live submissions go through the hardened public endpoint.
+      mountEl.appendChild(div);
+
+      var s = document.createElement('script');
+      s.src = './loader.js';
+      s.async = true;
+      document.body.appendChild(s);
+    })();
+  </script>
+</body>
+</html>

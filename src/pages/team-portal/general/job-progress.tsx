@@ -1,0 +1,334 @@
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Clock, CheckCircle, AlertCircle, Calendar, Users, ChefHat, Truck, Package, RefreshCw } from "lucide-react";
+import { Footer } from "@/components/Footer";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { toLocalISO } from "@/lib/localDate";
+import Head from "next/head";
+import { useAuth } from "@/contexts/AuthContext";
+import { ChatBot } from "@/components/ChatBot";
+import { DynamicNav } from "@/components/DynamicNav";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
+import { supabase } from "@/integrations/supabase/client";
+import { UserRole } from "@/types/app";
+
+interface JobProgress {
+  id: string;
+  orderName: string;
+  eventDate: string;
+  guestCount: number;
+  kitchenStatus: "pending" | "preparing" | "ready";
+  driverStatus: "pending" | "assigned" | "completed";
+  overallProgress: number;
+}
+
+// Map orders.status -> per-team status surfaces. Kitchen marches
+// pending -> preparing -> ready (matches orderWorkflow). Driver
+// stays pending until assigned, flips to completed on delivery.
+function deriveStatuses(orderStatus: string, hasDriver: boolean): {
+  kitchenStatus: JobProgress["kitchenStatus"];
+  driverStatus: JobProgress["driverStatus"];
+  overallProgress: number;
+} {
+  switch (orderStatus) {
+    case "confirmed":
+      return { kitchenStatus: "pending", driverStatus: hasDriver ? "assigned" : "pending", overallProgress: hasDriver ? 25 : 15 };
+    case "preparing":
+      return { kitchenStatus: "preparing", driverStatus: hasDriver ? "assigned" : "pending", overallProgress: 50 };
+    case "ready":
+      return { kitchenStatus: "ready", driverStatus: hasDriver ? "assigned" : "pending", overallProgress: 70 };
+    case "in_transit":
+      return { kitchenStatus: "ready", driverStatus: "assigned", overallProgress: 85 };
+    case "delivered":
+    case "completed":
+      return { kitchenStatus: "ready", driverStatus: "completed", overallProgress: 100 };
+    default:
+      return { kitchenStatus: "pending", driverStatus: "pending", overallProgress: 0 };
+  }
+}
+
+function StaffJobProgressInner() {
+  const { user } = useAuth();
+  const [jobs, setJobs] = useState<JobProgress[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadJobs = useCallback(async (isCancelled: () => boolean = () => false) => {
+    if (!user?.company_id) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const weekAhead = new Date(today);
+      weekAhead.setDate(today.getDate() + 7);
+      const fromISO = toLocalISO(today);
+      const toISO = toLocalISO(weekAhead);
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, order_number, client_name, event_date, guest_count, status, assigned_driver_id, driver_id")
+        .eq("company_id", user.company_id)
+        .gte("event_date", fromISO)
+        .lte("event_date", toISO)
+        .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
+        .order("event_date", { ascending: true });
+
+      if (isCancelled()) return;
+      if (error) throw error;
+
+      setJobs((data || []).map((o: any) => {
+        const hasDriver = !!(o.assigned_driver_id || o.driver_id);
+        const { kitchenStatus, driverStatus, overallProgress } = deriveStatuses(o.status, hasDriver);
+        return {
+          id: o.id,
+          orderName: o.client_name || o.order_number || "Order",
+          eventDate: o.event_date,
+          guestCount: Number(o.guest_count || 0),
+          kitchenStatus,
+          driverStatus,
+          overallProgress,
+        };
+      }));
+    } catch (error: any) {
+      if (isCancelled()) return;
+      console.error("[job-progress] load failed", error);
+      setJobs([]);
+      setLoadError(error?.message || "Could not load job progress. Check your connection and retry.");
+    } finally {
+      if (isCancelled()) return;
+      setLoading(false);
+    }
+  }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!user?.company_id) return;
+    let cancelled = false;
+    void loadJobs(() => cancelled);
+    return () => { cancelled = true; };
+  }, [user?.company_id, loadJobs]);
+
+  const getStatusColor = (status: string) => {
+    const colors = {
+      pending: "bg-slate-100 text-slate-800",
+      preparing: "bg-brand-primary/10 text-brand-primary",
+      assigned: "bg-brand-primary/10 text-brand-primary",
+      ready: "bg-brand-primary/15 text-brand-primary",
+      completed: "bg-brand-primary/15 text-brand-primary",
+    };
+    return colors[status as keyof typeof colors] || colors.pending;
+  };
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 75) return "bg-brand-primary";
+    if (progress >= 50) return "bg-brand-primary";
+    if (progress >= 25) return "bg-brand-primary";
+    return "bg-slate-300";
+  };
+
+  return (
+    <>
+      <NoIndexMeta />
+      <Head>
+        <title>Job progress - CateringMS</title>
+      </Head>
+
+      {user && <DynamicNav userRole={user.active_role || user.role} />}
+
+      <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            title={
+              <span className="flex items-center gap-2">
+                Job progress overview
+                <InfoTooltip content="Live view of every active job with kitchen and driver progress in one place. Pulls every order in the next seven days that is confirmed or further along." />
+              </span>
+            }
+            subtitle="Monitor all active jobs and their progress in real-time"
+            icon={Package}
+          />
+          <PageWorkbench />
+
+          <div className="grid gap-6">
+            {loading ? (
+              <div className="text-center py-12 text-slate-600 dark:text-slate-400">Loading jobs...</div>
+            ) : loadError ? (
+              <Card className="border border-rose-200 bg-rose-50/80 shadow-sm dark:border-rose-900/60 dark:bg-rose-950/30">
+                <CardContent className="py-10 text-center">
+                  <AlertCircle className="w-12 h-12 mx-auto mb-4 text-rose-500" />
+                  <p className="font-semibold text-rose-900 dark:text-rose-100">Job progress is unavailable</p>
+                  <p className="text-sm text-rose-700 dark:text-rose-200 mt-1 max-w-lg mx-auto">{loadError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void loadJobs()}
+                    className="mt-4 border-rose-200 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-900/60 dark:bg-slate-950 dark:text-rose-200 dark:hover:bg-rose-950/40"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : jobs.length === 0 ? (
+              <Card className="border-0 shadow-lg">
+                <CardContent className="py-12 text-center">
+                  <Package className="w-16 h-16 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
+                  <p className="text-slate-600 dark:text-slate-300 font-medium">No active jobs</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Jobs will appear here when orders are confirmed</p>
+                </CardContent>
+              </Card>
+            ) : (
+              jobs.map((job) => (
+                <Card key={job.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-xl flex items-center gap-2">
+                          {job.orderName}
+                          <InfoTooltip content="The client and event this job is for." />
+                        </CardTitle>
+                        <p className="text-sm text-slate-600 mt-1">
+                          <Calendar className="w-4 h-4 inline mr-1" />
+                          {new Date(job.eventDate).toLocaleDateString("en-ZA", {
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                        <Users className="w-3 h-3 mr-1" />
+                        {job.guestCount} guests
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-slate-700 flex items-center gap-1">
+                          Overall Progress
+                          <InfoTooltip content="Overall progress for this job, blending kitchen prep and driver delivery." />
+                        </span>
+                        <span className="text-sm font-bold text-slate-900">{job.overallProgress}%</span>
+                      </div>
+                      <Progress value={job.overallProgress} className="h-3" />
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="p-4 bg-slate-50 border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <ChefHat className="w-5 h-5 text-brand-primary" />
+                            <span className="font-medium text-slate-900 flex items-center gap-1">
+                              Kitchen Status
+                              <InfoTooltip content="Where the kitchen is with prep: pending, preparing, or ready to go." />
+                            </span>
+                          </div>
+                          <Badge className={getStatusColor(job.kitchenStatus)}>
+                            {job.kitchenStatus}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            {job.kitchenStatus === "ready" ? (
+                              <CheckCircle className="w-4 h-4 text-brand-primary" />
+                            ) : job.kitchenStatus === "preparing" ? (
+                              <Clock className="w-4 h-4 text-brand-primary" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-slate-400" />
+                            )}
+                            <span>
+                              {job.kitchenStatus === "ready"
+                                ? "Food preparation complete"
+                                : job.kitchenStatus === "preparing"
+                                ? "Currently preparing order"
+                                : "Waiting to start preparation"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 border border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Truck className="w-5 h-5 text-brand-primary" />
+                            <span className="font-medium text-slate-900 flex items-center gap-1">
+                              Driver Status
+                              <InfoTooltip content="Where the delivery is at: pending, assigned to a driver, or completed." />
+                            </span>
+                          </div>
+                          <Badge className={getStatusColor(job.driverStatus)}>
+                            {job.driverStatus}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            {job.driverStatus === "completed" ? (
+                              <CheckCircle className="w-4 h-4 text-brand-primary" />
+                            ) : job.driverStatus === "assigned" ? (
+                              <Clock className="w-4 h-4 text-brand-primary" />
+                            ) : (
+                              <AlertCircle className="w-4 h-4 text-slate-400" />
+                            )}
+                            <span>
+                              {job.driverStatus === "completed"
+                                ? "Delivery completed"
+                                : job.driverStatus === "assigned"
+                                ? "Driver assigned and ready"
+                                : "Waiting for driver assignment"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button variant="outline" size="sm">
+                        View Full Details
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </PortalShell>
+
+        <Footer />
+      </div>
+
+      <ChatBot userRole="staff" companyId={user?.user_metadata?.company_id} />
+    </>
+  );
+}
+
+export default function ProtectedStaffJobProgress() {
+  return (
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.REGION_ADMIN,
+        UserRole.SALES_ADMIN,
+        UserRole.ADMIN,
+        UserRole.KITCHEN_MANAGER,
+        UserRole.KITCHEN_STAFF,
+        UserRole.DRIVER,
+        UserRole.SHOPPING_STAFF,
+        UserRole.CLEANING_MANAGER,
+        UserRole.CLEANING_STAFF,
+        UserRole.WAITER,
+      ]}
+    >
+      <StaffJobProgressInner />
+    </ProtectedRoute>
+  );
+}

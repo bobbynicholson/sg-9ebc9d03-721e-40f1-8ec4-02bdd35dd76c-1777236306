@@ -1,0 +1,13 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,"")];}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false} });
+const OID="5b0bc5a4-a33f-417f-bbfc-c046aa1de14a";
+const { data: o } = await sb.from("orders").select("order_number, status, completed_at, delivered_at, departed_venue_at, balance_paid, balance_amount").eq("id",OID).maybeSingle();
+console.log("ORDER", o.order_number, "status:", o.status, "completed_at:", o.completed_at||"(not closed)");
+console.log("  delivered_at:", o.delivered_at, "departed_venue_at:", o.departed_venue_at, "balance_paid:", o.balance_paid, "balance_amount:", o.balance_amount);
+const { data: cj } = await sb.from("cleaning_jobs").select("status").eq("triggered_by_event_id",OID).is("deleted_at",null);
+const active = (cj||[]).filter(j=>j.status!=="cancelled");
+console.log("\nCLEANING JOBS:", active.length, "all complete:", active.length>0 && active.every(j=>j.status==="complete"), "(" + active.map(j=>j.status).join(",") + ")");
+const { data: da } = await sb.from("driver_assignments").select("assignment_type, status").eq("order_id",OID);
+console.log("DRIVER ASSIGNMENTS:", (da||[]).map(a=>`${a.assignment_type}=${a.status}`).join(", "));

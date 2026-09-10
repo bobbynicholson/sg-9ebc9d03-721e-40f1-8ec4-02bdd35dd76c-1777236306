@@ -1,0 +1,1289 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ReferenceLine,
+} from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { Banknote, Pencil, Save, X, AlertTriangle, ArrowUpRight, Download } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { captureException } from "@/lib/observability";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { useToast } from "@/hooks/use-toast";
+import { staffOrderHref } from "@/lib/orderUrls";
+import { toLocalISO } from "@/lib/localDate";
+import * as currencyUtils from "@/lib/currencyUtils";
+import { isPipelineRevenue } from "@/lib/orderRevenueClassification";
+import { useTenantHref } from "@/lib/tenantUrl";
+import { fixedCostsService, type FixedCost } from "@/services/fixedCostsService";
+import type { Order } from "@/types";
+import { formatLocalDate } from "@/lib/localFormat";
+
+interface Props {
+  companyId: string;
+  /** ISO timestamp the page last refreshed - lets us tag stale-data warnings. */
+  loadedAt: number;
+  /** Orders array from the page's loadFinancialData. Drives the per-day projection. */
+  orders: Order[];
+  /** Wages still owed to staff (paymentLedgerService.totalOwed). */
+  staffPaymentsOwed: number;
+  /** Currency code from the company (ZAR / USD / GBP / EUR). */
+  currency: string;
+  /** Auth user id for the audit_log row + cash_on_hand_updated_by. */
+  userId: string | null;
+  /** When set, expand the card by default - lets the parent decide. */
+  defaultOpen?: boolean;
+}
+
+// CASH-C: narrow row types for the supabase responses. The
+// generated types.ts is stale on cash_on_hand_*, supplier_payables
+// and equipment_hire_orders (the regen output exceeds the MCP tool
+// limit), so we type the slices we read here locally. That gets the
+// 19 `as any` casts off the file without committing a regenerated
+// 410KB types.ts that this PR shouldn't own. A separate types-regen
+// pass can drop these when it lands.
+interface CompanyCashRow {
+  cash_on_hand_cents: number | null;
+  cash_on_hand_updated_at: string | null;
+  cash_on_hand_stale_after_hours: number | null;
+}
+interface EquipmentHireRow {
+  id: string;
+  equipment_name: string | null;
+  total_cost: number | string | null;
+  expected_pickup_date: string | null;
+  status: string | null;
+}
+interface ShoppingListRow {
+  id: string;
+  title: string | null;
+  estimated_total: number | string | null;
+  list_date: string | null;
+  status: string | null;
+}
+interface SupplierPayableRow {
+  id: string;
+  amount_cents: number;
+  due_date: string;
+  invoice_ref: string | null;
+  supplier: { supplier_name: string | null } | null;
+}
+interface OrderItemRow {
+  menu_item_id: string | null;
+  quantity: number | null;
+  unit_cost: number | string | null;
+}
+interface OrderWithItemsRow {
+  id: string;
+  event_date: string | null;
+  client_name: string | null;
+  order_items: OrderItemRow[] | null;
+  // TIGHTEN I.74: fields isPipelineRevenue needs so the COGS feed
+  // shares the canonical revenue state machine with everything else.
+  status: string | null;
+  payment_status: string | null;
+  deposit_paid: boolean | null;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+}
+
+// Shape of a supabase select() promise once awaited. We can't use
+// the supabase-js types here because the tables we hit (supplier_
+// payables, equipment_hire_orders) aren't in the generated types.ts
+// yet - so we narrow the response into the row types declared above.
+type ListResult<T> = { data: T[] | null; error: { message: string } | null };
+type RowResult<T> = { data: T | null; error: { message: string } | null };
+
+// Loose query builder for the schema-bypass calls below. Methods
+// return the builder so chaining stays fluent; awaiting the chain
+// resolves to whatever ListResult/RowResult the caller cast to.
+interface LooseQueryBuilder {
+  select: (cols: string) => LooseQueryBuilder;
+  insert: (payload: Record<string, unknown> | Record<string, unknown>[]) => LooseQueryBuilder;
+  update: (payload: Record<string, unknown>) => LooseQueryBuilder;
+  eq: (col: string, val: unknown) => LooseQueryBuilder;
+  neq: (col: string, val: unknown) => LooseQueryBuilder;
+  gte: (col: string, val: unknown) => LooseQueryBuilder;
+  not: (col: string, op: string, val: unknown) => LooseQueryBuilder;
+  is: (col: string, val: unknown) => LooseQueryBuilder;
+  single: () => LooseQueryBuilder;
+  maybeSingle: () => LooseQueryBuilder;
+  then: <TResult1 = unknown>(
+    onfulfilled?: ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
+  ) => Promise<TResult1>;
+}
+type LooseSupabase = { from: (table: string) => LooseQueryBuilder };
+
+const HORIZON_OPTIONS: Array<{ label: string; days: number }> = [
+  { label: "7 days", days: 7 },
+  { label: "14 days", days: 14 },
+  { label: "30 days", days: 30 },
+  { label: "60 days", days: 60 },
+  { label: "90 days", days: 90 },
+];
+
+/**
+ * Cashflow Forecast Card (post-audit feature scoped on /admin/platform/
+ * running-todo). Two numbers side by side: (a) owner-typed cash on hand
+ * from the bank balance, (b) projected net = cash_on_hand + income still
+ * to come - costs still to come over the picker-selected horizon.
+ *
+ * Income side reuses the financial-dashboard's existing projected-
+ * revenue calculation. Costs side starts with staff wages owed; future
+ * phases add supplier payables + predicted shopping + hired equipment
+ * (each one a category the running-todo card scopes for follow-up
+ * iterations).
+ *
+ * Stale-data warning fires when cash_on_hand_updated_at > 24h old -
+ * the figure rapidly loses signal if the operator hasn't punched in
+ * today's bank balance. Drives the daily-update habit.
+ *
+ * Role-gated upstream: the financial-dashboard renders this card only
+ * for owner / company_admin / super_admin per the Skylight finance-
+ * visibility rule.
+ */
+export function CashflowForecastCard({
+  companyId,
+  loadedAt,
+  orders,
+  staffPaymentsOwed,
+  currency,
+  userId,
+}: Props) {
+  const { toast } = useToast();
+  const { withSlug } = useTenantHref();
+  const [horizonDays, setHorizonDays] = useState<number>(30);
+  const [cashOnHand, setCashOnHand] = useState<number>(0);
+  const [cashUpdatedAt, setCashUpdatedAt] = useState<string | null>(null);
+  // CASH-B (cashflow follow-ups): per-tenant override for the Stale
+  // badge threshold. NULL = use the 72h default the card was hardcoded
+  // to in CASH-A.
+  const [staleAfterHours, setStaleAfterHours] = useState<number>(72);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  // Phase 3: owner-typed contingency the forecast subtracts from the
+  // closing balance. Captures "stuff that's not on the books yet but
+  // I know I'll spend" (last-minute shopping, fuel, an emergency
+  // rental). Persisted to localStorage per-company so it survives
+  // reload without needing a new DB column.
+  const [probableSpend, setProbableSpend] = useState<number>(0);
+  // Phase 3: detail drawer state. Tapping a chart day opens the
+  // sheet with the day's full order list (the hover tooltip only
+  // shows top 4).
+  const [drillDay, setDrillDay] = useState<number | null>(null);
+
+  // Phase 4: per-category cost data. Loaded once per page refresh
+  // alongside cash_on_hand. equipment_hire_orders + shopping_lists
+  // are the two cost categories with concrete due-dates in the live
+  // schema. Supplier-payables is deferred until a real payables
+  // table lands (today's suppliers row only carries payment_terms +
+  // payment_method, not an outstanding-balance ledger).
+  interface ScheduledCost {
+    id: string;
+    label: string;
+    amount: number;
+    date: string;
+    category: "equipment_hire" | "shopping" | "supplier_payable" | "fixed_cost" | "food_cogs";
+  }
+  const [scheduledCosts, setScheduledCosts] = useState<ScheduledCost[]>([]);
+
+  // Phase 3: load + persist the probable-spend override under a
+  // per-user (NOT per-company) localStorage key. The tooltip below
+  // promises "Saved per-user in your browser" - pre-CASH-B the key
+  // was actually per-company so two operators sharing a device
+  // overwrote each other's number. CASH-B (cashflow follow-ups)
+  // makes the storage match the documentation: each operator gets
+  // their own scratchpad number.
+  //
+  // Migration: read the legacy per-company key once on mount when
+  // the per-user key is empty, so an operator who had a number
+  // saved before this fix doesn't lose it. The legacy key isn't
+  // deleted - other operators on the same device may still need
+  // their own copy of it for the same migration window.
+  const contingencyKey = userId
+    ? `cateringms.cashflow.probableSpend.${companyId}.${userId}`
+    : `cateringms.cashflow.probableSpend.${companyId}`;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(contingencyKey);
+      if (raw) {
+        setProbableSpend(Number(raw) || 0);
+        return;
+      }
+      // CASH-B migration: read the legacy per-company key once if
+      // the per-user key hasn't been written yet.
+      if (userId) {
+        const legacy = window.localStorage.getItem(`cateringms.cashflow.probableSpend.${companyId}`);
+        if (legacy) setProbableSpend(Number(legacy) || 0);
+      }
+    } catch { /* storage blocked */ }
+  }, [companyId, userId, contingencyKey]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(contingencyKey, String(probableSpend));
+    } catch { /* storage blocked */ }
+  }, [contingencyKey, probableSpend]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      // Pull cash_on_hand + the five scheduled-cost feeds in parallel.
+      // PR-E (cashflow cost mapping): payables + fixed_costs + COGS
+      // join the existing equipment_hire + shopping feeds.
+      // CASH-B: use toLocalISO so the day-boundary respects the
+      // tenant timezone. Pre-CASH-B `.toISOString().slice(0,10)` was
+      // UTC-based and a late-night Cape Town session would push
+      // equipment hire / shopping items into "tomorrow" too early.
+      const todayIso = toLocalISO(new Date());
+      // One escape hatch at the boundary: supabase-js's typed .from()
+      // would error on supplier_payables / equipment_hire_orders
+      // because they're not in the generated types.ts yet. We cast
+      // supabase once here, then narrow each response into the row
+      // types declared at the top of the file.
+      const sb = supabase as unknown as LooseSupabase;
+      const [companyRes, hireRes, shoppingRes, payablesRes, fixedRows, orderItemsRes] = await Promise.all([
+        sb
+          .from("companies")
+          .select("cash_on_hand_cents, cash_on_hand_updated_at, cash_on_hand_stale_after_hours")
+          .eq("id", companyId)
+          .maybeSingle() as unknown as Promise<RowResult<CompanyCashRow>>,
+        sb
+          .from("equipment_hire_orders")
+          .select("id, equipment_name, total_cost, expected_pickup_date, status")
+          .eq("company_id", companyId)
+          .not("expected_pickup_date", "is", null)
+          .gte("expected_pickup_date", todayIso)
+          .not("status", "in", "(completed,cancelled,returned)") as unknown as Promise<ListResult<EquipmentHireRow>>,
+        sb
+          .from("shopping_lists")
+          .select("id, title, estimated_total, list_date, status")
+          .eq("company_id", companyId)
+          .not("list_date", "is", null)
+          .gte("list_date", todayIso)
+          .not("status", "in", "(completed,cancelled)") as unknown as Promise<ListResult<ShoppingListRow>>,
+        // PR-C: pending supplier payables in window.
+        sb
+          .from("supplier_payables")
+          .select("id, amount_cents, due_date, invoice_ref, supplier:supplier_id(supplier_name)")
+          .eq("company_id", companyId)
+          .eq("status", "pending")
+          .is("deleted_at", null)
+          .gte("due_date", todayIso) as unknown as Promise<ListResult<SupplierPayableRow>>,
+        // PR-D: active fixed costs - all of them, the in-memory
+        // walker will expand occurrences for the selected horizon.
+        fixedCostsService.list(companyId, { activeOnly: true }),
+        // PR-B: per-order COGS for upcoming events. Joins
+        // order_items.unit_cost * quantity for orders with
+        // event_date inside the longest forecast horizon.
+        // TIGHTEN I.74: add the missing deleted_at guard (was leaking
+        // soft-deleted orders into the cashflow forecast) and pull the
+        // fields isPipelineRevenue needs for the canonical
+        // pipeline-vs-cancelled call.
+        sb
+          .from("orders")
+          .select("id, event_date, client_name, status, payment_status, deposit_paid, confirmed_at, cancelled_at, order_items(menu_item_id, quantity, unit_cost)")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .gte("event_date", todayIso)
+          .neq("status", "cancelled") as unknown as Promise<ListResult<OrderWithItemsRow>>,
+      ]);
+      if (cancelled) return;
+
+      if (companyRes.error) {
+        console.error("[CashflowForecastCard] load failed:", companyRes.error);
+      } else if (companyRes.data) {
+        const value = Number(companyRes.data.cash_on_hand_cents || 0) / 100;
+        setCashOnHand(value);
+        setCashUpdatedAt(companyRes.data.cash_on_hand_updated_at || null);
+        // CASH-B: pick up the tenant override if set, otherwise stay
+        // on the 72h default.
+        const tenantStale = companyRes.data.cash_on_hand_stale_after_hours;
+        if (typeof tenantStale === "number" && tenantStale > 0) {
+          setStaleAfterHours(tenantStale);
+        }
+      }
+
+      // Build the unified scheduled-cost list.
+      const costs: ScheduledCost[] = [];
+      for (const r of hireRes.data || []) {
+        const amount = Number(r.total_cost) || 0;
+        if (amount <= 0 || !r.expected_pickup_date) continue;
+        costs.push({
+          id: `hire-${r.id}`,
+          label: r.equipment_name || "Equipment hire",
+          amount,
+          date: r.expected_pickup_date,
+          category: "equipment_hire",
+        });
+      }
+      for (const r of shoppingRes.data || []) {
+        const amount = Number(r.estimated_total) || 0;
+        if (amount <= 0 || !r.list_date) continue;
+        costs.push({
+          id: `shop-${r.id}`,
+          label: r.title || "Shopping list",
+          amount,
+          date: r.list_date,
+          category: "shopping",
+        });
+      }
+
+      // PR-C: supplier_payables
+      for (const r of payablesRes.data || []) {
+        const amount = Number(r.amount_cents) / 100;
+        if (amount <= 0 || !r.due_date) continue;
+        const supplierName = r.supplier?.supplier_name || "Supplier";
+        const ref = r.invoice_ref ? ` (${r.invoice_ref})` : "";
+        costs.push({
+          id: `pay-${r.id}`,
+          label: `${supplierName}${ref}`,
+          amount,
+          date: r.due_date,
+          category: "supplier_payable",
+        });
+      }
+
+      // PR-D: fixed_costs - expand occurrences across the longest
+      // horizon so the chart can render any window the operator
+      // picks without a refetch.
+      const fixedExpanded = fixedCostsService.expandOccurrences(
+        (fixedRows as FixedCost[]) || [],
+        90,
+      );
+      for (const o of fixedExpanded) {
+        const amount = o.amount_cents / 100;
+        if (amount <= 0) continue;
+        costs.push({
+          id: `fixed-${o.id}`,
+          label: o.label,
+          amount,
+          date: o.date,
+          category: "fixed_cost",
+        });
+      }
+
+      // PR-B: per-order COGS for upcoming events. Sum of (quantity *
+      // unit_cost) across order_items where unit_cost was snapshot
+      // at quote-accept. Bucket onto the event_date - that's when
+      // the food has to be bought / cooked.
+      // TIGHTEN I.74: defensive isPipelineRevenue filter so a
+      // mid-cancellation order can't pay food cost on the forecast.
+      for (const ord of orderItemsRes.data || []) {
+        if (!ord?.event_date) continue;
+        if (!isPipelineRevenue(ord as any)) continue;
+        const orderItems = ord.order_items || [];
+        let cogs = 0;
+        for (const oi of orderItems) {
+          const qty = Number(oi.quantity) || 0;
+          const cost = Number(oi.unit_cost) || 0;
+          if (qty > 0 && cost > 0) cogs += qty * cost;
+        }
+        if (cogs <= 0) continue;
+        costs.push({
+          id: `cogs-${ord.id}`,
+          label: `Food cost - ${ord.client_name || "Order"}`,
+          amount: cogs,
+          date: ord.event_date,
+          category: "food_cogs",
+        });
+      }
+
+      setScheduledCosts(costs);
+
+      setLoading(false);
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, loadedAt]);
+
+  // Per-day projection. Walk the orders array, bucket each upcoming
+  // order's total_amount onto its event_date, then accumulate a
+  // running balance from day 0 (cash_on_hand minus wages-owed-today)
+  // forward to the horizon. Output is the data series for the chart
+  // AND the bucket of per-day income that the tooltip drills into.
+  //
+  // Phase 2 simplification: an order's full total_amount lands on
+  // its event_date. Phase 3 will split deposit + balance into their
+  // separate due-dates (deposit at quote-accept; balance N days
+  // before event per company settings) for sharper timing.
+  const series = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayMs = 24 * 60 * 60 * 1000;
+    const bucketsByDay: Record<number, {
+      income: number;
+      costsHire: number;
+      costsShopping: number;
+      costsPayable: number;
+      costsFixed: number;
+      costsCogs: number;
+      orders: Array<{ id: string; client: string; amount: number }>;
+      costs: Array<{ id: string; label: string; amount: number; category: ScheduledCost["category"] }>;
+    }> = {};
+    for (let d = 0; d <= horizonDays; d++) {
+      bucketsByDay[d] = {
+        income: 0, costsHire: 0, costsShopping: 0,
+        costsPayable: 0, costsFixed: 0, costsCogs: 0,
+        orders: [], costs: [],
+      };
+    }
+
+    for (const o of orders || []) {
+      if (!o.event_date) continue;
+      if (o.status === "cancelled") continue;
+      const eventDate = new Date(o.event_date);
+      if (isNaN(eventDate.getTime())) continue;
+      eventDate.setHours(0, 0, 0, 0);
+      const dayOffset = Math.floor((eventDate.getTime() - today.getTime()) / dayMs);
+      if (dayOffset < 0 || dayOffset > horizonDays) continue;
+      const amount = Number(o.total_amount) || 0;
+      bucketsByDay[dayOffset].income += amount;
+      bucketsByDay[dayOffset].orders.push({
+        id: o.id,
+        client: o.client_name || "Unknown client",
+        amount,
+      });
+    }
+
+    // Phase 4: scheduled costs - equipment hire pickups + shopping
+    // run estimates - bucket onto their due dates.
+    for (const c of scheduledCosts) {
+      const dt = new Date(c.date);
+      if (isNaN(dt.getTime())) continue;
+      dt.setHours(0, 0, 0, 0);
+      const dayOffset = Math.floor((dt.getTime() - today.getTime()) / dayMs);
+      if (dayOffset < 0 || dayOffset > horizonDays) continue;
+      if (c.category === "equipment_hire") bucketsByDay[dayOffset].costsHire += c.amount;
+      if (c.category === "shopping") bucketsByDay[dayOffset].costsShopping += c.amount;
+      if (c.category === "supplier_payable") bucketsByDay[dayOffset].costsPayable += c.amount;
+      if (c.category === "fixed_cost") bucketsByDay[dayOffset].costsFixed += c.amount;
+      if (c.category === "food_cogs") bucketsByDay[dayOffset].costsCogs += c.amount;
+      bucketsByDay[dayOffset].costs.push({
+        id: c.id, label: c.label, amount: c.amount, category: c.category,
+      });
+    }
+
+    // Walk forward. Day 0 opening balance = cash_on_hand minus the
+    // wages-owed liability AND minus the owner-typed probable-spend
+    // contingency. Scheduled costs hit on their due dates (within
+    // the day buckets above), not day 0.
+    const opening = cashOnHand - staffPaymentsOwed - (probableSpend || 0);
+    let running = opening;
+    const out: Array<{
+      day: number;
+      date: string;
+      label: string;
+      balance: number;
+      income: number;
+      costsHire: number;
+      costsShopping: number;
+      costsPayable: number;
+      costsFixed: number;
+      costsCogs: number;
+      orders: Array<{ id: string; client: string; amount: number }>;
+      costs: Array<{ id: string; label: string; amount: number; category: ScheduledCost["category"] }>;
+    }> = [];
+    for (let d = 0; d <= horizonDays; d++) {
+      const b = bucketsByDay[d];
+      running += b.income
+        - b.costsHire
+        - b.costsShopping
+        - b.costsPayable
+        - b.costsFixed
+        - b.costsCogs;
+      const dt = new Date(today.getTime() + d * dayMs);
+      out.push({
+        day: d,
+        date: dt.toISOString().slice(0, 10),
+        label: d === 0 ? "Today" : `+${d}d`,
+        balance: Math.round(running),
+        income: b.income,
+        costsHire: b.costsHire,
+        costsShopping: b.costsShopping,
+        costsPayable: b.costsPayable,
+        costsFixed: b.costsFixed,
+        costsCogs: b.costsCogs,
+        orders: b.orders,
+        costs: b.costs,
+      });
+    }
+    return out;
+  }, [orders, horizonDays, cashOnHand, staffPaymentsOwed, probableSpend, scheduledCosts]);
+
+  const totalHireForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsHire, 0),
+    [series],
+  );
+  const totalShoppingForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsShopping, 0),
+    [series],
+  );
+  const totalPayablesForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsPayable, 0),
+    [series],
+  );
+  const totalFixedForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsFixed, 0),
+    [series],
+  );
+  const totalCogsForWindow = useMemo(
+    () => series.reduce((s, p) => s + p.costsCogs, 0),
+    [series],
+  );
+
+  const projectedRevenueForWindow = useMemo(() => {
+    return series.reduce((sum, p) => sum + p.income, 0);
+  }, [series]);
+  const projectedCostsForWindow = staffPaymentsOwed;
+
+  const forecast = series.length > 0 ? series[series.length - 1].balance : cashOnHand;
+  const isPositive = forecast > 0;
+  const isTight = forecast >= 0 && forecast < Math.max(staffPaymentsOwed, 10000);
+  const goesNegativeAt = series.find((p) => p.balance < 0)?.day;
+
+  const updatedAgeHours = cashUpdatedAt
+    ? (Date.now() - new Date(cashUpdatedAt).getTime()) / (60 * 60 * 1000)
+    : Infinity;
+  // CASH-A (cashflow dashboard audit) + CASH-B (follow-ups):
+  // staleAfterHours starts at the 72h default and lifts to the
+  // tenant override stored in companies.cash_on_hand_stale_after_
+  // hours when set on /admin/company-profile. A daily-reconciliation
+  // kitchen sets 36; a weekly back-office sets 144. Pre-CASH-B
+  // every tenant got the same 72h.
+  const isStale = updatedAgeHours > staleAfterHours;
+
+  const handleSave = async () => {
+    const parsed = Number(draft.replace(/[^0-9.-]/g, ""));
+    if (!Number.isFinite(parsed)) {
+      toast({
+        title: "Invalid amount",
+        description: "Enter a number, e.g. 50000.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSaving(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const cents = Math.round(parsed * 100);
+      // Narrow cast at the boundary: the cash_on_hand_* columns
+      // aren't in types.ts yet (regen output exceeds tool limit) so
+      // the typed builder rejects the update payload. Same pattern
+      // as the load() above.
+      const sbUpdate = supabase as unknown as LooseSupabase;
+      const { error: updErr } = (await sbUpdate
+        .from("companies")
+        .update({
+          cash_on_hand_cents: cents,
+          cash_on_hand_updated_at: nowIso,
+          cash_on_hand_updated_by: userId,
+        })
+        .eq("id", companyId)) as { error: { message: string } | null };
+      if (updErr) {
+        toast({
+          title: "Couldn't save",
+          description: dbErrorMessage(updErr, { entity: "cash on hand", fallback: "Update failed" }),
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      // Audit trail. Drives the future bookkeeper-export tile (see
+      // running-todo card item 10).
+      try {
+        await sbUpdate.from("audit_logs").insert({
+          action: "financial.cash_on_hand.update",
+          entity_type: "company",
+          entity_id: companyId,
+          company_id: companyId,
+          user_id: userId,
+          details: {
+            old_cents: Math.round(cashOnHand * 100),
+            new_cents: cents,
+            currency,
+          },
+        });
+      } catch (auditErr) {
+        // CASH-A (cashflow dashboard audit): pre-CASH-A this swallowed
+        // the audit failure with a console.warn that nobody saw, so
+        // the operator got a confident "Cash on hand updated" toast
+        // even when the audit row never landed. Route through Sentry
+        // (carries tenant tags via observability.ts) AND surface a
+        // soft toast so the bookkeeper-export trail can be inspected.
+        captureException(auditErr, {
+          level: "warning",
+          tags: {
+            companyId,
+            userId: userId ?? null,
+            route: "/admin/cashflow-dashboard",
+            step: "audit_logs.insert",
+            action: "financial.cash_on_hand.update",
+          },
+        });
+        toast({
+          title: "Cash on hand saved, audit log skipped",
+          description: "The bank balance updated but the audit trail row didn't land. Sentry has the event.",
+          variant: "destructive",
+        });
+      }
+
+      setCashOnHand(parsed);
+      setCashUpdatedAt(nowIso);
+      setEditing(false);
+      toast({
+        title: "Cash on hand updated",
+        description: "Forecast refreshed.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="border-2 border-brand-primary/20 hover:shadow-lg transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
+            Cashflow Forecast
+            <InfoTooltip
+              content={
+                "How much cash you'll have at the end of the picker-selected horizon, given:\n\n+ Cash on hand today (typed in from your bank balance)\n+ Income still to come (booked orders firing in the window)\n- Costs still to come (staff wages owed, more categories coming in later phases)\n\nUpdate the cash-on-hand figure daily from your bank app for the forecast to stay sharp."
+              }
+            />
+          </CardTitle>
+          <Banknote className="w-5 h-5 text-brand-primary" />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Left column: cash on hand (editable). */}
+          <div className="border-r border-slate-100 md:pr-4">
+            <div className="text-xs text-slate-500 mb-1">Cash on hand</div>
+            {loading ? (
+              <div className="text-2xl font-bold text-slate-400">...</div>
+            ) : editing ? (
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  step="0.01"
+                  autoFocus
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="50000"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-brand-primary hover:bg-brand-primary/90"
+                  >
+                    <Save className="w-3.5 h-3.5 mr-1" />
+                    {saving ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditing(false);
+                      setDraft("");
+                    }}
+                    disabled={saving}
+                  >
+                    <X className="w-3.5 h-3.5 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                    {(currencyUtils.formatCurrency as (a: number, c: string) => string)(cashOnHand, currency)}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={() => {
+                      setDraft(String(cashOnHand || ""));
+                      setEditing(true);
+                    }}
+                    title="Update cash on hand"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  {cashUpdatedAt ? (
+                    <>
+                      <span className="text-slate-500">
+                        Updated {formatRelativeTime(cashUpdatedAt)}
+                      </span>
+                      {isStale && (
+                        <Badge
+                          className="bg-amber-100 text-amber-800 border border-amber-200 gap-1"
+                          variant="secondary"
+                        >
+                          <AlertTriangle className="w-3 h-3" />
+                          Stale
+                        </Badge>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-slate-400">Never set</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right column: forecast for the selected horizon. */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-slate-500">Forecast end of</span>
+              <Select
+                value={String(horizonDays)}
+                onValueChange={(v) => setHorizonDays(Number(v))}
+              >
+                <SelectTrigger className="h-7 w-[110px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HORIZON_OPTIONS.map((o) => (
+                    <SelectItem key={o.days} value={String(o.days)}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div
+              className={`text-2xl font-bold tabular-nums ${
+                isPositive ? (isTight ? "text-amber-700" : "text-brand-primary") : "text-rose-700"
+              }`}
+            >
+              {(currencyUtils.formatCurrency as (a: number, c: string) => string)(forecast, currency)}
+            </div>
+            {/* Breakdown so the forecast number isn't a black box. */}
+            <div className="mt-2 space-y-0.5 text-xs">
+              <div className="flex justify-between text-slate-600">
+                {/* CASH-A (cashflow dashboard audit): label clarity.
+                    Pre-CASH-A this said "Income in window" - the
+                    operator reasonably read it as cash arriving. But
+                    the chart subtracts per-order COGS from each day,
+                    so the bottom-line forecast is income LESS the
+                    cost-to-make. Either rename the line or surface
+                    the COGS deduction below; cleaner to acknowledge
+                    the gross/net split in the label. */}
+                <span>
+                  Order revenue (gross)
+                  <InfoTooltip content={"Sum of total_amount on non-cancelled orders with an event_date inside the forecast window. The chart subtracts per-order COGS from each day, so the bottom-line forecast is net of the cost to make. The Inventory (90d COGS) line on the Current Cash Flow tile and the Net Cash Flow row on the financial dashboard report the historical version."} />
+                </span>
+                <span className="tabular-nums text-brand-primary">
+                  +{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedRevenueForWindow, currency)}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Wages owed</span>
+                <span className="tabular-nums text-rose-700">
+                  -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(projectedCostsForWindow, currency)}
+                </span>
+              </div>
+              {totalHireForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Equipment hire</span>
+                  <span className="tabular-nums text-rose-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalHireForWindow, currency)}
+                  </span>
+                </div>
+              )}
+              {totalShoppingForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Shopping</span>
+                  <span className="tabular-nums text-rose-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalShoppingForWindow, currency)}
+                  </span>
+                </div>
+              )}
+              {totalCogsForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Food cost (COGS)</span>
+                  <span className="tabular-nums text-rose-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalCogsForWindow, currency)}
+                  </span>
+                </div>
+              )}
+              {totalPayablesForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Supplier payables</span>
+                  <span className="tabular-nums text-rose-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalPayablesForWindow, currency)}
+                  </span>
+                </div>
+              )}
+              {totalFixedForWindow > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Fixed costs</span>
+                  <span className="tabular-nums text-rose-700">
+                    -{(currencyUtils.formatCurrency as (a: number, c: string) => string)(totalFixedForWindow, currency)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-slate-600">
+                <span className="flex items-center gap-1">
+                  Contingency
+                  <InfoTooltip
+                    content={
+                      "Owner-typed buffer for spend that's not on the books yet but you know you'll have - last-minute shopping, fuel, an emergency rental. Subtracted from the forecast. Saved per-user in your browser; not shared with the team."
+                    }
+                  />
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="text-slate-400 text-[10px]">-</span>
+                  <Input
+                    type="number"
+                    step="100"
+                    value={probableSpend || ""}
+                    onChange={(e) => setProbableSpend(Number(e.target.value) || 0)}
+                    placeholder="0"
+                    className="h-6 w-20 text-[11px] text-right tabular-nums px-1.5 py-0"
+                  />
+                </span>
+              </div>
+              {goesNegativeAt !== undefined && (
+                <div className="mt-1 flex items-center gap-1 text-amber-700">
+                  <AlertTriangle className="w-3 h-3" />
+                  Balance dips below R0 on +{goesNegativeAt}d
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Phase 2: per-day running-balance chart. Hover any point
+            to see that day's opening balance + the orders firing
+            income that day. The chart's zero line is drawn dashed
+            so the owner can eyeball where they go red. */}
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-slate-600">
+              Projected balance, day-by-day
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => downloadCsv(series, currency, cashOnHand, staffPaymentsOwed, probableSpend || 0)}
+                title="Export the day-by-day forecast as a CSV for your bookkeeper"
+              >
+                <Download className="w-3 h-3 mr-1" />
+                CSV
+              </Button>
+              {/* CASH-A: pre-CASH-A the label rendered "{series.length}
+                  days" which produced "31 DAYS" for the "30 days"
+                  dropdown because the bucket loop is d <= horizonDays
+                  (day 0 = today, day 30 = +30d, 31 points total).
+                  Confusing vs the dropdown. New copy is honest about
+                  the inclusive window. */}
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                Today + {horizonDays}d
+              </span>
+            </div>
+          </div>
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={series}
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                onClick={(e: any) => {
+                  // Phase 3: click a point to open the per-day detail
+                  // drawer with the full contributing-orders list
+                  // (tooltip only shows top 4).
+                  const day = e?.activePayload?.[0]?.payload?.day;
+                  if (typeof day === "number") setDrillDay(day);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <defs>
+                  <linearGradient id="cashflowFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.04} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  interval="preserveStartEnd"
+                  tick={{ fontSize: 10, fill: "#64748b" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={(v) =>
+                    compactCurrency(Number(v) || 0, currency)
+                  }
+                  tick={{ fontSize: 10, fill: "#64748b" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={60}
+                />
+                <ReferenceLine y={0} stroke="#ef4444" strokeDasharray="4 4" />
+                <Tooltip
+                  content={(props) => (
+                    <CashflowTooltip
+                      {...(props as any)}
+                      currency={currency}
+                    />
+                  )}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="balance"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fill="url(#cashflowFill)"
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-2 text-[10px] text-slate-400">
+            Tap a day on the chart to see the full order breakdown.
+          </p>
+        </div>
+      </CardContent>
+
+      {/* Phase 3: detail drawer. Opens on chart click. Shows the
+          day's projected balance, the income contribution, every
+          order firing that day with quick-jump links to the order
+          dialog. Side sheet keeps the dashboard underneath visible
+          so the owner can compare the drilled day with the chart. */}
+      <Sheet open={drillDay !== null} onOpenChange={(o) => !o && setDrillDay(null)}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {drillDay !== null && (() => {
+            const point = series[drillDay];
+            if (!point) return null;
+            const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
+            return (
+              <>
+                <SheetHeader>
+                  <SheetTitle>{point.label} - {point.date}</SheetTitle>
+                  <SheetDescription>
+                    Projected balance + everything firing on this day.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-md border border-slate-200 p-3">
+                    <div className="text-xs text-slate-500">Projected balance</div>
+                    <div
+                      className={`text-2xl font-bold tabular-nums ${
+                        point.balance < 0 ? "text-rose-700" : "text-slate-900"
+                      }`}
+                    >
+                      {fmt(point.balance, currency)}
+                    </div>
+                    {point.income > 0 && (
+                      <div className="mt-1 text-xs text-brand-primary tabular-nums">
+                        +{fmt(point.income, currency)} income today
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CASH-B (cashflow follow-ups): day-0 opening lines.
+                      Pre-CASH-B the drawer only showed scheduled orders +
+                      bucketed costs, but day-0 (today) carries two extra
+                      subtractions baked into the opening balance: wages
+                      owed and the operator's contingency. Operators tap-
+                      ing on Today saw a balance that didn't reconcile to
+                      the per-row breakdown. Surface both lines explicitly
+                      when the drawer is open on day 0. */}
+                  {drillDay === 0 && (staffPaymentsOwed > 0 || (probableSpend || 0) > 0) && (
+                    <div className="space-y-1.5">
+                      <div className="text-xs font-medium text-slate-600">Baked into today&apos;s opening balance</div>
+                      {staffPaymentsOwed > 0 && (
+                        <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+                          <span className="text-sm text-slate-900 flex-1">
+                            Wages owed
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">staff</span>
+                          </span>
+                          <span className="ml-3 tabular-nums text-sm text-rose-700">
+                            -{fmt(staffPaymentsOwed, currency)}
+                          </span>
+                        </div>
+                      )}
+                      {(probableSpend || 0) > 0 && (
+                        <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2">
+                          <span className="text-sm text-slate-900 flex-1">
+                            Contingency
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">your buffer</span>
+                          </span>
+                          <span className="ml-3 tabular-nums text-sm text-rose-700">
+                            -{fmt(probableSpend || 0, currency)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {point.orders.length === 0 && point.costs.length === 0
+                    && !(drillDay === 0 && (staffPaymentsOwed > 0 || (probableSpend || 0) > 0)) ? (
+                    <p className="text-xs text-slate-400 py-6 text-center">
+                      Nothing firing on this day.
+                    </p>
+                  ) : (
+                    <>
+                      {point.orders.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-medium text-slate-600">
+                            {point.orders.length === 1
+                              ? "1 order in"
+                              : `${point.orders.length} orders in`}
+                          </div>
+                          {point.orders.map((o) => (
+                            <a
+                              key={o.id}
+                              href={withSlug(staffOrderHref(o.id, "admin"))}
+                              className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2 hover:border-brand-primary/30 hover:bg-brand-primary/10"
+                            >
+                              <span className="text-sm text-slate-900 truncate flex-1">
+                                {o.client}
+                              </span>
+                              <span className="ml-3 tabular-nums text-sm text-brand-primary">
+                                +{fmt(o.amount, currency)}
+                              </span>
+                              <ArrowUpRight className="w-3.5 h-3.5 ml-2 text-slate-400" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {point.costs.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-medium text-slate-600">
+                            {point.costs.length === 1
+                              ? "1 scheduled cost"
+                              : `${point.costs.length} scheduled costs`}
+                          </div>
+                          {point.costs.map((c) => (
+                            <div
+                              key={c.id}
+                              className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2"
+                            >
+                              <span className="text-sm text-slate-900 truncate flex-1">
+                                {c.label}
+                                <span className="ml-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+                                  {
+                                  c.category === "equipment_hire" ? "hire"
+                                  : c.category === "shopping" ? "shopping"
+                                  : c.category === "supplier_payable" ? "supplier"
+                                  : c.category === "fixed_cost" ? "fixed"
+                                  : c.category === "food_cogs" ? "food"
+                                  : c.category
+                                }
+                                </span>
+                              </span>
+                              <span className="ml-3 tabular-nums text-sm text-rose-700">
+                                -{fmt(c.amount, currency)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+    </Card>
+  );
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: {
+      day: number;
+      date: string;
+      label: string;
+      balance: number;
+      income: number;
+      orders: Array<{ id: string; client: string; amount: number }>;
+    };
+  }>;
+  currency: string;
+}
+
+function CashflowTooltip({ active, payload, currency }: TooltipProps) {
+  if (!active || !payload || !payload.length) return null;
+  const row = payload[0].payload;
+  const fmt = currencyUtils.formatCurrency as (a: number, c: string) => string;
+  return (
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg max-w-[260px]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-semibold text-slate-900">{row.label}</span>
+        <span className="text-[10px] text-slate-500">{row.date}</span>
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <span className="text-slate-600">Balance</span>
+        <span
+          className={`tabular-nums font-semibold ${
+            row.balance < 0 ? "text-rose-700" : "text-slate-900"
+          }`}
+        >
+          {fmt(row.balance, currency)}
+        </span>
+      </div>
+      {row.income > 0 && (
+        <div className="mt-0.5 flex items-center justify-between gap-3">
+          <span className="text-slate-600">Income in</span>
+          <span className="tabular-nums text-brand-primary">
+            +{fmt(row.income, currency)}
+          </span>
+        </div>
+      )}
+      {row.orders.length > 0 && (
+        <div className="mt-2 border-t border-slate-100 pt-1 space-y-0.5">
+          <div className="text-[10px] uppercase tracking-wide text-slate-400">
+            {row.orders.length === 1 ? "1 order" : `${row.orders.length} orders`}
+          </div>
+          {row.orders.slice(0, 4).map((o) => (
+            <div key={o.id} className="flex items-center justify-between gap-3 text-[11px]">
+              <span className="text-slate-700 truncate">{o.client}</span>
+              <span className="tabular-nums text-slate-900">
+                {fmt(o.amount, currency)}
+              </span>
+            </div>
+          ))}
+          {row.orders.length > 4 && (
+            <div className="text-[10px] text-slate-400">
+              +{row.orders.length - 4} more
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Phase 4: CSV export of the daily forecast snapshot. Two cohorts
+ * of bookkeepers asked for this same morning: it lets them paste
+ * the day-by-day projected balance into their working sheet
+ * without having to screenshot the chart.
+ *
+ * CASH-B widening: the original CSV omitted opening_balance,
+ * wages_day0 and contingency_day0 - all three are baked into the
+ * first balance row but the bookkeeper couldn't reconcile to the
+ * chart without seeing the inputs. Three new columns added on
+ * every row (constant across the series) so the working sheet
+ * can show the breakdown alongside each day's running balance.
+ *
+ * No PII (no client names) so the file is safe to email or share.
+ * UTF-8 BOM at the head so Excel on Windows opens it without
+ * mangling currency symbols.
+ */
+function downloadCsv(
+  series: Array<{
+    date: string;
+    day: number;
+    balance: number;
+    income: number;
+    costsHire: number;
+    costsShopping: number;
+    costsPayable: number;
+    costsFixed: number;
+    costsCogs: number;
+  }>,
+  currency: string,
+  cashOnHand: number,
+  staffPaymentsOwed: number,
+  contingency: number,
+) {
+  const header = [
+    "date", "day_offset", "balance", "income",
+    "costs_hire", "costs_shopping", "costs_payable",
+    "costs_fixed", "costs_cogs",
+    "opening_balance", "wages_owed_day0", "contingency_day0",
+  ];
+  const rows = series.map((p) => [
+    p.date,
+    p.day,
+    p.balance,
+    Math.round(p.income),
+    Math.round(p.costsHire),
+    Math.round(p.costsShopping),
+    Math.round(p.costsPayable),
+    Math.round(p.costsFixed),
+    Math.round(p.costsCogs),
+    Math.round(cashOnHand),
+    Math.round(staffPaymentsOwed),
+    Math.round(contingency),
+  ]);
+  const csv = "﻿" + [header, ...rows].map((r) => r.join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  // CASH-B: same toLocalISO consistency as the load path.
+  const today = toLocalISO(new Date());
+  link.href = url;
+  link.download = `cashflow-forecast-${today}-${currency}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function compactCurrency(amount: number, currency: string): string {
+  const symbol =
+    currency === "USD" ? "$" : currency === "EUR" ? "€" : currency === "GBP" ? "£" : "R";
+  const abs = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${symbol}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}${symbol}${Math.round(abs / 1_000)}k`;
+  return `${sign}${symbol}${Math.round(abs)}`;
+}
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatLocalDate(iso);
+}

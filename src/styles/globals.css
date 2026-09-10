@@ -1,0 +1,476 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 32 95% 44%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 32 95% 44%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    /* White-label tenant palette. BrandingContext.applyBrandingToDOM
+       overrides these per-tenant on auth. The hex variants drive inline
+       styles (gradients); the -rgb triplet variants drive Tailwind's
+       brand-primary / brand-secondary / brand-accent utilities. Defaults
+       match DEFAULT_PALETTE in src/lib/branding/applyBranding.ts. */
+    --brand-primary: #d97706;
+    --brand-secondary: #ea580c;
+    --brand-accent: #f59e0b;
+    --brand-primary-rgb: 217 119 6;
+    --brand-secondary-rgb: 234 88 12;
+    --brand-accent-rgb: 245 158 11;
+    --sidebar-primary: 32 95% 44%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 38 92% 50%;
+
+    /* Smooth scroll */
+    scroll-behavior: smooth;
+
+    /* Motion curves (emil-design-eng). The built-in CSS easings are too
+       weak; these custom curves give animations the punch that makes them
+       feel intentional. Use --ease-out for enter/exit + hover, --ease-in-out
+       for on-screen movement, --ease-drawer for sheets/drawers. */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 32 95% 44%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 32 95% 44%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    /* Brand variables intentionally inherit from :root in dark mode --
+       tenant branding is the same colour either way, only the surrounding
+       chrome changes. */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply text-foreground;
+    /* White-label body font. --brand-font-body is set per tenant by
+       applyBranding; unset = the app's existing default sans stack, so
+       non-white-label tenants are visually unchanged. Headings that opt
+       into `font-display` pick up --brand-font-display the same way. */
+    font-family: var(--brand-font-body, ui-sans-serif, system-ui, sans-serif);
+    /* Wave 70.34 -- match the start colour of every admin / portal
+       page's gradient (from-slate-50). The previous bg-background
+       (white) produced a visible white flash between route mounts,
+       because new pages take a moment to apply their own wrapper
+       background and the body bg shows through in the meantime.
+       slate-50 matches the gradient start, so the flash disappears
+       on internal routes and is barely perceptible on marketing
+       pages (which use bg-white wrappers that paint over this). */
+    background-color: rgb(238 242 246); /* redesigned portal desk surface */
+  }
+  .dark body {
+    background-color: rgb(15 23 42);    /* slate-900 -- dark-mode equivalent */
+  }
+
+  /* White-label heading font, applied site-wide. When a tenant picks a
+     Heading font in Settings > Branding, applyBranding sets
+     --brand-font-display and EVERY heading on EVERY page (admin, team
+     portals, client portal) switches to it in one click - not just the
+     few that opt into the `font-display` utility. When unset, the var
+     is absent so headings inherit the body font, leaving non-white-label
+     tenants visually unchanged. This is @layer base, so any explicit
+     font utility wins on specificity and keeps its intentional face:
+     `font-display` (marketing Fraunces), `font-serif` (public
+     quote/invoice documents), `font-mono` (codes / IDs). */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--brand-font-display, inherit);
+  }
+}
+
+/* Wave 70.44 -- shared print utilities.
+   The codebase has 5+ surfaces that print (kitchen ticket, delivery
+   sheet, invoice, quote, payment). Each owns its own page-level
+   @media print rules. These two utilities give every surface a
+   consistent escape hatch:
+     .no-print  -> hide on print (action bars, sticky FABs, edit
+                   buttons, anything that needs a tap to be useful)
+     .print-only -> show only when printing (e.g. a small "Printed
+                    on" footer that's irrelevant on screen)
+   The Booking* components (Wave 70.41-70.43) use .no-print on the
+   action bar so printed pages don't carry buttons no one will tap.
+
+   Everything below the escape hatches is global print hardening that
+   every "Save as PDF" surface gets for free. These are the defaults
+   that were missing app-wide and which produced the "PDF spills onto
+   a near-empty second page / a card is sliced in half" complaints:
+     - consistent A4-ish page margin so no surface prints edge-to-edge
+     - print-color-adjust so brand colours / tinted bands actually
+       render (Chrome/Edge default background graphics OFF on print)
+     - table rows, images and headings never split or orphan
+   PLUS the opt-in utilities (.print-keep / .print-row / .print-tight /
+   .print-avoid) so any document page can protect its own cards + line
+   rows without redefining the same CSS. Used by /q/[token] and any new
+   printable surface - reach for these instead of hand-rolling. */
+@media print {
+  .no-print { display: none !important; }
+
+  /* Honour brand colours + tinted header bands in the PDF. Without
+     this Chrome/Edge strip backgrounds on print and a branded
+     letterhead comes out plain white. */
+  html, body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Consistent page margin for every printable surface. Pages that
+     need a different margin can still override with their own @page. */
+  @page { margin: 14mm; }
+
+  /* Safe, universal break hygiene - none of these clip content, they
+     only stop ugly splits:
+       - a table row never breaks across a page
+       - table headers repeat on each page
+       - an image/svg is never sliced in half
+       - a heading never sits alone at the foot of a page */
+  tr, img, svg { break-inside: avoid; page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+
+  /* Opt-in: keep a whole block (a card / panel) on one page. If it
+     doesn't fit it moves to the next page intact instead of being
+     sliced at the page boundary. Use on fixed-size cards, NOT on long
+     lists (a list taller than a page would overflow). */
+  .print-keep { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Opt-in: a single line/total row never splits, so an item name on
+     one page can't leave its price stranded on the next. */
+  .print-row { break-inside: avoid; page-break-inside: avoid; }
+
+  /* Opt-in: drop screen-only padding (e.g. sticky-bar clearance) that
+     would otherwise leave a dead band of whitespace in the PDF. */
+  .print-tight { padding-top: 0 !important; padding-bottom: 0 !important; }
+
+  /* Opt-in alias kept for readability at call sites. */
+  .print-avoid { break-inside: avoid; page-break-inside: avoid; }
+}
+@media not print {
+  .print-only { display: none !important; }
+}
+
+/* Mobile-First Responsive Utilities */
+@layer utilities {
+  /* Touch-friendly tap targets (minimum 44x44px) */
+  .tap-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Mobile-optimized spacing */
+  .mobile-container {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Prevent text overflow on mobile */
+  .mobile-text {
+    @apply break-words hyphens-auto;
+  }
+  
+  /* Mobile-friendly hero sections */
+  .mobile-hero {
+    @apply py-12 sm:py-16 lg:py-20;
+  }
+  
+  /* Mobile-optimized cards */
+  .mobile-card {
+    @apply rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8;
+  }
+  
+  /* Mobile-friendly grid gaps */
+  .mobile-grid-gap {
+    @apply gap-4 sm:gap-6 lg:gap-8;
+  }
+  
+  /* Mobile typography scaling */
+  .mobile-h1 {
+    @apply text-3xl sm:text-4xl lg:text-5xl xl:text-6xl;
+  }
+  
+  .mobile-h2 {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+  
+  .mobile-h3 {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  .mobile-body {
+    @apply text-base sm:text-lg;
+  }
+  
+  /* Safe area for mobile devices with notches */
+  .safe-area-top {
+    @apply pt-[env(safe-area-inset-top)];
+  }
+  
+  .safe-area-bottom {
+    @apply pb-[env(safe-area-inset-bottom)];
+  }
+  
+  /* Mobile-optimized buttons */
+  .mobile-button {
+    @apply px-4 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base;
+  }
+  
+  /* Prevent horizontal scroll on mobile */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Mobile-friendly image aspect ratios */
+  .mobile-aspect-video {
+    @apply aspect-video object-cover;
+  }
+  
+  .mobile-aspect-square {
+    @apply aspect-square object-cover;
+  }
+  
+  /* Touch-optimized interactive elements */
+  .touch-action-pan {
+    touch-action: pan-y pan-x;
+  }
+  
+  /* Mobile menu animations */
+  .mobile-menu-enter {
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Mobile-optimized shadows */
+  .mobile-shadow {
+    @apply shadow-md sm:shadow-lg lg:shadow-xl;
+  }
+  
+  /* Responsive max-widths */
+  .mobile-max-w {
+    @apply max-w-full sm:max-w-xl lg:max-w-4xl xl:max-w-6xl;
+  }
+}
+
+/* Mobile performance optimizations */
+@media (max-width: 768px) {
+  /* Reduce animation complexity on mobile */
+  * {
+    animation-duration: 0.2s !important;
+    transition-duration: 0.2s !important;
+  }
+  
+  /* Optimize font rendering */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  /* Improve scroll performance */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Prevent zoom on input focus (mobile) */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Shared admin page frame.
+   This replaces scattered one-off /admin backgrounds and spacing with one
+   operational shell: calm neutral ground, consistent mobile header clearance,
+   fixed-sidebar offset, and enough bottom space for the global internal footer. */
+.admin-page-shell {
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding-top: 4rem;
+  padding-bottom: 3.5rem;
+  background: linear-gradient(180deg, #eef2f6 0%, #f8fafc 260px, #f8fafc 100%);
+}
+
+.dark .admin-page-shell {
+  background: linear-gradient(180deg, #020617 0%, #0f172a 260px, #0f172a 100%);
+}
+
+.admin-page-shell--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-page-shell--deep-footer {
+  padding-bottom: 5rem;
+}
+
+.admin-page-shell--document {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+@media (min-width: 1024px) {
+  .admin-page-shell {
+    padding-left: 18rem;
+    padding-top: 0;
+  }
+
+  .admin-page-shell--no-sidebar {
+    padding-left: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .admin-page-shell {
+    padding-left: 20rem;
+  }
+
+  .admin-page-shell--no-sidebar {
+    padding-left: 0;
+  }
+}
+
+@media print {
+  .admin-page-shell--print {
+    padding-left: 0 !important;
+    background: #fff !important;
+  }
+}
+
+/* When the sidebar is collapsed (icon-only, ~80px), every page wrapper that
+   ships with `lg:pl-72 xl:pl-80` must shrink its left padding to match,
+   otherwise content sits stranded behind 192-240px of dead space.
+   Each Nav writes data-sidebar-collapsed to <html> when toggled.
+   Older pages may still use lg:pl-64 / xl:pl-72 -- both are matched here
+   for backwards compatibility. */
+@media (min-width: 1024px) {
+  html[data-sidebar-collapsed="true"] .admin-page-shell,
+  html[data-sidebar-collapsed="true"] .lg\:pl-64,
+  html[data-sidebar-collapsed="true"] .lg\:pl-72,
+  html[data-sidebar-collapsed="true"] .xl\:pl-72,
+  html[data-sidebar-collapsed="true"] .xl\:pl-80 {
+    padding-left: 5rem !important;
+  }
+
+  html[data-sidebar-collapsed="true"] .internal-footer-shell {
+    margin-left: 5rem !important;
+  }
+}
+
+/* One-shot ring pulse used by the change-request panel when the
+   operator deep-links to a specific request. Fades after ~2s so it
+   doesn't compete with other UI; the surrounding ring class stays
+   on the element so the highlight is preserved on re-render. */
+@keyframes pulse-once {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.45); }
+  50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+}
+.animate-pulse-once {
+  animation: pulse-once 1.6s ease-out 1;
+}
+
+/* Marketing landing-page motion (warm catering homepage only).
+   Constant motion uses linear timing per the emil-design-eng framework;
+   both are gated behind motion-reduce:animate-none in the markup. */
+@keyframes marquee {
+  /* The track duplicates its children, so -50% loops seamlessly. */
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-9px); }
+}
+@keyframes growbar {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* Leaflet (tracking map) z-index containment.
+   Leaflet renders its panes (z 200-700) and zoom/attribution controls
+   (z 800-1000) with high z-index values that otherwise float ABOVE the
+   app's sticky nav (z-50), dropdowns, dialogs and toasts - the map and
+   its buttons bled over the chrome. Establishing a stacking context on
+   the map container (position + z-index:0) confines all of Leaflet's
+   internal layering inside the map box, so the map never escapes over
+   the surrounding UI while its own markers/popups still layer correctly
+   relative to each other. */
+.leaflet-container {
+  position: relative;
+  z-index: 0;
+}

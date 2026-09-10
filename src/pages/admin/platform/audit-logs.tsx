@@ -1,0 +1,629 @@
+/**
+ * /admin/platform/audit-logs
+ *
+ * Skylight super-admin viewer for the audit_logs table. Surfaces the
+ * append-only trail that every workflow service writes when something
+ * meaningful happens (refund processed, driver reassigned, allergen
+ * review skipped, etc.) so we can answer "what happened with this
+ * order on Tuesday?" without dropping into SQL.
+ *
+ * Phase 2 #8. Read-only by design - the actions belong on the
+ * per-entity pages this links out to.
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useMemo, useState } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { PlatformNav } from "@/components/admin/PlatformNav";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { ListSkeleton } from "@/components/ui/loading-skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ScrollText, RefreshCw, ExternalLink, ChevronLeft, ChevronRight, AlertCircle, AlertTriangle } from "lucide-react";
+import { staffOrderHref } from "@/lib/orderUrls";
+
+interface AuditRow {
+  id: string;
+  created_at: string;
+  user_id: string | null;
+  company_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  ip_address: string | null;
+  details: any;
+}
+
+interface CompanyOption {
+  id: string;
+  company_name: string | null;
+}
+
+interface ProfileOption {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+}
+
+const PAGE_SIZE = 50;
+
+const AUDIT_CATEGORIES = [
+  { value: "all", label: "All activity" },
+  { value: "subscription", label: "Subscription changes" },
+  { value: "pricing", label: "Pricing changes" },
+  { value: "permission", label: "User and permission changes" },
+  { value: "company", label: "Company changes" },
+  { value: "failure", label: "Failed or denied actions" },
+] as const;
+
+const fmtTs = (iso: string) => {
+  return new Date(iso).toLocaleString("en-ZA", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+};
+
+// Map an entity_type + entity_id to the deepest useful admin URL.
+// Most of these are super-admin scoped but the rows still belong to a
+// specific tenant - linking to the per-tenant admin path opens the
+// tenant view (super-admin can read across tenants).
+const entityHref = (entityType: string, entityId: string | null): string | null => {
+  if (!entityId) return null;
+  switch (entityType) {
+    case "order":
+      return staffOrderHref(entityId, "admin");
+    case "quote":
+      return `/admin/quotes/${entityId}`;
+    case "payment":
+      return `/admin/refunds?paymentId=${entityId}`;
+    case "company":
+      return `/admin/platform/company-database?companyId=${entityId}`;
+    case "user":
+      return `/admin/users?userId=${entityId}`;
+    default:
+      return null;
+  }
+};
+
+function applyAuditCategoryFilter(query: any, category: string): any {
+  switch (category) {
+    case "subscription":
+      return query.or("action.ilike.%subscription%,entity_type.eq.subscription");
+    case "pricing":
+      return query.or("action.ilike.%pricing%,action.ilike.%price%,entity_type.eq.pricing");
+    case "permission":
+      return query.or("action.ilike.%permission%,action.ilike.%role%,action.ilike.%user_soft_deleted%");
+    case "company":
+      return query.or("action.ilike.%company%,entity_type.eq.company");
+    case "failure":
+      return query.or("action.ilike.%fail%,action.ilike.%error%,action.ilike.%suspicious%,action.ilike.%denied%");
+    default:
+      return query;
+  }
+}
+
+// Tone the row border by action class so eyes parse the stream
+// without reading every word. Refund + payment + cancel are the
+// expensive failure modes; default tone is neutral.
+const toneFor = (action: string): string => {
+  if (action.includes("fail") || action.includes("error") || action.includes("crashed")) {
+    return "border-l-rose-500 dark:border-l-rose-500 bg-rose-50/40 dark:bg-rose-500/10";
+  }
+  if (action.includes("refund") || action.includes("cancel")) {
+    return "border-l-amber-500 dark:border-l-amber-500 bg-amber-50/40 dark:bg-amber-500/10";
+  }
+  if (action.includes("delete") || action.includes("removed")) {
+    return "border-l-rose-400 dark:border-l-rose-400 bg-rose-50/40 dark:bg-rose-500/10";
+  }
+  return "border-l-slate-300 dark:border-l-slate-600 bg-white dark:bg-slate-900";
+};
+
+function AuditLogsViewer() {
+  const { user, loading: authLoading } = useAuth() as any;
+  const router = useRouter();
+  const [rows, setRows] = useState<AuditRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+
+  // Phase 6 #2: filter state lives in the URL so a deep-link to a
+  // specific filtered view (e.g. a Slack message linking 'every
+  // refund_auto_failed for this tenant in the last 24h') survives
+  // tab reload and is shareable between super-admins. router.query
+  // is the source of truth; we hydrate state from it on mount and
+  // push changes back via router.replace.
+  const q = router.query;
+  const [companyId, setCompanyId] = useState<string>(
+    typeof q.company === "string" ? q.company : "all",
+  );
+  const [actionFilter, setActionFilter] = useState<string>(
+    typeof q.action === "string" ? q.action : "",
+  );
+  const [categoryFilter, setCategoryFilter] = useState<string>(
+    typeof q.category === "string" && AUDIT_CATEGORIES.some((item) => item.value === q.category) ? q.category : "all",
+  );
+  const [entityTypeFilter, setEntityTypeFilter] = useState<string>(
+    typeof q.entityType === "string" ? q.entityType : "all",
+  );
+  const [entityIdFilter, setEntityIdFilter] = useState<string>(
+    typeof q.entityId === "string" ? q.entityId : "",
+  );
+  const [sinceFilter, setSinceFilter] = useState<string>(
+    typeof q.since === "string" ? q.since : "7d",
+  );
+  // Phase 5 #2: free-text search across details JSON so an operator
+  // can find 'reason: late_arrival' without knowing the column key.
+  // Matched client-side over a capped scan window - see the
+  // detailsScanCapped comment below for why it can't be server-side.
+  const [detailsSearch, setDetailsSearch] = useState<string>(
+    typeof q.q === "string" ? q.q : "",
+  );
+  // Details-search fallback state: PostgREST cannot ilike a jsonb
+  // column (the old `details::text` cast filter always failed with
+  // 42883 "operator does not exist: jsonb ~~*", so the "Details
+  // contains" box has never returned a row). We now scan the newest
+  // DETAILS_SCAN_CAP rows matching the other filters and match the
+  // JSON client-side. This flag tells the operator when the scan
+  // window was clipped.
+  const [detailsScanCapped, setDetailsScanCapped] = useState(false);
+  const [page, setPage] = useState<number>(
+    typeof q.page === "string" && /^\d+$/.test(q.page) ? Number(q.page) : 0,
+  );
+
+  // Mirror state -> URL on any filter change. shallow:true so we
+  // don't refetch via getServerSideProps (which we don't use anyway).
+  // Defaults are stripped so /audit-logs without params stays clean.
+  useEffect(() => {
+    if (!router.isReady) return;
+    const next: Record<string, string> = {};
+    if (companyId !== "all") next.company = companyId;
+    if (actionFilter.trim()) next.action = actionFilter.trim();
+    if (categoryFilter !== "all") next.category = categoryFilter;
+    if (entityTypeFilter !== "all") next.entityType = entityTypeFilter;
+    if (entityIdFilter.trim()) next.entityId = entityIdFilter.trim();
+    if (sinceFilter !== "7d") next.since = sinceFilter;
+    if (detailsSearch.trim()) next.q = detailsSearch.trim();
+    if (page > 0) next.page = String(page);
+    router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, actionFilter, categoryFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
+
+  // Lookups for label hydration. Worth a single round-trip per page
+  // so the operator sees "Spit Braai Delivery" instead of a UUID.
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
+  const [profileMap, setProfileMap] = useState<Record<string, ProfileOption>>({});
+  const [companyMap, setCompanyMap] = useState<Record<string, CompanyOption>>({});
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    void loadCompanies();
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user, companyId, actionFilter, categoryFilter, entityTypeFilter, entityIdFilter, sinceFilter, detailsSearch, page]);
+
+  const loadCompanies = async () => {
+    try {
+      const { data } = await supabase
+        .from("companies")
+        .select("id, company_name")
+        .is("deleted_at", null)
+        .order("company_name", { ascending: true });
+      const list = (data || []) as CompanyOption[];
+      setCompanies(list);
+      const map: Record<string, CompanyOption> = {};
+      for (const c of list) map[c.id] = c;
+      setCompanyMap(map);
+    } catch (e) {
+      // Filter still works without the dropdown - just no name hydration.
+      console.warn("[audit-logs] company list load failed:", e);
+    }
+  };
+
+  const sinceTimestamp = (): string | null => {
+    const now = Date.now();
+    switch (sinceFilter) {
+      case "1h": return new Date(now - 60 * 60 * 1000).toISOString();
+      case "24h": return new Date(now - 24 * 60 * 60 * 1000).toISOString();
+      case "7d": return new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+      case "30d": return new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+      case "all": return null;
+      default: return new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    }
+  };
+
+  // Client-side scan window for the details search (see the
+  // detailsScanCapped comment above for why this is not server-side).
+  const DETAILS_SCAN_CAP = 2000;
+
+  const detailsMatches = (details: any, needle: string): boolean => {
+    if (details == null) return false;
+    try {
+      return JSON.stringify(details).toLowerCase().includes(needle);
+    } catch {
+      return false;
+    }
+  };
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const detailsNeedle = detailsSearch.trim().toLowerCase();
+      let q = supabase
+        .from("audit_logs")
+        .select("id, created_at, user_id, company_id, action, entity_type, entity_id, ip_address, details", { count: "exact" })
+        .order("created_at", { ascending: false });
+      if (companyId !== "all") q = q.eq("company_id", companyId);
+      q = applyAuditCategoryFilter(q, categoryFilter);
+      if (entityTypeFilter !== "all") q = q.eq("entity_type", entityTypeFilter);
+      if (actionFilter.trim()) q = q.ilike("action", `%${actionFilter.trim()}%`);
+      if (entityIdFilter.trim()) q = q.eq("entity_id", entityIdFilter.trim());
+      const since = sinceTimestamp();
+      if (since) q = q.gte("created_at", since);
+
+      let list: AuditRow[];
+      if (detailsNeedle) {
+        // Fetch the newest scan window matching the other filters,
+        // match the details JSON client-side, paginate the matches.
+        // The old server-side `details::text` ilike filter 404ed with
+        // 42883 on every request, so this box never returned a row.
+        const { data, error } = await q.limit(DETAILS_SCAN_CAP);
+        if (error) throw error;
+        const scanned = (data || []) as AuditRow[];
+        const matched = scanned.filter((r) => detailsMatches(r.details, detailsNeedle));
+        setDetailsScanCapped(scanned.length >= DETAILS_SCAN_CAP);
+        setTotalCount(matched.length);
+        list = matched.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+      } else {
+        const { data, error, count } = await q.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
+        if (error) throw error;
+        setDetailsScanCapped(false);
+        setTotalCount(typeof count === "number" ? count : null);
+        list = (data || []) as AuditRow[];
+      }
+      setRows(list);
+
+      // Hydrate user labels for the rows we just pulled. Single IN
+      // query, cheap. Skip if we already have everyone we need.
+      const userIds = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean) as string[]));
+      const missing = userIds.filter((id) => !profileMap[id]);
+      if (missing.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", missing);
+        if (profiles) {
+          const next = { ...profileMap };
+          for (const p of profiles as any[]) next[p.id] = p as ProfileOption;
+          setProfileMap(next);
+        }
+      }
+    } catch (e: any) {
+      // Surface the failure instead of quietly rendering the empty
+      // state. A broken query and "no rows match" are very different
+      // answers for an audit trail.
+      console.error("[audit-logs] load failed:", e);
+      setRows([]);
+      setTotalCount(null);
+      setLoadError(e?.message || "The audit log query failed. Please retry.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // The list of entity_types we've actually seen in the loaded page.
+  // Beats hard-coding - new producers (e.g. webhook_failed) show up
+  // automatically once a row exists.
+  const seenEntityTypes = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) if (r.entity_type) s.add(r.entity_type);
+    return Array.from(s).sort();
+  }, [rows]);
+
+  const totalPages = totalCount != null ? Math.max(1, Math.ceil(totalCount / PAGE_SIZE)) : null;
+
+  return (
+    <>
+      <Head>
+        <title>Platform audit logs - CateringMS</title>
+      </Head>
+      <NoIndexMeta />
+
+      <div className="admin-page-shell">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          <PortalHeader
+            variant="hero"
+            title="Audit logs"
+            subtitle="Append-only trail across every tenant. Read-only view; the action belongs on the entity page each row links to."
+            icon={ScrollText}
+            meta={
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  {totalCount != null ? `${totalCount.toLocaleString()} rows match filters` : loading ? "Counting rows..." : "Row count unavailable"}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                  Page {page + 1}{totalPages ? ` of ${totalPages}` : ""}
+                </span>
+              </>
+            }
+            actions={
+              <Button variant="outline" size="sm" onClick={() => { setPage(0); void load(); }} className="gap-1">
+                <RefreshCw className="w-4 h-4" />
+                Refresh
+              </Button>
+            }
+          />
+          <PageWorkbench />
+
+          <PortalCard id="platform-audit-filters" data-chat-section="platform.audit-logs.filters" className="mb-6">
+            <PortalCardHeader title="Filters" />
+            <p className="-mt-2 mb-3 text-xs text-slate-500 dark:text-slate-400">
+              Combine any of these. Defaults to the last 7 days across every tenant.
+            </p>
+            <div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Activity group</Label>
+                  <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(0); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AUDIT_CATEGORIES.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Tenant</Label>
+                  <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setPage(0); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All tenants</SelectItem>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.company_name || c.id.slice(0, 8)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Entity type</Label>
+                  <Select value={entityTypeFilter} onValueChange={(v) => { setEntityTypeFilter(v); setPage(0); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All types</SelectItem>
+                      {/* Common ones plus anything seen in the loaded page */}
+                      {Array.from(new Set([
+                        "order", "quote", "payment", "company", "user",
+                        ...seenEntityTypes,
+                      ])).map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Action contains</Label>
+                  <Input
+                    value={actionFilter}
+                    onChange={(e) => { setActionFilter(e.target.value); setPage(0); }}
+                    placeholder="e.g. refund_auto_failed"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Entity id (exact)</Label>
+                  <Input
+                    value={entityIdFilter}
+                    onChange={(e) => { setEntityIdFilter(e.target.value); setPage(0); }}
+                    placeholder="UUID"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Details contains</Label>
+                  <Input
+                    value={detailsSearch}
+                    onChange={(e) => { setDetailsSearch(e.target.value); setPage(0); }}
+                    placeholder="e.g. gateway_revoked, $4123"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Since</Label>
+                  <Select value={sinceFilter} onValueChange={(v) => { setSinceFilter(v); setPage(0); }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1h">Last hour</SelectItem>
+                      <SelectItem value="24h">Last 24 hours</SelectItem>
+                      <SelectItem value="7d">Last 7 days</SelectItem>
+                      <SelectItem value="30d">Last 30 days</SelectItem>
+                      <SelectItem value="all">All time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </PortalCard>
+
+          {detailsScanCapped && !loading && !loadError && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700 dark:text-amber-400" />
+              <p>
+                Details search scanned the newest {DETAILS_SCAN_CAP.toLocaleString()} rows matching your
+                other filters. Older matches may be missing - narrow the time window or add a tenant,
+                action or entity filter for full coverage.
+              </p>
+            </div>
+          )}
+
+          {loading ? (
+            <ListSkeleton rows={8} />
+          ) : loadError ? (
+            <Alert variant="destructive" className="border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10">
+              <AlertCircle className="h-4 w-4 flex-shrink-0 text-rose-600 dark:text-rose-400" />
+              <AlertDescription className="flex flex-wrap items-center gap-3 text-sm text-rose-800 dark:text-rose-300">
+                <span>Could not load audit logs: {loadError}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void load()}
+                  className="h-7 gap-1 px-2"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Retry
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon={ScrollText}
+              title="No audit rows match the current filters"
+              description="Loosen the filters or expand the window if you think something should be here."
+            />
+          ) : (
+            <div id="platform-audit-records" data-chat-section="platform.audit-logs.records" className="space-y-2">
+              {rows.map((r) => {
+                const tone = toneFor(r.action);
+                const href = entityHref(r.entity_type, r.entity_id);
+                const user = r.user_id ? profileMap[r.user_id] : null;
+                const company = r.company_id ? companyMap[r.company_id] : null;
+                return (
+                  <div
+                    key={r.id}
+                    id={`platform-audit-record-${r.id}`}
+                    className={`border border-slate-200 dark:border-slate-700 border-l-4 rounded-md p-3 ${tone}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">{fmtTs(r.created_at)}</span>
+                          <Badge variant="outline" className="text-[10px] font-semibold">
+                            {r.action}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] bg-slate-100 dark:bg-slate-800 dark:text-slate-300">
+                            {r.entity_type}
+                          </Badge>
+                          {company?.company_name && (
+                            <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30">
+                              {company.company_name}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-700 dark:text-slate-300 flex flex-wrap items-center gap-2">
+                          <span>
+                            <span className="text-slate-500 dark:text-slate-400">by</span>{" "}
+                            <span className="font-medium">
+                              {user?.full_name || user?.email || (r.user_id ? r.user_id.slice(0, 8) : "system")}
+                            </span>
+                          </span>
+                          {r.entity_id && (
+                            <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                              {r.entity_id.slice(0, 8)}
+                            </span>
+                          )}
+                          {r.ip_address && (
+                            <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
+                              {r.ip_address}
+                            </span>
+                          )}
+                        </div>
+                        {r.details && Object.keys(r.details).length > 0 && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                              details
+                            </summary>
+                            <pre className="mt-1 text-[11px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                              {JSON.stringify(r.details, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                      {href && (
+                        <Link href={href} className="shrink-0 text-xs text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white inline-flex items-center gap-1">
+                          Open <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Pagination */}
+              <div className="flex items-center justify-between pt-3 text-xs text-slate-600 dark:text-slate-400">
+                <div>
+                  Page {page + 1}
+                  {totalPages ? ` of ${totalPages}` : ""}
+                  {totalCount != null && (
+                    <span className="text-slate-400 dark:text-slate-500 ml-2">({totalCount.toLocaleString()} total)</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0 || loading}
+                    className="h-7 px-2 gap-1"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    Prev
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={(totalPages != null ? page + 1 >= totalPages : rows.length < PAGE_SIZE) || loading}
+                    className="h-7 px-2 gap-1"
+                  >
+                    Next
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </PortalShell>
+      </div>
+    </>
+  );
+}
+
+export default function ProtectedAuditLogs() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <AuditLogsViewer />
+    </ProtectedRoute>
+  );
+}

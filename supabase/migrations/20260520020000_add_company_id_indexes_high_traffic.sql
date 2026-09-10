@@ -1,0 +1,55 @@
+-- Backfill company_id indexes on tenant-scoped operational tables
+-- that didn't have one yet. Closes the "add 67 missing company_id
+-- indexes" running-todo entry. Skips driver_shifts +
+-- won_then_cancelled_quotes (both views, can't be indexed) and
+-- the inventory_demand_outlook + order_ingredient_demand views.
+-- IF NOT EXISTS keeps the migration idempotent.
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_company_id            ON public.audit_logs(company_id);
+CREATE INDEX IF NOT EXISTS idx_driver_rest_logs_company_id      ON public.driver_rest_logs(company_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_bookings_company_id    ON public.equipment_bookings(company_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_damages_company_id     ON public.equipment_damages(company_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_maintenance_company_id ON public.equipment_maintenance(company_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_company_id             ON public.inventory(company_id);
+CREATE INDEX IF NOT EXISTS idx_shopping_lists_company_id        ON public.shopping_lists(company_id);
+CREATE INDEX IF NOT EXISTS idx_pending_reviews_company_id       ON public.pending_reviews(company_id);
+CREATE INDEX IF NOT EXISTS idx_staff_payment_ledger_company_id  ON public.staff_payment_ledger(company_id);
+CREATE INDEX IF NOT EXISTS idx_temperature_logs_company_id      ON public.temperature_logs(company_id);
+CREATE INDEX IF NOT EXISTS idx_time_clock_entries_company_id    ON public.time_clock_entries(company_id);
+CREATE INDEX IF NOT EXISTS idx_complaints_company_id            ON public.complaints(company_id);
+CREATE INDEX IF NOT EXISTS idx_deliveries_company_id            ON public.deliveries(company_id);
+CREATE INDEX IF NOT EXISTS idx_delivery_routes_company_id       ON public.delivery_routes(company_id);
+CREATE INDEX IF NOT EXISTS idx_staff_invitations_company_id     ON public.staff_invitations(company_id);
+CREATE INDEX IF NOT EXISTS idx_quote_acceptances_company_id     ON public.quote_acceptances(company_id);
+CREATE INDEX IF NOT EXISTS idx_floor_safety_inspections_company_id ON public.floor_safety_inspections(company_id);
+CREATE INDEX IF NOT EXISTS idx_safety_checks_company_id         ON public.safety_checks(company_id);
+CREATE INDEX IF NOT EXISTS idx_waste_logs_company_id            ON public.waste_logs(company_id);
+CREATE INDEX IF NOT EXISTS idx_email_settings_company_id        ON public.email_settings(company_id);
+CREATE INDEX IF NOT EXISTS idx_storage_locations_company_id     ON public.storage_locations(company_id);
+CREATE INDEX IF NOT EXISTS idx_kitchen_duty_shifts_company_id   ON public.kitchen_duty_shifts(company_id);
+CREATE INDEX IF NOT EXISTS idx_admin_notifications_company_id   ON public.admin_notifications(company_id);
+CREATE INDEX IF NOT EXISTS idx_delivery_crates_company_id       ON public.delivery_crates(company_id);
+CREATE INDEX IF NOT EXISTS idx_loadoff_verifications_company_id ON public.loadoff_verifications(company_id);
+CREATE INDEX IF NOT EXISTS idx_health_certificates_company_id   ON public.health_certificates(company_id);
+CREATE INDEX IF NOT EXISTS idx_insurance_policies_company_id    ON public.insurance_policies(company_id);
+CREATE INDEX IF NOT EXISTS idx_pest_control_logs_company_id     ON public.pest_control_logs(company_id);
+CREATE INDEX IF NOT EXISTS idx_user_saved_views_company_id      ON public.user_saved_views(company_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_templates_company_id    ON public.whatsapp_templates(company_id);
+CREATE INDEX IF NOT EXISTS idx_return_load_tracking_company_id  ON public.return_load_tracking(company_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_shortage_flags_company_id ON public.equipment_shortage_flags(company_id);
+CREATE INDEX IF NOT EXISTS idx_cms_pages_company_id             ON public.cms_pages(company_id);
+CREATE INDEX IF NOT EXISTS idx_currency_fluctuation_alerts_company_id ON public.currency_fluctuation_alerts(company_id);
+CREATE INDEX IF NOT EXISTS idx_financial_depreciation_company_id ON public.financial_depreciation(company_id);
+CREATE INDEX IF NOT EXISTS idx_backup_generators_company_id     ON public.backup_generators(company_id);
+CREATE INDEX IF NOT EXISTS idx_fuel_stockpile_company_id        ON public.fuel_stockpile(company_id);
+CREATE INDEX IF NOT EXISTS idx_storage_racks_company_id         ON public.storage_racks(company_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_kit_items_company_id   ON public.equipment_kit_items(company_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_kits_company_id        ON public.equipment_kits(company_id);
+CREATE INDEX IF NOT EXISTS idx_safety_equipment_company_id      ON public.safety_equipment(company_id);
+CREATE INDEX IF NOT EXISTS idx_ingredient_substitutions_company_id ON public.ingredient_substitutions(company_id);
+CREATE INDEX IF NOT EXISTS idx_allergens_company_id             ON public.allergens(company_id);
+CREATE INDEX IF NOT EXISTS idx_lighting_tests_company_id        ON public.lighting_tests(company_id);
+CREATE INDEX IF NOT EXISTS idx_pat_testing_company_id           ON public.pat_testing(company_id);
+CREATE INDEX IF NOT EXISTS idx_training_materials_company_id    ON public.training_materials(company_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_achievements_company_id ON public.gamification_achievements(company_id);
+CREATE INDEX IF NOT EXISTS idx_gamification_points_company_id   ON public.gamification_points(company_id);

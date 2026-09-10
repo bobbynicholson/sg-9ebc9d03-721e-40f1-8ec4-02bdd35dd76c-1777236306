@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[1214],{46504:(_,n,e)=>{"use strict";e.r(n),e.d(n,{__N_SSP:()=>u,default:()=>r});var u=!0;function r(){return null}},99612:(_,n,e)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/admin/inventory-recipes",function(){return e(46504)}])}},_=>{var n=n=>_(_.s=n);_.O(0,[636,6593,8792],()=>n(99612)),_N_E=_.O()}]);

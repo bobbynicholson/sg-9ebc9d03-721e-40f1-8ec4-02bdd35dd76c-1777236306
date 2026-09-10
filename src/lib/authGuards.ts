@@ -1,0 +1,595 @@
+import { UserRole } from "@/types/app";
+import type { Profile } from "@/services/profileService";
+
+// Role-based route permissions
+export const ROLE_ROUTES: Record<UserRole, string[]> = {
+  [UserRole.SUPER_ADMIN]: [
+    "/super-admin/*",
+    "/admin/*",
+    "/admin/platform/*",
+    "/team-portal/*",
+    "/client-portal/*",
+    "*",
+  ],
+  [UserRole.COMPANY_ADMIN]: [
+    "/admin/*",
+    "/team-portal/*",
+    // ODOC: unified OrderDocument lives at the top level so every
+    // internal role can deep-link to /order/[id] without /admin
+    // or /team-portal in the path. Client magic-link path stays
+    // on /c/order/[token] - different auth model.
+    "/order/*",
+  ],
+  // Owner is treated as company_admin for routing until the
+  // owner-specific dashboard ships. Same access surface for now.
+  [UserRole.OWNER]: [
+    "/admin/*",
+    "/team-portal/*",
+    "/order/*",
+  ],
+  [UserRole.REGION_ADMIN]: [
+    "/admin/dashboard",
+    "/admin/leads",
+    "/admin/leads/*",
+    "/admin/quotes",
+    "/admin/quotes/*",
+    "/admin/orders",
+    "/admin/orders/*",
+    "/admin/calendar",
+    "/admin/contacts",
+    "/admin/clients",
+    "/admin/clients/*",
+    "/admin/inventory",
+    "/admin/inventory-tracking",
+    "/admin/menu",
+    "/admin/equipment",
+    "/admin/tracking",
+    "/admin/route-planning",
+    "/admin/order-assignments",
+    "/admin/dispatch",
+    "/admin/equipment-shortages",
+    "/admin/notifications",
+    "/admin/notification-settings",
+    "/admin/regions",
+    // RVW-A: client reviews are part of the branch lifecycle - region
+    // managers need to see their branch's ratings + chase open follow-ups.
+    "/admin/reviews",
+    "/team-portal/*",
+    "/order/*",
+  ],
+  [UserRole.SALES_ADMIN]: [
+    // Cross-branch sales pool. Reads everything sales-related across
+    // branches; locked out of kitchen / dispatch operations because
+    // those are branch-managed.
+    "/admin/dashboard",
+    "/admin/leads",
+    "/admin/leads/*",
+    "/admin/quotes",
+    "/admin/quotes/*",
+    "/admin/orders",
+    "/admin/contacts",
+    "/admin/clients",
+    "/admin/clients/*",
+    "/admin/calendar",
+    "/admin/notifications",
+    "/admin/regions",
+    "/order/*",
+  ],
+  [UserRole.ADMIN]: [
+    "/admin/dashboard",
+    "/admin/leads",
+    "/admin/leads/*",
+    "/admin/quotes",
+    "/admin/quotes/*",
+    "/admin/orders",
+    // Contacts was missing here even though its ProtectedRoute admits
+    // ADMIN, and /admin/client-search (which ADMIN could reach) now
+    // redirects into Contacts. Route map and page guard now agree.
+    "/admin/contacts",
+    "/admin/calendar",
+    "/admin/inventory",
+    "/admin/inventory-tracking",
+    "/admin/inventory-recipes",
+    "/admin/users",
+    "/admin/drivers",
+    "/admin/driver-management",
+    "/admin/staff-hours",
+    "/admin/tracking",
+    "/admin/route-planning",
+    // Equipment hub (Catalog / Availability / Shortages / Hire-in tabs).
+    // Legacy /admin/equipment-shortages still listed below so the
+    // pre-redirect bookmark check passes; new traffic lands here.
+    "/admin/equipment",
+    "/admin/equipment-shortages",
+    "/admin/equipment/hire-orders",
+    "/admin/regions",
+    // Lifecycle Emails hub. Legacy paths kept for redirect-safety.
+    "/admin/email-templates",
+    "/admin/after-sales-emails",
+    "/admin/email-automation-dashboard",
+    "/admin/email-automation-settings",
+    "/admin/notification-settings",
+    "/admin/notifications",
+    "/admin/client-search",
+    "/admin/white-label",
+    "/admin/integrations",
+    "/admin/settings",
+    "/admin/onboarding",
+    // RVW-A: client reviews surface available to ADMIN role.
+    "/admin/reviews",
+    "/team-portal/*",
+    "/order/*",
+  ],
+  [UserRole.KITCHEN_STAFF]: [
+    "/team-portal/kitchen/*",
+    "/team-portal/general/*",
+    "/order/*",
+  ],
+  [UserRole.KITCHEN_MANAGER]: [
+    "/team-portal/kitchen/*",
+    "/team-portal/cleaning/*",
+    "/team-portal/general/*",
+    "/admin/teams/kitchen",
+    "/admin/kitchen-schedule",
+    "/admin/kitchen-settings",
+    "/order/*",
+  ],
+  [UserRole.SHOPPING_STAFF]: [
+    "/team-portal/shopping/*",
+    "/team-portal/general/*",
+    "/order/*",
+  ],
+  [UserRole.DRIVER]: [
+    "/team-portal/driver/*",
+    "/team-portal/general/*",
+    "/order/*",
+  ],
+  // Waiter has a dedicated service portal. The legacy driver route
+  // remains allowed because combined driver/waiter users still see
+  // service widgets there.
+  [UserRole.WAITER]: [
+    "/team-portal/waiter/*",
+    "/team-portal/driver/*",
+    "/team-portal/general/*",
+    "/order/*",
+  ],
+  [UserRole.CLEANING_STAFF]: [
+    "/team-portal/cleaning/*",
+    "/team-portal/general/*",
+    "/order/*",
+  ],
+  [UserRole.CLEANING_MANAGER]: [
+    "/team-portal/cleaning/*",
+    "/team-portal/general/*",
+    "/admin/teams/cleaning",
+    "/admin/cleaning-schedule",
+    "/order/*",
+  ],
+  [UserRole.CLIENT]: [
+    "/client-portal/*",
+    // The client "View details" (my-orders) opens the unified order doc at
+    // /order/[id]?role=client, which renders a client-appropriate view.
+    // Without this the middleware denied it ("role does not have permission
+    // to view that page"). RLS still scopes which order rows the client can
+    // read. /c/* is already public for token magic-links.
+    "/order/*",
+  ],
+};
+
+// Admin roles that can access admin dashboard
+export const ADMIN_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.OWNER,
+  UserRole.COMPANY_ADMIN,
+  UserRole.REGION_ADMIN,
+  UserRole.SALES_ADMIN,
+  UserRole.ADMIN,
+];
+
+// Roles with full company access (all data, all operations).
+//
+// Owner role scaffold update (May 2026): UserRole.OWNER + the
+// matching Postgres enum value are now in place. The role is
+// treated as a synonym for company_admin for every gate until the
+// owner-specific dashboard ships - same routes, same data access,
+// same finance visibility. The ~66 historical `role === 'owner'`
+// literal checks across the codebase now actually fire (instead of
+// being dead branches), and any new RLS policy / gate added from
+// here on should include 'owner' in its allowlist alongside
+// 'company_admin'.
+export const FULL_COMPANY_ACCESS_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.OWNER,
+  UserRole.COMPANY_ADMIN,
+];
+
+// Roles allowed to see and manage a company's staff PAYROLL - the
+// wage roll-up, per-person pay rates, department settlements and the
+// payout ledger. Deliberately EXCLUDES super_admin: the platform
+// operator runs the SaaS and has no need to see a tenant company's
+// private staff wages, and white-label tenants do not expect the
+// platform to. This is intentionally tighter than
+// FULL_COMPANY_ACCESS_ROLES / canAccessFinance, which keep super_admin
+// for platform-support of company billing, subscription and gateways.
+export const PAYROLL_ROLES: UserRole[] = [
+  UserRole.OWNER,
+  UserRole.COMPANY_ADMIN,
+];
+
+// Cross-branch admin roles - they ignore the region filter for read
+// purposes and can switch context freely between branches via the
+// global region dropdown.
+export const CROSS_BRANCH_ADMIN_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.OWNER,
+  UserRole.COMPANY_ADMIN,
+  UserRole.SALES_ADMIN,
+];
+
+// Roles with company access but restricted finance (no payment gateways, subscription, financial dashboard)
+export const RESTRICTED_COMPANY_ACCESS_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.REGION_ADMIN,
+  UserRole.SALES_ADMIN,
+];
+
+// Finance-only routes (company_admin, owner, super_admin only).
+//
+// NOTE: /admin/invoices is intentionally NOT in this list. Invoices are
+// part of the lifecycle (lead -> quote -> order -> invoice) and a
+// branch manager (region_admin) needs to see THEIR branch's invoices to
+// run their branch. RLS narrows the data per-branch automatically.
+// The truly company-wide financial surfaces - aggregate cashflow,
+// subscription / billing, payment gateway credentials - stay locked
+// to full-company-access roles.
+export const FINANCE_ROUTES = [
+  "/admin/financial-dashboard",
+  "/admin/subscription",
+  "/admin/payment-gateways",
+];
+
+// Role display names
+export const ROLE_NAMES: Record<UserRole, string> = {
+  [UserRole.ADMIN]: "Administrator",
+  [UserRole.SUPER_ADMIN]: "Platform Administrator",
+  [UserRole.OWNER]: "Owner",
+  [UserRole.COMPANY_ADMIN]: "Company Administrator",
+  [UserRole.REGION_ADMIN]: "Branch Manager",
+  [UserRole.SALES_ADMIN]: "Sales Admin",
+  [UserRole.KITCHEN_MANAGER]: "Kitchen Manager",
+  [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
+  [UserRole.SHOPPING_STAFF]: "Shopping Staff",
+  // WTR-A: split driver and waiter naming. The DRIVER role is now
+  // properly named (no longer "Driver/Waiter" overload) since
+  // WAITER is a first-class role.
+  [UserRole.DRIVER]: "Driver",
+  [UserRole.WAITER]: "Waiter / Server",
+  [UserRole.CLEANING_MANAGER]: "Cleaning Manager",
+  [UserRole.CLEANING_STAFF]: "Cleaning Staff",
+  [UserRole.CLIENT]: "Client",
+};
+
+// Default landing pages for each role
+// Every tenant role lands on a slug-prefixed URL when we know the
+// slug. Super-admin is the only role that stays on a bare path
+// (/admin/platform/...). When the slug isn't known yet (e.g. during
+// the first-render of a sign-in flow), fall back to the bare path --
+// the middleware will redirect to the slug-prefixed form on the next
+// request.
+export const ROLE_LANDING_PAGES: Record<UserRole, (companySlug?: string) => string> = {
+  [UserRole.SUPER_ADMIN]: () => "/admin/platform/dashboard",
+  [UserRole.OWNER]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.COMPANY_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.REGION_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.SALES_ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.ADMIN]: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  [UserRole.KITCHEN_MANAGER]: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
+  [UserRole.KITCHEN_STAFF]: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
+  [UserRole.SHOPPING_STAFF]: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  [UserRole.DRIVER]: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  [UserRole.WAITER]: (slug) => slug ? `/${slug}/team-portal/waiter/dashboard` : "/team-portal/waiter/dashboard",
+  [UserRole.CLEANING_MANAGER]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  [UserRole.CLEANING_STAFF]: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  [UserRole.CLIENT]: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
+};
+
+// String-keyed landing-page map covering DB role strings + legacy aliases.
+// Edge-safe (no service imports). Use getLandingPageForRoleString from middleware
+// and any callsite that has a raw role string rather than a UserRole enum value.
+export const ROLE_LANDING_PAGES_BY_STRING: Record<string, (slug?: string) => string> = {
+  super_admin: () => "/admin/platform/dashboard",
+  company_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  region_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  sales_admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  admin: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  owner: (slug) => slug ? `/${slug}/admin/dashboard` : "/admin/dashboard",
+  kitchen_manager: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
+  kitchen_staff: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
+  kitchen: (slug) => slug ? `/${slug}/team-portal/kitchen/today` : "/team-portal/kitchen/today",
+  shopping_staff: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  shopping: (slug) => slug ? `/${slug}/team-portal/shopping/dashboard` : "/team-portal/shopping/dashboard",
+  driver: (slug) => slug ? `/${slug}/team-portal/driver/dashboard` : "/team-portal/driver/dashboard",
+  waiter: (slug) => slug ? `/${slug}/team-portal/waiter/dashboard` : "/team-portal/waiter/dashboard",
+  cleaning_manager: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  cleaning_staff: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  cleaning: (slug) => slug ? `/${slug}/team-portal/cleaning/dashboard` : "/team-portal/cleaning/dashboard",
+  client: (slug) => slug ? `/${slug}/client-portal/dashboard` : "/client-portal/dashboard",
+};
+
+export const DEFAULT_LANDING_PAGE = "/admin/dashboard";
+
+/**
+ * Single source of truth for "where does role X land after auth?".
+ * Handles both UserRole enum values and raw DB role strings (with legacy aliases).
+ * Falls back to DEFAULT_LANDING_PAGE when role is unknown.
+ */
+export function getLandingPageForRoleString(role: string | null | undefined, companySlug?: string): string {
+  if (!role) return DEFAULT_LANDING_PAGE;
+  const fn = ROLE_LANDING_PAGES_BY_STRING[role];
+  return fn ? fn(companySlug) : DEFAULT_LANDING_PAGE;
+}
+
+/**
+ * Check if a user with a specific role can access a route
+ */
+export function canAccessRoute(userRole: UserRole, pathname: string): boolean {
+  // Check if this is a finance route
+  const isFinanceRoute = FINANCE_ROUTES.some(route => pathname === route || pathname.startsWith(route + "/"));
+  
+  // Block admin role from finance routes
+  if (isFinanceRoute && userRole === UserRole.ADMIN) {
+    return false;
+  }
+  
+  const allowedRoutes = ROLE_ROUTES[userRole];
+  
+  if (!allowedRoutes) {
+    return false;
+  }
+
+  // Check if user has wildcard access
+  if (allowedRoutes.includes("*")) {
+    return true;
+  }
+
+  // Check if pathname matches any allowed route pattern
+  return allowedRoutes.some((route) => {
+    if (route.endsWith("/*")) {
+      const baseRoute = route.slice(0, -2);
+      return pathname.startsWith(baseRoute);
+    }
+    return pathname === route || pathname.startsWith(route + "/");
+  });
+}
+
+/**
+ * Check if user is an admin (super_admin, company_admin, admin, or owner)
+ */
+export function isAdmin(userRole: UserRole): boolean {
+  return ADMIN_ROLES.includes(userRole);
+}
+
+/**
+ * Check if user can access admin dashboard
+ */
+export function canAccessAdminDashboard(userRole: UserRole): boolean {
+  return isAdmin(userRole);
+}
+
+/**
+ * Check if user can access financial features
+ */
+export function canAccessFinance(userRole: UserRole): boolean {
+  return FULL_COMPANY_ACCESS_ROLES.includes(userRole);
+}
+
+/**
+ * Can this role see and manage a company's staff PAYROLL surfaces -
+ * /admin/wages, /admin/staff-hours, /admin/kitchen-settlement,
+ * /admin/driver-settlement and the per-person pay rates on
+ * /admin/staff.
+ *
+ * Owner + company_admin only. Unlike canAccessFinance this EXCLUDES
+ * super_admin by design: the platform operator has no need to see a
+ * tenant's private staff wages. Enforced at the page via
+ * ProtectedRoute denyRoles={[SUPER_ADMIN]} (which beats god mode) and
+ * in the admin nav so the payroll links never render for them.
+ */
+export function canManagePayroll(userRole: UserRole | null | undefined): boolean {
+  if (!userRole) return false;
+  return PAYROLL_ROLES.includes(userRole);
+}
+
+/**
+ * Can this role see other staff members' personal pay data
+ * (hourly_rate, earnings, payslips)?
+ *
+ * Pay is per-person and private. Even on shared team pages like
+ * /team-portal/kitchen/duty where everyone sees the live floor +
+ * handoffs + ranking, the only person whose rate / earnings / payslips
+ * should ever render is the logged-in user themselves. The catering
+ * company office (company_admin, owner, super_admin) has dedicated
+ * surfaces for cross-staff pay: /admin/wages, /admin/staff-hours,
+ * /admin/kitchen-settlement, /admin/driver-settlement. Those pages
+ * are where the company sets and reviews rates, NOT the team-portal
+ * pages a kitchen tablet might be parked on all day.
+ *
+ * Use this gate when deciding whether to:
+ *   - request `hourly_rate` for any profile other than `auth.uid()`
+ *   - render an earnings figure derived from someone else's shift
+ *   - show team-wide payroll-burn totals
+ */
+export function canSeeOtherStaffPay(userRole: UserRole | null | undefined): boolean {
+  if (!userRole) return false;
+  return FULL_COMPANY_ACCESS_ROLES.includes(userRole);
+}
+
+/**
+ * Can this role see an ORDER's customer billing - total, amount paid,
+ * outstanding balance, the payment list, invoice link - and the order
+ * comms log?
+ *
+ * This is accounts-receivable against the CUSTOMER (what the client
+ * paid and still owes on their event), NOT private staff payroll -
+ * that's canSeeOtherStaffPay, a separate, tighter gate. Every
+ * admin-tier role runs orders day to day and needs to know where the
+ * money stands, so this mirrors ADMIN_ROLES (super_admin, owner,
+ * company_admin, region_admin, sales_admin, admin). Operational staff
+ * (kitchen / driver / shopping / cleaning / waiter) and the magic-link
+ * client view are excluded - the client sees their own billing through
+ * the client portal instead.
+ *
+ * Before this gate existed the order document reused canSeeOtherStaffPay
+ * (a payroll-privacy check), which wrongly hid paid/outstanding from
+ * branch admins who legitimately run those orders.
+ */
+export function canSeeOrderFinance(userRole: UserRole | null | undefined): boolean {
+  if (!userRole) return false;
+  return ADMIN_ROLES.includes(userRole);
+}
+
+/**
+ * Check if user has full company access (including finance)
+ */
+export function hasFullCompanyAccess(userRole: UserRole): boolean {
+  return FULL_COMPANY_ACCESS_ROLES.includes(userRole);
+}
+
+/**
+ * Check if user has restricted company access (no finance)
+ */
+export function hasRestrictedCompanyAccess(userRole: UserRole): boolean {
+  return RESTRICTED_COMPANY_ACCESS_ROLES.includes(userRole);
+}
+
+/**
+ * Get the default landing page for a user role
+ */
+export function getRoleLandingPage(userRole: UserRole, companySlug?: string): string {
+  const landingPageFn = ROLE_LANDING_PAGES[userRole];
+  // Keep navigation fail-safe if a newly introduced/legacy role reaches a
+  // client bundle before its typed landing-page entry is added. Known roles
+  // still use the canonical map above; unknown strings fall through to the
+  // string-keyed resolver instead of throwing during a role switch.
+  return landingPageFn
+    ? landingPageFn(companySlug)
+    : getLandingPageForRoleString(String(userRole), companySlug);
+}
+
+/**
+ * Get role display name
+ */
+export function getRoleName(userRole: UserRole): string {
+  return ROLE_NAMES[userRole] || String(userRole);
+}
+
+/**
+ * Check if user has required role(s)
+ */
+export function hasRole(profile: Profile | null, ...requiredRoles: UserRole[]): boolean {
+  if (!profile || !profile.role) {
+    return false;
+  }
+
+  return requiredRoles.includes(profile.role as UserRole);
+}
+
+/**
+ * Get unauthorized message based on role
+ */
+export function getUnauthorizedMessage(userRole: UserRole, attemptedRoute: string): string {
+  return `Access Denied: Your ${getRoleName(userRole)} account does not have permission to access ${attemptedRoute}. Please contact your administrator if you believe this is an error.`;
+}
+
+/**
+ * Check if role is a CateringMS platform admin role
+ */
+export function isPlatformAdmin(userRole: UserRole): boolean {
+  return userRole === UserRole.SUPER_ADMIN;
+}
+
+/**
+ * Check if role is a company admin role (including admin with restricted access)
+ */
+export function isCompanyAdmin(userRole: UserRole): boolean {
+  return userRole === UserRole.COMPANY_ADMIN ||
+         userRole === UserRole.ADMIN ||
+         userRole === UserRole.SUPER_ADMIN;
+}
+
+/**
+ * Cross-branch admin check. True for roles that see / act across
+ * every branch (super_admin, company_admin, sales_admin). False for
+ * region-scoped admins - they get the region filter forced on.
+ */
+export function isCrossBranchAdmin(userRole: UserRole): boolean {
+  return CROSS_BRANCH_ADMIN_ROLES.includes(userRole);
+}
+
+/**
+ * True for any admin role that can run a branch (region_admin or
+ * higher). Used by AdminNav to gate branch-specific surfaces like
+ * /admin/regions and the branch P&L tab.
+ */
+export function canManageBranch(userRole: UserRole): boolean {
+  return userRole === UserRole.REGION_ADMIN || isCompanyAdmin(userRole);
+}
+
+/**
+ * Check if role is a staff role (non-admin, non-client)
+ */
+export function isStaffRole(userRole: UserRole): boolean {
+  const staffRoles: UserRole[] = [
+    UserRole.KITCHEN_MANAGER,
+    UserRole.KITCHEN_STAFF,
+    UserRole.SHOPPING_STAFF,
+    UserRole.DRIVER,
+    UserRole.WAITER,
+    UserRole.CLEANING_MANAGER,
+    UserRole.CLEANING_STAFF,
+  ];
+  return staffRoles.includes(userRole);
+}
+
+export function isKitchenTeamRole(userRole: UserRole | null | undefined): boolean {
+  return userRole === UserRole.KITCHEN_STAFF || userRole === UserRole.KITCHEN_MANAGER;
+}
+
+export function isCleaningTeamRole(userRole: UserRole | null | undefined): boolean {
+  return userRole === UserRole.CLEANING_STAFF || userRole === UserRole.CLEANING_MANAGER;
+}
+
+export function isTeamManagerRole(userRole: UserRole | null | undefined): boolean {
+  return userRole === UserRole.KITCHEN_MANAGER || userRole === UserRole.CLEANING_MANAGER;
+}
+
+export function canManageKitchenTeam(roles: UserRole[]): boolean {
+  return roles.includes(UserRole.KITCHEN_MANAGER) || roles.some((r) => ADMIN_ROLES.includes(r));
+}
+
+export function canManageCleaningTeam(roles: UserRole[]): boolean {
+  return roles.includes(UserRole.CLEANING_MANAGER) ||
+    roles.includes(UserRole.KITCHEN_MANAGER) ||
+    roles.some((r) => ADMIN_ROLES.includes(r));
+}
+
+/**
+ * WTR-A: field-staff role helpers for the combined driver+waiter
+ * portal at /team-portal/driver/dashboard. A user can hold both
+ * roles via user_departments; the dashboard fans out widgets per
+ * role.
+ *
+ * `roles` arg comes from the auth context's userRoles array
+ * (which collapses profile.role + user_departments.department).
+ */
+export function canAccessDriverWidgets(roles: UserRole[]): boolean {
+  return roles.includes(UserRole.DRIVER) ||
+    ADMIN_ROLES.includes(roles[0]) ||
+    roles.some((r) => ADMIN_ROLES.includes(r));
+}
+
+export function canAccessWaiterWidgets(roles: UserRole[]): boolean {
+  return roles.includes(UserRole.WAITER) ||
+    ADMIN_ROLES.includes(roles[0]) ||
+    roles.some((r) => ADMIN_ROLES.includes(r));
+}

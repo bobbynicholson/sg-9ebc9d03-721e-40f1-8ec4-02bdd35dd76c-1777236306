@@ -1,0 +1,422 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
+import { updateShoppingListWithReceiptStatus } from "@/lib/shopping/receiptStatus";
+import { notificationService } from "./notificationService";
+import { billingEmailService } from "./billingEmailService";
+import { recordShoppingCostVariance } from "./shoppingCompletionService";
+
+export type ShoppingList = Tables<"shopping_lists">;
+export type ShoppingListItem = Tables<"shopping_list_items">;
+export type PurchaseHistory = Tables<"purchase_history">;
+/**
+ * Supplier-pricing rows now live on the inventory_item_suppliers
+ * join table. The historical `supplier_prices` table was a stub
+ * that never carried real data and has been retired.
+ */
+export type SupplierPrice = Tables<"inventory_item_suppliers"> & {
+  /** Joined from inventory_items.item_name to keep the legacy
+   *  callsites (which expected an item_name column) working. */
+  item_name?: string;
+};
+
+export const shoppingService = {
+  async getShoppingLists(companyId: string): Promise<ShoppingList[]> {
+    const { data, error } = await supabase
+      .from("shopping_lists")
+      .select("*")
+      .eq("company_id", companyId)
+      .order("list_date", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching shopping lists:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  async getShoppingList(listId: string, companyId?: string | null): Promise<ShoppingList | null> {
+    let query = supabase
+      .from("shopping_lists")
+      .select("*")
+      .eq("id", listId);
+    if (companyId) query = query.eq("company_id", companyId);
+    const { data, error } = await query.single();
+
+    if (error) {
+      console.error("Error fetching shopping list:", error);
+      return null;
+    }
+
+    return data;
+  },
+
+  async createShoppingList(list: ShoppingList): Promise<ShoppingList | null> {
+    const { data, error } = await supabase
+      .from("shopping_lists")
+      .insert([list])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating shopping list:", error);
+      throw error;
+    }
+
+    if (data) {
+       await notificationService.createNotification({
+        company_id: data.company_id,
+        user_id: data.user_id,
+        recipient_id: data.user_id, // Admin
+        title: "New Shopping List Created",
+        message: `A new shopping list for ${new Date(data.list_date).toLocaleDateString()} has been created.`,
+        notification_type: "info",
+        priority: "low",
+        link: `/admin/shopping?listId=${data.id}`,
+        related_entity_type: "shopping_list",
+        related_entity_id: data.id,
+      });
+    }
+
+    return data;
+  },
+
+  async assignShoppingList(listId: string, shopperId: string, shopperEmail?: string, shopperPhone?: string): Promise<ShoppingList | null> {
+    const { data, error } = await supabase
+      .from("shopping_lists")
+      // shopping_lists has no updated_at column - writing it 400s the
+      // whole update (same trap completeShopping already documents).
+      .update({
+        shopper_id: shopperId,
+      } as any)
+      .eq("id", listId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error assigning shopping list:", error);
+      throw error;
+    }
+
+    if (data && data.shopper_id) {
+        const { data: shopperProfile, error: shopperProfileErr } = await supabase
+            .from("profiles")
+            .select("full_name, email")
+            .eq("id", data.shopper_id)
+            .single();
+        if (shopperProfileErr) console.error("[shoppingService] shopper profile lookup failed:", shopperProfileErr);
+
+        if (shopperProfile?.email) {
+            await billingEmailService.sendStaffInvitationEmail(
+                shopperProfile.email,
+                "Admin", // placeholder
+                "Your Company", // placeholder
+                `${window.location.origin}/shopping?list_id=${listId}`,
+                data.company_id
+            );
+        }
+
+        await notificationService.createNotification({
+            company_id: data.company_id,
+            user_id: data.user_id,
+            recipient_id: data.shopper_id,
+            title: "You've been assigned a shopping list",
+            message: `You have been assigned the shopping list for ${new Date(data.list_date).toLocaleDateString()}`,
+            notification_type: "info",
+            priority: "medium",
+            link: `/team-portal/shopping/orders?listId=${listId}`,
+            related_entity_type: "shopping_list",
+            related_entity_id: listId,
+        });
+    }
+
+    return data;
+  },
+
+  async startShopping(listId: string): Promise<ShoppingList | null> {
+    const { data, error } = await supabase
+      .from("shopping_lists")
+      // shopping_lists has no started_at / updated_at columns - either
+      // 400s the whole update. Status is the only real column here.
+      .update({
+        status: "in_progress",
+      } as any)
+      .eq("id", listId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error starting shopping:", error);
+      throw error;
+    }
+
+    if (data) {
+       // Admin-facing notification - deep-link to the admin shopping
+       // page filtered to this list.
+       await notificationService.createNotification({
+        company_id: data.company_id,
+        user_id: data.user_id,
+        recipient_id: data.user_id, // Admin
+        title: "Shopping Has Started",
+        message: `Shopping for list ${new Date(data.list_date).toLocaleDateString()} has begun.`,
+        notification_type: "shopping_started",
+        priority: "low",
+        link: `/admin/shopping?listId=${listId}`,
+        related_entity_type: "shopping_list",
+        related_entity_id: listId,
+      });
+    }
+
+    return data;
+  },
+
+  async completeShopping(
+    listId: string,
+    totalCost?: number,
+    options?: { receiptUrl?: string | null; noReceiptReason?: string | null },
+  ): Promise<ShoppingList | null> {
+    // shopping_lists has NO completed_at / total_cost / updated_at columns -
+    // writing them made the UPDATE fail with column-not-found and (since the
+    // error is re-thrown below) crash the caller. Real columns: `status` and
+    // `actual_total`. The canonical useActiveShoppingList hook already learnt
+    // this the hard way; mirror it here so this path is safe if ever wired up.
+    const { data: existing, error: readErr } = await supabase
+      .from("shopping_lists")
+      .select("id, company_id, user_id, list_date, title, notes, receipt_url, estimated_total")
+      .eq("id", listId)
+      .single();
+    if (readErr) {
+      console.error("Error reading shopping list before completion:", readErr);
+      throw readErr;
+    }
+
+    const receiptUrl = options?.receiptUrl ?? existing?.receipt_url ?? null;
+    const noReceiptReason = (options?.noReceiptReason || "").trim();
+    if (!receiptUrl && !noReceiptReason) {
+      throw new Error("Attach a receipt or enter a no-receipt reason before closing the shopping list.");
+    }
+
+    const patch: Record<string, unknown> = {
+      status: "completed",
+      actual_total: totalCost ?? null,
+      no_receipt_reason: receiptUrl ? null : noReceiptReason,
+    };
+    if (options?.receiptUrl) patch.receipt_url = options.receiptUrl;
+
+    const { error } = await updateShoppingListWithReceiptStatus(supabase as any, listId, patch, {
+      existingNotes: (existing as any)?.notes,
+      noReceiptReason,
+    });
+
+    if (error) {
+      console.error("Error completing shopping:", error);
+      throw error;
+    }
+
+    const { data, error: reloadErr } = await supabase
+      .from("shopping_lists")
+      .select()
+      .eq("id", listId)
+      .single();
+    if (reloadErr) {
+      console.error("Error reloading completed shopping list:", reloadErr);
+      throw reloadErr;
+    }
+
+    if (data) {
+        await recordShoppingCostVariance({
+          sb: supabase as any,
+          companyId: data.company_id,
+          userId: data.user_id,
+          listId,
+          listTitle: (data as any).title || "Shopping list",
+          estimatedTotal: (existing as any)?.estimated_total,
+          actualTotal: totalCost,
+        });
+        // Admin-facing completion ping - deep-link to the admin
+        // shopping page so they can verify receipts + close out the
+        // list.
+        await notificationService.createNotification({
+            company_id: data.company_id,
+            user_id: data.user_id,
+            recipient_id: data.user_id, // Admin
+            title: "Shopping Completed",
+            message: `Shopping for list ${new Date(data.list_date).toLocaleDateString()} is complete.`,
+            notification_type: "shopping_completed",
+            priority: "medium",
+            link: `/admin/shopping?listId=${listId}`,
+            related_entity_type: "shopping_list",
+            related_entity_id: listId,
+        });
+    }
+
+    return data;
+  },
+
+  async getShoppingListItems(listId: string, companyId?: string | null): Promise<ShoppingListItem[]> {
+    if (companyId) {
+      const list = await this.getShoppingList(listId, companyId);
+      if (!list) return [];
+    }
+
+    const { data, error } = await supabase
+      .from("shopping_list_items")
+      .select("*")
+      .eq("shopping_list_id", listId)
+      // shopping_list_items column is `name`, not `item_name` - ordering
+      // by a missing column 400s and returns [].
+      .order("name");
+
+    if (error) {
+      console.error("Error fetching shopping list items:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  async addShoppingListItem(item: ShoppingListItem): Promise<ShoppingListItem | null> {
+    const { data, error } = await supabase
+      .from("shopping_list_items")
+      .insert([item])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding shopping list item:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  async updateShoppingListItem(itemId: string, updates: Partial<ShoppingListItem>): Promise<ShoppingListItem | null> {
+    const { data, error } = await supabase
+      .from("shopping_list_items")
+      .update(updates)
+      .eq("id", itemId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating shopping list item:", error);
+      throw error;
+    }
+
+    // NOTIFICATION: Shopping item purchased → Real-time update to admin
+    if (data && updates.purchased === true) {
+      await this.sendItemPurchasedNotification(data);
+    }
+
+    return data;
+  },
+
+  async uploadShoppingReceipt(listId: string, receiptUrl: string, totalCost: number): Promise<ShoppingList | null> {
+    const { data, error } = await supabase
+      .from("shopping_lists")
+      // shopping_lists has no total_cost / updated_at columns; the real
+      // spend column is actual_total. Writing the phantom columns 400s.
+      .update({
+        receipt_url: receiptUrl,
+        actual_total: totalCost,
+      } as any)
+      .eq("id", listId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error uploading receipt:", error);
+      throw error;
+    }
+
+    // NOTIFICATION: Shopping receipt uploaded → Notification to admin for approval
+    if (data) {
+      await this.sendReceiptUploadedNotification(data);
+    }
+
+    return data;
+  },
+
+  async checkBudgetExceeded(listId: string, estimatedBudget: number, actualCost: number): Promise<void> {
+    if (actualCost > estimatedBudget) {
+      // NOTIFICATION: Shopping budget exceeded → Alert to admin
+      await this.sendBudgetExceededNotification(listId, estimatedBudget, actualCost);
+    }
+  },
+
+  async getPurchaseHistory(companyId: string): Promise<PurchaseHistory[]> {
+    const { data, error } = await supabase
+      .from("purchase_history")
+      .select("*")
+      .eq("company_id", companyId)
+      // purchase_history has no purchase_date column; order by created_at.
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching purchase history:", error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  async addPurchaseHistory(purchase: PurchaseHistory): Promise<PurchaseHistory | null> {
+    const { data, error } = await supabase
+      .from("purchase_history")
+      .insert([purchase])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding purchase history:", error);
+      throw error;
+    }
+
+    return data;
+  },
+
+  async getSupplierPrices(companyId: string, itemName?: string): Promise<SupplierPrice[]> {
+    let query = (supabase as any)
+      .from("inventory_item_suppliers")
+      .select("*, inventory_items!inner(item_name, company_id)")
+      .eq("company_id", companyId);
+
+    if (itemName) {
+      query = query.ilike("inventory_items.item_name", `%${itemName}%`);
+    }
+
+    const { data, error } = await query
+      .order("unit_price");
+
+    if (error) {
+      console.error("Error fetching supplier prices:", error);
+      return [];
+    }
+
+    return (data || []).map((row: any) => ({
+      ...row,
+      item_name: row.inventory_items?.item_name,
+    })) as SupplierPrice[];
+  },
+
+  async getBestSupplierPrice(companyId: string, itemName: string): Promise<SupplierPrice | null> {
+    const { data, error } = await (supabase as any)
+      .from("inventory_item_suppliers")
+      .select("*, inventory_items!inner(item_name, company_id)")
+      .eq("company_id", companyId)
+      .ilike("inventory_items.item_name", `%${itemName}%`)
+      .not("unit_price", "is", null)
+      .order("unit_price")
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching best supplier price:", error);
+      return null;
+    }
+
+    if (!data) return null;
+    return { ...data, item_name: (data as any).inventory_items?.item_name } as SupplierPrice;
+  },
+};

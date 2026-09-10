@@ -1,0 +1,1994 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * Kitchen prep service: the math layer behind the kitchen flywheel.
+ *
+ * Three responsibilities, all kept dumb-simple from the user's side:
+ *   1. Scale a recipe to guest count - the math that turns "base 10
+ *      portions, 1.5kg lamb" into "60 guests = 9kg lamb".
+ *   2. Backwards-plan prep tasks at order confirm - "lamb starts at
+ *      08:00 because pickup is 12:00 and lamb cooks for 4 hours, with
+ *      30 minutes of safety buffer."
+ *   3. Aggregate demand across the day so the kitchen sees "you need
+ *      14kg lettuce today across 3 orders" instead of three separate
+ *      "ok / short" checks that miss the combined shortfall.
+ *
+ * Recipe lookup follows DB first, then the hardcoded RECIPE_MAPPINGS
+ * fallback in inventoryDeductionService - this lets self-service menu
+ * editing work today without breaking tenants on the legacy map.
+ */
+import { supabase } from "@/integrations/supabase/client";
+import { getRecipe as getLegacyRecipe } from "./inventoryDeductionService";
+import { toLocalISO } from "@/lib/localDate";
+import { beginRoleClock, promptForRoleHandoffNote, saveRoleHandoffNote } from "@/services/roleClockService";
+
+// ── Settings ────────────────────────────────────────────────────────────────
+
+export interface KitchenSettings {
+  prepSafetyBufferMin: number;     // finish prep this many minutes before pickup
+  defaultPrepMinPerDish: number;   // when a menu item has no prep_time_minutes
+  defaultCookMinPerDish: number;   // when a menu item has no cook_time_minutes
+  autoGeneratePrepTasks: boolean;  // can be disabled per tenant
+  overtimeAfterHours: number;      // Phase 4: warn after this many shift hours
+  maxHotHoldMin: number;           // Phase 4: warn when ready orders sit longer
+  mealBreakAfterHours: number;     // Phase 4: prompt a break after this point
+}
+
+const DEFAULT_KITCHEN_SETTINGS: KitchenSettings = {
+  prepSafetyBufferMin: 30,
+  defaultPrepMinPerDish: 15,
+  defaultCookMinPerDish: 30,
+  autoGeneratePrepTasks: true,
+  overtimeAfterHours: 9,
+  maxHotHoldMin: 90,
+  mealBreakAfterHours: 5,
+};
+
+// ── Types ───────────────────────────────────────────────────────────────────
+
+export interface ScaledIngredient {
+  name: string;
+  base_quantity: number;
+  base_unit: string;
+  scaled_quantity: number;
+  scaled_unit: string;
+  inventory_item_id?: string | null;
+}
+
+export interface ScaledRecipe {
+  menu_item_name: string;
+  base_servings: number;
+  scaled_servings: number;
+  multiplier: number;
+  prep_time_min: number;
+  cook_time_min: number;
+  ingredients: ScaledIngredient[];
+}
+
+export interface PrepTask {
+  id?: string;
+  company_id?: string;
+  region_id?: string | null;
+  order_id: string;
+  menu_item_name: string;
+  task_type: "prep" | "cook" | "cool" | "pack" | "plate";
+  start_at: string;            // ISO
+  duration_min: number;
+  status: "pending" | "in_progress" | "done" | "skipped";
+  assigned_chef_id?: string | null;
+  notes?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  completed_by?: string | null;
+}
+
+export interface IngredientDemand {
+  name: string;
+  unit: string;
+  total_quantity: number;
+  on_hand: number;
+  shortfall: number;            // positive = need to buy
+  inventory_item_id?: string | null;
+  used_by: Array<{ order_id: string; client_name?: string; event_date: string; qty: number }>;
+}
+
+export interface KitchenStation {
+  id: string;
+  company_id: string;
+  name: string;
+  station_type: "prep" | "cook" | "cold" | "pastry" | "pack" | "hot" | "general";
+  display_order: number;
+  capacity_minutes_per_shift: number | null;
+  is_active: boolean;
+  notes: string | null;
+}
+
+// ── Recipe lookup core ──────────────────────────────────────────────────────
+
+/**
+ * Kitchen sweep 2026-07-02: module-scope core of lookupRecipe that takes
+ * pre-fetched settings. lookupRecipe used to call getKitchenSettings on
+ * EVERY invocation, so planTasksForOrder re-fetched the companies row once
+ * per menu item (an order with 10 lines cost 11 identical settings reads).
+ * The public lookupRecipe signature is unchanged; the planner calls this
+ * directly with the settings it already holds.
+ */
+async function lookupRecipeWithSettings(
+  companyId: string,
+  menuItemName: string,
+  client: typeof supabase | undefined,
+  settings: KitchenSettings,
+): Promise<{
+  base_servings: number;
+  prep_time_min: number;
+  cook_time_min: number;
+  ingredients: Array<{ name: string; quantity: number; unit: string; inventory_item_id?: string | null }>;
+} | null> {
+  const sb: any = client || supabase;
+
+  // Try DB: menu_items by name -> recipes -> recipe_ingredients.
+  // .limit(1) before maybeSingle: duplicate item names (tenants clone
+  // items) made maybeSingle error out, which was logged then silently
+  // fell through to the legacy fallback / default times.
+  const { data: menuItem, error: menuItemErr } = await sb
+    .from("menu_items")
+    .select("id, item_name, base_servings, prep_time_minutes, cook_time_minutes")
+    .eq("company_id", companyId)
+    .ilike("item_name", menuItemName.trim())
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (menuItemErr) {
+    console.error("[kitchenPrepService] menu_items fetch failed:", menuItemErr);
+  }
+
+  if (menuItem?.id) {
+    const { data: recipe, error: recipeErr } = await sb
+      .from("recipes")
+      .select("id, base_servings, prep_time_minutes, cook_time_minutes")
+      .eq("menu_item_id", menuItem.id)
+      .limit(1)
+      .maybeSingle();
+    if (recipeErr) {
+      console.error("[kitchenPrepService] recipes fetch failed:", recipeErr);
+    }
+
+    if (recipe?.id) {
+      const { data: ings, error: ingsErr } = await sb
+        .from("recipe_ingredients")
+        .select("ingredient_name, quantity, unit, inventory_item_id")
+        .eq("recipe_id", recipe.id);
+      if (ingsErr) {
+        console.error("[kitchenPrepService] recipe_ingredients fetch failed:", ingsErr);
+      }
+
+      if (ings && ings.length > 0) {
+        return {
+          base_servings: Number(recipe.base_servings ?? menuItem.base_servings ?? 1),
+          prep_time_min: Number(recipe.prep_time_minutes ?? menuItem.prep_time_minutes ?? settings.defaultPrepMinPerDish),
+          cook_time_min: Number(recipe.cook_time_minutes ?? menuItem.cook_time_minutes ?? settings.defaultCookMinPerDish),
+          ingredients: ings.map((r: any) => ({
+            name: r.ingredient_name,
+            quantity: Number(r.quantity || 0),
+            unit: r.unit || "unit",
+            inventory_item_id: r.inventory_item_id ?? null,
+          })),
+        };
+      }
+    }
+  }
+
+  // Fallback: hardcoded RECIPE_MAPPINGS in inventoryDeductionService.
+  // The legacy shape stores quantity_per_serving (not absolute) and has
+  // no prep / cook time, so we wrap and treat base_servings as 1 - the
+  // legacy multiplier is already "per guest", so scaledServings is the
+  // direct multiplier.
+  const fallback = getLegacyRecipe(menuItemName);
+  if (fallback) {
+    return {
+      base_servings: 1,
+      prep_time_min: settings.defaultPrepMinPerDish,
+      cook_time_min: settings.defaultCookMinPerDish,
+      ingredients: (fallback.ingredients || []).map((i: any) => ({
+        name: i.inventory_item_name || i.name,
+        quantity: Number(i.quantity_per_serving ?? i.quantity ?? 0),
+        unit: i.unit || "unit",
+      })),
+    };
+  }
+
+  return null;
+}
+
+// ── Settings ────────────────────────────────────────────────────────────────
+
+export const kitchenPrepService = {
+  // Wave 70.13 - accept an optional client so server-side callers
+  // (regen API, cron, post-creation cascade) can inject the
+  // service-role client. Without this, the global anon supabase
+  // import has no session on the server and RLS hides every read.
+  async getKitchenSettings(companyId: string, client?: typeof supabase): Promise<KitchenSettings> {
+    const sb: any = client || supabase;
+    const { data, error: error2 } = await sb
+      .from("companies")
+      .select("kitchen_settings")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (error2) {
+      console.error("[kitchenPrepService] companies fetch failed:", error2);
+    }
+    const raw = (data as any)?.kitchen_settings || {};
+    // Ops audit 2026-06-15: the three Phase-4 fields below were never
+    // mapped from raw, so they came back undefined. computeShiftEarnings
+    // (overtime / meal-break warnings) and the hot-hold check compare
+    // against them, and `workedH >= undefined` is always false - the
+    // warnings silently never fired and tenant overrides were ignored.
+    return {
+      prepSafetyBufferMin:    Number(raw.prep_safety_buffer_min     ?? DEFAULT_KITCHEN_SETTINGS.prepSafetyBufferMin),
+      defaultPrepMinPerDish:  Number(raw.default_prep_min_per_dish  ?? DEFAULT_KITCHEN_SETTINGS.defaultPrepMinPerDish),
+      defaultCookMinPerDish:  Number(raw.default_cook_min_per_dish  ?? DEFAULT_KITCHEN_SETTINGS.defaultCookMinPerDish),
+      autoGeneratePrepTasks:  Boolean(raw.auto_generate_prep_tasks  ?? DEFAULT_KITCHEN_SETTINGS.autoGeneratePrepTasks),
+      overtimeAfterHours:     Number(raw.overtime_after_hours       ?? DEFAULT_KITCHEN_SETTINGS.overtimeAfterHours),
+      maxHotHoldMin:          Number(raw.max_hot_hold_min           ?? DEFAULT_KITCHEN_SETTINGS.maxHotHoldMin),
+      mealBreakAfterHours:    Number(raw.meal_break_after_hours     ?? DEFAULT_KITCHEN_SETTINGS.mealBreakAfterHours),
+      // Kitchen sweep 2026-07-02: planTasksForOrder reads
+      // (settings as any).prepParallelism for the batch-scaling cap, but
+      // this key was never mapped from the jsonb - the tenant override
+      // (kitchen_settings.prep_parallelism) was silently ignored and the
+      // cap was always the hardcoded 3. Not on the public interface yet;
+      // carried as an extra key under the cast.
+      prepParallelism:        Number(raw.prep_parallelism           ?? 3),
+    } as KitchenSettings;
+  },
+
+  async updateKitchenSettings(companyId: string, s: KitchenSettings): Promise<boolean> {
+    // Kitchen sweep 2026-07-02: merge over the existing jsonb instead of
+    // replacing it wholesale. The old write rebuilt the object from the
+    // seven known keys, so any key NOT on the KitchenSettings interface
+    // (e.g. prep_parallelism, set directly in SQL) was erased on every
+    // settings save. Read-merge-write keeps unknown keys intact.
+    const { data: current, error: readErr } = await supabase
+      .from("companies")
+      .select("kitchen_settings")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    const existing = ((current as any)?.kitchen_settings && typeof (current as any).kitchen_settings === "object")
+      ? (current as any).kitchen_settings
+      : {};
+    const payload = {
+      ...existing,
+      prep_safety_buffer_min: s.prepSafetyBufferMin,
+      default_prep_min_per_dish: s.defaultPrepMinPerDish,
+      default_cook_min_per_dish: s.defaultCookMinPerDish,
+      auto_generate_prep_tasks: s.autoGeneratePrepTasks,
+      // Persist the Phase-4 thresholds too (were silently dropped).
+      overtime_after_hours: s.overtimeAfterHours,
+      max_hot_hold_min: s.maxHotHoldMin,
+      meal_break_after_hours: s.mealBreakAfterHours,
+    };
+    const { error } = await supabase
+      .from("companies")
+      .update({ kitchen_settings: payload })
+      .eq("id", companyId);
+    if (error) throw error;
+    return true;
+  },
+
+  // ── Recipe lookup (DB first, hardcoded fallback) ──────────────────────────
+
+  /**
+   * Look up a menu item's recipe. Tries the menu_items + recipes +
+   * recipe_ingredients tables first (the modern, tenant-editable path).
+   * Falls back to the hardcoded RECIPE_MAPPINGS inside
+   * inventoryDeductionService for tenants whose data hasn't been migrated.
+   * Returns null when neither path has the recipe.
+   */
+  async lookupRecipe(companyId: string, menuItemName: string, client?: typeof supabase): Promise<{
+    base_servings: number;
+    prep_time_min: number;
+    cook_time_min: number;
+    ingredients: Array<{ name: string; quantity: number; unit: string; inventory_item_id?: string | null }>;
+  } | null> {
+    // Wave 70.13 - thread the optional client through so server-
+    // side regen API + cron callers can read without RLS blocking.
+    // Kitchen sweep 2026-07-02: body extracted to module-scope
+    // lookupRecipeWithSettings so planTasksForOrder can pass its
+    // already-fetched settings instead of re-reading companies per item.
+    const settings = await this.getKitchenSettings(companyId, client);
+    return lookupRecipeWithSettings(companyId, menuItemName, client, settings);
+  },
+
+  // ── Scaling math ─────────────────────────────────────────────────────────
+
+  /**
+   * Scale a recipe to a guest count. Pure maths - no DB writes. The
+   * multiplier is `guestCount / base_servings`. Each ingredient quantity
+   * is multiplied by it.
+   */
+  scaleRecipe(menuItemName: string, recipe: {
+    base_servings: number;
+    prep_time_min: number;
+    cook_time_min: number;
+    ingredients: Array<{ name: string; quantity: number; unit: string; inventory_item_id?: string | null }>;
+  }, scaledServings: number): ScaledRecipe {
+    const base = Math.max(1, recipe.base_servings);
+    const multiplier = scaledServings / base;
+    return {
+      menu_item_name: menuItemName,
+      base_servings: base,
+      scaled_servings: scaledServings,
+      multiplier,
+      prep_time_min: recipe.prep_time_min,
+      cook_time_min: recipe.cook_time_min,
+      ingredients: recipe.ingredients.map(i => ({
+        name: i.name,
+        base_quantity: i.quantity,
+        base_unit: i.unit,
+        scaled_quantity: Math.round(i.quantity * multiplier * 100) / 100,
+        scaled_unit: i.unit,
+        inventory_item_id: i.inventory_item_id ?? null,
+      })),
+    };
+  },
+
+  // ── Backwards-planned task generation ─────────────────────────────────────
+
+  /**
+   * Build the list of prep tasks needed for an order, scheduled backwards
+   * from pickup time. One row per menu item per task_type (prep + cook).
+   *
+   *   pickup_at = max(pickup_time, event_time)
+   *   safety = settings.prep_safety_buffer_min
+   *   for each menu item:
+   *     cook ends at:    pickup_at - safety
+   *     cook starts at:  cook ends at - cook_time_min
+   *     prep ends at:    cook starts at
+   *     prep starts at:  prep ends at - prep_time_min
+   *
+   * Pure compute - doesn't write anything. Caller decides what to do
+   * with the result.
+   */
+  async planTasksForOrder(companyId: string, orderId: string, client?: typeof supabase): Promise<PrepTask[]> {
+    // Wave 70.13 - accept the optional client. Pre-Wave-70.13 the
+    // planner always used the global browser supabase import, which
+    // has no session when called from a server-side context (regen
+    // API, cron, postCreationCascade). RLS then hid every read and
+    // the planner returned [] - ensurePrepTasksForOrder reported
+    // "no menu items" even when items existed. Now: thread the
+    // client through so the service-role client passed by the API
+    // bypasses RLS.
+    const sb: any = client || supabase;
+    const settings = await this.getKitchenSettings(companyId, client);
+
+    const { data: order, error: orderErr } = await sb
+      .from("orders")
+      // Wave 66.9 trap: final_guest_count doesn't exist on orders -
+      // selecting it 400s the whole query. guest_count alone.
+      // menu_items lives on the linked quote, not orders - embed it (the
+      // planner falls back to order_items below when the snapshot is empty).
+      .select("id, company_id, region_id, guest_count, event_date, event_time, pickup_time, delivery_time, quote:quotes!orders_quote_id_fkey(menu_items)")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderErr) {
+      console.error("[kitchenPrepService] orders fetch failed:", orderErr);
+    }
+    if (!order) return [];
+    (order as any).menu_items = (order as any).quote?.menu_items ?? null;
+
+    // Determine the pickup moment. Prefer pickup_time, else event_time on
+    // event_date, else event_date at 12:00. Fall back to "now" defensively.
+    const pickupAt = (() => {
+      // pickup_time is `time without time zone` (migration 20260519180000),
+      // e.g. "14:30:00" - new Date("14:30:00") is Invalid Date, which used to
+      // silently fall through to event_time and backplan every prep task from
+      // the event start instead of the (earlier) collection time. Combine it
+      // with event_date the same way the BEO ticket does.
+      if (order.pickup_time && order.event_date) {
+        const dt = new Date(`${order.event_date}T${String(order.pickup_time).slice(0, 5)}:00`);
+        if (!isNaN(dt.getTime())) return dt;
+      }
+      // delivery_time (also a `time` column) is the next-best anchor: food must
+      // be ready by the time it's delivered. Without this, changing an order's
+      // delivery_time re-stamped the driver + cleaning but left the cook
+      // backplan on the old event_time, so food wasn't ready when the truck left.
+      if (order.delivery_time && order.event_date) {
+        const dt = new Date(`${order.event_date}T${String(order.delivery_time).slice(0, 5)}:00`);
+        if (!isNaN(dt.getTime())) return dt;
+      }
+      if (order.event_date && order.event_time) {
+        const dt = new Date(`${order.event_date}T${order.event_time}`);
+        if (!isNaN(dt.getTime())) return dt;
+      }
+      if (order.event_date) {
+        const dt = new Date(`${order.event_date}T12:00`);
+        if (!isNaN(dt.getTime())) return dt;
+      }
+      return null;
+    })();
+    if (!pickupAt) return [];
+
+    const guestCount = Number(order.guest_count || 1);
+
+    // Wave 70.10 - the planner used to only read orders.menu_items
+    // (the jsonb snapshot column). For quote-derived orders the
+    // canonical line items often live in the order_items table and
+    // the jsonb is null until orderSyncService fires - so the
+    // planner returned [] and the regen API reported "no menu
+    // items" on every same-day order from a quote. Now: if the
+    // jsonb is empty, fall back to order_items so the planner
+    // works regardless of which write path created the order.
+    let items: any[] = Array.isArray(order.menu_items) ? order.menu_items : [];
+    if (items.length === 0) {
+      // Wave 70.13 - also use the threaded client so this read
+      // works server-side.
+      const { data: relRows, error: relErr } = await sb
+        .from("order_items")
+        .select("item_name, menu_item_id, quantity, unit_price, line_total, special_instructions")
+        .eq("order_id", orderId);
+      if (relErr) {
+        console.error("[kitchenPrepService] order_items fallback fetch failed:", relErr);
+      }
+      items = (relRows as any[] || []).map((r) => ({
+        id: r.menu_item_id,
+        name: r.item_name,
+        quantity: Number(r.quantity || 0),
+        unit_price: Number(r.unit_price || 0),
+      }));
+    }
+
+    // Kitchen sweep 2026-07-02: resolve recipes once per UNIQUE item name,
+    // in parallel, instead of a sequential lookupRecipe per line (each of
+    // which also re-fetched settings). A 10-line order went from ~40
+    // serial round-trips to one settings read + 10 parallel lookups.
+    const uniqueNames = Array.from(new Set(
+      items
+        .map((item: any) => item?.name || item?.item_name || item?.menu_item_name)
+        .filter((n: any): n is string => Boolean(n)),
+    ));
+    const recipeByName = new Map<string, Awaited<ReturnType<typeof lookupRecipeWithSettings>>>();
+    await Promise.all(uniqueNames.map(async (n) => {
+      recipeByName.set(n, await lookupRecipeWithSettings(companyId, n, client, settings));
+    }));
+
+    const tasks: PrepTask[] = [];
+    for (const item of items) {
+      const name = item?.name || item?.item_name || item?.menu_item_name;
+      if (!name) continue;
+
+      const recipe = recipeByName.get(name) ?? null;
+      const basePrepMin = recipe?.prep_time_min ?? settings.defaultPrepMinPerDish;
+      const baseCookMin = recipe?.cook_time_min ?? settings.defaultCookMinPerDish;
+
+      // Audit Kitchen G4: prep/cook minutes from the recipe are
+      // expressed per recipe.base_servings (e.g. "cook 4h for 10
+      // guests"). The previous code used the recipe value as-is no
+      // matter how many guests were on the order, so a 200-guest
+      // job was scheduled to cook in 4 hours and ran late.
+      //
+      // Scale by ceil(guestCount / base_servings) with a parallelism
+      // cap so a 5x order doesn't naively become a 5x prep slot --
+      // kitchens have multiple stations / ovens. The cap is the
+      // configurable parallelism factor on settings; default 3 means
+      // we never bill more than 3x the recipe time, which matches
+      // a typical small-kitchen layout. Operators can raise it on
+      // settings later.
+      const baseServings = Math.max(1, Number(recipe?.base_servings ?? 1));
+      const rawBatches = Math.ceil(guestCount / baseServings);
+      const parallelism = Math.max(1, Number((settings as any).prepParallelism ?? 3));
+      const effectiveBatches = Math.max(1, Math.min(rawBatches, parallelism));
+      const prepMin = Math.ceil(basePrepMin * effectiveBatches);
+      const cookMin = Math.ceil(baseCookMin * effectiveBatches);
+
+      // Backwards plan
+      const cookEndsAt = new Date(pickupAt.getTime() - settings.prepSafetyBufferMin * 60_000);
+      const cookStartsAt = new Date(cookEndsAt.getTime() - cookMin * 60_000);
+      const prepStartsAt = new Date(cookStartsAt.getTime() - prepMin * 60_000);
+
+      // Stamp region_id from the order so RLS region-scoped policies
+      // surface this task to the right branch's chefs only. Without
+      // this every task lands NULL and is visible company-wide - a
+      // cross-branch leak the moment a region_admin signs in.
+      const orderRegionId = (order as any).region_id ?? null;
+
+      // Each line yields a prep + cook task (when the recipe defines
+      // them). Originally the cook task was nested under the prep gate,
+      // so a dish with prep_min=0 and cook_min>0 silently dropped its
+      // cook task. Independent gates now - audit Agent 6.
+      if (prepMin > 0) {
+        tasks.push({
+          order_id: orderId,
+          company_id: companyId,
+          region_id: orderRegionId,
+          menu_item_name: name,
+          task_type: "prep",
+          start_at: prepStartsAt.toISOString(),
+          duration_min: prepMin,
+          status: "pending",
+        });
+      }
+      if (cookMin > 0) {
+        tasks.push({
+          order_id: orderId,
+          company_id: companyId,
+          region_id: orderRegionId,
+          menu_item_name: name,
+          task_type: "cook",
+          start_at: cookStartsAt.toISOString(),
+          duration_min: cookMin,
+          status: "pending",
+        });
+      }
+    }
+
+    // Sort earliest first
+    tasks.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+    return tasks;
+  },
+
+  /**
+   * Generate prep tasks for an order and persist them. Idempotent --
+   * deletes any existing pending/in_progress tasks for this order first
+   * so a re-run after an event time change doesn't double up. Done /
+   * skipped tasks are preserved (history is sacred).
+   */
+  async ensurePrepTasksForOrder(
+    companyId: string,
+    orderId: string,
+    performedBy?: string,
+    client?: typeof supabase,
+    opts: { force?: boolean } = {},
+  ): Promise<{ created: number; skippedReason?: string }> {
+    // Server-safe injection. Browser callers pass nothing and get the
+    // global anon client (RLS-gated). Server callers (post-order
+    // cascade, leads route) inject a service-role client.
+    const sb: any = client || supabase;
+    // Wave 70.13 - thread the client through to every nested
+    // helper so server-side callers (regen API, cron, cascade)
+    // bypass RLS the same way the orderMeta + tasks reads do.
+    const settings = await this.getKitchenSettings(companyId, client);
+    if (!settings.autoGeneratePrepTasks) return { created: 0, skippedReason: "auto_generate_disabled" };
+
+    // Quarantine guard. Imported orders (rows brought in from a prior
+    // system at onboarding time) must not spin up kitchen prep tasks
+    // - the events already happened. We check the order row itself
+    // for imported_at / comms_paused_until before planning anything.
+    const { data: orderMeta, error: orderMetaErr } = await sb
+      .from("orders")
+      .select("imported_at, comms_paused_until, event_date")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderMetaErr) {
+      // Kitchen sweep 2026-07-02: bail instead of falling through. If this
+      // read fails (RLS, network) the quarantine + past-date guards below
+      // are silently skipped, so a retry could generate prep tasks for an
+      // imported/historical order. Fail closed; the caller can retry.
+      console.error("[kitchenPrepService] orders fetch failed:", orderMetaErr);
+      return { created: 0, skippedReason: `order_lookup_failed:${orderMetaErr.message}` };
+    }
+    if (orderMeta) {
+      const importedAt = (orderMeta as any).imported_at;
+      const paused = (orderMeta as any).comms_paused_until;
+      const isPaused = paused && new Date(paused) > new Date();
+      if (importedAt || isPaused) {
+        console.log(`[kitchenPrep] order ${orderId} is in import quarantine - skipping prep generation`);
+        return { created: 0, skippedReason: importedAt ? "import_quarantine" : "comms_paused" };
+      }
+      // Also skip if the event_date is in the past - even fresh
+      // status changes on historical orders shouldn't trigger prep.
+      //
+      // Wave 70.9 - compare YYYY-MM-DD strings lexicographically
+      // (ISO dates are lexically sortable). Today's event passes;
+      // yesterday's does not.
+      //
+      // Wave 70.11 - opts.force now also bypasses the past-date
+      // guard. A manual operator-triggered regen (e.g. an admin
+      // recovering a seed-data order in dev, or backfilling a
+      // historical order that needs paperwork) is an explicit
+      // override; auto-cascades still respect the date check via
+      // force=false.
+      if ((orderMeta as any).event_date && !opts.force) {
+        const eventDateIso = String((orderMeta as any).event_date).slice(0, 10);
+        const todayIso = toLocalISO(new Date());
+        if (eventDateIso < todayIso) {
+          console.log(`[kitchenPrep] order ${orderId} event_date ${eventDateIso} < today ${todayIso} - skipping prep generation (pass force=true to override)`);
+          return { created: 0, skippedReason: "event_in_past" };
+        }
+      }
+    }
+
+    // Idempotency gate. The audit found that re-running this helper
+    // would soft-delete + re-insert prep tasks, so a retry on a
+    // partially-failed cascade would double-fire. Smallest fix: bail
+    // when there are already pending/in_progress tasks for this order.
+    //
+    // opts.force=true (used by guest-count rescale flows) soft-deletes
+    // existing PENDING tasks first and re-plans against the new guest
+    // count. In-progress tasks are preserved - the chef has already
+    // started, you can't undo that. Audit Kitchen G3.
+    const { data: existing, error: existingErr } = await sb
+      .from("kitchen_prep_tasks")
+      .select("id, status")
+      .eq("order_id", orderId)
+      .in("status", ["pending", "in_progress"])
+      .is("deleted_at", null);
+    if (existingErr) {
+      // Kitchen sweep 2026-07-02: this SELECT is the idempotency gate. If
+      // it fails and we fall through, `existing` is null and we insert a
+      // second full set of tasks next to the ones already there. Fail
+      // closed instead - a retry when the read works again is safe.
+      console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", existingErr);
+      return { created: 0, skippedReason: `idempotency_check_failed:${existingErr.message}` };
+    }
+    if (existing && existing.length > 0) {
+      if (opts.force) {
+        const pendingIds = (existing as any[])
+          .filter((r) => r.status === "pending")
+          .map((r) => r.id);
+        if (pendingIds.length > 0) {
+          await sb
+            .from("kitchen_prep_tasks")
+            .update({ deleted_at: new Date().toISOString() })
+            .in("id", pendingIds);
+        }
+        // Continue to re-plan below.
+      } else {
+        console.log(`[kitchenPrep] order ${orderId} already has pending tasks - skipping regen`);
+        return { created: 0, skippedReason: "already_has_pending_tasks" };
+      }
+    }
+
+    const planned = await this.planTasksForOrder(companyId, orderId, client);
+    if (planned.length === 0) return { created: 0, skippedReason: "no_menu_items_or_no_pickup_time" };
+
+    // Phase 2: load stations once and auto-assign each task to the right one.
+    // Defaults from the migration mean every tenant has Prep / Cook / Cold /
+    // Pack out of the box, so this works without admin setup.
+    const stations = await this.getStationsForCompany(companyId, client);
+
+    const rows = planned.map(t => ({
+      company_id: companyId,
+      order_id: orderId,
+      // region_id flows from planTasksForOrder - defended here too in
+      // case anyone ever calls insert without going through the planner.
+      region_id: (t as any).region_id ?? null,
+      menu_item_name: t.menu_item_name,
+      task_type: t.task_type,
+      start_at: t.start_at,
+      duration_min: t.duration_min,
+      status: "pending",
+      station_id: this.pickStationForTask(stations, t.task_type),
+    }));
+
+    const { error } = await sb.from("kitchen_prep_tasks").insert(rows);
+    if (error) {
+      console.error("Error inserting prep tasks:", error);
+      return { created: 0, skippedReason: `insert_failed:${error.message}` };
+    }
+    // Communication: a prep plan landed - tell the kitchen team so they
+    // aren't polling the board for new work. Best-effort; a notification
+    // failure must never fail the cascade that created the tasks. Pass
+    // the injected client so server-side cascade/cron callers (service
+    // role) aren't blocked by RLS. dedup guards a re-run from re-pinging.
+    try {
+      const { notificationService } = await import("@/services/notificationService");
+      await notificationService.broadcastNotification({
+        companyId,
+        type: "kitchen_prep_planned",
+        title: "Prep plan ready",
+        message: `${rows.length} prep task${rows.length === 1 ? "" : "s"} scheduled. Open the order to start prep and tick tasks off.`,
+        targetRoles: ["kitchen_manager" as any, "kitchen_staff" as any],
+        excludeActiveRoles: ["waiter"],
+        // Work-arrived dispatch signal: a managing-only manager must still
+        // get this so they can assign the team, even though they're not
+        // doing hands-on prep themselves.
+        managerDispatch: true,
+        priority: "normal",
+        // Link to the ORDER's kitchen view (Start/Done buttons live there),
+        // NOT /kitchen/prep-list which is the ingredient pull/shortfall list
+        // and has no prep tasks to action. ?role=kitchen opens the kitchen
+        // section. Kitchen staff are allowed on /order/* (authGuards).
+        link: `/order/${orderId}?role=kitchen`,
+        relatedEntityType: "order",
+        relatedEntityId: orderId,
+        dedup: true,
+      }, client);
+    } catch (notifyErr) {
+      console.warn("[kitchenPrepService] prep-plan notification failed:", notifyErr);
+    }
+    return { created: rows.length };
+  },
+
+  // ── Read tasks ────────────────────────────────────────────────────────────
+
+  async getTasksForOrder(orderId: string): Promise<any[]> {
+    const { data, error: error3 } = await supabase
+      .from("kitchen_prep_tasks")
+      .select("*, chef:assigned_chef_id(full_name)")
+      .eq("order_id", orderId)
+      .is("deleted_at", null)
+      .order("start_at", { ascending: true });
+    if (error3) {
+      console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", error3);
+    }
+    return data || [];
+  },
+
+  /**
+   * One-shot summary for an order card on the dashboard kanban: how many
+   * tasks total, how many done, what's the next pending task and when
+   * does it start.
+   */
+  async getTaskProgressForOrder(orderId: string): Promise<{
+    total: number;
+    done: number;
+    in_progress: number;
+    next_task?: { menu_item_name: string; task_type: string; start_at: string; duration_min: number };
+  }> {
+    const tasks = await this.getTasksForOrder(orderId);
+    const total = tasks.length;
+    const done = tasks.filter((t: any) => t.status === "done").length;
+    const in_progress = tasks.filter((t: any) => t.status === "in_progress").length;
+    const next = tasks.find((t: any) => t.status === "pending" || t.status === "in_progress");
+    return {
+      total,
+      done,
+      in_progress,
+      next_task: next ? {
+        menu_item_name: next.menu_item_name,
+        task_type: next.task_type,
+        start_at: next.start_at,
+        duration_min: next.duration_min,
+      } : undefined,
+    };
+  },
+
+  /**
+   * One-shot bulk: progress for many orders at once. Used by the kanban
+   * to render % done bars per card without N+1 queries.
+   */
+  async getProgressByOrder(orderIds: string[]): Promise<Record<string, { total: number; done: number }>> {
+    if (orderIds.length === 0) return {};
+    const { data, error: error4 } = await supabase
+      .from("kitchen_prep_tasks")
+      .select("order_id, status")
+      .in("order_id", orderIds)
+      .is("deleted_at", null);
+    if (error4) {
+      console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", error4);
+    }
+    const out: Record<string, { total: number; done: number }> = {};
+    for (const id of orderIds) out[id] = { total: 0, done: 0 };
+    for (const t of (data || []) as any[]) {
+      out[t.order_id] = out[t.order_id] || { total: 0, done: 0 };
+      out[t.order_id].total += 1;
+      if (t.status === "done") out[t.order_id].done += 1;
+    }
+    return out;
+  },
+
+  // ── Assignment (manager dispatch) ───────────────────────────────────────
+  // The kitchen manager assigns each prep task to a specific team member
+  // (or themselves - managers work the line too). assigned_chef_id existed
+  // in the schema + the display joins from day one but nothing ever wrote
+  // it; this is the writer. Requested 2026-07-04.
+
+  /**
+   * Kitchen team members (profiles) who can be ASSIGNED prep tasks. Staff are
+   * always assignable; a kitchen_manager is only an assignable target while
+   * they've opted in to "Working" (managing-only managers oversee, they don't
+   * take hands-on tasks). A manager who wants a task flips their work toggle
+   * on first. See managerWorkModeService.
+   */
+  async listKitchenTeam(companyId: string): Promise<Array<{ id: string; full_name: string; role: string }>> {
+    const { isManagerRole, isManagerWorkingNow } = await import("@/services/managerWorkModeService");
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role, active_role, manager_working, manager_working_since")
+      .eq("company_id", companyId)
+      .in("role", ["kitchen_manager", "kitchen_staff"])
+      .eq("is_active", true)
+      .order("full_name");
+    if (error) {
+      console.error("[kitchenPrepService] kitchen team fetch failed:", error);
+      return [];
+    }
+    const now = Date.now();
+    return ((data || []) as any[]).filter((p) => {
+      const activeRole = String(p.active_role || p.role || "");
+      // Managing-only managers are excluded from the assignable pool.
+      if (isManagerRole(activeRole) && !isManagerWorkingNow(p, now)) return false;
+      return true;
+    });
+  },
+
+  /**
+   * Assign (or unassign with null) a prep task to a kitchen team member.
+   * Notifies the assignee unless they assigned it to themselves.
+   */
+  async assignTask(taskId: string, assigneeId: string | null, assignedById?: string | null): Promise<{ notificationCreated: boolean }> {
+    const { data: task, error } = await (supabase as any)
+      .from("kitchen_prep_tasks")
+      .update({ assigned_chef_id: assigneeId })
+      .eq("id", taskId)
+      .select("order_id, company_id, menu_item_name, task_type")
+      .single();
+    if (error) throw error;
+
+    let notificationCreated = false;
+    if (assigneeId && assigneeId !== assignedById) {
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        const { data: ord } = await (supabase as any)
+          .from("orders")
+          .select("order_number")
+          .eq("id", (task as any).order_id)
+          .maybeSingle();
+        const notification = await notificationService.createNotification({
+          company_id: (task as any).company_id,
+          recipient_id: assigneeId,
+          user_id: assigneeId,
+          notification_type: "kitchen_task_assigned",
+          title: "Prep task assigned to you",
+          message: `${(task as any).task_type || "Task"}${(task as any).menu_item_name ? ` · ${(task as any).menu_item_name}` : ""} on order ${(ord as any)?.order_number || ""} was assigned to you.`,
+          priority: "normal",
+          link: `/order/${(task as any).order_id}?role=kitchen`,
+          related_entity_type: "order",
+          related_entity_id: (task as any).order_id,
+        } as any);
+        notificationCreated = !!notification;
+      } catch (notifyErr) {
+        console.warn("[kitchenPrepService] assignee notification failed (non-blocking):", notifyErr);
+      }
+    }
+    return { notificationCreated };
+  },
+
+  // ── Tick-off ──────────────────────────────────────────────────────────────
+
+  async startTask(taskId: string, performedBy: string): Promise<boolean> {
+    const nowIso = new Date().toISOString();
+    const { data: updated, error } = await (supabase as any)
+      .from("kitchen_prep_tasks")
+      .update({
+        status: "in_progress",
+        started_at: nowIso,
+        started_by: performedBy,
+      })
+      .eq("id", taskId)
+      .select("order_id, company_id")
+      .single();
+    if (error) throw error;
+
+    // Stamp the ORDER's prep_started_at the first time any task on it is
+    // started, so the order timeline ("Prep started") + the client/admin
+    // status views actually light up. Without this nothing ever wrote
+    // orders.prep_started_at, so the step stayed pending forever even
+    // while the kitchen was cooking (only ready_at got stamped, on
+    // completion). Best-effort + guarded on null so a later task start
+    // doesn't overwrite the original timestamp.
+    const orderId = (updated as any)?.order_id as string | undefined;
+    if (orderId) {
+      // Resolve the actor once: their role + (for managers) whether they've
+      // opted in to Working. "Kitchen labor" = staff, or a manager who is
+      // actually Working. An admin/owner - or a managing-only manager - who
+      // merely KICKS OFF prep is dispatching, not cooking, so they must not
+      // be credited as a cook nor auto-clocked-in; the assigned crew is.
+      const { isManagerWorkingNow } = await import("@/services/managerWorkModeService");
+      const { data: actor } = await supabase
+        .from("profiles")
+        .select("role, active_role, manager_working, manager_working_since")
+        .eq("id", performedBy)
+        .maybeSingle();
+      const actorRole = String((actor as any)?.active_role || (actor as any)?.role || "");
+      const isKitchenLabor =
+        actorRole === "kitchen_staff" ||
+        (actorRole === "kitchen_manager" && isManagerWorkingNow(actor as any));
+
+      if (isKitchenLabor && (updated as any)?.company_id) {
+        const roleClock = await beginRoleClock({
+          client: supabase,
+          companyId: (updated as any).company_id,
+          userId: performedBy,
+          role: "kitchen",
+          orderId,
+          startedAt: nowIso,
+        });
+        if (roleClock.closed.length > 0) {
+          await saveRoleHandoffNote(
+            roleClock.closed,
+            await promptForRoleHandoffNote(roleClock.closed, "kitchen"),
+          );
+        }
+      }
+
+      // Track WHO cooked this order's kitchen work - only real cooks, never an
+      // admin/owner starting on their behalf. Best-effort - RPC no-ops if not
+      // deployed yet.
+      if (isKitchenLabor) {
+        try {
+          await (supabase as any).rpc("record_order_contributor", { p_order_id: orderId, p_user_id: performedBy, p_area: "kitchen" });
+        } catch { /* best-effort contributor tracking */ }
+      }
+      try {
+        // Atomic first-start detection: only the call that flips
+        // prep_started_at from null wins the .is(null) update, so exactly
+        // ONE task-start counts as "kicked off prep". Before this the
+        // kitchen ping fired per task, so starting all 4 tasks blasted the
+        // kitchen 4x "Time to prep". Now it's once per order.
+        const { data: stamped } = await supabase
+          .from("orders")
+          .update({ prep_started_at: nowIso })
+          .eq("id", orderId)
+          .is("prep_started_at", null)
+          .select("id, company_id, order_number");
+        const ord = Array.isArray(stamped) && stamped.length > 0 ? stamped[0] : null;
+        const wasFirstStart = !!ord;
+        // Cross-role hand-off: when a NON-kitchen user (an admin/owner)
+        // kicks off prep, ping the kitchen team to actually cook it -
+        // "admin can start but the kitchen must be told". Only on the FIRST
+        // start (wasFirstStart) so it fires once. When the kitchen started
+        // it themselves we skip (they already know). The reverse leg
+        // (kitchen done -> admins) rides the all-tasks-done -> order 'ready'
+        // -> sendStatusNotifications path.
+        if (wasFirstStart && (ord as any)?.company_id && !isKitchenLabor) {
+          const { notificationService } = await import("@/services/notificationService");
+          const { UserRole } = await import("@/types/app");
+          await notificationService.broadcastNotification({
+            companyId: (ord as any).company_id,
+            type: "kitchen_prep_start_requested",
+            title: "Time to prep",
+            message: `Prep has been kicked off for order ${(ord as any).order_number || ""}. Open the order and start cooking, then mark each task done.`,
+            targetRoles: [UserRole.KITCHEN_MANAGER, UserRole.KITCHEN_STAFF],
+            excludeActiveRoles: ["waiter"],
+            // Dispatch signal: the manager must get this to assign the crew,
+            // even when they're managing-only.
+            managerDispatch: true,
+            priority: "high",
+            link: `/order/${orderId}?role=kitchen`,
+            relatedEntityType: "order",
+            relatedEntityId: orderId,
+            dedup: true,
+            dedupWindowMinutes: 120,
+          });
+        }
+        // Auto clock-in: when kitchen LABOR starts a prep task and isn't
+        // already on a duty shift, open one so their time is tracked from the
+        // moment they actually start cooking - no separate "Start duty" step.
+        // Labor = staff OR a Working manager (a manager who opted in to do
+        // hands-on work). Admins starting on behalf, and managing-only
+        // managers, don't clock in (they aren't cooking); the assigned crew
+        // clocks in when they pick up the task. Best-effort.
+        if (isKitchenLabor) {
+          try {
+            const { kitchenDutyService } = await import("@/services/kitchenDutyService");
+            const active = await kitchenDutyService.getCurrentDutyShift(performedBy);
+            if (!active) {
+              await kitchenDutyService.startDutyShift(performedBy, performedBy, orderId);
+            }
+          } catch (dutyErr) {
+            console.warn("[kitchenPrepService] auto clock-in on task start failed:", dutyErr);
+          }
+        }
+      } catch (e) {
+        console.warn("[kitchenPrepService] startTask order stamp / kitchen notify failed:", e);
+      }
+    }
+    return true;
+  },
+
+  async completeTask(taskId: string, performedBy: string, notes?: string): Promise<boolean> {
+    const { data: updated, error } = await supabase
+      .from("kitchen_prep_tasks")
+      .update({
+        status: "done",
+        completed_at: new Date().toISOString(),
+        completed_by: performedBy,
+        ...(notes ? { notes } : {}),
+      })
+      .eq("id", taskId)
+      .select("order_id, company_id")
+      .single();
+    if (error) throw error;
+
+    // Wave 25: chain reaction. When this task completion brings the
+    // order to "all prep tasks done", auto-flip orders.status to
+    // 'ready' so the dispatch dashboard sees the order without the
+    // chef having to also tap an "all done" button. Best-effort - a
+    // failure to compute or flip never undoes the task completion
+    // itself, the operator can still flip status manually from
+    // /admin/orders.
+    const orderId = (updated as any)?.order_id as string | undefined;
+    if (orderId) {
+      // Credit WHO cooked - only real kitchen labor (staff, or a Working
+      // manager), never an admin/owner or managing-only manager completing on
+      // their behalf. Best-effort.
+      try {
+        const { isManagerWorkingNow } = await import("@/services/managerWorkModeService");
+        const { data: actor } = await supabase
+          .from("profiles")
+          .select("role, active_role, manager_working, manager_working_since")
+          .eq("id", performedBy)
+          .maybeSingle();
+        const actorRole = String((actor as any)?.active_role || (actor as any)?.role || "");
+        const isKitchenLabor =
+          actorRole === "kitchen_staff" ||
+          (actorRole === "kitchen_manager" && isManagerWorkingNow(actor as any));
+        if (isKitchenLabor) {
+          await (supabase as any).rpc("record_order_contributor", { p_order_id: orderId, p_user_id: performedBy, p_area: "kitchen" });
+        }
+      } catch { /* best-effort contributor tracking */ }
+      try {
+        await this.checkPrepCompleteForOrder(orderId, performedBy);
+      } catch (e) {
+        console.warn("[kitchenPrepService] checkPrepCompleteForOrder failed:", e);
+      }
+    }
+
+    // Dynamic clock-out: if the kitchen queue is now clear, close this
+    // chef's open duty shift automatically (mirror of the driver/cleaning
+    // auto clock-out). Best-effort, scoped to the actor - a clock-out miss
+    // must never undo the task completion.
+    const taskCompanyId = (updated as any)?.company_id as string | undefined;
+    if (taskCompanyId && performedBy) {
+      try {
+        const { kitchenDutyService } = await import("./kitchenDutyService");
+        await kitchenDutyService.autoEndKitchenDutyIfClear({
+          companyId: taskCompanyId,
+          staffId: performedBy,
+        });
+      } catch (e) {
+        console.warn("[kitchenPrepService] autoEndKitchenDutyIfClear failed:", e);
+      }
+    }
+    return true;
+  },
+
+  /**
+   * Wave 25: when ALL non-skipped kitchen_prep_tasks for an order are
+   * status='done', auto-promote the order to status='ready' (and
+   * stamp ready_at). Idempotent - if the order is already past
+   * 'ready' (in_transit / delivered / completed) we no-op so a late
+   * task completion doesn't drag the status backwards.
+   */
+  async checkPrepCompleteForOrder(orderId: string, _performedBy: string): Promise<{ promoted: boolean }> {
+    const { data: tasks, error: tasksErr } = await supabase
+      .from("kitchen_prep_tasks")
+      .select("status")
+      .eq("order_id", orderId);
+    if (tasksErr) {
+      console.error("[kitchenPrepService] kitchen_prep_tasks fetch failed:", tasksErr);
+    }
+    if (!tasks || tasks.length === 0) return { promoted: false };
+    const active = tasks.filter((t: any) => String(t?.status || "") !== "skipped");
+    const allDone = active.length > 0 && active.every((t: any) => String(t?.status || "") === "done");
+    if (!allDone) return { promoted: false };
+
+    // Reliable "kitchen prep complete" ping to the admins/owners - fired
+    // here at the source the moment the kitchen finishes, with its OWN
+    // notification type so it can never be deduped away by the order_ready
+    // in-app push (which is role-blind and was getting swallowed). This is
+    // the "kitchen marked done -> tell admin" leg the operator needs.
+    // Dedup'd so re-completing a task on an already-done order won't spam.
+    try {
+      const { data: od } = await supabase
+        .from("orders")
+        .select("company_id, order_number")
+        .eq("id", orderId)
+        .maybeSingle();
+      if ((od as any)?.company_id) {
+        const { notificationService } = await import("@/services/notificationService");
+        const { UserRole } = await import("@/types/app");
+        await notificationService.broadcastNotification({
+          companyId: (od as any).company_id,
+          type: "kitchen_prep_complete",
+          title: "Kitchen prep complete",
+          message: `All prep for order ${(od as any).order_number || ""} is done - the order is ready. Assign a driver / dispatch.`,
+          targetRoles: [UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN],
+          priority: "high",
+          link: `/order/${orderId}`,
+          relatedEntityType: "order",
+          relatedEntityId: orderId,
+          dedup: true,
+          dedupWindowMinutes: 240,
+        });
+      }
+    } catch (notifyErr) {
+      console.warn("[kitchenPrepService] prep-complete admin notify failed:", notifyErr);
+    }
+
+    const { data: order, error: orderErr2 } = await supabase
+      .from("orders")
+      .select("id, status, ready_at")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderErr2) {
+      console.error("[kitchenPrepService] orders fetch failed:", orderErr2);
+    }
+    if (!order) return { promoted: false };
+    const currentStatus = String((order as any).status || "").toLowerCase();
+    // Statuses already past 'ready' - don't drag the order backwards.
+    if (["ready", "in_transit", "delivered", "completed", "cancelled"].includes(currentStatus)) {
+      return { promoted: false };
+    }
+    // Use the canonical updateOrderStatus path so notifications +
+    // audit_logs + downstream hooks fire consistently with manual
+    // status flips. Lazy import to avoid a circular dep at module
+    // load (orderWorkflow imports kitchenPrepService for the
+    // ensurePrepTasksForOrder reverse direction).
+    try {
+      const { updateOrderStatus } = await import("./order/orderWorkflow");
+      await (updateOrderStatus as any)(orderId, "ready");
+      return { promoted: true };
+    } catch (e) {
+      console.warn("[kitchenPrepService] auto-promote to ready failed:", e);
+      return { promoted: false };
+    }
+  },
+
+  async skipTask(taskId: string, performedBy: string, reason?: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("kitchen_prep_tasks")
+      .update({
+        status: "skipped",
+        completed_at: new Date().toISOString(),
+        completed_by: performedBy,
+        notes: reason ?? "Skipped",
+      })
+      .eq("id", taskId);
+    if (error) throw error;
+    return true;
+  },
+
+  // ── Aggregated demand ─────────────────────────────────────────────────────
+
+  /**
+   * Day-level (or range-level) ingredient demand across every confirmed
+   * order. Sums what every order needs, joins to inventory on hand, and
+   * computes shortfall = max(0, total_demand - on_hand). This is the
+   * math that catches "two orders both need 10kg lettuce, you only have
+   * 12kg" - one banner instead of two ok / short labels that lie.
+   *
+   * Pass `regionId` to scope the demand to a single branch:
+   *   * Only orders for that branch are aggregated.
+   *   * Inventory is sourced from getInventoryForRegion(regionId): the
+   *     branch's pinned pool plus shared (company-wide) items. Stock
+   *     pinned to other branches is invisible - so a CPT prep run
+   *     doesn't think it can draw on JHB's chicken.
+   * Pass null to get the company-wide view (legacy behaviour).
+   */
+  async getAggregatedDemand(
+    companyId: string,
+    fromDate: string,
+    toDate: string,
+    regionId: string | null = null,
+  ): Promise<IngredientDemand[]> {
+    // Source per-(order, ingredient) demand from the SAME
+    // order_ingredient_demand view the by-order tab reads, so the two
+    // tabs can never disagree. The view joins order_items -> recipes by
+    // menu_item_id (robust to duplicate / renamed menu-item names), only
+    // emits ingredients linked to inventory, and already UNIONs the
+    // buy-and-sell path - so we don't re-derive any of that here. Earlier
+    // attempts rebuilt demand from orders.menu_items (JSONB, empty on
+    // quote->order rows) and then from order_items + lookup-by-name
+    // (fragile - missed renamed/duplicate items); both left this tab
+    // empty while the by-order tab worked.
+
+    // 1. Resolve the in-window orders for region scoping + client names.
+    //    The view carries no region_id, so we scope by the set of order
+    //    ids the caller's branch is allowed to see.
+    let ordersQuery = supabase
+      .from("orders")
+      .select("id, client_name, event_date, region_id")
+      .eq("company_id", companyId)
+      .gte("event_date", fromDate)
+      .lte("event_date", toDate)
+      // Include in_transit/delivered: a same-day order often still has staged
+      // prep while its first wave is already dispatched. Dropping it at "ready"
+      // made cross-order shortfall math under-count the moment one order left.
+      .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
+    if (regionId) {
+      // Same fall-through rule as RLS: branch rows + null/legacy
+      // (company-wide) rows. Without the OR a region_admin would lose
+      // visibility on legacy orders that never got stamped.
+      ordersQuery = ordersQuery.or(`region_id.eq.${regionId},region_id.is.null`);
+    }
+    const { data: orders } = await ordersQuery;
+    if (!orders || orders.length === 0) return [];
+    const orderMeta = new Map<string, any>((orders as any[]).map((o) => [o.id, o]));
+
+    // 2. Pull demand rows from the view (same filters as the by-order tab).
+    const { data: demandRows, error: demandErr } = await supabase
+      .from("order_ingredient_demand")
+      .select("order_id, ingredient_name, unit, inventory_item_id, quantity_required, event_date")
+      .eq("company_id", companyId)
+      .gte("event_date", fromDate)
+      .lte("event_date", toDate)
+      .in("order_status", ["confirmed", "preparing", "ready", "in_transit", "delivered"]);
+    if (demandErr) {
+      console.error("[kitchenPrepService] order_ingredient_demand fetch failed:", demandErr);
+      return [];
+    }
+
+    const demandByIngredient = new Map<string, IngredientDemand>();
+    for (const r of (demandRows || []) as any[]) {
+      // Region scope: keep only rows for orders the branch can see.
+      if (!orderMeta.has(r.order_id)) continue;
+      const name = String(r.ingredient_name || "").trim();
+      const unit = String(r.unit || "");
+      const qty = Number(r.quantity_required || 0);
+      if (!name || qty <= 0) continue;
+
+      const key = `${name.toLowerCase()}|${unit.toLowerCase()}`;
+      const ord = orderMeta.get(r.order_id);
+      const usedBy = {
+        order_id: r.order_id as string,
+        client_name: ord?.client_name,
+        event_date: r.event_date,
+        qty,
+      };
+      const existing = demandByIngredient.get(key);
+      if (existing) {
+        existing.total_quantity += qty;
+        if (!existing.inventory_item_id && r.inventory_item_id) existing.inventory_item_id = r.inventory_item_id;
+        existing.used_by.push(usedBy);
+      } else {
+        demandByIngredient.set(key, {
+          name,
+          unit,
+          total_quantity: qty,
+          on_hand: 0,
+          shortfall: 0,
+          inventory_item_id: r.inventory_item_id ?? null,
+          used_by: [usedBy],
+        });
+      }
+    }
+
+    if (demandByIngredient.size === 0) return [];
+
+    // 3. Join inventory for on-hand + shortfall. Region-scope the pool to
+    //    the branch's own items + shared stock so shortfall reflects what
+    //    that kitchen can actually draw on. Prefer the exact
+    //    inventory_item_id from the view, fall back to a name match.
+    let invQuery = supabase
+      .from("inventory_items")
+      .select("id, item_name, current_stock, unit_of_measure, region_id, is_shared")
+      .eq("company_id", companyId)
+      .is("deleted_at", null);
+    if (regionId) {
+      invQuery = invQuery.or(`region_id.eq.${regionId},is_shared.eq.true`);
+    }
+    const { data: inv } = await invQuery;
+    const invByName = new Map<string, any>();
+    const invById = new Map<string, any>();
+    for (const i of (inv || []) as any[]) {
+      invByName.set((i.item_name || "").toLowerCase(), i);
+      if (i.id) invById.set(i.id as string, i);
+    }
+
+    const out: IngredientDemand[] = [];
+    for (const d of demandByIngredient.values()) {
+      const match =
+        (d.inventory_item_id ? invById.get(d.inventory_item_id) : null) ||
+        invByName.get(d.name.toLowerCase());
+      d.on_hand = match ? Number(match.current_stock || 0) : 0;
+      d.shortfall = Math.max(0, Math.round((d.total_quantity - d.on_hand) * 100) / 100);
+      d.total_quantity = Math.round(d.total_quantity * 100) / 100;
+      if (match) d.inventory_item_id = match.id;
+      out.push(d);
+    }
+
+    // Shortfalls first, then by total demand
+    out.sort((a, b) => {
+      if ((a.shortfall > 0) !== (b.shortfall > 0)) return a.shortfall > 0 ? -1 : 1;
+      return b.total_quantity - a.total_quantity;
+    });
+    return out;
+  },
+
+  // ── Hand-offs ─────────────────────────────────────────────────────────────
+
+  async createHandoff(payload: {
+    companyId: string;
+    authorId: string;
+    body: string;
+    shiftId?: string;
+  }): Promise<boolean> {
+    const { error } = await supabase.from("kitchen_handoffs").insert([{
+      company_id: payload.companyId,
+      author_id: payload.authorId,
+      shift_id: payload.shiftId || null,
+      body: payload.body.trim(),
+    }]);
+    if (error) throw error;
+    return true;
+  },
+
+  async getRecentHandoffs(companyId: string, limit = 20): Promise<any[]> {
+    const { data, error: error5 } = await supabase
+      .from("kitchen_handoffs")
+      .select("*, author:author_id(full_name)")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error5) {
+      console.error("[kitchenPrepService] kitchen_handoffs fetch failed:", error5);
+    }
+    return data || [];
+  },
+
+  async acknowledgeHandoff(id: string, performedBy: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("kitchen_handoffs")
+      .update({ acknowledged_at: new Date().toISOString(), acknowledged_by: performedBy })
+      .eq("id", id);
+    if (error) throw error;
+    return true;
+  },
+
+  // ── Phase 2: stations ─────────────────────────────────────────────────────
+
+  /**
+   * Active stations for a company, ordered by display_order. The migration
+   * seeds defaults (Prep / Cook / Cold prep / Pack) for every existing
+   * tenant - this method is also defensive: if a tenant somehow has no
+   * stations yet, returns an empty array and the production page handles
+   * "no stations configured" gracefully.
+   */
+  async getStationsForCompany(companyId: string, client?: typeof supabase): Promise<KitchenStation[]> {
+    // Wave 70.13 - thread the client through for server-side callers.
+    const sb: any = client || supabase;
+    const { data, error } = await sb
+      .from("kitchen_stations")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("display_order", { ascending: true });
+    if (error) {
+      console.error("Error fetching stations:", error);
+      return [];
+    }
+    return (data || []) as KitchenStation[];
+  },
+
+  /**
+   * Find the right station for a task. Maps task_type to a station_type
+   * preference: prep -> prep, cook -> cook (or hot), pack -> pack, plate
+   * -> pack, cool -> general. Falls back to the first active station so
+   * tasks always get assigned somewhere visible.
+   */
+  pickStationForTask(stations: KitchenStation[], taskType: string): string | null {
+    if (stations.length === 0) return null;
+    const preferences: Record<string, string[]> = {
+      prep:  ["prep", "cold", "general"],
+      cook:  ["cook", "hot", "general"],
+      cool:  ["cold", "general", "prep"],
+      pack:  ["pack", "general"],
+      plate: ["pack", "general"],
+    };
+    const wantTypes = preferences[taskType] || ["general", "prep"];
+    for (const want of wantTypes) {
+      const match = stations.find(s => s.station_type === want);
+      if (match) return match.id;
+    }
+    return stations[0].id;
+  },
+
+  async upsertStation(station: Partial<KitchenStation> & { company_id: string; name: string }): Promise<KitchenStation | null> {
+    const payload: any = {
+      company_id: station.company_id,
+      name: station.name.trim(),
+      station_type: station.station_type ?? "general",
+      display_order: station.display_order ?? 99,
+      capacity_minutes_per_shift: station.capacity_minutes_per_shift ?? null,
+      is_active: station.is_active ?? true,
+      notes: station.notes ?? null,
+    };
+    if (station.id) {
+      const { data, error } = await supabase
+        .from("kitchen_stations").update(payload).eq("id", station.id).select().single();
+      if (error) throw error;
+      return data as KitchenStation;
+    }
+    const { data, error } = await supabase
+      .from("kitchen_stations").insert([payload]).select().single();
+    if (error) throw error;
+    return data as KitchenStation;
+  },
+
+  async deleteStation(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("kitchen_stations")
+      .update({ deleted_at: new Date().toISOString(), is_active: false })
+      .eq("id", id);
+    if (error) throw error;
+    return true;
+  },
+
+  /**
+   * Tasks for the company in a date range, joined with station info. This
+   * is what the production timeline reads - one query, all the data the
+   * day view needs.
+   */
+  async getTasksForDateRange(companyId: string, fromISO: string, toISO: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("kitchen_prep_tasks")
+      .select(`
+        *,
+        order:order_id ( id, event_name, client_name, event_date, event_time, guest_count, status ),
+        station:station_id ( id, name, station_type, display_order ),
+        chef:assigned_chef_id ( full_name )
+      `)
+      .eq("company_id", companyId)
+      .gte("start_at", fromISO)
+      .lt("start_at", toISO)
+      .is("deleted_at", null)
+      .order("start_at", { ascending: true });
+    if (error) {
+      console.error("Error fetching tasks for range:", error);
+      return [];
+    }
+    return data || [];
+  },
+
+  // ── Phase 3: allergen cross-check ─────────────────────────────────────────
+  /**
+   * Cross-check the customer's stated dietary requirements against the
+   * allergen codes on every menu item in the order. Returns any matches plus
+   * a clean message for the confirm dialog. Zero-config: works the moment
+   * menu items have allergen_codes set; quietly returns no matches otherwise.
+   */
+  async checkOrderAllergens(orderId: string): Promise<{
+    hasConflicts: boolean;
+    conflicts: Array<{ menuItem: string; allergens: string[] }>;
+    dietaryRequirements: string;
+  }> {
+    const { data: order, error: oErr } = await supabase
+      .from("orders")
+      .select("id, dietary_requirements, special_instructions")
+      .eq("id", orderId)
+      .single();
+    if (oErr || !order) return { hasConflicts: false, conflicts: [], dietaryRequirements: "" };
+
+    const dietary = (order.dietary_requirements || "") + " " + (order.special_instructions || "");
+    const dietaryLower = dietary.toLowerCase().trim();
+    if (!dietaryLower) return { hasConflicts: false, conflicts: [], dietaryRequirements: "" };
+
+    const { data: items, error: itemsErr } = await supabase
+      .from("order_items")
+      .select("item_name, menu_item_id, menu_items:menu_item_id ( allergen_codes, allergen_info )")
+      .eq("order_id", orderId);
+    if (itemsErr) {
+      console.error("[kitchenPrepService] order_items fetch failed:", itemsErr);
+    }
+
+    // KIT2-I (kitchen deep audit, KIT2-18): whole-word boundary
+    // matching. The previous substring match flagged "nut" inside
+    // "minute", "egg" inside "leggings", "soy" inside "soya"
+    // bidirectionally. Now we build a regex per code with \b word
+    // boundaries on each side, case-insensitive, and apply it to the
+    // dietary text. Safety surface needs precise hits, not fuzzy.
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const conflicts: Array<{ menuItem: string; allergens: string[] }> = [];
+    for (const it of (items as any[]) || []) {
+      const codes: string[] = (it.menu_items?.allergen_codes as string[] | null) || [];
+      const info: string = it.menu_items?.allergen_info || "";
+      const all = [...codes, ...(info ? info.split(/[,;\s]+/) : [])].filter(Boolean);
+      const hits = all.filter(code => {
+        const c = code.toLowerCase().trim();
+        if (c.length <= 2) return false;
+        const re = new RegExp(`\\b${escapeRegex(c)}\\b`, "i");
+        return re.test(dietaryLower);
+      });
+      if (hits.length > 0) {
+        conflicts.push({ menuItem: it.item_name, allergens: Array.from(new Set(hits)) });
+      }
+    }
+    return {
+      hasConflicts: conflicts.length > 0,
+      conflicts,
+      dietaryRequirements: order.dietary_requirements || "",
+    };
+  },
+
+  /**
+   * Mark the allergen check passed for an order - stamps every prep task on
+   * that order so we have an audit trail of who confirmed it and when.
+   */
+  async recordAllergenCheck(orderId: string, userId: string, status: "passed" | "overridden"): Promise<void> {
+    const { error } = await supabase
+      .from("kitchen_prep_tasks")
+      .update({
+        allergen_check_status: status,
+        allergen_check_at: new Date().toISOString(),
+        allergen_check_by: userId,
+      })
+      .eq("order_id", orderId);
+    // KIT2-I (KIT2-38): hard-fail. Safety surface with a one-way
+    // failure mode is wrong - if the audit insert fails (RLS,
+    // network), the chef must NOT silently flip the order to ready
+    // with no audit trail. Throw so the caller's try/catch sees it
+    // and can either block the ready transition or surface a
+    // clear toast.
+    if (error) {
+      console.error("Error recording allergen check:", error);
+      throw new Error(`Allergen check could not be recorded: ${error.message}`);
+    }
+  },
+
+  // ── Phase 3: shopping list from aggregated shortfall ─────────────────────
+  /**
+   * Turn an aggregated demand projection into a real shopping list row plus
+   * line items, one per shortfall. The user goes from "we are short 4kg
+   * lettuce + 12kg lamb" to "list created, hand to shopper" in one click.
+   */
+  async createShoppingListFromShortfall(
+    companyId: string,
+    userId: string,
+    demand: IngredientDemand[],
+    period: { from: string; to: string },
+    title?: string,
+  ): Promise<{ id: string; itemCount: number } | null> {
+    const shortfalls = demand.filter(d => d.shortfall > 0);
+    if (shortfalls.length === 0) return null;
+
+    // REUSE the open kitchen-shortfall list instead of spawning a fresh
+    // one on every "Add to list" / "Create shopping list" click. Before
+    // this, each click inserted a brand-new shopping_lists row, so the
+    // chef ended up with a pile of single-item lists and the shopper's
+    // dashboard (which resolves ONE active list) showed only a fragment.
+    // Append to today's open list when one exists; create it only the
+    // first time. shopper_id stays NULL so the shopper picks it up via
+    // the "team list" fallback in useActiveShoppingList.
+    let list: { id: string } | null = null;
+    const { data: existingList } = await supabase
+      .from("shopping_lists")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("status", "open")
+      .eq("source", "kitchen_shortfall")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingList?.id) {
+      list = existingList as { id: string };
+    } else {
+      const { data: created, error: lErr } = await supabase
+        .from("shopping_lists")
+        .insert([{
+          company_id: companyId,
+          user_id: userId,
+          list_date: new Date().toISOString().slice(0, 10),
+          status: "open",
+          source: "kitchen_shortfall",
+          source_period_start: period.from,
+          source_period_end: period.to,
+          title: title || `Kitchen shortfall ${period.from} -> ${period.to}`,
+          notes: `Auto-generated from aggregated kitchen demand on ${new Date().toLocaleString()}`,
+        }])
+        .select("id")
+        .single();
+      if (lErr || !created) {
+        console.error("Error creating shopping list:", lErr);
+        return null;
+      }
+      list = created as { id: string };
+    }
+
+    // Skip items already on the list (by inventory item_id, else by name)
+    // so re-adding the same shortfall doesn't pile up duplicate rows.
+    const { data: existingItems } = await supabase
+      .from("shopping_list_items")
+      .select("item_id, name")
+      .eq("shopping_list_id", list.id)
+      .is("removed_at", null);
+    const seenIds = new Set(
+      (existingItems || []).map((r: any) => r.item_id).filter(Boolean) as string[],
+    );
+    const seenNames = new Set(
+      (existingItems || []).map((r: any) => String(r.name || "").trim().toLowerCase()),
+    );
+    const fresh = shortfalls.filter((s) =>
+      s.inventory_item_id
+        ? !seenIds.has(s.inventory_item_id)
+        : !seenNames.has(String(s.name || "").trim().toLowerCase()),
+    );
+
+    const rows = fresh.map(s => {
+      // Tag the line back to its order when exactly ONE order needs it,
+      // so the order's status timeline ("Stock & shopping") can see the
+      // shopping and stop showing N/A. Ambiguous (multi-order) lines stay
+      // unlinked - we can't attribute them to a single order.
+      const orderIds = Array.from(
+        new Set((s.used_by || []).map((u) => u.order_id).filter(Boolean)),
+      );
+      return {
+        shopping_list_id: list!.id,
+        user_id: userId,
+        item_id: s.inventory_item_id ?? null,
+        name: s.name,
+        quantity: Math.ceil(s.shortfall * 100) / 100,
+        unit: s.unit,
+        purchased: false,
+        source_order_id: orderIds.length === 1 ? orderIds[0] : null,
+        notes: `Need ${s.total_quantity} ${s.unit}, have ${s.on_hand}`,
+      };
+    });
+
+    if (rows.length > 0) {
+      const { error: iErr } = await supabase.from("shopping_list_items").insert(rows);
+      if (iErr) {
+        console.error("Error creating shopping list items:", iErr);
+        return null;
+      }
+    }
+
+    // Tell the shopping team a shortfall list is waiting - ONLY when we
+    // actually added something new. Re-clicking an item that's already on
+    // the list (rows.length === 0) shouldn't re-ping the shopper. Without
+    // this the chef clicks "Create shopping list", gets a toast, and the
+    // shopper never knows - "nothing happened". Best-effort + dedup so a
+    // burst of per-ingredient adds doesn't spam one ping per item.
+    if (rows.length > 0) {
+      try {
+        const { notificationService } = await import("@/services/notificationService");
+        const { UserRole } = await import("@/types/app");
+        await notificationService.broadcastNotification({
+          companyId,
+          type: "shopping_list_created",
+          title: "Kitchen shortfall - shopping needed",
+          message: "The kitchen flagged ingredients short for upcoming events. Open the Buy list to see what to buy.",
+          targetRoles: [UserRole.SHOPPING_STAFF],
+          priority: "normal",
+          link: "/team-portal/shopping/dashboard",
+          relatedEntityType: "shopping_list",
+          relatedEntityId: list.id,
+          dedup: true,
+          dedupWindowMinutes: 30,
+        });
+      } catch (notifyErr) {
+        console.warn("[createShoppingListFromShortfall] shopper notification failed:", notifyErr);
+      }
+    }
+
+    // itemCount = how many NEW rows were added (0 = everything was already
+    // on the list). The caller uses this to show the right toast.
+    return { id: list.id, itemCount: rows.length };
+  },
+
+  // ── Phase 3: yield variance ──────────────────────────────────────────────
+  /**
+   * Record actual yield when a task is marked done. The variance can be
+   * computed off (actual_yield - planned_yield) / planned_yield - we keep
+   * the math out of the DB so it stays simple and readable.
+   */
+  async recordTaskYield(
+    taskId: string,
+    actualYield: number,
+    yieldUnit?: string,
+  ): Promise<void> {
+    const patch: Record<string, unknown> = { actual_yield: actualYield };
+    if (yieldUnit) patch.yield_unit = yieldUnit;
+    const { error } = await supabase
+      .from("kitchen_prep_tasks")
+      .update(patch as any)
+      .eq("id", taskId);
+    if (error) console.error("Error recording yield:", error);
+  },
+
+  // ── Phase 3: per-chef performance ────────────────────────────────────────
+  /**
+   * Roll-up of completed-task stats per chef across a date window. Gives
+   * the duty page a "who's pulling weight" view without forcing a separate
+   * report screen. Three numbers per chef - count, on-time %, avg yield
+   * variance - all derived from kitchen_prep_tasks.
+   */
+  async getChefPerformance(
+    companyId: string,
+    fromISO: string,
+    toISO: string,
+  ): Promise<Array<{
+    chef_id: string;
+    chef_name: string;
+    tasks_completed: number;
+    on_time_rate: number;
+    avg_yield_variance_pct: number | null;
+  }>> {
+    const { data, error } = await supabase
+      .from("kitchen_prep_tasks")
+      .select(`
+        assigned_chef_id,
+        start_at,
+        duration_min,
+        completed_at,
+        planned_yield,
+        actual_yield,
+        chef:assigned_chef_id ( full_name )
+      `)
+      .eq("company_id", companyId)
+      .gte("start_at", fromISO)
+      .lt("start_at", toISO)
+      .not("completed_at", "is", null)
+      .not("assigned_chef_id", "is", null)
+      .is("deleted_at", null);
+    if (error) {
+      console.error("Error fetching chef performance:", error);
+      return [];
+    }
+
+    const buckets = new Map<string, {
+      chef_id: string;
+      chef_name: string;
+      total: number;
+      onTime: number;
+      varianceSum: number;
+      varianceCount: number;
+    }>();
+
+    for (const r of (data as any[]) || []) {
+      const chefId = r.assigned_chef_id as string;
+      const expected = new Date(r.start_at).getTime() + (r.duration_min || 0) * 60_000;
+      const actual = new Date(r.completed_at).getTime();
+      const onTime = actual <= expected + 5 * 60_000;
+      const hasYield = r.planned_yield && r.actual_yield && Number(r.planned_yield) > 0;
+      const variancePct = hasYield
+        ? ((Number(r.actual_yield) - Number(r.planned_yield)) / Number(r.planned_yield)) * 100
+        : null;
+
+      const b = buckets.get(chefId) || {
+        chef_id: chefId,
+        chef_name: r.chef?.full_name || "Unassigned",
+        total: 0,
+        onTime: 0,
+        varianceSum: 0,
+        varianceCount: 0,
+      };
+      b.total += 1;
+      if (onTime) b.onTime += 1;
+      if (variancePct !== null) {
+        b.varianceSum += variancePct;
+        b.varianceCount += 1;
+      }
+      buckets.set(chefId, b);
+    }
+
+    return Array.from(buckets.values()).map(b => ({
+      chef_id: b.chef_id,
+      chef_name: b.chef_name,
+      tasks_completed: b.total,
+      on_time_rate: b.total > 0 ? Math.round((b.onTime / b.total) * 100) : 0,
+      avg_yield_variance_pct: b.varianceCount > 0
+        ? Math.round((b.varianceSum / b.varianceCount) * 10) / 10
+        : null,
+    })).sort((a, b) => b.tasks_completed - a.tasks_completed);
+  },
+
+  // ── Phase 4: shift earnings, breaks, overtime ────────────────────────────
+  /**
+   * Compute live earnings + overtime status for a single in-progress or
+   * completed shift. Pure math: shift duration minus break time, multiplied
+   * by hourly_rate. Falls back to safe defaults so the panel never blows up.
+   */
+  computeShiftEarnings(args: {
+    shiftStart: string | null;
+    shiftEnd?: string | null;
+    breakStartedAt?: string | null;
+    totalBreakMin?: number;
+    hourlyRate?: number | null;
+    settings: Pick<KitchenSettings, "overtimeAfterHours" | "mealBreakAfterHours">;
+    now?: Date;
+  }): {
+    workedMin: number;
+    breakMin: number;
+    earnings: number | null;
+    overtime: boolean;
+    overdueBreak: boolean;
+  } {
+    const now = args.now ?? new Date();
+    if (!args.shiftStart) {
+      return { workedMin: 0, breakMin: 0, earnings: null, overtime: false, overdueBreak: false };
+    }
+    const start = new Date(args.shiftStart).getTime();
+    const end = args.shiftEnd ? new Date(args.shiftEnd).getTime() : now.getTime();
+    const grossMin = Math.max(0, Math.floor((end - start) / 60_000));
+    const onBreakMin = args.breakStartedAt && !args.shiftEnd
+      ? Math.max(0, Math.floor((now.getTime() - new Date(args.breakStartedAt).getTime()) / 60_000))
+      : 0;
+    const breakMin = (args.totalBreakMin || 0) + onBreakMin;
+    const workedMin = Math.max(0, grossMin - breakMin);
+    const workedH = workedMin / 60;
+    const earnings = args.hourlyRate ? Math.round(workedH * Number(args.hourlyRate) * 100) / 100 : null;
+    return {
+      workedMin,
+      breakMin,
+      earnings,
+      overtime: workedH >= args.settings.overtimeAfterHours,
+      overdueBreak:
+        workedH >= args.settings.mealBreakAfterHours
+        && breakMin === 0
+        && !args.shiftEnd,
+    };
+  },
+
+  /**
+   * Toggle break for an active shift. Two states tracked on the row:
+   *   - break_started_at: timestamp of the current break (NULL when off-break)
+   *   - total_break_min: cumulative minutes of completed breaks
+   * One column flip when starting, two when stopping (stamp + accumulate).
+   */
+  async startBreak(shiftId: string, companyId?: string | null): Promise<void> {
+    let query = supabase
+      .from("kitchen_duty_shifts")
+      .update({ break_started_at: new Date().toISOString() })
+      .eq("id", shiftId);
+    if (companyId) query = query.eq("company_id", companyId);
+    const { error } = await query;
+    if (error) throw error;
+  },
+
+  async endBreak(shiftId: string, companyId?: string | null): Promise<void> {
+    let getQuery = supabase
+      .from("kitchen_duty_shifts")
+      .select("break_started_at, total_break_min")
+      .eq("id", shiftId);
+    if (companyId) getQuery = getQuery.eq("company_id", companyId);
+    const { data: shift, error: gErr } = await getQuery.single();
+    if (gErr || !shift?.break_started_at) return;
+    const elapsedMin = Math.max(0, Math.floor(
+      (Date.now() - new Date(shift.break_started_at).getTime()) / 60_000,
+    ));
+    const newTotal = (shift.total_break_min || 0) + elapsedMin;
+    let updateQuery = supabase
+      .from("kitchen_duty_shifts")
+      .update({ break_started_at: null, total_break_min: newTotal })
+      .eq("id", shiftId);
+    if (companyId) updateQuery = updateQuery.eq("company_id", companyId);
+    const { error } = await updateQuery;
+    if (error) throw error;
+  },
+
+  // ── Phase 4: heated-storage hold-time check ──────────────────────────────
+  /**
+   * Pure helper: how long has a Ready order been sitting hot, and is it past
+   * the safe threshold? `null` for orders that aren't yet ready.
+   */
+  computeHoldTime(
+    readyAt: string | null,
+    pickedUpAt: string | null,
+    maxHotHoldMin: number,
+    now: Date = new Date(),
+  ): { holdMin: number; overdue: boolean } | null {
+    if (!readyAt || pickedUpAt) return null;
+    const minutes = Math.max(0, Math.floor((now.getTime() - new Date(readyAt).getTime()) / 60_000));
+    return { holdMin: minutes, overdue: minutes > maxHotHoldMin };
+  },
+
+  // ── Phase 4: tomorrow + day-after preview ────────────────────────────────
+  /**
+   * Light read of upcoming orders to feed the dashboard's "what's next"
+   * preview. Two days only - this is a glance, not a planning tool.
+   */
+  async getUpcomingPreview(companyId: string, days: number = 2): Promise<Array<{
+    date: string;
+    orders: number;
+    guests: number;
+    earliest_event_time: string | null;
+    items: Array<{ id: string; event_name: string; client_name: string | null; event_time: string | null; guest_count: number; status: string }>;
+  }>> {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() + 1);
+    const end = new Date(start);
+    end.setDate(end.getDate() + days);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id, event_name, client_name, event_date, event_time, guest_count, status")
+      .eq("company_id", companyId)
+      .gte("event_date", start.toISOString().slice(0, 10))
+      .lt("event_date", end.toISOString().slice(0, 10))
+      .in("status", ["confirmed", "preparing", "ready"])
+      .is("deleted_at", null)
+      .order("event_date", { ascending: true })
+      .order("event_time", { ascending: true });
+    if (error) {
+      console.error("Upcoming preview query failed:", error);
+      return [];
+    }
+
+    const buckets = new Map<string, { date: string; orders: number; guests: number; earliest_event_time: string | null; items: any[] }>();
+    for (const o of (data as any[]) || []) {
+      const b = buckets.get(o.event_date) || {
+        date: o.event_date,
+        orders: 0,
+        guests: 0,
+        earliest_event_time: null as string | null,
+        items: [] as any[],
+      };
+      b.orders += 1;
+      b.guests += o.guest_count || 0;
+      if (o.event_time && (!b.earliest_event_time || o.event_time < b.earliest_event_time)) {
+        b.earliest_event_time = o.event_time;
+      }
+      b.items.push(o);
+      buckets.set(o.event_date, b);
+    }
+    return Array.from(buckets.values());
+  },
+
+  // ── Phase 4: recipe accuracy report (surfaces yield variance) ────────────
+  /**
+   * Aggregates yield variance per recipe across a window. Surfaces the
+   * Phase 3 schema work as a clean read - which dishes the kitchen
+   * consistently over- or under-yields on, with the sample size so users
+   * can judge confidence.
+   */
+  async getRecipeAccuracy(
+    companyId: string,
+    fromISO: string,
+    toISO: string,
+  ): Promise<Array<{
+    recipe_name: string;
+    samples: number;
+    avg_planned: number;
+    avg_actual: number;
+    avg_variance_pct: number;
+    yield_unit: string | null;
+  }>> {
+    const { data, error } = await supabase
+      .from("kitchen_prep_tasks")
+      .select("menu_item_name, planned_yield, actual_yield, yield_unit")
+      .eq("company_id", companyId)
+      .gte("start_at", fromISO)
+      .lt("start_at", toISO)
+      .not("planned_yield", "is", null)
+      .not("actual_yield", "is", null)
+      .is("deleted_at", null);
+    if (error) {
+      console.error("Recipe accuracy query failed:", error);
+      return [];
+    }
+
+    const buckets = new Map<string, {
+      recipe_name: string;
+      plannedSum: number;
+      actualSum: number;
+      varianceSum: number;
+      n: number;
+      yield_unit: string | null;
+    }>();
+
+    for (const r of (data as any[]) || []) {
+      const planned = Number(r.planned_yield);
+      const actual = Number(r.actual_yield);
+      if (!planned || planned <= 0) continue;
+      const variancePct = ((actual - planned) / planned) * 100;
+      const b = buckets.get(r.menu_item_name) || {
+        recipe_name: r.menu_item_name,
+        plannedSum: 0,
+        actualSum: 0,
+        varianceSum: 0,
+        n: 0,
+        yield_unit: r.yield_unit || null,
+      };
+      b.plannedSum += planned;
+      b.actualSum += actual;
+      b.varianceSum += variancePct;
+      b.n += 1;
+      if (!b.yield_unit && r.yield_unit) b.yield_unit = r.yield_unit;
+      buckets.set(r.menu_item_name, b);
+    }
+
+    return Array.from(buckets.values())
+      .map(b => ({
+        recipe_name: b.recipe_name,
+        samples: b.n,
+        avg_planned: Math.round((b.plannedSum / b.n) * 100) / 100,
+        avg_actual: Math.round((b.actualSum / b.n) * 100) / 100,
+        avg_variance_pct: Math.round((b.varianceSum / b.n) * 10) / 10,
+        yield_unit: b.yield_unit,
+      }))
+      .sort((a, b) => Math.abs(b.avg_variance_pct) - Math.abs(a.avg_variance_pct));
+  },
+};

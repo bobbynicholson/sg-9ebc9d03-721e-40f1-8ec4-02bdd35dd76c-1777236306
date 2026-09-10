@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[5274],{41116:(_,n,e)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/order/[id]",function(){return e(26270)}])}},_=>{var n=n=>_(_.s=n);_.O(0,[374,7208,8077,3027,3513,3406,4156,112,6805,2970,4145,8040,2388,9676,3796,6270,636,6593,8792],()=>n(41116)),_N_E=_.O()}]);

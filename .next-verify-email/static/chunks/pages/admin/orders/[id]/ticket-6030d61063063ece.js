@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[2442],{20340:(_,n,e)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/admin/orders/[id]/ticket",function(){return e(37602)}])}},_=>{var n=n=>_(_.s=n);_.O(0,[4156,2388,9676,7738,730,636,6593,8792],()=>n(20340)),_N_E=_.O()}]);

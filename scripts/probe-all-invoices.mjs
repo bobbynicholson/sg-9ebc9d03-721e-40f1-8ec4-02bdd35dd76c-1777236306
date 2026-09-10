@@ -1,0 +1,13 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,"")];}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false} });
+const OID="5b0bc5a4-a33f-417f-bbfc-c046aa1de14a";
+const { data: invs } = await sb.from("invoices").select("id, invoice_number, total_amount, amount_paid, balance_due, status, created_at, notes").eq("order_id",OID).order("created_at",{ascending:true});
+console.log("INVOICES for order:", (invs||[]).length);
+for (const i of (invs||[])) console.log(`  ${i.invoice_number} total=${i.total_amount} paid=${i.amount_paid} balance_due=${i.balance_due} status=${i.status} created=${i.created_at} notes=${(i.notes||"").slice(0,50)}`);
+const sumTotal = (invs||[]).reduce((s,i)=>s+Number(i.total_amount||0),0);
+const sumBal = (invs||[]).reduce((s,i)=>s+Number(i.balance_due||0),0);
+console.log("\nSUM invoice totals:", sumTotal, "SUM balances:", sumBal);
+const { data: dmg } = await sb.from("equipment_damages").select("resolved, resolution_notes, total_cost").eq("order_id",OID).eq("damage_type","broken").order("created_at",{ascending:false}).limit(1).maybeSingle();
+console.log("DAMAGE: resolved", dmg.resolved, "cost", dmg.total_cost, "notes", dmg.resolution_notes);

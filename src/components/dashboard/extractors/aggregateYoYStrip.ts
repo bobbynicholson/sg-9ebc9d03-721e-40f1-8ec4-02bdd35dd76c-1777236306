@@ -1,0 +1,278 @@
+/**
+ * Tier 1 chart 2 - Year-over-year comparison strip.
+ *
+ * Returns 4 metrics with current/prior totals, delta %, and a 12-bucket
+ * sparkline trail. Inputs:
+ *   - orders for the last ~24 months (split by event_date)
+ *   - quotes for the last ~24 months (for conversion rate)
+ *   - leads for the last ~24 months (for conversion rate)
+ *
+ * Buckets are MONTHS, not days, so the sparkline reads as a year-shape
+ * regardless of the date-range picker (this strip is a constant fixture).
+ *
+ * Pure function: takes raw rows + a "current period" window, returns
+ * the strip's data shape. The page wraps a date range around it.
+ */
+import type { RevenueByMonthInput } from "./aggregateRevenueByMonth";
+
+export interface QuoteForYoY {
+  id: string;
+  status: string | null;
+  total_amount: number | null;
+  created_at: string | null;
+  /** Stamp of the first time the quote left the building. Tier 4
+   *  histogram measures sent_at -> accepted_at. */
+  sent_at?: string | null;
+  accepted_at: string | null;
+  event_date?: string | null;
+  /** Branch ID. Optional because legacy rows may have null. */
+  region_id?: string | null;
+  /** TIGHTEN I.61: presence of a linked order is the hard signal that
+   *  the deal converted, regardless of what the status field currently
+   *  says. Used by accept-time / YoY / conversion-funnel / branch-spider
+   *  aggregators so a converted-but-status='sent' quote (legacy data
+   *  drift from the I.61 root cause bug) still counts as a win. */
+  converted_to_order_id?: string | null;
+  /** TIGHTEN I.71: lost_reason='order_cancelled' marks a won-then-
+   *  cancelled outcome (the I.62 marker for "accepted then order
+   *  cancelled"). Conversion-rate aggregators net these out so wins
+   *  that fell through don't inflate the KPI. */
+  lost_reason?: string | null;
+}
+
+export interface LeadForYoY {
+  id: string;
+  status: string | null;
+  created_at: string | null;
+  /** Source channel - manual_add / embed / client_portal_rebook /
+   *  ai_import / etc. Tier 4 lead-source funnel groups by this. */
+  source?: string | null;
+  /** Branch ID. Optional because legacy rows may have null. */
+  region_id?: string | null;
+}
+
+export interface YoYStripMetric {
+  label: string;
+  current: number;
+  prior: number;
+  /** Signed delta % (current vs prior). null when prior was 0. */
+  deltaPct: number | null;
+  /** 12 monthly trailing values, oldest first. Drives the sparkline. */
+  sparkline: number[];
+  /** Pre-formatted current value for direct render (R / count / %). */
+  display: string;
+  /** "currency" | "count" | "percent" - consumers can re-format if needed. */
+  format: "currency" | "count" | "percent";
+}
+
+export interface YoYStripResult {
+  revenue: YoYStripMetric;
+  orderCount: YoYStripMetric;
+  avgOrderValue: YoYStripMetric;
+  conversionRate: YoYStripMetric;
+}
+
+const MONTH_KEY = (d: Date | string): string => {
+  const dt = typeof d === "string" ? new Date(d) : d;
+  if (isNaN(dt.getTime())) return "";
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthKeyFromDateString = (s: string | null | undefined): string => {
+  // event_date is "YYYY-MM-DD"; created_at is ISO timestamp. Both yield
+  // the right month after slicing.
+  if (!s) return "";
+  return s.length >= 7 ? s.slice(0, 7) : "";
+};
+
+// TIGHTEN I.70 (2026-06-01): route through the canonical helper.
+// Previously this widget counted any non-cancelled status as
+// "booked", including pending orders that hadn't yet had a deposit
+// or confirmation. The dashboard "Booked Revenue" tile excluded
+// those, so the YoY card and the dashboard tile disagreed for the
+// same tenant + window. Both now share isBookedRevenue.
+import { isBookedRevenue as isBookedRevenueShared } from "@/lib/orderRevenueClassification";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+const isBookedOrder = (o: RevenueByMonthInput): boolean =>
+  isBookedRevenueShared(o as any);
+
+const collectedFromOrder = (o: RevenueByMonthInput): number => {
+  return getOrderPaymentSummary({
+    totalAmount: o.total_amount,
+    amountPaid: o.amount_paid,
+    balanceAmount: o.balance_amount,
+    depositAmount: o.deposit_amount,
+    depositPaid: o.deposit_paid,
+    paymentStatus: o.payment_status,
+  }).amountPaid;
+};
+
+const fmtR = (n: number): string =>
+  new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR", maximumFractionDigits: 0 }).format(n || 0);
+const fmtCount = (n: number): string => Math.round(n).toLocaleString("en-ZA");
+const fmtPct = (n: number): string => `${n.toFixed(1)}%`;
+
+const deltaPct = (current: number, prior: number): number | null => {
+  if (prior === 0) return null;
+  return ((current - prior) / prior) * 100;
+};
+
+/**
+ * Build the strip.
+ *
+ * @param orders   orders covering the last 24 months (event_date)
+ * @param quotes   quotes covering the last 24 months (created_at)
+ * @param leads    leads covering the last 24 months (created_at)
+ * @param now      anchor for "today" - defaults to new Date(). Used to
+ *                 split current vs prior periods. Tests pass a fixed date.
+ */
+export function aggregateYoYStrip(
+  orders: RevenueByMonthInput[],
+  quotes: QuoteForYoY[],
+  leads: LeadForYoY[],
+  now: Date = new Date(),
+): YoYStripResult {
+  // Current period = trailing 12 months ending at end of the current month.
+  // Prior period = the 12 months before that (24..12 months ago).
+  // Sparkline = 12 monthly points covering the CURRENT period only.
+  const currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // last day of current month
+  const currentStart = new Date(currentEnd);
+  currentStart.setMonth(currentStart.getMonth() - 11);
+  currentStart.setDate(1);
+  currentStart.setHours(0, 0, 0, 0);
+
+  const priorEnd = new Date(currentStart);
+  priorEnd.setDate(priorEnd.getDate() - 1);
+  const priorStart = new Date(priorEnd);
+  priorStart.setMonth(priorStart.getMonth() - 11);
+  priorStart.setDate(1);
+  priorStart.setHours(0, 0, 0, 0);
+
+  const inWindow = (s: string | null | undefined, start: Date, end: Date): boolean => {
+    if (!s) return false;
+    const dt = new Date(s);
+    if (isNaN(dt.getTime())) return false;
+    return dt >= start && dt <= end;
+  };
+
+  // Pre-build sparkline skeleton (12 month keys).
+  const sparkSkeleton: { key: string; idx: number }[] = [];
+  const cursor = new Date(currentStart);
+  for (let i = 0; i < 12; i++) {
+    sparkSkeleton.push({ key: MONTH_KEY(cursor), idx: i });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  const sparkIdxByKey = new Map(sparkSkeleton.map((s) => [s.key, s.idx]));
+
+  // ── Revenue (booked) + order count ──────────────────────────────
+  let revCurrent = 0, revPrior = 0;
+  let countCurrent = 0, countPrior = 0;
+  const revSpark = new Array(12).fill(0) as number[];
+  const countSpark = new Array(12).fill(0) as number[];
+
+  for (const o of orders) {
+    if (!isBookedOrder(o)) continue;
+    if (!o.event_date) continue;
+    const eventDate = new Date(o.event_date);
+    if (isNaN(eventDate.getTime())) continue;
+    const total = Number(o.total_amount || 0);
+    if (eventDate >= currentStart && eventDate <= currentEnd) {
+      revCurrent += total;
+      countCurrent += 1;
+      const idx = sparkIdxByKey.get(monthKeyFromDateString(o.event_date));
+      if (idx !== undefined) {
+        revSpark[idx] += total;
+        countSpark[idx] += 1;
+      }
+    } else if (eventDate >= priorStart && eventDate <= priorEnd) {
+      revPrior += total;
+      countPrior += 1;
+    }
+  }
+
+  // ── Avg order value ─────────────────────────────────────────────
+  const aovCurrent = countCurrent > 0 ? revCurrent / countCurrent : 0;
+  const aovPrior = countPrior > 0 ? revPrior / countPrior : 0;
+  const aovSpark = revSpark.map((r, i) => (countSpark[i] > 0 ? r / countSpark[i] : 0));
+
+  // ── Conversion rate - accepted quotes / leads, both keyed by created_at ─
+  let leadsCurrent = 0, leadsPrior = 0;
+  const leadsSpark = new Array(12).fill(0) as number[];
+  for (const l of leads) {
+    if (inWindow(l.created_at, currentStart, currentEnd)) {
+      leadsCurrent += 1;
+      const idx = sparkIdxByKey.get(monthKeyFromDateString(l.created_at));
+      if (idx !== undefined) leadsSpark[idx] += 1;
+    } else if (inWindow(l.created_at, priorStart, priorEnd)) {
+      leadsPrior += 1;
+    }
+  }
+
+  let acceptedCurrent = 0, acceptedPrior = 0;
+  const acceptedSpark = new Array(12).fill(0) as number[];
+  for (const q of quotes) {
+    // TIGHTEN I.61: a linked order is the hard signal that the deal
+    // converted. Don't miss revenue from quotes whose status field
+    // got desynced to 'sent' by the I.61 root-cause bug.
+    // TIGHTEN I.71 (2026-06-01): excludes won-then-cancelled from the
+    // conversion rate so the YoY conversion KPI matches the
+    // dashboard tile + funnel definition. Operators want "deals that
+    // actually stuck", not gross win count.
+    const lostReason = (q as any).lost_reason as string | null;
+    const isAccepted = q.status === "accepted" || !!q.converted_to_order_id;
+    const isWonThenCancelled = !!q.converted_to_order_id && lostReason === "order_cancelled";
+    if (!isAccepted || isWonThenCancelled) continue;
+    if (inWindow(q.accepted_at, currentStart, currentEnd)) {
+      acceptedCurrent += 1;
+      const idx = sparkIdxByKey.get(monthKeyFromDateString(q.accepted_at));
+      if (idx !== undefined) acceptedSpark[idx] += 1;
+    } else if (inWindow(q.accepted_at, priorStart, priorEnd)) {
+      acceptedPrior += 1;
+    }
+  }
+
+  const convCurrent = leadsCurrent > 0 ? (acceptedCurrent / leadsCurrent) * 100 : 0;
+  const convPrior = leadsPrior > 0 ? (acceptedPrior / leadsPrior) * 100 : 0;
+  const convSpark = leadsSpark.map((leadCount, i) =>
+    leadCount > 0 ? (acceptedSpark[i] / leadCount) * 100 : 0,
+  );
+
+  return {
+    revenue: {
+      label: "Booked revenue",
+      current: revCurrent,
+      prior: revPrior,
+      deltaPct: deltaPct(revCurrent, revPrior),
+      sparkline: revSpark,
+      display: fmtR(revCurrent),
+      format: "currency",
+    },
+    orderCount: {
+      label: "Confirmed orders",
+      current: countCurrent,
+      prior: countPrior,
+      deltaPct: deltaPct(countCurrent, countPrior),
+      sparkline: countSpark,
+      display: fmtCount(countCurrent),
+      format: "count",
+    },
+    avgOrderValue: {
+      label: "Avg order value",
+      current: aovCurrent,
+      prior: aovPrior,
+      deltaPct: deltaPct(aovCurrent, aovPrior),
+      sparkline: aovSpark,
+      display: fmtR(aovCurrent),
+      format: "currency",
+    },
+    conversionRate: {
+      label: "Lead conversion",
+      current: convCurrent,
+      prior: convPrior,
+      deltaPct: deltaPct(convCurrent, convPrior),
+      sparkline: convSpark,
+      display: fmtPct(convCurrent),
+      format: "percent",
+    },
+  };
+}

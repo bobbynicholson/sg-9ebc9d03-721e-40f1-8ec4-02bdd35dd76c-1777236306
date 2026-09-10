@@ -1,0 +1,20 @@
+-- Phase 2 consolidation: payment_schedules was a parallel materialisation
+-- of fields already on orders (deposit_*, balance_*, total_amount,
+-- event_date, final_order_change_date). Two writers, no FK between rows,
+-- no trigger keeping them aligned -- drift was structural.
+--
+-- Pre-drop checks (manual, ahead of this migration):
+--   - Inbound FKs:       none
+--   - Dependent views:   none
+--   - RLS policies:      company_access_schedules (lives on payment_schedules
+--                        only, no orphan once the table is gone)
+--   - Code call sites:   paymentProcessingService.{initializePaymentSchedule,
+--                        processDepositPayment, processBalancePayment,
+--                        scheduleBalanceReminders, processDueReminders,
+--                        checkModificationDeadlines, getPaymentSchedule}
+--                        and src/integrations/supabase/types.ts -- all
+--                        migrated to read/write orders directly.
+--   - Live row count at drop time: 0 -- table was effectively empty,
+--                                  backfill into orders ran first as a
+--                                  no-op for safety.
+DROP TABLE IF EXISTS public.payment_schedules CASCADE;

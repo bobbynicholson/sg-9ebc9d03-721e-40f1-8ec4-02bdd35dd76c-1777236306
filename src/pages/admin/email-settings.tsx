@@ -1,0 +1,1296 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
+/**
+ * Email + Integrations settings. Catering company picks one of:
+ *  - Gmail OAuth   (cleanest - sends through their actual Gmail)
+ *  - Microsoft 365 OAuth
+ *  - Custom SMTP   (host:port + user/pass)
+ *  - Default (no provider configured - compose links only)
+ *
+ * Mailchimp lives here too for bulk-sending integration.
+ *
+ * Direct send via the company's own provider runs through a Supabase
+ * edge function (planned). For now this page persists the config and
+ * shows quota / connection state. The Clients CRM continues to use
+ * compose links until the edge function lands.
+ *
+ * Silicon Valley UX: live cap progress bar with optimistic save +
+ * "Test connection" button that flashes a checkmark + a copy-to-clipboard
+ * receipt of the last test ID.
+ */
+import { useEffect, useState } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Mail, Shield, Server, CheckCircle2, AlertTriangle, Send, Loader2, ExternalLink, Inbox, BarChart3, Sparkles, Globe, ShieldCheck } from "lucide-react";
+import { NoIndexMeta } from "@/components/NoIndexMeta";
+import { AdminNav } from "@/components/admin/AdminNav";
+import { PortalShell, PortalHeader,
+  PageWorkbench,
+} from "@/components/portal/ui";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useAuth } from "@/contexts/AuthContext";
+import { UserRole } from "@/types/app";
+import { supabase } from "@/integrations/supabase/client";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { useToast } from "@/hooks/use-toast";
+import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
+import { EmailDeliverabilityPanel } from "@/components/admin/EmailDeliverabilityPanel";
+import { toLocalISO } from "@/lib/localDate";
+import { captureException } from "@/lib/observability";
+
+type Provider = "none" | "resend" | "gmail_oauth" | "ms365_oauth" | "smtp";
+
+interface ProviderRow {
+  id?: string;
+  company_id?: string;
+  provider: Provider;
+  from_email: string | null;
+  from_name: string | null;
+  smtp_host: string | null;
+  smtp_port: number | null;
+  smtp_user: string | null;
+  smtp_secure: boolean;
+  oauth_account_email: string | null;
+  daily_send_cap: number;
+  is_verified: boolean;
+  last_test_sent_at: string | null;
+  last_test_error: string | null;
+  // auto-attach toggles
+  auto_attach_on_quote_sent: boolean;
+  auto_attach_on_order_confirmed: boolean;
+  auto_attach_on_order_status_change: boolean;
+  magic_link_repeat_customers: boolean;
+  magic_link_repeat_threshold: number;
+  revoke_old_links_on_new: boolean;
+}
+
+// Daily send caps per subscription plan. Numbers chosen to align with
+// Resend's free-tier ceiling (100/day per verified domain) and scale up
+// from there. Pro / scale tiers run on Resend's paid plan so the daily
+// limit goes well above the free-tier cap. Super_admin can override
+// per-row through direct DB edit for one-off cases.
+const PRICING_TIER_CAPS: Record<string, number> = {
+  trial:   100,
+  starter: 200,
+  growth:  500,
+  pro:     1500,
+  scale:   5000,
+};
+
+function EmailSettingsPage() {
+  const { profile, user } = useAuth() as any;
+  const companyId = profile?.company_id || user?.company_id;
+  const subscriptionPlan = (profile?.subscription_plan || "trial") as string;
+  const tierCap = PRICING_TIER_CAPS[subscriptionPlan] ?? 30;
+  const { toast } = useToast();
+
+  const [loading, setLoading] = useState(true);
+  // Surfaced load failure for the provider-settings read. Pre-audit a
+  // failed read was silently treated as "no row yet" and the form
+  // seeded profile defaults - one Save from there would overwrite the
+  // tenant's real provider config.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  // Non-blocking: the send-count queries failed, so the quota tile
+  // numbers can't be trusted. Shown as a small note instead of 0s.
+  const [countsUnavailable, setCountsUnavailable] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // Audit fix: the Mailchimp save had no in-flight state, so a
+  // double-click fired two upserts and the button gave no feedback.
+  const [savingMailchimp, setSavingMailchimp] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [todayCount, setTodayCount] = useState(0);
+  // Dirty-state tracking so the test-email button can tell the user
+  // "save first" instead of letting them test against stale DB rows
+  // and getting a confusing failure. Set after every successful save
+  // (and after the initial load) so editing then immediately testing
+  // surfaces the right blocker.
+  const [savedSnapshot, setSavedSnapshot] = useState<string>("");
+  const [row, setRow] = useState<ProviderRow>({
+    provider: "resend",
+    from_email: null,
+    from_name: null,
+    smtp_host: null,
+    smtp_port: 587,
+    smtp_user: null,
+    smtp_secure: true,
+    oauth_account_email: null,
+    daily_send_cap: tierCap,
+    is_verified: false,
+    last_test_sent_at: null,
+    last_test_error: null,
+    auto_attach_on_quote_sent: true,
+    auto_attach_on_order_confirmed: true,
+    auto_attach_on_order_status_change: false,
+    magic_link_repeat_customers: true,
+    magic_link_repeat_threshold: 2,
+    revoke_old_links_on_new: false,
+  });
+  const [queuedCount, setQueuedCount] = useState(0);
+  const [smtpPass, setSmtpPass] = useState("");
+  const [mailchimpApiKey, setMailchimpApiKey] = useState("");
+  const [mailchimpAudienceId, setMailchimpAudienceId] = useState("");
+  // ES-B (task #221, 2026-05-25): custom recipient for the test
+  // send. Pre-ES-B the test always landed in row.from_email so an
+  // operator wanting to see what an actual client sees had to
+  // change the from address. Now they can punch in any inbox.
+  const [testRecipient, setTestRecipient] = useState("");
+  // ES-B: rolling 7-day send count per local day. Drives the
+  // sparkline in the Today's send count tile so the operator
+  // can spot a usage trend at a glance.
+  const [last7Counts, setLast7Counts] = useState<Array<{ day: string; count: number }>>([]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setLoadError(null);
+      setCountsUnavailable(false);
+      // Audit fix (timezone edge): sent_at is timestamptz, and the old
+      // filter compared it against a naive `${localDate}T00:00:00`
+      // string, which PostgREST reads as UTC midnight. For an SA
+      // operator (UTC+2) that shifted the window 2 hours late: sends
+      // between 00:00 and 02:00 local vanished from "today" while the
+      // 7-day sparkline (which buckets on local days) still counted
+      // them, so the two figures disagreed. Anchor on the real local-
+      // midnight instant instead.
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const [
+        { data, error: providerErr },
+        { count, error: countErr },
+        { count: queued, error: queuedErr },
+      ] = await Promise.all([
+        // TIGHTEN I.47 (2026-06-01): `.maybeSingle()` errors when the
+        // company has multiple provider rows (e.g. an old smtp row
+        // alongside the current resend row). The error gets silently
+        // dropped, data becomes null, and the load falls through to
+        // "seed defaults from profile" - which clobbers whatever the
+        // user just saved with their profile's full_name on the next
+        // reload. Pick the most recently updated row explicitly via
+        // .limit(1) so any multi-provider state still resolves
+        // cleanly. Save path is unaffected (it filters by provider).
+        supabase
+          .from("email_provider_settings")
+          .select("*")
+          .eq("company_id", companyId)
+          .neq("provider", "mailchimp")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("outgoing_email_log")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .gte("sent_at", startOfToday.toISOString()),
+        supabase
+          .from("outgoing_email_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", companyId)
+          .eq("status", "queued"),
+      ]);
+      if (cancelled) return;
+      // A failed provider read must NOT fall through to the seed-
+      // defaults branch below - that path is only for genuinely new
+      // tenants. Surface it and let the operator retry.
+      if (providerErr) {
+        captureException(providerErr, {
+          tags: { route: "/admin/email-settings", step: "load-provider", companyId },
+        });
+        setLoadError(providerErr.message || "Could not load your email settings.");
+        setLoading(false);
+        return;
+      }
+      if (countErr || queuedErr) {
+        captureException(countErr || queuedErr, {
+          tags: { route: "/admin/email-settings", step: "load-counts", companyId },
+        });
+        setCountsUnavailable(true);
+      }
+      setTodayCount(count ?? 0);
+      setQueuedCount(queued ?? 0);
+      if (data) {
+        const loaded = {
+          ...data,
+          daily_send_cap: data.daily_send_cap ?? tierCap,
+        } as ProviderRow;
+        setRow(loaded);
+        setSavedSnapshot(JSON.stringify(loaded));
+      } else {
+        // Seed defaults from profile
+        setRow((r) => {
+          const next = {
+            ...r,
+            from_email: profile?.email || null,
+            from_name: profile?.full_name || profile?.company_name || null,
+            daily_send_cap: tierCap,
+          };
+          // No DB row yet, so the seeded defaults count as 'dirty'
+          // until the user saves. Set the snapshot to an empty marker
+          // so hasUnsavedChanges resolves true.
+          setSavedSnapshot("");
+          return next;
+        });
+      }
+
+      // Mailchimp row
+      const { data: mc, error: mcError } = await supabase
+        .from("email_provider_settings")
+        .select("mailchimp_audience_id")
+        .eq("company_id", companyId)
+        .eq("provider", "mailchimp")
+        .maybeSingle();
+      if (mcError) {
+        captureException(mcError, {
+          tags: { route: "/admin/email-settings", step: "load-mailchimp", companyId },
+        });
+      }
+      if (mc) setMailchimpAudienceId(mc.mailchimp_audience_id || "");
+
+      // ES-B (task #221, 2026-05-25): pull the last 7 days of
+      // outgoing_email_log rows so the sparkline has a real series
+      // to render. Cheap: only id + sent_at, 7 days max per tenant
+      // bounded by the daily cap.
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      sevenDaysAgo.setHours(0, 0, 0, 0);
+      const { data: logRows, error: logErr } = await supabase
+        .from("outgoing_email_log")
+        .select("sent_at")
+        .eq("company_id", companyId)
+        .gte("sent_at", sevenDaysAgo.toISOString())
+        .limit(10_000);
+      if (logErr) {
+        captureException(logErr, {
+          tags: { route: "/admin/email-settings", step: "load-7d-sends", companyId },
+        });
+      } else if (logRows) {
+        const buckets = new Map<string, number>();
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          buckets.set(toLocalISO(d), 0);
+        }
+        for (const r of logRows as Array<{ sent_at: string | null }>) {
+          if (!r.sent_at) continue;
+          const day = toLocalISO(new Date(r.sent_at));
+          if (buckets.has(day)) buckets.set(day, (buckets.get(day) || 0) + 1);
+        }
+        setLast7Counts(Array.from(buckets.entries()).map(([day, count]) => ({ day, count })));
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, tierCap, reloadKey]);
+
+  // Returns true on success, false on failure. The caller can use the
+  // return value to decide whether to chain follow-up work (e.g. the
+  // Send test email button calls save() first when the form is dirty,
+  // and aborts the test if the save failed).
+  const save = async (): Promise<boolean> => {
+    if (!companyId) return false;
+    setSaving(true);
+    try {
+      // Only invalidate domain verification when a save actually changes
+      // a verification-relevant field. Editing daily_send_cap or
+      // auto_attach toggles used to silently flip is_verified back to
+      // false, which dropped the operator back into "verify your domain
+      // again" without any indication why [P1-04].
+      const { data: existing } = await supabase
+        .from("email_provider_settings")
+        .select("provider, from_email, from_name, smtp_host, smtp_port, smtp_user, is_verified")
+        .eq("company_id", companyId)
+        .eq("provider", row.provider)
+        .maybeSingle();
+
+      const verificationRelevantChanged = !existing
+        ? true
+        : (existing as any).provider !== row.provider
+          || (existing as any).from_email !== row.from_email
+          || (existing as any).from_name !== row.from_name
+          || (row.provider === "smtp" && (
+                (existing as any).smtp_host !== row.smtp_host
+             || (existing as any).smtp_port !== row.smtp_port
+             || (existing as any).smtp_user !== row.smtp_user
+             || !!smtpPass /* new password = re-verify */
+          ));
+
+      const payload = {
+        company_id: companyId,
+        provider: row.provider,
+        from_email: row.from_email,
+        from_name: row.from_name,
+        smtp_host: row.provider === "smtp" ? row.smtp_host : null,
+        smtp_port: row.provider === "smtp" ? row.smtp_port : null,
+        smtp_user: row.provider === "smtp" ? row.smtp_user : null,
+        smtp_pass_encrypted: row.provider === "smtp" && smtpPass ? smtpPass : undefined,
+        smtp_secure: row.smtp_secure,
+        daily_send_cap: row.daily_send_cap,
+        // Preserve existing verification when the save only touches
+        // non-credential fields. Reset to false only when something that
+        // actually invalidates verification changed.
+        is_verified: verificationRelevantChanged ? false : (existing as any)?.is_verified ?? false,
+        auto_attach_on_quote_sent:          row.auto_attach_on_quote_sent,
+        auto_attach_on_order_confirmed:     row.auto_attach_on_order_confirmed,
+        auto_attach_on_order_status_change: row.auto_attach_on_order_status_change,
+        magic_link_repeat_customers:        row.magic_link_repeat_customers,
+        magic_link_repeat_threshold:        row.magic_link_repeat_threshold,
+        revoke_old_links_on_new:            row.revoke_old_links_on_new,
+        updated_at: new Date().toISOString(),
+      };
+      Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
+
+      const { error } = await supabase
+        .from("email_provider_settings")
+        .upsert(payload, { onConflict: "company_id,provider" });
+      if (error) throw error;
+      // Snapshot the saved form state so hasUnsavedChanges goes back
+      // to false. Without this the test-email button keeps blocking
+      // with "save first" even after a successful save.
+      setSavedSnapshot(JSON.stringify(row));
+      toast({
+        title: "Saved",
+        description: verificationRelevantChanged && existing
+          ? "Provider config updated. Domain verification reset because credentials changed."
+          : "Provider config updated.",
+      });
+      return true;
+    } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/email-settings", step: "save-provider", companyId },
+      });
+      toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Compare the live form state against the last saved snapshot.
+  // Cheap JSON.stringify is fine: the row object is small and only
+  // ever updated by setRow, so reference-stability isn't required.
+  const hasUnsavedChanges = JSON.stringify(row) !== savedSnapshot;
+
+  // Send a test email to the operator's own from_email address [P1-05].
+  // Uses /api/test-email which is now auth-gated (P0-05). Lands the
+  // tenant-branded test in the operator's inbox so they can see what
+  // their clients will see, without sending to a stranger.
+  const sendTestEmail = async () => {
+    // Pre-flight: surface the specific blocker so the operator isn't
+    // told "set a from address" when the from address is clearly
+    // already on screen. Three distinct failure shapes here:
+    //   1. companyId is missing (super_admin view, or auth not loaded)
+    //   2. from_email is empty in form state
+    //   3. form is filled but not yet saved (DB hasn't caught up, the
+    //      test endpoint will read stale data + fail in a confusing way)
+    if (!companyId) {
+      toast({
+        title: "Couldn't identify your company",
+        description: "Sign out and back in, then retry. If this keeps happening flag it to support.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!row.from_email || !row.from_email.trim()) {
+      toast({
+        title: "Add a from address first",
+        description: "Fill in From address, save, then test.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // ES-D (task #235, 2026-06-01): instead of blocking the button on
+    // unsaved changes, save first then test. The test endpoint reads
+    // provider config from the DB, so the save has to land before the
+    // send. Previously the button was greyed out with a hover-only
+    // explanation - operators on a fresh tenant (no email_provider_settings
+    // row yet) hit a dead button with no visible reason and gave up.
+    setTesting(true);
+    if (hasUnsavedChanges) {
+      const ok = await save();
+      if (!ok) {
+        // save() already toasted the error; abort so we don't send a
+        // test against half-written config.
+        setTesting(false);
+        return;
+      }
+    }
+    // ES-B (task #221, 2026-05-25): if a custom recipient is set,
+    // send the test there instead of the from address. Lets the
+    // operator preview what a real client sees without flipping
+    // their own from_email.
+    const targetTo = (testRecipient.trim() || row.from_email)!;
+    try {
+      const res = await fetch("/api/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId, to: targetTo }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        captureException(new Error(json.error || `HTTP ${res.status}`), {
+          tags: {
+            route: "/admin/email-settings",
+            step: "send-test",
+            companyId,
+            error_code: json.error_code || "unknown",
+          },
+        });
+        // TIGHTEN I.38: surface the structured error_code so operators
+        // can act on the failure (e.g. resend_auth = "platform key
+        // missing, ask support" vs from_email_domain_mismatch =
+        // "change the from address") instead of seeing the same
+        // useless generic message for every failure mode.
+        const detail = json.error || "Could not send test email. Check provider config.";
+        // TIGHTEN I.39: when resend_auth fires but the dashboard
+        // claims the key is set, include the debug block in the toast
+        // so we can tell at a glance whether the runtime is seeing it.
+        let suffix = "";
+        if (json.error_code) suffix = ` [${json.error_code}]`;
+        if (json.debug) {
+          const d = json.debug;
+          suffix += ` (key_present=${d.resend_key_present} length=${d.resend_key_length} prefix=${d.resend_key_prefix} starts_with_re_=${d.resend_key_starts_with_re_} edge_ws=${d.resend_key_has_whitespace_edges} vercel_env=${d.vercel_env})`;
+        }
+        // TIGHTEN I.40: when the resend_auth was from Resend rejecting
+        // the call (not env var missing), surface what Resend said so
+        // the operator can tell rejected-by-Resend apart from
+        // missing-on-server.
+        if (json.context && (json.context.resend_status || json.context.resend_body_message)) {
+          const c = json.context;
+          suffix += ` resend_status=${c.resend_status ?? "?"} resend_says="${c.resend_body_message ?? c.resend_body_name ?? "?"}"`;
+        }
+        toast({
+          title: "Test failed",
+          description: `${detail}${suffix}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      // Audit fix: reflect the successful test locally. Pre-fix the
+      // rose "Last test failed" box kept showing the previous failure
+      // and "Last test:" kept the old timestamp until a full reload,
+      // so the page contradicted the "Test sent" toast. The snapshot
+      // is patched in tandem (the form was just saved if it was
+      // dirty), so this bookkeeping never flips hasUnsavedChanges.
+      const testedRow = { ...row, last_test_sent_at: new Date().toISOString(), last_test_error: null };
+      setRow(testedRow);
+      setSavedSnapshot((snap) => (snap === JSON.stringify(row) ? JSON.stringify(testedRow) : snap));
+      toast({
+        title: "Test sent",
+        description: `Inbox: ${targetTo}. Check spam if it doesn't appear in 30 seconds.`,
+      });
+    } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/email-settings", step: "send-test-network", companyId },
+      });
+      toast({
+        title: "Test failed",
+        description: e?.message || "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const saveMailchimp = async () => {
+    if (!companyId) return;
+    setSavingMailchimp(true);
+    try {
+      const { error } = await supabase
+        .from("email_provider_settings")
+        .upsert({
+          company_id: companyId,
+          provider: "mailchimp",
+          mailchimp_api_key_encrypted: mailchimpApiKey || undefined,
+          mailchimp_audience_id: mailchimpAudienceId || null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "company_id,provider" });
+      if (error) throw error;
+      setMailchimpApiKey(""); // clear local field after save
+      toast({ title: "Mailchimp saved", description: "Audience linked. Bulk sends now route through Mailchimp." });
+    } catch (e: any) {
+      captureException(e, {
+        tags: { route: "/admin/email-settings", step: "save-mailchimp", companyId },
+      });
+      toast({ title: "Save failed", description: e?.message || "Try again", variant: "destructive" });
+    } finally {
+      setSavingMailchimp(false);
+    }
+  };
+
+  // Guard the divide: a 0/blank cap would render a NaN-width bar.
+  const capPct = row.daily_send_cap > 0
+    ? Math.min(100, Math.round((todayCount / row.daily_send_cap) * 100))
+    : 0;
+
+  const providerLabel =
+    row.provider === "resend" ? "CateringMS default"
+    : row.provider === "gmail_oauth" ? "Gmail"
+    : row.provider === "ms365_oauth" ? "Microsoft 365"
+    : row.provider === "smtp" ? "Custom SMTP"
+    : "No provider";
+
+  return (
+    <>
+      <NoIndexMeta />
+      <Head><title>Email settings - CateringMS</title></Head>
+      <AdminNav />
+
+      <div className="admin-page-shell">
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+
+          {/* Command-centre hero: brand-washed dark band with live
+              send-volume chips from the queries this page already runs. */}
+          <PortalHeader
+            variant="hero"
+            title={
+              <span className="flex items-center gap-2 flex-wrap">
+                Email settings
+                <InfoTooltip content={"How CateringMS sends mail on your behalf.\n\nOut of the box you're already set up via our shared sender. Verify your own domain below to send from your address.\n\nGmail / Microsoft 365 / SMTP live further down under 'Switch provider'."} className="text-white/60 hover:text-white" />
+              </span>
+            }
+            icon={Mail}
+            subtitle="You're already set up to send. Verify your own domain below for full branding, or just edit your sender name and address."
+            meta={
+              !loading && !loadError ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {providerLabel}
+                  </span>
+                  {!countsUnavailable && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <span className={`h-1.5 w-1.5 rounded-full ${capPct > 90 ? "bg-rose-400" : capPct > 70 ? "bg-amber-400" : "bg-emerald-400"}`} />
+                      {todayCount} of {row.daily_send_cap} sent today
+                    </span>
+                  )}
+                  {!countsUnavailable && queuedCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+                      {queuedCount} queued
+                    </span>
+                  )}
+                </>
+              ) : undefined
+            }
+            actions={
+              !loading && !loadError ? (
+                <Button size="sm" onClick={save} disabled={saving || !companyId} className="gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {hasUnsavedChanges ? "Save settings" : "Saved"}
+                </Button>
+              ) : undefined
+            }
+          />
+          <PageWorkbench />
+
+          {/* Gate the form on load state: rendering the seeded default
+              row while the fetch is in flight invites a Save that
+              overwrites the tenant's real provider config. */}
+          {loading ? (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <Loader2 className="w-6 h-6 mx-auto text-slate-400 animate-spin" />
+                <p className="text-sm text-slate-500 mt-3">Loading your email settings...</p>
+              </CardContent>
+            </Card>
+          ) : loadError ? (
+            <Card className="border-rose-200 bg-rose-50/60">
+              <CardContent className="py-16 text-center">
+                <AlertTriangle className="w-8 h-8 mx-auto text-rose-500" />
+                <p className="font-medium text-slate-900 mt-3">Couldn&apos;t load your email settings</p>
+                <p className="text-sm text-slate-600 mt-1">{loadError}</p>
+                <Button variant="outline" className="mt-4" onClick={() => setReloadKey((k) => k + 1)}>
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+          <>
+          {/* Daily quota tile */}
+          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-blue-600" />
+                  <span className="font-semibold text-slate-900">Today's send count</span>
+                  <InfoTooltip content={"Counts emails sent straight from CateringMS through your provider.\n\nCompose-link clicks are tracked separately and don't count against this cap, since those go out through your own inbox."} />
+                </div>
+                <span className="text-2xl font-bold text-slate-900 tabular-nums">
+                  {countsUnavailable ? "?" : todayCount} <span className="text-sm font-normal text-slate-500">/ {row.daily_send_cap}</span>
+                </span>
+              </div>
+              {countsUnavailable && (
+                <div className="mb-2 flex items-center gap-2 text-xs text-amber-800">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Send counts could not be loaded, the numbers here may be stale.</span>
+                  <button type="button" className="underline font-medium" onClick={() => setReloadKey((k) => k + 1)}>
+                    Retry
+                  </button>
+                </div>
+              )}
+              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all ${
+                    capPct > 90 ? "bg-rose-500" : capPct > 70 ? "bg-amber-500" : "bg-brand-primary"
+                  }`}
+                  style={{ width: `${capPct}%` }}
+                />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-slate-500">
+                <span>Your</span>
+                <Badge variant="outline" className="capitalize">{subscriptionPlan}</Badge>
+                <span>plan caps daily personal sends at <strong>{tierCap}</strong>. Tier rules in <Link href="/pricing" className="text-slate-600">Pricing</Link>.</span>
+              </div>
+
+              {/* ES-B (task #221, 2026-05-25): 7-day send sparkline.
+                  Reads from outgoing_email_log so the operator can
+                  spot a trend before they hit the cap. Inline SVG to
+                  avoid a chart-lib dep for one chart. */}
+              {last7Counts.length > 0 && (() => {
+                const max = Math.max(1, ...last7Counts.map((c) => c.count));
+                const W = 280;
+                const H = 40;
+                const stepX = W / Math.max(1, last7Counts.length - 1);
+                const points = last7Counts.map((c, i) => {
+                  const x = i * stepX;
+                  const y = H - (c.count / max) * (H - 4) - 2;
+                  return `${x.toFixed(1)},${y.toFixed(1)}`;
+                }).join(" ");
+                const total7 = last7Counts.reduce((s, c) => s + c.count, 0);
+                return (
+                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                        Last 7 days
+                      </p>
+                      <p className="text-sm font-medium text-slate-700 tabular-nums">
+                        {total7} sent · peak {max}/day
+                      </p>
+                    </div>
+                    {/* Brand token, not a hard-coded blue: this is
+                        chrome accent, not a semantic status colour. */}
+                    <svg width={W} height={H} className="overflow-visible">
+                      <polyline
+                        fill="none"
+                        stroke="rgb(var(--brand-primary-rgb))"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        points={points}
+                      />
+                      {last7Counts.map((c, i) => {
+                        const x = i * stepX;
+                        const y = H - (c.count / max) * (H - 4) - 2;
+                        return (
+                          <circle key={c.day} cx={x} cy={y} r={2} fill="rgb(var(--brand-primary-rgb))">
+                            <title>{c.day}: {c.count} sent</title>
+                          </circle>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* TIGHTEN I.42 (2026-06-01): make the zero-DNS default path
+              explicit before the upgrade path. Without this, the
+              "Recommended" badge on the domain card below reads as
+              "required" and catering admins assume they must verify
+              their DNS before they can send. Bobby flagged this on
+              spit-braai-delivery's setup. The platform send.cateringms.com
+              subdomain is verified at the Skylight level, so every
+              tenant gets working email out of the box. */}
+          <Card className="mb-6 bg-gradient-to-br from-brand-primary/10 to-sky-50">
+            <CardContent className="py-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-brand-primary/15 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-brand-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-slate-900">You're already set up to send</h3>
+                  <p className="text-sm text-slate-700 mt-1 leading-relaxed">
+                    Emails go out from{" "}
+                    <code className="text-xs bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono">noreply@send.cateringms.com</code>
+                    {" "}with Reply-To set to <strong>{row.from_email || "your address above"}</strong>.
+                    Clients see your From name, and when they hit Reply it lands in your inbox.
+                    <strong className="text-brand-primary"> No DNS setup required.</strong>
+                    {" "}This is what most caterers use.
+                  </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Want your address on the From line instead? That's the optional upgrade below - takes about 5 minutes of DNS work.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Resend domain verification - optional upgrade path */}
+          <Card className="mb-6 bg-gradient-to-br from-white to-slate-50/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-slate-600" />
+                Use your own sending domain
+                <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700">Optional upgrade</span>
+              </CardTitle>
+              <CardDescription>
+                Skip this if you're happy with the default sender above. Verify your domain once and every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code> with proper SPF + DKIM. Takes about 5 minutes of DNS work at your domain host.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {companyId && (
+                <ResendDomainCard
+                  companyId={companyId}
+                  onVerified={(d) => {
+                    // Auto-set provider=resend after verification so the
+                    // first save persists the new state.
+                    setRow((r) => ({ ...r, provider: "resend" }));
+                    if (!row.from_email || !row.from_email.toLowerCase().endsWith(`@${d}`)) {
+                      // Suggest a sensible default if their from_email
+                      // doesn't already live at the verified domain.
+                      setRow((r) => ({
+                        ...r,
+                        from_email: `hello@${d}`,
+                      }));
+                    }
+                  }}
+                />
+              )}
+              <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+                <p className="font-semibold mb-1">While your DNS is propagating</p>
+                <p>
+                  Nothing breaks - emails keep going out from <code>noreply@send.cateringms.com</code> with replies routed back to your inbox, exactly like before you started. Once the DNS records are live (usually within an hour), your emails switch to your own domain automatically.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* TIGHTEN I.49 (2026-06-01): "Sender identity" card extracted
+              out of the old mega "Advanced: alternative providers"
+              card. From name + From address are core settings, not
+              advanced. They get their own dedicated section near the
+              top with the send-test affordance attached so the
+              operator can verify a change without scrolling. */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="w-5 h-5 text-slate-600" />
+                Sender identity
+              </CardTitle>
+              <CardDescription>
+                What clients see in their inbox. Reply-To is set to your From address automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="from_name">From name</Label>
+                  <Input
+                    id="from_name"
+                    value={row.from_name || ""}
+                    onChange={(e) => setRow({ ...row, from_name: e.target.value })}
+                    placeholder="Spit Braai Delivery"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="from_email">
+                    From address
+                    <InfoTooltip content={"The address that shows up in the recipient's inbox.\n\nFor Gmail or Outlook sign-in, this is locked to the account you connected."} />
+                  </Label>
+                  <Input
+                    id="from_email"
+                    type="email"
+                    value={row.from_email || ""}
+                    onChange={(e) => setRow({ ...row, from_email: e.target.value })}
+                    placeholder="hello@spitbraaidelivery.co.za"
+                  />
+                </div>
+              </div>
+
+              {row.last_test_error && (
+                <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900 flex items-start gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="font-semibold">Last test failed</p>
+                    <p className="break-words">{row.last_test_error}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-slate-100">
+                <Label htmlFor="test_recipient">
+                  Send test to (optional)
+                  <InfoTooltip content={"Leave blank to send the test to your From address. Drop any inbox in here to see what a real client would receive."} />
+                </Label>
+                <Input
+                  id="test_recipient"
+                  type="email"
+                  value={testRecipient}
+                  onChange={(e) => setTestRecipient(e.target.value)}
+                  placeholder={row.from_email || "you@example.com"}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <p className="text-xs text-slate-500 truncate">
+                  {row.last_test_sent_at && (
+                    <>Last test: {new Date(row.last_test_sent_at).toLocaleString("en-ZA")}</>
+                  )}
+                </p>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    onClick={sendTestEmail}
+                    disabled={testing || saving || !row.from_email}
+                    variant="outline"
+                    className="gap-2"
+                    title={hasUnsavedChanges
+                      ? `Save and send a test to ${testRecipient.trim() || row.from_email}`
+                      : `Send a test email to ${testRecipient.trim() || row.from_email}`}
+                  >
+                    {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                    {hasUnsavedChanges ? "Save & send test" : "Send test"}
+                  </Button>
+                  <Button onClick={save} disabled={saving} className="gap-2">
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                    {hasUnsavedChanges ? "Save" : "Saved"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* TIGHTEN I.45 / I.49: per-tenant deliverability health.
+              Moved up from below auto-attach in I.49 - this is the
+              live data the operator most wants to see, putting it
+              under their sender identity is the right reading order. */}
+          {companyId && <EmailDeliverabilityPanel companyId={companyId} />}
+
+          {/* TIGHTEN I.49: "Switch to a different provider" - the
+              alternative-provider tiles + OAuth/SMTP fields + daily
+              cap. Collapsed by default since most tenants don't ever
+              touch this. The Resend (default) tile is always the
+              correct choice unless the operator has a specific reason
+              to route via their own Gmail/365/SMTP. */}
+          <details className="mb-6 rounded-lg bg-white overflow-hidden">
+            <summary className="cursor-pointer px-6 py-4 select-none flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 font-semibold text-slate-900">
+                <Server className="w-5 h-5 text-slate-600" />
+                Switch to a different provider
+              </span>
+              <span className="text-xs text-slate-500">
+                Currently: {providerLabel}
+              </span>
+            </summary>
+            <div className="px-6 pb-6 pt-2 space-y-4 border-t border-slate-100">
+              <p className="text-xs text-slate-600">
+                Most caterers should stay on the CateringMS default. These options exist for operators who already have a Gmail / Microsoft 365 / SMTP setup they'd rather route through. Pick the one that matches how your business already sends mail.
+              </p>
+              {/* TIGHTEN I.50 (2026-06-01): rich provider option cards
+                  replacing the four tiny "title + one-line sub" tiles.
+                  Each option now spells out: what it does, when to
+                  pick it, what setup it needs, and what it costs in
+                  send volume or deliverability. The old tiles said
+                  "Gmail · Sign in once with Google" - a catering admin
+                  has no idea what changes for them when they pick
+                  that. Now they do. */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <ProviderOption
+                  active={row.provider === "resend"}
+                  onClick={() => setRow({ ...row, provider: "resend" })}
+                  icon={Globe}
+                  title="CateringMS default"
+                  status={{ label: "Active default", tone: "emerald" }}
+                  blurb="Out of the box. Quotes, invoices and confirmations go from noreply@send.cateringms.com with your Reply-To set to your address. Clients see your name. Replies land in your inbox. No setup."
+                  meta={[
+                    { label: "Setup", value: "Done. Optional: verify your own domain (above)." },
+                    { label: "Send volume", value: `${tierCap}/day on your plan` },
+                    { label: "Deliverability", value: "Good. Lifts to excellent once you verify your own domain." },
+                  ]}
+                />
+                <ProviderOption
+                  active={row.provider === "gmail_oauth"}
+                  onClick={() => setRow({ ...row, provider: "gmail_oauth" })}
+                  icon={Mail}
+                  title="Gmail"
+                  status={{ label: "Coming soon", tone: "amber" }}
+                  blurb="Route every send through your own Gmail or Google Workspace inbox. Each email actually leaves YOUR Gmail Sent folder, so it looks identical to anything you send by hand."
+                  meta={[
+                    { label: "Setup", value: "Sign in once with Google (OAuth)" },
+                    { label: "Send volume", value: "Google's daily limit (~500/day personal, ~2000/day Workspace)" },
+                    { label: "Best for", value: "Caterers already living in Google Workspace who want one Sent folder" },
+                  ]}
+                />
+                <ProviderOption
+                  active={row.provider === "ms365_oauth"}
+                  onClick={() => setRow({ ...row, provider: "ms365_oauth" })}
+                  icon={Mail}
+                  title="Microsoft 365"
+                  status={{ label: "Coming soon", tone: "amber" }}
+                  blurb="Same shape as Gmail but for Outlook / Office 365. Every send leaves YOUR Outlook Sent folder, indistinguishable from emails you write by hand."
+                  meta={[
+                    { label: "Setup", value: "Sign in once with Microsoft (OAuth)" },
+                    { label: "Send volume", value: "Microsoft's daily limit (~300/day)" },
+                    { label: "Best for", value: "Caterers running Office 365 who want one Sent folder" },
+                  ]}
+                />
+                <ProviderOption
+                  active={row.provider === "smtp"}
+                  onClick={() => setRow({ ...row, provider: "smtp" })}
+                  icon={Server}
+                  title="Custom SMTP"
+                  status={{ label: "Advanced", tone: "slate" }}
+                  blurb="For operators who already have a polished email setup with Zoho, cPanel, Fastmail, Postmark, AWS SES or any other SMTP provider. Bring your own host, port, username and password."
+                  meta={[
+                    { label: "Setup", value: "SMTP host / port / username / password" },
+                    { label: "Send volume", value: "Whatever your SMTP provider allows" },
+                    { label: "Best for", value: "Operators who already pay for transactional email and know what SMTP is" },
+                  ]}
+                />
+              </div>
+
+              {(row.provider === "gmail_oauth" || row.provider === "ms365_oauth") && (
+                <div className="pt-3 border-t border-slate-100 space-y-3">
+                  {row.is_verified ? (
+                    <div className="flex items-center gap-2 text-brand-primary bg-brand-primary/10 border border-brand-primary/20 rounded-md p-3">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <div className="text-sm">
+                        <p className="font-semibold">Connected as {row.oauth_account_email || row.from_email}</p>
+                        <p className="text-xs text-brand-primary">Ready to send through your inbox.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-md bg-amber-50 border border-amber-200">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600" />
+                        <span className="text-sm text-amber-800">
+                          Not connected yet, click below to authorise.
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => toast({ title: "Coming soon", description: "OAuth flow ships with the next deploy. Use SMTP or compose-links for now." })}
+                        className="gap-2"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        {row.provider === "gmail_oauth" ? "Connect Gmail" : "Connect Microsoft"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {row.provider === "smtp" && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+                  <div>
+                    <Label htmlFor="smtp_host">SMTP host</Label>
+                    <Input id="smtp_host" value={row.smtp_host || ""} onChange={(e) => setRow({ ...row, smtp_host: e.target.value })} placeholder="mail.spitbraaidelivery.co.za" />
+                  </div>
+                  <div>
+                    <Label htmlFor="smtp_port">Port</Label>
+                    <Input id="smtp_port" type="number" value={row.smtp_port ?? 587} onChange={(e) => setRow({ ...row, smtp_port: Number(e.target.value) })} />
+                  </div>
+                  <div>
+                    <Label htmlFor="smtp_user">Username</Label>
+                    <Input id="smtp_user" value={row.smtp_user || ""} onChange={(e) => setRow({ ...row, smtp_user: e.target.value })} placeholder="hello@spitbraaidelivery.co.za" />
+                  </div>
+                  <div>
+                    <Label htmlFor="smtp_pass">
+                      Password
+                      <InfoTooltip content={"Stored encrypted on our side.\n\nLeave this blank to keep the password you already saved."} />
+                    </Label>
+                    <Input id="smtp_pass" type="password" value={smtpPass} onChange={(e) => setSmtpPass(e.target.value)} placeholder="unchanged" />
+                  </div>
+                  <label className="flex items-center gap-2 text-sm md:col-span-2 cursor-pointer">
+                    <input type="checkbox" checked={!!row.smtp_secure} onChange={(e) => setRow({ ...row, smtp_secure: e.target.checked })} />
+                    Use TLS/SSL (recommended)
+                  </label>
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="cap">
+                    Daily send cap
+                    <InfoTooltip content={`Your plan allows up to ${tierCap} a day. You can drop this lower if you want a tighter ceiling.\n\nOnly super-admin can raise it above the plan limit.`} />
+                  </Label>
+                  <Input
+                    id="cap"
+                    type="number"
+                    min={1}
+                    max={tierCap}
+                    value={row.daily_send_cap}
+                    onChange={(e) => setRow({ ...row, daily_send_cap: Math.max(1, Math.min(Number(e.target.value) || 1, tierCap)) })}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button onClick={save} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {hasUnsavedChanges ? "Save provider config" : "Saved"}
+                </Button>
+              </div>
+            </div>
+          </details>
+
+          {/* TIGHTEN I.49: renamed "Auto-attach client links" to
+              "When to email clients automatically" - matches the
+              operator's mental model better. The old title described
+              the mechanism (attach a link); the new one describes the
+              decision (when do these emails fire). */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Send className="w-5 h-5 text-slate-600" />
+                When to email clients automatically
+                <InfoTooltip content={"Toggle which client emails fire automatically. Each one includes the client's secure order link. Repeat clients can also get a 'View all my events' link.\n\nDirect quote and CRM sends use the verified company email sender. Gmail, Outlook, and the default mail app are optional manual-draft alternatives."} />
+              </CardTitle>
+              <CardDescription>
+                Pick which moments automatically send a client email with their secure order link.
+                {queuedCount > 0 && (
+                  <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                    <BarChart3 className="w-3 h-3" /> {queuedCount} queued
+                  </span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {row.provider === "none" && (
+                <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>
+                    No provider connected yet. Toggles below queue drafts, the catering admin can copy any
+                    draft to send manually until SMTP/OAuth is connected, then the queue drains
+                    automatically.
+                  </span>
+                </div>
+              )}
+              <ToggleRow
+                label="When a quote is marked sent"
+                sub="Includes a magic 'View all my bookings' link for repeat customers"
+                checked={row.auto_attach_on_quote_sent}
+                onChange={(v) => setRow({ ...row, auto_attach_on_quote_sent: v })}
+              />
+              <ToggleRow
+                label="When a new order is confirmed"
+                sub="Sends the tokenised order link automatically"
+                checked={row.auto_attach_on_order_confirmed}
+                onChange={(v) => setRow({ ...row, auto_attach_on_order_confirmed: v })}
+              />
+              <ToggleRow
+                label="When an order status changes"
+                sub="Useful for 'preparing -> ready -> on the way' updates. Off by default to avoid noise."
+                checked={row.auto_attach_on_order_status_change}
+                onChange={(v) => setRow({ ...row, auto_attach_on_order_status_change: v })}
+              />
+              <div className="border-t border-slate-100 pt-3">
+                <ToggleRow
+                  label="Repeat-customer magic link"
+                  sub={`When a client has at least ${row.magic_link_repeat_threshold} prior orders, also include a /c/account magic link so they can see every booking they've ever placed with you.`}
+                  checked={row.magic_link_repeat_customers}
+                  onChange={(v) => setRow({ ...row, magic_link_repeat_customers: v })}
+                />
+                <div className="mt-2 ml-1 flex items-center gap-2 text-xs">
+                  <span className="text-slate-600">Threshold:</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={row.magic_link_repeat_threshold}
+                    onChange={(e) => setRow({ ...row, magic_link_repeat_threshold: Math.max(1, Number(e.target.value) || 1) })}
+                    className="w-20 h-8"
+                  />
+                  <span className="text-slate-500">prior orders</span>
+                </div>
+              </div>
+              <div className="border-t border-slate-100 pt-3">
+                <ToggleRow
+                  label="Revoke old links when a new one is generated"
+                  sub="Tightens privacy: each new event email's link supersedes the previous one. Off by default so forwarded links keep working."
+                  checked={row.revoke_old_links_on_new}
+                  onChange={(v) => setRow({ ...row, revoke_old_links_on_new: v })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Mailchimp integration */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Inbox className="w-5 h-5 text-brand-primary" />
+                Mailchimp (bulk sender)
+              </CardTitle>
+              <CardDescription>
+                For newsletters, campaigns, and big lists. Personal emails stay in CateringMS; Mailchimp handles bulk.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label htmlFor="mc_api">API key
+                  <InfoTooltip content={"In Mailchimp, head to Account > Extras > API keys to grab one.\n\nStored encrypted on our side."} />
+                </Label>
+                <Input id="mc_api" type="password" value={mailchimpApiKey} onChange={(e) => setMailchimpApiKey(e.target.value)} placeholder={mailchimpAudienceId ? "unchanged" : "Enter Mailchimp API key"} />
+              </div>
+              <div>
+                <Label htmlFor="mc_aud">Audience ID</Label>
+                <Input id="mc_aud" value={mailchimpAudienceId} onChange={(e) => setMailchimpAudienceId(e.target.value)} placeholder="abcd1234" />
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <Link href="https://us1.admin.mailchimp.com/account/api/" target="_blank" rel="noopener" className="text-xs text-slate-600 hover:underline flex items-center gap-1">
+                  Get your API key from Mailchimp <ExternalLink className="w-3 h-3" />
+                </Link>
+                <Button variant="outline" onClick={saveMailchimp} disabled={savingMailchimp} className="gap-2">
+                  {savingMailchimp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {savingMailchimp ? "Saving..." : "Save Mailchimp link"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* TIGHTEN I.49: removed the bottom "Status / next steps"
+              footer card. Both bullets are dead weight:
+                - "How sends are tracked" is the kind of platform-team
+                  explanation that should live in docs, not the
+                  settings page
+                - "Direct send activates once OAuth/SMTP is verified" is
+                  already covered by the OAuth section's amber banner
+                  and the test-failure error state in Sender identity */}
+          </>
+          )}
+        </PortalShell>
+      </div>
+    </>
+  );
+}
+
+function ToggleRow({
+  label, sub, checked, onChange,
+}: { label: string; sub?: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-slate-900">{label}</p>
+        {sub && <p className="text-xs text-slate-600 mt-0.5">{sub}</p>}
+      </div>
+      <span className="relative inline-flex flex-shrink-0">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="sr-only peer"
+        />
+        {/* The old `peer-checked:checked:` variant never matched (the
+            track span is not a checkbox), so ON and OFF rendered the
+            same grey. Brand token for the on-state track. */}
+        <span className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:bg-brand-primary transition-colors" />
+        <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+      </span>
+    </label>
+  );
+}
+
+/**
+ * TIGHTEN I.50 (2026-06-01): rich provider option card.
+ *
+ * Replaces the tiny ProviderTile in the "Switch to a different
+ * provider" section. Each card now spells out: what it does
+ * (blurb), what setup it needs, what it costs in send volume,
+ * what it's best for. The previous one-line subtitle ("Sign in
+ * once with Google") gave the operator no information they could
+ * act on.
+ *
+ * Status pill colours:
+ *   emerald = currently active / safe choice
+ *   amber   = not yet built (Gmail / 365 OAuth flow is stubbed)
+ *   slate   = advanced / niche
+ */
+function ProviderOption({
+  active,
+  onClick,
+  icon: Icon,
+  title,
+  status,
+  blurb,
+  meta,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: any;
+  title: string;
+  status: { label: string; tone: "emerald" | "amber" | "slate" };
+  blurb: string;
+  meta: Array<{ label: string; value: string }>;
+}) {
+  const statusColour = status.tone === "emerald"
+    ? "bg-brand-primary/15 text-brand-primary"
+    : status.tone === "amber"
+      ? "bg-amber-100 text-amber-800"
+      : "bg-slate-100 text-slate-700";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative text-left rounded-xl border-2 p-4 transition-all flex flex-col gap-3 ${
+        active
+          ? "border-brand-primary bg-brand-primary/5 shadow-md"
+          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${active ? "bg-brand-primary/10" : "bg-slate-100"}`}>
+            {/* The active branch used to set `bg-slate-100` as the
+                icon's colour class, leaving it with no text colour. */}
+            <Icon className={`w-5 h-5 ${active ? "text-brand-primary" : "text-slate-600"}`} />
+          </span>
+          <p className="font-semibold text-sm truncate text-slate-900">{title}</p>
+        </div>
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${statusColour}`}>
+          {status.label}
+        </span>
+      </div>
+      <p className="text-xs text-slate-700 leading-relaxed">{blurb}</p>
+      <dl className="mt-1 space-y-1.5 border-t border-slate-200/70 pt-2">
+        {meta.map((m, i) => (
+          <div key={i} className="flex items-baseline gap-2">
+            <dt className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 w-24 flex-shrink-0">
+              {m.label}
+            </dt>
+            <dd className="text-[11px] text-slate-700 leading-snug">{m.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {active && (
+        <div className="absolute top-2 right-2 sm:hidden">
+          <CheckCircle2 className="w-4 h-4 text-brand-primary" />
+        </div>
+      )}
+    </button>
+  );
+}
+
+export default function ProtectedEmailSettings() {
+  // ES-B (task #221, 2026-05-25): admit OWNER. Pre-ES-B the page
+  // hardcoded SUPER_ADMIN + COMPANY_ADMIN + ADMIN, so the OWNER
+  // persona was 403'd off their own email/integration page. Same
+  // regression pattern as the rest of /admin.
+  return (
+    <ProtectedRoute allowedRoles={[
+      UserRole.SUPER_ADMIN,
+      UserRole.OWNER,
+      UserRole.COMPANY_ADMIN,
+      UserRole.ADMIN,
+    ]}>
+      <EmailSettingsPage />
+    </ProtectedRoute>
+  );
+}

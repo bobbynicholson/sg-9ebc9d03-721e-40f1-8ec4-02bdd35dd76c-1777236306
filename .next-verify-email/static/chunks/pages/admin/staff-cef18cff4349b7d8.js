@@ -1,0 +1,1 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[3778],{50468:(_,u,a)=>{"use strict";a.r(u),a.d(u,{default:()=>e.default});var e=a(80247)},86892:(_,u,a)=>{(window.__NEXT_P=window.__NEXT_P||[]).push(["/admin/staff",function(){return a(50468)}])}},_=>{var u=u=>_(_.s=u);_.O(0,[374,7208,8077,3027,8075,4156,112,6805,8889,1406,7190,636,6593,8792],()=>u(86892)),_N_E=_.O()}]);

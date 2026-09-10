@@ -1,0 +1,746 @@
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { MapPin, CheckCircle, Clock, Truck, MapPinned, Package } from "lucide-react";
+import { driverConfirmationService } from "@/services/driverConfirmationService";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { formatLocalTime } from "@/lib/localFormat";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
+import {
+  hasFreshPendingPodCapture,
+  readPendingPodCapture,
+} from "@/lib/podCaptureRecovery";
+
+// Auto-arrival fires when the driver is within this many metres of the
+// venue. 200m is forgiving enough for GPS drift + large venues/parking
+// while still meaning "they're effectively here".
+const GEOFENCE_RADIUS_M = 200;
+
+/** Great-circle distance between two lat/lng points, in metres. */
+function haversineMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6_371_000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+interface DriverConfirmationPanelProps {
+  orderId: string;
+  orderNumber: string;
+  eventTime: string;
+  venueAddress: string;
+}
+
+export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venueAddress }: DriverConfirmationPanelProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [confirmations, setConfirmations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [geoLocation, setGeoLocation] = useState<{ lat: number; lng: number } | null>(null);
+  // Wave 11 #11: collection trip is a separate driver_assignment row
+  // scheduled at event end. Surface it here as a third stage block
+  // so the driver has one button to start the collection (autoClockIn
+  // + flips assignment to in_progress) and one to mark it complete
+  // (returns equipment + autoClockOut). Only renders when there's an
+  // active collection assignment for this driver on this order.
+  const [collectionAssignment, setCollectionAssignment] = useState<any | null>(null);
+  // Local-only: the "arrived to collect" ping is notify-only (no DB
+  // checkpoint - confirmation_type has a CHECK constraint), so track the
+  // tapped state here to flip the button to a badge. Client-side dedup on
+  // the notification covers a reload-and-retap.
+  const [collectionArrived, setCollectionArrived] = useState(false);
+  // Geofence auto-arrival: once the driver has left the kitchen, we watch
+  // their GPS and auto-stamp "Arrived at venue" when they come within
+  // GEOFENCE_RADIUS_M of the venue coords. Manual tap still works (and is
+  // the fallback when coords/GPS are unavailable).
+  const [venueCoords, setVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [autoArrivalDist, setAutoArrivalDist] = useState<number | null>(null);
+  const autoFiredRef = useRef(false);
+  // POD-on-setup-complete (driver feedback 2026-07-04): arrival is a
+  // plain checkpoint; the POD is captured on the "Setup completed"
+  // step instead, because proof can only be signed once everything is
+  // offloaded AND rigged. The dialog routes through
+  // completeSetupWithPod() so the setup stamp, the POD and the
+  // delivered flip happen in one path.
+  const [podOpen, setPodOpen] = useState(false);
+
+  // Interrupted-POD recovery: PodCaptureDialog leaves a localStorage
+  // marker while a capture is in progress (cleared on explicit
+  // close/save). If this panel mounts and the marker belongs to THIS
+  // order and is fresh, the page died mid-capture (Android killing the
+  // tab while the native camera was up) - reopen the dialog so the
+  // driver finishes instead of the POD silently vanishing. The driver
+  // dashboard has the same recovery for its own POD entry point.
+  useEffect(() => {
+    try {
+      const pending = readPendingPodCapture();
+      // Legacy markers predate flow ownership; the reported interrupted
+      // camera path was this Status -> Setup completed workflow, so recover
+      // untagged markers here for backwards compatibility.
+      if (
+        hasFreshPendingPodCapture(orderId) &&
+        pending?.flow !== "direct"
+      ) {
+        setPodOpen(true);
+      }
+    } catch { /* localStorage unavailable - ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
+
+  useEffect(() => {
+    loadConfirmations();
+    getCurrentLocation();
+    loadCollectionAssignment();
+    loadVenueCoords();
+  }, [orderId]);
+
+  const loadVenueCoords = async () => {
+    try {
+      const { data } = await (supabase as any)
+        .from("orders")
+        .select("venue_lat, venue_lng")
+        .eq("id", orderId)
+        .maybeSingle();
+      const lat = Number((data as any)?.venue_lat);
+      const lng = Number((data as any)?.venue_lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)) {
+        setVenueCoords({ lat, lng });
+      }
+    } catch (e) {
+      console.warn("[DriverConfirmationPanel] venue coords lookup failed:", e);
+    }
+  };
+
+  const loadCollectionAssignment = async () => {
+    if (!user?.id) return;
+    try {
+      const { data } = await (supabase as any)
+        .from("driver_assignments")
+        .select("id, status, scheduled_for, driver_id, en_route_at, picked_up_at, completed_at")
+        .eq("order_id", orderId)
+        .eq("assignment_type", "collection")
+        .eq("driver_id", user.id)
+        .maybeSingle();
+      setCollectionAssignment(data || null);
+    } catch (e) {
+      console.warn("[DriverConfirmationPanel] collection assignment lookup failed:", e);
+    }
+  };
+
+  const startCollectionTrip = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await (driverConfirmationService as any).startCollection(orderId, user.id);
+      toast({ title: "Collection started", description: "Collection clock-in recorded. Drive safely to the venue." });
+      await loadCollectionAssignment();
+    } catch (e: any) {
+      toast({ title: "Could not start collection", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadConfirmations = async () => {
+    try {
+      const data = await driverConfirmationService.getOrderConfirmations(orderId);
+      setConfirmations(data);
+    } catch (error) {
+      console.error('Error loading confirmations:', error);
+    }
+  };
+
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setGeoLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        }
+      );
+    }
+  };
+
+  // Geofence watcher. Arms only when the driver has departed the kitchen
+  // and hasn't yet been marked at the venue, and we have venue coords +
+  // browser geolocation. Re-evaluates whenever confirmations change so it
+  // stops itself the moment "Arrived at venue" lands (auto OR manual).
+  useEffect(() => {
+    if (!venueCoords) return;
+    if (!navigator?.geolocation) return;
+    if (!isConfirmed("departed_kitchen")) return; // not on the road yet
+    if (isConfirmed("at_venue")) return; // already there
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setGeoLocation(here);
+        const dist = haversineMeters(here, venueCoords);
+        setAutoArrivalDist(dist);
+        if (dist <= GEOFENCE_RADIUS_M && !autoFiredRef.current && !isConfirmed("at_venue")) {
+          autoFiredRef.current = true;
+          // Arrival is a plain checkpoint again (POD moved to the
+          // Setup completed step), so the geofence can auto-stamp it.
+          toast({ title: "📍 You're at the venue", description: "Arrival checked in automatically." });
+          void handleConfirm("at_venue");
+        }
+      },
+      (err) => console.warn("[DriverConfirmationPanel] geofence watch error:", err?.message),
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 25_000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venueCoords, confirmations]);
+
+  const handleConfirm = async (
+    type:
+      | 'en_route_to_kitchen'
+      | 'at_kitchen'
+      | 'departed_kitchen'
+      | 'at_venue'
+      | 'service_started'
+      | 'departed_venue'
+      | 'returned_to_base',
+  ) => {
+    if (!user) return;
+
+    setLoading(true);
+    // Optimistic: flip the step to "Confirmed" instantly instead of waiting
+    // for the round-trip + reload (that wait is what made each tap feel
+    // laggy). loadConfirmations() reconciles with the server right after;
+    // the catch reloads to roll back if the write failed.
+    const nowIso = new Date().toISOString();
+    setConfirmations((prev: any[]) =>
+      prev.some((c) => c.confirmation_type === type)
+        ? prev
+        : [...prev, { confirmation_type: type, confirmed_at: nowIso }],
+    );
+    try {
+      let result;
+      switch (type) {
+        case 'en_route_to_kitchen':
+          result = await driverConfirmationService.confirmEnRouteToKitchen(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'at_kitchen':
+          result = await driverConfirmationService.confirmAtKitchen(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'departed_kitchen':
+          result = await driverConfirmationService.confirmDepartedKitchen(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'at_venue':
+          result = await driverConfirmationService.confirmAtVenue(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'service_started':
+          result = await (driverConfirmationService as any).markServiceStarted(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'departed_venue':
+          result = await (driverConfirmationService as any).markDepartedVenue(orderId, user.id, geoLocation || undefined);
+          break;
+        case 'returned_to_base':
+          result = await (driverConfirmationService as any).markReturnedToBase(orderId, user.id, geoLocation || undefined);
+          break;
+      }
+
+      toast({
+        title: "✅ Confirmed!",
+        description: type === 'returned_to_base'
+          ? "You reached the kitchen/warehouse. Your driver shift timer has been stopped."
+          : type === 'departed_venue'
+            ? "You left the venue. The timer stays active until you reach the kitchen/warehouse."
+            : "Your status has been updated successfully.",
+      });
+
+      await loadConfirmations();
+      if (type === 'returned_to_base') await loadCollectionAssignment();
+    } catch (error: any) {
+      // Roll back the optimistic confirm to the server truth.
+      await loadConfirmations();
+      toast({
+        title: "Error",
+        description: dbErrorMessage(error, { entity: "delivery", fallback: "Failed to confirm status" }),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isConfirmed = (type: string) => {
+    return confirmations.some(c => c.confirmation_type === type);
+  };
+
+  const getConfirmationTime = (type: string) => {
+    const confirmation = confirmations.find(c => c.confirmation_type === type);
+    return confirmation ? formatLocalTime(confirmation.confirmed_at) : null;
+  };
+
+  return (
+    <Card className="border-2 border-brand-primary/20">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Truck className="h-5 w-5 text-brand-primary" />
+          Delivery Checklist - Order #{orderNumber}
+        </CardTitle>
+        <CardDescription>
+          Event Time: {eventTime} | Venue: {venueAddress}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* En-Route to Kitchen */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <MapPin className={`h-5 w-5 ${isConfirmed('en_route_to_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">En-Route to Kitchen</p>
+              {isConfirmed('en_route_to_kitchen') && (
+                <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('en_route_to_kitchen')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('en_route_to_kitchen') ? (
+            <Badge variant="default" className="bg-brand-primary">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Confirmed
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('en_route_to_kitchen')}
+              disabled={loading}
+              size="sm"
+            >
+              Confirm
+            </Button>
+          )}
+        </div>
+
+        {/* At Kitchen */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <MapPinned className={`h-5 w-5 ${isConfirmed('at_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Arrived at Kitchen</p>
+              {isConfirmed('at_kitchen') && (
+                <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('at_kitchen')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('at_kitchen') ? (
+            <Badge variant="default" className="bg-brand-primary">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Confirmed
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('at_kitchen')}
+              disabled={loading || !isConfirmed('en_route_to_kitchen')}
+              size="sm"
+            >
+              Confirm
+            </Button>
+          )}
+        </div>
+
+        {/* Departed Kitchen */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <Truck className={`h-5 w-5 ${isConfirmed('departed_kitchen') ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Departed Kitchen</p>
+              {isConfirmed('departed_kitchen') && (
+                <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('departed_kitchen')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('departed_kitchen') ? (
+            <Badge variant="default" className="bg-brand-primary">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Confirmed
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('departed_kitchen')}
+              disabled={loading || !isConfirmed('at_kitchen')}
+              size="sm"
+            >
+              Confirm
+            </Button>
+          )}
+        </div>
+
+        {/* At Venue */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <Clock className={`h-5 w-5 ${isConfirmed('at_venue') ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Arrived at Venue</p>
+              {isConfirmed('at_venue') && (
+                <p className="text-sm text-muted-foreground">Confirmed at {getConfirmationTime('at_venue')}</p>
+              )}
+              {/* Geofence status - only while armed (departed kitchen, not
+                  yet at venue, coords known). Tells the driver it'll stamp
+                  itself, and shows live distance so they trust it. */}
+              {!isConfirmed('at_venue') && isConfirmed('departed_kitchen') && venueCoords && (
+                <p className="text-xs text-blue-600 mt-0.5">
+                  {autoArrivalDist != null
+                    ? `Auto check-in on · ${Math.round(autoArrivalDist)}m away`
+                    : "Auto check-in on · locating you..."}
+                </p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('at_venue') ? (
+            <Badge variant="default" className="bg-brand-primary">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Confirmed
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('at_venue')}
+              disabled={loading || !isConfirmed('departed_kitchen')}
+              size="sm"
+            >
+              Confirm
+            </Button>
+          )}
+        </div>
+
+        {/* Post-arrival stamps: setup complete -> service -> depart.
+            Each writes orders.<column>_at and a driver_confirmations
+            audit row, fires a dispatch ping. */}
+
+        {/* Setup completed + POD capture. Driver feedback 2026-07-04:
+            the POD can only be signed once everything is delivered AND
+            set up, so the capture button lives on this step (it was on
+            "Arrived at venue"). The tap opens the POD dialog; saving it
+            stamps setup_started_at, records the POD and flips the order
+            to delivered in one path. */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <Package className={`h-5 w-5 ${isConfirmed('setup_started') ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Setup completed</p>
+              {isConfirmed('setup_started') && (
+                <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('setup_started')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('setup_started') ? (
+            <Badge variant="default" className="bg-brand-primary">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Done
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => setPodOpen(true)}
+              disabled={loading || !isConfirmed('at_venue')}
+              size="sm"
+            >
+              Capture POD
+            </Button>
+          )}
+        </div>
+
+        {/* Service started */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <CheckCircle className={`h-5 w-5 ${isConfirmed('service_started') ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Service started</p>
+              {isConfirmed('service_started') && (
+                <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('service_started')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('service_started') ? (
+            <Badge variant="default" className="bg-brand-primary">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Done
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('service_started')}
+              disabled={loading || !isConfirmed('setup_started')}
+              size="sm"
+            >
+              Tap when food service begins
+            </Button>
+          )}
+        </div>
+
+        {/* Departed venue */}
+        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+          <div className="flex items-center gap-3">
+            <Truck className={`h-5 w-5 ${isConfirmed('departed_venue') ? 'text-brand-primary' : 'text-gray-400'}`} />
+            <div>
+              <p className="font-medium">Departed venue</p>
+              {isConfirmed('departed_venue') && (
+                <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('departed_venue')}</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('departed_venue') ? (
+            <Badge variant="default" className="bg-brand-primary">
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Done
+            </Badge>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('departed_venue')}
+              disabled={loading || !isConfirmed('service_started')}
+              size="sm"
+            >
+              Tap when truck rolls home
+            </Button>
+          )}
+        </div>
+
+        {/* Leaving the venue is not the end of the driver's work. The
+            final checkpoint closes the paid shift only after return to base. */}
+        <div className="flex items-center justify-between p-4 rounded-lg border border-amber-200 bg-amber-50/50">
+          <div className="flex items-center gap-3">
+            <MapPinned className={`h-5 w-5 ${isConfirmed('returned_to_base') ? 'text-brand-primary' : 'text-amber-600'}`} />
+            <div>
+              <p className="font-medium">Reached kitchen / warehouse</p>
+              {isConfirmed('returned_to_base') ? (
+                <p className="text-sm text-muted-foreground">Timer stopped at {getConfirmationTime('returned_to_base')}</p>
+              ) : (
+                <p className="text-xs text-amber-800">Tap after returning to base. This stops your driver timer.</p>
+              )}
+            </div>
+          </div>
+          {isConfirmed('returned_to_base') ? (
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="bg-brand-primary">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Shift complete
+              </Badge>
+              {collectionAssignment && ["assigned", "accepted"].includes(collectionAssignment.status) && (
+                <Button
+                  onClick={startCollectionTrip}
+                  disabled={loading}
+                  size="sm"
+                  className="bg-brand-primary hover:bg-brand-primary/90"
+                >
+                  Start collection
+                </Button>
+              )}
+            </div>
+          ) : (
+            <Button
+              onClick={() => handleConfirm('returned_to_base')}
+              disabled={loading || !isConfirmed('departed_venue')}
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Stop timer at base
+            </Button>
+          )}
+        </div>
+
+        {/* Collection trip controls. Only render when this driver has
+            a collection assignment for the order. The two buttons
+            mirror the delivery-leg pattern so the UX is familiar.
+            Wave 11 #11. */}
+        {collectionAssignment && isConfirmed('returned_to_base') && (
+          <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-brand-primary" />
+              <p className="font-semibold text-slate-900">Collection trip</p>
+              {collectionAssignment.scheduled_for && (
+                <span className="text-xs text-slate-500">
+                  Scheduled: {new Date(collectionAssignment.scheduled_for).toLocaleString("en-ZA")}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">On my way to collect</p>
+                {collectionAssignment.en_route_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Started: {new Date(collectionAssignment.en_route_at).toLocaleTimeString("en-ZA")}
+                  </p>
+                )}
+              </div>
+              {collectionAssignment.en_route_at || collectionAssignment.status === "in_progress" || collectionAssignment.status === "completed" ? (
+                <Badge variant="default" className="bg-brand-primary">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Started
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={loading}
+                  onClick={startCollectionTrip}
+                >
+                  Start
+                </Button>
+              )}
+            </div>
+            {/* Step 1b: driver arrived at the venue to collect. Notify-only
+                (client in-app + email + dispatch) so the client sees the
+                driver actually turn up for the pickup, mirroring the delivery
+                "driver arrived" ping. */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Arrived to collect</p>
+                <p className="text-xs text-muted-foreground">Notifies the client you're at the venue</p>
+              </div>
+              {collectionArrived || collectionAssignment.status === "picked_up" || collectionAssignment.status === "completed" ? (
+                <Badge variant="default" className="bg-brand-primary">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Arrived
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={loading || collectionAssignment.status !== "en_route"}
+                  onClick={async () => {
+                    if (!user) return;
+                    setLoading(true);
+                    try {
+                      await (driverConfirmationService as any).notifyCollectionArrival(orderId, user.id);
+                      setCollectionArrived(true);
+                      toast({ title: "Client notified", description: "We've told the client you've arrived to collect." });
+                    } catch (e: any) {
+                      toast({ title: "Could not notify", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Arrived
+                </Button>
+              )}
+            </div>
+            {/* Step 2: equipment physically collected at the venue. This
+                is where the CLIENT'S collection finishes - they're pinged
+                "all done" now and no longer wait for the driver to drive
+                back to base. */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Equipment collected</p>
+                {collectionAssignment.picked_up_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Collected: {new Date(collectionAssignment.picked_up_at).toLocaleTimeString("en-ZA")}
+                  </p>
+                )}
+              </div>
+              {collectionAssignment.status === "picked_up" || collectionAssignment.status === "completed" ? (
+                <Badge variant="default" className="bg-brand-primary">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Collected
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={loading || collectionAssignment.status !== "en_route"}
+                  onClick={async () => {
+                    if (!user) return;
+                    setLoading(true);
+                    try {
+                      await (driverConfirmationService as any).markEquipmentCollected(orderId, user.id);
+                      toast({ title: "Equipment collected", description: "Client notified it's all done. Head back to base and mark it returned there." });
+                      await loadCollectionAssignment();
+                    } catch (e: any) {
+                      toast({ title: "Could not mark collected", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Mark collected
+                </Button>
+              )}
+            </div>
+            {/* Step 3: gear back at base - internal close-out only
+                (equipment returned, cleaning intake, shift clock-out).
+                The client has already been told it's done in step 2. */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Equipment back at base</p>
+                {collectionAssignment.completed_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Done: {new Date(collectionAssignment.completed_at).toLocaleTimeString("en-ZA")}
+                  </p>
+                )}
+              </div>
+              {collectionAssignment.status === "completed" ? (
+                <Badge variant="default" className="bg-brand-primary">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Done
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={loading || collectionAssignment.status !== "picked_up"}
+                  onClick={async () => {
+                    if (!user) return;
+                    setLoading(true);
+                    try {
+                      await (driverConfirmationService as any).completeCollection(orderId, user.id);
+                      toast({ title: "Collection complete", description: "Equipment returned. Cleaning queue updated." });
+                      await loadCollectionAssignment();
+                    } catch (e: any) {
+                      toast({ title: "Could not complete collection", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Mark back at base
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {geoLocation && (
+          <p className="text-xs text-muted-foreground text-center">
+            📍 GPS tracking active
+          </p>
+        )}
+      </CardContent>
+
+      {/* POD-on-setup-complete: capturing proof IS how setup is marked
+          complete. The write routes through completeSetupWithPod so the
+          setup_started confirmation (which stamps setup_started_at),
+          the POD, and the delivered flip all happen together. */}
+      {user && (
+        <PodCaptureDialog
+          open={podOpen}
+          onOpenChange={setPodOpen}
+          orderId={orderId}
+          title="Setup completed"
+          recoveryFlow="status"
+          onCapture={async (pod) => {
+            await (driverConfirmationService as any).completeSetupWithPod(
+              orderId,
+              user.id,
+              geoLocation || undefined,
+              pod,
+            );
+          }}
+          onSaved={async () => {
+            toast({ title: "✅ Setup complete + POD captured", description: "Delivery confirmed with proof." });
+            await loadConfirmations();
+          }}
+        />
+      )}
+    </Card>
+  );
+}

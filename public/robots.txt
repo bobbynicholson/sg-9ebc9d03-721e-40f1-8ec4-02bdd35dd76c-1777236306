@@ -1,0 +1,16 @@
+# Disallow all crawlers from all pages
+User-agent: *
+Disallow: /
+
+# Explicitly block all admin and portal routes
+Disallow: /admin/
+Disallow: /super-admin/
+Disallow: /team-portal/
+Disallow: /client-portal/
+Disallow: /account/
+Disallow: /auth/
+Disallow: /api/
+
+# Block all company-specific routes
+Disallow: /*/admin/
+Disallow: /*/login

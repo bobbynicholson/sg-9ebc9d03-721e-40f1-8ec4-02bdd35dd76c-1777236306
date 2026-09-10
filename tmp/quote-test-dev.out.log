@@ -1,0 +1,230 @@
+
+> softgen-starter@2.3.1 dev
+> next dev --turbopack -p 3002
+
+   ▲ Next.js 15.2.8 (Turbopack)
+   - Local:        http://localhost:3002
+   - Network:      http://172.20.128.1:3002
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Compiled in 877ms
+
+[logger] Run #189 - logs → logs\run-189-2026-09-01_10-35-53
+
+ ✓ Ready in 2.4s
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] unauthenticated - redirect to login {"path":"/spit-braai-delivery/admin/quotes/new"}
+[middleware] [INFO] request /spit-braai-delivery/login
+ ○ Compiling /[company_slug]/login ...
+ ✓ Compiled /[company_slug]/login in 8.3s
+ GET /spit-braai-delivery/login?redirectTo=%2Fspit-braai-delivery%2Fadmin%2Fquotes%2Fnew 200 in 10665ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] unauthenticated - redirect to login {"path":"/spit-braai-delivery/admin/quotes/new"}
+[middleware] [INFO] request /spit-braai-delivery/login
+ GET /spit-braai-delivery/login?redirectTo=%2Fspit-braai-delivery%2Fadmin%2Fquotes%2Fnew 200 in 1265ms
+[middleware] [INFO] request /
+[Middleware] Redirecting company_admin from / to /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/dashboard","tenant":"spit-braai-delivery","cache":"miss"}
+ ○ Compiling /admin/dashboard ...
+ ✓ Compiled /admin/dashboard in 2.5s
+ GET /spit-braai-delivery/admin/dashboard 200 in 3576ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/dashboard","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json 200 in 117ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ ○ Compiling /admin/quotes/new ...
+ ✓ Compiled /admin/quotes/new in 1542ms
+ GET /spit-braai-delivery/admin/quotes/new 200 in 1744ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json 200 in 128ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes","tenant":"spit-braai-delivery","cache":"miss"}
+ ○ Compiling /admin/quotes ...
+ ✓ Compiled /admin/quotes in 4.2s
+ GET /spit-braai-delivery/admin/quotes 200 in 4577ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes.json 200 in 108ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ ○ Compiling /admin/quotes/[id] ...
+ ✓ Compiled /admin/quotes/[id] in 1377ms
+ GET /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 1563ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7.json 200 in 123ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 311ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 232ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 100ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7.json 200 in 135ms
+ ✓ Compiled in 1275ms
+ ✓ Compiled in 343ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 341ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 115ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 265ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7.json 200 in 234ms
+ ✓ Compiled in 356ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 334ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 120ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 492ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 103ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 93ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 106ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 331ms
+ ✓ Compiled in 435ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 115ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 263ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 268ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 126ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 299ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 123ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 831ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 548ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 218ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 700ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 538ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 246ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/new?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 223ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/new","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/new.json?fromQuoteId=8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 226ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ GET /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7 200 in 221ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ HEAD /_next/data/development/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7.json 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] allowed {"role":"company_admin","path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7","tenant":"spit-braai-delivery","cache":"miss"}
+ ✓ Compiled /_error in 5ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7
+[middleware] [AUTH] unauthenticated - redirect to login {"path":"/spit-braai-delivery/admin/quotes/8fd6e494-2c74-444c-9e1e-5815e7962dd7"}
+[middleware] [INFO] request /spit-braai-delivery/login
+ ✓ Compiled middleware in 413ms
+ ✓ Compiled in 1095ms
+[middleware] [INFO] request /admin
+ ✓ Compiled /404 in 16ms
+[middleware] [INFO] request /
+ ✓ Compiled / in 3ms
+[middleware] [INFO] request /admin/platform/dashboard
+ ✓ Compiled /admin/platform/dashboard in 4ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ ✓ Compiled in 10.1s
+ ✓ Compiled in 860ms
+ ✓ Compiled in 633ms
+ ✓ Compiled in 990ms
+ ✓ Compiled in 2.3s
+ ✓ Compiled in 1591ms
+ ✓ Compiled in 4.7s
+ ✓ Compiled in 314ms
+ ✓ Compiled in 614ms
+ ✓ Compiled in 318ms
+ ✓ Compiled in 1272ms
+ ✓ Compiled in 209ms
+ ✓ Compiled in 196ms
+ ✓ Compiled in 1761ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-staff
+ ○ Compiling /admin/kitchen-staff ...
+ ✓ Compiled /admin/kitchen-staff in 6.6s
+ ✓ Compiled in 843ms
+ ✓ Compiled in 523ms
+ ✓ Compiled in 541ms
+ ✓ Compiled in 506ms
+ ✓ Compiled in 3.6s
+ ✓ Compiled in 722ms
+ ✓ Compiled in 1138ms
+ ✓ Compiled in 1217ms
+ ✓ Compiled in 4.2s

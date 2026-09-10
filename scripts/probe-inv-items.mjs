@@ -1,0 +1,10 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l&&!l.startsWith("#")&&l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,"")];}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false} });
+const { data: inv } = await sb.from("invoices").select("invoice_number, public_token, total_amount, invoice_data").eq("order_id","5b0bc5a4-a33f-417f-bbfc-c046aa1de14a").limit(1).maybeSingle();
+console.log("Invoice", inv.invoice_number, "public_token:", inv.public_token ? "YES" : "NULL");
+const items = inv.invoice_data?.items;
+console.log("invoice_data.items:", Array.isArray(items) ? items.length+" lines" : "none");
+if (Array.isArray(items)) for (const it of items) console.log("   -", it.description, "x"+it.quantity, "= R"+it.total);
+console.log("invoice_data.subtotal:", inv.invoice_data?.subtotal, "taxAmount:", inv.invoice_data?.taxAmount, "total:", inv.invoice_data?.total);

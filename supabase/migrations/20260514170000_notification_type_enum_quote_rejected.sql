@@ -1,0 +1,13 @@
+-- Wave 24: `quote_rejected` was used by /api/public/quotes/[token]/reject
+-- (shipped in Wave 21) but never added to the public.notification_type
+-- enum. broadcastNotification gates the typed `type` column on whether
+-- the string is in the enum set; for `quote_rejected` it silently fell
+-- back to populating only the text `notification_type` column, which
+-- means dashboards that group by enum-typed `type` (and any reporting
+-- view that joins on it) miss every quote-declined event.
+--
+-- Add it. Idempotent: ALTER TYPE ... ADD VALUE IF NOT EXISTS is a
+-- single statement, so no DO block is needed, but it must run outside
+-- a transaction in older Postgres versions -- Supabase migrations on
+-- 15+ handle this fine.
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'quote_rejected';

@@ -1,0 +1,298 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * accountingExportService - maps a CateringMS quote / invoice to the
+ * canonical shape the major accounting packages accept on their Quote
+ * and Invoice endpoints.
+ *
+ * Why this exists separately from xeroIntegrationService:
+ *   - The mapping is the same for Xero, QuickBooks Online and Sage.
+ *     Each package has cosmetic differences (field naming, tax types)
+ *     but the underlying payload - contact, line items with qty +
+ *     unit price + tax, totals - is universal. Building the mapper
+ *     once means we can light up the other packages without rewriting.
+ *   - The mapper is sync + pure, so it's safe to call from anywhere
+ *     in the UI (e.g. a 'Copy JSON' fallback) even before the server-
+ *     side API integration is live.
+ *
+ * Status of live push integrations:
+ *   - Xero: scaffolded in xeroIntegrationService.ts. Needs OAuth app
+ *     credentials + a server-side /api/integrations/xero/* endpoint
+ *     pair before the actual fetch will work. Until then, the UI
+ *     calls into this mapper and offers a 'Copy JSON' fallback.
+ *   - QuickBooks Online: same shape, swap the contact / line item
+ *     keys at adapter time.
+ */
+
+import { supabase } from "@/integrations/supabase/client";
+import { toLocalISO } from "@/lib/localDate";
+
+export interface AccountingLineItem {
+  /** Free-text item description shown on the document. */
+  description: string;
+  /** Quantity. Defaults to 1 when no quantity is set on the source. */
+  quantity: number;
+  /** Per-unit price (excludes tax when company is VAT-registered). */
+  unit_price: number;
+  /** Optional account code mapping (e.g. Xero '200 - Sales'). */
+  account_code?: string;
+  /** Tax type. SA VAT-inclusive sales => 'OUTPUT' on Xero. */
+  tax_type?: "OUTPUT" | "NONE" | "INPUT";
+  /** Computed: quantity * unit_price (gross before document discount). */
+  line_total: number;
+}
+
+export interface AccountingContact {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  vat_number?: string | null;
+}
+
+export interface AccountingDocument {
+  /** "Quote" or "Invoice". Drives which endpoint the adapter posts to. */
+  document_type: "Quote" | "Invoice";
+  /** Reference number shown on the document (e.g. "Q-001" / "INV-1234"). */
+  reference: string;
+  /** ISO yyyy-MM-dd. */
+  issue_date: string;
+  /** ISO yyyy-MM-dd. Quote = valid until; Invoice = due date. */
+  expiry_or_due_date: string | null;
+  /** Document status (DRAFT / SUBMITTED / AUTHORISED). Most adapters
+   *  default to DRAFT so the operator approves in their accounting
+   *  package before it goes live. */
+  status: "DRAFT" | "SUBMITTED" | "AUTHORISED";
+  /** Customer / contact. Most packages auto-create a contact when
+   *  one with this email doesn't exist. */
+  contact: AccountingContact;
+  /** Line items in document order. */
+  line_items: AccountingLineItem[];
+  /** When true, totals + line prices are stored excluding VAT and
+   *  the package adds VAT at the configured rate. SA VAT-registered
+   *  businesses typically work tax-inclusive on the source document
+   *  so we send 'Inclusive'. */
+  amount_type: "Inclusive" | "Exclusive" | "NoTax";
+  /** Subtotal exc VAT (sum of unit_price * quantity, pre-discount). */
+  subtotal: number;
+  /** Discount amount (positive number to subtract from subtotal). */
+  discount_amount: number;
+  /** VAT amount on the document. */
+  tax_amount: number;
+  /** Total inc VAT. */
+  total: number;
+  /** Currency code, ISO 4217 (e.g. 'ZAR'). */
+  currency: string;
+  /** Free-text notes / special instructions to print on the document. */
+  notes: string | null;
+  /** Issuer (catering company) metadata for display in the package. */
+  issuer: {
+    name: string;
+    vat_registered: boolean;
+    vat_number: string | null;
+  };
+}
+
+/**
+ * Map a CateringMS quote row + company row to the canonical
+ * accounting document shape. Pure function, safe to call from any
+ * UI context. Returns null when the inputs don't have enough info
+ * to build a valid document (e.g. no client name).
+ */
+export function buildAccountingDocumentFromQuote(args: {
+  quote: any;
+  company: any;
+  documentType?: "Quote" | "Invoice";
+}): AccountingDocument | null {
+  const q = args.quote;
+  const c = args.company;
+  if (!q || !c) return null;
+  if (!q.client_name) return null;
+
+  const documentType = args.documentType ?? "Quote";
+  const vatRegistered = !!c.vat_registered;
+
+  const menuItems = Array.isArray(q.menu_items) ? q.menu_items : [];
+  const equipItems = Array.isArray(q.equipment_items) ? q.equipment_items : [];
+
+  const buildLine = (item: any, label: string): AccountingLineItem => {
+    const description = item?.name || item?.description || item?.menu_item_name || label;
+    const quantity = Number(item?.quantity ?? item?.qty ?? 1);
+    const unit_price = Number(item?.unit_price ?? item?.price ?? item?.pricePerPerson ?? item?.rentalPrice ?? 0);
+    const line_total = Number(item?.total ?? unit_price * quantity);
+    return {
+      description,
+      quantity,
+      unit_price,
+      account_code: "200",
+      tax_type: vatRegistered ? "OUTPUT" : "NONE",
+      line_total,
+    };
+  };
+
+  const line_items: AccountingLineItem[] = [
+    ...menuItems.map((it: any) => buildLine(it, "Menu item")),
+    ...equipItems.map((it: any) => buildLine(it, "Equipment")),
+  ];
+
+  const issueDate = toLocalISO(q.created_at ? new Date(q.created_at) : new Date());
+  const expiryOrDue = q.valid_until || null;
+
+  return {
+    document_type: documentType,
+    reference: q.quote_number || q.id?.slice(0, 8).toUpperCase() || "",
+    issue_date: issueDate,
+    expiry_or_due_date: expiryOrDue,
+    status: "DRAFT",
+    contact: {
+      name:    q.client_name,
+      email:   q.client_email ?? null,
+      phone:   q.client_phone ?? null,
+      vat_number: null,
+    },
+    line_items,
+    amount_type: vatRegistered ? "Inclusive" : "NoTax",
+    subtotal:        Number(q.subtotal ?? 0),
+    discount_amount: Number(q.discount_amount ?? 0),
+    tax_amount:      Number(q.tax_amount ?? q.tax ?? 0),
+    total:           Number(q.total ?? q.total_amount ?? 0),
+    currency:        c.currency || c.billing_currency || "ZAR",
+    notes:           q.notes || q.terms_and_conditions || null,
+    issuer: {
+      name:           c.company_name || "",
+      vat_registered: vatRegistered,
+      vat_number:     c.vat_number || null,
+    },
+  };
+}
+
+/**
+ * Convenience: load the quote + the company and build the payload.
+ * Used by the 'Push to Xero' / 'Copy accounting JSON' buttons.
+ */
+export async function buildAccountingPayloadForQuote(quoteId: string, documentType: "Quote" | "Invoice" = "Quote"): Promise<AccountingDocument | null> {
+  const { data: quote, error: quoteErr } = await (supabase as any)
+    .from("quotes")
+    .select("*")
+    .eq("id", quoteId)
+    .maybeSingle();
+  if (quoteErr) console.error("[accountingExportService/buildAccountingPayloadForQuote] quotes lookup failed:", quoteErr);
+  if (!quote) return null;
+  const { data: company, error: companyErr } = await (supabase as any)
+    .from("companies")
+    .select("*")
+    .eq("id", quote.company_id)
+    .maybeSingle();
+  if (companyErr) console.error("[accountingExportService/buildAccountingPayloadForQuote] companies lookup failed:", companyErr);
+  if (!company) return null;
+  return buildAccountingDocumentFromQuote({ quote, company, documentType });
+}
+
+/** Accounting providers we map to. Keep this in lock-step with the
+ *  integrations table's integration_type values + the API route names
+ *  in /api/integrations/{provider}/sync-quote. */
+export type AccountingProvider = "xero" | "quickbooks" | "sage";
+
+/**
+ * Check whether the current user has an active integration row for
+ * the given provider. Returns true when the OAuth flow is in place
+ * and a fetch to the sync endpoint can succeed.
+ */
+export async function isAccountingConnected(provider: AccountingProvider): Promise<boolean> {
+  try {
+    const { data: user } = await (supabase as any).auth.getUser();
+    if (!user?.user) return false;
+    const { data: integration, error: integrationErr } = await (supabase as any)
+      .from("integrations")
+      .select("id, is_active")
+      .eq("user_id", user.user.id)
+      .eq("integration_type", provider)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (integrationErr) console.error("[accountingExportService/isAccountingConnected] integrations lookup failed:", integrationErr);
+    return !!integration;
+  } catch {
+    return false;
+  }
+}
+
+/** Back-compat shim. */
+export async function isXeroConnected(): Promise<boolean> {
+  return isAccountingConnected("xero");
+}
+export async function isQuickBooksConnected(): Promise<boolean> {
+  return isAccountingConnected("quickbooks");
+}
+export async function isSageConnected(): Promise<boolean> {
+  return isAccountingConnected("sage");
+}
+
+export interface PushResult {
+  ok: boolean;
+  reason?: "not_connected" | "no_endpoint" | "error";
+  payload?: AccountingDocument;
+  error?: string;
+}
+
+/**
+ * Push a quote to one of the supported accounting packages. The
+ * canonical AccountingDocument is generic enough that the per-provider
+ * adapter at the API route can shape-shift to Xero / QBO / Sage
+ * without the UI needing to care.
+ *
+ * Until the OAuth flow + the per-provider /api/integrations/{provider}/
+ * sync-quote endpoint are deployed, the call returns 'no_endpoint' and
+ * the UI falls back to a 'Copy JSON' clipboard stop-gap so the operator
+ * can paste into the package manually.
+ */
+export async function pushQuoteToAccounting(args: {
+  quoteId: string;
+  provider: AccountingProvider;
+}): Promise<PushResult> {
+  const payload = await buildAccountingPayloadForQuote(args.quoteId, "Quote");
+  if (!payload) return { ok: false, reason: "error", error: "Couldn't build the payload for this quote." };
+
+  const connected = await isAccountingConnected(args.provider);
+  if (!connected) return { ok: false, reason: "not_connected", payload };
+
+  try {
+    const res = await fetch(`/api/integrations/${args.provider}/sync-quote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ payload }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      // 404 means the server endpoint isn't deployed yet for this
+      // provider - tell the operator and offer the fallback.
+      if (res.status === 404) {
+        return { ok: false, reason: "no_endpoint", payload };
+      }
+      return { ok: false, reason: "error", error: text || `HTTP ${res.status}`, payload };
+    }
+    return { ok: true, payload };
+  } catch (err: any) {
+    return { ok: false, reason: "error", error: err?.message, payload };
+  }
+}
+
+/** Back-compat shim. Existing callers can keep using this name. */
+export async function pushQuoteToXero(quoteId: string): Promise<PushResult> {
+  return pushQuoteToAccounting({ quoteId, provider: "xero" });
+}
+export async function pushQuoteToQuickBooks(quoteId: string): Promise<PushResult> {
+  return pushQuoteToAccounting({ quoteId, provider: "quickbooks" });
+}
+export async function pushQuoteToSage(quoteId: string): Promise<PushResult> {
+  return pushQuoteToAccounting({ quoteId, provider: "sage" });
+}
+
+/**
+ * Friendly label for the provider, used in toasts + buttons.
+ */
+export function accountingProviderLabel(provider: AccountingProvider): string {
+  switch (provider) {
+    case "xero":       return "Xero";
+    case "quickbooks": return "QuickBooks";
+    case "sage":       return "Sage";
+  }
+}

@@ -1,0 +1,206 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { NextApiRequest, NextApiResponse } from "next";
+import { getServiceSupabase } from "@/lib/supabase/service";
+import {
+  applyCorsHeaders,
+  checkAndIncrementRateLimit,
+  getClientIp,
+  hashIp,
+  isUuid,
+} from "@/lib/embedFormApi";
+import { withApiLogging } from "@/lib/withApiLogging";
+import { addCatalogueFields } from "@/lib/embed/catalogueSelection";
+
+
+/**
+ * GET /api/public/embed/[token]/config?slug=...
+ *
+ * Public, unauthenticated. The only auth gate is the embed_token UUID --
+ * unknown or suspended tenants get a 404 (never 401, to avoid token
+ * enumeration).
+ */
+async function handler(req: NextApiRequest, res: NextApiResponse) {
+  applyCorsHeaders(res, { cacheSeconds: 60 });
+
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET, OPTIONS");
+    return res.status(405).json({ ok: false, message: "Method not allowed" });
+  }
+
+  const token = String(req.query.token || "");
+  if (!isUuid(token)) {
+    return res.status(404).json({ ok: false, message: "Not found" });
+  }
+
+  const slugParam = req.query.slug;
+  const slug =
+    typeof slugParam === "string"
+      && slugParam !== "default"
+      && slugParam.length > 0
+      && slugParam.length <= 200
+      ? slugParam
+      : null;
+
+  const supabase = getServiceSupabase();
+
+  // Rate-limit this read endpoint - 600 req/IP/min is generous but stops
+  // scrapers cold.
+  const ip = getClientIp(req as any);
+  const ipHash = hashIp(ip);
+  const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
+    limit: 600,
+    bucket: "minute",
+  });
+  if (!rl.allowed) {
+    res.setHeader("Cache-Control", "no-store");
+    return res
+      .status(429)
+      .json({ ok: false, message: "Too many requests, slow down" });
+  }
+
+  // Resolve company by token. is_active gate keeps suspended tenants dark.
+  const { data: company, error: companyErr } = await (supabase as any)
+    .from("companies")
+    .select(
+      "id, company_name, primary_color, secondary_color, logo_url, is_active, deleted_at, embed_token, embed_pricing_tiers, currency"
+    )
+    .eq("embed_token", token)
+    .maybeSingle();
+
+  if (companyErr || !company || company.is_active === false || company.deleted_at) {
+    return res.status(404).json({ ok: false, message: "Not found" });
+  }
+
+  // Resolve form. When the snippet specifies a slug we MUST match it
+  // exactly - the previous behaviour silently fell back to the first
+  // active form, which leaked Form B to a visitor expecting Form A. A
+  // null/empty slug still maps to the tenant's first active form (the
+  // shorthand "default" snippet).
+  let formQuery = (supabase as any)
+    .from("embed_form_configs")
+    .select(
+      "id, slug, name, template_id, fields, theme, success_message, redirect_url"
+    )
+    .eq("company_id", company.id)
+    .eq("is_active", true)
+    .is("deleted_at", null);
+
+  if (slug) {
+    formQuery = formQuery.eq("slug", slug);
+  }
+  formQuery = formQuery.order("created_at", { ascending: true }).limit(1);
+
+  const { data: forms, error: formErr } = await formQuery;
+  if (formErr || !forms || forms.length === 0) {
+    return res.status(404).json({ ok: false, message: "Not found" });
+  }
+
+  const form = forms[0];
+  const templateId = String(form.template_id || "");
+
+  // Quote-oriented forms receive live catalogue choices. Prices are shown for
+  // guidance, but submit.ts resolves every selected id again server-side, so a
+  // visitor cannot alter the eventual draft price in devtools.
+  const shouldLoadCatalogue = [
+    "detailed-multi-step",
+    "pricing-calculator",
+  ].includes(templateId);
+  let publicFields = (form.fields || []) as any[];
+  if (shouldLoadCatalogue) {
+    const [{ data: menuRows }, { data: equipmentRows }] = await Promise.all([
+      (supabase as any)
+        .from("menu_items")
+        .select(
+          "id, item_name, base_price, base_servings, category, description, dietary_tags, sold_as_package",
+        )
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .or("is_available.is.null,is_available.eq.true")
+        .order("category", { ascending: true })
+        .order("item_name", { ascending: true })
+        .limit(100),
+      (supabase as any)
+        .from("equipment")
+        .select(
+          "id, name, rental_price, category, description, available_quantity",
+        )
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .or("is_available.is.null,is_available.eq.true")
+        .order("category", { ascending: true })
+        .order("name", { ascending: true })
+        .limit(100),
+    ]);
+    publicFields = addCatalogueFields(
+      publicFields as any,
+      templateId,
+      (menuRows || []) as any,
+      (equipmentRows || []) as any,
+      (company as any).currency || "ZAR",
+    );
+  }
+
+  // Best-effort view counter - fire-and-forget so a slow update never blocks
+  // the response. Use rpc-style increment to avoid lost updates under race.
+  void (async () => {
+    try {
+      await (supabase as any).rpc("increment_embed_form_views", {
+        p_form_id: form.id,
+      });
+    } catch {
+      try {
+        const { data: current, error: currentErr } = await (supabase as any)
+          .from("embed_form_configs")
+          .select("views_count")
+          .eq("id", form.id)
+          .maybeSingle();
+        if (currentErr) {
+          console.error("[public/embed/[token]/config] embed_form_configs fetch failed:", currentErr);
+        }
+        const next = ((current as any)?.views_count || 0) + 1;
+        await (supabase as any)
+          .from("embed_form_configs")
+          .update({ views_count: next })
+          .eq("id", form.id);
+      } catch {
+        // Swallow - view counting is non-critical telemetry.
+      }
+    }
+  })();
+
+  return res.status(200).json({
+    ok: true,
+    formId: form.id,
+    slug: form.slug,
+    templateId,
+    // loader.js reads config.template (fallbackConfig uses that key);
+    // ship both so the template resolves without the override attr.
+    template: templateId,
+    name: form.name,
+    fields: publicFields,
+    theme: form.theme || {},
+    // Live pricing tiers for the calculator/estimator templates. Without
+    // this the templates silently fell back to hardcoded placeholder
+    // tiers (Basic/Standard/Premium R250-450) even when the tenant had
+    // configured real tiers - and the placeholder tier ids then missed
+    // in the /estimate lookup ("No pricing configured").
+    tiers: Array.isArray((company as any).embed_pricing_tiers)
+      ? (company as any).embed_pricing_tiers
+      : [],
+    currency: (company as any).currency || "ZAR",
+    successMessage:
+      form.success_message || "Thanks, we'll be in touch shortly.",
+    redirectUrl: form.redirect_url || null,
+    brand: {
+      companyName: company.company_name,
+      primaryColor: company.primary_color || null,
+      secondaryColor: company.secondary_color || null,
+      logoUrl: company.logo_url || null,
+    },
+  });
+}
+
+export default withApiLogging(handler);

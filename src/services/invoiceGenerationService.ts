@@ -1,0 +1,1864 @@
+import { supabase as defaultSupabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
+import { PayFastService } from "@/lib/payfastService";
+import { calculateInvoiceDueDate } from "@/lib/invoiceDateRules";
+import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { notificationService } from "@/services/notificationService";
+import { emailService } from "@/services/emailService";
+import { resolveEmailTemplate } from "@/services/email/templateResolver";
+import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
+import { ensureRequiredOrderLink } from "@/lib/email/requiredCustomerLinks";
+
+// Server-safe client injection. Browser callers pass nothing and get
+// the global anon-key client (RLS-gated). Server callers (the
+// post-order cascade, leads route, future webhooks) inject a
+// service-role client so the same code can run without a user
+// session. Every supabase call inside this module reads from the
+// resolved client below.
+type SupabaseLike = typeof defaultSupabase;
+const resolveClient = (c?: SupabaseLike): SupabaseLike => (c || defaultSupabase);
+
+// Module-scope alias for the original `supabase` symbol so functions
+// that haven't been refactored to accept an injected client (e.g.
+// generateInvoicePaymentLink) keep working unchanged.
+const supabase = defaultSupabase;
+
+/**
+ * Invoice Generation Service
+ * Generates PDF invoices for orders and integrates with accounting systems
+ */
+
+interface InvoiceData {
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  
+  // Company Details
+  companyName: string;
+  companyLogo?: string;
+  companyAddress: string;
+  companyPhone: string;
+  companyEmail: string;
+  companyVAT?: string;
+  /** When true, the document is titled 'Tax Invoice' and totals
+   *  read 'incl. VAT'. SARS rule: only VAT-registered businesses
+   *  may issue Tax Invoices. */
+  companyVatRegistered?: boolean;
+  /** CIPC / company registration number. Surfaces in both the
+   *  on-screen preview header and the HTML render alongside VAT. */
+  companyRegistration?: string;
+  
+  // Client Details
+  clientName: string;
+  clientEmail: string;
+  clientPhone?: string;
+  clientAddress?: string;
+  
+  // Order Details
+  orderId: string;
+  orderNumber: string;
+  eventDate: string;
+  eventTime: string;
+  venue: string;
+  guestCount: number;
+  
+  // Financial Details
+  items: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }>;
+  menuItems?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+    note?: string | null;
+  }>;
+  equipmentItems?: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+    isHireIn?: boolean;
+    note?: string | null;
+  }>;
+  packageName?: string;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  
+  // Payment Details
+  depositPaid: number;
+  balanceDue: number;
+  paymentTerms: string;
+  bankDetails?: {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    branchCode: string;
+  };
+  
+  // Additional
+  notes?: string;
+  footer?: string;
+
+  // TIGHTEN I.96: tenant currency for the PDF body. Resolved by
+  // generateInvoiceData from companies.currency, used by the HTML
+  // renderer to format every money cell. Defaults to "ZAR" so any
+  // caller that hasn't been updated still produces a valid PDF.
+  currencyCode?: string;
+}
+
+interface GenerateInvoiceOptions {
+  orderId: string;
+  companyId: string;
+  sendEmail?: boolean;
+  emailRecipient?: string;
+}
+
+function asArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function moneyNumber(...values: any[]): number {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
+function menuInvoiceLine(row: any): NonNullable<InvoiceData["menuItems"]>[number] {
+  const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
+  const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.price);
+  const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
+  return {
+    description: row?.description || row?.item_name || row?.menu_item_name || row?.name || "Menu item",
+    quantity,
+    unitPrice,
+    total,
+    note: row?.notes || row?.note || null,
+  };
+}
+
+function equipmentInvoiceLine(row: any): NonNullable<InvoiceData["equipmentItems"]>[number] {
+  const equipment = row?.equipment || {};
+  const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
+  const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.rentalPrice, row?.rental_price, equipment?.rental_price);
+  const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
+  return {
+    description: row?.description || row?.equipment_name || row?.name || equipment?.name || "Equipment",
+    quantity,
+    unitPrice,
+    total,
+    isHireIn: row?.isHireIn ?? row?.is_hire_in ?? equipment?.is_hire_in ?? false,
+    note: row?.notes || row?.note || null,
+  };
+}
+
+// TIGHTEN I.93 (2026-06-02): AccountingSyncOptions and the
+// PLACEHOLDER syncInvoiceToAccounting / syncToXero / syncToQuickBooks
+// / syncToSage stubs that used to live further down this file have
+// been removed. They were dead exports - no caller imported them. The
+// real Xero + QuickBooks sync (with OAuth + payload mapping) lives in
+// src/services/accountingIntegrationService.ts which /admin/invoices
+// uses; Sage in that file is an honest scaffold that returns a clear
+// "follow-up wave" message. Keeping a parallel silent-no-op shadow
+// here was a foot-gun for whoever next pattern-matched on an import.
+
+/**
+ * Generate invoice data from order
+ */
+export async function generateInvoiceData(
+  orderId: string,
+  companyId: string,
+  client?: SupabaseLike,
+): Promise<{ success: boolean; data?: InvoiceData; error?: string }> {
+  const supabase = resolveClient(client);
+  try {
+    // 1. Fetch order details
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        clients (
+          client_name,
+          email,
+          phone,
+          billing_address_line1,
+          billing_address_line2,
+          billing_city,
+          billing_postal_code,
+          payment_terms
+        )
+      `)
+      .eq("id", orderId)
+      .single();
+
+    if (orderError || !order) {
+      return { success: false, error: "Order not found" };
+    }
+
+    // 2. Fetch company details
+    const { data: company, error: companyError } = await supabase
+      .from("companies")
+      .select("*")
+      .eq("id", companyId)
+      .single();
+
+    if (companyError || !company) {
+      return { success: false, error: "Company not found" };
+    }
+
+    // 3. Get or create invoice number
+    const invoiceNumber = await getNextInvoiceNumber(companyId, supabase);
+
+    // 4. Calculate financial details
+    const orderData = order as any;
+    const companyData = company as any;
+
+    // Line items live in order_items, not on the orders row. The
+    // earlier path read orderData.menu_items (a column that only
+    // exists on quotes) and always produced an empty array, leaving
+    // the invoice preview blank with R 0.00 totals. Pull the
+    // canonical rows here, falling back to a legacy menu_items JSONB
+    // column on the off-chance an old order pre-dates the migration.
+    const { data: orderItemsRows, error: orderItemsError } = await supabase
+      .from("order_items")
+      .select("item_name, description, quantity, unit_price, line_total")
+      .eq("order_id", orderId);
+    if (orderItemsError) {
+      console.warn(
+        "[invoiceGenerationService] order_items lookup failed, will fall back:",
+        orderItemsError,
+      );
+    }
+    const orderItems = (orderItemsRows || []) as any[];
+    let quoteMenuRows: any[] = [];
+    let quoteEquipmentRows: any[] = [];
+    if (orderData.quote_id) {
+      const { data: quoteSnapshot, error: quoteSnapshotError } = await (supabase as any)
+        .from("quotes")
+        .select("menu_items, equipment_items")
+        .eq("id", orderData.quote_id)
+        .maybeSingle();
+      if (quoteSnapshotError) {
+        console.warn("[invoiceGenerationService] quote snapshot lookup failed:", quoteSnapshotError);
+      }
+      quoteMenuRows = asArray((quoteSnapshot as any)?.menu_items);
+      quoteEquipmentRows = asArray((quoteSnapshot as any)?.equipment_items);
+    }
+    let items: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      total: number;
+    }> = orderItems.map((row: any) => {
+      const quantity = Number(row.quantity ?? 1) || 1;
+      const unitPrice = Number(row.unit_price ?? 0) || 0;
+      const lineTotal =
+        row.line_total != null
+          ? Number(row.line_total)
+          : quantity * unitPrice;
+      const description =
+        [row.item_name, row.description].filter(Boolean).join(" - ") ||
+        row.item_name ||
+        "Item";
+      return {
+        description,
+        quantity,
+        unitPrice,
+        total: lineTotal,
+      };
+    });
+
+    if (items.length === 0) {
+      // Legacy fallback. A handful of imported orders carried their
+      // line items in a JSONB menu_items column before the
+      // order_items table was the source of truth. Use them only
+      // when there's nothing in order_items to avoid double-counting.
+      const legacyMenuItems = (orderData.menu_items || []) as any[];
+      items = legacyMenuItems.map((item: any) => {
+        const quantity = Number(item.quantity ?? 1) || 1;
+        const unitPrice = Number(item.unit_price ?? item.price ?? 0) || 0;
+        const lineTotal =
+          item.total != null ? Number(item.total) : quantity * unitPrice;
+        return {
+          description: item.name || item.description || "Item",
+          quantity,
+          unitPrice,
+          total: lineTotal,
+        };
+      });
+    }
+
+    if (items.length === 0 && quoteMenuRows.length > 0) {
+      items = quoteMenuRows.map(menuInvoiceLine);
+    }
+
+    const menuItems = items.map((item) => ({ ...item, note: null }));
+
+    // Surface delivery + waiter charges as their own line items so
+    // the client can see the breakdown that built the total. They're
+    // already rolled into orders.subtotal at confirmation time, so we
+    // skip adding them again to the maths - this is a presentation
+    // step, not a totals adjustment.
+    const deliveryFee = Number(orderData.delivery_fee || 0);
+    if (deliveryFee > 0) {
+      // Show the km breakdown only when the saved fee matches the
+      // canonical round-trip auto-calc (distance * 2 * rate). When
+      // the operator overrode the fee with a flat amount, the km
+      // hint is misleading - collapse to plain "Delivery" so the
+      // invoice + the public quote show the same flat figure.
+      const dist = Number(orderData.delivery_distance_km) || 0;
+      const rate = Number(orderData.delivery_rate_per_km) || 0;
+      const roundTrip = dist * 2 * rate;
+      const isFlatFee = !dist || Math.abs(deliveryFee - roundTrip) > 0.01;
+      items.push({
+        description: isFlatFee
+          ? "Delivery"
+          : `Delivery (${dist.toFixed(1)} km × 2)`,
+        quantity: 1,
+        unitPrice: deliveryFee,
+        total: deliveryFee,
+      });
+    }
+    // Collection charge - same presentation step as delivery. Already
+    // rolled into orders.subtotal, shown as its own line so the invoice
+    // breakdown adds up to the total (no silent inconsistency).
+    const collectionFee = Number(orderData.collection_fee || 0);
+    if (collectionFee > 0) {
+      const cDist = Number(orderData.collection_distance_km) || 0;
+      const cRate = Number(orderData.collection_rate_per_km) || 0;
+      const cRoundTrip = cDist * 2 * cRate;
+      const cIsFlat = !cDist || Math.abs(collectionFee - cRoundTrip) > 0.01;
+      items.push({
+        description: cIsFlat ? "Collection" : `Collection (${cDist.toFixed(1)} km × 2)`,
+        quantity: 1,
+        unitPrice: collectionFee,
+        total: collectionFee,
+      });
+    }
+    const waiterFee = Number(orderData.waiter_total_fee || 0);
+    if (waiterFee > 0) {
+      items.push({
+        description: orderData.waiter_duration_hours
+          ? `Waiter service (${Number(orderData.waiter_duration_hours).toFixed(1)} hrs)`
+          : "Waiter service",
+        quantity: 1,
+        unitPrice: waiterFee,
+        total: waiterFee,
+      });
+    }
+
+    let equipmentItems = quoteEquipmentRows.map(equipmentInvoiceLine);
+    if (equipmentItems.length === 0) {
+      const { data: equipmentRows, error: equipmentRowsError } = await (supabase as any)
+        .from("equipment_bookings")
+        .select("id, quantity, equipment:equipment_id(name, rental_price, is_hire_in)")
+        .eq("order_id", orderId)
+        .order("created_at", { ascending: true });
+      if (equipmentRowsError) {
+        console.warn("[invoiceGenerationService] equipment_bookings lookup failed:", equipmentRowsError);
+      }
+      equipmentItems = ((equipmentRows || []) as any[]).map(equipmentInvoiceLine);
+    }
+
+    let packageName: string | undefined;
+    if (orderData.package_id) {
+      const { data: bookingPackage, error: bookingPackageError } = await (supabase as any)
+        .from("booking_packages")
+        .select("name")
+        .eq("id", orderData.package_id)
+        .maybeSingle();
+      if (bookingPackageError) {
+        console.warn("[invoiceGenerationService] booking package lookup failed:", bookingPackageError);
+      }
+      packageName = (bookingPackage as any)?.name || undefined;
+    }
+
+    // Prefer the order's stored subtotal so the invoice agrees with
+    // the figure the client signed off on the quote. Fall back to
+    // summing the line items if the order row has no subtotal yet
+    // (legacy / partial data).
+    const computedSubtotal = items.reduce((sum, item) => sum + item.total, 0);
+    const storedSubtotal = Number(orderData.subtotal || 0);
+    const subtotal =
+      storedSubtotal > 0 ? storedSubtotal : computedSubtotal;
+    // Resolve VAT through the branch settings resolver so a JHB order
+    // honours JHB's vat_rate override instead of falling back to head
+    // office. Async fetch happens up front so the rest of the function
+    // stays synchronous.
+    let taxRatePct: number;
+    try {
+      const { resolveBranchSettings } = await import("@/services/branchSettingsService");
+      const branch = await resolveBranchSettings(
+        companyId,
+        (orderData.region_id as string | null) ?? null,
+      );
+      // resolver returns a decimal (0.15); the rest of this function
+      // works in percentage points. Honour vat_registered so an
+      // unregistered branch generates a 0% VAT invoice even when the
+      // company has a rate set.
+      taxRatePct = branch.vatRegistered ? Number(branch.vatRate) * 100 : 0;
+    } catch (e) {
+      console.warn("[invoiceGenerationService] branch resolver failed, falling back to company default:", e);
+      // Unit normalisation: companies.vat_rate is stored as percentage
+      // points (15.00) but companies.tax_rate / tax_percentage are
+      // legacy aliases that may be either decimal (0.15) or % (15).
+      // Detect: any value <= 1 is treated as a decimal and lifted to %
+      // points; otherwise assumed to be % already. Same shape rule the
+      // resolver applies, so we never multiply tax 100x on the catch
+      // path. Honour vat_registered if it's set on the company row.
+      const rawRate = Number(
+        companyData.vat_rate ?? companyData.tax_rate ?? companyData.tax_percentage ?? 15,
+      );
+      const normalisedPct = rawRate <= 1 ? rawRate * 100 : rawRate;
+      const isRegistered = companyData.vat_registered !== false;
+      taxRatePct = isRegistered ? normalisedPct : 0;
+    }
+    const taxRate = taxRatePct;
+    // Wave 13 audit: this branch used to read `subtotal` (= orders.subtotal
+    // or sum-of-line-items) as the GROSS source under inc-VAT mode and
+    // divide it by 1.15 to derive the ex-VAT net. That broke because
+    // orders.subtotal is already the ex-VAT net (written that way by
+    // convertQuoteToOrder / quote builder under inc-VAT mode), so the
+    // math divided net by 1.15 a second time - the invoice landed at
+    // ~85% of the order total. The order total + the public quote view
+    // agreed; only the invoice was wrong.
+    //
+    // Fix: use orders.total_amount as the canonical gross under inc-VAT.
+    // It's written by the quote->order conversion as breakdownFromLineSum.gross
+    // and matches both the public quote view and the editor running
+    // total. Fall back to sum-of-line-items (also gross under inc-VAT)
+    // when total_amount is missing on legacy rows.
+    const incVat = (companyData as any)?.pricing_includes_vat === true;
+    const rateDecimal = taxRate / 100;
+    let invoiceSubtotal: number;
+    let taxAmount: number;
+    let total: number;
+    if (incVat) {
+      const orderTotalGross = Number(orderData.total_amount || 0);
+      total = Number((orderTotalGross > 0 ? orderTotalGross : computedSubtotal).toFixed(2));
+      invoiceSubtotal = rateDecimal > 0 ? Number((total / (1 + rateDecimal)).toFixed(2)) : total;
+      taxAmount = Number((total - invoiceSubtotal).toFixed(2));
+    } else {
+      invoiceSubtotal = Number(subtotal.toFixed(2));
+      taxAmount = Number((invoiceSubtotal * rateDecimal).toFixed(2));
+      total = Number((invoiceSubtotal + taxAmount).toFixed(2));
+    }
+    const depositPaid = orderData.amount_paid || 0;
+    // Round to cents and clamp at zero. Raw `total - depositPaid` can
+    // leave a fraction-of-a-cent residue from float subtraction (a
+    // fully-paid invoice would then read balance > 0 and the status
+    // below would stick at "sent" instead of "paid"), and an
+    // over-payment would produce a negative balance. Mirrors the
+    // recalc path's Math.max(0, ...toFixed(2)) treatment.
+    const balanceDue = Math.max(0, Number((total - depositPaid).toFixed(2)));
+
+    // 5. Format client details
+    const client = (orderData.clients || {}) as any;
+    const clientName = client.client_name || "Unknown client";
+    const clientAddress = [
+      client.billing_address_line1,
+      client.billing_address_line2,
+      client.billing_city,
+      client.billing_postal_code,
+    ].filter(Boolean).join(", ");
+
+    // Wave 66.8 - smart due-date hierarchy. Pre-Wave-66.8 the dueDate
+    // was hardcoded to invoice_date + 30 regardless of the tenant's
+    // configured default or the client's per-account terms. Now:
+    //
+    //   per-client payment_terms (integer days)
+    //     -> overrides every other default. Lets a corporate client be
+    //        set to Net 30 while everyone else stays on the company
+    //        default.
+    //   company balance_due_days (integer days, configurable in
+    //     /admin/settings)
+    //     -> fallback when the client has no override.
+    //   30 days
+    //     -> ultimate fallback when neither is configured.
+    //
+    // For catering specifically, the balance is conceptually due BEFORE
+    // the event (you cater the airport tomorrow, you want the money by
+    // close of business today). So we cap the computed dueDate at
+    // event_date - 1 day. The operator can still set a longer
+    // post-event term per-invoice manually if they want.
+    const clientPaymentTerms = Number((client as any)?.payment_terms);
+    const companyBalanceDueDays = Number((companyData as any)?.balance_due_days);
+    const termDays =
+      Number.isFinite(clientPaymentTerms) && clientPaymentTerms > 0
+        ? clientPaymentTerms
+        : Number.isFinite(companyBalanceDueDays) && companyBalanceDueDays > 0
+          ? companyBalanceDueDays
+          : 30;
+    const invoiceDateObj = new Date();
+    // The balance must NEVER be due after the event - you cater the
+    // event, you want the money by then at the latest. Prefer 1 day
+    // before the event for breathing room, but clamp:
+    //   - never later than the term-based computed due date,
+    //   - never after the event day itself,
+    //   - never before today (a same-day or past event => due today, not
+    //     a date in the past).
+    // Bug fix (owner Callum 2026-07-08): the previous branch bailed out
+    // entirely when event_date - 1 was before today (same-day / imminent
+    // event), leaving the +termDays default which landed AFTER the event
+    // - a same-day function showed "Due in 14 days" instead of today.
+    const eventDateRaw = (orderData as any)?.event_date as string | null | undefined;
+    const finalDue = calculateInvoiceDueDate({
+      invoiceDate: invoiceDateObj,
+      termDays,
+      eventDate: eventDateRaw,
+    });
+
+    // 6. Build invoice data
+    const invoiceData: InvoiceData = {
+      invoiceNumber,
+      invoiceDate: format(new Date(), "yyyy-MM-dd"),
+      dueDate: format(finalDue, "yyyy-MM-dd"),
+
+      companyName: companyData.company_name,
+      companyLogo: companyData.logo_url,
+      companyAddress: [
+        companyData.address_line1,
+        companyData.address_line2,
+        companyData.city,
+        companyData.state_province,
+        companyData.postal_code,
+        companyData.country
+      ].filter(Boolean).join(", "),
+      companyPhone: companyData.phone_number || companyData.phone || "",
+      companyEmail: companyData.email || "",
+      companyVAT: companyData.vat_number || companyData.tax_number || "",
+      companyVatRegistered: !!companyData.vat_registered,
+      companyRegistration: companyData.registration_number || "",
+      
+      clientName,
+      clientEmail: client.email,
+      clientPhone: client.phone,
+      clientAddress,
+      
+      orderId: orderData.id,
+      // Display-only fallback. The order_number column is now always
+      // populated for new orders via consume_next_document_number,
+      // so this branch only fires for legacy rows that pre-date the
+      // numbering migration.
+      orderNumber: orderData.order_number || orderData.id,
+      eventDate: orderData.event_date || "",
+      eventTime: orderData.event_time || "",
+      venue: orderData.venue_name || "",
+      guestCount: orderData.guest_count || 0,
+      
+      items,
+      menuItems,
+      equipmentItems,
+      packageName,
+      subtotal: invoiceSubtotal,
+      taxRate,
+      taxAmount,
+      total,
+      depositPaid,
+      balanceDue,
+      
+      paymentTerms: companyData.payment_terms || "Payment due within 30 days",
+      bankDetails: companyData.bank_details ? (typeof companyData.bank_details === 'string' ? JSON.parse(companyData.bank_details) : companyData.bank_details) : undefined,
+      
+      notes: orderData.special_instructions,
+      footer: `Thank you for your business! For any queries, contact us at ${companyData.email || ""} or ${companyData.phone_number || companyData.phone || ""}`,
+      // TIGHTEN I.96: tenant currency for the PDF body.
+      currencyCode: (companyData.currency as string) || "ZAR",
+    };
+
+    return { success: true, data: invoiceData };
+  } catch (error: any) {
+    console.error("Generate invoice data error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get next invoice number for company.
+ *
+ * Backed by the per-tenant company_number_settings table + the
+ * consume_next_document_number RPC, which atomically returns and
+ * advances the sequence. Auto-creates the settings row with sane
+ * defaults on first call. Falls back to a timestamp-based number
+ * only if the RPC fails outright - never blocks invoice creation.
+ */
+async function getNextInvoiceNumber(companyId: string, client?: SupabaseLike): Promise<string> {
+  const supabase = resolveClient(client);
+  const { data, error } = await (supabase as any).rpc("consume_next_document_number", {
+    p_company_id: companyId,
+    p_document_type: "invoice",
+  });
+  if (error || !data) {
+    console.error("[invoice-numbering] RPC failed, falling back:", error);
+    return `INV-${Date.now().toString().slice(-6)}`;
+  }
+  return data as string;
+}
+
+/**
+ * Create invoice record in database
+ */
+export async function createInvoiceRecord(
+  invoiceData: InvoiceData,
+  orderId: string,
+  companyId: string,
+  client?: SupabaseLike,
+): Promise<{ success: boolean; invoiceId?: string; error?: string }> {
+  const supabase = resolveClient(client);
+  try {
+    const { data: order, error: orderErr } = await supabase.from("orders").select("client_id").eq("id", orderId).single();
+    if (orderErr) {
+      console.error("[invoiceGenerationService] orders fetch failed:", orderErr);
+    }
+
+    const insertPayload: any = {
+      company_id: companyId,
+      order_id: orderId,
+      client_id: order?.client_id,
+      invoice_number: invoiceData.invoiceNumber,
+      invoice_date: invoiceData.invoiceDate,
+      due_date: invoiceData.dueDate,
+      subtotal: invoiceData.subtotal,
+      tax_amount: invoiceData.taxAmount,
+      total_amount: invoiceData.total,
+      amount_paid: invoiceData.depositPaid,
+      balance_due: invoiceData.balanceDue,
+      status: invoiceData.balanceDue > 0 ? "sent" : "paid",
+      invoice_data: invoiceData as any,
+    };
+
+    const { data: invoice, error } = await supabase
+      .from("invoices")
+      .insert(insertPayload)
+      .select("id")
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, invoiceId: invoice.id };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Idempotent: ensure an invoice exists for the given order. Used by
+ * the order workflow so confirming an order auto-generates its
+ * invoice without the admin needing to click "Generate Invoice".
+ *
+ * Returns the existing invoice's id if one is already on file
+ * (so callers don't duplicate invoices). Skips imported orders --
+ * they had their financials handled in the prior system.
+ */
+export async function ensureInvoiceForOrder(
+  orderId: string,
+  companyId: string,
+  client?: SupabaseLike,
+  opts?: { origin?: string },
+): Promise<{ success: boolean; invoiceId?: string; alreadyExisted?: boolean; skipped?: string; error?: string }> {
+  const supabase = resolveClient(client);
+  try {
+    // 1. Look for live invoices for this order. Wave 28.9: was
+    // .maybeSingle() which throws on duplicates - when finance ended
+    // up with two drafts for the same order (cause: race / dual-path
+    // entry), every subsequent call here would crash silently.
+    // Switched to a multi-row read so we can heal corrupted state in
+    // place: keep the newest, void the rest, recalc the survivor.
+    const { data: existingRows, error: existingRowsErr } = await (supabase as any)
+      .from("invoices")
+      .select("id, status, created_at, total_amount, sent_at")
+      .eq("order_id", orderId)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
+      .order("created_at", { ascending: false });
+    if (existingRowsErr) {
+      console.error("[invoiceGenerationService] invoices fetch failed:", existingRowsErr);
+    }
+    const liveInvoices: any[] = Array.isArray(existingRows) ? existingRows : [];
+
+    if (liveInvoices.length > 0) {
+      const survivor = liveInvoices[0];
+      const olderDuplicates = liveInvoices.slice(1);
+      // Void every older duplicate. Status = 'written_off' (the
+      // closest enum value - the invoice_status enum doesn't have
+      // 'cancelled'), balance = 0 so they drop off the receivables
+      // aging report, deleted_at set so they disappear from active
+      // queries while the audit history is preserved.
+      if (olderDuplicates.length > 0) {
+        const nowIso = new Date().toISOString();
+        for (const dup of olderDuplicates) {
+          try {
+            await (supabase as any)
+              .from("invoices")
+              .update({
+                status: "written_off",
+                balance_due: 0,
+                deleted_at: nowIso,
+                updated_at: nowIso,
+              })
+              .eq("id", dup.id);
+          } catch (e) {
+            console.warn(
+              "[ensureInvoiceForOrder] could not void duplicate draft:",
+              dup.id,
+              e,
+            );
+          }
+        }
+      }
+      // Recalc the survivor so the price reflects the order's current
+      // total. Skipped when survivor is already paid - mutating a
+      // paid invoice would re-open finance reconciliation.
+      if (survivor.status !== "paid") {
+        try {
+          await recalcInvoiceForOrder(orderId, companyId, supabase);
+        } catch (e) {
+          console.warn(
+            "[ensureInvoiceForOrder] recalc on existing survivor failed:",
+            e,
+          );
+        }
+      }
+
+      // A provider/config failure can leave an invoice in status=sent
+      // while sent_at remains NULL. Retrying the cascade used to stop
+      // at "invoice already exists", permanently suppressing the one
+      // acceptance email. Rebuild the current payload and retry only
+      // this explicit failed-send state. notifyClientOfInvoiceIssued
+      // has its own sent_at + notification idempotency gates, so this
+      // cannot duplicate a successfully delivered email.
+      if (survivor.status === "sent" && !survivor.sent_at) {
+        try {
+          const retryBuilt = await generateInvoiceData(orderId, companyId, supabase);
+          if (retryBuilt.success && retryBuilt.data) {
+            await notifyClientOfInvoiceIssued(
+              orderId,
+              companyId,
+              survivor.id,
+              retryBuilt.data,
+              supabase,
+              opts?.origin,
+            );
+          }
+        } catch (retryErr) {
+          console.warn(
+            "[ensureInvoiceForOrder] unsent invoice email retry failed:",
+            retryErr,
+          );
+        }
+      }
+      return {
+        success: true,
+        invoiceId: survivor.id,
+        alreadyExisted: true,
+      };
+    }
+
+    // 2. Skip imported / quarantined orders - their financials are
+    // historical and already settled in the prior system.
+    const { data: orderRow, error: orderRowErr } = await supabase
+      .from("orders")
+      .select("imported_at, comms_paused_until")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderRowErr) {
+      console.error("[invoiceGenerationService] orders fetch failed:", orderRowErr);
+    }
+    if (orderRow) {
+      const importedAt = (orderRow as any).imported_at;
+      const paused = (orderRow as any).comms_paused_until;
+      if (importedAt || (paused && new Date(paused) > new Date())) {
+        return { success: true, skipped: "import_quarantine" };
+      }
+    }
+
+    // 3. Build + persist.
+    const built = await generateInvoiceData(orderId, companyId, supabase);
+    if (!built.success || !built.data) {
+      return { success: false, error: built.error || "Could not build invoice data" };
+    }
+    const created = await createInvoiceRecord(built.data, orderId, companyId, supabase);
+    if (!created.success) {
+      return { success: false, error: created.error };
+    }
+
+    // Fire-and-forget accounting sync. Routes to whichever provider
+    // the tenant has connected (Xero or QuickBooks). The endpoints
+    // short-circuit when nothing's connected, so it's safe to call
+    // both speculatively. Server-to-server auth via x-cms-internal:
+    // CRON_SECRET. Failures here don't unwind the invoice creation;
+    // sync errors are written to invoices.sync_error for the admin
+    // dashboard to surface.
+    if (created.invoiceId) {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret) {
+        // Fire to whichever provider is connected. The endpoint
+        // short-circuits with 409 when not connected, which is fine
+        // for fire-and-forget. Both endpoints write the external_id
+        // back onto invoices, so the next invocation no-ops via the
+        // alreadySynced check - meaning we can't double-sync even
+        // if both providers ever became connected at once.
+        void fetch(`${baseUrl}/api/accounting/xero/sync-invoice`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-cms-internal": cronSecret },
+          body: JSON.stringify({ invoice_id: created.invoiceId }),
+        }).catch((e) => console.warn("[ensureInvoiceForOrder] xero sync fire failed:", e));
+        void fetch(`${baseUrl}/api/accounting/quickbooks/sync-invoice`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-cms-internal": cronSecret },
+          body: JSON.stringify({ invoice_id: created.invoiceId }),
+        }).catch((e) => console.warn("[ensureInvoiceForOrder] quickbooks sync fire failed:", e));
+      }
+    }
+
+    // Client-facing comms. Await this so invoices.sent_at is stamped
+    // before quote acceptance returns; the helper catches its own email
+    // and notification failures so a bad config does not undo the invoice.
+    if (created.invoiceId) {
+      await notifyClientOfInvoiceIssued(orderId, companyId, created.invoiceId, built.data, supabase, opts?.origin);
+    }
+
+    return { success: true, invoiceId: created.invoiceId, alreadyExisted: false };
+  } catch (e: any) {
+    return { success: false, error: e?.message || "ensureInvoiceForOrder crashed" };
+  }
+}
+
+/**
+ * Recompute an existing invoice from the current order state and patch
+ * it in place. Use after an amendment that changed guest_count, menu
+ * items, equipment items, delivery / waiter fees, or anything else that
+ * moves the order's totals.
+ *
+ * Flow audit Leg C P0-4: amendment-review.ts called ensureInvoiceForOrder
+ * after applying the diff, but ensureInvoiceForOrder no-ops when an
+ * invoice already exists - so the operator approved the change, the
+ * order total moved, and the invoice + balance_due stayed at the OLD
+ * number. The client paid the wrong amount, the receivables aging
+ * report was wrong, and the accounting sync re-pushed nothing.
+ *
+ * Strategy: rebuild via generateInvoiceData (same code path as initial
+ * creation, so VAT modes, branch overrides, line item flattening all
+ * stay coherent), then UPDATE the existing row preserving the
+ * invoice_number / paid_at / amount_paid the bookkeeper has already
+ * touched. Recompute balance_due against the NEW total. Status:
+ *   - paid stays paid only if amount_paid still settles the new total
+ *   - paid -> partially_paid when the new total now exceeds amount_paid
+ *   - sent / draft / overdue stay as-is unless the recompute closes
+ *     the balance, in which case it flips to paid.
+ */
+export async function recalcInvoiceForOrder(
+  orderId: string,
+  companyId: string,
+  client?: SupabaseLike,
+): Promise<{ success: boolean; updated?: boolean; reason?: string; invoiceId?: string; error?: string }> {
+  const supabase = resolveClient(client);
+  try {
+    // Wave 28.9: tolerate duplicate live invoices. Was .maybeSingle()
+    // which throws on >1 row; if the order somehow ended up with two
+    // drafts, recalc would error out and the caller would either
+    // fall back to ensureInvoiceForOrder (creating a third) or just
+    // give up. Pull the newest live invoice instead.
+    const { data: existingRows } = await (supabase as any)
+      .from("invoices")
+      .select("id, amount_paid, status, invoice_number, created_at")
+      .eq("order_id", orderId)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .in("status", ["draft", "sent", "overdue", "partially_paid"])
+      .order("created_at", { ascending: false });
+    const existing = Array.isArray(existingRows) && existingRows.length > 0
+      ? existingRows[0]
+      : null;
+    if (!existing?.id) {
+      return { success: true, updated: false, reason: "no_invoice" };
+    }
+    const built = await generateInvoiceData(orderId, companyId, supabase);
+    if (!built.success || !built.data) {
+      return { success: false, error: built.error || "Could not rebuild invoice data" };
+    }
+    const newTotal = Number(built.data.total) || 0;
+    const amountPaid = Number((existing as any).amount_paid) || 0;
+    const newBalance = Math.max(0, Number((newTotal - amountPaid).toFixed(2)));
+    const prevStatus = String((existing as any).status || "");
+    let nextStatus = prevStatus;
+    if (newBalance < 0.01) {
+      nextStatus = "paid";
+    } else if (prevStatus === "paid" && amountPaid > 0 && amountPaid < newTotal) {
+      nextStatus = "partially_paid";
+    } else if (prevStatus === "paid") {
+      nextStatus = "sent";
+    }
+    // Preserve invoice_number from the original row inside invoice_data
+    // so the snapshot doesn't quietly drift from the persisted column.
+    const stampedData = {
+      ...built.data,
+      invoiceNumber: (existing as any).invoice_number || built.data.invoiceNumber,
+      depositPaid: amountPaid,
+      balanceDue: newBalance,
+    };
+    const { error: updErr } = await supabase
+      .from("invoices")
+      .update({
+        subtotal: stampedData.subtotal,
+        tax_amount: stampedData.taxAmount,
+        total_amount: newTotal,
+        balance_due: newBalance,
+        status: nextStatus,
+        invoice_data: stampedData as any,
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq("id", (existing as any).id);
+    if (updErr) {
+      return { success: false, error: updErr.message };
+    }
+    return { success: true, updated: true, invoiceId: (existing as any).id };
+  } catch (e: any) {
+    return { success: false, error: e?.message || "recalcInvoiceForOrder crashed" };
+  }
+}
+
+/**
+ * Email + in-app push to the client when a deposit invoice is issued.
+ *
+ * Idempotency: skips if a notifications row with notification_type=
+ * 'invoice_issued' and related_entity_id=<invoice_id> already exists,
+ * so a retry on ensureInvoiceForOrder can't double-notify.
+ *
+ * Subject line is intentionally generic; Agent C personalises subjects
+ * via the central messageTemplates registry separately.
+ */
+async function notifyClientOfInvoiceIssued(
+  orderId: string,
+  companyId: string,
+  invoiceId: string,
+  invoiceData: InvoiceData,
+  client?: SupabaseLike,
+  originOverride?: string,
+): Promise<void> {
+  const supabase = resolveClient(client);
+  try {
+    // Idempotency gate. One client notification per invoice.
+    const { data: existing, error: existingErr } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("related_entity_id", invoiceId)
+      .eq("notification_type", "invoice_issued")
+      .limit(1);
+    if (existingErr) {
+      console.error("[invoiceGenerationService] notifications fetch failed:", existingErr);
+    }
+    const notificationAlreadyCreated = !!(existing && existing.length > 0);
+
+    // Pull order + tenant once for the message body.
+    const { data: order, error: orderErr2 } = await supabase
+      .from("orders")
+      .select("id, client_id, client_email, event_name")
+      .eq("id", orderId)
+      .maybeSingle();
+    if (orderErr2) {
+      console.error("[invoiceGenerationService] orders fetch failed:", orderErr2);
+    }
+
+    const { data: company, error: companyErr } = await supabase
+      .from("companies")
+      // TIGHTEN I.88: also fetch currency so the invoice notification's
+      // amount label uses the tenant's symbol. Was hardcoded "R" prefix.
+      .select("company_name, currency")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (companyErr) {
+      console.error("[invoiceGenerationService] companies fetch failed:", companyErr);
+    }
+
+    const tenantName = (company as any)?.company_name || "Your catering team";
+    const eventName =
+      (order as any)?.event_name ||
+      invoiceData.orderNumber ||
+      "your event";
+    // TIGHTEN I.88: tenant currency on the amount label. Fall back to
+    // ZAR formatting when company.currency isn't set.
+    const totalNum = Number(invoiceData.total || 0);
+    const currencyCode = ((company as any)?.currency as string) || "ZAR";
+    let amountLabel: string;
+    try {
+      amountLabel = new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+      }).format(totalNum);
+    } catch {
+      amountLabel = `${currencyCode} ${totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+    }
+    // Bare numeric legacy form ("752,50") for tenant overrides that
+    // still hardcode their own currency prefix. Global defaults use
+    // the fully formatted {{amount}} field.
+    const amountBare = totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const summary = `${tenantName} issued invoice ${invoiceData.invoiceNumber} for ${eventName}. Total: ${amountLabel}. Pay via the link or EFT.`;
+    const portalLink = `/client-portal/billing?invoiceId=${invoiceId}`;
+
+    // 1. In-app notification. resolveClientUserId returns null for
+    // un-linked portal-token clients - skip the in-app push in that
+    // case so we don't insert a row no auth user can read.
+    try {
+      const clientAuthUid = await resolveClientUserId(supabase, (order as any)?.client_id || null);
+      if (clientAuthUid && !notificationAlreadyCreated) {
+        // Pass `supabase` (the resolved client - could be browser anon
+        // or service-role depending on caller context) so the bell row
+        // inserts under the right auth surface. Without this, server-
+        // context cascades silently dropped the in-app push because the
+        // global anon client had no session.
+        await notificationService.createNotification({
+          company_id: companyId,
+          recipient_id: clientAuthUid,
+          user_id: clientAuthUid,
+          notification_type: "invoice_issued",
+          title: "Invoice ready",
+          message: summary,
+          priority: "normal",
+          link: portalLink,
+          related_entity_type: "invoice",
+          related_entity_id: invoiceId,
+        }, supabase);
+      }
+    } catch (e) {
+      console.warn("[notifyClientOfInvoiceIssued] in-app push failed:", e);
+    }
+
+    // 2. Email. Mirrors the in-app body so a client who reads either
+    // channel gets the same single-line summary + the same deep link.
+    try {
+      const { data: invoiceSendRow, error: invoiceSendErr } = await supabase
+        .from("invoices")
+        .select("sent_at")
+        .eq("id", invoiceId)
+        .maybeSingle();
+      if (invoiceSendErr) {
+        console.error("[invoiceGenerationService] invoices sent_at fetch failed:", invoiceSendErr);
+      }
+      const alreadySent = !!(invoiceSendRow as any)?.sent_at;
+      const recipient = invoiceData.clientEmail || (order as any)?.client_email || null;
+      if (recipient && !alreadySent) {
+        // Origin priority: explicit caller override (server context can
+        // pass req-derived host) -> NEXT_PUBLIC_APP_URL -> NEXT_PUBLIC_SITE_URL
+        // -> empty (relative link). Browser callers leave originOverride
+        // unset so existing behaviour is unchanged.
+        const baseUrl =
+          originOverride ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          process.env.NEXT_PUBLIC_SITE_URL ||
+          "";
+        const origin = baseUrl.startsWith("http") ? baseUrl : (baseUrl ? `https://${baseUrl}` : "");
+        const fullLink = origin ? `${origin}${portalLink}` : portalLink;
+
+        // The email's pay link must be the PUBLIC /pay/i/{token} page,
+        // not the client-portal billing route - the portal demands a
+        // login, so first-time clients clicking "Pay or download here"
+        // hit a sign-in wall instead of the invoice. The in-app bell
+        // keeps the portal link (a bell implies a logged-in session).
+        let payLink = fullLink;
+        try {
+          const { data: invTokRow } = await supabase
+            .from("invoices")
+            .select("public_token")
+            .eq("id", invoiceId)
+            .maybeSingle();
+          const tok = (invTokRow as any)?.public_token;
+          if (tok && origin) payLink = `${origin}/pay/i/${tok}`;
+        } catch (tokErr) {
+          console.warn("[notifyClientOfInvoiceIssued] public_token lookup failed, using portal link:", tokErr);
+        }
+
+        // The invoice email is the single acceptance confirmation when
+        // a quote creates an unpaid deposit invoice. Mint the secure
+        // order link here, in the same awaited transaction boundary as
+        // the email, so clients can move from acceptance to their order
+        // immediately instead of receiving only a payment link.
+        let orderLink = "";
+        try {
+          orderLink = await mintOrderCustomerLink({
+            sb: supabase,
+            companyId,
+            orderId,
+            label: "deposit-invoice-email",
+            origin: originOverride || origin || null,
+          });
+        } catch (orderLinkErr) {
+          console.warn("[notifyClientOfInvoiceIssued] order link mint failed:", orderLinkErr);
+        }
+
+        // Keep the invoice email link-only. The public payment page is the
+        // canonical, current invoice and avoids corporate mail gateways
+        // rejecting messages with PDF attachments. Clients can still view or
+        // download the PDF from that page.
+
+        // Pick deposit_invoice_issued vs balance_invoice_issued based
+        // on whether a deposit has already been paid on this order.
+        // First invoice (depositPaid = 0) is the deposit invoice; an
+        // invoice raised after a deposit landed is the balance.
+        // Subject + body resolve through the centralised resolver --
+        // tenant override beats global default beats the inline
+        // fallback.
+        const firstName = String(invoiceData.clientName || "there").split(" ")[0] || "there";
+        const isBalance = Number(invoiceData.depositPaid || 0) > 0;
+        const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
+
+        const fallbackBody = isBalance
+          ? `Hi {{first_name}},\n\n` +
+            `{{tenant_name}} issued the balance invoice {{invoice_number}} for {{event_name}}. Balance due: {{amount}}.\n\n` +
+            `Open the invoice: {{invoice_link}}\n\n` +
+            `Thanks,\n{{tenant_name}}`
+          : `Hi {{first_name}},\n\n` +
+            `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
+            `Your deposit invoice {{invoice_number}} is ready. Deposit due: {{amount}}.\n\n` +
+            `Pay or download it here: {{invoice_link}}\n\n` +
+            `View your order: {{order_url}}\n\n` +
+            `Once the payment clears, your event date is locked in.\n\n` +
+            `Thanks,\n{{tenant_name}}`;
+
+        const emailVariables = {
+          first_name: firstName,
+          client_name: invoiceData.clientName,
+          tenant_name: tenantName,
+          event_name: eventName,
+          invoice_number: invoiceData.invoiceNumber,
+          amount: amountLabel,
+          deposit_amount: isBalance ? "" : amountBare,
+          balance_amount: isBalance ? amountBare : "",
+          invoice_link: payLink,
+          order_url: orderLink,
+          clientName: invoiceData.clientName,
+          companyName: tenantName,
+        };
+
+        const resolved = await resolveEmailTemplate({
+          companyId,
+          templateType,
+          variables: emailVariables,
+          fallback: {
+            subject: `Invoice ${invoiceData.invoiceNumber} ready - ${eventName}`,
+            bodyHtml: fallbackBody,
+          },
+          client: supabase,
+        });
+        const bodyWithRequiredOrderLink = !isBalance
+          ? ensureRequiredOrderLink(resolved.bodyHtml, orderLink)
+          : resolved.bodyHtml;
+
+        const sent = await emailService.sendEmail({
+          companyId,
+          to: recipient,
+          subject: resolved.subject,
+          template: templateType,
+          body: bodyWithRequiredOrderLink,
+          variables: emailVariables,
+          orderId,
+          // Forward the injected client so emailService can read
+          // email_settings + write email_automation_log under the
+          // same auth context (service-role from server callers,
+          // anon from browser callers).
+          _client: supabase,
+        } as any);
+
+        if (sent) {
+          const { error: sentStampErr } = await supabase
+            .from("invoices")
+            .update({ sent_at: new Date().toISOString() })
+            .eq("id", invoiceId)
+            .is("sent_at", null);
+          if (sentStampErr) {
+            console.warn("[notifyClientOfInvoiceIssued] sent_at stamp failed:", sentStampErr);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[notifyClientOfInvoiceIssued] email failed:", e);
+    }
+  } catch (e) {
+    console.warn("[notifyClientOfInvoiceIssued] crashed (non-blocking):", e);
+  }
+}
+
+/**
+ * Hydrate InvoicePdfData from invoices + clients + orders + companies
+ * and render to a Buffer suitable for an email attachment. Returns
+ * null if the invoice row isn't readable (caller treats that as a
+ * non-blocking skip, not an error).
+ *
+ * Address note: InvoiceDocument expects a single client.address
+ * string, so we flatten the billing_* columns here - the document
+ * layer stays decoupled from the clients schema.
+ *
+ * Cache: keyed on (invoice.updated_at, order.updated_at,
+ * company.updated_at) so a second send within 30 minutes reuses the
+ * rendered buffer. See pdfCache.ts for the eviction policy.
+ */
+async function renderInvoicePdfAttachment(
+  invoiceId: string,
+  companyId: string,
+  fallbackData: InvoiceData,
+  injectedClient?: SupabaseLike,
+): Promise<{ filename: string; content: Buffer; contentType: string } | null> {
+  const supabase = resolveClient(injectedClient);
+  const { data: invRow, error: invRowErr } = await supabase
+    .from("invoices")
+    .select(`
+      id, invoice_number, invoice_date, due_date, status,
+      subtotal, tax_amount, total_amount, amount_paid, balance_due,
+      notes, invoice_data, updated_at,
+      client:client_id (
+        client_name, email, phone,
+        billing_address_line1, billing_address_line2,
+        billing_city, billing_postal_code
+      ),
+      order:order_id (
+        id, order_number, event_name, event_date, updated_at
+      ),
+      company:company_id (
+        id, slug, company_name, legal_name, logo_url, email, phone,
+        address_line1, address_line2, city, state_province,
+        postal_code, country, primary_color,
+        vat_registered, vat_number, vat_rate,
+        registration_number, tax_number,
+        updated_at
+      )
+    `)
+    .eq("id", invoiceId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (invRowErr) {
+    console.error("[invoiceGenerationService] invoices fetch failed:", invRowErr);
+  }
+
+  if (!invRow) {
+    console.warn(`[renderInvoicePdfAttachment] invoice ${invoiceId} not found`);
+    return null;
+  }
+
+  const invAny = invRow as any;
+  const client = invAny.client || {};
+  const order = invAny.order || {};
+  const company = invAny.company || {};
+
+  const clientAddress =
+    [
+      client.billing_address_line1,
+      client.billing_address_line2,
+      client.billing_city,
+      client.billing_postal_code,
+    ]
+      .filter(Boolean)
+      .join(", ") || fallbackData.clientAddress || null;
+
+  const lineItems = Array.isArray(fallbackData.items)
+    ? fallbackData.items.map((it) => ({
+        name: it.description || "Item",
+        description: null,
+        quantity: it.quantity ?? null,
+        unit_price: it.unitPrice ?? null,
+        total: it.total ?? null,
+      }))
+    : [];
+
+  const { renderInvoicePdf, sanitiseFilename } = await import("@/services/pdf");
+  const pdfBuffer = await renderInvoicePdf(
+    {
+      invoice_number: invAny.invoice_number,
+      invoice_date: invAny.invoice_date,
+      due_date: invAny.due_date,
+      status: invAny.status,
+      client: {
+        name: client.client_name || fallbackData.clientName || "",
+        email: client.email || fallbackData.clientEmail || null,
+        phone: client.phone || fallbackData.clientPhone || null,
+        address: clientAddress,
+      },
+      order_number: order.order_number || fallbackData.orderNumber || null,
+      event_name: order.event_name || null,
+      event_date: order.event_date || fallbackData.eventDate || null,
+      line_items: lineItems,
+      subtotal: invAny.subtotal ?? fallbackData.subtotal,
+      tax_amount: invAny.tax_amount ?? fallbackData.taxAmount,
+      total_amount: Number(invAny.total_amount ?? fallbackData.total ?? 0),
+      amount_paid: invAny.amount_paid ?? fallbackData.depositPaid,
+      balance_due: invAny.balance_due ?? fallbackData.balanceDue,
+      notes: invAny.notes || fallbackData.notes || null,
+      payment_terms: company.payment_terms || fallbackData.paymentTerms || null,
+      company: {
+        id: company.id,
+        slug: company.slug,
+        company_name: company.company_name,
+        legal_name: company.legal_name,
+        logo_url: company.logo_url,
+        email: company.email,
+        phone: company.phone,
+        address_line1: company.address_line1,
+        address_line2: company.address_line2,
+        city: company.city,
+        state_province: company.state_province,
+        postal_code: company.postal_code,
+        country: company.country,
+        primary_color: company.primary_color,
+        vat_registered: company.vat_registered,
+        vat_number: company.vat_number,
+        vat_rate: company.vat_rate,
+        registration_number: company.registration_number,
+        tax_number: company.tax_number,
+      },
+    },
+    {
+      cacheKey: {
+        invoiceId,
+        invoiceUpdatedAt: invAny.updated_at ?? null,
+        orderUpdatedAt: order.updated_at ?? null,
+        companyUpdatedAt: company.updated_at ?? null,
+      },
+    },
+  );
+
+  return {
+    filename: `Invoice-${sanitiseFilename(invAny.invoice_number || invoiceId)}.pdf`,
+    content: pdfBuffer,
+    contentType: "application/pdf",
+  };
+}
+
+/**
+ * Generate payment link for invoice
+ * Bug #22 FIX: Integrate with PayFast to generate actual payment form/URL
+ */
+export async function generateInvoicePaymentLink(
+  invoiceId: string,
+  companyId: string
+): Promise<{ success: boolean; paymentUrl?: string; error?: string }> {
+  try {
+    // 1. Get invoice with company details. We pull public_token too so
+    //    the customer-facing URL is /pay/i/[token] instead of the old
+    //    /pay/invoice/[id] form (the id route now 308s to the token
+    //    one anyway, but new emails go straight to the canonical URL).
+    const { data: invoice, error: invoiceError } = await supabase
+      .from("invoices")
+      .select("*, public_token, companies!inner(*)")
+      .eq("id", invoiceId)
+      .single();
+
+    if (invoiceError || !invoice) {
+      return { success: false, error: "Invoice not found" };
+    }
+
+    const invoiceData = invoice as any;
+
+    if (invoiceData.balance_due <= 0) {
+      return { success: false, error: "Invoice already paid" };
+    }
+
+    // 2. Check if PayFast is configured
+    const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
+    const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
+    const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE;
+    const testMode = process.env.NODE_ENV !== "production";
+
+    // If PayFast not configured, return simple payment page URL
+    const baseUrl = typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com";
+
+    const paymentPageUrl = invoiceData.public_token
+      ? `${baseUrl}/pay/i/${invoiceData.public_token}`
+      : `${baseUrl}/pay/invoice/${invoiceId}`;
+
+    if (!merchantId || !merchantKey) {
+      console.warn("PayFast credentials not configured - returning payment page URL");
+      return { success: true, paymentUrl: paymentPageUrl };
+    }
+
+    // 3. PayFast is configured - return payment page that will redirect to PayFast
+    return { success: true, paymentUrl: paymentPageUrl };
+
+  } catch (error) {
+    console.error("Error generating invoice payment link:", error);
+    return { success: false, error: "Failed to generate payment link" };
+  }
+}
+
+/**
+ * Generate HTML invoice for PDF conversion or email
+ */
+export function generateInvoiceHTML(data: InvoiceData): string {
+  // TIGHTEN I.96: tenant-currency formatter for every money cell on
+  // the PDF body. Defaults to ZAR for legacy callers that haven't set
+  // currencyCode (zero remaining post-I.96 in the live code path).
+  const fmtMoney = (() => {
+    const code = data.currencyCode || "ZAR";
+    try {
+      const f = new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: code,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return (n: number) => f.format(n);
+    } catch {
+      return (n: number) => `${code} ${n.toFixed(2)}`;
+    }
+  })();
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${data.companyVatRegistered ? "Tax Invoice" : "Invoice"} ${data.invoiceNumber}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #333;
+      padding: 40px;
+    }
+    .invoice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #0950c6;
+    }
+    .company-logo {
+      max-width: 200px;
+      max-height: 80px;
+    }
+    .company-details {
+      text-align: left;
+    }
+    .company-details h1 {
+      color: #0950c6;
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    .invoice-title {
+      text-align: right;
+    }
+    .invoice-title h2 {
+      color: #0950c6;
+      font-size: 32px;
+      font-weight: bold;
+    }
+    .invoice-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 30px;
+    }
+    .invoice-meta > div {
+      flex: 1;
+    }
+    .label {
+      font-weight: bold;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .value {
+      margin-bottom: 15px;
+    }
+    .section-title {
+      background: #0950c6;
+      color: white;
+      padding: 8px 12px;
+      font-weight: bold;
+      margin-top: 30px;
+      margin-bottom: 15px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    thead {
+      background: #f4f4f4;
+    }
+    th {
+      text-align: left;
+      padding: 12px;
+      font-weight: bold;
+      border-bottom: 2px solid #ddd;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .totals {
+      margin-left: auto;
+      width: 300px;
+      margin-top: 20px;
+    }
+    .totals table {
+      margin-bottom: 0;
+    }
+    .totals td {
+      padding: 8px 12px;
+    }
+    .totals .grand-total {
+      background: #0950c6;
+      color: white;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .payment-info {
+      background: #f9f9f9;
+      padding: 20px;
+      margin-top: 30px;
+      border-left: 4px solid #0950c6;
+    }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #ddd;
+      text-align: center;
+      color: #666;
+      font-size: 11px;
+    }
+    .highlight {
+      color: #0950c6;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-header">
+    <div class="company-details">
+      ${data.companyLogo ? `<img src="${data.companyLogo}" alt="${data.companyName}" class="company-logo">` : `<h1>${data.companyName}</h1>`}
+      <div style="margin-top: 15px;">
+        <div>${data.companyAddress}</div>
+        <div>Tel: ${data.companyPhone}</div>
+        <div>Email: ${data.companyEmail}</div>
+        ${data.companyRegistration ? `<div>Reg No: ${data.companyRegistration}</div>` : ""}
+        ${data.companyVAT ? `<div>VAT: ${data.companyVAT}</div>` : ""}
+      </div>
+    </div>
+    <div class="invoice-title">
+      <h2>${data.companyVatRegistered ? "TAX INVOICE" : "INVOICE"}</h2>
+      <div style="margin-top: 10px;">
+        <div class="label">${data.companyVatRegistered ? "Tax Invoice Number" : "Invoice Number"}</div>
+        <div class="value highlight" style="font-size: 16px;">${data.invoiceNumber}</div>
+        <div class="label">Invoice Date</div>
+        <div class="value">${format(new Date(data.invoiceDate), "dd MMM yyyy")}</div>
+        <div class="label">Due Date</div>
+        <div class="value">${format(new Date(data.dueDate), "dd MMM yyyy")}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="invoice-meta">
+    <div>
+      <div class="section-title">BILL TO</div>
+      <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">${data.clientName}</div>
+      ${data.clientAddress ? `<div>${data.clientAddress}</div>` : ""}
+      <div>Email: ${data.clientEmail}</div>
+      ${data.clientPhone ? `<div>Phone: ${data.clientPhone}</div>` : ""}
+    </div>
+    <div>
+      <div class="section-title">EVENT DETAILS</div>
+      <div class="label">Order Number</div>
+      <div class="value">${data.orderNumber}</div>
+      <div class="label">Event Date</div>
+      <div class="value">${data.eventDate ? format(new Date(data.eventDate), "dd MMM yyyy") : "TBD"}</div>
+      <div class="label">Event Time</div>
+      <div class="value">${data.eventTime || "TBD"}</div>
+      <div class="label">Venue</div>
+      <div class="value">${data.venue || "TBD"}</div>
+      <div class="label">Guest Count</div>
+      <div class="value highlight">${data.guestCount} guests</div>
+    </div>
+  </div>
+
+  <div class="section-title">ITEMS</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="text-right">Quantity</th>
+        <th class="text-right">Unit Price</th>
+        <th class="text-right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${data.items.map(item => `
+        <tr>
+          <td>${item.description}</td>
+          <td class="text-right">${item.quantity}</td>
+          <td class="text-right">${fmtMoney(item.unitPrice)}</td>
+          <td class="text-right">${fmtMoney(item.total)}</td>
+        </tr>
+      `).join("")}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <table>
+      <tr>
+        <td>Subtotal</td>
+        <td class="text-right">${fmtMoney(data.subtotal)}</td>
+      </tr>
+      <tr>
+        <td>VAT (${data.taxRate}%)</td>
+        <td class="text-right">${fmtMoney(data.taxAmount)}</td>
+      </tr>
+      <tr class="grand-total">
+        <td>TOTAL</td>
+        <td class="text-right">${fmtMoney(data.total)}</td>
+      </tr>
+      ${data.depositPaid > 0 ? `
+        <tr>
+          <td>${data.balanceDue <= 0.01 ? "Paid in Full" : "Deposit Paid"}</td>
+          <td class="text-right">${fmtMoney(data.depositPaid)}</td>
+        </tr>
+        <tr style="background: #fff3cd; font-weight: bold;">
+          <td>BALANCE DUE</td>
+          <td class="text-right">${fmtMoney(data.balanceDue)}</td>
+        </tr>
+      ` : ""}
+    </table>
+  </div>
+
+  ${data.bankDetails ? `
+    <div class="payment-info">
+      <div class="section-title" style="margin-top: 0;">PAYMENT DETAILS</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+        <div>
+          <div class="label">Bank Name</div>
+          <div class="value">${data.bankDetails.bankName}</div>
+        </div>
+        <div>
+          <div class="label">Account Name</div>
+          <div class="value">${data.bankDetails.accountName}</div>
+        </div>
+        <div>
+          <div class="label">Account Number</div>
+          <div class="value highlight">${data.bankDetails.accountNumber}</div>
+        </div>
+        <div>
+          <div class="label">Branch Code</div>
+          <div class="value">${data.bankDetails.branchCode}</div>
+        </div>
+      </div>
+      <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+        <div class="label">Payment Terms</div>
+        <div>${data.paymentTerms}</div>
+      </div>
+    </div>
+  ` : ""}
+
+  ${data.notes ? `
+    <div style="margin-top: 30px;">
+      <div class="section-title">NOTES</div>
+      <div style="padding: 15px; background: #f9f9f9;">${data.notes}</div>
+    </div>
+  ` : ""}
+
+  <div class="footer">
+    ${data.footer || ""}
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Send invoice via email.
+ *
+ * Routes through /api/send-email (the canonical send pipeline - auth
+ * gates, blocked-contact + paused-comms checks, Resend/SMTP via
+ * email_settings, audit row in email_automation_log) and asks the
+ * server to attach the rendered Invoice PDF. Subject + body resolve
+ * through the central template resolver so a tenant override beats
+ * the inline fallback.
+ *
+ * Old path went to /api/send-invoice-email which was a console.log
+ * stub - the success toast lied. This path actually delivers.
+ */
+export interface SendInvoiceEmailResult {
+  success: boolean;
+  error?: string;
+  error_code?: string;
+  fix_link?: string;
+  context?: Record<string, any>;
+}
+
+export async function sendInvoiceEmail(
+  invoiceData: InvoiceData,
+  recipientEmail: string,
+  options: {
+    invoiceId: string;
+    companyId: string;
+    /** Optional caller-supplied overrides for review-before-send. */
+    subject?: string;
+    body?: string;
+    cc?: string;
+    bcc?: string;
+    attachInvoicePdf?: boolean;
+  },
+): Promise<SendInvoiceEmailResult> {
+  try {
+    if (!options?.invoiceId || !options?.companyId) {
+      return { success: false, error: "invoiceId and companyId are required", error_code: "missing_fields" };
+    }
+    if (!recipientEmail) {
+      return { success: false, error: "Recipient email is missing", error_code: "missing_fields" };
+    }
+
+    const firstName = String(invoiceData.clientName || "there").split(" ")[0] || "there";
+    let liveInvoiceRow: any = null;
+    try {
+      const { data: invRow } = await supabase
+        .from("invoices")
+        .select("public_token, amount_paid, balance_due, total_amount, status")
+        .eq("id", options.invoiceId)
+        .maybeSingle();
+      liveInvoiceRow = invRow || null;
+    } catch (e) {
+      console.warn("[sendInvoiceEmail] live invoice lookup failed:", e);
+    }
+    const liveAmountPaid = Number(liveInvoiceRow?.amount_paid ?? invoiceData.depositPaid ?? 0) || 0;
+    const liveBalanceDue = Number(liveInvoiceRow?.balance_due ?? invoiceData.balanceDue ?? 0) || 0;
+    const liveTotal = Number(liveInvoiceRow?.total_amount ?? invoiceData.total ?? 0) || 0;
+    const isBalance = liveAmountPaid > 0 || String(liveInvoiceRow?.status || "").toLowerCase() === "partially_paid";
+    // Mirror the auto-issuance flow's template selection so manual
+    // sends and auto sends look identical to the client.
+    const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
+    // TIGHTEN I.88: tenant-currency amount on the customer-facing
+    // invoice email. Was hardcoded "R" prefix.
+    const amountValue = isBalance ? (liveBalanceDue || Number(invoiceData.balanceDue || 0)) : (liveBalanceDue || liveTotal || Number(invoiceData.total || 0));
+    const { data: companyCurrencyRow } = await supabase
+      .from("companies")
+      .select("currency")
+      .eq("id", options.companyId)
+      .maybeSingle();
+    const amountCurrency = ((companyCurrencyRow as any)?.currency as string) || "ZAR";
+    let amountLabel: string;
+    try {
+      amountLabel = new Intl.NumberFormat("en-ZA", {
+        style: "currency",
+        currency: amountCurrency,
+        minimumFractionDigits: 2,
+      }).format(amountValue);
+    } catch {
+      amountLabel = `${amountCurrency} ${amountValue.toFixed(2)}`;
+    }
+    // Bare numeric legacy form for tenant overrides that still hardcode
+    // their own currency prefix. Global defaults use {{amount}}.
+    const amountBare = amountValue.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const eventLabel = (invoiceData as any).eventName || invoiceData.orderNumber || "your event";
+
+    // TIGHTEN I.114: resolve the invoice's public_token + build the
+    // /pay/i/{token} link so the fallback body's {{invoice_link}}
+    // placeholder works. The auto-issuance path (postCreationCascade
+    // + ensureInvoiceForOrder) already passes invoice_link via tenant
+    // templates; this manual-send path was missing it.
+    let invoiceLink = "";
+    try {
+      const tok = liveInvoiceRow?.public_token;
+      const origin = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
+      if (tok && origin) invoiceLink = `${origin}/pay/i/${tok}`;
+    } catch (e) {
+      console.warn("[sendInvoiceEmail] invoice_link lookup failed:", e);
+    }
+
+    let orderLink = "";
+    try {
+      orderLink = await mintOrderCustomerLink({
+        sb: supabase,
+        companyId: options.companyId,
+        orderId: invoiceData.orderId,
+        label: "manual-invoice-email",
+      });
+    } catch (e) {
+      console.warn("[sendInvoiceEmail] order link mint failed:", e);
+    }
+
+    const fallbackBody =
+      options.body ||
+      `Hi {{first_name}},\n\n` +
+      `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
+      `Pay or download a copy here: {{invoice_link}}\n\n` +
+      `Thanks,\n{{tenant_name}}`;
+
+    // When the operator has reviewed + edited the body in the send
+    // dialog we DON'T re-resolve the template - they're sending the
+    // exact text they saw. Drop the template so the server uses the
+    // body verbatim. Same for the subject.
+    const useTemplateLookup = !options.body;
+
+    const response = await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyId: options.companyId,
+        to: recipientEmail,
+        subject: options.subject || `Invoice ${invoiceData.invoiceNumber} ready - ${eventLabel}`,
+        body: fallbackBody,
+        ...(useTemplateLookup ? { template: templateType } : {}),
+        variables: {
+          first_name: firstName,
+          client_name: invoiceData.clientName,
+          tenant_name: invoiceData.companyName,
+          event_name: eventLabel,
+          invoice_number: invoiceData.invoiceNumber,
+          amount: amountLabel,
+          deposit_amount: isBalance ? "" : amountBare,
+          balance_amount: isBalance ? amountBare : "",
+          // TIGHTEN I.114: always-current /pay/i/{token} URL.
+          invoice_link: invoiceLink,
+          order_url: orderLink,
+        },
+        emailType: templateType,
+        attachInvoicePdf: options.attachInvoicePdf !== false,
+        invoiceId: options.invoiceId,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) {
+      return {
+        success: false,
+        error: payload?.error || "Failed to send email",
+        error_code: payload?.error_code,
+        fix_link: payload?.fix_link,
+        context: payload?.context,
+      };
+    }
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message || "Send failed", error_code: "unknown" };
+  }
+}
+
+// TIGHTEN I.93: dead accounting-integration stub functions removed.
+// The live implementations live in
+// src/services/accountingIntegrationService.ts (real Xero +
+// QuickBooks OAuth + payload, scaffold Sage with honest error).

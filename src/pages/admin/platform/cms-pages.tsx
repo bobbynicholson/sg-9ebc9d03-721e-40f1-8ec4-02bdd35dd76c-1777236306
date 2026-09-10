@@ -1,0 +1,833 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/**
+ * /admin/platform/cms-pages - Bobby's marketing CMS for cateringms.com.
+ *
+ * NOT a tenant feature - this is super-admin scope. The pages
+ * managed here appear on the public marketing site, never inside a
+ * catering company's portal.
+ *
+ * Two modes:
+ *   - List   - every page on file, edit/delete inline
+ *   - Edit   - title, slug, content, meta. Sticky preview panel.
+ *               AI Draft Assistant generates a full post via Sonnet.
+ *
+ * Both modes use PlatformNav so the operator never loses orientation.
+ */
+import { useState, useEffect, useMemo } from "react";
+import Head from "next/head";
+import { PlatformNav } from "@/components/admin/PlatformNav";
+import { cmsService } from "@/services/cmsService";
+import type { CMSPage } from "@/types/cms";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
+  PageWorkbench,
+} from "@/components/portal/ui";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Pencil, Trash2, Plus, ArrowLeft, Save, X, AlertTriangle, Sparkles,
+  Loader2, Eye, FileText, Wand2, Globe, ImageIcon, Upload, CheckCircle2, FileWarning, Image,
+} from "lucide-react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { UserRole } from "@/types/app";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { renderCmsMarkdown } from "@/lib/cmsMarkdown";
+import { EmptyState } from "@/components/ui/empty-state";
+
+interface DraftRequest {
+  topic: string;
+  audience: string;
+  tone: "informative" | "casual" | "promotional";
+  wordTarget: number;
+  keywords: string;
+}
+
+const EMPTY_FORM = {
+  title: "",
+  slug: "",
+  content: "",
+  meta_description: "",
+  meta_keywords: "",
+  header_image_url: "",
+  header_image_alt: "",
+  is_published: true,
+};
+
+// Hero meta chip styling, same recipe as the platform financial dashboard.
+const HERO_CHIP =
+  "inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white";
+
+// Wave 24: super_admin gate. The header comment already notes "NOT
+// a tenant feature - this is super-admin scope" but the page had no
+// runtime gate, so a tenant admin who guessed the URL could load
+// (and via the underlying cmsService, mutate) public marketing
+// pages. ProtectedRoute hides the page entirely below super_admin.
+export default function ProtectedCMSPageManagement() {
+  return (
+    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN]}>
+      <CMSPageManagement />
+    </ProtectedRoute>
+  );
+}
+
+function CMSPageManagement() {
+  const { toast } = useToast();
+  const [pages, setPages] = useState<CMSPage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingPage, setEditingPage] = useState<CMSPage | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formData, setFormData] = useState({ ...EMPTY_FORM });
+
+  // AI panel state
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [draftReq, setDraftReq] = useState<DraftRequest>({
+    topic: "",
+    audience: "catering company owners and operations managers",
+    tone: "informative",
+    wordTarget: 600,
+    keywords: "",
+  });
+
+  // Live preview side-panel toggle
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Header image upload state
+  const [imageBusy, setImageBusy] = useState(false);
+
+  const uploadHeaderImage = async (file: File) => {
+    setImageBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      // Pass the slug so the storage path is human-readable.
+      fd.append("slug", formData.slug || "untitled");
+      const res = await fetch("/api/cms/upload-image", {
+        method: "POST",
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Upload failed");
+      setFormData((prev) => ({
+        ...prev,
+        header_image_url: json.url,
+        // If the operator hasn't typed alt text yet, leave it empty
+        // so the save guard prompts them. Don't auto-fill from the
+        // filename - that's almost always lazy SEO.
+      }));
+      toast({
+        title: "Image uploaded",
+        description: "Now add alt text describing what's in the image.",
+      });
+    } catch (e: any) {
+      toast({ title: "Image upload failed", description: dbErrorMessage(e, { entity: "image" }), variant: "destructive" });
+    } finally {
+      setImageBusy(false);
+    }
+  };
+
+  // ── Load ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    loadPages();
+  }, []);
+
+  const loadPages = async () => {
+    try {
+      setLoading(true);
+      const data = await cmsService.getAllPages(false);
+      setPages(data);
+    } catch (error) {
+      console.error("Error loading pages:", error);
+      toast({ title: "Could not load pages", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Edit / save ─────────────────────────────────────────────────────
+  const startEdit = (page: CMSPage) => {
+    setEditingPage(page);
+    setFormData({
+      title: page.title,
+      slug: page.slug,
+      content: page.content,
+      meta_description: page.meta_description || "",
+      meta_keywords: page.meta_keywords || "",
+      header_image_url: page.header_image_url || "",
+      header_image_alt: page.header_image_alt || "",
+      is_published: page.is_published,
+    });
+    setAiOpen(false);
+    setPreviewOpen(false);
+  };
+
+  const startNew = () => {
+    setIsCreating(true);
+    setEditingPage(null);
+    setFormData({ ...EMPTY_FORM });
+    setAiOpen(false);
+    setPreviewOpen(false);
+  };
+
+  const handleSave = async () => {
+    if (!formData.title.trim() || !formData.slug.trim()) {
+      toast({ title: "Title and slug are required", variant: "destructive" });
+      return;
+    }
+    // Accessibility gate: a header image without alt text fails WCAG.
+    // Block save until the operator either removes the image or adds
+    // a description.
+    if (formData.header_image_url && !formData.header_image_alt.trim()) {
+      toast({
+        title: "Add alt text for the header image",
+        description: "Required for screen readers and search engines.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      if (editingPage) {
+        await cmsService.updatePage(editingPage.id, formData);
+      } else {
+        await cmsService.createPage(formData);
+      }
+      await loadPages();
+      handleCancel();
+      toast({ title: "Page saved" });
+    } catch (error: any) {
+      console.error("Error saving page:", error);
+      toast({ title: "Save failed", description: dbErrorMessage(error, { entity: "page" }), variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this page? This cannot be undone.")) return;
+    try {
+      await cmsService.deletePage(id);
+      await loadPages();
+      toast({ title: "Page deleted" });
+    } catch (error: any) {
+      toast({ title: "Delete failed", description: dbErrorMessage(error, { entity: "page" }), variant: "destructive" });
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingPage(null);
+    setIsCreating(false);
+    setFormData({ ...EMPTY_FORM });
+    setAiOpen(false);
+    setPreviewOpen(false);
+  };
+
+  const generateSlug = (title: string) =>
+    title
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+
+  // ── AI draft ───────────────────────────────────────────────────────
+  const runAiDraft = async () => {
+    if (!draftReq.topic.trim()) {
+      toast({ title: "Tell the AI what to write about", variant: "destructive" });
+      return;
+    }
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/cms/ai-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draftReq),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "AI draft failed");
+      // Drop everything into the form. The team can edit before saving.
+      setFormData((prev) => ({
+        ...prev,
+        title: json.title || prev.title,
+        slug: json.slug || prev.slug || generateSlug(json.title || ""),
+        content: json.content || prev.content,
+        meta_description: json.meta_description || prev.meta_description,
+        meta_keywords: json.meta_keywords || prev.meta_keywords,
+      }));
+      setAiOpen(false);
+      setPreviewOpen(true);
+      toast({
+        title: "Draft ready",
+        description: `${json.tokens_out} output tokens via ${json.model}. Review and tweak before publishing.`,
+      });
+    } catch (e: any) {
+      toast({
+        title: "AI draft failed",
+        description: dbErrorMessage(e, { fallback: "Check ANTHROPIC_API_KEY on the server." }),
+        variant: "destructive",
+      });
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const editing = editingPage || isCreating;
+
+  const pageSummary = useMemo(() => {
+    const published = pages.filter((page) => page.is_published).length;
+    return {
+      total: pages.length,
+      published,
+      drafts: pages.length - published,
+      withHeaderImage: pages.filter((page) => !!page.header_image_url).length,
+    };
+  }, [pages]);
+
+  // Markdown preview - the SAME pipeline the public /page/[slug]
+  // renderer uses, so preview and published output cannot diverge.
+  const previewHtml = useMemo(() => renderCmsMarkdown(formData.content || ""), [formData.content]);
+
+  // Always-visible scope banner, rendered under the hero in both modes.
+  const scopeBanner = (
+    <Alert className="mb-6 border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
+      <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+      <AlertDescription className="text-amber-900 dark:text-amber-200">
+        <strong>cateringms.com marketing site.</strong> What you publish here appears on the public website at{" "}
+        <code className="text-xs bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded">cateringms.com/page/&lt;slug&gt;</code>.
+        It does NOT show up in any individual catering company's portal.
+      </AlertDescription>
+    </Alert>
+  );
+
+  // ── Render ─────────────────────────────────────────────────────────
+  return (
+    <>
+      <Head>
+        <meta name="robots" content="noindex, nofollow" />
+        <title>{editing ? (editingPage ? "Edit page" : "New page") : "Marketing pages"} - CateringMS</title>
+      </Head>
+
+      <div className="admin-page-shell">
+        <PlatformNav />
+        <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
+          {/* ── Editor mode ──────────────────────────────────────── */}
+          {editing ? (
+            <>
+              {/* Header */}
+              <PortalHeader
+                variant="hero"
+                title={editingPage ? "Edit page" : "New page"}
+                subtitle={editingPage ? `Editing "${editingPage.title}" on the public marketing site.` : "Draft a new public page for cateringms.com."}
+                icon={FileText}
+                meta={
+                  <>
+                    <span className={HERO_CHIP}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${formData.is_published ? "bg-emerald-400" : "bg-amber-400"}`} />
+                      {formData.is_published ? "Publishes on save" : "Draft"}
+                    </span>
+                    <span className={HERO_CHIP}>
+                      <Globe className="h-3 w-3" />
+                      /page/{formData.slug || "your-slug"}
+                    </span>
+                    {editingPage?.last_updated && (
+                      <span className={HERO_CHIP}>
+                        Last updated {new Date(editingPage.last_updated).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    )}
+                  </>
+                }
+                actions={
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setAiOpen((v) => !v)}>
+                      <Wand2 className="w-4 h-4 mr-1.5" /> AI assist
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreviewOpen((v) => !v)}>
+                      <Eye className="w-4 h-4 mr-1.5" />
+                      {previewOpen ? "Hide preview" : "Preview"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleCancel}>
+                      <X className="mr-1.5 h-4 w-4" /> Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleSave}>
+                      <Save className="mr-1.5 h-4 w-4" /> Save page
+                    </Button>
+                  </>
+                }
+              />
+              <PageWorkbench />
+
+              {scopeBanner}
+
+              {/* AI assist panel (collapsible) */}
+              {aiOpen && (
+                <PortalCard className="mb-6 border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/30">
+                  <PortalCardHeader
+                    title={
+                      <span className="flex items-center gap-2 text-base">
+                        <Sparkles className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                        Draft assistant
+                      </span>
+                    }
+                  />
+                  <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">
+                    Describe the post in plain English. Sonnet writes a full draft (title, slug, content, SEO meta) ready to edit. Output drops straight into the form.
+                  </p>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs">What's the post about?</Label>
+                      <Textarea
+                        rows={2}
+                        value={draftReq.topic}
+                        onChange={(e) => setDraftReq({ ...draftReq, topic: e.target.value })}
+                        placeholder="e.g. How catering teams can cut food waste using prep-list intelligence, focus on real-world scenarios from spit braais and corporate lunches."
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">Audience</Label>
+                        <Input
+                          value={draftReq.audience}
+                          onChange={(e) => setDraftReq({ ...draftReq, audience: e.target.value })}
+                          placeholder="catering company owners"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Tone</Label>
+                        <Select
+                          value={draftReq.tone}
+                          onValueChange={(v) => setDraftReq({ ...draftReq, tone: v as DraftRequest["tone"] })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="informative">Informative</SelectItem>
+                            <SelectItem value="casual">Casual</SelectItem>
+                            <SelectItem value="promotional">Promotional</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Word target (200-2000)</Label>
+                        <Input
+                          type="number"
+                          min={200}
+                          max={2000}
+                          step={50}
+                          value={draftReq.wordTarget}
+                          onChange={(e) =>
+                            setDraftReq({ ...draftReq, wordTarget: parseInt(e.target.value) || 600 })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">SEO keywords (optional, comma separated)</Label>
+                      <Input
+                        value={draftReq.keywords}
+                        onChange={(e) => setDraftReq({ ...draftReq, keywords: e.target.value })}
+                        placeholder="catering software, food waste, prep list, kitchen management"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        onClick={runAiDraft}
+                        disabled={aiBusy || !draftReq.topic.trim()}
+                      >
+                        {aiBusy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1.5" />}
+                        {aiBusy ? "Drafting..." : "Generate draft"}
+                      </Button>
+                      <p className="text-[11px] text-slate-500">
+                        Anything you've already typed in the form below will be overwritten when the draft lands.
+                      </p>
+                    </div>
+                  </div>
+                </PortalCard>
+              )}
+
+              {/* Form + preview grid */}
+              <div className={`grid grid-cols-1 ${previewOpen ? "lg:grid-cols-2" : ""} gap-5`}>
+                {/* Form column */}
+                <div className="space-y-4">
+                  {/*
+                    Header image card, the post's hero. Sat above
+                    the title card because the operator scrolls top to
+                    bottom thinking like a reader: image first, then
+                    title, then body. Alt text is required at save
+                    time, not optional.
+                  */}
+                  <PortalCard>
+                    <PortalCardHeader
+                      title={
+                        <span className="flex items-center gap-2">
+                          <ImageIcon className="w-4 h-4 text-brand-primary" />
+                          Header image
+                        </span>
+                      }
+                    />
+                    <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
+                      Hero image rendered above the title on the public post.
+                      Alt text is required for accessibility + SEO.
+                    </p>
+                    <div className="space-y-3">
+                      {formData.header_image_url ? (
+                        <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={formData.header_image_url}
+                            alt={formData.header_image_alt || ""}
+                            className="w-full max-h-64 object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({
+                              ...prev,
+                              header_image_url: "",
+                              header_image_alt: "",
+                            }))}
+                            className="absolute top-2 right-2 rounded-md bg-white/95 hover:bg-white dark:bg-slate-900/95 dark:hover:bg-slate-900 shadow text-xs font-medium px-2.5 py-1 text-slate-700 dark:text-slate-200 inline-flex items-center gap-1"
+                            title="Remove image"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <label
+                          htmlFor="header-image-input"
+                          className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-8 text-center cursor-pointer hover:border-brand-primary hover:bg-brand-primary/10 transition"
+                        >
+                          {imageBusy ? (
+                            <Loader2 className="w-7 h-7 text-slate-400 animate-spin mb-2" />
+                          ) : (
+                            <Upload className="w-7 h-7 text-slate-400 mb-2" />
+                          )}
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            {imageBusy ? "Uploading..." : "Click to upload header image"}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            JPG, PNG, WebP, AVIF, GIF · 5 MB max
+                          </p>
+                        </label>
+                      )}
+                      <Input
+                        id="header-image-input"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+                        className="hidden"
+                        disabled={imageBusy}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) uploadHeaderImage(f);
+                          e.target.value = ""; // allow re-upload of same filename
+                        }}
+                      />
+                      {formData.header_image_url && (
+                        <div>
+                          <Label htmlFor="header_image_alt" className="text-xs">
+                            Alt text <span className="text-rose-600">*</span>
+                          </Label>
+                          <Input
+                            id="header_image_alt"
+                            value={formData.header_image_alt}
+                            onChange={(e) =>
+                              setFormData({ ...formData, header_image_alt: e.target.value })
+                            }
+                            placeholder='e.g. "A spit braai roasting over open coals at a Stellenbosch wedding"'
+                            className={
+                              !formData.header_image_alt.trim()
+                                ? "border-amber-300 focus-visible:ring-amber-300"
+                                : ""
+                            }
+                          />
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Describe what's IN the image, not the image itself ("dog playing fetch", not "image of dog").
+                            Required for screen readers + Google image search.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </PortalCard>
+
+                  <PortalCard>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="title" className="text-xs">Page title</Label>
+                        <Input
+                          id="title"
+                          value={formData.title}
+                          onChange={(e) => {
+                            const t = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              title: t,
+                              // Only auto-fill slug while it's empty or follows the previous title.
+                              slug: prev.slug && prev.slug !== generateSlug(prev.title) ? prev.slug : generateSlug(t),
+                            }));
+                          }}
+                          placeholder="e.g. Five ways to cut catering food waste"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="slug" className="text-xs">URL slug</Label>
+                        <Input
+                          id="slug"
+                          value={formData.slug}
+                          onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                          placeholder="five-ways-to-cut-food-waste"
+                        />
+                        <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                          <Globe className="w-3 h-3" />
+                          cateringms.com/page/<strong>{formData.slug || "your-slug"}</strong>
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="content" className="text-xs">Page content (Markdown)</Label>
+                        <Textarea
+                          id="content"
+                          value={formData.content}
+                          onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                          placeholder="Write the post here. Use ## for section headings, ** for bold."
+                          rows={20}
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          ## Heading · **bold** · *italic* · - bullet · [link](https://url) · raw HTML is escaped, markdown only
+                        </p>
+                      </div>
+                    </div>
+                  </PortalCard>
+
+                  <PortalCard>
+                    <PortalCardHeader title="SEO" />
+                    <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
+                      What search engines and social previews will show.
+                    </p>
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="meta_description" className="text-xs">Meta description</Label>
+                        <Textarea
+                          id="meta_description"
+                          value={formData.meta_description}
+                          onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
+                          placeholder="One-line summary for Google search results (~155 chars)"
+                          rows={2}
+                        />
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          {formData.meta_description.length} / ~155 chars
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="meta_keywords" className="text-xs">Meta keywords</Label>
+                        <Input
+                          id="meta_keywords"
+                          value={formData.meta_keywords}
+                          onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })}
+                          placeholder="catering software, food waste, prep list"
+                        />
+                      </div>
+                    </div>
+                  </PortalCard>
+
+                  <PortalCard>
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        id="published"
+                        checked={formData.is_published}
+                        onCheckedChange={(checked) => setFormData({ ...formData, is_published: checked })}
+                      />
+                      <div>
+                        <Label htmlFor="published" className="text-sm font-medium">
+                          {formData.is_published ? "Published" : "Draft"}
+                        </Label>
+                        <p className="text-[11px] text-slate-500">
+                          {formData.is_published
+                            ? "Live on the marketing site as soon as you save."
+                            : "Saved but hidden from public visitors. Toggle on when ready."}
+                        </p>
+                      </div>
+                    </div>
+                  </PortalCard>
+                </div>
+
+                {/* Live preview column */}
+                {previewOpen && (
+                  <div>
+                    <PortalCard className="lg:sticky lg:top-6">
+                      <PortalCardHeader
+                        title={
+                          <span className="flex items-center gap-2">
+                            <Eye className="w-4 h-4" /> Live preview
+                          </span>
+                        }
+                      />
+                      <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
+                        Roughly how the post renders on the public site.
+                      </p>
+                      <div>
+                        {/* Intentionally stays white in dark mode: the article mimics the public marketing site. Only the border is dark-aware chrome. */}
+                        <article className="prose prose-sm max-w-none border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white min-h-[300px]">
+                          {formData.header_image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={formData.header_image_url}
+                              alt={formData.header_image_alt || ""}
+                              className="!my-0 w-full max-h-72 object-cover"
+                            />
+                          )}
+                          <div className="p-4">
+                            <h1 className="!mb-2">{formData.title || "(no title yet)"}</h1>
+                            {formData.meta_description && (
+                              <p className="text-slate-500 italic !mt-0">{formData.meta_description}</p>
+                            )}
+                            <hr />
+                            <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                          </div>
+                        </article>
+                      </div>
+                    </PortalCard>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            /* ── List mode ────────────────────────────────────── */
+            <>
+              <PortalHeader
+                variant="hero"
+                title="Marketing pages"
+                subtitle="Static pages and blog posts that live on cateringms.com. Public-site content only, never a tenant's portal."
+                icon={Globe}
+                meta={
+                  loading ? (
+                    <span className={HERO_CHIP}>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading page counts...
+                    </span>
+                  ) : (
+                    <>
+                      <span className={HERO_CHIP}>
+                        {pageSummary.total} page{pageSummary.total === 1 ? "" : "s"}
+                      </span>
+                      <span className={HERO_CHIP}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        {pageSummary.published} published
+                      </span>
+                      <span className={HERO_CHIP}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        {pageSummary.drafts} draft{pageSummary.drafts === 1 ? "" : "s"}
+                      </span>
+                    </>
+                  )
+                }
+                actions={
+                  <>
+                    <Link href="/admin/platform/dashboard">
+                      <Button variant="outline" size="sm">
+                        <ArrowLeft className="mr-1.5 h-4 w-4" />
+                        Platform dashboard
+                      </Button>
+                    </Link>
+                    <Button onClick={startNew}>
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      New page
+                    </Button>
+                  </>
+                }
+              />
+              <PageWorkbench />
+
+              {scopeBanner}
+
+              <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatTile label="Pages" value={pageSummary.total} hint="All public CMS records" icon={FileText} />
+                <StatTile label="Published" value={pageSummary.published} hint="Visible on cateringms.com" icon={CheckCircle2} />
+                <StatTile label="Drafts" value={pageSummary.drafts} hint="Saved but hidden" icon={FileWarning} />
+                <StatTile label="With header image" value={pageSummary.withHeaderImage} hint="Ready for rich previews" icon={Image} />
+              </div>
+
+              {loading ? (
+                <PortalCard className="py-12 text-center text-slate-500 dark:text-slate-400">
+                  <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin" />
+                  Loading pages...
+                </PortalCard>
+              ) : pages.length === 0 ? (
+                <PortalCard>
+                  <EmptyState
+                    inCard
+                    icon={FileText}
+                    title="No marketing pages yet"
+                    description="Create the first public page, then add title, slug, SEO copy, and a header image before publishing."
+                    cta={{ label: "Create first page", onClick: startNew }}
+                  />
+                </PortalCard>
+              ) : (
+                <div className="space-y-3">
+                  {pages.map((page) => (
+                    <PortalCard key={page.id} padded={false} interactive>
+                      <div className="p-4 flex flex-wrap items-center gap-3">
+                        <div className="flex-1 min-w-[200px]">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{page.title}</h3>
+                            <Badge
+                              className={`border text-[10px] ${
+                                page.is_published
+                                  ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                  : "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                              }`}
+                            >
+                              {page.is_published ? "published" : "draft"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                            <Globe className="w-3 h-3" />
+                            cateringms.com/page/<strong>{page.slug}</strong>
+                          </p>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                            Last updated {new Date(page.last_updated).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {page.is_published && (
+                            <a
+                              href={`/page/${page.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                              title="View live"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </a>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(page)} title="Edit">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-rose-600 hover:text-rose-700"
+                            onClick={() => handleDelete(page.id)}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </PortalCard>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </PortalShell>
+      </div>
+    </>
+  );
+}

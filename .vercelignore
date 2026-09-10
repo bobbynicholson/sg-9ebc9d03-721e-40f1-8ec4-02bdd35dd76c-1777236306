@@ -1,0 +1,24 @@
+# Local dependencies and build output
+node_modules/
+.next/
+.next-dev/
+.next-verify/
+out/
+build/
+coverage/
+
+# Local-only tooling, logs, and browser profiles
+logs/
+screenshots/
+reports/
+.browser-profiles/
+.browser-profiles-local/
+.agents/
+.claude/
+backups-local/
+archive-old/
+
+# Local environment and scratch files
+.env*
+*.log
+*.tsbuildinfo
