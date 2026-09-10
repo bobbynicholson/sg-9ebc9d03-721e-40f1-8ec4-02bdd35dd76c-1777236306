@@ -118,7 +118,7 @@ async function sendWaiterAssignmentEmail(admin: any, order: any, waiter: any): P
 async function resolveCaller(req: NextApiRequest, res: NextApiResponse) {
   const ssr = createPagesServerClient({ req, res });
   const { data: { user } } = await ssr.auth.getUser();
-  if (!user) return { error: { status: 401, message: "Not signed in" } as const };
+  if (!user) return { error: { status: 401, message: "Your session has expired. Please sign in again." } as const };
 
   const { data: profile, error } = await ssr
     .from("profiles")
@@ -126,12 +126,12 @@ async function resolveCaller(req: NextApiRequest, res: NextApiResponse) {
     .eq("id", user.id)
     .maybeSingle();
   if (error || !profile) {
-    return { error: { status: 403, message: "Caller profile not found" } as const };
+    return { error: { status: 403, message: "We couldn't verify your staff account. Please refresh the page or contact an administrator." } as const };
   }
 
   const role = String((profile as any).active_role || (profile as any).role || "");
   if (!ADMIN_ASSIGN_ROLES.has(role)) {
-    return { error: { status: 403, message: "Admin access required to assign waiter staff" } as const };
+    return { error: { status: 403, message: "Only an administrator can manage the service team for this order." } as const };
   }
 
   return { user, profile: profile as any, role };
@@ -145,10 +145,10 @@ async function loadOrderForCaller(admin: any, orderId: string, callerProfile: an
     .maybeSingle();
   if (error) throw error;
   if (!order || (order as any).deleted_at) {
-    return { error: { status: 404, message: "Order not found" } as const };
+    return { error: { status: 404, message: "We couldn't find this order. Refresh the page and try again." } as const };
   }
   if (callerRole !== "super_admin" && (callerProfile as any).company_id !== (order as any).company_id) {
-    return { error: { status: 403, message: "Wrong company" } as const };
+    return { error: { status: 403, message: "You don't have access to manage staff for this order." } as const };
   }
   return { order: order as any };
 }
@@ -203,6 +203,17 @@ async function loadWaiterCandidates(admin: any, companyId: string) {
     }));
 }
 
+function waiterAssignmentError(error: unknown, fallback = "We couldn't save the waiter assignment. Please try again."): string {
+  const dbError = error as any;
+  // Older tenants have the original user_departments shape without a
+  // company_id column. Keep that schema detail out of the admin UI and give
+  // the operator a useful next step if an un-migrated database is hit.
+  if (String(dbError?.code || "") === "42703") {
+    return "Waiter access setup is out of date for this company. Please ask an administrator to run the latest database updates, then try again.";
+  }
+  return dbErrorMessage(error, { entity: "waiter assignment", fallback });
+}
+
 async function activateAsWaiter(admin: any, companyId: string, waiterId: string, actorId: string) {
   const { data: profile, error: profileError } = await admin
     .from("profiles")
@@ -229,19 +240,17 @@ async function activateAsWaiter(admin: any, companyId: string, waiterId: string,
   const { error: clearPrimaryError } = await admin
     .from("user_departments")
     .update({ is_primary: false })
-    .eq("user_id", waiterId)
-    .eq("company_id", companyId);
+    .eq("user_id", waiterId);
   if (clearPrimaryError) throw clearPrimaryError;
 
   const { error: waiterRoleError } = await admin
     .from("user_departments")
     .upsert({
       user_id: waiterId,
-      company_id: companyId,
       department: UserRole.WAITER,
       is_primary: true,
       assigned_by: actorId,
-    }, { onConflict: "user_id,company_id,department" });
+    }, { onConflict: "user_id,department" });
   if (waiterRoleError) throw waiterRoleError;
 
   // If this login is linked to a Staff & Rates row, keep that roster row in
@@ -304,7 +313,7 @@ async function loadWaiterRequests(admin: any, orderId: string) {
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   const orderId = getOrderId(req);
   if (!isUuid(orderId)) {
-    return res.status(400).json({ error: "Valid order id required" });
+    return res.status(400).json({ error: "This order link is invalid. Please reopen the order and try again." });
   }
 
   try {
@@ -336,13 +345,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === "POST") {
       const waiterId = String((req.body || {}).waiter_id || "").trim();
       if (!isUuid(waiterId)) {
-        return res.status(400).json({ error: "waiter_id is required" });
+        return res.status(400).json({ error: "Please choose a waiter before selecting Assign." });
       }
 
       const candidates = await loadWaiterCandidates(admin, order.company_id);
       const candidate = candidates.find((item) => item.id === waiterId);
       if (!candidate) {
-        return res.status(400).json({ error: "That account is not an eligible staff user for this company" });
+        return res.status(400).json({ error: "That staff member is no longer available. Refresh the waiter list and choose someone else." });
       }
 
       const activatedProfile = await activateAsWaiter(
@@ -379,7 +388,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .select("id, order_id, waiter_id")
         .single();
       if (upsertError) {
-        return res.status(500).json({ error: dbErrorMessage(upsertError) });
+        return res.status(500).json({ error: waiterAssignmentError(upsertError) });
       }
 
       await admin
@@ -450,7 +459,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === "DELETE") {
       const waiterId = String((req.body || {}).waiter_id || "").trim();
       if (!isUuid(waiterId)) {
-        return res.status(400).json({ error: "waiter_id is required" });
+        return res.status(400).json({ error: "Please choose an assigned waiter before removing them." });
       }
 
       const { data: existing, error: existingError } = await (admin as any)
@@ -463,11 +472,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(500).json({ error: dbErrorMessage(existingError) });
       }
       if (!existing) {
-        return res.status(404).json({ error: "Waiter assignment not found" });
+        return res.status(404).json({ error: "This waiter is no longer assigned to the order. Refresh the page to see the latest team." });
       }
       if (hasServiceStamp(existing)) {
         return res.status(409).json({
-          error: "This waiter has already started service notes or phase taps, so the attendance record cannot be removed.",
+          error: "This waiter has already started service work, so the assignment cannot be removed. Keep the record for the service history.",
         });
       }
 
@@ -495,10 +504,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true });
     }
 
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "That action isn't available here. Refresh the page and try again." });
   } catch (err: any) {
     console.error("[orders/waiters] crashed:", err);
-    return res.status(500).json({ error: dbErrorMessage(err) || "Could not update waiter assignment" });
+    return res.status(500).json({ error: waiterAssignmentError(err) });
   }
 }
 

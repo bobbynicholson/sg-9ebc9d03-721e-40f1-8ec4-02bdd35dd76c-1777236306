@@ -98,6 +98,13 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
   const [adminLoading, setAdminLoading] = useState(false);
   const [selectedWaiterId, setSelectedWaiterId] = useState("");
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [sectionError, setSectionError] = useState<string | null>(null);
+
+  const friendlyRequestError = (error: unknown, fallback: string) => {
+    const message = error instanceof Error ? error.message : String(error || "");
+    if (!message || /failed \(\d+\)|could not|something went wrong/i.test(message)) return fallback;
+    return message;
+  };
 
   // ODOC Phase 2: only the waiter themselves can stamp their own
   // phases (RLS also enforces this server-side, but we hide the
@@ -111,6 +118,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
 
   const loadRows = useCallback(async () => {
     setLoading(true);
+    setSectionError(null);
     try {
       const { data, error } = await (supabase as any)
         .from("event_attendance")
@@ -121,6 +129,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
       setRows((data || []) as Attendance[]);
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "loadWaiterSection", orderId, companyId } });
+      setSectionError("We couldn't load the service team. Refresh the page and try again.");
     } finally {
       setLoading(false);
     }
@@ -137,7 +146,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
       setWaiterRequests((data.waiter_requests || []) as WaiterRequest[]);
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "loadWaiterAdminContext", orderId, companyId } });
-      toast({ title: "Could not load waiter staff", description: e?.message, variant: "destructive" });
+      toast({ title: "Waiter staff couldn't be loaded", description: friendlyRequestError(e, "We couldn't load the waiter list. Refresh the page and try again."), variant: "destructive" });
     } finally {
       setAdminLoading(false);
     }
@@ -171,7 +180,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
       toast({ title: PHASE_LABEL_BY_KEY[phase as string] || "Stamped", description: "Saved" });
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "stampWaiterPhase", phase: phase as string, orderId, companyId } });
-      toast({ title: "Could not save", description: e?.message, variant: "destructive" });
+      toast({ title: "Service update couldn't be saved", description: `${friendlyRequestError(e, "We couldn't save this service update. Please try again.")} Your previous updates are still safe.`, variant: "destructive" });
     } finally {
       setStamping(null);
     }
@@ -219,7 +228,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
       await Promise.all([loadRows(), loadAdminContext()]);
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "assignWaiter", orderId, companyId } });
-      toast({ title: "Could not assign waiter", description: e?.message, variant: "destructive" });
+      toast({ title: "Waiter assignment couldn't be saved", description: `${friendlyRequestError(e, "We couldn't assign this waiter right now. Please try again.")} No changes were made.`, variant: "destructive" });
     } finally {
       setAssigning(null);
     }
@@ -239,7 +248,7 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
       await Promise.all([loadRows(), loadAdminContext()]);
     } catch (e: any) {
       captureException(e, { tags: { route: "/order/[id]", step: "unassignWaiter", orderId, companyId } });
-      toast({ title: "Could not unassign waiter", description: e?.message, variant: "destructive" });
+      toast({ title: "Waiter assignment couldn't be removed", description: friendlyRequestError(e, "We couldn't remove this waiter right now. Please try again."), variant: "destructive" });
     } finally {
       setAssigning(null);
     }
@@ -270,6 +279,12 @@ export function WaiterSection({ orderId, companyId, serviceRequired = false, def
       forceOpen={forceOpen}
       highlight={highlight}
     >
+      {sectionError && (
+        <div role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p className="font-semibold">Service team unavailable</p>
+          <p className="mt-0.5 text-xs">{sectionError}</p>
+        </div>
+      )}
       {canAssignWaiters && (
         <div className="mb-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
           {(serviceRequired || waiterRequests.length > 0) && (
