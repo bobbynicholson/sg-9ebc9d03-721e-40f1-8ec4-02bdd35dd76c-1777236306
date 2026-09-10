@@ -243,15 +243,36 @@ async function activateAsWaiter(admin: any, companyId: string, waiterId: string,
     .eq("user_id", waiterId);
   if (clearPrimaryError) throw clearPrimaryError;
 
-  const { error: waiterRoleError } = await admin
+  // Do not rely on an ON CONFLICT target here. Older tenant databases have
+  // the user_departments table but not the later unique constraint, so the
+  // upsert fails with 42P10 before the waiter can be attached to the order.
+  const { data: existingWaiterRole, error: existingRoleError } = await admin
     .from("user_departments")
-    .upsert({
-      user_id: waiterId,
-      department: UserRole.WAITER,
-      is_primary: true,
-      assigned_by: actorId,
-    }, { onConflict: "user_id,department" });
-  if (waiterRoleError) throw waiterRoleError;
+    .select("id")
+    .eq("user_id", waiterId)
+    .eq("department", UserRole.WAITER)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingRoleError) throw existingRoleError;
+
+  if (existingWaiterRole?.id) {
+    const { error: waiterRoleError } = await admin
+      .from("user_departments")
+      .update({ is_primary: true, assigned_by: actorId })
+      .eq("id", existingWaiterRole.id);
+    if (waiterRoleError) throw waiterRoleError;
+  } else {
+    const { error: waiterRoleError } = await admin
+      .from("user_departments")
+      .insert({
+        user_id: waiterId,
+        department: UserRole.WAITER,
+        is_primary: true,
+        assigned_by: actorId,
+      });
+    if (waiterRoleError) throw waiterRoleError;
+  }
 
   // If this login is linked to a Staff & Rates row, keep that roster row in
   // sync as well. Unlinked profiles still work as portal users.
