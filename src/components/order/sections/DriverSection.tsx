@@ -317,7 +317,9 @@ export function DriverSection({ order, defaultOpen, forceOpen, highlight }: Prop
       ? "No driver assigned"
       : `${driver.full_name || "Driver"}${vehicle?.nickname || vehicle?.plate ? ` · ${vehicle.nickname || vehicle.plate}` : ""}${podCaptured ? " · POD captured" : delivered ? " · Delivered" : assignment?.status ? ` · ${assignment.status}` : ""}`;
 
-  const collectionDisplay = order.collection_time || order.event_time;
+  // pickup_time is the driver-leg collection target. collection_time is
+  // reserved for the post-event return trip.
+  const collectionDisplay = order.pickup_time || order.collection_time || order.event_time;
   const collectionLabel = collectionDisplay
     ? `${collectionDisplay.slice(0, 5)} on ${new Date(order.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}`
     : null;

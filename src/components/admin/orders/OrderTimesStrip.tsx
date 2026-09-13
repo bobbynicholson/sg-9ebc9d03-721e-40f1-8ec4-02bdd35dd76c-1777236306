@@ -20,6 +20,7 @@
  * Mount in the order row (admin/orders) next to the price.
  */
 import { ChefHat, Truck, Route, MapPin, Utensils } from "lucide-react";
+import { DEFAULT_DELIVERY_LEAD_MINUTES, formatOrderMinutes, getDisplayDeliveryMinutes, parseOrderTime } from "@/lib/orderTimeDisplay";
 
 interface OrderTimesStripProps {
   /** Order row fields used to compute the times. All optional --
@@ -30,7 +31,7 @@ interface OrderTimesStripProps {
   delivery_time?: string | null;
   /** Tenant default for "arrive at venue this many minutes before
    *  event_time". Used to derive a delivery time when delivery_time
-   *  itself isn't set. Defaults to 30. */
+   *  itself isn't set. Defaults to 60. */
   earlyArrivalMin?: number;
   /** Tenant default for "kitchen needs this many minutes between
    *  ready and event start" - fallback when pickup_time isn't set.
@@ -40,27 +41,9 @@ interface OrderTimesStripProps {
 }
 
 /** Parse HH:mm[:ss] -> total minutes since midnight, or null. */
-function parseHHmm(s: string | null | undefined): number | null {
-  if (!s) return null;
-  const [h, m] = s.slice(0, 5).split(":").map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  return h * 60 + m;
-}
-
 /** Format total minutes -> "HH:mm". */
 function fmtTime(mins: number | null): string {
-  if (mins == null || !Number.isFinite(mins)) return "--";
-  // Wrap-around: if a buffer pulled us before midnight, show with
-  // a leading "-d" marker so the operator notices.
-  if (mins < 0) {
-    const positive = (mins + 1440) % 1440;
-    const h = Math.floor(positive / 60);
-    const m = positive % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} -1d`;
-  }
-  const h = Math.floor(mins / 60) % 24;
-  const m = mins % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  return formatOrderMinutes(mins) || "--";
 }
 
 /** Format duration in minutes -> "Xh Ym" or "Ym". */
@@ -78,24 +61,18 @@ export function OrderTimesStrip({
   pickup_time,
   setup_time,
   delivery_time,
-  earlyArrivalMin = 30,
+  earlyArrivalMin = DEFAULT_DELIVERY_LEAD_MINUTES,
   kitchenLeadMin = 90,
   className,
 }: OrderTimesStripProps) {
-  const eat = parseHHmm(event_time);
-  const pickup = parseHHmm(pickup_time);
-  const setup = parseHHmm(setup_time);
-  const deliv = parseHHmm(delivery_time);
+  const eat = parseOrderTime(event_time);
+  const pickup = parseOrderTime(pickup_time);
+  const setup = parseOrderTime(setup_time);
+  const deliv = parseOrderTime(delivery_time);
 
-  // Derived delivery: explicit delivery_time wins; else setup_time;
-  // else event_time minus the tenant early-arrival buffer.
-  const deliveryMin = deliv != null
-    ? deliv
-    : setup != null
-      ? setup
-      : eat != null
-        ? eat - earlyArrivalMin
-        : null;
+  // Setup is a separate kitchen/venue-preparation milestone. It must not
+  // overwrite the delivery target when delivery_time is absent.
+  const deliveryMin = getDisplayDeliveryMinutes(delivery_time, event_time, earlyArrivalMin);
 
   // Derived kitchen-ready / driver-collect: explicit pickup_time
   // wins; else event_time minus a kitchen-lead default.
@@ -143,7 +120,7 @@ export function OrderTimesStrip({
       label: "Delivery",
       value: fmtTime(deliveryMin),
       icon: MapPin,
-      tone: deliv != null || setup != null ? "have" : deliveryMin != null ? "derived" : "missing",
+      tone: deliv != null ? "have" : deliveryMin != null ? "derived" : "missing",
     },
     {
       key: "eat",

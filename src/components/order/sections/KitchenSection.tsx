@@ -3,7 +3,7 @@
  * ODOC: kitchen section. Three things the kitchen actually needs to
  * see for a given order:
  *
- *   1. Collection / service time - the deadline that drives prep.
+ *   1. Driver pickup time - the deadline that drives prep.
  *   2. Menu items to prep - what's on the order, with recipe deep
  *      links per item so the chef can pull the method without
  *      leaving the doc.
@@ -44,7 +44,7 @@ interface Props {
   companyId: string;
   orderNumber?: string | null;
   orderStatus?: string | null;
-  collectionTime: string | null;
+  pickupTime: string | null;
   eventDate: string;
   eventTime: string | null;
   defaultOpen?: boolean;
@@ -116,7 +116,7 @@ const TASK_STATUS_TONES: Record<string, string> = {
 };
 
 export function KitchenSection({
-  orderId, companyId, orderNumber, orderStatus, collectionTime, eventDate, eventTime,
+  orderId, companyId, orderNumber, orderStatus, pickupTime, eventDate, eventTime,
   defaultOpen, forceOpen, highlight,
 }: Props) {
   const { user, userRoles } = useAuth();
@@ -318,8 +318,9 @@ export function KitchenSection({
           equipment.length > 0 ? `${equipment.length} equipment line${equipment.length === 1 ? "" : "s"}` : null,
         ].filter(Boolean).join(" · ");
 
-  // Collection time intel - the kitchen's single most important number
-  const collectionDisplay = collectionTime || eventTime;
+  // pickup_time is the kitchen's day-of-event deadline. collection_time
+  // is the separate post-event equipment return.
+  const collectionDisplay = pickupTime || eventTime;
   const collectionLabel = collectionDisplay
     ? `${collectionDisplay.slice(0, 5)} on ${new Date(eventDate).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}`
     : null;
@@ -353,7 +354,7 @@ export function KitchenSection({
         <div className="flex items-start gap-2 mb-4 p-3 rounded-md bg-orange-50/80 border border-orange-200">
           <Clock className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs uppercase tracking-wider text-orange-800 font-semibold">Collection / service time</p>
+            <p className="text-xs uppercase tracking-wider text-orange-800 font-semibold">Driver collects from kitchen</p>
             <p className="text-sm font-semibold text-orange-900">{collectionLabel}</p>
           </div>
         </div>

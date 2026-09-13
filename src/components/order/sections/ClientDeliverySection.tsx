@@ -24,6 +24,7 @@ import {
   Truck, MapPin, Clock, CheckCircle2, User, Navigation,
   Snowflake, Flame, Car, Phone, Camera, Route, Loader2, PackageCheck,
 } from "lucide-react";
+import { getDisplayDeliveryTime } from "@/lib/orderTimeDisplay";
 
 interface Props {
   order: {
@@ -31,6 +32,7 @@ interface Props {
     order_number: string | null;
     event_date: string;
     event_time: string | null;
+    delivery_time: string | null;
     collection_time: string | null;
     pickup_time: string | null;
     venue_name: string | null;
@@ -90,10 +92,6 @@ function deliveryStage(order: Props["order"]): {
   return { key: "scheduled", label: "Scheduled", detail: "We'll assign a driver closer to your event.", tone: "slate" };
 }
 
-function fmtTime(t: string | null | undefined): string | null {
-  if (!t) return null;
-  return t.slice(0, 5);
-}
 function fmtStamp(t: string | null | undefined): string | null {
   if (!t) return null;
   return new Date(t).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -138,7 +136,7 @@ export function ClientDeliverySection({ order, defaultOpen, forceOpen, highlight
   const navUrl = order.venue_address
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.venue_address)}`
     : null;
-  const collectionDisplay = fmtTime(order.collection_time) || fmtTime(order.event_time);
+  const deliveryDisplay = getDisplayDeliveryTime(order.delivery_time, order.event_time);
   const eventDateLabel = order.event_date
     ? new Date(order.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })
     : null;
@@ -182,13 +180,13 @@ export function ClientDeliverySection({ order, defaultOpen, forceOpen, highlight
 
         {/* Collection/delivery time + distance strip */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {collectionDisplay && (
+          {deliveryDisplay && (
             <div className="flex items-start gap-2 p-3 rounded-md bg-slate-50 border border-slate-200">
               <Clock className="w-4 h-4 text-slate-600 flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-[10px] uppercase tracking-wider text-slate-600 font-semibold">Delivery time</p>
                 <p className="text-sm font-semibold text-slate-900">
-                  {collectionDisplay}{eventDateLabel ? ` on ${eventDateLabel}` : ""}
+                  {deliveryDisplay}{eventDateLabel ? ` on ${eventDateLabel}` : ""}
                 </p>
               </div>
             </div>
