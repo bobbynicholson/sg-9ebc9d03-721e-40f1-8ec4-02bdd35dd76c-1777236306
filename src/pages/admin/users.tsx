@@ -47,6 +47,7 @@ import {
   Trash2,
   Copy,
   MailWarning,
+  Send,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import Head from "next/head";
@@ -111,6 +112,7 @@ function AdminUsersPage() {
   // per-user id so two clicks on different rows don't race.
   const [confirmDeactivate, setConfirmDeactivate] = useState<UserWithDepartments | null>(null);
   const [statusBusy, setStatusBusy] = useState<string | null>(null);
+  const [resendingUserId, setResendingUserId] = useState<string | null>(null);
   // Phase 26 #6: "/" or Cmd-F focuses the search input.
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -616,6 +618,48 @@ function AdminUsersPage() {
     } finally {
       setStatusBusy(null);
       setConfirmDeactivate(null);
+    }
+  };
+
+  // Send a fresh set-password/login link without creating another user.
+  // The server endpoint is tenant-scoped and is also used by the platform
+  // user-management page, so this works for both pending invites and users
+  // who already signed in but need a new login link.
+  const handleResendInvite = async (targetUser: UserWithDepartments) => {
+    if (!targetUser.email) {
+      toast({
+        title: "Email required",
+        description: "Add an email address to this user before sending a login link.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setResendingUserId(targetUser.id);
+    try {
+      const res = await fetch("/api/admin/resend-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ userId: targetUser.id }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || !payload?.ok) {
+        throw new Error(payload?.error || "Could not send the login link.");
+      }
+
+      toast({
+        title: targetUser.last_sign_in_at ? "Login link sent" : "Invite resent",
+        description: payload.message || `A fresh link was sent to ${targetUser.email}.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Could not send login link",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+    } finally {
+      setResendingUserId(null);
     }
   };
 
@@ -1402,6 +1446,27 @@ function AdminUsersPage() {
 
                             {editingUser !== targetUser.id && (
                               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-start xl:justify-end">
+                                {targetUser.is_active && targetUser.email && targetUser.id !== user?.id && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleResendInvite(targetUser)}
+                                    disabled={resendingUserId === targetUser.id}
+                                    title={targetUser.last_sign_in_at ? "Send a fresh login link" : "Resend the expired or missing invite"}
+                                    className="h-9 w-full justify-center border-amber-300 text-sm text-amber-800 hover:bg-amber-50 sm:w-auto"
+                                  >
+                                    {resendingUserId === targetUser.id ? (
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Send className="mr-2 h-4 w-4" />
+                                    )}
+                                    {resendingUserId === targetUser.id
+                                      ? "Sending..."
+                                      : targetUser.last_sign_in_at
+                                        ? "Send login link"
+                                        : "Resend invite"}
+                                  </Button>
+                                )}
                                 <Button
                                   variant="outline"
                                   size="sm"
