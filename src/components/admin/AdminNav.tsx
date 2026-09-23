@@ -67,6 +67,7 @@ import {
   Shield,
   CookingPot,
   Brain,
+  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
@@ -191,6 +192,15 @@ export function AdminNav(_: AdminNavProps = {}) {
             if (liveCounts.inTransitNow > 0) bits.push(`${liveCounts.inTransitNow} live`);
             return bits.length ? bits.join(" · ") : "Quiet - catch up";
           },
+        },
+        {
+          title: "Attention center",
+          href: "/admin/exceptions",
+          icon: AlertTriangle,
+          description: "Items needing action",
+          badge: () => (liveCounts.dispatchGaps + liveCounts.quotesOverdue + liveCounts.alertsTotal) > 0
+            ? { text: `${liveCounts.dispatchGaps + liveCounts.quotesOverdue + liveCounts.alertsTotal}`, tone: "critical" as const, pulse: portalMode.mode === "ops" }
+            : null,
         },
         {
           title: "Dispatch",

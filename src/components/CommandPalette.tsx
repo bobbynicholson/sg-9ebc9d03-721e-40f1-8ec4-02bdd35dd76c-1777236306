@@ -33,6 +33,7 @@ import {
   LogOut,
   Clock,
   User,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
@@ -286,6 +287,7 @@ export function CommandPalette() {
   const allItems = useMemo<PaletteItem[]>(() => [
     // ---- Common / company admin ----
     { id: "go-dashboard", label: "Go to Admin Dashboard", icon: LayoutDashboard, href: `${adminBase}/dashboard`, group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["home","main"] },
+    { id: "go-exceptions", label: "Attention Center", icon: AlertTriangle, href: "/admin/exceptions", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["attention","exceptions","alerts","needs action"] },
     { id: "go-orders", label: "Orders", icon: ShoppingCart, href: "/admin/orders", group: "Navigate", roles: ["admin","company_admin","owner"] },
     { id: "go-quotes", label: "Quotes", icon: FileText, href: "/admin/quotes", group: "Navigate", roles: ["admin","company_admin","owner"] },
     { id: "go-leads", label: "Leads", icon: TrendingUp, href: "/admin/leads", group: "Navigate", roles: ["admin","company_admin","owner"] },

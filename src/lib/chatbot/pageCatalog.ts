@@ -31,6 +31,7 @@ function page(
  */
 export const PAGE_NAVIGATION_REFS: ChatNavigationRef[] = [
   // Admin - CRM and revenue
+  page("admin.exceptions", "Attention center", "/admin/exceptions", "Review live operational items that need follow-up", ["attention center", "exceptions", "needs attention", "operational alerts", "action items"], ADMIN),
   page("admin.client-search", "Client search", "/admin/client-search", "Search the client book and open a customer record", ["client search", "find client", "find customer", "search customer"], ADMIN),
   page("admin.company-profile", "Company profile", "/admin/company-profile", "Company identity, contact details, operating defaults, and branding settings", ["company profile", "business details", "company details"], ADMIN),
   page("admin.leads.new", "New lead", "/admin/leads/new", "Capture a new enquiry and start the sales follow-up", ["new lead", "add lead", "create enquiry", "new enquiry"], ADMIN),
