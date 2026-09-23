@@ -104,6 +104,9 @@ export function AddressAutocomplete({
   const onType = (q: string) => {
     setInput(q);
     setOpen(true);
+    // A typed value is no longer the previously selected Place. Clear the
+    // parent's coordinates immediately so distance cannot use the old venue.
+    onChange({ address: q, lat: null, lng: null, placeId: null, components: {} });
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => search(q), 220);
   };

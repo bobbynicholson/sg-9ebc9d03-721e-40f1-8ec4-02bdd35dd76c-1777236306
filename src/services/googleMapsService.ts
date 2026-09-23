@@ -34,6 +34,12 @@ export const googleMapsService = {
       return;
     }
 
+    const existingLoad = (window as any).__cateringMapsLoad as Promise<void> | undefined;
+    if (existingLoad) {
+      await existingLoad;
+      return;
+    }
+
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
       console.error("Google Maps API key not configured");
@@ -41,15 +47,22 @@ export const googleMapsService = {
     }
 
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
     script.async = true;
     script.defer = true;
     
-    return new Promise((resolve, reject) => {
+    const loadPromise = new Promise<void>((resolve, reject) => {
       script.onload = () => resolve();
       script.onerror = reject;
       document.head.appendChild(script);
     });
+    (window as any).__cateringMapsLoad = loadPromise;
+    try {
+      await loadPromise;
+    } catch (error) {
+      delete (window as any).__cateringMapsLoad;
+      throw error;
+    }
   },
 
   async optimizeRoute(request: RouteOptimizationRequest): Promise<RouteOptimizationResult> {
@@ -269,9 +282,9 @@ export const googleMapsService = {
         );
       });
 
-      const element = result.rows[0].elements[0];
+      const element = result?.rows?.[0]?.elements?.[0];
 
-      if (element.status !== "OK") {
+      if (!element || element.status !== "OK" || typeof element.distance?.value !== "number") {
         return null;
       }
 

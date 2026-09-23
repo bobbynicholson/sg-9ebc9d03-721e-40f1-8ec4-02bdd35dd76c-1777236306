@@ -373,6 +373,7 @@ function NewQuotePage() {
   const [venueAddress, setVenueAddress] = useState("");
   const [venueLat, setVenueLat] = useState<number | null>(null);
   const [venueLng, setVenueLng] = useState<number | null>(null);
+  const [distanceStatus, setDistanceStatus] = useState<"idle" | "loading" | "ready" | "manual" | "error">("idle");
 
   const [menuItems, setMenuItems] = useState<LineItem[]>([
     {
@@ -1157,15 +1158,17 @@ function NewQuotePage() {
   // kitchen or picking a new venue) still re-run and clear the override.
   const havInitRef = useRef(false);
   useEffect(() => {
-    if (
-      !selectedKitchen ||
-      typeof venueLat !== "number" || typeof venueLng !== "number"
-    ) return;
+    if (!selectedKitchen || (!venueAddress.trim() && (typeof venueLat !== "number" || typeof venueLng !== "number"))) {
+      setDistanceStatus("idle");
+      return;
+    }
 
     let cancelled = false;
+    setDistanceStatus("loading");
 
     const applyDistance = (kmRounded: number) => {
       if (cancelled) return;
+      setDistanceStatus("ready");
       if (havInitRef.current) {
         // Real user-driven change: re-enable auto-fee.
         setDeliveryDistance(kmRounded);
@@ -1184,20 +1187,6 @@ function NewQuotePage() {
       }
     };
 
-    // Haversine straight-line fallback (always available).
-    const haversineKm = (() => {
-      const R = 6371;
-      const toRad = (d: number) => (d * Math.PI) / 180;
-      const dLat = toRad(venueLat - selectedKitchen.lat);
-      const dLng = toRad(venueLng - selectedKitchen.lng);
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(selectedKitchen.lat)) *
-          Math.cos(toRad(venueLat)) *
-          Math.sin(dLng / 2) ** 2;
-      return Number((2 * R * Math.asin(Math.sqrt(a))).toFixed(2));
-    })();
-
     // Try Google Distance Matrix first for accurate road distance.
     // Build the best available origin string (address preferred;
     // coord string as fallback when address is null).
@@ -1211,7 +1200,7 @@ function NewQuotePage() {
         .then((result) => {
           if (cancelled) return;
           if (!result) {
-            applyDistance(haversineKm);
+            setDistanceStatus("error");
             return;
           }
           // result.distance is in metres from the Distance Matrix API.
@@ -1220,10 +1209,8 @@ function NewQuotePage() {
         })
         .catch(() => {
           // Google Maps unavailable or API key not set — fall back to haversine.
-          if (!cancelled) applyDistance(haversineKm);
+          if (!cancelled) setDistanceStatus("error");
         });
-    } else {
-      applyDistance(haversineKm);
     }
 
     return () => { cancelled = true; };
@@ -1693,6 +1680,15 @@ function NewQuotePage() {
       });
       return null;
     }
+    const canKeepSavedDistance = Boolean(fromQuoteId) && !quoteUserEditedRef.current && deliveryDistance > 0;
+    if (distanceStatus === "loading" || (distanceStatus === "error" && !canKeepSavedDistance)) {
+      toast({
+        title: "Confirm the route distance",
+        description: "Google Maps could not return a driving distance. Add the Google Maps key or enter the distance manually before saving.",
+        variant: "destructive",
+      });
+      return null;
+    }
     setSaving(true);
     try {
       const payload = buildPayload();
@@ -2092,7 +2088,7 @@ function NewQuotePage() {
     } finally {
       setSaving(false);
     }
-  }, [buildPayload, clientName, companyId, leadId, quoteId, router, toast, user?.id, setupTimeError]);
+  }, [buildPayload, clientName, companyId, leadId, quoteId, quoteNumber, router, toast, user?.id, setupTimeError, fromQuoteId, deliveryDistance, distanceStatus, email, phone]);
 
   // Auto-save: 1.5s debounced, only for active drafts with a name AND
   // an email. Audit (May 2026): the email check was on handleSaveDraft
@@ -2126,6 +2122,7 @@ function NewQuotePage() {
     if (!clientName) return;
     if (!email || !email.trim()) return;
     if (!dirtyRef.current) return;
+    if (distanceStatus === "loading" || distanceStatus === "error") return;
     // Don't autosave a quote with an invalid setup/start time - the
     // inline error already flags it; persistQuote would just toast.
     if (setupTimeError) return;
@@ -2142,7 +2139,7 @@ function NewQuotePage() {
       clearTimeout(handle);
       if (autoSaveTimerRef.current === handle) autoSaveTimerRef.current = null;
     };
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId]);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId, distanceStatus]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -2907,6 +2904,7 @@ function NewQuotePage() {
                             value={deliveryDistance || ""}
                             onChange={(e) => {
                               setDeliveryDistance(safeNum(e.target.value));
+                              setDistanceStatus("manual");
                               setDeliveryFeeOverridden(false);
                             }}
                             className="bg-white"
@@ -2947,6 +2945,8 @@ function NewQuotePage() {
                         </div>
                       </div>
                       <p className="text-[11px] text-brand-primary/80">
+                        {distanceStatus === "loading" && "Finding the Google Maps driving distance… "}
+                        {distanceStatus === "error" && "Google Maps could not calculate this route. Enter the distance manually. "}
                         {deliveryFeeOverridden
                           ? `Flat fee active. Fee = ${fmtR(deliveryFee)}. Clear the box and re-enter distance to switch back to auto.`
                           : deliveryDistance > 0
