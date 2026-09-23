@@ -425,6 +425,7 @@ function NewQuotePage() {
   // or the client collects. Adds to the quote total alongside delivery.
   const [collectionDistance, setCollectionDistance] = useState(0);
   const [collectionCostPerKm, setCollectionCostPerKm] = useState(0);
+  const collectionRateManualRef = useRef(false);
   const [collectionFee, setCollectionFee] = useState(0);
   const [collectionFeeOverridden, setCollectionFeeOverridden] = useState(false);
   // Next-day collection: when on, the auto-scheduled collection trip is
@@ -1007,7 +1008,10 @@ function NewQuotePage() {
     }
     // Collection fee mirrors the same load + override-detect as delivery.
     if (typeof q.collection_distance_km === "number") setCollectionDistance(q.collection_distance_km);
-    if (typeof q.collection_rate_per_km === "number") setCollectionCostPerKm(q.collection_rate_per_km);
+    if (typeof q.collection_rate_per_km === "number") {
+      collectionRateManualRef.current = true;
+      setCollectionCostPerKm(q.collection_rate_per_km);
+    }
     if (typeof q.collection_fee === "number") {
       setCollectionFee(q.collection_fee);
       const cDist = Number(q.collection_distance_km) || 0;
@@ -1100,6 +1104,12 @@ function NewQuotePage() {
         const preserveSavedRate = !!fromQuoteId && !kitchenManualRef.current;
         if (!preserveSavedRate && typeof s.deliveryCostPerKm === "number" && s.deliveryCostPerKm > 0) {
           setDeliveryCostPerKm(s.deliveryCostPerKm);
+        }
+        // Collection inherits the configured delivery rate unless the
+        // quote contains an explicit collection rate or the operator has
+        // changed it manually in this session.
+        if (!collectionRateManualRef.current && typeof s.deliveryCostPerKm === "number" && s.deliveryCostPerKm >= 0) {
+          setCollectionCostPerKm(s.deliveryCostPerKm);
         }
         if (typeof s.minDeliveryFee === "number" && s.minDeliveryFee >= 0) {
           setMinDeliveryFee(s.minDeliveryFee);
@@ -2993,6 +3003,7 @@ function NewQuotePage() {
                             step="0.5"
                             value={collectionCostPerKm || ""}
                             onChange={(e) => {
+                              collectionRateManualRef.current = true;
                               setCollectionCostPerKm(safeNum(e.target.value));
                               setCollectionFeeOverridden(false);
                             }}
