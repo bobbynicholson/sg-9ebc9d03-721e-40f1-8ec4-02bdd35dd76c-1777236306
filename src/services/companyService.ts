@@ -485,13 +485,13 @@ export const companyService = {
         .single();
 
       if (companyError) {
-        console.error("Error creating company:", companyError);
         // Friendly message for the common unique-violation cases
         // instead of the raw "duplicate key value violates unique
         // constraint companies_slug_key".
         const code = (companyError as any).code;
         const msg = (companyError.message || "").toLowerCase();
         if (code === "23505" || msg.includes("duplicate key") || msg.includes("already exists")) {
+          console.warn("[companyService] company creation conflict:", companyError.message);
           if (msg.includes("slug")) {
             return {
               success: false,
@@ -616,11 +616,15 @@ export const companyService = {
 
       return { success: true, company };
     } catch (error: any) {
-      console.error("Failed to create company with admin:", error);
       const message = dbErrorMessage(error, {
         entity: "company",
         fallback: "The company could not be created right now. Please try again.",
       });
+      if (/already registered|already taken|already exists|different email|duplicate|conflict/i.test(message)) {
+        console.warn("[companyService] company creation rejected:", message);
+      } else {
+        console.error("Failed to create company with admin:", error);
+      }
       return {
         success: false,
         error: /failed to fetch|network|syntaxerror|unexpected token|<!doctype|<html/i.test(message)
