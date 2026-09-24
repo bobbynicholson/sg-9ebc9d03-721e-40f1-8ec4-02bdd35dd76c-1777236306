@@ -269,7 +269,13 @@ function CompanyDatabasePage() {
       console.error("Error loading companies:", error);
       // Persistent banner (see loadError Alert below); a toast alone
       // vanished and left a misleading empty table behind it.
-      setLoadError(dbErrorMessage(error, { entity: "company", fallback: "Couldn't load the company database. Please try again." }));
+      const message = dbErrorMessage(error, { entity: "company", fallback: "Couldn't load the company database. Please try again." });
+      setLoadError(message);
+      toast({
+        title: "Could not load companies",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -375,8 +381,8 @@ function CompanyDatabasePage() {
     } catch (error: any) {
       console.error("Error updating company:", error);
       toast({
-        title: "Error",
-        description: "Failed to update company",
+        title: "Could not update company",
+        description: dbErrorMessage(error, { entity: "company", fallback: "The company could not be updated. Please try again." }),
         variant: "destructive",
       });
     }
@@ -445,8 +451,8 @@ function CompanyDatabasePage() {
     } catch (error: any) {
       console.error("Error loading company details:", error);
       toast({
-        title: "Error",
-        description: "Failed to load company details",
+        title: "Could not load company details",
+        description: dbErrorMessage(error, { entity: "company", fallback: "The company details could not be loaded. Please try again." }),
         variant: "destructive",
       });
     }
