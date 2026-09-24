@@ -493,11 +493,15 @@ export const companyService = {
         const msg = (companyError.message || "").toLowerCase();
         if (code === "23505" || msg.includes("duplicate key") || msg.includes("already exists")) {
           if (msg.includes("slug")) {
-            throw new Error(
-              `The company URL "${data.company_slug}" is already taken. Choose a different URL and try again.`,
-            );
+            return {
+              success: false,
+              error: `The company URL "${data.company_slug}" is already taken. Choose a different URL and try again.`,
+            };
           }
-          throw new Error("A company with these details already exists. Change the company name / URL and try again.");
+          return {
+            success: false,
+            error: "A company with these details already exists. Change the company name / URL and try again.",
+          };
         }
         throw companyError;
       }

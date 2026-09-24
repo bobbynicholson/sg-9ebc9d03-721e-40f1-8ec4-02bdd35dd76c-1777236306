@@ -325,7 +325,11 @@ function CompanyDatabasePage() {
         resetForm();
         loadCompanies();
       } else {
-        throw new Error(result.error || "Failed to create company");
+        toast({
+          title: "Could not create company",
+          description: result.error || "The company could not be created. Please try again.",
+          variant: "destructive",
+        });
       }
     } catch (error: any) {
       console.error("Error creating company:", error);
