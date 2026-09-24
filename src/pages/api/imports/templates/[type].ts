@@ -2,7 +2,7 @@
 /**
  * GET /api/imports/templates/[type]
  *
- * Generates an .xlsx download from the schema definition in
+ * Generates an .xlsx, .csv, or .txt guide download from the schema definition in
  * src/lib/importTemplates.ts. Operators click "Download template"
  * on the Contacts / Leads pages or in the onboarding wizard, fill
  * in their data, and upload it back through /api/imports/upload.
@@ -58,6 +58,56 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const def = getTemplateDefinition(type);
+    const format = String(req.query.format || "xlsx").toLowerCase();
+
+    if (format === "csv" || format === "txt") {
+      const csvEscape = (value: string) => {
+        const text = String(value ?? "");
+        return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+      };
+
+      if (format === "csv") {
+        const csv = [
+          def.columns.map((c) => c.header).map(csvEscape).join(","),
+          def.columns.map((c) => c.example).map(csvEscape).join(","),
+          "",
+        ].join("\r\n");
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="cateringms-${def.type}-import-template.csv"`,
+        );
+        res.setHeader("Cache-Control", "private, max-age=300");
+        return res.status(200).send(`\uFEFF${csv}`);
+      }
+
+      const guide = [
+        `CateringMS ${def.sheetName} import guide`,
+        "",
+        "Use the exact header row from the CSV or Excel template. Replace the example row with your data and delete this guide file before uploading.",
+        "Required columns are marked [REQUIRED]. All other columns are optional.",
+        "Dates should use YYYY-MM-DD where possible. Do not include internal database IDs.",
+        "",
+        "COLUMN DETAILS",
+        ...def.columns.map((c, index) => [
+          `${index + 1}. ${c.key}`,
+          `Header: ${c.header}`,
+          `Required: ${c.required ? "yes" : "no"}`,
+          `Example: ${c.example}`,
+          c.hint ? `How to use: ${c.hint}` : "How to use: Enter this value if you have it; otherwise leave it blank.",
+          c.aliases?.length ? `Also recognised: ${c.aliases.join(", ")}` : "",
+        ].filter(Boolean).join("\n")),
+        "",
+        "The importer previews every row before saving. Existing clients matched by email are shown as duplicates so you can skip or update them.",
+      ].join("\n\n");
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="cateringms-${def.type}-import-column-guide.txt"`,
+      );
+      res.setHeader("Cache-Control", "private, max-age=300");
+      return res.status(200).send(`\uFEFF${guide}`);
+    }
 
     // Build a 2D array of cells:
     //   row 1 - column headers (with " *" suffix on required columns)

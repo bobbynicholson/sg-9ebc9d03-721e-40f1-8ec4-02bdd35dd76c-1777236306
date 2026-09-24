@@ -35,8 +35,8 @@ interface Props {
 /**
  * Add or edit a catering company. Super-admin scoped (the parent
  * route gates on profile.active_role === 'super_admin'). One Dialog
- * + two modes - new-company mode shows an extra "Company Admin User"
- * section; edit mode hides it because admins are managed elsewhere.
+ * + two modes - new-company mode shows an extra "Initial manager login"
+ * section; edit mode hides it because users are managed elsewhere.
  *
  * Extracted from /admin/platform/company-database as part of the
  * P2-13 audit split. Pure presentation; parent owns formData, the
@@ -102,13 +102,18 @@ export function AddEditCompanyDialog({
               </div>
 
               <div>
-                <Label>Email</Label>
+                <Label>{editingCompany ? "Company contact email" : "Company owner email *"}</Label>
                 <Input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="contact@company.com"
+                  placeholder={editingCompany ? "contact@company.com" : "owner@company.com"}
                 />
+                <p className="mt-1 text-xs text-slate-500">
+                  {editingCompany
+                    ? "Updates the company contact address; it does not change a user login."
+                    : "Creates the Company Owner login and becomes the company&apos;s primary owner email."}
+                </p>
               </div>
 
               <div>
@@ -205,12 +210,24 @@ export function AddEditCompanyDialog({
             <div className="space-y-4 border-t pt-4">
               <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                 <UserPlus className="w-4 h-4" />
-                Company Admin User
+                Initial manager login
               </h3>
+              <p className="text-xs leading-5 text-slate-600">
+                This creates a separate Business Administrator account for day-to-day operations. Both the owner and manager receive their own login invitation.
+              </p>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Admin Name</Label>
+              <div>
+                <Label>Owner name</Label>
+                <Input
+                  value={formData.owner_name}
+                  onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
+                  placeholder="Jane Owner"
+                />
+              </div>
+
+              <div>
+                <Label>Manager name</Label>
                   <Input
                     value={formData.admin_name}
                     onChange={(e) => setFormData({ ...formData, admin_name: e.target.value })}
@@ -219,7 +236,7 @@ export function AddEditCompanyDialog({
                 </div>
 
                 <div>
-                  <Label>Admin Email *</Label>
+                  <Label>Manager login email *</Label>
                   <Input
                     type="email"
                     value={formData.admin_email}
@@ -230,7 +247,7 @@ export function AddEditCompanyDialog({
 
                 <div className="col-span-2">
                   <p className="text-xs text-slate-600 bg-amber-50 border border-amber-200 rounded p-2">
-                    A unique temporary password is generated on save and shown once. Copy it and pass it to the new owner via a secure channel; they must change it on first login.
+                    A unique temporary password is generated on save and shown once. Share it securely with the manager; they must change it on first login. If the manager is not the legal owner, ownership should be reassigned to the owner’s user account after it is created.
                   </p>
                 </div>
               </div>

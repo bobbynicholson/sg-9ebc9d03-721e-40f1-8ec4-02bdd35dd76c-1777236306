@@ -4,16 +4,72 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Calendar, Users, Banknote, Download, Eye, Edit, ChevronRight, Clock, CheckCircle2, Package, MapPin, AlertCircle, LayoutGrid, List, ArrowRight, Trash2, Save, X, FileText, Receipt, Pause, Play, Copy, Star, RefreshCw, MoreHorizontal, Phone, MessageCircle, Mail } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { computeOrderTimeline, type OrderTimeline } from "@/services/order/orderTimeline";
-import { computeOrderReadiness, type OrderReadiness } from "@/services/order/orderReadiness";
+import {
+  ShoppingCart,
+  Calendar,
+  Users,
+  Banknote,
+  Download,
+  Eye,
+  Edit,
+  ChevronRight,
+  Clock,
+  CheckCircle2,
+  Package,
+  MapPin,
+  AlertCircle,
+  LayoutGrid,
+  List,
+  ArrowRight,
+  Trash2,
+  Save,
+  X,
+  FileText,
+  Receipt,
+  Pause,
+  Play,
+  Copy,
+  Star,
+  RefreshCw,
+  MoreHorizontal,
+  Phone,
+  MessageCircle,
+  Mail,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  computeOrderTimeline,
+  type OrderTimeline,
+} from "@/services/order/orderTimeline";
+import {
+  computeOrderReadiness,
+  type OrderReadiness,
+} from "@/services/order/orderReadiness";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import { AssignedShiftsPanel } from "@/components/admin/orders/AssignedShiftsPanel";
 import { OrderReadinessChip } from "@/components/admin/orders/OrderReadinessChip";
@@ -28,12 +84,17 @@ import { useRouter } from "next/router";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { PortalShell, PortalHeader,
+import {
+  PortalShell,
+  PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { RemoveOrderDialog } from "@/components/admin/orders/RemoveOrderDialog";
 import { PauseOrderDialog } from "@/components/admin/orders/PauseOrderDialog";
-import { AmendmentReviewDrawer, CancellationReviewDrawer } from "@/components/admin/orders/AmendmentReviewDrawer";
+import {
+  AmendmentReviewDrawer,
+  CancellationReviewDrawer,
+} from "@/components/admin/orders/AmendmentReviewDrawer";
 import { Footer } from "@/components/Footer";
 import { ChatBot } from "@/components/ChatBot";
 import { orderService } from "@/services/orderService";
@@ -72,8 +133,14 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { usePromptDialog } from "@/components/ui/confirm-dialog";
 import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
 import { CancellationRequestsTab } from "@/components/admin/CancellationRequestsTab";
-import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/EquipmentTypeahead";
-import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
+import {
+  EquipmentTypeahead,
+  type EquipmentPick,
+} from "@/components/admin/EquipmentTypeahead";
+import {
+  MenuItemTypeahead,
+  type MenuItemPick,
+} from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
 import { logPiiAccess } from "@/services/piiAccessLogService";
 import { OrderNotesThread } from "@/components/admin/OrderNotesThread";
@@ -88,6 +155,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 // machines showed 5/16/2026 on SA tenants).
 import { formatDate } from "@/lib/formatters";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 // OrderStats type + STATUS_CONFIG + WORKFLOW_STAGES + helpers
 // extracted to sibling files in the P2-13 Phase B split. Imported
@@ -119,21 +187,31 @@ function OrderProcessDashboard() {
   // automations, latest event, and a "post-event review automation
   // already fired" flag. Surfaced on each OrderCard so the team sees
   // which automations have / haven't gone out.
-  const [autoEmailMap, setAutoEmailMap] = useState<Map<string, OrderAutoEmailSummary>>(new Map());
+  const [autoEmailMap, setAutoEmailMap] = useState<
+    Map<string, OrderAutoEmailSummary>
+  >(new Map());
   // Wave 25: per-order derived timeline. Computed once per loadOrders
   // pass from a batch-fetch of related rows (payments, equipment
   // bookings, hire orders, cleaning status, prep tasks, driver
   // assignments, invoices). Empty map until first load.
-  const [timelinesById, setTimelinesById] = useState<Map<string, OrderTimeline>>(new Map());
+  const [timelinesById, setTimelinesById] = useState<
+    Map<string, OrderTimeline>
+  >(new Map());
   // Wave 59 - batched shifts + profiles for AssignedShiftsPanel
   // (closes the per-card N+1 fan-out).
-  const [allShiftsByOrder, setAllShiftsByOrder] = useState<Map<string, any[]>>(new Map());
-  const [staffProfilesById, setStaffProfilesById] = useState<Map<string, any>>(new Map());
+  const [allShiftsByOrder, setAllShiftsByOrder] = useState<Map<string, any[]>>(
+    new Map(),
+  );
+  const [staffProfilesById, setStaffProfilesById] = useState<Map<string, any>>(
+    new Map(),
+  );
   // Wave 46 T2 - per-order readiness chip (green/orange/red).
   // tenantTimezone is sourced from the existing state at line 245
   // (Phase 13 #9 already pulls companies.timezone), so we don't
   // duplicate the fetch.
-  const [readinessById, setReadinessById] = useState<Map<string, OrderReadiness>>(new Map());
+  const [readinessById, setReadinessById] = useState<
+    Map<string, OrderReadiness>
+  >(new Map());
   const [loading, setLoading] = useState(true);
   // Audit fix (2026-07-02): the main orders fetch failure was only
   // console.error'd - the operator saw an empty kanban that read as
@@ -208,7 +286,9 @@ function OrderProcessDashboard() {
       }
       if (!cancelled) setTenantTimezone((data as any)?.timezone || null);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [(user as any)?.company_id]);
   // Phase 8 #3: persist filter state across reloads. The dispatch
   // team usually has a steady working filter (e.g. "this week,
@@ -233,20 +313,26 @@ function OrderProcessDashboard() {
       const qView = sp.get("view");
       // Apply URL params first; fall back to localStorage for any
       // missing piece so half-deep-links still get a sane page.
-      const raw = window.localStorage.getItem("cateringms.adminOrders.filters.v1");
+      const raw = window.localStorage.getItem(
+        "cateringms.adminOrders.filters.v1",
+      );
       const saved = raw ? JSON.parse(raw) : {};
       if (qSearch != null) setSearchTerm(qSearch);
-      else if (typeof saved.searchTerm === "string") setSearchTerm(saved.searchTerm);
+      else if (typeof saved.searchTerm === "string")
+        setSearchTerm(saved.searchTerm);
       if (qStatus != null) setStatusFilter(qStatus);
-      else if (typeof saved.statusFilter === "string") setStatusFilter(saved.statusFilter);
+      else if (typeof saved.statusFilter === "string")
+        setStatusFilter(saved.statusFilter);
       if (qDate != null) setDateFilter(qDate);
-      else if (typeof saved.dateFilter === "string") setDateFilter(saved.dateFilter);
+      else if (typeof saved.dateFilter === "string")
+        setDateFilter(saved.dateFilter);
       if (qFrom != null) setDateFrom(qFrom);
       else if (typeof saved.dateFrom === "string") setDateFrom(saved.dateFrom);
       if (qTo != null) setDateTo(qTo);
       else if (typeof saved.dateTo === "string") setDateTo(saved.dateTo);
       if (qView === "kanban" || qView === "timeline") setViewMode(qView);
-      else if (saved.viewMode === "kanban" || saved.viewMode === "timeline") setViewMode(saved.viewMode);
+      else if (saved.viewMode === "kanban" || saved.viewMode === "timeline")
+        setViewMode(saved.viewMode);
     } catch {
       // Corrupt JSON or storage blocked - silently fall back to defaults.
     }
@@ -261,9 +347,13 @@ function OrderProcessDashboard() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = window.localStorage.getItem("cateringms.adminOrders.savedViews.v1");
+      const raw = window.localStorage.getItem(
+        "cateringms.adminOrders.savedViews.v1",
+      );
       if (raw) setSavedViews(JSON.parse(raw) as SavedView[]);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -272,13 +362,16 @@ function OrderProcessDashboard() {
         "cateringms.adminOrders.savedViews.v1",
         JSON.stringify(savedViews),
       );
-    } catch { /* storage blocked */ }
+    } catch {
+      /* storage blocked */
+    }
   }, [savedViews]);
   const saveCurrentView = async () => {
     if (typeof window === "undefined") return;
     const name = await prompt({
       title: "Save this view",
-      description: "Snap the current filters into a named chip you can snap back to.",
+      description:
+        "Snap the current filters into a named chip you can snap back to.",
       label: "View name",
       placeholder: "e.g. JHB next 7 days",
       confirmLabel: "Save view",
@@ -287,7 +380,15 @@ function OrderProcessDashboard() {
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     setSavedViews((prev) => [
       ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
-      { id, name: name.trim(), searchTerm, statusFilter, dateFilter, dateFrom, dateTo },
+      {
+        id,
+        name: name.trim(),
+        searchTerm,
+        statusFilter,
+        dateFilter,
+        dateFrom,
+        dateTo,
+      },
     ]);
   };
   const applySavedView = (v: SavedView) => {
@@ -306,7 +407,14 @@ function OrderProcessDashboard() {
     try {
       window.localStorage.setItem(
         "cateringms.adminOrders.filters.v1",
-        JSON.stringify({ searchTerm, statusFilter, dateFilter, dateFrom, dateTo, viewMode }),
+        JSON.stringify({
+          searchTerm,
+          statusFilter,
+          dateFilter,
+          dateFrom,
+          dateTo,
+          viewMode,
+        }),
       );
     } catch {
       /* storage blocked, harmless */
@@ -322,7 +430,9 @@ function OrderProcessDashboard() {
   const [timelineShowAll, setTimelineShowAll] = useState(false);
   // Reset 'show all' when filters change so a heavy view doesn't
   // re-explode after the operator narrows then widens again.
-  useEffect(() => { setTimelineShowAll(false); }, [statusFilter, dateFilter, dateFrom, dateTo, searchTerm]);
+  useEffect(() => {
+    setTimelineShowAll(false);
+  }, [statusFilter, dateFilter, dateFrom, dateTo, searchTerm]);
   // Phase 11 #8: pending amendment + cancellation request counts.
   // Surfaces as inline badges in the page header so the dispatch
   // lead sees how much client-driven work is queued without
@@ -337,8 +447,11 @@ function OrderProcessDashboard() {
   // the set of orders with an open request.
   const [pendingAmendmentCount, setPendingAmendmentCount] = useState(0);
   const [pendingCancellationCount, setPendingCancellationCount] = useState(0);
-  const [pendingAmendmentOrderIds, setPendingAmendmentOrderIds] = useState<Set<string>>(new Set());
-  const [pendingCancellationOrderIds, setPendingCancellationOrderIds] = useState<Set<string>>(new Set());
+  const [pendingAmendmentOrderIds, setPendingAmendmentOrderIds] = useState<
+    Set<string>
+  >(new Set());
+  const [pendingCancellationOrderIds, setPendingCancellationOrderIds] =
+    useState<Set<string>>(new Set());
   useEffect(() => {
     const companyId = (user as any)?.company_id;
     if (!companyId) return;
@@ -360,8 +473,12 @@ function OrderProcessDashboard() {
         if (cancelled) return;
         const aRows = (aRes?.data || []) as Array<{ order_id: string | null }>;
         const cRows = (cRes?.data || []) as Array<{ order_id: string | null }>;
-        const aIds = new Set(aRows.map((r) => r.order_id).filter((x): x is string => !!x));
-        const cIds = new Set(cRows.map((r) => r.order_id).filter((x): x is string => !!x));
+        const aIds = new Set(
+          aRows.map((r) => r.order_id).filter((x): x is string => !!x),
+        );
+        const cIds = new Set(
+          cRows.map((r) => r.order_id).filter((x): x is string => !!x),
+        );
         setPendingAmendmentCount(aRows.length);
         setPendingCancellationCount(cRows.length);
         setPendingAmendmentOrderIds(aIds);
@@ -370,7 +487,9 @@ function OrderProcessDashboard() {
         /* non-blocking */
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [(user as any)?.company_id, orders.length]);
   // Phase 7 #6: bulk-select for the timeline view. Set of order ids
   // currently ticked. Toolbar appears when size > 0; Kanban view
@@ -410,7 +529,9 @@ function OrderProcessDashboard() {
       "client name",
       hasPhone && "client phone",
       hasEmail && "client email",
-    ].filter(Boolean).join(", ");
+    ]
+      .filter(Boolean)
+      .join(", ");
     void logPiiAccess({
       entityType: "order",
       entityId: selectedOrder.id,
@@ -429,13 +550,16 @@ function OrderProcessDashboard() {
   // star. Hoisting them into modal-internal state keeps the parent
   // stable when the modal updates its own UI.
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-  const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(null);
+  const [pauseDialogOrderId, setPauseDialogOrderId] = useState<string | null>(
+    null,
+  );
   // Wave 55 - duplicate-order dialog open-state + the operator's
   // pre-seed (today + 7d). The form's own date + busy state now
   // live inside DuplicateOrderDialog (P2-13 Phase A split); we just
   // hand it the seed so it can populate the date input on open.
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
-  const [duplicateDate7DayDefault, setDuplicateDate7DayDefault] = useState<string>("");
+  const [duplicateDate7DayDefault, setDuplicateDate7DayDefault] =
+    useState<string>("");
   // Amendment / cancellation review drawer state. Driven entirely off
   // the URL: when /admin/orders is loaded with ?amendment=... (or
   // ?cancellation=...) plus an ?orderId=..., the matching drawer opens
@@ -483,7 +607,12 @@ function OrderProcessDashboard() {
       .channel(channelKey)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "orders",
+          filter: `company_id=eq.${companyId}`,
+        },
         (payload: any) => {
           const row = payload?.new || {};
           toast({
@@ -502,7 +631,12 @@ function OrderProcessDashboard() {
       // realtime was comprehensive - false confidence.
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `company_id=eq.${companyId}`,
+        },
         () => {
           // Quiet refresh - no toast, just keep the list fresh. A
           // status change banner already fires elsewhere.
@@ -513,7 +647,12 @@ function OrderProcessDashboard() {
       // the list without a refresh.
       .on(
         "postgres_changes",
-        { event: "DELETE", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "orders",
+          filter: `company_id=eq.${companyId}`,
+        },
         () => {
           loadOrders();
         },
@@ -524,7 +663,12 @@ function OrderProcessDashboard() {
       // when a payments row lands. Refetch quietly.
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "payments", filter: `company_id=eq.${companyId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "payments",
+          filter: `company_id=eq.${companyId}`,
+        },
         () => {
           loadOrders();
         },
@@ -539,23 +683,51 @@ function OrderProcessDashboard() {
       // operator effort.
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "invoices", filter: `company_id=eq.${companyId}` },
-        () => { loadOrders(); },
+        {
+          event: "*",
+          schema: "public",
+          table: "invoices",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          loadOrders();
+        },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "driver_assignments", filter: `company_id=eq.${companyId}` },
-        () => { loadOrders(); },
+        {
+          event: "*",
+          schema: "public",
+          table: "driver_assignments",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          loadOrders();
+        },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "kitchen_prep_tasks", filter: `company_id=eq.${companyId}` },
-        () => { loadOrders(); },
+        {
+          event: "*",
+          schema: "public",
+          table: "kitchen_prep_tasks",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          loadOrders();
+        },
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "kitchen_shifts", filter: `company_id=eq.${companyId}` },
-        () => { loadOrders(); },
+        {
+          event: "*",
+          schema: "public",
+          table: "kitchen_shifts",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          loadOrders();
+        },
       )
       .subscribe();
     return () => {
@@ -570,17 +742,33 @@ function OrderProcessDashboard() {
   // than a generic kanban with no context.
   useEffect(() => {
     if (!router.isReady) return;
-    const orderId = typeof router.query.orderId === "string" ? router.query.orderId : null;
-    const amendment = typeof router.query.amendment === "string" ? router.query.amendment : null;
-    const cancellation = typeof router.query.cancellation === "string" ? router.query.cancellation : null;
+    const orderId =
+      typeof router.query.orderId === "string" ? router.query.orderId : null;
+    const amendment =
+      typeof router.query.amendment === "string"
+        ? router.query.amendment
+        : null;
+    const cancellation =
+      typeof router.query.cancellation === "string"
+        ? router.query.cancellation
+        : null;
     if (amendment) {
       setReviewDrawer({ kind: "amendment", requestId: amendment, orderId });
     } else if (cancellation) {
-      setReviewDrawer({ kind: "cancellation", requestId: cancellation, orderId });
+      setReviewDrawer({
+        kind: "cancellation",
+        requestId: cancellation,
+        orderId,
+      });
     } else {
       setReviewDrawer({ kind: null, requestId: null, orderId: null });
     }
-  }, [router.isReady, router.query.orderId, router.query.amendment, router.query.cancellation]);
+  }, [
+    router.isReady,
+    router.query.orderId,
+    router.query.amendment,
+    router.query.cancellation,
+  ]);
 
   // Wave 28.8: when the URL carries a bare ?orderId=... (no amendment
   // / cancellation params), open the order detail drawer for that
@@ -611,17 +799,17 @@ function OrderProcessDashboard() {
       // clear so the operator can find the order.
       toast({
         title: "Order not in your current view",
-        description: "The link points to an order that's filtered out (cancelled, archived, or outside your region). Clear filters to find it.",
+        description:
+          "The link points to an order that's filtered out (cancelled, archived, or outside your region). Clear filters to find it.",
         variant: "destructive",
       });
       // Strip the orderId from URL so a refresh doesn't keep firing
       // the toast.
       const { orderId: _drop, ...rest } = router.query;
-      router.replace(
-        { pathname: router.pathname, query: rest },
-        undefined,
-        { shallow: true, scroll: false },
-      );
+      router.replace({ pathname: router.pathname, query: rest }, undefined, {
+        shallow: true,
+        scroll: false,
+      });
     }
     // selectedOrder + isModalOpen intentionally omitted - including
     // them would re-fire on every drawer change and bounce the modal.
@@ -634,13 +822,61 @@ function OrderProcessDashboard() {
     orders,
   ]);
 
+  // Local-dev fallback for direct links from reports. The dev auth user is
+  // intentionally not a real Supabase session, so hydrate the requested
+  // order directly from the localhost service route and open the drawer
+  // without waiting for the full Orders list lifecycle.
+  useEffect(() => {
+    const localDev =
+      typeof window !== "undefined" &&
+      process.env.NODE_ENV !== "production" &&
+      ["localhost", "127.0.0.1"].includes(window.location.hostname);
+    const orderId =
+      typeof router.query.orderId === "string" ? router.query.orderId : null;
+    const tenantSlug = localDev ? getTenantSlugFromPathname(router.asPath) : "";
+    if (!router.isReady || !localDev || !tenantSlug || !orderId) return;
+    if (selectedOrder?.id === orderId && isModalOpen) return;
+
+    let cancelled = false;
+    void (async () => {
+      const { data: branding, error: brandingError } = await (
+        supabase.rpc as any
+      )("get_company_branding", { p_slug: tenantSlug });
+      const resolved = (Array.isArray(branding) ? branding[0] : branding) as {
+        id?: string;
+      } | null;
+      if (cancelled || brandingError || !resolved?.id) return;
+      const params = new URLSearchParams({
+        company_id: resolved.id,
+        order_id: orderId,
+      });
+      const response = await fetch(`/api/admin/orders?${params.toString()}`);
+      const payload = await response.json();
+      const found = (payload?.orders || [])[0] as AppOrder | undefined;
+      if (cancelled || !response.ok || !found) return;
+      setOrders((current) => (current.length ? current : [found]));
+      setSelectedOrder(found);
+      setIsModalOpen(true);
+      setLoading(false);
+    })().catch((error) => {
+      console.warn("[orders] direct order deep-link fallback failed", error);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // selectedOrder + isModalOpen intentionally omitted so this fallback
+    // does not re-run when the drawer itself opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.asPath, router.query.orderId]);
+
   // Adopt ?clientId from the URL as a filter. Kept separate from the
   // review-drawer effect so they don't fight each other when both
   // params are present. We resolve the client name from the loaded
   // orders so the pill can read "Filtered to <name>" rather than a uuid.
   useEffect(() => {
     if (!router.isReady) return;
-    const clientId = typeof router.query.clientId === "string" ? router.query.clientId : null;
+    const clientId =
+      typeof router.query.clientId === "string" ? router.query.clientId : null;
     setClientFilterId(clientId);
   }, [router.isReady, router.query.clientId]);
 
@@ -651,9 +887,10 @@ function OrderProcessDashboard() {
     }
     const match = orders.find((o: any) => o.client_id === clientFilterId);
     if (match) {
-      const nm = (match as any).client?.client_name
-        || (match as any).client_name
-        || null;
+      const nm =
+        (match as any).client?.client_name ||
+        (match as any).client_name ||
+        null;
       setClientFilterName(nm);
     }
   }, [clientFilterId, orders]);
@@ -663,11 +900,9 @@ function OrderProcessDashboard() {
     setClientFilterName(null);
     if (router.isReady) {
       const { clientId: _drop, ...rest } = router.query;
-      router.replace(
-        { pathname: router.pathname, query: rest },
-        undefined,
-        { shallow: true },
-      );
+      router.replace({ pathname: router.pathname, query: rest }, undefined, {
+        shallow: true,
+      });
     }
   };
 
@@ -676,12 +911,15 @@ function OrderProcessDashboard() {
     // Strip the review params from the URL so a refresh doesn't
     // re-open the drawer, but keep any unrelated params intact.
     if (router.isReady) {
-      const { orderId: _o, amendment: _a, cancellation: _c, ...rest } = router.query;
-      router.replace(
-        { pathname: router.pathname, query: rest },
-        undefined,
-        { shallow: true },
-      );
+      const {
+        orderId: _o,
+        amendment: _a,
+        cancellation: _c,
+        ...rest
+      } = router.query;
+      router.replace({ pathname: router.pathname, query: rest }, undefined, {
+        shallow: true,
+      });
     }
   };
 
@@ -703,16 +941,69 @@ function OrderProcessDashboard() {
   // visible on the page so "This Month" actually means this month.
   useEffect(() => {
     calculateStats();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, dateFilter, dateFrom, dateTo, statusFilter, searchTerm, tenantTimezone]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    orders,
+    dateFilter,
+    dateFrom,
+    dateTo,
+    statusFilter,
+    searchTerm,
+    tenantTimezone,
+  ]);
 
   const loadOrders = async () => {
-    if (!user?.company_id) return;
+    const localDev =
+      typeof window !== "undefined" &&
+      process.env.NODE_ENV !== "production" &&
+      ["localhost", "127.0.0.1"].includes(window.location.hostname);
+    let companyId = user?.company_id || null;
+    const tenantSlug = localDev ? getTenantSlugFromPathname(router.asPath) : "";
+
+    // Local development uses a fake auth identity. Resolve the actual
+    // company from the tenant URL so report/order deep links target the
+    // company the operator is viewing, not the fake dev company.
+    if (localDev && tenantSlug) {
+      const { data: branding, error: brandingError } = await (
+        supabase.rpc as any
+      )("get_company_branding", { p_slug: tenantSlug });
+      const resolved = (Array.isArray(branding) ? branding[0] : branding) as {
+        id?: string;
+      } | null;
+      if (!brandingError && resolved?.id) companyId = resolved.id;
+    }
+    if (!companyId) return;
     setLoading(true);
     setLoadError(null);
     try {
-      const allOrders = await orderService.getAllOrders(user.company_id);
+      let allOrders: any[];
+      if (localDev && tenantSlug) {
+        const orderId =
+          typeof router.query.orderId === "string" ? router.query.orderId : "";
+        const params = new URLSearchParams({ company_id: companyId });
+        if (orderId) params.set("order_id", orderId);
+        const response = await fetch(`/api/admin/orders?${params.toString()}`);
+        const payload = await response.json();
+        if (!response.ok)
+          throw new Error(payload?.error || "Could not load local orders.");
+        allOrders = payload.orders || [];
+      } else {
+        allOrders = await orderService.getAllOrders(companyId);
+      }
       setOrders(allOrders as unknown as AppOrder[]);
+
+      // Local dev uses the service-role route above because the fake auth
+      // identity has no Supabase session. The remaining list enrichments
+      // are non-essential for opening a deep-linked order and would wait
+      // on RLS-protected browser queries, so leave them empty locally.
+      if (localDev && tenantSlug) {
+        setAutoEmailMap(new Map());
+        setTimelinesById(new Map());
+        setReadinessById(new Map());
+        setAllShiftsByOrder(new Map());
+        setStaffProfilesById(new Map());
+        return;
+      }
 
       // Pull email_automation_log rows for these orders so the cards
       // can surface "post-event review sent / queued / not yet"
@@ -802,28 +1093,53 @@ function OrderProcessDashboard() {
             // saw their payment. Alias payment_status -> status so downstream
             // (computeOrderTimeline reads p.status === "completed") is unchanged.
             // receipt_sent_at also doesn't exist on the row; drop it (unused).
-            supabase.from("payments").select("order_id, payment_type, status:payment_status, processed_at, amount, payment_method").in("order_id", orderIds),
+            supabase
+              .from("payments")
+              .select(
+                "order_id, payment_type, status:payment_status, processed_at, amount, payment_method",
+              )
+              .in("order_id", orderIds),
             // Wave 47 fix - pre_event_cleaning_done_at column was
             // selected but never existed on the live DB. The whole
             // bookings batch was silently erroring (or returning
             // empty) for every page load. We derive pre-event
             // cleaning state from cleaning_jobs instead now.
-            supabase.from("equipment_bookings").select("order_id, equipment_id, quantity, booked_until, status, returned_quantity, created_at").in("order_id", orderIds),
-            supabase.from("equipment_hire_orders").select("order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at").in("order_id", orderIds),
-            supabase.from("kitchen_prep_tasks").select("order_id, status, started_at, completed_at").in("order_id", orderIds),
+            supabase
+              .from("equipment_bookings")
+              .select(
+                "order_id, equipment_id, quantity, booked_until, status, returned_quantity, created_at",
+              )
+              .in("order_id", orderIds),
+            supabase
+              .from("equipment_hire_orders")
+              .select(
+                "order_id, supplier_name, expected_pickup_date, actual_pickup_date, expected_return_date, actual_return_date, status, created_at",
+              )
+              .in("order_id", orderIds),
+            supabase
+              .from("kitchen_prep_tasks")
+              .select("order_id, status, started_at, completed_at")
+              .in("order_id", orderIds),
             // driver_assignments has no `started_at` column (the lifecycle
             // timestamps are assigned_at/accepted_at/en_route_at/picked_up_at/
             // delivered_at/completed_at). Selecting started_at 400'd this batch
             // so no order saw its driver/collection assignment. Alias
             // en_route_at -> started_at (when the driver set off = the natural
             // "started" timestamp the collection_done stage renders).
-            supabase.from("driver_assignments").select("order_id, assignment_type, status, accepted_at, started_at:en_route_at, completed_at, created_at").in("order_id", orderIds),
+            supabase
+              .from("driver_assignments")
+              .select(
+                "order_id, assignment_type, status, accepted_at, started_at:en_route_at, completed_at, created_at",
+              )
+              .in("order_id", orderIds),
             // Wave 67 Phase E - outsource assignments joined with
             // provider name so the timeline's outsource_pending blocker
             // can name who hasn't responded.
             (supabase as any)
               .from("outsource_assignments")
-              .select("id, order_id, provider_id, status, quoted_cost, provider:provider_id(provider_name)")
+              .select(
+                "id, order_id, provider_id, status, quoted_cost, provider:provider_id(provider_name)",
+              )
               .in("order_id", orderIds)
               .is("deleted_at", null),
             // Wave 70.94 - include due_date in the batch. Without it the
@@ -836,8 +1152,17 @@ function OrderProcessDashboard() {
             // TIGHTEN I.81: drop soft-deleted invoices from the batch
             // so OrderReadinessChip can't see a voided invoice as still
             // attached to its order.
-            supabase.from("invoices").select("id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date, due_date").in("order_id", orderIds).is("deleted_at", null),
-            supabase.from("email_automation_log").select("order_id, template_type, status, sent_at, created_at").in("order_id", orderIds),
+            supabase
+              .from("invoices")
+              .select(
+                "id, order_id, invoice_number, total_amount, sent_at, paid_at, status, balance_due, created_at, invoice_date, due_date",
+              )
+              .in("order_id", orderIds)
+              .is("deleted_at", null),
+            supabase
+              .from("email_automation_log")
+              .select("order_id, template_type, status, sent_at, created_at")
+              .in("order_id", orderIds),
             (supabase as any)
               .from("kitchen_shifts")
               .select("id, order_id, staff_id, planned_start, actual_start")
@@ -846,7 +1171,9 @@ function OrderProcessDashboard() {
               .is("deleted_at", null),
             (supabase as any)
               .from("cleaning_event_handovers")
-              .select("order_id, status, expected_at, in_progress_at, completed_at, total_items_expected, total_items_returned, created_at, updated_at")
+              .select(
+                "order_id, status, expected_at, in_progress_at, completed_at, total_items_expected, total_items_returned, created_at, updated_at",
+              )
               .in("order_id", orderIds)
               .is("deleted_at", null),
             // Wave 46 T3 additions:
@@ -876,12 +1203,20 @@ function OrderProcessDashboard() {
           // not order_id.
           const equipmentIdsThisBatch = Array.from(
             new Set(
-              ((bookingsRes.data || []) as Array<{ equipment_id?: string | null }>)
+              (
+                (bookingsRes.data || []) as Array<{
+                  equipment_id?: string | null;
+                }>
+              )
                 .map((b) => b.equipment_id)
                 .filter((x): x is string => typeof x === "string"),
             ),
           );
-          let cleaningJobsActiveRows: Array<{ equipment_id: string; equipment_name?: string | null; status?: string }> = [];
+          let cleaningJobsActiveRows: Array<{
+            equipment_id: string;
+            equipment_name?: string | null;
+            status?: string;
+          }> = [];
           if (equipmentIdsThisBatch.length > 0) {
             const { data: cjRaw, error: cjErr } = await (supabase as any)
               .from("cleaning_jobs")
@@ -889,9 +1224,14 @@ function OrderProcessDashboard() {
               .in("equipment_id", equipmentIdsThisBatch)
               .in("status", ["queued", "in_progress"])
               .is("deleted_at", null);
-            if (cjErr) console.error("[orders] cleaning_jobs batch failed:", cjErr);
+            if (cjErr)
+              console.error("[orders] cleaning_jobs batch failed:", cjErr);
             const eqIdsInJobs = Array.from(
-              new Set(((cjRaw || []) as Array<{ equipment_id: string }>).map((r) => r.equipment_id)),
+              new Set(
+                ((cjRaw || []) as Array<{ equipment_id: string }>).map(
+                  (r) => r.equipment_id,
+                ),
+              ),
             );
             const eqNameMap = new Map<string, string>();
             if (eqIdsInJobs.length > 0) {
@@ -899,11 +1239,16 @@ function OrderProcessDashboard() {
                 .from("equipment")
                 .select("id, name")
                 .in("id", eqIdsInJobs);
-              for (const e of (eqRaw || []) as Array<{ id: string; name: string | null }>) {
+              for (const e of (eqRaw || []) as Array<{
+                id: string;
+                name: string | null;
+              }>) {
                 if (e.name) eqNameMap.set(e.id, e.name);
               }
             }
-            cleaningJobsActiveRows = ((cjRaw || []) as Array<{ equipment_id: string; status: string }>).map((r) => ({
+            cleaningJobsActiveRows = (
+              (cjRaw || []) as Array<{ equipment_id: string; status: string }>
+            ).map((r) => ({
               equipment_id: r.equipment_id,
               equipment_name: eqNameMap.get(r.equipment_id) || null,
               status: r.status,
@@ -919,28 +1264,40 @@ function OrderProcessDashboard() {
           {
             const { data: cjAll, error: cjAllErr } = await (supabase as any)
               .from("cleaning_jobs")
-              .select("triggered_by_event_id, created_at, actual_start, actual_end, status")
+              .select(
+                "triggered_by_event_id, created_at, actual_start, actual_end, status",
+              )
               .in("triggered_by_event_id", orderIds)
               .is("deleted_at", null);
-            if (cjAllErr) console.error("[orders] cleaning_jobs (by order) batch failed:", cjAllErr);
-            for (const r of (cjAll || []) as Array<{ triggered_by_event_id?: string | null }>) {
+            if (cjAllErr)
+              console.error(
+                "[orders] cleaning_jobs (by order) batch failed:",
+                cjAllErr,
+              );
+            for (const r of (cjAll || []) as Array<{
+              triggered_by_event_id?: string | null;
+            }>) {
               const key = String(r.triggered_by_event_id || "");
               if (!key) continue;
               const arr = cleaningJobsForOrderByOrder.get(key);
-              if (arr) arr.push(r); else cleaningJobsForOrderByOrder.set(key, [r]);
+              if (arr) arr.push(r);
+              else cleaningJobsForOrderByOrder.set(key, [r]);
             }
           }
 
           // Bucket each row-set by order_id once, then compute
           // timeline per order with O(1) lookup. Avoids N filter
           // passes through the same array.
-          const bucket = <T extends { order_id?: string | null }>(rows: T[] | null) => {
+          const bucket = <T extends { order_id?: string | null }>(
+            rows: T[] | null,
+          ) => {
             const m = new Map<string, T[]>();
             for (const r of rows || []) {
               const key = String(r.order_id || "");
               if (!key) continue;
               const arr = m.get(key);
-              if (arr) arr.push(r); else m.set(key, [r]);
+              if (arr) arr.push(r);
+              else m.set(key, [r]);
             }
             return m;
           };
@@ -948,10 +1305,14 @@ function OrderProcessDashboard() {
           const bookingsByOrder = bucket(bookingsRes.data as any[] | null);
           const hireByOrder = bucket(hireRes.data as any[] | null);
           const prepByOrder = bucket(prepRes.data as any[] | null);
-          const assignmentsByOrder = bucket(assignmentsRes.data as any[] | null);
+          const assignmentsByOrder = bucket(
+            assignmentsRes.data as any[] | null,
+          );
           const invoicesByOrder = bucket(invoicesRes.data as any[] | null);
           const emailLogByOrder = bucket(emailLogRes.data as any[] | null);
-          const deliveryShiftsByOrder = bucket(deliveryShiftsRes.data as any[] | null);
+          const deliveryShiftsByOrder = bucket(
+            deliveryShiftsRes.data as any[] | null,
+          );
           const handoversByOrder = bucket(handoversRes.data as any[] | null);
           // Wave 67 Phase E - outsource assignments bucketed by order_id
           // with provider_name flattened for the timeline blocker chip.
@@ -966,7 +1327,8 @@ function OrderProcessDashboard() {
                 provider_name: row.provider?.provider_name || null,
               };
               const arr = m.get(row.order_id);
-              if (arr) arr.push(flat); else m.set(row.order_id, [flat]);
+              if (arr) arr.push(flat);
+              else m.set(row.order_id, [flat]);
             }
             return m;
           })();
@@ -978,7 +1340,8 @@ function OrderProcessDashboard() {
 
           // Wave 46 T3 - bucket the new fetches.
           const orderItemsByOrder = bucket(orderItemsRes.data as any[] | null);
-          const kitchenShiftsEventDayRows = (kitchenShiftsEventDayRes.data as any[] | null) || [];
+          const kitchenShiftsEventDayRows =
+            (kitchenShiftsEventDayRes.data as any[] | null) || [];
           const vehicleRowsRaw = (vehiclesRes.data as any[] | null) || [];
           const vehicleById = new Map<string, any>();
           for (const v of vehicleRowsRaw) vehicleById.set(String(v.id), v);
@@ -995,15 +1358,19 @@ function OrderProcessDashboard() {
           try {
             const { data: allShiftRows } = await (supabase as any)
               .from("kitchen_shifts")
-              .select("id, order_id, staff_id, shift_type, shift_date, planned_start, planned_end, actual_start, actual_end, status")
+              .select(
+                "id, order_id, staff_id, shift_type, shift_date, planned_start, planned_end, actual_start, actual_end, status",
+              )
               .in("order_id", orderIds)
               .is("deleted_at", null);
             allShiftsByOrder = bucket(allShiftRows as any[] | null);
-            const distinctStaffIds = Array.from(new Set(
-              ((allShiftRows || []) as Array<{ staff_id: string | null }>)
-                .map((r) => r.staff_id)
-                .filter((v): v is string => !!v),
-            ));
+            const distinctStaffIds = Array.from(
+              new Set(
+                ((allShiftRows || []) as Array<{ staff_id: string | null }>)
+                  .map((r) => r.staff_id)
+                  .filter((v): v is string => !!v),
+              ),
+            );
             if (distinctStaffIds.length > 0) {
               const { data: profileRows } = await (supabase as any)
                 .from("profiles")
@@ -1014,7 +1381,10 @@ function OrderProcessDashboard() {
               }
             }
           } catch (shiftBatchErr) {
-            console.warn("[orders] Wave 59 shift batch failed - AssignedShiftsPanel will fall back to per-card fetch", shiftBatchErr);
+            console.warn(
+              "[orders] Wave 59 shift batch failed - AssignedShiftsPanel will fall back to per-card fetch",
+              shiftBatchErr,
+            );
           }
           // Push into state so the per-row AssignedShiftsPanel reads it.
           setAllShiftsByOrder(allShiftsByOrder);
@@ -1028,7 +1398,8 @@ function OrderProcessDashboard() {
             // them without a second round-trip. The OutsourcedFulfilmentPanel
             // still does its own live fetch with the full nested provider
             // join; this is a lightweight rollup for COGS maths only.
-            (o as any).__outsourceAssignments = outsourceByOrder.get(o.id) || [];
+            (o as any).__outsourceAssignments =
+              outsourceByOrder.get(o.id) || [];
             const orderEqIds = new Set<string>(
               (bookingsByOrder.get(o.id) || [])
                 .map((b: any) => b.equipment_id)
@@ -1071,7 +1442,9 @@ function OrderProcessDashboard() {
                 ...timelineInput,
                 orderItems: orderItemsByOrder.get(o.id) || [],
                 kitchenShiftsEventDay: kitchenShiftsForDay,
-                vehicle: o.assigned_vehicle_id ? vehicleById.get(String(o.assigned_vehicle_id)) || null : null,
+                vehicle: o.assigned_vehicle_id
+                  ? vehicleById.get(String(o.assigned_vehicle_id)) || null
+                  : null,
               },
               tl,
             );
@@ -1121,11 +1494,17 @@ function OrderProcessDashboard() {
     // so it's the gate. The auxiliary columns still flip independently
     // and are used elsewhere (deposit-paid signals, audit timestamps).
     const BOOKED_STATUSES = new Set([
-      "confirmed", "preparing", "ready", "in_transit",
-      "delivered", "completed", "paused",
+      "confirmed",
+      "preparing",
+      "ready",
+      "in_transit",
+      "delivered",
+      "completed",
+      "paused",
     ]);
     const REALISED_STATUSES = new Set(["delivered", "completed"]);
-    const isConfirmedOrder = (o: any) => BOOKED_STATUSES.has(String(o.status || "").toLowerCase());
+    const isConfirmedOrder = (o: any) =>
+      BOOKED_STATUSES.has(String(o.status || "").toLowerCase());
 
     const visible = getFilteredOrders();
 
@@ -1152,10 +1531,18 @@ function OrderProcessDashboard() {
       }
 
       const eventDate = parseLocalDay(order.event_date);
-      if (eventDate && eventDate >= today && !["completed", "cancelled"].includes(order.status)) {
+      if (
+        eventDate &&
+        eventDate >= today &&
+        !["completed", "cancelled"].includes(order.status)
+      ) {
         upcoming++;
       }
-      if (["confirmed", "preparing", "ready", "in_transit", "delivered"].includes(order.status)) {
+      if (
+        ["confirmed", "preparing", "ready", "in_transit", "delivered"].includes(
+          order.status,
+        )
+      ) {
         inProgress++;
       }
     });
@@ -1188,7 +1575,11 @@ function OrderProcessDashboard() {
       // in the top-bar dropdown, hide rows from other branches.
       // region_id IS NULL rows (legacy / company-wide) stay visible
       // so they can be triaged.
-      if (regionFilterId && (order as any).region_id && (order as any).region_id !== regionFilterId) {
+      if (
+        regionFilterId &&
+        (order as any).region_id &&
+        (order as any).region_id !== regionFilterId
+      ) {
         return false;
       }
       // Phase 13 #8: 'my orders only' toggle. The kitchen lead /
@@ -1196,7 +1587,9 @@ function OrderProcessDashboard() {
       // view; chef + driver assignments both qualify.
       if (myOrdersOnly && (user as any)?.id) {
         const me = (user as any).id;
-        const isMine = (order as any).assigned_chef_id === me || (order as any).assigned_driver_id === me;
+        const isMine =
+          (order as any).assigned_chef_id === me ||
+          (order as any).assigned_driver_id === me;
         if (!isMine) return false;
       }
       // TIGHTEN I.2: synthetic status filters used by the header
@@ -1213,10 +1606,10 @@ function OrderProcessDashboard() {
       // clutter the kanban + timeline forever.
       if (statusFilter === "all" && order.status === "cancelled") return false;
       const matchesStatus =
-        statusFilter === "all"
-        || statusFilter === "pending-amendments"
-        || statusFilter === "pending-cancellations"
-        || order.status === statusFilter;
+        statusFilter === "all" ||
+        statusFilter === "pending-amendments" ||
+        statusFilter === "pending-cancellations" ||
+        order.status === statusFilter;
 
       // Date filter - preset windows on the order's event_date.
       // event_date is a date-only column; parseLocalDay pins it to
@@ -1245,7 +1638,7 @@ function OrderProcessDashboard() {
         } else if (dateFilter === "month") {
           // This calendar month (1st through last)
           const first = new Date(today.getFullYear(), today.getMonth(), 1);
-          const last  = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
           last.setHours(23, 59, 59, 999);
           matchesDate = eventDate >= first && eventDate <= last;
         } else if (dateFilter === "next30") {
@@ -1272,7 +1665,20 @@ function OrderProcessDashboard() {
 
       return matchesStatus && matchesDate;
     });
-  }, [orders, statusFilter, dateFilter, dateFrom, dateTo, regionFilterId, clientFilterId, myOrdersOnly, pendingAmendmentOrderIds, pendingCancellationOrderIds, tenantTimezone, (user as any)?.id]);
+  }, [
+    orders,
+    statusFilter,
+    dateFilter,
+    dateFrom,
+    dateTo,
+    regionFilterId,
+    clientFilterId,
+    myOrdersOnly,
+    pendingAmendmentOrderIds,
+    pendingCancellationOrderIds,
+    tenantTimezone,
+    (user as any)?.id,
+  ]);
 
   // Smart fuzzy search across client name, order id, venue and event name.
   // client name is weighted highest because that's what staff almost always
@@ -1301,7 +1707,13 @@ function OrderProcessDashboard() {
   // urgency re-sort - the operator is hunting a specific order.
   // Wave 46 T1 - 'tomorrow' tier slotted between 'today' and 'soon'
   // so tomorrow's events float above the rest of the week.
-  const URGENCY_RANK: Record<string, number> = { overdue: 0, today: 1, tomorrow: 2, soon: 3, normal: 4 };
+  const URGENCY_RANK: Record<string, number> = {
+    overdue: 0,
+    today: 1,
+    tomorrow: 2,
+    soon: 3,
+    normal: 4,
+  };
   const getFilteredOrders = () => {
     if (searchTerm) return fuzzyOrders;
     const out = [...fuzzyOrders];
@@ -1345,12 +1757,17 @@ function OrderProcessDashboard() {
       // completion, the POD check on delivered, status emails, dispatch
       // broadcast, and the order_status_history audit row. A bookkeeper
       // bulk-confirming 10 orders got NO invoices and NO prep lists.
-      const { updateOrderStatus } = await import("@/services/order/orderWorkflow");
+      const { updateOrderStatus } =
+        await import("@/services/order/orderWorkflow");
       const results = await Promise.all(
         ids.map(async (id) => {
           try {
             const r: any = await updateOrderStatus(id, newStatus, user?.id);
-            return { id, ok: !(r && r.success === false), error: r?.error as string | undefined };
+            return {
+              id,
+              ok: !(r && r.success === false),
+              error: r?.error as string | undefined,
+            };
           } catch (e: any) {
             return { id, ok: false, error: e?.message as string | undefined };
           }
@@ -1362,7 +1779,11 @@ function OrderProcessDashboard() {
       if (succeeded.length > 0) {
         // Optimistic local update for the rows that actually moved.
         setOrders((prev) =>
-          prev.map((o) => (succeeded.includes((o as any).id) ? ({ ...o, status: newStatus } as AppOrder) : o)),
+          prev.map((o) =>
+            succeeded.includes((o as any).id)
+              ? ({ ...o, status: newStatus } as AppOrder)
+              : o,
+          ),
         );
         // ORD-A: emit cateringms:order-updated so dispatch / kitchen /
         // calendar / contacts pick up the change without manual refresh.
@@ -1379,8 +1800,9 @@ function OrderProcessDashboard() {
       } else if (succeeded.length === 0) {
         toast({
           title: "Bulk update failed",
-          description: failed[0].error
-            || `None of the ${failed.length} order${failed.length === 1 ? "" : "s"} could move to ${newStatus} - that transition isn't allowed from their current status.`,
+          description:
+            failed[0].error ||
+            `None of the ${failed.length} order${failed.length === 1 ? "" : "s"} could move to ${newStatus} - that transition isn't allowed from their current status.`,
           variant: "destructive",
         });
       } else {
@@ -1418,10 +1840,20 @@ function OrderProcessDashboard() {
       return;
     }
     const headers = [
-      "Order number", "Status", "Client", "Email", "Phone",
-      "Event date", "Event time", "Guests", "Venue",
-      "Total", "Currency", "Payment status",
-      "Created", "Confirmed",
+      "Order number",
+      "Status",
+      "Client",
+      "Email",
+      "Phone",
+      "Event date",
+      "Event time",
+      "Guests",
+      "Venue",
+      "Total",
+      "Currency",
+      "Payment status",
+      "Created",
+      "Confirmed",
     ];
     const esc = (v: any) => {
       if (v == null) return "";
@@ -1430,14 +1862,28 @@ function OrderProcessDashboard() {
     };
     const lines = [headers.join(",")];
     for (const o of rows) {
-      lines.push([
-        esc(o.order_number), esc(o.status), esc(o.client_name), esc(o.client_email), esc(o.client_phone),
-        esc(o.event_date), esc(o.event_time), esc(o.guest_count), esc(o.venue_address),
-        esc(o.total_amount), esc(o.currency || "ZAR"), esc(o.payment_status),
-        esc(o.created_at), esc(o.confirmed_at),
-      ].join(","));
+      lines.push(
+        [
+          esc(o.order_number),
+          esc(o.status),
+          esc(o.client_name),
+          esc(o.client_email),
+          esc(o.client_phone),
+          esc(o.event_date),
+          esc(o.event_time),
+          esc(o.guest_count),
+          esc(o.venue_address),
+          esc(o.total_amount),
+          esc(o.currency || "ZAR"),
+          esc(o.payment_status),
+          esc(o.created_at),
+          esc(o.confirmed_at),
+        ].join(","),
+      );
     }
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/csv;charset=utf-8",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1464,11 +1910,6 @@ function OrderProcessDashboard() {
   const getOrdersByStatus = (status: string) => {
     return ordersByStatus[status] || [];
   };
-
-
-
-
-
 
   // Wave 64.2 - deeplink flicker fix. When a sibling page (e.g. the
   // invoices list "Open order" link) lands here as
@@ -1553,23 +1994,27 @@ function OrderProcessDashboard() {
                       title="Client-requested order amendments awaiting review"
                     >
                       <AlertCircle className="h-3 w-3" />
-                      {pendingAmendmentCount} pending amendment{pendingAmendmentCount === 1 ? "" : "s"}
+                      {pendingAmendmentCount} pending amendment
+                      {pendingAmendmentCount === 1 ? "" : "s"}
                     </Link>
                   )}
                   {pendingCancellationCount > 0 && (
                     <Link
-                      href={withSlug("/admin/orders?status=pending-cancellations")}
+                      href={withSlug(
+                        "/admin/orders?status=pending-cancellations",
+                      )}
                       className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/30 bg-rose-400/15 px-2.5 py-1 text-[11px] font-semibold text-rose-200 hover:bg-rose-400/25"
                       title="Client-requested cancellations awaiting decision"
                     >
                       <AlertCircle className="h-3 w-3" />
-                      {pendingCancellationCount} pending cancellation{pendingCancellationCount === 1 ? "" : "s"}
+                      {pendingCancellationCount} pending cancellation
+                      {pendingCancellationCount === 1 ? "" : "s"}
                     </Link>
                   )}
                 </>
               }
               actions={
-              /* TIGHTEN I.51 (2026-06-01): toolbar redesign.
+                /* TIGHTEN I.51 (2026-06-01): toolbar redesign.
                   Previous version had a heavy dark "Kanban / Timeline"
                   pill pair that overpowered the actual primary CTA,
                   plus inconsistent button heights that wrapped onto
@@ -1583,100 +2028,108 @@ function OrderProcessDashboard() {
                   reads as one unit. flex-nowrap + ml-auto pushes the
                   whole cluster to the right edge without wrapping at
                   the awkward in-between widths. */
-              <>
-                {/* Segmented view toggle - glass track on the hero
+                <>
+                  {/* Segmented view toggle - glass track on the hero
                     band, active state reads as a single elevated
                     white chip against the dark panel. */}
-                <div className="inline-flex items-center rounded-lg border border-white/15 bg-white/10 p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("kanban")}
-                    aria-pressed={viewMode === "kanban"}
-                    className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
-                      viewMode === "kanban"
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-300 hover:text-white"
-                    }`}
-                  >
-                    <LayoutGrid className="w-3.5 h-3.5" />
-                    Kanban
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("timeline")}
-                    aria-pressed={viewMode === "timeline"}
-                    className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
-                      viewMode === "timeline"
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-300 hover:text-white"
-                    }`}
-                  >
-                    <List className="w-3.5 h-3.5" />
-                    Timeline
-                  </button>
-                </div>
-                {/* Icon-action group - refresh + overflow grouped
+                  <div className="inline-flex items-center rounded-lg border border-white/15 bg-white/10 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("kanban")}
+                      aria-pressed={viewMode === "kanban"}
+                      className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
+                        viewMode === "kanban"
+                          ? "bg-white text-slate-900 shadow-sm"
+                          : "text-slate-300 hover:text-white"
+                      }`}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      Kanban
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("timeline")}
+                      aria-pressed={viewMode === "timeline"}
+                      className={`inline-flex items-center gap-1.5 px-3 h-8 rounded-md text-xs font-medium transition-all ${
+                        viewMode === "timeline"
+                          ? "bg-white text-slate-900 shadow-sm"
+                          : "text-slate-300 hover:text-white"
+                      }`}
+                    >
+                      <List className="w-3.5 h-3.5" />
+                      Timeline
+                    </button>
+                  </div>
+                  {/* Icon-action group - refresh + overflow grouped
                     visually so they read as a single secondary
                     cluster, not as orphan buttons drifting between
                     the toggle and the primary CTA. */}
-                <div className="inline-flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadOrders}
-                    disabled={loading}
-                    title="Refresh orders"
-                    aria-label="Refresh orders"
-                    className="h-9 w-9 p-0"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" title="More actions" aria-label="More actions" className="h-9 w-9 p-0">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    {/* Phase 13 #1: print-friendly today-only delivery
+                  <div className="inline-flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadOrders}
+                      disabled={loading}
+                      title="Refresh orders"
+                      aria-label="Refresh orders"
+                      className="h-9 w-9 p-0"
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                      />
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="More actions"
+                          aria-label="More actions"
+                          className="h-9 w-9 p-0"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        {/* Phase 13 #1: print-friendly today-only delivery
                         sheet, target=_blank so it opens in its own
                         tab and auto-prints. */}
-                    <DropdownMenuItem asChild>
-                      <Link
-                        href={withSlug("/admin/orders/delivery-sheet")}
-                        target="_blank"
-                        className="flex items-center cursor-pointer"
-                      >
-                        <FileText className="w-4 h-4 mr-2" />
-                        Delivery sheet
-                      </Link>
-                    </DropdownMenuItem>
-                    {/* Phase 7 #3: CSV export of the filtered list. */}
-                    <DropdownMenuItem
-                      onClick={exportFilteredCsv}
-                      className="cursor-pointer"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Export CSV
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                </div>
-                {/* TIGHTEN I.51: primary CTA matches the new h-9
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={withSlug("/admin/orders/delivery-sheet")}
+                            target="_blank"
+                            className="flex items-center cursor-pointer"
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Delivery sheet
+                          </Link>
+                        </DropdownMenuItem>
+                        {/* Phase 7 #3: CSV export of the filtered list. */}
+                        <DropdownMenuItem
+                          onClick={exportFilteredCsv}
+                          className="cursor-pointer"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Export CSV
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {/* TIGHTEN I.51: primary CTA matches the new h-9
                     toolbar baseline, gap-2 over mr-2 so the icon
                     and label align consistently with the other
                     icon-and-label patterns on the page. Bumped
                     shadow + active scale for tactile feedback. */}
-                <Link href={withSlug("/admin/quotes/new")}>
-                  <Button
-                    size="sm"
-                    className="h-9 gap-2 bg-brand-primary hover:opacity-90 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
-                  >
-                    <FileText className="w-4 h-4" />
-                    New Quote
-                  </Button>
-                </Link>
-              </>
+                  <Link href={withSlug("/admin/quotes/new")}>
+                    <Button
+                      size="sm"
+                      className="h-9 gap-2 bg-brand-primary hover:opacity-90 shadow-md hover:shadow-lg active:scale-[0.98] transition-all"
+                    >
+                      <FileText className="w-4 h-4" />
+                      New Quote
+                    </Button>
+                  </Link>
+                </>
               }
             />
             <PageWorkbench />
@@ -1690,7 +2143,8 @@ function OrderProcessDashboard() {
                 (no matching SelectItem), so the operator has no
                 obvious way to escape the filtered view. The pill
                 makes the filter visible and clearable. */}
-            {(statusFilter === "pending-amendments" || statusFilter === "pending-cancellations") && (
+            {(statusFilter === "pending-amendments" ||
+              statusFilter === "pending-cancellations") && (
               <div className="mb-4 flex items-center gap-2">
                 <Badge className="bg-amber-100 text-amber-800 border border-amber-200 gap-1.5 py-1.5 px-3 text-sm">
                   <AlertCircle className="w-3.5 h-3.5" />
@@ -1731,31 +2185,42 @@ function OrderProcessDashboard() {
               </div>
             )}
 
-            <div id="order-filters" data-chat-section="admin.orders.filters" data-chat-section-label="Order filters" className="scroll-mt-20">
-            <OrderFiltersBar
-              searchTerm={searchTerm}
-              onSearchTermChange={setSearchTerm}
-              searchRef={searchRef}
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              dateFilter={dateFilter}
-              onDateFilterChange={setDateFilter}
-              dateFrom={dateFrom}
-              onDateFromChange={setDateFrom}
-              dateTo={dateTo}
-              onDateToChange={setDateTo}
-              myOrdersOnly={myOrdersOnly}
-              onMyOrdersOnlyChange={setMyOrdersOnly}
-              savedViews={savedViews}
-              onApplySavedView={applySavedView}
-              onRemoveSavedView={removeSavedView}
-              onSaveCurrentView={saveCurrentView}
-              onExport={exportFilteredCsv}
-            />
+            <div
+              id="order-filters"
+              data-chat-section="admin.orders.filters"
+              data-chat-section-label="Order filters"
+              className="scroll-mt-20"
+            >
+              <OrderFiltersBar
+                searchTerm={searchTerm}
+                onSearchTermChange={setSearchTerm}
+                searchRef={searchRef}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                dateFilter={dateFilter}
+                onDateFilterChange={setDateFilter}
+                dateFrom={dateFrom}
+                onDateFromChange={setDateFrom}
+                dateTo={dateTo}
+                onDateToChange={setDateTo}
+                myOrdersOnly={myOrdersOnly}
+                onMyOrdersOnlyChange={setMyOrdersOnly}
+                savedViews={savedViews}
+                onApplySavedView={applySavedView}
+                onRemoveSavedView={removeSavedView}
+                onSaveCurrentView={saveCurrentView}
+                onExport={exportFilteredCsv}
+              />
             </div>
 
             {/* Kanban Board / Timeline View */}
-            <span id="order-list" data-chat-section="admin.orders.list" data-chat-section-label="Order list" className="scroll-mt-20" aria-hidden="true" />
+            <span
+              id="order-list"
+              data-chat-section="admin.orders.list"
+              data-chat-section-label="Order list"
+              className="scroll-mt-20"
+              aria-hidden="true"
+            />
             {loading ? (
               <Card>
                 <CardContent className="py-24">
@@ -1770,9 +2235,15 @@ function OrderProcessDashboard() {
                 <CardContent className="py-12">
                   <div className="text-center">
                     <AlertCircle className="mx-auto mb-3 h-8 w-8 text-rose-600" />
-                    <h2 className="text-base font-bold text-rose-900 mb-1">Couldn't load orders</h2>
+                    <h2 className="text-base font-bold text-rose-900 mb-1">
+                      Couldn't load orders
+                    </h2>
                     <p className="text-sm text-slate-600 mb-4">{loadError}</p>
-                    <Button onClick={loadOrders} size="sm" className="bg-brand-primary hover:bg-brand-primary/90">
+                    <Button
+                      onClick={loadOrders}
+                      size="sm"
+                      className="bg-brand-primary hover:bg-brand-primary/90"
+                    >
                       <RefreshCw className="w-4 h-4 mr-2" /> Retry
                     </Button>
                   </div>
@@ -1798,104 +2269,104 @@ function OrderProcessDashboard() {
                   }}
                 />
               ) : (
-              <div className="overflow-x-auto pb-4">
-                <div className="flex gap-6 min-w-max px-1">
-                  <KanbanColumn
-                    status="pending"
-                    title="Pending"
-                    getOrdersByStatus={getOrdersByStatus}
-                    autoEmailMap={autoEmailMap}
-                    currencySymbol={C}
-                    setSelectedOrder={setSelectedOrder}
-                    setIsModalOpen={setIsModalOpen}
-                  />
-                  <KanbanColumn
-                    status="confirmed"
-                    title="Confirmed"
-                    getOrdersByStatus={getOrdersByStatus}
-                    autoEmailMap={autoEmailMap}
-                    currencySymbol={C}
-                    setSelectedOrder={setSelectedOrder}
-                    setIsModalOpen={setIsModalOpen}
-                  />
-                  <KanbanColumn
-                    status="preparing"
-                    title="In Prep"
-                    getOrdersByStatus={getOrdersByStatus}
-                    autoEmailMap={autoEmailMap}
-                    currencySymbol={C}
-                    setSelectedOrder={setSelectedOrder}
-                    setIsModalOpen={setIsModalOpen}
-                  />
-                  <KanbanColumn
-                    status="ready"
-                    title="Ready"
-                    getOrdersByStatus={getOrdersByStatus}
-                    autoEmailMap={autoEmailMap}
-                    currencySymbol={C}
-                    setSelectedOrder={setSelectedOrder}
-                    setIsModalOpen={setIsModalOpen}
-                  />
-                  <KanbanColumn
-                    status="in_transit"
-                    title="In Transit"
-                    getOrdersByStatus={getOrdersByStatus}
-                    autoEmailMap={autoEmailMap}
-                    currencySymbol={C}
-                    setSelectedOrder={setSelectedOrder}
-                    setIsModalOpen={setIsModalOpen}
-                  />
-                  <KanbanColumn
-                    status="delivered"
-                    title="Delivered"
-                    getOrdersByStatus={getOrdersByStatus}
-                    autoEmailMap={autoEmailMap}
-                    currencySymbol={C}
-                    setSelectedOrder={setSelectedOrder}
-                    setIsModalOpen={setIsModalOpen}
-                  />
-                  <KanbanColumn
-                    status="completed"
-                    title="Completed"
-                    getOrdersByStatus={getOrdersByStatus}
-                    autoEmailMap={autoEmailMap}
-                    currencySymbol={C}
-                    setSelectedOrder={setSelectedOrder}
-                    setIsModalOpen={setIsModalOpen}
-                  />
-                  {/* Paused isn't part of the linear workflow, so it
+                <div className="overflow-x-auto pb-4">
+                  <div className="flex gap-6 min-w-max px-1">
+                    <KanbanColumn
+                      status="pending"
+                      title="Pending"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                    <KanbanColumn
+                      status="confirmed"
+                      title="Confirmed"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                    <KanbanColumn
+                      status="preparing"
+                      title="In Prep"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                    <KanbanColumn
+                      status="ready"
+                      title="Ready"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                    <KanbanColumn
+                      status="in_transit"
+                      title="In Transit"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                    <KanbanColumn
+                      status="delivered"
+                      title="Delivered"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                    <KanbanColumn
+                      status="completed"
+                      title="Completed"
+                      getOrdersByStatus={getOrdersByStatus}
+                      autoEmailMap={autoEmailMap}
+                      currencySymbol={C}
+                      setSelectedOrder={setSelectedOrder}
+                      setIsModalOpen={setIsModalOpen}
+                    />
+                    {/* Paused isn't part of the linear workflow, so it
                       had no column - a paused order silently dropped
                       off the board entirely (it still passes the
                       filters, there was just nowhere to render it).
                       Show the column whenever any order is paused. */}
-                  {getOrdersByStatus("paused").length > 0 && (
-                    <KanbanColumn
-                      status="paused"
-                      title="Paused"
-                      getOrdersByStatus={getOrdersByStatus}
-                      autoEmailMap={autoEmailMap}
-                      currencySymbol={C}
-                      setSelectedOrder={setSelectedOrder}
-                      setIsModalOpen={setIsModalOpen}
-                    />
-                  )}
-                  {/* Cancelled is hidden by default (the status memo
+                    {getOrdersByStatus("paused").length > 0 && (
+                      <KanbanColumn
+                        status="paused"
+                        title="Paused"
+                        getOrdersByStatus={getOrdersByStatus}
+                        autoEmailMap={autoEmailMap}
+                        currencySymbol={C}
+                        setSelectedOrder={setSelectedOrder}
+                        setIsModalOpen={setIsModalOpen}
+                      />
+                    )}
+                    {/* Cancelled is hidden by default (the status memo
                       drops it unless the operator explicitly filters
                       to "cancelled"). When they do, give it a column
                       so the board isn't blank. */}
-                  {getOrdersByStatus("cancelled").length > 0 && (
-                    <KanbanColumn
-                      status="cancelled"
-                      title="Cancelled"
-                      getOrdersByStatus={getOrdersByStatus}
-                      autoEmailMap={autoEmailMap}
-                      currencySymbol={C}
-                      setSelectedOrder={setSelectedOrder}
-                      setIsModalOpen={setIsModalOpen}
-                    />
-                  )}
+                    {getOrdersByStatus("cancelled").length > 0 && (
+                      <KanbanColumn
+                        status="cancelled"
+                        title="Cancelled"
+                        getOrdersByStatus={getOrdersByStatus}
+                        autoEmailMap={autoEmailMap}
+                        currencySymbol={C}
+                        setSelectedOrder={setSelectedOrder}
+                        setIsModalOpen={setIsModalOpen}
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
               )
             ) : (
               <div className="space-y-3">
@@ -1919,54 +2390,70 @@ function OrderProcessDashboard() {
                       setMyOrdersOnly(false);
                     }}
                   />
-                ) : (() => {
-                  // Null / unparseable event_date used to produce NaN
-                  // in the comparator (NaN compares are always false,
-                  // so those rows landed in unstable positions). Pin
-                  // them to the end instead.
-                  const eventTime = (o: AppOrder) => {
-                    const t = new Date(o.event_date as any).getTime();
-                    return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
-                  };
-                  const sorted = getFilteredOrders()
-                    .sort((a, b) => eventTime(a) - eventTime(b));
-                  const cappedToRender = timelineShowAll ? sorted : sorted.slice(0, TIMELINE_CAP);
-                  const hidden = sorted.length - cappedToRender.length;
-                  return (
-                    <>
-                      {hidden > 0 && (
-                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-                          <span className="text-amber-900">
-                            Showing the first <strong className="tabular-nums">{cappedToRender.length}</strong> of <strong className="tabular-nums">{sorted.length}</strong> orders. Use a status or date filter to narrow it - or load them all.
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setTimelineShowAll(true)}
-                            className="text-xs font-semibold text-amber-800 hover:text-amber-900 underline"
-                          >
-                            Show all {sorted.length}
-                          </button>
-                        </div>
-                      )}
-                      {cappedToRender.map((order) => <TimelineRow
-                          key={order.id}
-                          order={order}
-                          selectedIds={selectedIds}
-                          timelinesById={timelinesById}
-                          readinessById={readinessById}
-                          allShiftsByOrder={allShiftsByOrder}
-                          staffProfilesById={staffProfilesById}
-                          currencySymbol={C}
-                          companyId={user?.company_id || null}
-                          loadOrders={loadOrders}
-                          toggleSelected={toggleSelected}
-                          setSelectedOrder={setSelectedOrder}
-                          setIsModalOpen={setIsModalOpen}
-                          withSlug={withSlug}
-                        />)}
-                    </>
-                  );
-                })()}
+                ) : (
+                  (() => {
+                    // Null / unparseable event_date used to produce NaN
+                    // in the comparator (NaN compares are always false,
+                    // so those rows landed in unstable positions). Pin
+                    // them to the end instead.
+                    const eventTime = (o: AppOrder) => {
+                      const t = new Date(o.event_date as any).getTime();
+                      return Number.isFinite(t) ? t : Number.POSITIVE_INFINITY;
+                    };
+                    const sorted = getFilteredOrders().sort(
+                      (a, b) => eventTime(a) - eventTime(b),
+                    );
+                    const cappedToRender = timelineShowAll
+                      ? sorted
+                      : sorted.slice(0, TIMELINE_CAP);
+                    const hidden = sorted.length - cappedToRender.length;
+                    return (
+                      <>
+                        {hidden > 0 && (
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                            <span className="text-amber-900">
+                              Showing the first{" "}
+                              <strong className="tabular-nums">
+                                {cappedToRender.length}
+                              </strong>{" "}
+                              of{" "}
+                              <strong className="tabular-nums">
+                                {sorted.length}
+                              </strong>{" "}
+                              orders. Use a status or date filter to narrow it -
+                              or load them all.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setTimelineShowAll(true)}
+                              className="text-xs font-semibold text-amber-800 hover:text-amber-900 underline"
+                            >
+                              Show all {sorted.length}
+                            </button>
+                          </div>
+                        )}
+                        {cappedToRender.map((order) => (
+                          <TimelineRow
+                            key={order.id}
+                            order={order}
+                            selectedIds={selectedIds}
+                            timelinesById={timelinesById}
+                            readinessById={readinessById}
+                            allShiftsByOrder={allShiftsByOrder}
+                            staffProfilesById={staffProfilesById}
+                            currencySymbol={C}
+                            companyId={user?.company_id || null}
+                            loadOrders={loadOrders}
+                            toggleSelected={toggleSelected}
+                            setSelectedOrder={setSelectedOrder}
+                            setIsModalOpen={setIsModalOpen}
+                            withSlug={withSlug}
+                          />
+                        ))}
+                      </>
+                    );
+                  })()
+                )}
               </div>
             )}
 
@@ -2000,8 +2487,14 @@ function OrderProcessDashboard() {
               orderId={selectedOrder?.id || null}
               orderNumber={(selectedOrder as any)?.order_number || null}
               canPurge={(() => {
-                const r = ((user as any)?.active_role || (user as any)?.role || "").toString();
-                return r === "super_admin" || r === "company_admin" || r === "owner";
+                const r = (
+                  (user as any)?.active_role ||
+                  (user as any)?.role ||
+                  ""
+                ).toString();
+                return (
+                  r === "super_admin" || r === "company_admin" || r === "owner"
+                );
               })()}
               onResolved={() => {
                 setIsModalOpen(false);
@@ -2011,7 +2504,10 @@ function OrderProcessDashboard() {
                 // purge wipes the row outright. Every listener that
                 // shows this order needs to refetch.
                 if (selectedOrder?.id) {
-                  emitOrderUpdated(selectedOrder.id, "admin/orders:remove", ["status", "payments"]);
+                  emitOrderUpdated(selectedOrder.id, "admin/orders:remove", [
+                    "status",
+                    "payments",
+                  ]);
                 }
               }}
             />
@@ -2035,7 +2531,9 @@ function OrderProcessDashboard() {
                 queue suspend, prep tasks soft-delete, audit log). */}
             <PauseOrderDialog
               open={!!pauseDialogOrderId}
-              onOpenChange={(o) => { if (!o) setPauseDialogOrderId(null); }}
+              onOpenChange={(o) => {
+                if (!o) setPauseDialogOrderId(null);
+              }}
               orderId={pauseDialogOrderId}
               orderNumber={(selectedOrder as any)?.order_number || null}
               clientName={(selectedOrder as any)?.client_name || null}
@@ -2045,7 +2543,9 @@ function OrderProcessDashboard() {
                 // ORD-A (ORD-5): pause cascade is a status transition
                 // that calendar / dispatch / kitchen all care about.
                 if (pauseDialogOrderId) {
-                  emitOrderUpdated(pauseDialogOrderId, "admin/orders:pause", ["status"]);
+                  emitOrderUpdated(pauseDialogOrderId, "admin/orders:pause", [
+                    "status",
+                  ]);
                 }
               }}
             />
@@ -2056,8 +2556,14 @@ function OrderProcessDashboard() {
                 without losing context. */}
             <AmendmentReviewDrawer
               open={reviewDrawer.kind === "amendment"}
-              amendmentId={reviewDrawer.kind === "amendment" ? reviewDrawer.requestId : null}
-              orderId={reviewDrawer.kind === "amendment" ? reviewDrawer.orderId : null}
+              amendmentId={
+                reviewDrawer.kind === "amendment"
+                  ? reviewDrawer.requestId
+                  : null
+              }
+              orderId={
+                reviewDrawer.kind === "amendment" ? reviewDrawer.orderId : null
+              }
               onClose={closeReviewDrawer}
               onActioned={() => loadOrders()}
               onEditOrder={openOrderDetail}
@@ -2066,8 +2572,16 @@ function OrderProcessDashboard() {
             {/* Cancellation / postpone review drawer. */}
             <CancellationReviewDrawer
               open={reviewDrawer.kind === "cancellation"}
-              cancellationId={reviewDrawer.kind === "cancellation" ? reviewDrawer.requestId : null}
-              orderId={reviewDrawer.kind === "cancellation" ? reviewDrawer.orderId : null}
+              cancellationId={
+                reviewDrawer.kind === "cancellation"
+                  ? reviewDrawer.requestId
+                  : null
+              }
+              orderId={
+                reviewDrawer.kind === "cancellation"
+                  ? reviewDrawer.orderId
+                  : null
+              }
               onClose={closeReviewDrawer}
               onActioned={() => loadOrders()}
               onEditOrder={openOrderDetail}
@@ -2090,7 +2604,16 @@ export default function AdminOrders() {
     // their region's orders via RLS narrowing. OWNER added per the
     // 2026-07-02 command-centre baseline (owner rides the
     // company_admin tier).
-    <ProtectedRoute allowedRoles={[UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.ADMIN, UserRole.SALES_ADMIN, UserRole.REGION_ADMIN]}>
+    <ProtectedRoute
+      allowedRoles={[
+        UserRole.SUPER_ADMIN,
+        UserRole.OWNER,
+        UserRole.COMPANY_ADMIN,
+        UserRole.ADMIN,
+        UserRole.SALES_ADMIN,
+        UserRole.REGION_ADMIN,
+      ]}
+    >
       <OrderProcessDashboard />
     </ProtectedRoute>
   );

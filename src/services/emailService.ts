@@ -553,6 +553,25 @@ export const emailService = {
     // lookup isn't blocked by RLS.
     let config = await this.getEmailConfig(payload.companyId, payload._client);
 
+    // The visible From name must be the tenant's name even when the shared
+    // platform sender is used. Older provider rows may not have from_name,
+    // so hydrate it from the company record before resolving the header.
+    const configuredFromName = String(config?.from_name || "").trim();
+    if (config && (!configuredFromName || configuredFromName.toLowerCase() === "cateringms")) {
+      try {
+        const sb2 = payload._client || supabase;
+        const { data: company } = await sb2
+          .from("companies")
+          .select("company_name")
+          .eq("id", payload.companyId)
+          .maybeSingle();
+        const companyName = String((company as any)?.company_name || "").trim();
+        if (companyName) config = { ...config, from_name: companyName };
+      } catch (e) {
+        console.warn("[emailService] couldn't load company sender name:", e);
+      }
+    }
+
     if (!config || !config.enabled) {
       // Platform fallback for system-critical onboarding mail: a
       // brand-new company has no provider row yet, which would otherwise

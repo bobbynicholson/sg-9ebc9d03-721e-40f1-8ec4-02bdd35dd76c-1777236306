@@ -225,11 +225,11 @@ export const roleService = {
   getRoleDisplayName(role: UserRole): string {
     const roleNames: Record<UserRole, string> = {
       [UserRole.SUPER_ADMIN]: "Platform Admin",
-      [UserRole.OWNER]: "Owner",
-      [UserRole.COMPANY_ADMIN]: "Company Administrator",
+      [UserRole.OWNER]: "Company Owner",
+      [UserRole.COMPANY_ADMIN]: "Business Administrator",
       [UserRole.REGION_ADMIN]: "Region Admin",
       [UserRole.SALES_ADMIN]: "Sales Admin",
-      [UserRole.ADMIN]: "Administrator",
+      [UserRole.ADMIN]: "Operations Administrator",
       [UserRole.KITCHEN_MANAGER]: "Kitchen Manager",
       [UserRole.KITCHEN_STAFF]: "Kitchen Staff",
       [UserRole.SHOPPING_STAFF]: "Shopping Staff",

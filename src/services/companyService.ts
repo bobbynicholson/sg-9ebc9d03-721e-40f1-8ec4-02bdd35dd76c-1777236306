@@ -2,6 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { User, Session } from "@supabase/supabase-js";
+import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
 type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"];
@@ -39,6 +40,41 @@ function buildDefaultRegionCode(slug: string | null | undefined): string {
   return `${base}-${tail}`.slice(0, 12);
 }
 
+/**
+ * Convert a failed platform API response into a safe message for the
+ * company-database toast. Never expose a JSON parse error, HTML error page,
+ * stack trace, or provider-specific wording to the platform operator.
+ */
+function platformUserCreationError(
+  status: number,
+  payload: unknown,
+  email: string,
+): string {
+  const raw = typeof payload === "object" && payload !== null
+    ? String((payload as any).error || (payload as any).message || "")
+    : "";
+  const lower = raw.toLowerCase();
+
+  if (
+    status === 409 ||
+    /already\s+(registered|exists)|user already registered|duplicate key|unique constraint/.test(lower)
+  ) {
+    return `The admin email "${email}" is already registered. Use a different email or manage the existing user.`;
+  }
+
+  if (status === 401 || status === 403) {
+    return raw && !/stack|syntaxerror|<!doctype|postgres|postgrest|supabase/i.test(raw)
+      ? raw
+      : "You do not have permission to create a company. Please sign in again.";
+  }
+
+  if (!raw || /stack|syntaxerror|unexpected token|<!doctype|<html|postgres|postgrest|supabase|internal server error/i.test(lower)) {
+    return "The company could not be created right now. Please try again. If it keeps happening, contact support.";
+  }
+
+  return raw;
+}
+
 export const companyService = {
   /**
    * Create a new company (used during admin signup)
@@ -51,7 +87,7 @@ export const companyService = {
     currency?: string;
     timezone?: string;
     status?: string;
-  company_slug?: string;
+    company_slug?: string;
   }): Promise<{ success: boolean; company?: Company; error?: string }> {
     try {
       // Companies has `slug`, not `company_slug`, and no `onboarding_completed`.
@@ -381,7 +417,8 @@ export const companyService = {
   },
 
   /**
-   * Create a new company with an admin user from super admin dashboard
+   * Create a new company with separate owner and operations-manager logins
+   * from the super-admin dashboard.
    */
   async createCompanyWithAdmin(data: {
     company_name: string;
@@ -395,11 +432,24 @@ export const companyService = {
     postal_code: string;
     country: string;
     billing_currency: string;
+    owner_name: string;
     admin_name: string;
     admin_email: string;
     admin_password?: string;
   }): Promise<{ success: boolean; company?: Company; error?: string }> {
     try {
+      const adminEmail = data.admin_email.trim().toLowerCase();
+      const ownerEmail = data.email.trim().toLowerCase();
+      if (!ownerEmail) {
+        return { success: false, error: "A valid company owner email is required." };
+      }
+      if (!adminEmail) {
+        return { success: false, error: "A valid admin email is required." };
+      }
+      if (ownerEmail === adminEmail) {
+        return { success: false, error: "The company owner and operations manager need different email addresses so they can have separate access." };
+      }
+
       // FIX (2026-06-12): chicken-and-egg. /api/admin/create-user
       // REQUIRES company_id, but the old order created the admin user
       // FIRST (no company_id yet) -> the API rejected it with "we
@@ -449,53 +499,93 @@ export const companyService = {
           }
           throw new Error("A company with these details already exists. Change the company name / URL and try again.");
         }
-        throw new Error(companyError.message);
+        throw companyError;
       }
 
-      // 2. Create the admin user, now that we have a company_id to
-      // attach. create-user generates a temp password server-side.
-      const userRes = await fetch('/api/admin/create-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: data.admin_email,
-          full_name: data.admin_name,
-          role: 'company_admin',
-          company_id: company.id,
-        })
-      });
+      // 2. Create separate owner and operations-manager accounts. The API
+      // generates a temporary password and sends each person their own invite.
+      const provisionUser = async (email: string, fullName: string, role: "owner" | "company_admin") => {
+        const response = await fetch('/api/admin/create-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, full_name: fullName, role, company_id: company.id }),
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.user?.id) {
+          throw new Error(platformUserCreationError(response.status, payload, email));
+        }
+        return { id: payload.user.id as string, tempPassword: payload.tempPassword as string | null };
+      };
 
-      const userData = await userRes.json();
-      if (!userRes.ok) {
-        // Roll back the orphan company so a retry with the same slug
-        // doesn't hit the unique-slug constraint.
+      let ownerUser: { id: string; tempPassword: string | null } | null = null;
+      let managerUser: { id: string; tempPassword: string | null } | null = null;
+      try {
+        ownerUser = await provisionUser(ownerEmail, data.owner_name || "Company Owner", "owner");
+        managerUser = await provisionUser(adminEmail, data.admin_name || "Operations Manager", "company_admin");
+      } catch (userError) {
+        // The first account may already exist if the second account fails.
+        // Disable that partial account through the same audited admin path
+        // used by the platform user manager before removing the company.
+        if (ownerUser?.id) {
+          try {
+            await fetch('/api/admin/delete-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: ownerUser.id }),
+            });
+          } catch (cleanupError) {
+            console.warn("[companyService] partial owner cleanup failed:", cleanupError);
+          }
+        }
         await supabase.from("companies").delete().eq("id", company.id);
-        throw new Error(userData.error || "Failed to create the company's admin user");
+        throw userError;
       }
 
-      const userId = userData.user.id;
-      const tempPassword: string | null = (userData as any)?.tempPassword || null;
-      // Surface the password once - the super admin needs to hand
-      // it to the new tenant owner via a secure channel.
-      if (tempPassword && typeof window !== "undefined") {
-        try { await navigator.clipboard.writeText(tempPassword); } catch { /* clipboard blocked */ }
-        window.prompt(
-          `Temporary password for ${data.admin_name} (copied to clipboard).\nShare it via your secure channel - the owner must change it on first login.`,
-          tempPassword,
-        );
+      if (!ownerUser || !managerUser) {
+        await supabase.from("companies").delete().eq("id", company.id);
+        throw new Error("The owner and operations manager accounts could not be created.");
       }
 
-      // 3. Back-link the company to its owner.
+      // Surface both passwords once so the platform owner can pass them
+      // securely to the owner and operations manager.
+      if (typeof window !== "undefined") {
+        for (const credential of [
+          { name: data.owner_name || "Company Owner", password: ownerUser.tempPassword },
+          { name: data.admin_name || "Operations Manager", password: managerUser.tempPassword },
+        ]) {
+          if (!credential.password) continue;
+          try { await navigator.clipboard.writeText(credential.password); } catch { /* clipboard blocked */ }
+          window.prompt(
+            `Temporary password for ${credential.name} (copied to clipboard).\nShare it securely; this person must change it on first login.`,
+            credential.password,
+          );
+        }
+      }
+
+      // 3. Link the actual owner account to the company.
       const { error: ownerLinkErr } = await supabase
         .from("companies")
-        .update({ owner_id: userId } as any)
+        .update({ owner_id: ownerUser.id } as any)
         .eq("id", company.id);
       if (ownerLinkErr) {
         console.error("Error linking company owner:", ownerLinkErr);
+        for (const userId of [ownerUser.id, managerUser.id]) {
+          try {
+            await fetch('/api/admin/delete-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId }),
+            });
+          } catch (cleanupError) {
+            console.warn("[companyService] owner-link cleanup failed:", cleanupError);
+          }
+        }
+        await supabase.from("companies").delete().eq("id", company.id);
+        throw new Error("The company owner could not be linked. The company was not created; please try again.");
       }
 
-      // Note (2026-06-12): we deliberately DON'T update the new admin's
-      // profile from here. /api/admin/create-user already upserts it
+      // Note (2026-06-12): we deliberately DON'T update either profile
+      // from here. /api/admin/create-user already upserts each profile
       // (company_id, role, active_role) with the service-role client.
       // The previous browser-side profile UPDATE ran as the SUPER-ADMIN'S
       // session writing ANOTHER user's row, which the profiles RLS
@@ -523,7 +613,16 @@ export const companyService = {
       return { success: true, company };
     } catch (error: any) {
       console.error("Failed to create company with admin:", error);
-      return { success: false, error: error.message };
+      const message = dbErrorMessage(error, {
+        entity: "company",
+        fallback: "The company could not be created right now. Please try again.",
+      });
+      return {
+        success: false,
+        error: /failed to fetch|network|syntaxerror|unexpected token|<!doctype|<html/i.test(message)
+          ? "The company could not be created right now. Please try again. If it keeps happening, contact support."
+          : message,
+      };
     }
   },
 

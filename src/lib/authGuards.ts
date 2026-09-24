@@ -250,10 +250,10 @@ export const FINANCE_ROUTES = [
 
 // Role display names
 export const ROLE_NAMES: Record<UserRole, string> = {
-  [UserRole.ADMIN]: "Administrator",
+  [UserRole.ADMIN]: "Operations Administrator",
   [UserRole.SUPER_ADMIN]: "Platform Administrator",
-  [UserRole.OWNER]: "Owner",
-  [UserRole.COMPANY_ADMIN]: "Company Administrator",
+  [UserRole.OWNER]: "Company Owner",
+  [UserRole.COMPANY_ADMIN]: "Business Administrator",
   [UserRole.REGION_ADMIN]: "Branch Manager",
   [UserRole.SALES_ADMIN]: "Sales Admin",
   [UserRole.KITCHEN_MANAGER]: "Kitchen Manager",

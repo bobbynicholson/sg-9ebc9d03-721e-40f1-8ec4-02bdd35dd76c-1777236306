@@ -341,6 +341,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
       if (regionRow) targetRegionId = (regionRow as any).id;
     }
+    if (!targetRegionId) {
+      // Region is an internal foreign key, not a spreadsheet column. Use
+      // the tenant's oldest active region for a normal onboarding upload.
+      const { data: defaultRegion } = await ssr
+        .from("regions")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      targetRegionId = (defaultRegion as any)?.id || null;
+    }
 
     const job = await getImportJob(jobId, companyId);
     if (!job) return res.status(404).json({ error: "Import job not found" });
@@ -485,15 +498,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           company_id: companyId,
           region_id: targetRegionId,
           client_name: mapped.client_name || mapped.company_name || "Imported client",
+          client_type: mapped.client_type || "individual",
           email: cleanEmail,
           // Three phone columns. mobile_number is the WhatsApp
           // target; landline_number shows on the contact card; phone
           // stays as the legacy "primary" pointer so existing reads
           // keep working until every consumer migrates.
-          phone: mapped.phone || mapped.mobile_number || mapped.landline_number || null,
+          // The legacy clients.phone column is non-null even when the
+          // import only has an email. Keep it as an empty string while the
+          // typed mobile/landline columns retain the real values.
+          phone: mapped.phone || mapped.mobile_number || mapped.landline_number || "",
           mobile_number: mapped.mobile_number || null,
           landline_number: mapped.landline_number || null,
+          tax_number: mapped.tax_number || null,
+          billing_address_line1: mapped.billing_address_line1 || null,
+          billing_address_line2: mapped.billing_address_line2 || null,
+          billing_city: mapped.billing_city || null,
+          billing_postal_code: mapped.billing_postal_code || null,
+          payment_terms: toIntOrNull(mapped.payment_terms),
+          credit_limit: toNumOrNull(mapped.credit_limit),
           notes: mapped.notes || null,
+          tags: mapped.tags || null,
           is_active: mapped.status === "inactive" ? false : true,
           import_job_id: jobId,
           imported_filename: importedFilename,

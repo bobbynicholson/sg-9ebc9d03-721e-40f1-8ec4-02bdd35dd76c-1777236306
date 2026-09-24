@@ -22,6 +22,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { BusinessIntelligence } from "@/components/dashboard/BusinessIntelligence";
 import { FirstStepsCard } from "@/components/admin/FirstStepsCard";
 import { FirstEventWalkthrough } from "@/components/admin/FirstEventWalkthrough";
+import { DashboardTodoList } from "@/components/admin/DashboardTodoList";
 import { EmailProviderBanner } from "@/components/admin/EmailProviderBanner";
 import { TodaysPulse } from "@/components/admin/TodaysPulse";
 import { QuoteFollowupWidget } from "@/components/admin/QuoteFollowupWidget";
@@ -698,6 +699,11 @@ function AdminDashboardPage() {
               <EmailProviderBanner companyId={companyId} />
             </WidgetErrorBoundary>
           ) : null}
+
+          {/* Post-onboarding practical setup checklist. This sits directly
+              under the dashboard header so the owner sees the few actions
+              that turn a configured tenant into a usable business. */}
+          {companyId ? <DashboardTodoList companyId={companyId} slug={companySlug || ""} /> : null}
 
           {/* Admin persona follow-up (admin.md section 5): promote
               the metrics-load failure to a prominent rose-tinted

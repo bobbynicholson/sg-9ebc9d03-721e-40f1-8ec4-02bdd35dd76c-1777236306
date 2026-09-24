@@ -153,7 +153,7 @@ async function handler(
     }
 
     const {
-      email,
+      email: rawEmail,
       full_name,
       phone,
       role,
@@ -163,6 +163,7 @@ async function handler(
       region_id,
       regions_covered,
     } = req.body || {};
+    const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : rawEmail;
 
     // Sanitise scoping inputs. regions_covered must be a uuid array;
     // empty array means "no regions assigned" which is fail-closed for
@@ -349,8 +350,14 @@ async function handler(
 
     if (createErr || !created?.user) {
       console.error("admin.createUser failed:", createErr);
+      const createMessage = dbErrorMessage(createErr) || "Could not create user";
+      if (/already registered|already exists|duplicate key|unique constraint/i.test(createMessage)) {
+        return res.status(409).json({
+          error: `The admin email "${email}" is already registered. Use a different email or manage the existing user.`,
+        });
+      }
       return res.status(500).json({
-        error: dbErrorMessage(createErr) || "Could not create user",
+        error: createMessage,
       });
     }
 

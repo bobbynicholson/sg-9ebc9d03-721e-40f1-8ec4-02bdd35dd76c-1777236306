@@ -22,7 +22,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { normaliseEmail, normalisePhoneZA } from "@/lib/importNormalise";
+import { normaliseEmail, normalisePhoneZA, normaliseFieldValue } from "@/lib/importNormalise";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -33,7 +33,23 @@ interface RowInput {
   surname?: string;
   email?: string;
   phone?: string;
+  mobile_number?: string;
+  landline_number?: string;
   notes?: string;
+  client_type?: string;
+  tax_number?: string;
+  billing_address_line1?: string;
+  billing_address_line2?: string;
+  billing_city?: string;
+  billing_postal_code?: string;
+  payment_terms?: string;
+  credit_limit?: string;
+  tags?: string;
+  historical_total_events?: string;
+  historical_lifetime_spend?: string;
+  historical_last_event_date?: string;
+  historical_last_event_type?: string;
+  historical_notes?: string;
 }
 
 interface RowOutcome {
@@ -119,17 +135,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
       const email = emailRes.value;
 
-      const phoneRes = normalisePhoneZA(row.phone || "");
-      if (!phoneRes.value) {
-        outcomes.push({
-          index: i,
-          email,
-          ok: false,
-          status: "rejected",
-          reason: phoneRes.warnings[0] || "Phone number is required",
-        });
-        return;
-      }
+      const mobileRes = normalisePhoneZA(row.mobile_number || "");
+      const landlineRes = normalisePhoneZA(row.landline_number || "");
+      const phoneRes = normalisePhoneZA(row.phone || row.mobile_number || row.landline_number || "");
 
       // Combine name + surname into the single client_name column the
       // schema uses today. Keep both available in notes if useful.
@@ -159,13 +167,34 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
       seenInBatch.add(email);
 
+      const value = (key: string) => {
+        const result = normaliseFieldValue(key, (row as any)[key]);
+        return result.value == null || result.value === "" ? null : result.value;
+      };
+
       toInsert.push({
         company_id: companyId,
         region_id: defaultRegionId,
         client_name: fullName,
         email,
-        phone: phoneRes.value,
+        phone: phoneRes.value || "",
+        mobile_number: mobileRes.value || null,
+        landline_number: landlineRes.value || null,
+        client_type: value("client_type") || "individual",
+        tax_number: value("tax_number"),
+        billing_address_line1: value("billing_address_line1"),
+        billing_address_line2: value("billing_address_line2"),
+        billing_city: value("billing_city"),
+        billing_postal_code: value("billing_postal_code"),
+        payment_terms: value("payment_terms"),
+        credit_limit: value("credit_limit"),
+        tags: value("tags"),
         notes: row.notes ? String(row.notes).trim() : null,
+        historical_total_events: value("historical_total_events"),
+        historical_lifetime_spend: value("historical_lifetime_spend"),
+        historical_last_event_date: value("historical_last_event_date"),
+        historical_last_event_type: value("historical_last_event_type"),
+        historical_notes: value("historical_notes"),
         is_active: true,
       });
       outcomes.push({ index: i, email, ok: true, status: "imported" });

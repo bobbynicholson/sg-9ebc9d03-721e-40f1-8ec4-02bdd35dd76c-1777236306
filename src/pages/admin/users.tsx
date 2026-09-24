@@ -185,27 +185,25 @@ function AdminUsersPage() {
     group: "leadership" | "administrative" | "operational" | "client";
     description: string;
   }> = [
-    // Leadership - founder / shareholder access. Sees finance + all
-    // company controls.
+    // Leadership - the business owner. Sees finance + all company controls.
     {
-      value: UserRole.OWNER, label: "Owner", icon: Shield,
+      value: UserRole.OWNER, label: "Company Owner", icon: Shield,
       color: "bg-amber-100 text-amber-800 border-amber-200",
       group: "leadership",
-      description: "Full company control: finance, settings, every operational surface. Pick this for shareholders / directors.",
+      description: "The business owner: full company control, finance, payroll, settings, and every region.",
     },
-    // Administrative - day-to-day admin. Two levels: company-wide
-    // (admin everything) vs region-scoped.
+    // Administrative - company-wide access versus daily operations.
     {
-      value: UserRole.COMPANY_ADMIN, label: "Company Admin", icon: Shield,
+      value: UserRole.COMPANY_ADMIN, label: "Business Administrator", icon: Shield,
       color: "bg-blue-100 text-blue-700 border-blue-200",
       group: "administrative",
-      description: "Runs the business day-to-day: every order, every region, every report. Same finance access as owner.",
+      description: "Runs the company for the owner: full operational, finance, payroll, reporting, and all-region access.",
     },
     {
-      value: UserRole.ADMIN, label: "Admin", icon: Shield,
+      value: UserRole.ADMIN, label: "Operations Administrator", icon: Shield,
       color: "bg-slate-100 text-slate-700 border-slate-200",
       group: "administrative",
-      description: "General admin access without owner-level finance settings. Manages orders, calendar, dispatch, staff.",
+      description: "Trusted day-to-day manager: orders, clients, calendar, dispatch, and staff. No sensitive finance settings, payment gateways, subscriptions, or company-wide payroll.",
     },
     {
       value: UserRole.SALES_ADMIN, label: "Sales Admin", icon: UserCircle,
@@ -308,25 +306,21 @@ function AdminUsersPage() {
     hint: string;
   }> = [
     { key: "leadership",     label: "Leadership",            hint: "Founder / shareholder. Full finance access." },
-    { key: "administrative", label: "Administrative",        hint: "Pick ONE - they stack from broadest (Company Admin) to narrowest (Region Admin)." },
+    { key: "administrative", label: "Administrative",        hint: "Pick ONE level: Business Administrator is full access; Operations Administrator is daily operations; Region Admin is one branch." },
     { key: "operational",    label: "Operational portals",   hint: "Hands-on roles. Tick any that apply if the user works in those teams too." },
     { key: "client",         label: "Client portal",         hint: "Only tick if this person should see their own client-facing view. Rare for staff." },
   ];
 
   // USR-D: smart guidance based on the current selection. Surfaces
   // the most common mistake or next-step suggestion above the
-  // grid - "Owner + Company Admin" pattern, lonely "Admin" tick,
-  // etc.
+  // grid - redundant administrative selections or a client/staff mix.
   const guidance = useMemo(() => {
     const set = new Set<string>(selectedDepartments as unknown as string[]);
-    if (set.has("owner") && !set.has("company_admin")) {
-      return "Owners almost always need Company Admin too - that's the role that opens every operational page (orders, calendar, dispatch). Without it the owner only sees finance.";
-    }
     if (set.has("client") && set.size > 1) {
       return "Client + a staff role is unusual. The client portal is locked to /c/ and won't share session with the admin portal.";
     }
     if (set.has("admin") && set.has("company_admin")) {
-      return "Company Admin already includes everything Admin does. Tick only one.";
+      return "Business Administrator already includes Operations Administrator access. Pick one administrative level.";
     }
     if (selectedDepartments.length === 0) {
       return null;
@@ -1511,7 +1505,7 @@ function AdminUsersPage() {
                               old flat 7-checkbox grid gave no hint
                               what each role meant - operators had
                               to guess whether an "owner-admin"
-                              needed Admin or Company Admin or both.
+                              needed both a Business Administrator and an Operations Administrator.
                               Now: 4 groups (Leadership /
                               Administrative / Operational / Client),
                               one-line description per role, and a
@@ -1534,9 +1528,8 @@ function AdminUsersPage() {
 
                             {/* USR-D: smart-guidance banner. Shown
                                 only when the current selection
-                                trips a known footgun (owner without
-                                company_admin, redundant admin tick,
-                                client+staff mix). */}
+                                trips a known footgun (redundant admin
+                                tick or client+staff mix). */}
                             {guidance && (
                               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 mb-3 flex items-start gap-2">
                                 <AlertCircle className="w-3.5 h-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -1810,22 +1803,26 @@ function AdminUsersPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={UserRole.ADMIN}>Admin</SelectItem>
-                  <SelectItem value={UserRole.COMPANY_ADMIN}>Company Admin</SelectItem>
-                  <SelectItem value={UserRole.KITCHEN_MANAGER}>Kitchen Manager</SelectItem>
-                  <SelectItem value={UserRole.KITCHEN_STAFF}>Kitchen Team</SelectItem>
-                  <SelectItem value={UserRole.DRIVER}>Driver</SelectItem>
-                  <SelectItem value={UserRole.WAITER}>Waiter / Server</SelectItem>
-                  <SelectItem value={UserRole.SHOPPING_STAFF}>Shopping Team</SelectItem>
-                  <SelectItem value={UserRole.CLEANING_MANAGER}>Cleaning Manager</SelectItem>
-                  <SelectItem value={UserRole.CLEANING_STAFF}>Cleaning Team</SelectItem>
-                  <SelectItem value={UserRole.SALES_ADMIN}>Sales Admin</SelectItem>
-                  <SelectItem value={UserRole.REGION_ADMIN}>Region Admin</SelectItem>
+                  {roleConfig.map((role) => (
+                      <SelectItem key={role.value} value={role.value} className="py-2">
+                        <div className="pr-4">
+                          <p className="font-medium">{role.label}</p>
+                          <p className="mt-0.5 max-w-[340px] whitespace-normal text-[11px] leading-snug text-slate-500">
+                            {role.description}
+                          </p>
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
+            {roleMetaFor(inviteRole) && (
+              <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
+                <strong>{roleMetaFor(inviteRole)?.label}:</strong> {roleMetaFor(inviteRole)?.description}
+              </div>
+            )}
             <p className="text-[11px] text-slate-500">
-              Departments can be assigned on the user's row after they accept. The role here drives their initial portal default.
+              Choose the role that matches the person&apos;s responsibility. The role sets their initial portal and access level; additional operational roles can be added later from the user&apos;s row. Super Admin is platform-only and cannot be created from a company Teams Hub.
             </p>
           </div>
           <DialogFooter>

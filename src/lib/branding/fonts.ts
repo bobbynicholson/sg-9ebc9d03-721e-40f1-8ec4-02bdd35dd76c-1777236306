@@ -14,7 +14,7 @@
  * value resolves to null here and the default font is used.
  */
 
-export type FontCategory = "sans" | "serif";
+export type FontCategory = "sans" | "serif" | "mono";
 
 export interface BrandFont {
   /** Stored value + CSS family name (must match the Google family). */
@@ -30,6 +30,7 @@ export interface BrandFont {
 
 const SANS_FALLBACK = "ui-sans-serif, system-ui, sans-serif";
 const SERIF_FALLBACK = "ui-serif, Georgia, Cambria, serif";
+const MONO_FALLBACK = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 
 /**
  * The catalogue. Body picker shows all; display picker shows all too -
@@ -52,6 +53,8 @@ export const BRAND_FONTS: BrandFont[] = [
   { name: "Lora", label: "Lora", category: "serif", fallback: SERIF_FALLBACK, weights: [400, 500, 600, 700] },
   { name: "Cormorant", label: "Cormorant", category: "serif", fallback: SERIF_FALLBACK, weights: [400, 500, 600, 700] },
   { name: "DM Serif Display", label: "DM Serif Display", category: "serif", fallback: SERIF_FALLBACK, weights: [400] },
+  { name: "Roboto Mono", label: "Roboto Mono", category: "mono", fallback: MONO_FALLBACK, weights: [400, 500, 700] },
+  { name: "Source Code Pro", label: "Source Code Pro", category: "mono", fallback: MONO_FALLBACK, weights: [400, 500, 600, 700] },
 ];
 
 const BY_NAME = new Map(BRAND_FONTS.map((f) => [f.name, f]));

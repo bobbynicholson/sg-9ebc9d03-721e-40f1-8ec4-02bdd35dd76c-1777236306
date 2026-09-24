@@ -290,6 +290,7 @@ export function AdminNav(_: AdminNavProps = {}) {
       defaultOpen: false,
       items: [
         { title: "Finance overview", href: "/admin/financial-dashboard", icon: Banknote, description: "Revenue and margin" },
+        { title: "Event profitability", href: "/admin/event-profitability", icon: BarChart3, description: "Actual cost and profit per event" },
         { title: "Recurring invoices", href: "/admin/recurring-invoices", icon: Receipt, description: "Repeat billing schedules" },
         { title: "Cashflow",         href: "/admin/cashflow-dashboard",  icon: TrendingUp, description: "30-day forecast" },
         { title: "Balances",         href: "/admin/outstanding-balances", icon: Wallet, description: "Client money due" },

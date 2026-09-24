@@ -121,6 +121,18 @@ async function handler(
       newStatus === "verified"
         ? (row as any).resend_domain_verified_at || now
         : null;
+    const domain = String((row as any).resend_sending_domain || "")
+      .trim()
+      .toLowerCase();
+    const currentFromEmail = String((row as any).from_email || "")
+      .trim()
+      .toLowerCase();
+    // Once Resend confirms DNS, move the effective sender onto the verified
+    // domain. While pending, keep the company inbox so Reply-To remains safe.
+    const effectiveFromEmail =
+      newStatus === "verified" && domain && !currentFromEmail.endsWith(`@${domain}`)
+        ? `hello@${domain}`
+        : currentFromEmail || null;
 
     const { error: updateErr } = await admin
       .from("email_provider_settings")
@@ -128,6 +140,7 @@ async function handler(
         resend_dns_records: newRecords,
         resend_domain_status: newStatus,
         resend_domain_verified_at: verifiedAt,
+        from_email: effectiveFromEmail,
         resend_last_checked_at: now,
         updated_at: now,
       })
@@ -140,7 +153,6 @@ async function handler(
     }
 
     const newlyVerified = newStatus === "verified" && !wasVerified;
-    const domain = (row as any).resend_sending_domain as string;
 
     if (newlyVerified) {
       // Fan out the post-verify hooks. None of these can fail the response.
@@ -148,7 +160,7 @@ async function handler(
         admin,
         companyId,
         domain,
-        fromEmail: (row as any).from_email || null,
+        fromEmail: effectiveFromEmail,
         actorUserId: callerAuth.id,
       });
     }

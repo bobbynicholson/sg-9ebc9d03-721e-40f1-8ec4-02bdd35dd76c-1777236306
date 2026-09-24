@@ -39,7 +39,7 @@ import {
   loadBrandFonts,
   type BrandingRow,
 } from "@/lib/branding/applyBranding";
-import { BRAND_FONTS, fontFamilyValue } from "@/lib/branding/fonts";
+import { BRAND_FONTS, fontFamilyValue, googleFontsHref } from "@/lib/branding/fonts";
 import { clearBrandingCache } from "@/lib/branding/store";
 import { useResolvedTenantSlug, useTenantHref } from "@/lib/tenantUrl";
 import {
@@ -89,6 +89,84 @@ function contrastRatio(hexA: string, hexB: string): number | null {
   const lighter = Math.max(la, lb);
   const darker = Math.min(la, lb);
   return (lighter + 0.05) / (darker + 0.05);
+}
+
+function FontOptionList({
+  value,
+  defaultName,
+  sampleName,
+  onChange,
+}: {
+  value: string;
+  defaultName: string;
+  sampleName: string;
+  onChange: (name: string) => void;
+}) {
+  const selected = value || "";
+  const catalogueHref = googleFontsHref(BRAND_FONTS.map((font) => font.name));
+  const categoryLabel = (category: string) =>
+    category === "mono" ? "Monospace" : category === "serif" ? "Serif" : "Sans serif";
+
+  useEffect(() => {
+    if (!catalogueHref || typeof document === "undefined") return;
+    const existing = document.getElementById("brand-font-catalogue-preview") as HTMLLinkElement | null;
+    const link = existing || document.createElement("link");
+    link.id = "brand-font-catalogue-preview";
+    link.rel = "stylesheet";
+    link.href = catalogueHref;
+    if (!existing) document.head.appendChild(link);
+    return () => {
+      if (!existing) link.remove();
+    };
+  }, [catalogueHref]);
+
+  return (
+    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" role="listbox" aria-label="Font choices">
+      <button
+        type="button"
+        role="option"
+        aria-selected={selected === ""}
+        onClick={() => onChange("")}
+        className={`rounded-lg border p-3 text-left transition ${selected === "" ? "border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20" : "border-slate-200 bg-white hover:border-slate-400"}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-slate-900" style={{ fontFamily: fontFamilyValue(defaultName) || undefined }}>
+            Default ({defaultName})
+          </span>
+          {selected === "" && <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-primary" />}
+        </div>
+        <p className="mt-1 text-lg text-slate-800" style={{ fontFamily: fontFamilyValue(defaultName) || undefined }}>
+          {sampleName || "Your company"} — beautiful events, simply managed.
+        </p>
+        <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">Default typeface</p>
+      </button>
+
+      {BRAND_FONTS.map((font) => {
+        const isSelected = selected === font.name;
+        return (
+          <button
+            key={font.name}
+            type="button"
+            role="option"
+            aria-selected={isSelected}
+            onClick={() => onChange(font.name)}
+            className={`rounded-lg border p-3 text-left transition ${isSelected ? "border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20" : "border-slate-200 bg-white hover:border-slate-400"}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-slate-900" style={{ fontFamily: fontFamilyValue(font.name) || undefined }}>
+                {font.label}
+              </span>
+              {isSelected && <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-primary" />}
+            </div>
+            <p className="mt-1 text-lg text-slate-800" style={{ fontFamily: fontFamilyValue(font.name) || undefined }}>
+              {sampleName || "Your company"} — beautiful events, simply managed.
+            </p>
+            <p className="mt-1 text-[10px] uppercase tracking-wide text-slate-500">{categoryLabel(font.category)}</p>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 // WL-B: hand-curated palette presets. Each one is internally
@@ -1018,18 +1096,8 @@ function WhiteLabelPage() {
                       with a sans heading if they want. */}
                   <div className="space-y-4 border-t border-slate-200 pt-5">
                     <div>
-                      <Label htmlFor="fontBody">Body font</Label>
-                      <select
-                        id="fontBody"
-                        value={fontBody}
-                        onChange={(e) => setFontBody(e.target.value)}
-                        className="mt-1.5 w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
-                      >
-                        <option value="">Default (Inter)</option>
-                        {BRAND_FONTS.map((f) => (
-                          <option key={f.name} value={f.name}>{f.label}</option>
-                        ))}
-                      </select>
+                      <Label>Body font</Label>
+                      <FontOptionList value={fontBody} defaultName="Inter" sampleName={organizationName} onChange={setFontBody} />
                       <p
                         className="text-sm text-slate-600 mt-2"
                         style={{ fontFamily: fontFamilyValue(fontBody) || undefined }}
@@ -1039,18 +1107,8 @@ function WhiteLabelPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="fontDisplay">Heading font</Label>
-                      <select
-                        id="fontDisplay"
-                        value={fontDisplay}
-                        onChange={(e) => setFontDisplay(e.target.value)}
-                        className="mt-1.5 w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
-                      >
-                        <option value="">Default (Fraunces)</option>
-                        {BRAND_FONTS.map((f) => (
-                          <option key={f.name} value={f.name}>{f.label}</option>
-                        ))}
-                      </select>
+                      <Label>Heading font</Label>
+                      <FontOptionList value={fontDisplay} defaultName="Fraunces" sampleName={organizationName} onChange={setFontDisplay} />
                       <p
                         className="text-xl font-semibold text-slate-800 mt-2"
                         style={{ fontFamily: fontFamilyValue(fontDisplay) || undefined }}

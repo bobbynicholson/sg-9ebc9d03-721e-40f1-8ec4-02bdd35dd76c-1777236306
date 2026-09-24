@@ -98,12 +98,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     let nextStatus: "pending" | "skipped" | "error" = "pending";
     let nextErrorMessage: string | null = null;
     if (targetTable === "clients") {
-      const hasContact =
-        (nextMapped.client_name as string)?.trim() ||
-        nextMapped.email || nextMapped.phone || nextMapped.mobile_number || nextMapped.landline_number;
-      if (!hasContact) {
-        nextStatus = "skipped";
-        nextErrorMessage = "No client name / email / phone";
+      if (!(nextMapped.client_name as string)?.trim()) {
+        nextStatus = "error";
+        nextErrorMessage = "Client name is required";
+      } else if (!nextMapped.email) {
+        nextStatus = "error";
+        nextErrorMessage = "Client email is required";
       }
     } else if (targetTable === "orders") {
       if (!(nextMapped.client_name as string)?.trim()) {

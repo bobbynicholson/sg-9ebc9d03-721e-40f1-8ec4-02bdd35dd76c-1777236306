@@ -89,7 +89,7 @@ async function handler(
     const { data: existing } = await admin
       .from("email_provider_settings")
       .select(
-        "id, resend_domain_id, resend_sending_domain, resend_domain_status",
+        "id, resend_domain_id, resend_sending_domain, resend_domain_status, from_email, from_name",
       )
       .eq("company_id", companyId)
       .eq("provider", "resend")
@@ -152,6 +152,18 @@ async function handler(
     const records = (created as any).records || [];
     const status = (created as any).status || "pending";
     const now = new Date().toISOString();
+    const { data: companyIdentity } = await admin
+      .from("companies")
+      .select("company_name, email")
+      .eq("id", companyId)
+      .maybeSingle();
+    const existingFromEmail = String((existing as any)?.from_email || "").trim().toLowerCase();
+    const companyEmail = String((companyIdentity as any)?.email || "").trim().toLowerCase();
+    const senderEmail = existingFromEmail.endsWith(`@${domain}`)
+      ? existingFromEmail
+      : status === "verified"
+        ? `hello@${domain}`
+        : existingFromEmail || companyEmail || null;
 
     // Upsert the resend row. On (company_id, provider) conflict, replace
     // the resend_* columns so a force=true reset stamps the new id.
@@ -164,6 +176,10 @@ async function handler(
       resend_domain_status: status,
       resend_domain_verified_at: status === "verified" ? now : null,
       resend_last_checked_at: now,
+      from_email: senderEmail,
+      from_name: (existing as any)?.from_name || (companyIdentity as any)?.company_name || null,
+      // Choosing an own domain is an explicit opt-in from the shared sender.
+      force_platform_sender: false,
       updated_at: now,
     };
 

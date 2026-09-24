@@ -307,12 +307,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       let status: "pending" | "skipped" | "error" = "pending";
       let errorMessage: string | null = null;
       if (targetTable === "clients") {
-        const hasContact =
-          (mapped.client_name as string)?.trim() ||
-          mapped.email || mapped.phone || mapped.mobile_number || mapped.landline_number;
-        if (!hasContact) {
-          status = "skipped";
-          errorMessage = "No client name / email / phone";
+        if (!(mapped.client_name as string)?.trim()) {
+          status = "error";
+          errorMessage = "Client name is required";
+        } else if (!mapped.email) {
+          status = "error";
+          errorMessage = "Client email is required";
         }
       } else if (targetTable === "orders") {
         const hasClientHandle =

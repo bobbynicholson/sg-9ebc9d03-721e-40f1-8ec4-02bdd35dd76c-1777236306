@@ -33,6 +33,7 @@ export interface CompanyFormData {
   postal_code: string;
   country: string;
   billing_currency: string;
+  owner_name: string;
   admin_name: string;
   admin_email: string;
   /** Generated server-side, returned once and shown to the operator. */

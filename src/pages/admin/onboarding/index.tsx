@@ -44,6 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 import { onboardingProgressService } from "@/services/onboardingProgressService";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
+import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { captureException } from "@/lib/observability";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
@@ -638,7 +639,7 @@ function WelcomeStep({
   // outside this list - they're navigation steps, not data.
   const checklist: Array<{ id: StepId; label: string; helper: string }> = [
     { id: "company",  label: "Business basics",  helper: "name, contact details, registration" },
-    { id: "address",  label: "Kitchen address",  helper: "drives delivery distance + driver routing" },
+    { id: "address",  label: "Kitchen address",  helper: "drivers, delivery distance + routing" },
     { id: "branding", label: "Branding",         helper: "logo + brand colours for your client portal" },
     { id: "banking",  label: "Banking",          helper: "optional - enables EFT as a payment option" },
     { id: "vat",      label: "VAT registration", helper: "changes your invoice document title" },
@@ -804,6 +805,34 @@ function CompanyStep({
 function AddressStep({
   form, setForm, saving, onBack, onNext,
 }: StepProps) {
+  const fullAddress = [
+    form.address_line1,
+    form.address_line2,
+    form.city,
+    form.state_province,
+    form.postal_code,
+    form.country,
+  ].filter(Boolean).join(", ");
+
+  const onPickAddress = (pick: any) => {
+    const components = pick.components || {};
+    const street = [components.street_number, components.street]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || pick.address;
+
+    setForm((current) => ({
+      ...current,
+      address_line1: street || pick.address,
+      city: components.city || current.city,
+      state_province: components.state || current.state_province,
+      postal_code: components.postal_code || current.postal_code,
+      country: components.country || current.country || "South Africa",
+      headquarters_lat: pick.lat ?? null,
+      headquarters_lng: pick.lng ?? null,
+    }));
+  };
+
   return (
     <StepShell
       icon={MapPin}
@@ -811,6 +840,17 @@ function AddressStep({
       description="Used as the starting point for every delivery distance and route plan. The more accurate, the more accurate your quotes."
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
+          <Field id="addr_search" label="Search and pick">
+            <AddressAutocomplete
+              id="addr_search"
+              value={fullAddress}
+              onChange={onPickAddress}
+              placeholder="Search the kitchen / HQ address"
+              countryCode="za"
+            />
+          </Field>
+        </div>
         <Field id="addr1" label="Address line 1">
           <Input
             id="addr1"
@@ -856,9 +896,8 @@ function AddressStep({
         </Field>
       </div>
       <p className="text-xs text-slate-500">
-        You can fine-tune the lat/lng later under <strong>Company Profile</strong>. Most caterers
-        leave these blank now and let the address autocomplete fill them in once Google Maps is
-        connected.
+        Pick an address from the map suggestions to save the precise kitchen pin used for delivery
+        distance and route calculations. You can fine-tune the lat/lng later under <strong>Company Profile</strong>.
       </p>
       <NavRow onBack={onBack} onNext={onNext} saving={saving} />
     </StepShell>
@@ -1070,11 +1109,24 @@ function EmailStep({
     if (!companyId) return;
     setPickingShared(true);
     try {
+      const { data: company, error: companyError } = await (supabase as any)
+        .from("companies")
+        .select("company_name, email")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (companyError) throw companyError;
+      const replyTo = String(company?.email || "").trim().toLowerCase();
+      if (!replyTo) {
+        throw new Error("Add a company contact email before choosing the shared sender.");
+      }
       const { error } = await (supabase as any)
         .from("email_provider_settings")
         .upsert({
           company_id: companyId,
           provider: "resend",
+          from_name: company?.company_name || null,
+          from_email: replyTo,
+          force_platform_sender: true,
           updated_at: new Date().toISOString(),
         }, { onConflict: "company_id,provider" });
       if (error) throw error;
@@ -1115,7 +1167,7 @@ function EmailStep({
               </span>
             </div>
             <p className="text-xs text-slate-700 leading-relaxed">
-              Your clients see emails from <code>you@yourdomain.com</code>. Takes 5 minutes to set up. We give you 3 DNS records to add at your domain host (cPanel / konsoleH / Vercel Domains / wherever) and verify automatically once they're live.
+              If you choose this option, we will ask you to add the exact TXT, MX and CNAME records shown by Resend at your domain host. Once every record is correct and Resend verifies them, your clients will see emails from an address on your domain, such as <code>hello@yourdomain.com</code>. Until then, emails continue from the shared CateringMS address and client replies go to your company contact email.
             </p>
             <p className="mt-3 text-xs font-semibold text-slate-700 inline-flex items-center gap-1">
               Set up my domain <ArrowRight className="w-3 h-3" />
@@ -1132,7 +1184,7 @@ function EmailStep({
               <p className="font-semibold text-slate-900">Use the CateringMS sender for now</p>
             </div>
             <p className="text-xs text-slate-700 leading-relaxed">
-              Emails go out from <code>noreply@send.cateringms.com</code> with replies coming back to your inbox. Zero setup, but slightly less branded. You can switch to your own domain anytime in Settings.
+              If you choose this option, emails can be sent immediately from <code>noreply@send.cateringms.com</code>. Clients will see your company name, and when they click Reply, their message will be delivered to the company contact email saved in Business basics. You do not need to add DNS records, and you can switch to your own domain later in Settings.
             </p>
             <p className="mt-3 text-xs font-semibold text-slate-700 inline-flex items-center gap-1">
               Use shared sender <ArrowRight className="w-3 h-3" />
@@ -1145,7 +1197,7 @@ function EmailStep({
         <div className="space-y-3">
           <div className="rounded-md border border-slate-200 bg-slate-50/40 p-3">
             <p className="text-xs text-slate-700">
-              Enter your sending domain below. We'll create the entry in Resend and show you the DNS records to add at your domain host. Verification usually completes within an hour of the records going live.
+              If you continue with your own domain, we register it with Resend and show the exact TXT, MX and CNAME records required. Add those records at your DNS host. We check each record; only after all records match and Resend verifies the domain will outgoing emails use your domain. Until that happens, the shared CateringMS sender remains active and client replies continue going to your company contact email.
             </p>
           </div>
           <ResendDomainCard companyId={companyId} compact />
@@ -1160,7 +1212,7 @@ function EmailStep({
           <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
             <p className="font-semibold mb-1">Shared sender</p>
             <p>
-              Outgoing emails will come from <code>noreply@send.cateringms.com</code>. When clients hit reply, the message lands in <strong>your inbox</strong> via the contact email on your company profile.
+              If you confirm this choice, outgoing emails will come from <code>noreply@send.cateringms.com</code> immediately. Clients will see your company name. When a client clicks Reply, the message will be delivered to the <strong>company contact email</strong> saved in Business basics. No DNS or verification is required, and you can move to your own domain later.
             </p>
           </div>
           <div className="text-xs text-slate-500">
@@ -1204,6 +1256,10 @@ function ClientsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
           Download the template, fill in your existing customer list (up to 10,000 rows),
           and upload. We'll preview every row, flag duplicates and only save what you confirm.
         </p>
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
+          <p className="font-semibold mb-1">Before you upload</p>
+          <p><strong>Required:</strong> Client name and email. Phone and all other details are optional. The company and default region are assigned automatically, so you do not need internal IDs. Existing clients with the same email are flagged for you to skip or update after the preview.</p>
+        </div>
         <ul className="text-xs text-slate-600 space-y-1">
           <li className="flex items-start gap-2">
             <Check className="w-3.5 h-3.5 text-brand-primary mt-0.5 flex-shrink-0" />

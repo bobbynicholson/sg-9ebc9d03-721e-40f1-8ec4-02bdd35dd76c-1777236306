@@ -34,6 +34,7 @@ import {
   Clock,
   User,
   AlertTriangle,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { signOutAndRedirect } from "@/lib/signOut";
@@ -297,6 +298,7 @@ export function CommandPalette() {
     { id: "go-drivers", label: "Drivers (manage)", icon: Truck, href: "/admin/driver-management", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["driver","manage","add","invite"] },
     { id: "go-regions", label: "Regions", icon: Globe, href: "/admin/regions", group: "Navigate", roles: ["admin","company_admin","owner"] },
     { id: "go-financial", label: "Financial Dashboard", icon: Banknote, href: "/admin/financial-dashboard", group: "Navigate", roles: ["company_admin","owner","super_admin"] },
+    { id: "go-event-profitability", label: "Event Profitability", icon: BarChart3, href: "/admin/event-profitability", group: "Navigate", roles: ["company_admin","owner","super_admin"], keywords: ["profit", "margin", "event cost", "event profit"] },
     { id: "go-invoices", label: "Invoices", icon: CreditCard, href: "/admin/invoices", group: "Navigate", roles: ["admin","company_admin","owner"] },
     { id: "go-dispatch", label: "Dispatch Queue", icon: Truck, href: "/admin/order-assignments", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["assign","driver","queue","dispatch"] },
     { id: "go-tracking", label: "Live Operations", icon: Truck, href: "/admin/tracking", group: "Navigate", roles: ["admin","company_admin","owner"], keywords: ["track","map","live"] },

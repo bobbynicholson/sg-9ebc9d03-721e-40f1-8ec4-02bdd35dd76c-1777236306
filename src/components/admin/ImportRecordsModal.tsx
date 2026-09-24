@@ -221,9 +221,9 @@ export function ImportRecordsModal({
     onOpenChange(false);
   };
 
-  const downloadTemplate = () => {
-    // Direct GET - the endpoint streams an xlsx attachment.
-    window.location.href = `/api/imports/templates/${template}`;
+  const downloadTemplate = (format: "xlsx" | "csv" | "txt") => {
+    // Direct GET - the endpoint streams a schema-generated preview file.
+    window.location.href = `/api/imports/templates/${template}${format === "xlsx" ? "" : `?format=${format}`}`;
   };
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -632,12 +632,29 @@ export function ImportRecordsModal({
                 Download the template, fill in your {recordLabelPlural}, then upload.
               </p>
               <p className="text-xs text-slate-500">
-                Required fields are marked with *. Hover over column headers in Excel for hints.
+                Required fields are marked with *. The CSV and Excel templates contain the same columns and example row; download the text guide for field-by-field instructions.
               </p>
+              <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-left text-[11px] leading-relaxed text-blue-900">
+                <p className="font-semibold mb-1">What to enter</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li><strong>Required:</strong> Client name and email. Rows missing either one cannot be imported.</li>
+                  <li><strong>Optional:</strong> Phone, mobile, landline, address, VAT number, payment terms, credit limit, tags, notes, and historical client details. Leave anything you do not know blank.</li>
+                  <li><strong>No internal IDs needed:</strong> the company and default active region are assigned automatically; do not add a <code>region_id</code> column.</li>
+                  <li><strong>Safe review:</strong> every row is previewed before saving. Existing clients with the same email are shown as duplicates, which you can skip or choose to update.</li>
+                </ul>
+              </div>
               <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
-                <Button variant="outline" onClick={downloadTemplate} className="gap-2">
+                <Button variant="outline" onClick={() => downloadTemplate("xlsx")} className="gap-2">
                   <Download className="w-4 h-4" />
-                  Download {recordLabel} template
+                  Excel template
+                </Button>
+                <Button variant="outline" onClick={() => downloadTemplate("csv")} className="gap-2">
+                  <Download className="w-4 h-4" />
+                  CSV template
+                </Button>
+                <Button variant="ghost" onClick={() => downloadTemplate("txt")} className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Column guide
                 </Button>
                 <Button
                   onClick={() => fileInput.current?.click()}

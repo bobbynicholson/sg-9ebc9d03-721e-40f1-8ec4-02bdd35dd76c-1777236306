@@ -28,11 +28,20 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import {
   Upload, ArrowLeft, FileSpreadsheet, ClipboardPaste, CheckCircle2,
-  AlertTriangle, Trash2, Loader2, Users,
+  AlertTriangle, Trash2, Loader2, Users, Download,
 } from "lucide-react";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 
-type RawRow = { name?: string; surname?: string; email?: string; phone?: string; notes?: string };
+type RawRow = {
+  name?: string; surname?: string; email?: string; phone?: string; mobile_number?: string; landline_number?: string; notes?: string;
+  client_type?: string; tax_number?: string;
+  billing_address_line1?: string; billing_address_line2?: string;
+  billing_city?: string; billing_postal_code?: string;
+  payment_terms?: string; credit_limit?: string; tags?: string;
+  historical_total_events?: string; historical_lifetime_spend?: string;
+  historical_last_event_date?: string; historical_last_event_type?: string;
+  historical_notes?: string;
+};
 
 interface PreviewRow extends RawRow {
   /** Local UI-only id for keys + row removal. */
@@ -56,7 +65,7 @@ function rowIssues(r: RawRow): string[] {
   const fullName = [(r.name || "").trim(), (r.surname || "").trim()].filter(Boolean).join(" ").trim();
   if (!fullName) out.push("Name is missing");
   if (!r.email || !looksLikeEmail(r.email)) out.push("Email is missing or invalid");
-  if (!r.phone || !looksLikePhone(r.phone)) out.push("Phone is missing or too short");
+  if (r.phone && !looksLikePhone(r.phone)) out.push("Phone is too short");
   return out;
 }
 
@@ -65,21 +74,42 @@ function rowIssues(r: RawRow): string[] {
  * Forgiving on common header spellings.
  */
 function pickHeaderMap(headers: string[]): {
-  name: number; surname: number; email: number; phone: number; notes: number;
+  name: number; surname: number; email: number; phone: number; mobile_number: number; landline_number: number; notes: number;
+  client_type: number; tax_number: number; billing_address_line1: number;
+  billing_address_line2: number; billing_city: number; billing_postal_code: number;
+  payment_terms: number; credit_limit: number; tags: number;
+  historical_total_events: number; historical_lifetime_spend: number;
+  historical_last_event_date: number; historical_last_event_type: number; historical_notes: number;
 } {
   const idx = (candidates: string[]) => {
     for (let i = 0; i < headers.length; i++) {
-      const h = headers[i].toLowerCase().trim();
+      const h = headers[i].toLowerCase().trim().replace(/\s*\*\s*$/, "");
       if (candidates.includes(h)) return i;
     }
     return -1;
   };
   return {
-    name:    idx(["name", "first name", "firstname", "first_name", "given name"]),
+    name:    idx(["name", "client name", "client_name", "first name", "firstname", "first_name", "given name"]),
     surname: idx(["surname", "last name", "lastname", "last_name", "family name", "family_name"]),
     email:   idx(["email", "e-mail", "e_mail", "mail", "email address", "email_address"]),
-    phone:   idx(["phone", "tel", "telephone", "cell", "cellphone", "mobile", "phone number", "tel number", "cell number"]),
+    phone:   idx(["phone", "tel", "telephone", "phone number", "tel number"]),
+    mobile_number: idx(["mobile", "mobile_number", "cell", "cellphone", "cell number"]),
+    landline_number: idx(["landline", "landline_number", "office", "office phone", "home phone"]),
     notes:   idx(["notes", "note", "comments", "memo"]),
+    client_type: idx(["client type", "client_type", "type"]),
+    tax_number: idx(["tax / vat number", "tax_number", "vat", "vat number", "tax id"]),
+    billing_address_line1: idx(["billing address (line 1)", "billing_address_line1", "address", "address 1", "street"]),
+    billing_address_line2: idx(["billing address (line 2)", "billing_address_line2", "address 2", "suburb"]),
+    billing_city: idx(["city", "billing city", "billing_city", "town"]),
+    billing_postal_code: idx(["postal code", "billing postal code", "billing_postal_code", "postcode", "zip"]),
+    payment_terms: idx(["payment terms (days)", "payment_terms", "terms", "net days", "due days"]),
+    credit_limit: idx(["credit limit (r)", "credit_limit", "credit"]),
+    tags: idx(["tags (comma-separated)", "tags", "labels", "categories"]),
+    historical_total_events: idx(["total events (history)", "historical_total_events", "total events", "event count", "events booked", "lifetime events", "past events"]),
+    historical_lifetime_spend: idx(["lifetime spend (r)", "historical_lifetime_spend", "lifetime spend", "total spent", "lifetime value", "ltv", "total revenue"]),
+    historical_last_event_date: idx(["last event date (history)", "historical_last_event_date", "last event", "most recent event", "last booking", "last function"]),
+    historical_last_event_type: idx(["last event type (history)", "historical_last_event_type", "last event type", "last booking type"]),
+    historical_notes: idx(["history notes", "historical_notes", "client history", "previous notes"]),
   };
 }
 
@@ -108,8 +138,24 @@ function rowsFromTable(headers: string[], rows: string[][]): RawRow[] {
         name:    map.name    >= 0 ? r[map.name]    : "",
         surname: map.surname >= 0 ? r[map.surname] : "",
         email:   map.email   >= 0 ? r[map.email]   : "",
-        phone:   map.phone   >= 0 ? r[map.phone]   : "",
+        phone:   map.phone   >= 0 ? r[map.phone]   : (map.mobile_number >= 0 ? r[map.mobile_number] : (map.landline_number >= 0 ? r[map.landline_number] : "")),
+        mobile_number: map.mobile_number >= 0 ? r[map.mobile_number] : "",
+        landline_number: map.landline_number >= 0 ? r[map.landline_number] : "",
         notes:   map.notes   >= 0 ? r[map.notes]   : "",
+        client_type: map.client_type >= 0 ? r[map.client_type] : "",
+        tax_number: map.tax_number >= 0 ? r[map.tax_number] : "",
+        billing_address_line1: map.billing_address_line1 >= 0 ? r[map.billing_address_line1] : "",
+        billing_address_line2: map.billing_address_line2 >= 0 ? r[map.billing_address_line2] : "",
+        billing_city: map.billing_city >= 0 ? r[map.billing_city] : "",
+        billing_postal_code: map.billing_postal_code >= 0 ? r[map.billing_postal_code] : "",
+        payment_terms: map.payment_terms >= 0 ? r[map.payment_terms] : "",
+        credit_limit: map.credit_limit >= 0 ? r[map.credit_limit] : "",
+        tags: map.tags >= 0 ? r[map.tags] : "",
+        historical_total_events: map.historical_total_events >= 0 ? r[map.historical_total_events] : "",
+        historical_lifetime_spend: map.historical_lifetime_spend >= 0 ? r[map.historical_lifetime_spend] : "",
+        historical_last_event_date: map.historical_last_event_date >= 0 ? r[map.historical_last_event_date] : "",
+        historical_last_event_type: map.historical_last_event_type >= 0 ? r[map.historical_last_event_type] : "",
+        historical_notes: map.historical_notes >= 0 ? r[map.historical_notes] : "",
       };
     });
 }
@@ -281,7 +327,18 @@ function ClientImportPage() {
           // without it every batch shows "(unnamed file)" in history.
           filename: sourceName,
           rows: valid.map((v) => ({
-            name: v.name, surname: v.surname, email: v.email, phone: v.phone, notes: v.notes,
+            name: v.name, surname: v.surname, email: v.email, phone: v.phone,
+            mobile_number: v.mobile_number, landline_number: v.landline_number, notes: v.notes,
+            client_type: v.client_type, tax_number: v.tax_number,
+            billing_address_line1: v.billing_address_line1,
+            billing_address_line2: v.billing_address_line2,
+            billing_city: v.billing_city, billing_postal_code: v.billing_postal_code,
+            payment_terms: v.payment_terms, credit_limit: v.credit_limit, tags: v.tags,
+            historical_total_events: v.historical_total_events,
+            historical_lifetime_spend: v.historical_lifetime_spend,
+            historical_last_event_date: v.historical_last_event_date,
+            historical_last_event_type: v.historical_last_event_type,
+            historical_notes: v.historical_notes,
           })),
         }),
       });
@@ -323,11 +380,9 @@ function ClientImportPage() {
             title="Import clients"
             subtitle={
               <>
-                Drop a spreadsheet or paste rows from Excel or Sheets. We only need{" "}
-                <span className="font-semibold text-white">Name</span>,{" "}
-                <span className="font-semibold text-white">Surname</span>,{" "}
-                <span className="font-semibold text-white">Email</span> and{" "}
-                <span className="font-semibold text-white">Phone</span>.
+                Drop a spreadsheet or paste rows from Excel or Sheets. The shared client template accepts{" "}
+                <span className="font-semibold text-white">Client name</span>,{" "}
+                <span className="font-semibold text-white">Email</span> and phone details, plus optional client history and billing fields.
                 Existing clients with the same email are skipped automatically.
               </>
             }
@@ -370,7 +425,8 @@ function ClientImportPage() {
                   <h2 className="font-semibold text-slate-900">Upload a file</h2>
                 </div>
                 <p className="text-xs text-slate-500 mb-3">
-                  CSV, TSV or XLSX. First row should be headers (Name, Surname, Email, Phone), or
+                  CSV, TSV or XLSX. Use the Excel or CSV template above for the full client columns, or
+                  paste a simple Name, Surname, Email, Phone file; first row should contain headers, or
                   just paste data with no headers, we'll guess column order.
                 </p>
                 <Input
@@ -382,11 +438,25 @@ function ClientImportPage() {
                 />
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
                   <a
-                    href="data:text/csv;charset=utf-8,Name,Surname,Email,Phone%0AJohn,Doe,john%40example.co.za,0823334444%0AJane,Smith,jane%40example.co.za,%2B27834445555"
-                    download="client-list-template.csv"
+                    href="/api/imports/templates/clients"
+                    download="cateringms-clients-import-template.xlsx"
                     className="inline-flex items-center gap-1 text-brand-primary hover:underline"
                   >
-                    <Upload className="w-3 h-3" /> Download a template
+                    <Download className="w-3 h-3" /> Excel template
+                  </a>
+                  <a
+                    href="/api/imports/templates/clients?format=csv"
+                    download="cateringms-clients-import-template.csv"
+                    className="inline-flex items-center gap-1 text-brand-primary hover:underline"
+                  >
+                    <Download className="w-3 h-3" /> CSV template
+                  </a>
+                  <a
+                    href="/api/imports/templates/clients?format=txt"
+                    download="cateringms-clients-import-column-guide.txt"
+                    className="inline-flex items-center gap-1 text-slate-600 hover:underline"
+                  >
+                    <Download className="w-3 h-3" /> Column guide
                   </a>
                 </div>
               </CardContent>

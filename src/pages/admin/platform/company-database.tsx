@@ -88,6 +88,7 @@ function CompanyDatabasePage() {
     postal_code: "",
     country: "South Africa",
     billing_currency: "ZAR",
+    owner_name: "",
     admin_name: "",
     admin_email: "",
     admin_password: "", // generated server-side, returned once
@@ -278,10 +279,10 @@ function CompanyDatabasePage() {
 
   const handleAddCompany = async () => {
     try {
-      if (!formData.company_name || !formData.admin_email) {
+      if (!formData.company_name.trim() || !formData.email.trim() || !formData.admin_email.trim()) {
         toast({
           title: "Missing Information",
-          description: "Company name and admin email are required",
+          description: "Company name, owner email, and manager email are required",
           variant: "destructive",
         });
         return;
@@ -308,6 +309,7 @@ function CompanyDatabasePage() {
         postal_code: formData.postal_code,
         country: formData.country,
         billing_currency: formData.billing_currency,
+        owner_name: formData.owner_name || "Company Owner",
         admin_name: formData.admin_name || "Admin",
         admin_email: formData.admin_email,
         admin_password: formData.admin_password,
@@ -328,7 +330,7 @@ function CompanyDatabasePage() {
     } catch (error: any) {
       console.error("Error creating company:", error);
       toast({
-        title: "Error",
+        title: "Could not create company",
         description: dbErrorMessage(error, { entity: "company" }),
         variant: "destructive",
       });
@@ -459,6 +461,7 @@ function CompanyDatabasePage() {
       postal_code: "",
       country: "South Africa",
       billing_currency: "ZAR",
+      owner_name: "",
       admin_name: "",
       admin_email: "",
       admin_password: "", // generated server-side, returned once
@@ -479,6 +482,7 @@ function CompanyDatabasePage() {
       postal_code: "",
       country: company.country,
       billing_currency: "ZAR",
+      owner_name: "",
       admin_name: "",
       admin_email: "",
       admin_password: "", // generated server-side, returned once

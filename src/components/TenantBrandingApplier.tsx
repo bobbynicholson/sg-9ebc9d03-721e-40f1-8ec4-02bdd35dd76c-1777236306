@@ -10,9 +10,14 @@
  * logo and palette instead of the CateringMS default.
  */
 import { useEffect } from "react";
+import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { applyBrandingToDOM, loadBrandFonts, type BrandingRow } from "@/lib/branding/applyBranding";
+import {
+  applyBrandingToDOM,
+  loadBrandFonts,
+  type BrandingRow,
+} from "@/lib/branding/applyBranding";
 import {
   getBrandingRow,
   readBrandingCache,
@@ -20,6 +25,7 @@ import {
   writeBrandingCache,
 } from "@/lib/branding/store";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
+import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 const initialToRow = (b: InitialBranding): BrandingRow => ({
   id: b.id,
@@ -45,8 +51,10 @@ interface Props {
 }
 
 export function TenantBrandingApplier({ initialBranding }: Props) {
+  const router = useRouter();
   const { user } = useAuth() as any;
   const companyId: string | null = user?.company_id ?? null;
+  const tenantSlug = getTenantSlugFromPathname(router.asPath);
 
   // Apply seeded branding from getStaticProps on first mount so SSR
   // markup matches the first client paint on tenant pre-auth pages.
@@ -62,6 +70,48 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
   // Hydrate cache + fetch fresh whenever the tenant context resolves.
   useEffect(() => {
     let cancelled = false;
+
+    // A tenant slug in the URL is authoritative, especially for super-admin
+    // tenant browsing where user.company_id can still point at the platform's
+    // default company. Resolve that slug before falling back to the signed-in
+    // user's company so a deep link never paints the wrong palette first.
+    if (tenantSlug) {
+      (async () => {
+        const { data, error } = await (supabase.rpc as any)(
+          "get_company_branding",
+          { p_slug: tenantSlug },
+        );
+        if (cancelled) return;
+        if (error) {
+          console.warn(
+            "[TenantBrandingApplier] slug branding fetch failed:",
+            error,
+          );
+          return;
+        }
+        const r = (Array.isArray(data) ? data[0] : data) as Record<
+          string,
+          string | null | undefined
+        > | null;
+        if (!r?.id) return;
+        const row: BrandingRow = {
+          id: r.id,
+          companyName: r.company_name ?? null,
+          logoUrl: r.logo_url ?? null,
+          primaryColor: r.primary_color ?? null,
+          secondaryColor: r.secondary_color ?? null,
+          accentColor: null,
+          fontBody: null,
+          fontDisplay: null,
+        };
+        setBrandingRow(row);
+        paint(row);
+        writeBrandingCache(row);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
 
     if (!companyId) {
       // Clear a previous tenant's colours when a platform owner returns to
@@ -85,7 +135,9 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     (async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("id, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display")
+        .select(
+          "id, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display",
+        )
         .eq("id", companyId)
         .maybeSingle();
 
@@ -117,7 +169,7 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [companyId, initialBranding, user]);
+  }, [companyId, initialBranding, tenantSlug, user]);
 
   // Live re-paint hook. White-label admin dispatches `branding:updated`
   // after a successful save (or with `null` to reset) so the running

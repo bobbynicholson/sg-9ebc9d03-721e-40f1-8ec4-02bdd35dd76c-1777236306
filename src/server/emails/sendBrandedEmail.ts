@@ -136,6 +136,27 @@ export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<Send
     }
   }
 
+  // Older tenant email rows may not have a display name. The shared
+  // platform address should still appear as the company's name in the
+  // recipient's inbox whenever this is a tenant-scoped message.
+  const configuredTenantFromName = String(tenantFromName || "").trim();
+  if (
+    args.companyId &&
+    sb &&
+    (!configuredTenantFromName || configuredTenantFromName.toLowerCase() === "cateringms")
+  ) {
+    try {
+      const { data: company } = await sb
+        .from("companies")
+        .select("company_name")
+        .eq("id", args.companyId)
+        .maybeSingle();
+      if ((company as any)?.company_name) tenantFromName = (company as any).company_name;
+    } catch (e) {
+      console.warn("[sendBrandedEmail] couldn't load company sender name:", e);
+    }
+  }
+
   const fromName = args.fromName || tenantFromName || PLATFORM_FROM_NAME;
   const fromEmail = args.fromEmail || tenantFromEmail || PLATFORM_FROM_EMAIL;
   const fromHeader = `${fromName} <${fromEmail}>`;
@@ -157,7 +178,7 @@ export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<Send
   // Platform fallback: Resend with our own key
   if (process.env.RESEND_API_KEY) {
     const ok = await postToResend({
-      from: `${PLATFORM_FROM_NAME} <${PLATFORM_FROM_EMAIL}>`,
+      from: `${fromName} <${PLATFORM_FROM_EMAIL}>`,
       to: args.to,
       subject: args.subject,
       html,
