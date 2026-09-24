@@ -258,7 +258,7 @@ function CompanyDatabasePage() {
         // companies stores the tenant slug in `slug`; the UI shape
         // (and the add/edit form) call it company_slug. Normalise
         // here so /{slug} chips and the edit dialog show the truth.
-        company_slug: company.company_slug || company.slug || "",
+        company_slug: company.slug || company.company_slug || "",
         owner_name: company.profiles?.full_name || "Unknown",
         total_users: userCounts.get(company.id) || 0,
         total_orders: orderCounts.get(company.id) || 0,
@@ -485,7 +485,7 @@ function CompanyDatabasePage() {
     setEditingCompany(company);
     setFormData({
       company_name: company.company_name,
-      company_slug: company.company_slug,
+      company_slug: company.slug || company.company_slug,
       email: company.email,
       phone: company.phone,
       address_line1: company.address_line1,

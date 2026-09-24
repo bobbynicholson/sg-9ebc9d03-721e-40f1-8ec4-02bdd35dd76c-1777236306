@@ -6,6 +6,8 @@
 export interface Company {
   id: string;
   company_name: string;
+  /** Authoritative tenant-routing column in public.companies. */
+  slug?: string;
   company_slug: string;
   owner_id: string;
   email: string;
