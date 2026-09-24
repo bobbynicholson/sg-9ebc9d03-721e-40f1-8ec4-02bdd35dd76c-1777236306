@@ -535,11 +535,20 @@ export const companyService = {
       // 2. Create separate owner and operations-manager accounts. The API
       // generates a temporary password and sends each person their own invite.
       const provisionUser = async (email: string, fullName: string, role: "owner" | "company_admin") => {
-        const response = await fetch('/api/admin/create-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, full_name: fullName, role, company_id: company.id }),
-        });
+        let response: Response;
+        try {
+          response = await fetch('/api/admin/create-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, full_name: fullName, role, company_id: company.id }),
+          });
+        } catch (networkError) {
+          // Do not allow a browser/network TypeError to reach the Next.js
+          // runtime overlay. The outer flow removes the newly-created
+          // company and returns this safe message to the toast.
+          console.warn("[companyService] user provisioning request failed:", networkError);
+          throw new Error("The user invitation service is temporarily unavailable. The company was not created. Please try again.");
+        }
         const payload = await response.json().catch(() => null);
         if (!response.ok || !payload?.user?.id) {
           throw new Error(platformUserCreationError(response.status, payload, email));
@@ -646,7 +655,7 @@ export const companyService = {
         entity: "company",
         fallback: "The company could not be created right now. Please try again.",
       });
-      if (/already registered|already taken|already exists|different email|duplicate|conflict/i.test(message)) {
+      if (/already registered|already taken|already exists|different email|duplicate|conflict|invitation service|fetch failed|failed to fetch|network/i.test(message)) {
         console.warn("[companyService] company creation rejected:", message);
       } else {
         console.error("Failed to create company with admin:", error);

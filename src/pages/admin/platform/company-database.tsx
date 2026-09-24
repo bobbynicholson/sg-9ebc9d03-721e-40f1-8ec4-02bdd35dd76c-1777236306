@@ -237,10 +237,17 @@ function CompanyDatabasePage() {
       const companyIds = (companiesData || []).map((c: any) => c.id);
       const userCounts = new Map<string, number>();
       const orderCounts = new Map<string, number>();
+      const ownerNames = new Map<string, string>();
       if (companyIds.length > 0) {
-        const [profilesRes, ordersRes] = await Promise.all([
+        const ownerIds = (companiesData || [])
+          .map((company: any) => company.owner_id)
+          .filter(Boolean);
+        const [profilesRes, ordersRes, ownerProfilesRes] = await Promise.all([
           supabase.from("profiles").select("company_id").in("company_id", companyIds),
           supabase.from("orders").select("company_id").in("company_id", companyIds),
+          ownerIds.length > 0
+            ? supabase.from("profiles").select("id, full_name").in("id", ownerIds)
+            : Promise.resolve({ data: [], error: null }),
         ]);
         // Enrichment is helpful but not required to render the authoritative
         // company list. Keep the rows visible if either optional count query
@@ -251,6 +258,9 @@ function CompanyDatabasePage() {
         (ordersRes.data || []).forEach((row: any) => {
           if (row.company_id) orderCounts.set(row.company_id, (orderCounts.get(row.company_id) || 0) + 1);
         });
+        (ownerProfilesRes.data || []).forEach((row: any) => {
+          if (row.id && row.full_name) ownerNames.set(row.id, row.full_name);
+        });
       }
 
       const enhanced = (companiesData || []).map((company: any) => ({
@@ -259,7 +269,7 @@ function CompanyDatabasePage() {
         // (and the add/edit form) call it company_slug. Normalise
         // here so /{slug} chips and the edit dialog show the truth.
         company_slug: company.slug || company.company_slug || "",
-        owner_name: company.profiles?.full_name || "Unknown",
+        owner_name: ownerNames.get(company.owner_id) || company.profiles?.full_name || "Unknown",
         total_users: userCounts.get(company.id) || 0,
         total_orders: orderCounts.get(company.id) || 0,
       }));
