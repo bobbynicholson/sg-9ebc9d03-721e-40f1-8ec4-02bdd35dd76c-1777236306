@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Building2, Search, Users, Calendar, MapPin, Edit, Trash2, Eye, CheckCircle, RefreshCw, X } from "lucide-react";
-import { companyService } from "@/services/companyService";
+import { companyService, normalizeCompanySlug } from "@/services/companyService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -295,12 +295,15 @@ function CompanyDatabasePage() {
       }
 
       // Generate slug if not provided
-      const slug =
-        formData.company_slug ||
-        formData.company_name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "");
+      const slug = normalizeCompanySlug(formData.company_slug || formData.company_name);
+      if (!slug) {
+        toast({
+          title: "Invalid company URL",
+          description: "Use letters, numbers, or hyphens for the company URL.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Create company and admin user
       const result = await companyService.createCompanyWithAdmin({

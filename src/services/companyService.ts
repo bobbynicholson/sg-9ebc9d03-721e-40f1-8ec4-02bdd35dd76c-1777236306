@@ -40,6 +40,25 @@ function buildDefaultRegionCode(slug: string | null | undefined): string {
   return `${base}-${tail}`.slice(0, 12);
 }
 
+/** Normalize a tenant URL slug to the format enforced by the database. */
+export function normalizeCompanySlug(value: string | null | undefined): string {
+  return (value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80)
+    .replace(/-+$/g, "");
+}
+
+const RESERVED_COMPANY_SLUGS = new Set([
+  "admin", "api", "auth", "blog", "c", "client", "client-portal",
+  "company-signup", "contact", "demo", "features", "pay", "page",
+  "pricing", "privacy", "security", "super-admin", "support",
+  "team-portal", "terms", "uk", "us", "subscription", "account",
+  "_next", "static", "public", "assets", "favicon-ico",
+]);
+
 /**
  * Convert a failed platform API response into a safe message for the
  * company-database toast. Never expose a JSON parse error, HTML error page,
@@ -440,6 +459,13 @@ export const companyService = {
     try {
       const adminEmail = data.admin_email.trim().toLowerCase();
       const ownerEmail = data.email.trim().toLowerCase();
+      const companySlug = normalizeCompanySlug(data.company_slug);
+      if (!companySlug) {
+        return { success: false, error: "Enter a company URL using letters, numbers, or hyphens." };
+      }
+      if (RESERVED_COMPANY_SLUGS.has(companySlug)) {
+        return { success: false, error: `The company URL "${companySlug}" is reserved. Choose a different URL.` };
+      }
       if (!ownerEmail) {
         return { success: false, error: "A valid company owner email is required." };
       }
@@ -466,7 +492,7 @@ export const companyService = {
         .from("companies")
         .insert([{
           company_name: data.company_name,
-          slug: data.company_slug,
+          slug: companySlug,
           email: data.email,
           phone: data.phone,
           address_line1: data.address_line1,
@@ -495,7 +521,7 @@ export const companyService = {
           if (msg.includes("slug")) {
             return {
               success: false,
-              error: `The company URL "${data.company_slug}" is already taken. Choose a different URL and try again.`,
+              error: `The company URL "${companySlug}" is already taken. Choose a different URL and try again.`,
             };
           }
           return {
