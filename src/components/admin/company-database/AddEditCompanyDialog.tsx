@@ -30,6 +30,7 @@ interface Props {
   onTriggerNew: () => void;
   onCancel: () => void;
   onSave: () => void;
+  saving?: boolean;
 }
 
 /**
@@ -51,6 +52,7 @@ export function AddEditCompanyDialog({
   onTriggerNew,
   onCancel,
   onSave,
+  saving = false,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -256,11 +258,11 @@ export function AddEditCompanyDialog({
         </div>
 
         <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={onSave}>
-            {editingCompany ? "Update Company" : "Create Company"}
+          <Button onClick={onSave} disabled={saving}>
+            {saving ? "Saving…" : editingCompany ? "Update Company" : "Create Company"}
           </Button>
         </div>
       </DialogContent>

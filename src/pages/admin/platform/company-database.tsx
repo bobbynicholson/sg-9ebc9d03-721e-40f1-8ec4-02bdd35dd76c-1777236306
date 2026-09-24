@@ -76,6 +76,7 @@ function CompanyDatabasePage() {
   // Add/Edit company modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [savingCompany, setSavingCompany] = useState(false);
   const [formData, setFormData] = useState({
     company_name: "",
     company_slug: "",
@@ -294,6 +295,8 @@ function CompanyDatabasePage() {
   // (filterCompanies replaced by useMemo + useFuzzyItems above.)
 
   const handleAddCompany = async () => {
+    if (savingCompany) return;
+    setSavingCompany(true);
     try {
       if (!formData.company_name.trim() || !formData.email.trim() || !formData.admin_email.trim()) {
         toast({
@@ -357,10 +360,14 @@ function CompanyDatabasePage() {
         description: dbErrorMessage(error, { entity: "company" }),
         variant: "destructive",
       });
+    } finally {
+      setSavingCompany(false);
     }
   };
 
   const handleUpdateCompany = async () => {
+    if (savingCompany) return;
+    setSavingCompany(true);
     try {
       if (!editingCompany) return;
 
@@ -398,6 +405,8 @@ function CompanyDatabasePage() {
         description: dbErrorMessage(error, { entity: "company", fallback: "The company could not be updated. Please try again." }),
         variant: "destructive",
       });
+    } finally {
+      setSavingCompany(false);
     }
   };
 
@@ -643,6 +652,7 @@ function CompanyDatabasePage() {
                 setEditingCompany(null);
                 resetForm();
               }}
+              saving={savingCompany}
               onSave={editingCompany ? handleUpdateCompany : handleAddCompany}
             />
           </div>
