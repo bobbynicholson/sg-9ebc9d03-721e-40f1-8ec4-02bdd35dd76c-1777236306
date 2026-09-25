@@ -94,15 +94,25 @@ export function TenantBrandingApplier({ initialBranding }: Props) {
           string | null | undefined
         > | null;
         if (!r?.id) return;
+        // The branding RPC intentionally exposes a small safe shape for
+        // anonymous pages. Authenticated tenant pages still need the full
+        // saved palette/font row; otherwise onboarding/white-label changes
+        // can be reduced to the RPC's older primary/secondary-only shape.
+        const { data: fullRow } = await supabase
+          .from("companies")
+          .select("id, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display")
+          .eq("id", r.id)
+          .maybeSingle();
+        const source = (fullRow || r) as Record<string, string | null | undefined>;
         const row: BrandingRow = {
-          id: r.id,
-          companyName: r.company_name ?? null,
-          logoUrl: r.logo_url ?? null,
-          primaryColor: r.primary_color ?? null,
-          secondaryColor: r.secondary_color ?? null,
-          accentColor: null,
-          fontBody: null,
-          fontDisplay: null,
+          id: source.id || r.id,
+          companyName: source.company_name ?? null,
+          logoUrl: source.logo_url ?? null,
+          primaryColor: source.primary_color ?? null,
+          secondaryColor: source.secondary_color ?? null,
+          accentColor: source.accent_color ?? null,
+          fontBody: source.brand_font_body ?? null,
+          fontDisplay: source.brand_font_display ?? null,
         };
         setBrandingRow(row);
         paint(row);

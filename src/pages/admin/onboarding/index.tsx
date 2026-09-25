@@ -325,6 +325,29 @@ function OnboardingWizard() {
         variant: "destructive",
       });
     } else {
+      // Repaint the shared tenant shell immediately. The onboarding form
+      // writes the companies row directly, so without this event the
+      // sidebar and every already-mounted page keep the old CSS variables
+      // until a full session reload.
+      const { data: branding } = await (supabase as any)
+        .from("companies")
+        .select("id, company_name, logo_url, primary_color, secondary_color, accent_color, brand_font_body, brand_font_display")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (typeof window !== "undefined" && branding) {
+        window.dispatchEvent(new CustomEvent("branding:updated", {
+          detail: {
+            id: branding.id,
+            companyName: branding.company_name ?? null,
+            logoUrl: branding.logo_url ?? null,
+            primaryColor: branding.primary_color ?? null,
+            secondaryColor: branding.secondary_color ?? null,
+            accentColor: branding.accent_color ?? null,
+            fontBody: branding.brand_font_body ?? null,
+            fontDisplay: branding.brand_font_display ?? null,
+          },
+        }));
+      }
       refreshProfile?.();
     }
   };
