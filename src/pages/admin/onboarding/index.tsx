@@ -813,8 +813,13 @@ function AddressStep({
     form.postal_code,
     form.country,
   ].filter(Boolean).join(", ");
+  // Keep the autocomplete text independent from the structured form fields.
+  // Feeding fullAddress back into the same input on every keystroke causes
+  // the country/city parts to be appended while the user is typing.
+  const [addressSearch, setAddressSearch] = useState(fullAddress);
 
   const onPickAddress = (pick: any) => {
+    setAddressSearch(pick.address || "");
     const components = pick.components || {};
     const street = [components.street_number, components.street]
       .filter(Boolean)
@@ -844,7 +849,7 @@ function AddressStep({
           <Field id="addr_search" label="Search and pick">
             <AddressAutocomplete
               id="addr_search"
-              value={fullAddress}
+              value={addressSearch}
               onChange={onPickAddress}
               placeholder="Search the kitchen / HQ address"
               countryCode="za"
