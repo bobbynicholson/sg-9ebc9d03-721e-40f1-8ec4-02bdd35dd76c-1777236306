@@ -1196,6 +1196,13 @@ function EmailSettingsPage() {
                   onChange={(v) => setRow({ ...row, revoke_old_links_on_new: v })}
                 />
               </div>
+              <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                <p className="text-xs text-slate-500">Save the automatic email choices for this company.</p>
+                <Button onClick={save} disabled={saving || !hasUnsavedChanges} className="gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  {saving ? "Saving..." : hasUnsavedChanges ? "Save automatic email settings" : "Saved"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
