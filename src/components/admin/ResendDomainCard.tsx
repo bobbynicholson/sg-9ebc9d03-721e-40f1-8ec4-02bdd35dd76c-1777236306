@@ -678,6 +678,11 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
           the user needs different reassurance for each. */}
       {pending && !verified && (() => {
         const dnsAllMatch = !!diagnostic?.summary?.all_match;
+        const diagnosticRecords = diagnostic?.records || [];
+        const dnsHasResults = diagnosticRecords.length > 0;
+        const dnsFoundCount = diagnosticRecords.filter((record) => (record.found_values || []).length > 0).length;
+        const dnsHasNoPublishedRecords = dnsHasResults && dnsFoundCount === 0;
+        const dnsHasPartialResults = dnsHasResults && dnsFoundCount > 0 && !dnsAllMatch;
         if (dnsAllMatch) {
           return (
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
@@ -698,16 +703,48 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             </div>
           );
         }
+        if (dnsHasNoPublishedRecords) {
+          return (
+            <div className="rounded-lg border border-rose-300 bg-rose-50 p-4 space-y-2">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-rose-700 flex-shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p className="font-semibold text-rose-900">DNS records are not visible yet</p>
+                  <p className="text-sm text-rose-900/90">
+                    The live check found none of the expected records for <strong>{state.domain}</strong>. This is not a server processing delay: either the records have not been saved at your DNS host, or they are still propagating.
+                  </p>
+                  <p className="text-xs text-rose-900/80">
+                    Confirm the host names and values below, save them, then click <strong>Verify now</strong> again. Do not wait for Resend to verify records that public DNS cannot see.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        if (dnsHasPartialResults) {
+          return (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
+              <div className="flex items-start gap-3">
+                <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p className="font-semibold text-amber-900">Some DNS records are visible</p>
+                  <p className="text-sm text-amber-900/90">
+                    {dnsFoundCount} of {diagnosticRecords.length} expected records were found. Check the rows marked missing or wrong, save the corrections at your DNS host, then verify again.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 space-y-2">
             <div className="flex items-start gap-3">
               <Clock className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
               <div className="space-y-2">
-                <p className="font-semibold text-amber-900">DNS propagation in progress</p>
-                <p className="text-sm text-amber-900/90">
-                  Your DNS host has the records. They're now propagating across the internet's name servers,
-                  which typically takes 5-30 minutes but can take up to an hour.
-                  <strong> This is on your DNS host's side, not ours, we'll keep checking automatically every minute.</strong>
+                  <p className="font-semibold text-amber-900">DNS check is still pending</p>
+                  <p className="text-sm text-amber-900/90">
+                  The live DNS result is not available yet. Check that the records were saved at your DNS host; if they were, they may still be propagating across public name servers.
+                  <strong> We will keep checking automatically every minute.</strong>
                 </p>
                 <ul className="text-xs text-amber-900/80 space-y-0.5 ml-1">
                   <li>Most common timing: 5-15 minutes.</li>

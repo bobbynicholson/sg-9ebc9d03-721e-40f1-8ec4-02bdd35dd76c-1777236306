@@ -435,7 +435,7 @@ async function handler(
         "DNS resolver timed out, give it a moment and re-run the check.";
     } else if (propagationLikely) {
       nextAction =
-        "Wait 5-10 minutes and re-check, your DNS host is still propagating.";
+        "No expected records are visible on public DNS yet. Confirm they were saved at your DNS host, then re-check after propagation.";
     } else {
       nextAction =
         "One or more values look wrong, double-check the records you pasted.";
