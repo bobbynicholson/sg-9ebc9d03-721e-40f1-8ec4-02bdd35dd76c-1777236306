@@ -664,6 +664,22 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         )}
       </div>
 
+      <div className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-700 space-y-2">
+        <p className="font-semibold text-slate-900">What Resend and these DNS records do</p>
+        <p>
+          Resend is the email delivery service that sends your quotes, invoices and notifications. Your DNS records prove to email providers that Resend is authorised to send on behalf of <strong>{state.domain}</strong>.
+        </p>
+        <ul className="grid gap-1 sm:grid-cols-2">
+          <li><strong>DKIM (TXT):</strong> signs messages so recipients can verify they were not altered.</li>
+          <li><strong>SPF (TXT):</strong> authorises Resend’s sending servers for your domain.</li>
+          <li><strong>MX:</strong> enables Resend’s provider-specific mail and bounce handling.</li>
+          <li><strong>CNAME:</strong> connects Resend’s sending/tracking hostname to your domain.</li>
+        </ul>
+        <p className="rounded-md bg-slate-50 px-3 py-2 text-slate-600">
+          After all records match and Resend verifies them, emails still travel through Resend, but clients see your company sender such as <code>hello@{state.domain}</code> instead of <code>noreply@send.cateringms.com</code>. Replies go to the From address configured below. Until then, the shared sender remains active so email delivery does not stop.
+        </p>
+      </div>
+
       {/* VERIFIED CELEBRATION */}
       {verified && (
         <div
