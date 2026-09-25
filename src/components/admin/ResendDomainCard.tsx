@@ -547,6 +547,20 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         <p className="text-[11px] text-slate-500">
           Use the apex domain (e.g. <code>spitbraaidelivery.co.za</code>) or a sending subdomain (e.g. <code>mail.spitbraaidelivery.co.za</code>).
         </p>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 space-y-1.5">
+          <p className="font-semibold">Why do we only ask for the domain here?</p>
+          <p>
+            CateringMS obtains the exact DKIM, SPF, MX and CNAME values from Resend after you click <strong>Add domain</strong>. We do not ask you to paste DNS values into this form because DNS must be changed at the company that hosts your domain.
+          </p>
+          <ol className="list-decimal pl-4 space-y-0.5">
+            <li>Enter the domain and click <strong>Add domain</strong>.</li>
+            <li>Open the DNS manager where the domain was purchased or is hosted, such as Cloudflare, GoDaddy, Namecheap, xneelo/konsoleH or your hosting provider.</li>
+            <li>Copy the generated records shown below into that DNS manager, then return here and click <strong>Verify now</strong>.</li>
+          </ol>
+          <p className="text-blue-800/80">
+            If you do not know who manages DNS, check the domain purchase/welcome email or ask the person who manages your website. Never enter your DNS-provider password into CateringMS.
+          </p>
+        </div>
       </div>
     );
   }
