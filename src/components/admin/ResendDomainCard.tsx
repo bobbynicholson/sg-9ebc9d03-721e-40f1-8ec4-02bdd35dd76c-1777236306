@@ -1031,6 +1031,12 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             Provider-specific tips - read before you paste
           </summary>
           <div className="px-3 py-3 border-t border-amber-100 space-y-3 text-xs text-amber-900">
+            <div className="rounded-md border border-amber-300 bg-white px-3 py-2">
+              <p className="font-semibold">Important for the MX record</p>
+              <p className="mt-1">
+                In your DNS provider, MX priority is a separate number field. Set it to <strong>10</strong> exactly as shown in the record table. The destination is <code className="font-mono">feedback-smtp.us-east-1.amazonses.com</code>; priority <strong>5</strong> is not equivalent and will fail verification.
+              </p>
+            </div>
             <div>
               <p className="font-semibold">konsoleH (xneelo / domains.co.za / host-h.net)</p>
               <ul className="mt-1 list-disc list-inside space-y-1">
