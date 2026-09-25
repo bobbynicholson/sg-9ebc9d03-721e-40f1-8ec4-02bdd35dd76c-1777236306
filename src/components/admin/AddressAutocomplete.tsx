@@ -62,6 +62,12 @@ export function AddressAutocomplete({
   const [keyAvailable, setKeyAvailable] = useState<boolean | null>(null);
   const debounceRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Parent forms often derive `value` from several address fields. While the
+  // user is typing, that derived value can briefly differ from the raw input
+  // (for example, it may append the country), which used to overwrite the
+  // keystroke and produce duplicated text. Do not sync external value until
+  // editing has ended.
+  const editingRef = useRef(false);
 
   // Detect whether the API key is configured (kicked off lazily on first
   // open so we don't spam fetches).
@@ -70,7 +76,9 @@ export function AddressAutocomplete({
   }, []);
 
   // Sync external value -> input
-  useEffect(() => { setInput(value || ""); }, [value]);
+  useEffect(() => {
+    if (!editingRef.current) setInput(value || "");
+  }, [value]);
 
   // Click outside closes dropdown
   useEffect(() => {
@@ -102,6 +110,7 @@ export function AddressAutocomplete({
   };
 
   const onType = (q: string) => {
+    editingRef.current = true;
     setInput(q);
     setOpen(true);
     // A typed value is no longer the previously selected Place. Clear the
@@ -141,6 +150,7 @@ export function AddressAutocomplete({
     if (input !== value) {
       onChange({ address: input, lat: null, lng: null, placeId: null, components: {} });
     }
+    editingRef.current = false;
   };
 
   return (
@@ -151,7 +161,7 @@ export function AddressAutocomplete({
           id={id}
           value={input}
           onChange={(e) => onType(e.target.value)}
-          onFocus={() => setOpen(true)}
+          onFocus={() => { editingRef.current = true; setOpen(true); }}
           onBlur={onBlur}
           placeholder={placeholder}
           disabled={disabled}
