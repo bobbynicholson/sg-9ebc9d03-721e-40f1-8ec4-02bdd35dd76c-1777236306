@@ -12,6 +12,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { MiddlewareErrorToast } from "@/components/MiddlewareErrorToast";
 import { CommandPalette } from "@/components/CommandPalette";
 import { GlobalInternalFooter } from "@/components/GlobalInternalFooter";
+import { AdminSetupSticky } from "@/components/admin/AdminSetupSticky";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
@@ -342,6 +343,7 @@ export default function App({ Component, pageProps }: AppProps) {
             <CommandPalette />
             <MiddlewareErrorToast />
             <GlobalChatAssistant />
+            <AdminSetupSticky />
             {/* VersionWatcher (the "A new version is available" banner)
                 unmounted per Raj, 2026-06-12 - it nagged on every
                 deploy during active development. Component + the
