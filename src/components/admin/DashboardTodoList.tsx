@@ -80,26 +80,32 @@ export function DashboardTodoList({ companyId, slug }: Props) {
 
   const completedCount = todos.filter((todo) => checked[todo.id]).length;
   const complete = mounted && onboardingComplete === true && completedCount === todos.length;
+  const completionSignature = complete
+    ? `${onboardingComplete ? "onboarding" : "pending"}:${SETUP_TASKS.map((task) => `${task.id}-${checked[task.id] ? "1" : "0"}`).join(",")}`
+    : "";
 
   useEffect(() => {
     if (!complete || !companyId || typeof window === "undefined") {
       setCelebrationVisible(false);
+      if (companyId) window.sessionStorage.removeItem(`dashboard_setup_celebrated_v2_${companyId}`);
       return;
     }
 
-    const key = `dashboard_setup_celebrated_${companyId}`;
-    if (window.sessionStorage.getItem(key) === "1") {
+    const key = `dashboard_setup_celebrated_v2_${companyId}`;
+    if (window.sessionStorage.getItem(key) === completionSignature) {
       setCelebrationVisible(false);
       return;
     }
 
     setCelebrationVisible(true);
+    // Record the completion immediately so navigating away and back during
+    // the animation does not replay it for the same completed signature.
+    window.sessionStorage.setItem(key, completionSignature);
     const timer = window.setTimeout(() => {
       setCelebrationVisible(false);
-      window.sessionStorage.setItem(key, "1");
     }, 8000);
     return () => window.clearTimeout(timer);
-  }, [complete, companyId]);
+  }, [complete, companyId, completionSignature]);
 
   const toggle = (id: SetupTaskId, value: boolean) => {
     const previous = Boolean(checked[id]);
