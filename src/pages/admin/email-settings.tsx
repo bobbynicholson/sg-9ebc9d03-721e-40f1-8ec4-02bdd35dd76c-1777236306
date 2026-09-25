@@ -67,7 +67,27 @@ interface ProviderRow {
   magic_link_repeat_customers: boolean;
   magic_link_repeat_threshold: number;
   revoke_old_links_on_new: boolean;
+  automation_preferences?: Record<string, boolean>;
 }
+
+const AUTOMATION_OPTIONS = [
+  ["quotes", "Quotes and quote follow-ups"],
+  ["invoices", "Invoices and payment links"],
+  ["payments", "Payment receipts and reminders"],
+  ["order_confirmations", "Order confirmations"],
+  ["order_status", "Order status updates"],
+  ["event_reminders", "Event and pre-event reminders"],
+  ["reviews", "Review requests and thank-you emails"],
+  ["cancellations", "Cancellation and postponement notices"],
+  ["staff_notifications", "Driver and staff notifications"],
+  ["staff_invites", "Staff invites and welcome emails"],
+  ["lead_acknowledgements", "Lead-form acknowledgements"],
+  ["system", "System and security emails"],
+] as const;
+
+const DEFAULT_AUTOMATION_PREFERENCES = Object.fromEntries(
+  AUTOMATION_OPTIONS.map(([key]) => [key, true]),
+);
 
 // Daily send caps per subscription plan. Numbers chosen to align with
 // Resend's free-tier ceiling (100/day per verified domain) and scale up
@@ -130,6 +150,7 @@ function EmailSettingsPage() {
     magic_link_repeat_customers: true,
     magic_link_repeat_threshold: 2,
     revoke_old_links_on_new: false,
+    automation_preferences: DEFAULT_AUTOMATION_PREFERENCES,
   });
   const [queuedCount, setQueuedCount] = useState(0);
   const [smtpPass, setSmtpPass] = useState("");
@@ -220,6 +241,10 @@ function EmailSettingsPage() {
         const loaded = {
           ...data,
           daily_send_cap: data.daily_send_cap ?? tierCap,
+          automation_preferences: {
+            ...DEFAULT_AUTOMATION_PREFERENCES,
+            ...((data as any).automation_preferences || {}),
+          },
         } as ProviderRow;
         setRow(loaded);
         setSavedSnapshot(JSON.stringify(loaded));
@@ -231,6 +256,7 @@ function EmailSettingsPage() {
             from_email: profile?.email || null,
             from_name: profile?.full_name || profile?.company_name || null,
             daily_send_cap: tierCap,
+            automation_preferences: DEFAULT_AUTOMATION_PREFERENCES,
           };
           // No DB row yet, so the seeded defaults count as 'dirty'
           // until the user saves. Set the snapshot to an empty marker
@@ -364,6 +390,7 @@ function EmailSettingsPage() {
         magic_link_repeat_customers:        row.magic_link_repeat_customers,
         magic_link_repeat_threshold:        row.magic_link_repeat_threshold,
         revoke_old_links_on_new:            row.revoke_old_links_on_new,
+        automation_preferences:             row.automation_preferences || DEFAULT_AUTOMATION_PREFERENCES,
         updated_at: new Date().toISOString(),
       };
       Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
@@ -546,7 +573,7 @@ function EmailSettingsPage() {
       if (error) throw error;
       setMailchimpApiKey(""); // clear local field after save
       setMailchimpConfigured(true);
-      toast({ title: "Mailchimp saved", description: "Audience linked. Bulk sends now route through Mailchimp." });
+      toast({ title: "Mailchimp details saved", description: "The API key and Audience ID are stored for the Mailchimp integration. CateringMS transactional emails still use the selected sender above; bulk campaign sending is not active yet." });
     } catch (e: any) {
       captureException(e, {
         tags: { route: "/admin/email-settings", step: "save-mailchimp", companyId },
@@ -568,6 +595,20 @@ function EmailSettingsPage() {
     : row.provider === "ms365_oauth" ? "Microsoft 365"
     : row.provider === "smtp" ? "Custom SMTP"
     : "No provider";
+
+  const setAutomationOption = (key: string, value: boolean) => {
+    setRow((current) => ({
+      ...current,
+      automation_preferences: {
+        ...DEFAULT_AUTOMATION_PREFERENCES,
+        ...(current.automation_preferences || {}),
+        [key]: value,
+      },
+      ...(key === "quotes" ? { auto_attach_on_quote_sent: value } : {}),
+      ...(key === "order_confirmations" ? { auto_attach_on_order_confirmed: value } : {}),
+      ...(key === "order_status" ? { auto_attach_on_order_status_change: value } : {}),
+    }));
+  };
 
   return (
     <>
@@ -1098,25 +1139,15 @@ function EmailSettingsPage() {
             <CardContent className="space-y-3">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <p className="text-xs font-semibold text-slate-900">All email types use the selected sender</p>
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {[
-                    "Quotes and quote follow-ups",
-                    "Invoices and payment links",
-                    "Payment receipts and reminders",
-                    "Order confirmations",
-                    "Order status updates",
-                    "Event and pre-event reminders",
-                    "Review requests and thank-you emails",
-                    "Cancellation and postponement notices",
-                    "Driver and staff notifications",
-                    "Staff invites and welcome emails",
-                    "Lead-form acknowledgements",
-                    "System and security emails",
-                  ].map((label) => (
-                    <div key={label} className="flex items-center gap-2 text-xs text-slate-700">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary flex-shrink-0" />
-                      <span>{label}</span>
-                    </div>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {AUTOMATION_OPTIONS.map(([key, label]) => (
+                    <ToggleRow
+                      key={key}
+                      label={label}
+                      sub="Uses the selected shared or SMTP sender"
+                      checked={!!(row.automation_preferences || DEFAULT_AUTOMATION_PREFERENCES)[key]}
+                      onChange={(value) => setAutomationOption(key, value)}
+                    />
                   ))}
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">The shared CateringMS sender is the default for every item above. Custom SMTP replaces it for every item above when configured and tested successfully.</p>
@@ -1137,24 +1168,6 @@ function EmailSettingsPage() {
                   </span>
                 </div>
               )}
-              <ToggleRow
-                label="When a quote is marked sent"
-                sub="Includes a magic 'View all my bookings' link for repeat customers"
-                checked={row.auto_attach_on_quote_sent}
-                onChange={(v) => setRow({ ...row, auto_attach_on_quote_sent: v })}
-              />
-              <ToggleRow
-                label="When a new order is confirmed"
-                sub="Sends the tokenised order link automatically"
-                checked={row.auto_attach_on_order_confirmed}
-                onChange={(v) => setRow({ ...row, auto_attach_on_order_confirmed: v })}
-              />
-              <ToggleRow
-                label="When an order status changes"
-                sub="Useful for 'preparing -> ready -> on the way' updates. Off by default to avoid noise."
-                checked={row.auto_attach_on_order_status_change}
-                onChange={(v) => setRow({ ...row, auto_attach_on_order_status_change: v })}
-              />
               <div className="border-t border-slate-100 pt-3">
                 <ToggleRow
                   label="Repeat-customer magic link"
@@ -1191,28 +1204,33 @@ function EmailSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Inbox className="w-5 h-5 text-brand-primary" />
-                Mailchimp (bulk sender)
+                Mailchimp (bulk campaigns)
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Coming soon</span>
               </CardTitle>
             <CardDescription>
-                For newsletters, campaigns, and big lists only. Mailchimp does not send quotes, invoices, confirmations, order updates, password links, or staff invites; those use the transactional sender above.
+                Mailchimp is for newsletters, marketing campaigns, and audience management. It does not send quotes, invoices, confirmations, order updates, password links, or staff invites. The credential form is ready, but bulk campaign sending is not active in CateringMS yet; transactional mail uses the sender above.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-semibold">Mailchimp integration is not active yet</p>
+                <p className="mt-1">Campaign sending, audience syncing, and subscriber management will be added in a future release. You do not need Mailchimp for any CateringMS transactional email.</p>
+              </div>
               <div>
                 <Label htmlFor="mc_api">API key
                   <InfoTooltip content={"In Mailchimp, head to Account > Extras > API keys to grab one.\n\nStored encrypted on our side."} />
                 </Label>
-                <Input id="mc_api" type="password" value={mailchimpApiKey} onChange={(e) => setMailchimpApiKey(e.target.value)} placeholder={mailchimpAudienceId ? "unchanged" : "Enter Mailchimp API key"} />
+                <Input disabled id="mc_api" type="password" value={mailchimpApiKey} onChange={(e) => setMailchimpApiKey(e.target.value)} placeholder="Available when Mailchimp launches" />
               </div>
               <div>
                 <Label htmlFor="mc_aud">Audience ID</Label>
-                <Input id="mc_aud" value={mailchimpAudienceId} onChange={(e) => setMailchimpAudienceId(e.target.value)} placeholder="abcd1234" />
+                <Input disabled id="mc_aud" value={mailchimpAudienceId} onChange={(e) => setMailchimpAudienceId(e.target.value)} placeholder="Available when Mailchimp launches" />
               </div>
               <div className="flex items-center justify-between pt-2">
                 <Link href="https://us1.admin.mailchimp.com/account/api/" target="_blank" rel="noopener" className="text-xs text-slate-600 hover:underline flex items-center gap-1">
                   Get your API key from Mailchimp <ExternalLink className="w-3 h-3" />
                 </Link>
-                <Button variant="outline" onClick={saveMailchimp} disabled={savingMailchimp} className="gap-2">
+                <Button variant="outline" onClick={() => toast({ title: "Mailchimp coming soon", description: "Bulk campaigns and audience syncing will be available in a future release." })} disabled className="gap-2">
                   {savingMailchimp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   {savingMailchimp ? "Saving..." : "Save Mailchimp link"}
                 </Button>
