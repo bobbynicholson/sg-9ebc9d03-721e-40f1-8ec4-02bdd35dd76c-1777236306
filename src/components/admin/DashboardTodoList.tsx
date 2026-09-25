@@ -4,20 +4,15 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
-  CreditCard,
-  Mail,
-  Palette,
   PartyPopper,
   Sparkles,
-  Upload,
-  Users,
-  Utensils,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { DASHBOARD_TODO_CHANGED_EVENT, dashboardTodoService } from "@/services/dashboardTodoService";
 import { onboardingProgressService } from "@/services/onboardingProgressService";
+import { SETUP_TASKS, type SetupTaskId } from "@/lib/setupChecklist";
 
 interface Props {
   companyId: string;
@@ -25,71 +20,25 @@ interface Props {
 }
 
 interface TodoItem {
-  id: string;
+  id: SetupTaskId;
   title: string;
   description: string;
   href: string;
-  icon: typeof Users;
+  icon: (typeof SETUP_TASKS)[number]["icon"];
 }
-
-const TODO_IDS = ["team", "branding", "email", "clients", "menu", "payments"] as const;
-type TodoId = (typeof TODO_IDS)[number];
 
 export function DashboardTodoList({ companyId, slug }: Props) {
   const tenantPath = slug ? `/${slug}` : "";
-  const [checked, setChecked] = useState<Partial<Record<TodoId, boolean>>>({});
+  const [checked, setChecked] = useState<Partial<Record<SetupTaskId, boolean>>>({});
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [celebrationVisible, setCelebrationVisible] = useState(false);
-  const [saving, setSaving] = useState<TodoId | null>(null);
+  const [saving, setSaving] = useState<SetupTaskId | null>(null);
   const { toast } = useToast();
 
   const todos = useMemo<TodoItem[]>(
-    () => [
-      {
-        id: "team",
-        title: "Add your team",
-        description: "Invite admins, kitchen staff, drivers, and other team members.",
-        href: `${tenantPath}/admin/users`,
-        icon: Users,
-      },
-      {
-        id: "branding",
-        title: "Make it look like your company",
-        description: "Add your logo, colours, fonts, and company name to customer-facing pages.",
-        href: `${tenantPath}/admin/white-label`,
-        icon: Palette,
-      },
-      {
-        id: "email",
-        title: "Set up company email",
-        description: "Choose the sender and reply address customers will see on your emails.",
-        href: `${tenantPath}/admin/email-settings`,
-        icon: Mail,
-      },
-      {
-        id: "clients",
-        title: "Bring in your clients",
-        description: "Import an existing client list or add your first client manually.",
-        href: `${tenantPath}/admin/onboarding/clients`,
-        icon: Upload,
-      },
-      {
-        id: "menu",
-        title: "Add your menu and prices",
-        description: "Create the dishes and packages you want to use in quotes and orders.",
-        href: `${tenantPath}/admin/menu`,
-        icon: Utensils,
-      },
-      {
-        id: "payments",
-        title: "Connect online payments",
-        description: "Configure a payment gateway so clients can pay from their portal.",
-        href: `${tenantPath}/admin/integrations`,
-        icon: CreditCard,
-      },
-    ],
+    () => SETUP_TASKS.map((task) => ({ ...task, href: `${tenantPath}${task.href}` })),
     [tenantPath],
   );
 
@@ -129,7 +78,7 @@ export function DashboardTodoList({ companyId, slug }: Props) {
     return () => window.removeEventListener(DASHBOARD_TODO_CHANGED_EVENT, onTodoChanged);
   }, [companyId]);
 
-  const completedCount = todos.filter((todo) => checked[todo.id as TodoId]).length;
+  const completedCount = todos.filter((todo) => checked[todo.id]).length;
   const complete = mounted && onboardingComplete === true && completedCount === todos.length;
 
   useEffect(() => {
@@ -152,7 +101,7 @@ export function DashboardTodoList({ companyId, slug }: Props) {
     return () => window.clearTimeout(timer);
   }, [complete, companyId]);
 
-  const toggle = (id: TodoId, value: boolean) => {
+  const toggle = (id: SetupTaskId, value: boolean) => {
     const previous = Boolean(checked[id]);
     const next = { ...checked, [id]: value };
     setChecked(next);
@@ -218,7 +167,7 @@ export function DashboardTodoList({ companyId, slug }: Props) {
       <CardContent className="grid gap-2 sm:grid-cols-2">
         {todos.map((todo) => {
           const Icon = todo.icon;
-          const isChecked = Boolean(checked[todo.id as TodoId]);
+          const isChecked = Boolean(checked[todo.id]);
           return (
             <div
               key={todo.id}
@@ -229,7 +178,7 @@ export function DashboardTodoList({ companyId, slug }: Props) {
               <Checkbox
                 id={`dashboard-todo-${todo.id}`}
                 checked={isChecked}
-                onCheckedChange={(value) => toggle(todo.id as TodoId, value === true)}
+                onCheckedChange={(value) => toggle(todo.id, value === true)}
                 disabled={saving === todo.id}
                 className="mt-1"
                 aria-label={`Mark ${todo.title} complete`}

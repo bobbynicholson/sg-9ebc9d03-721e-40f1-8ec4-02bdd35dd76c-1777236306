@@ -8,12 +8,6 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardCheck,
-  CreditCard,
-  Mail,
-  Palette,
-  Upload,
-  Users,
-  Utensils,
   X,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,23 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DASHBOARD_TODO_CHANGED_EVENT, dashboardTodoService } from "@/services/dashboardTodoService";
 import { onboardingProgressService, type OnboardingState } from "@/services/onboardingProgressService";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
-
-type SetupTaskId = "team" | "branding" | "email" | "clients" | "menu" | "payments";
-
-const SETUP_TASKS: Array<{
-  id: SetupTaskId;
-  title: string;
-  description: string;
-  href: string;
-  icon: typeof Users;
-}> = [
-  { id: "team", title: "Add your team", description: "Invite the people who help run events.", href: "/admin/users", icon: Users },
-  { id: "branding", title: "Set your branding", description: "Logo, colours, fonts, and client-facing identity.", href: "/admin/white-label", icon: Palette },
-  { id: "email", title: "Set up company email", description: "Choose the sender and reply address clients see.", href: "/admin/email-settings", icon: Mail },
-  { id: "clients", title: "Bring in your clients", description: "Import an existing list or add the first client.", href: "/admin/onboarding/clients", icon: Upload },
-  { id: "menu", title: "Add your menu and prices", description: "Create dishes and packages for quotes and orders.", href: "/admin/menu", icon: Utensils },
-  { id: "payments", title: "Connect online payments", description: "Configure a gateway so clients can pay online.", href: "/admin/payment-gateways", icon: CreditCard },
-];
+import { SETUP_TASKS, type SetupTaskId } from "@/lib/setupChecklist";
 
 function tenantHref(slug: string, href: string): string {
   return slug ? `/${slug}${href}` : href;
