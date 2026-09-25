@@ -29,6 +29,8 @@ import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
 import crypto from "crypto";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
+import { transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 
 
 /**
@@ -314,8 +316,29 @@ async function handler(
       }
     }
 
-    // Check payment status
+    const attemptId = (paymentData.custom_str5 || "").trim() || null;
+    // Check payment status. Failed/cancelled IPNs are retained and notified
+    // through the same attempt lifecycle instead of disappearing as no-ops.
     if (paymentData.payment_status !== "COMPLETE") {
+      try {
+        const transitioned = await transitionPaymentAttempt({
+          provider: "payfast",
+          attemptId,
+          providerSessionId: attemptId,
+          status: "failed",
+          providerStatus: paymentData.payment_status || "unknown",
+          failureReason: `PayFast payment status: ${paymentData.payment_status || "unknown"}`,
+        });
+        if (transitioned.changed && transitioned.attempt) {
+          await notifyPaymentAttemptFailed({
+            admin: supabase,
+            attempt: transitioned.attempt,
+            reason: `PayFast returned ${paymentData.payment_status || "unknown"}.`,
+          });
+        }
+      } catch (attemptError) {
+        console.warn("[payfast-webhook] failed-attempt transition failed:", attemptError);
+      }
       return res.status(200).json({ message: "Payment not complete" });
     }
 
@@ -324,6 +347,7 @@ async function handler(
       custom_str2, // Payment type: "deposit", "balance", or "invoice"
       custom_str3, // Company ID
       custom_str4, // Identifier: "invoice" or not present
+      custom_str5,
       amount_gross,
       pf_payment_id,
       merchant_id
@@ -583,6 +607,18 @@ async function handler(
           }
         }
         console.log(`Invoice ${invoiceData.invoice_number} marked as paid - R${amount_gross}`);
+      }
+
+      try {
+        await transitionPaymentAttempt({
+          provider: "payfast",
+          attemptId: custom_str5 || null,
+          providerSessionId: custom_str5 || null,
+          status: "succeeded",
+          providerStatus: paymentData.payment_status,
+        });
+      } catch (attemptError) {
+        console.warn("[payfast-webhook] invoice attempt transition failed:", attemptError);
       }
 
       return res.status(200).json({
@@ -887,6 +923,18 @@ async function handler(
       }
     } catch (ownerEmailErr) {
       console.warn("[payment-webhook] owner notification email failed (non-blocking):", ownerEmailErr);
+    }
+
+    try {
+      await transitionPaymentAttempt({
+        provider: "payfast",
+        attemptId: custom_str5 || null,
+        providerSessionId: custom_str5 || null,
+        status: "succeeded",
+        providerStatus: paymentData.payment_status,
+      });
+    } catch (attemptError) {
+      console.warn("[payfast-webhook] order attempt transition failed:", attemptError);
     }
 
     return res.status(200).json({

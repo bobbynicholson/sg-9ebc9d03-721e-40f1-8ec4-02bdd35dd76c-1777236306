@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { getPlanById, formatCurrency, calculateTrialEndDate } from "@/lib/payfastService";
+import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
@@ -49,7 +50,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
 
   const plan = getPlanById(planId as string);
-  const trialEndDate = calculateTrialEndDate(14);
+  const trialEndDate = calculateTrialEndDate();
 
   useEffect(() => {
     if (!plan && planId) {
@@ -170,7 +171,7 @@ export default function CheckoutPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="w-5 h-5 text-slate-600" />
                     <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0">
-                      14-Day Free Trial
+                      {PLATFORM_TRIAL_DAYS}-Day Free Trial
                     </Badge>
                   </div>
                   <CardTitle className="text-2xl">Start Your Free Trial</CardTitle>
@@ -301,7 +302,7 @@ export default function CheckoutPage() {
                       ) : (
                         <>
                           <CreditCard className="w-5 h-5 mr-2" />
-                          Start 14-Day Free Trial
+                    Start {PLATFORM_TRIAL_DAYS}-Day Free Trial
                         </>
                       )}
                     </Button>
@@ -358,7 +359,7 @@ export default function CheckoutPage() {
                     <span className="font-semibold">Due Today</span>
                     <div className="text-right">
                       <span className="text-2xl font-bold">R0</span>
-                      <p className="text-xs text-slate-500">Free for 14 days</p>
+                          <p className="text-xs text-slate-500">Free for {PLATFORM_TRIAL_DAYS} days</p>
                     </div>
                   </div>
 

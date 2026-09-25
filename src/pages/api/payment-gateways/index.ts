@@ -150,6 +150,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (missing.length > 0) {
           return res.status(400).json({ error: `Missing required credential${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}` });
         }
+      } else if (provider === "yoco" && body.is_test === false && !cleanCreds.webhookSecret) {
+        const existingWithCredentials = await paymentGatewayService.getByIdWithCredentials(existingRow.id, sb);
+        if (!existingWithCredentials?.credentials?.webhookSecret) {
+          return res.status(400).json({
+            error: "Yoco Webhook Signing Secret is required before enabling live payments.",
+          });
+        }
       }
 
       const result = await paymentGatewayService.upsertWithCredentials(

@@ -22,6 +22,8 @@ import type Stripe from "stripe";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
 import { reconcileInvoiceForOrderPayment } from "@/lib/invoiceReconcile";
+import { transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 
 
 export const config = { api: { bodyParser: false } };
@@ -82,16 +84,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ error: "Invalid Stripe signature" });
     }
 
-    if (event.type !== "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const metadata = session.metadata || {};
+    const attemptId = metadata.paymentAttemptId || null;
+
+    if (event.type === "checkout.session.async_payment_failed") {
+      const transitioned = await transitionPaymentAttempt({
+        provider: "stripe",
+        attemptId,
+        providerSessionId: session.id,
+        status: "failed",
+        providerStatus: session.payment_status || "async_payment_failed",
+        failureReason: "Stripe reported that the asynchronous payment failed.",
+      });
+      if (transitioned.changed && transitioned.attempt) {
+        await notifyPaymentAttemptFailed({
+          admin: sb,
+          attempt: transitioned.attempt,
+          reason: "Stripe reported that the payment failed.",
+        });
+      }
+      return res.status(200).json({ message: "Payment failure recorded" });
+    }
+
+    if (event.type !== "checkout.session.completed" && event.type !== "checkout.session.async_payment_succeeded") {
       return res.status(200).json({ message: "Ignored event type" });
     }
 
-    const session = event.data.object as Stripe.Checkout.Session;
     if (session.payment_status !== "paid") {
       return res.status(200).json({ message: "Session not paid yet" });
     }
 
-    const metadata = session.metadata || {};
     const orderId = metadata.orderId;
     const paymentType = (metadata.paymentType || "").toLowerCase();
     const stripeTxId =
@@ -172,6 +195,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       amount: amountInRands,
       gatewayTransactionId: stripeTxId,
     });
+
+    try {
+      await transitionPaymentAttempt({
+        provider: "stripe",
+        attemptId,
+        providerSessionId: session.id,
+        status: "succeeded",
+        providerStatus: session.payment_status || event.type,
+      });
+    } catch (attemptError) {
+      console.warn("[stripe-webhook] successful-attempt transition failed:", attemptError);
+    }
 
     return res.status(200).json({ ok: true });
   } catch (e: any) {

@@ -724,6 +724,13 @@ function PaymentGatewaysPage() {
 
               <div className="space-y-3">
                 <h4 className="font-semibold text-sm">API credentials</h4>
+                <p className="text-xs text-muted-foreground rounded-md bg-slate-50 dark:bg-slate-900/40 p-3">
+                  {editProvider.provider === "payfast"
+                    ? "PayFast uses the passphrase to sign its ITN webhook. Paste the fixed webhook endpoint into PayFast under the merchant account settings."
+                    : editProvider.provider === "yoco"
+                      ? "Yoco requires the Secret Key, Public Key, and Webhook Signing Secret. Create the webhook in Yoco, copy its signing secret here, and use the fixed endpoint shown below."
+                      : "Stripe requires the Secret Key, Publishable Key, and Webhook Signing Secret. Create a Stripe webhook endpoint for the fixed URL below and paste its whsec_ secret here."}
+                </p>
                 {editProvider.fields.map((field) => (
                   <div key={field.key} className="space-y-1">
                     <Label htmlFor={field.key}>
@@ -795,7 +802,7 @@ function PaymentGatewaysPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    This is where {editProvider.name} sends payment confirmations. It is fixed by the platform, not editable.
+                    This is where {editProvider.name} sends payment confirmations. It is fixed by the platform, not editable. Payments remain pending until a signed webhook confirms them.
                   </p>
                 </div>
               </div>

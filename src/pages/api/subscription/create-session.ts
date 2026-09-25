@@ -53,6 +53,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const plan = getPlanById(planId);
     if (!plan) return res.status(400).json({ error: "Unknown plan." });
 
+    const admin = getServiceSupabase();
+    const { data: companyRow } = await admin
+      .from("companies")
+      .select("trial_ends_at, subscription_status")
+      .eq("id", companyId)
+      .maybeSingle();
+
     // Platform PayFast credentials (server-only; never NEXT_PUBLIC for the
     // passphrase). Fall back to the NEXT_PUBLIC_* names so an existing
     // single-account setup keeps working.
@@ -100,6 +107,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       { firstName: firstName || "Customer", lastName, email, userId: companyId },
       cycle,
       baseUrl,
+      companyRow?.subscription_status === "trial" && companyRow.trial_ends_at
+        ? new Date(companyRow.trial_ends_at).getTime() > Date.now()
+          ? new Date(companyRow.trial_ends_at).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0]
+        : undefined,
     );
     const html = svc.generatePaymentForm(params);
 

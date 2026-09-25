@@ -354,6 +354,7 @@ export async function middleware(request: NextRequest) {
   let userCompanySlug: string | undefined;
   let onboardingCompletedAt: string | null = null;
   let subscriptionStatus: string | null = null;
+  let trialEndsAt: string | null = null;
   let cacheHit = false;
 
   // The role chooser is the boundary where a freshly authenticated user
@@ -377,6 +378,7 @@ export async function middleware(request: NextRequest) {
     userCompanySlug = cached.slug ?? undefined;
     onboardingCompletedAt = cached.onboarding_completed_at;
     subscriptionStatus = cached.subscription_status ?? null;
+    trialEndsAt = cached.trial_ends_at ?? null;
     cacheHit = true;
   } else {
     try {
@@ -418,12 +420,13 @@ export async function middleware(request: NextRequest) {
       try {
         const { data: company } = await supabase
           .from("companies")
-          .select("slug, onboarding_completed_at, subscription_status")
+          .select("slug, onboarding_completed_at, subscription_status, trial_ends_at")
           .eq("id", profileCompanyId)
           .single();
         userCompanySlug = company?.slug ?? undefined;
         onboardingCompletedAt = company?.onboarding_completed_at ?? null;
         subscriptionStatus = (company as any)?.subscription_status ?? null;
+        trialEndsAt = (company as any)?.trial_ends_at ?? null;
       } catch (error) {
         console.error("[Middleware] Error fetching user company slug:", error);
       }
@@ -578,13 +581,18 @@ export async function middleware(request: NextRequest) {
   //   - client (a caterer's billing state must not lock their end
   //     customers out of the client portal).
   // Fails OPEN: if subscription_status is null/unknown we never block.
+  const trialExpired =
+    subscriptionStatus === "trial" &&
+    !!trialEndsAt &&
+    new Date(trialEndsAt).getTime() <= Date.now();
+  const effectiveSubscriptionStatus = trialExpired ? "suspended" : subscriptionStatus;
   const NON_ACCESS_STATUSES = new Set(["cancelled", "suspended"]);
   if (
     profileRole &&
     !isSuperAdmin &&
     !profileRoles.every((role) => role === "client") &&
-    subscriptionStatus &&
-    NON_ACCESS_STATUSES.has(subscriptionStatus)
+    effectiveSubscriptionStatus &&
+    NON_ACCESS_STATUSES.has(effectiveSubscriptionStatus)
   ) {
     // Always-reachable so the owner can reactivate (and to avoid a
     // redirect loop). /pricing is a public route and isn't gated here.
@@ -603,7 +611,7 @@ export async function middleware(request: NextRequest) {
         url.search = "";
         url.searchParams.set("message", "subscription_expired");
       }
-      mwLog("DENY", "subscription_expired", { role: profileRole, status: subscriptionStatus, path: pathname });
+      mwLog("DENY", "subscription_expired", { role: profileRole, status: effectiveSubscriptionStatus, path: pathname });
       return NextResponse.redirect(url);
     }
   }
@@ -647,6 +655,7 @@ export async function middleware(request: NextRequest) {
       slug: userCompanySlug ?? null,
       onboarding_completed_at: onboardingCompletedAt,
       subscription_status: subscriptionStatus,
+      trial_ends_at: trialEndsAt,
     });
   }
 

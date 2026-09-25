@@ -33,6 +33,8 @@ import { paymentProcessingService } from "@/services/paymentProcessingService";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
 import { reconcileInvoiceForOrderPayment } from "@/lib/invoiceReconcile";
+import { transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 
 
 // We need the raw body for HMAC verification.
@@ -73,6 +75,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const companyId = metadata.companyId;
     const paymentType = (metadata.paymentType || "").toLowerCase();
     const yocoTxId = payload.id;
+    const attemptId = metadata.paymentAttemptId || null;
 
     if (!orderId || !companyId) {
       return res.status(400).json({ error: "Missing orderId/companyId metadata" });
@@ -124,6 +127,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const succeeded =
       eventType.includes("succeeded") || status === "succeeded" || status === "successful";
     if (!succeeded) {
+      try {
+        const transitioned = await transitionPaymentAttempt({
+          provider: "yoco",
+          attemptId,
+          providerSessionId: yocoTxId,
+          status: "failed",
+          providerStatus: payload.status || event.type || "unknown",
+          failureReason: `Yoco event/status: ${event.type || payload.status || "unknown"}`,
+        });
+        if (transitioned.changed && transitioned.attempt) {
+          await notifyPaymentAttemptFailed({
+            admin: sb,
+            attempt: transitioned.attempt,
+            reason: `Yoco returned ${event.type || payload.status || "a non-success status"}.`,
+          });
+        }
+      } catch (attemptError) {
+        console.warn("[yoco-webhook] failed-attempt transition failed:", attemptError);
+      }
       return res.status(200).json({ message: "Ignored non-success event" });
     }
 
@@ -198,6 +220,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       amount: amountInRands,
       gatewayTransactionId: yocoTxId,
     });
+
+    try {
+      await transitionPaymentAttempt({
+        provider: "yoco",
+        attemptId,
+        providerSessionId: yocoTxId,
+        status: "succeeded",
+        providerStatus: payload.status || event.type || "succeeded",
+      });
+    } catch (attemptError) {
+      console.warn("[yoco-webhook] successful-attempt transition failed:", attemptError);
+    }
 
     return res.status(200).json({ ok: true });
   } catch (e: any) {

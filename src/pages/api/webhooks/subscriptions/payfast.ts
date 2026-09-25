@@ -121,7 +121,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     console.warn(
       "[subscriptions/payfast] env vars missing - PAYFAST_PLATFORM_MERCHANT_ID or PAYFAST_PLATFORM_MERCHANT_KEY. Returning 200 OK without processing.",
     );
-    return res.status(200).json({ ok: true, scaffold: true });
+    // A successful acknowledgement would permanently discard the ITN and
+    // leave the tenant in trial/pending forever. Production must fail so
+    // PayFast retries after the platform credentials are configured.
+    return res.status(process.env.NODE_ENV === "production" ? 503 : 200).json({
+      ok: false,
+      scaffold: process.env.NODE_ENV !== "production",
+      error: "Platform PayFast credentials are not configured",
+    });
   }
 
   // PayFast POSTs application/x-www-form-urlencoded; Next.js bodyParser
@@ -258,11 +265,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // (unchecked await), so the ledger never populated. Resolve the owner and
     // surface the error.
     let ownerId: string | null = null;
+    let ownerCompany: { company_name?: string | null; slug?: string | null } | null = null;
     if (paymentStatus === "COMPLETE" || paymentStatus === "FAILED" || paymentStatus === "CANCELLED") {
       const { data: ownerRow } = await sb
-        .from("companies").select("owner_id").eq("id", companyId).maybeSingle();
+        .from("companies").select("owner_id, company_name, slug").eq("id", companyId).maybeSingle();
       ownerId = (ownerRow as any)?.owner_id ?? null;
+      ownerCompany = ownerRow as any;
     }
+    const cycleRaw = (body.custom_str3 || "").toLowerCase();
+    const billingCycle = cycleRaw.includes("annual") || cycleRaw.includes("year") ? "yearly" : "monthly";
     if (paymentStatus === "COMPLETE" || paymentStatus === "FAILED") {
       if (!ownerId) {
         console.error("[subscriptions/payfast] no owner_id for company; skipping billing_history", companyId);
@@ -286,8 +297,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       try {
         const { billingEmailService } = await import("@/services/billingEmailService");
         const paidAmount = Number(body.amount_gross || body.amount || 0);
-        const cycleRaw = (body.custom_str3 || "").toLowerCase();
-        const billingCycle = cycleRaw.includes("annual") || cycleRaw.includes("year") ? "yearly" : "monthly";
         const plan = planFromCustom ? getPlanById(planFromCustom) : null;
         const nowIso = new Date().toISOString();
         if (paymentStatus === "COMPLETE" && isFirstPayment) {
@@ -325,6 +334,50 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       } catch (emailErr) {
         console.warn("[subscriptions/payfast] billing email failed:", emailErr);
+      }
+    }
+
+    // The tenant owner receives the customer-facing billing email above.
+    // The platform owner also needs a separate operational receipt so a
+    // successful SaaS charge is visible without opening the tenant record.
+    // Prefer an explicit mailbox; otherwise use the first super-admin.
+    if (paymentStatus === "COMPLETE" && (isFirstPayment || body.pf_payment_id)) {
+      try {
+        let platformEmail = process.env.PLATFORM_BILLING_NOTIFICATION_EMAIL || "";
+        if (!platformEmail) {
+          const { data: platformOwner } = await sb
+            .from("profiles")
+            .select("email")
+            .eq("role", "super_admin")
+            .not("email", "is", null)
+            .limit(1)
+            .maybeSingle();
+          platformEmail = String((platformOwner as any)?.email || "").trim();
+        }
+        if (platformEmail) {
+          const { emailService } = await import("@/services/emailService");
+          const plan = planFromCustom ? getPlanById(planFromCustom) : null;
+          const paidAmount = Number(body.amount_gross || body.amount || 0);
+          await emailService.sendEmail({
+            companyId,
+            to: platformEmail,
+            subject: `${isFirstPayment ? "New platform subscription" : "Platform subscription renewed"}: ${ownerCompany?.company_name || companyId}`,
+            body: `<h2>${isFirstPayment ? "New platform subscription" : "Platform subscription renewed"}</h2>
+              <p><strong>Company:</strong> ${ownerCompany?.company_name || companyId}</p>
+              <p><strong>Plan:</strong> ${plan?.name || planFromCustom || "Unknown plan"}</p>
+              <p><strong>Amount:</strong> R${paidAmount.toFixed(2)}</p>
+              <p><strong>Billing cycle:</strong> ${billingCycle}</p>
+              <p><strong>Transaction:</strong> ${body.pf_payment_id || "N/A"}</p>
+              <p><a href="${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/admin/platform/subscription-management">Open platform subscription management</a></p>`,
+            legalAudience: "platform",
+            allowPlatformFallback: true,
+            _client: sb,
+          } as any);
+        } else {
+          console.warn("[subscriptions/payfast] platform billing email is not configured and no super_admin email was found");
+        }
+      } catch (platformEmailErr) {
+        console.warn("[subscriptions/payfast] platform owner billing email failed:", platformEmailErr);
       }
     }
 

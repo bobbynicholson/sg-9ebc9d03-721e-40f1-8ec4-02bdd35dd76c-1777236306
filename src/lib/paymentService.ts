@@ -139,6 +139,7 @@ async function dispatchPayFast(
     // (deposit/balance payments hit record_order_payment, which only
     // updates the order; the webhook uses this to flip the invoice too).
     customStr4: input.extraMetadata?.invoiceId,
+    customStr5: input.extraMetadata?.paymentAttemptId,
   });
   return {
     ok: true,
@@ -181,6 +182,7 @@ async function dispatchLegacyPayFast(
     customStr3: input.companyId,
     // See dispatchPayFast: forward invoice id for IPN reconciliation.
     customStr4: input.extraMetadata?.invoiceId,
+    customStr5: input.extraMetadata?.paymentAttemptId,
   });
   return {
     ok: true,

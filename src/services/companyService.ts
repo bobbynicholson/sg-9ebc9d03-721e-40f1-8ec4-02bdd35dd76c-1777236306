@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { User, Session } from "@supabase/supabase-js";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 
 type Company = Database["public"]["Tables"]["companies"]["Row"];
 type CompanyInsert = Database["public"]["Tables"]["companies"]["Insert"];
@@ -126,7 +127,7 @@ export const companyService = {
         currency: data.currency || "ZAR",
         timezone: data.timezone || "Africa/Johannesburg",
         subscription_status: "trial",
-        trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_ends_at: new Date(Date.now() + PLATFORM_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
         is_active: true,
       } as any;
 
@@ -329,7 +330,7 @@ export const companyService = {
     fullName: string,
     companyName: string,
     planId: string,
-    trialDays: number
+    trialDays: number = PLATFORM_TRIAL_DAYS
   ): Promise<{ user: User; company: Company; session: Session }> {
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
@@ -485,7 +486,7 @@ export const companyService = {
       // back-link owner_id. Roll back the orphan company if user
       // creation fails.
       const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + 30);
+      trialEndsAt.setDate(trialEndsAt.getDate() + PLATFORM_TRIAL_DAYS);
 
       // 1. Create the company (owner_id back-filled in step 3).
       const { data: company, error: companyError } = await supabase

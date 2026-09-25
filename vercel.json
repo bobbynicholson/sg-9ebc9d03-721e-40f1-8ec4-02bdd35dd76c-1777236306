@@ -60,6 +60,10 @@
       "schedule": "0 4 * * *"
     },
     {
+      "path": "/api/cron/reconcile-payment-attempts",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/equipment-service-due",
       "schedule": "0 5 * * *"
     },

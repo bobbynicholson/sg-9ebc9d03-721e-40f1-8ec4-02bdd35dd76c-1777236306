@@ -28,6 +28,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 
 interface Body {
   userId?: string;
@@ -133,7 +134,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       currency,
       timezone,
       subscription_status: "trial",
-      trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      trial_ends_at: new Date(Date.now() + PLATFORM_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString(),
       is_active: true,
     } as any)
     .select()

@@ -1,6 +1,7 @@
 import { SubscriptionPlan, PaymentGatewayConfig } from "@/types/payments";
 import crypto from "crypto";
 import { formatLocalDate } from "@/lib/localFormat";
+import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 
 export interface PayFastConfig {
   merchantId: string;
@@ -102,6 +103,7 @@ export class PayFastService {
     // passphrase never reaches the browser. Falls back to window for any
     // legacy client-side caller.
     baseUrl?: string,
+    billingDateOverride?: string,
   ): PayFastSubscriptionParams {
     const origin =
       baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
@@ -109,9 +111,10 @@ export class PayFastService {
       billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice;
     const frequency = billingCycle === "monthly" ? "3" : "6";
     const today = new Date();
-    const billingDate = new Date(today.setDate(today.getDate() + 14))
+    const defaultBillingDate = new Date(today.setDate(today.getDate() + PLATFORM_TRIAL_DAYS))
       .toISOString()
       .split("T")[0];
+    const billingDate = billingDateOverride || defaultBillingDate;
 
     const params: Record<string, string> = {
       merchant_id: this.config.merchantId,
@@ -502,7 +505,7 @@ export function formatCurrency(amount: number, currency: string = "ZAR"): string
   }
 }
 
-export function calculateTrialEndDate(days: number = 14): Date {
+export function calculateTrialEndDate(days: number = PLATFORM_TRIAL_DAYS): Date {
   const today = new Date();
   return new Date(today.setDate(today.getDate() + days));
 }
@@ -546,6 +549,7 @@ export interface PayFastFormInput {
   customStr2?: string;
   customStr3?: string;
   customStr4?: string;
+  customStr5?: string;
 }
 
 export function generatePayFastPaymentForm(input: PayFastFormInput): string {
@@ -572,6 +576,7 @@ export function generatePayFastPaymentForm(input: PayFastFormInput): string {
   if (input.customStr2) params.custom_str2 = input.customStr2;
   if (input.customStr3) params.custom_str3 = input.customStr3;
   if (input.customStr4) params.custom_str4 = input.customStr4;
+  if (input.customStr5) params.custom_str5 = input.customStr5;
 
   // PayFast's shared, public sandbox account is a special case. Its
   // credentials are intentionally not tied to a merchant passphrase and the

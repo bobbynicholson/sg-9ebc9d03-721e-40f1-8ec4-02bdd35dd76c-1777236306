@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, ArrowRight, Calendar, Mail, Zap } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 
 export default function SubscriptionSuccessPage() {
   const router = useRouter();
@@ -49,11 +50,11 @@ export default function SubscriptionSuccessPage() {
           
           <div className="space-y-2">
             <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0 px-4 py-1.5">
-              Subscription Activated
+              Payment Submitted
             </Badge>
-            <CardTitle className="text-3xl font-bold">Welcome Aboard!</CardTitle>
+            <CardTitle className="text-3xl font-bold">Your subscription is being confirmed</CardTitle>
             <CardDescription className="text-lg">
-              Your free trial has started successfully
+              Your payment provider is processing the request. Access changes only after CateringMS receives and verifies the provider webhook.
             </CardDescription>
           </div>
         </CardHeader>
@@ -92,9 +93,9 @@ export default function SubscriptionSuccessPage() {
                   <Calendar className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-medium mb-1">14 days of full access</h4>
+                  <h4 className="font-medium mb-1">{PLATFORM_TRIAL_DAYS} days of full access</h4>
                   <p className="text-sm text-slate-600">
-                    You will not be charged until your trial ends. Cancel anytime before then at no cost.
+                    Your company starts with a {PLATFORM_TRIAL_DAYS}-day trial. After that, the selected platform subscription is billed according to the provider confirmation.
                   </p>
                 </div>
               </div>

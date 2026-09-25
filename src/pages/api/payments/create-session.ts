@@ -33,6 +33,9 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { createPaymentSession } from "@/lib/paymentService";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { attachPaymentAttemptSession, createPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
+import { randomUUID } from "crypto";
 
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -301,6 +304,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const description = creditApplied > 0
       ? `${baseDescription} (after R${creditApplied.toFixed(2)} credit)`
       : baseDescription;
+    const paymentAttemptId = randomUUID();
+    const { data: activeGateway } = await admin
+      .from("payment_gateways")
+      .select("provider")
+      .eq("company_id", invoice.company_id)
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    // Create the correlation row before calling the provider. This closes
+    // the small but real race where a hosted checkout completes and its
+    // webhook arrives before the provider session response is persisted.
+    if (activeGateway?.provider) {
+      try {
+        await createPaymentAttempt({
+          companyId: invoice.company_id,
+          clientId: invoice.client_id,
+          orderId: orderIdForSession,
+          invoiceId: invoice.id,
+          provider: activeGateway.provider,
+          providerSessionId: paymentAttemptId,
+          paymentType: orderRow ? (isDeposit ? "deposit" : "balance") : "invoice",
+          amount,
+          currency: orderRow?.currency || "ZAR",
+          metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number, paymentAttemptId },
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        });
+      } catch (attemptError) {
+        console.error("[payments/create-session] pre-checkout attempt insert failed:", attemptError);
+      }
+    }
 
     const result = await createPaymentSession({
       companyId: invoice.company_id,
@@ -329,15 +363,42 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       extraMetadata: {
         invoiceId: invoice.id,
         invoiceNumber: invoice.invoice_number,
+        paymentAttemptId,
       },
     });
 
     if (!result.ok) {
+      if (activeGateway?.provider) {
+        try {
+          const transitioned = await transitionPaymentAttempt({
+            provider: activeGateway.provider,
+            attemptId: paymentAttemptId,
+            status: "failed",
+            providerStatus: "checkout_creation_failed",
+            failureReason: result.error || "Provider checkout could not be created",
+          });
+          if (transitioned.changed && transitioned.attempt) {
+            await notifyPaymentAttemptFailed({
+              admin,
+              attempt: transitioned.attempt,
+              reason: result.error || "Provider checkout could not be created.",
+            });
+          }
+        } catch (attemptError) {
+          console.warn("[payments/create-session] failed-attempt transition failed:", attemptError);
+        }
+      }
       const paymentNotConfigured = /no active payment gateway/i.test(String(result.error || ""));
       return res.status(400).json({
         error: result.error,
         ...(paymentNotConfigured ? { code: "payment_not_configured" } : {}),
       });
+    }
+
+    try {
+      await attachPaymentAttemptSession(paymentAttemptId, result.provider === "payfast" ? paymentAttemptId : result.sessionId!);
+    } catch (attemptError) {
+      console.error("[payments/create-session] provider session attach failed:", attemptError);
     }
 
     return res.status(200).json({
