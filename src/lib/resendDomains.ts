@@ -55,9 +55,12 @@ async function resendFetch(path: string, init: RequestInit = {}): Promise<any> {
   }
 
   let response: Response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
     response = await fetch(`${RESEND_BASE}${path}`, {
       ...init,
+      signal: controller.signal,
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
@@ -66,9 +69,13 @@ async function resendFetch(path: string, init: RequestInit = {}): Promise<any> {
     });
   } catch (e: any) {
     return {
-      error: `Could not reach Resend: ${e?.message || "network error"}`,
+      error: e?.name === "AbortError"
+        ? "Resend did not respond within 10 seconds. Try again shortly."
+        : `Could not reach Resend: ${e?.message || "network error"}`,
       status: 0,
     } satisfies ResendDomainError;
+  } finally {
+    clearTimeout(timeout);
   }
 
   let body: any = null;

@@ -27,6 +27,29 @@ const ALLOWED_ROLES = new Set([
   "owner",
 ]);
 
+// DNS providers can leave a UDP/TCP query hanging for tens of seconds.
+// The UI is a diagnosis tool, so one slow resolver must not hold the whole
+// request open. Return a per-record timeout and let the other records finish.
+const DNS_LOOKUP_TIMEOUT_MS = 4_000;
+
+async function withDnsTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => {
+          const error: any = new Error("DNS lookup timed out");
+          error.code = "ETIMEOUT";
+          reject(error);
+        }, DNS_LOOKUP_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 type ExpectedRecord = {
   record?: string;
   type?: string;
@@ -84,7 +107,7 @@ async function lookupTxt(
   name: string,
 ): Promise<{ values: string[]; raw: string[][]; error?: string }> {
   try {
-    const raw = await resolver.resolveTxt(name);
+    const raw = await withDnsTimeout(resolver.resolveTxt(name));
     return { values: raw.map(normaliseTxt), raw };
   } catch (e: any) {
     const code = e?.code || "";
@@ -107,7 +130,7 @@ async function lookupMx(
   error?: string;
 }> {
   try {
-    const raw = await resolver.resolveMx(name);
+    const raw = await withDnsTimeout(resolver.resolveMx(name));
     return { values: raw };
   } catch (e: any) {
     const code = e?.code || "";
@@ -127,7 +150,7 @@ async function lookupCname(
   name: string,
 ): Promise<{ values: string[]; error?: string }> {
   try {
-    const raw = await resolver.resolveCname(name);
+    const raw = await withDnsTimeout(resolver.resolveCname(name));
     return { values: raw };
   } catch (e: any) {
     const code = e?.code || "";
@@ -374,13 +397,12 @@ async function handler(
 
     const sendingDomain = (row as any).resend_sending_domain as string;
     const resolver = buildResolver();
-    const results: RecordResult[] = [];
-    for (const rec of expected) {
+    const results: RecordResult[] = await Promise.all(expected.map(async (rec) => {
       try {
-        results.push(await checkRecord(resolver, rec, sendingDomain));
+        return await checkRecord(resolver, rec, sendingDomain);
       } catch (e: any) {
         console.error("[dns-check] record check crashed:", e);
-        results.push({
+        return {
           name: toFqdn((rec.name || "").trim(), sendingDomain),
           type: ((rec.type || rec.record || "TXT") as string).toUpperCase(),
           expected_value: (rec.value || "").trim(),
@@ -389,9 +411,9 @@ async function handler(
           diagnosis:
             "Diagnostic check crashed for this record. The other records still apply.",
           error: e?.code || "UNKNOWN",
-        });
+        };
       }
-    }
+    }));
 
     const totalCount = results.length;
     const matchCount = results.filter((r) => r.match).length;
