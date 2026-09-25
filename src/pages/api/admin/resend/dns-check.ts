@@ -71,12 +71,16 @@ type RecordResult = {
   error?: string;
 };
 
-function buildResolver(): Resolver {
-  const r = new Resolver();
-  // Public resolvers: Cloudflare first, Google as fallback. Avoids
-  // the lambda's local resolver returning a stale cached view.
-  r.setServers(["1.1.1.1", "8.8.8.8"]);
-  return r;
+function buildResolvers(): Resolver[] {
+  // Query each public resolver independently. Resolver.setServers() can
+  // still return a cached answer from only one server, which made a newly
+  // corrected CNAME alternate between 3/4 and 4/4 while the records were
+  // already live elsewhere.
+  return ["1.1.1.1", "8.8.8.8"].map((server) => {
+    const resolver = new Resolver();
+    resolver.setServers([server]);
+    return resolver;
+  });
 }
 
 function normaliseTxt(chunks: string[]): string {
@@ -396,10 +400,25 @@ async function handler(
     }
 
     const sendingDomain = (row as any).resend_sending_domain as string;
-    const resolver = buildResolver();
+    const resolvers = buildResolvers();
     const results: RecordResult[] = await Promise.all(expected.map(async (rec) => {
       try {
-        return await checkRecord(resolver, rec, sendingDomain);
+        const checks = await Promise.all(
+          resolvers.map((resolver) => checkRecord(resolver, rec, sendingDomain)),
+        );
+        const matching = checks.find((check) => check.match);
+        if (matching) {
+          return {
+            ...matching,
+            found_values: Array.from(new Set(checks.flatMap((check) => check.found_values))),
+            diagnosis: "Record is live and matches what Resend expects on a public resolver.",
+          };
+        }
+        return {
+          ...checks[0],
+          found_values: Array.from(new Set(checks.flatMap((check) => check.found_values))),
+          error: checks.find((check) => check.error)?.error,
+        };
       } catch (e: any) {
         console.error("[dns-check] record check crashed:", e);
         return {

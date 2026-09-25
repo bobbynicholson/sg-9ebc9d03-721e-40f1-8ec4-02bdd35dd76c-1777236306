@@ -675,6 +675,9 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
           <li><strong>MX:</strong> enables Resend’s provider-specific mail and bounce handling.</li>
           <li><strong>CNAME:</strong> connects Resend’s sending/tracking hostname to your domain.</li>
         </ul>
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+          <strong>Cloudflare mode:</strong> set the Resend CNAME to <strong>DNS only (grey cloud)</strong>. Never use Proxied (orange cloud) for this CNAME. TXT records are DNS-only, and the MX record must use priority <strong>10</strong>.
+        </p>
         <p className="rounded-md bg-slate-50 px-3 py-2 text-slate-600">
           After all records match and Resend verifies them, emails still travel through Resend, but clients see your company sender such as <code>hello@{state.domain}</code> instead of <code>noreply@send.cateringms.com</code>. Replies go to the From address configured below. Until then, the shared sender remains active so email delivery does not stop.
         </p>
@@ -721,7 +724,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                 <div className="space-y-2">
                   <p className="font-semibold text-amber-900">Waiting on Resend's verifier</p>
                   <p className="text-sm text-amber-900/90">
-                    Your DNS records are live and match exactly what Resend asked for (we just confirmed all three from public DNS, see the green ticks below). Now Resend's own verifier needs to run its DNS check and flip the status.
+                    Your DNS records are live and match exactly what Resend asked for (we just confirmed all expected records from public DNS, see the green ticks below). Now Resend's own verifier needs to run its DNS check and flip the status.
                     <strong> This is on Resend's side, not yours and not ours.</strong> It usually flips within a minute or two of clicking Verify now.
                   </p>
                   <ul className="text-xs text-amber-900/80 space-y-0.5 ml-1">
@@ -1034,7 +1037,13 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
             <div className="rounded-md border border-amber-300 bg-white px-3 py-2">
               <p className="font-semibold">Important for the MX record</p>
               <p className="mt-1">
-                In your DNS provider, MX priority is a separate number field. Set it to <strong>10</strong> exactly as shown in the record table. The destination is <code className="font-mono">feedback-smtp.us-east-1.amazonses.com</code>; priority <strong>5</strong> is not equivalent and will fail verification.
+                In your DNS provider, MX priority is a separate number field. Set it to <strong>10</strong> exactly as shown in the record table. The destination is <code className="font-mono">feedback-smtp.us-east-1.amazonses.com</code>; priority <strong>5</strong> is not equivalent and will fail verification. MX records cannot be proxied.
+              </p>
+            </div>
+            <div className="rounded-md border border-amber-300 bg-white px-3 py-2">
+              <p className="font-semibold">Important for the CNAME record</p>
+              <p className="mt-1">
+                In Cloudflare, set <code className="font-mono">rsend.{state.domain}</code> to <strong>DNS only</strong> with the grey cloud. Proxied/orange-cloud CNAMEs return Cloudflare IP addresses instead of <code className="font-mono">send.forge.rmta.net</code>, so Resend cannot verify them. TXT records should also remain DNS-only.
               </p>
             </div>
             <div>
