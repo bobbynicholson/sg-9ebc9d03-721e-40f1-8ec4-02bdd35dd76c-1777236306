@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { dashboardTodoService } from "@/services/dashboardTodoService";
+import { onboardingProgressService } from "@/services/onboardingProgressService";
 
 interface Props {
   companyId: string;
@@ -39,6 +40,8 @@ export function DashboardTodoList({ companyId, slug }: Props) {
   const [checked, setChecked] = useState<Partial<Record<TodoId, boolean>>>({});
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [celebrationVisible, setCelebrationVisible] = useState(false);
   const [saving, setSaving] = useState<TodoId | null>(null);
   const { toast } = useToast();
 
@@ -95,10 +98,14 @@ export function DashboardTodoList({ companyId, slug }: Props) {
     if (!companyId) return;
     let cancelled = false;
     setLoading(true);
-    void dashboardTodoService.getForCompany(companyId)
-      .then((rows) => {
+    void Promise.all([
+      dashboardTodoService.getForCompany(companyId),
+      onboardingProgressService.getState(companyId, slug),
+    ])
+      .then(([rows, onboarding]) => {
         if (cancelled) return;
         setChecked(Object.fromEntries(rows.map((row) => [row.task_id, row.completed])));
+        setOnboardingComplete(onboarding.allRequiredComplete);
       })
       .catch((error) => {
         if (cancelled) return;
@@ -109,10 +116,30 @@ export function DashboardTodoList({ companyId, slug }: Props) {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [companyId, toast]);
+  }, [companyId, slug, toast]);
 
   const completedCount = todos.filter((todo) => checked[todo.id as TodoId]).length;
-  const complete = mounted && completedCount === todos.length;
+  const complete = mounted && onboardingComplete === true && completedCount === todos.length;
+
+  useEffect(() => {
+    if (!complete || !companyId || typeof window === "undefined") {
+      setCelebrationVisible(false);
+      return;
+    }
+
+    const key = `dashboard_setup_celebrated_${companyId}`;
+    if (window.sessionStorage.getItem(key) === "1") {
+      setCelebrationVisible(false);
+      return;
+    }
+
+    setCelebrationVisible(true);
+    const timer = window.setTimeout(() => {
+      setCelebrationVisible(false);
+      window.sessionStorage.setItem(key, "1");
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [complete, companyId]);
 
   const toggle = (id: TodoId, value: boolean) => {
     const previous = Boolean(checked[id]);
@@ -128,9 +155,12 @@ export function DashboardTodoList({ companyId, slug }: Props) {
       .finally(() => setSaving(null));
   };
 
-  if (!mounted || loading) return null;
+  // The real onboarding gate comes first. The post-onboarding task list
+  // should not compete with the wizard or claim setup is complete while
+  // required onboarding steps are still unfinished.
+  if (!mounted || loading || onboardingComplete === null || !onboardingComplete) return null;
 
-  if (complete) {
+  if (complete && celebrationVisible) {
     return (
       <Card className="relative mb-6 overflow-hidden border-0 bg-gradient-to-br from-brand-primary via-brand-secondary to-brand-accent text-white shadow-lg">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-30">
