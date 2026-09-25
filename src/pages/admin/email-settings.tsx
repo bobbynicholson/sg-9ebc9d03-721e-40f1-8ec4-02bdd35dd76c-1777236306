@@ -135,6 +135,7 @@ function EmailSettingsPage() {
   const [smtpPass, setSmtpPass] = useState("");
   const [mailchimpApiKey, setMailchimpApiKey] = useState("");
   const [mailchimpAudienceId, setMailchimpAudienceId] = useState("");
+  const [mailchimpConfigured, setMailchimpConfigured] = useState(false);
   // ES-B (task #221, 2026-05-25): custom recipient for the test
   // send. Pre-ES-B the test always landed in row.from_email so an
   // operator wanting to see what an actual client sees had to
@@ -242,7 +243,7 @@ function EmailSettingsPage() {
       // Mailchimp row
       const { data: mc, error: mcError } = await supabase
         .from("email_provider_settings")
-        .select("mailchimp_audience_id")
+        .select("mailchimp_audience_id, mailchimp_api_key_encrypted")
         .eq("company_id", companyId)
         .eq("provider", "mailchimp")
         .maybeSingle();
@@ -251,7 +252,10 @@ function EmailSettingsPage() {
           tags: { route: "/admin/email-settings", step: "load-mailchimp", companyId },
         });
       }
-      if (mc) setMailchimpAudienceId(mc.mailchimp_audience_id || "");
+      if (mc) {
+        setMailchimpAudienceId(mc.mailchimp_audience_id || "");
+        setMailchimpConfigured(!!mc.mailchimp_api_key_encrypted);
+      }
 
       // ES-B (task #221, 2026-05-25): pull the last 7 days of
       // outgoing_email_log rows so the sparkline has a real series
@@ -296,6 +300,18 @@ function EmailSettingsPage() {
   // and aborts the test if the save failed).
   const save = async (): Promise<boolean> => {
     if (!companyId) return false;
+    const fromEmail = String(row.from_email || "").trim();
+    if (!fromEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) {
+      toast({ title: "Add a valid from address", description: "Clients and replies need a valid From address before this sender can be saved.", variant: "destructive" });
+      return false;
+    }
+    if (row.provider === "smtp") {
+      const port = Number(row.smtp_port);
+      if (!String(row.smtp_host || "").trim() || !port || port < 1 || port > 65535 || !String(row.smtp_user || "").trim()) {
+        toast({ title: "Complete SMTP settings", description: "Enter the SMTP host, a port from 1 to 65535, and the SMTP username. The password may be left blank only when one is already saved.", variant: "destructive" });
+        return false;
+      }
+    }
     setSaving(true);
     try {
       // Only invalidate domain verification when a save actually changes
@@ -305,10 +321,15 @@ function EmailSettingsPage() {
       // again" without any indication why [P1-04].
       const { data: existing } = await supabase
         .from("email_provider_settings")
-        .select("provider, from_email, from_name, smtp_host, smtp_port, smtp_user, is_verified")
+        .select("provider, from_email, from_name, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, is_verified")
         .eq("company_id", companyId)
         .eq("provider", row.provider)
         .maybeSingle();
+
+      if (row.provider === "smtp" && !smtpPass && !(existing as any)?.smtp_pass_encrypted) {
+        toast({ title: "Enter the SMTP password", description: "A new SMTP sender needs its password before it can send mail.", variant: "destructive" });
+        return false;
+      }
 
       const verificationRelevantChanged = !existing
         ? true
@@ -502,6 +523,15 @@ function EmailSettingsPage() {
 
   const saveMailchimp = async () => {
     if (!companyId) return;
+    const audienceId = mailchimpAudienceId.trim();
+    if (!audienceId || (!mailchimpApiKey.trim() && !mailchimpConfigured)) {
+      toast({
+        title: "Complete Mailchimp setup",
+        description: "Enter both the Mailchimp API key and Audience ID. This connection is only for newsletters and campaigns, not quote, invoice, or order emails.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSavingMailchimp(true);
     try {
       const { error } = await supabase
@@ -510,11 +540,12 @@ function EmailSettingsPage() {
           company_id: companyId,
           provider: "mailchimp",
           mailchimp_api_key_encrypted: mailchimpApiKey || undefined,
-          mailchimp_audience_id: mailchimpAudienceId || null,
+          mailchimp_audience_id: audienceId,
           updated_at: new Date().toISOString(),
         }, { onConflict: "company_id,provider" });
       if (error) throw error;
       setMailchimpApiKey(""); // clear local field after save
+      setMailchimpConfigured(true);
       toast({ title: "Mailchimp saved", description: "Audience linked. Bulk sends now route through Mailchimp." });
     } catch (e: any) {
       captureException(e, {
@@ -891,7 +922,7 @@ function EmailSettingsPage() {
             </summary>
             <div className="px-6 pb-6 pt-2 space-y-4 border-t border-slate-100">
               <p className="text-xs text-slate-600">
-                Most caterers should stay on the CateringMS default. These options exist for operators who already have a Gmail / Microsoft 365 / SMTP setup they'd rather route through. Pick the one that matches how your business already sends mail.
+                Transactional mail (quotes, invoices, confirmations and order updates) uses the selected sender below. The CateringMS default is already configured; only switch when you have your own SMTP credentials. Gmail and Microsoft 365 connection is not available yet.
               </p>
               {/* TIGHTEN I.50 (2026-06-01): rich provider option cards
                   replacing the four tiny "title + one-line sub" tiles.
@@ -917,7 +948,8 @@ function EmailSettingsPage() {
                 />
                 <ProviderOption
                   active={row.provider === "gmail_oauth"}
-                  onClick={() => setRow({ ...row, provider: "gmail_oauth" })}
+                  onClick={() => toast({ title: "Gmail connection not available yet", description: "Use CateringMS default or Custom SMTP for live sending. Gmail OAuth is still being built." })}
+                  disabled
                   icon={Mail}
                   title="Gmail"
                   status={{ label: "Coming soon", tone: "amber" }}
@@ -930,7 +962,8 @@ function EmailSettingsPage() {
                 />
                 <ProviderOption
                   active={row.provider === "ms365_oauth"}
-                  onClick={() => setRow({ ...row, provider: "ms365_oauth" })}
+                  onClick={() => toast({ title: "Microsoft 365 connection not available yet", description: "Use CateringMS default or Custom SMTP for live sending. Microsoft OAuth is still being built." })}
+                  disabled
                   icon={Mail}
                   title="Microsoft 365"
                   status={{ label: "Coming soon", tone: "amber" }}
@@ -1063,6 +1096,37 @@ function EmailSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-slate-900">All email types use the selected sender</p>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {[
+                    "Quotes and quote follow-ups",
+                    "Invoices and payment links",
+                    "Payment receipts and reminders",
+                    "Order confirmations",
+                    "Order status updates",
+                    "Event and pre-event reminders",
+                    "Review requests and thank-you emails",
+                    "Cancellation and postponement notices",
+                    "Driver and staff notifications",
+                    "Staff invites and welcome emails",
+                    "Lead-form acknowledgements",
+                    "System and security emails",
+                  ].map((label) => (
+                    <div key={label} className="flex items-center gap-2 text-xs text-slate-700">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-primary flex-shrink-0" />
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-slate-500">The shared CateringMS sender is the default for every item above. Custom SMTP replaces it for every item above when configured and tested successfully.</p>
+              </div>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+                <p className="font-semibold">What these switches control</p>
+                <p className="mt-1">All CateringMS transactional email uses this sender by default: quotes, invoices, payment receipts and reminders, order confirmations, status updates, event reminders, review requests, staff invites, and system notices.</p>
+                <p className="mt-1">These switches only control optional automatic client events. They do not connect Gmail, Outlook, or Mailchimp. Mailchimp is a separate bulk-marketing connection below. A manually confirmed “Send quote” action still sends that quote.</p>
+                <p className="mt-1">A switch being on does not replace the sender setup: the shared CateringMS sender is ready immediately; Custom SMTP requires its own credentials and the sender must pass the test.</p>
+              </div>
               {row.provider === "none" && (
                 <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -1129,8 +1193,8 @@ function EmailSettingsPage() {
                 <Inbox className="w-5 h-5 text-brand-primary" />
                 Mailchimp (bulk sender)
               </CardTitle>
-              <CardDescription>
-                For newsletters, campaigns, and big lists. Personal emails stay in CateringMS; Mailchimp handles bulk.
+            <CardDescription>
+                For newsletters, campaigns, and big lists only. Mailchimp does not send quotes, invoices, confirmations, order updates, password links, or staff invites; those use the transactional sender above.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -1216,6 +1280,7 @@ function ToggleRow({
 function ProviderOption({
   active,
   onClick,
+  disabled = false,
   icon: Icon,
   title,
   status,
@@ -1224,6 +1289,7 @@ function ProviderOption({
 }: {
   active: boolean;
   onClick: () => void;
+  disabled?: boolean;
   icon: any;
   title: string;
   status: { label: string; tone: "emerald" | "amber" | "slate" };
@@ -1239,10 +1305,11 @@ function ProviderOption({
     <button
       type="button"
       onClick={onClick}
-      className={`relative text-left rounded-xl border-2 p-4 transition-all flex flex-col gap-3 ${
+      disabled={disabled}
+      className={`relative text-left rounded-xl border-2 p-4 transition-all flex flex-col gap-3 ${disabled ? "cursor-not-allowed opacity-60" : ""} ${
         active
           ? "border-brand-primary bg-brand-primary/5 shadow-md"
-          : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+          : disabled ? "border-slate-200 bg-slate-50" : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
