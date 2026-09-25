@@ -48,11 +48,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const ssr = createPagesServerClient({ req, res });
     const { data: { user } } = await ssr.auth.getUser();
-    if (!user) {
-      return res.status(401).json({ error: "Sign in first" });
-    }
 
-    const { invoice_id, claimed_amount, claimed_paid_at, notes } = req.body || {};
+    const { invoice_id, public_token, claimed_amount, claimed_paid_at, notes } = req.body || {};
     if (typeof invoice_id !== "string" || !/^[0-9a-f-]{36}$/i.test(invoice_id)) {
       return res.status(400).json({ error: "Invalid invoice" });
     }
@@ -80,11 +77,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // and that clients row is the one referenced by the invoice." The
     // RLS on invoices already enforces this for direct reads, but we
     // re-check server-side because we're using the service role.
-    const { data: invoice, error: invErr } = await admin
+    let invoiceQuery = admin
       .from("invoices")
       .select("id, company_id, client_id, invoice_number, total_amount, balance_due, status, deleted_at")
-      .eq("id", invoice_id)
-      .maybeSingle();
+      .eq("id", invoice_id);
+    if (typeof public_token === "string" && public_token.trim()) {
+      invoiceQuery = invoiceQuery.eq("public_token", public_token.trim());
+    }
+    const { data: invoice, error: invErr } = await invoiceQuery.maybeSingle();
     if (invErr || !invoice || invoice.deleted_at) {
       return res.status(404).json({ error: "Invoice not found" });
     }
@@ -92,18 +92,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(409).json({ error: "Invoice is already marked paid" });
     }
 
-    const { data: ownership, error: ownershipErr } = await admin
-      .from("clients")
-      .select("id")
-      .eq("id", invoice.client_id)
-      .eq("user_id", user.id)
-      .eq("company_id", invoice.company_id)
-      .maybeSingle();
-    if (ownershipErr) {
-      console.error("[payments/claim-eft] clients fetch failed:", ownershipErr);
-    }
-    if (!ownership) {
-      return res.status(403).json({ error: "Not your invoice" });
+    if (user) {
+      const { data: ownership, error: ownershipErr } = await admin
+        .from("clients")
+        .select("id")
+        .eq("id", invoice.client_id)
+        .eq("user_id", user.id)
+        .eq("company_id", invoice.company_id)
+        .maybeSingle();
+      if (ownershipErr) console.error("[payments/claim-eft] clients fetch failed:", ownershipErr);
+      if (!ownership) return res.status(403).json({ error: "Not your invoice" });
+    } else if (typeof public_token !== "string" || !public_token) {
+      return res.status(401).json({ error: "Sign in or provide the invoice payment link" });
     }
 
     // Idempotency - treat very recent duplicate clicks as the same

@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Loader2, CreditCard, CheckCircle2, AlertCircle, FileText,
-  Calendar, Printer, Wallet,
+  Calendar, Printer, Wallet, Landmark,
 } from "lucide-react";
 import { PayFastService } from "@/lib/payfastService";
 import { formatZAR } from "@/lib/formatters";
@@ -83,6 +83,12 @@ interface InvoiceView {
     accent_color: string | null;
     brand_font_body?: string | null;
     brand_font_display?: string | null;
+    bank_name?: string | null;
+    bank_account_holder?: string | null;
+    bank_account_number?: string | null;
+    bank_branch_code?: string | null;
+    bank_account_type?: string | null;
+    eft_instructions?: string | null;
   };
 }
 
@@ -248,6 +254,9 @@ export default function InvoicePaymentPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentNotConfigured, setPaymentNotConfigured] = useState(false);
+  const [eftClaimedPublic, setEftClaimedPublic] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
@@ -460,6 +469,9 @@ export default function InvoicePaymentPage() {
         );
         const link = tenantEmail ? `mailto:${tenantEmail}?subject=${subject}&body=${body}` : null;
         const serverMsg = json?.error || `Could not start payment (${resp.status})`;
+        const notConfigured = json?.code === "payment_not_configured"
+          || /no active payment gateway|online payment gateway isn.t set up/i.test(String(serverMsg));
+        setPaymentNotConfigured(notConfigured);
         setError(
           link
             ? `${serverMsg}. Tap to email ${company.company_name || "the company"}: ${tenantEmail}`
@@ -490,11 +502,45 @@ export default function InvoicePaymentPage() {
         window.location.href = json.paymentUrl;
         return;
       }
+      setPaymentNotConfigured(false);
       setError("Payment session returned an unexpected response. Please try again.");
       setProcessing(false);
     } catch (err) {
       console.error("Payment initiation error:", err);
       setError("Failed to initiate payment. Please try again or contact support.");
+      setProcessing(false);
+    }
+  }
+
+  async function claimPublicEft() {
+    if (!invoice || !token || eftClaimedPublic) return;
+    try {
+      setProcessing(true);
+      const body = proofFile ? (() => {
+        const form = new FormData();
+        form.append("invoice_id", invoice.id);
+        form.append("public_token", token);
+        form.append("claimed_amount", String(payNow || invoice.balance_due));
+        form.append("proof", proofFile);
+        return form;
+      })() : JSON.stringify({
+        invoice_id: invoice.id,
+        public_token: token,
+        claimed_amount: payNow || invoice.balance_due,
+        claimed_paid_at: new Date().toISOString(),
+        notes: "Client submitted payment confirmation from the public invoice link.",
+      });
+      const response = await fetch(proofFile ? "/api/payments/claim-eft-proof" : "/api/payments/claim-eft", {
+        method: "POST",
+        ...(proofFile ? {} : { headers: { "Content-Type": "application/json" } }),
+        body,
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || "Could not record the EFT confirmation");
+      setEftClaimedPublic(true);
+    } catch (claimError: any) {
+      setError(claimError?.message || "Could not record the EFT confirmation");
+    } finally {
       setProcessing(false);
     }
   }
@@ -526,6 +572,16 @@ export default function InvoicePaymentPage() {
 
   const company = invoice.companies;
   const companyName = company.company_name || "Your caterer";
+  const snapshotBank = invoice.invoice_data?.bankDetails || {};
+  const bankDetails = {
+    name: company.bank_name || snapshotBank.bankName || "",
+    holder: company.bank_account_holder || snapshotBank.accountName || "",
+    account: company.bank_account_number || snapshotBank.accountNumber || "",
+    branch: company.bank_branch_code || snapshotBank.branchCode || "",
+    type: company.bank_account_type || snapshotBank.accountType || "",
+    instructions: company.eft_instructions || snapshotBank.instructions || "",
+  };
+  const hasBankDetails = Boolean(bankDetails.name && bankDetails.account);
   const paymentSummary = getOrderPaymentSummary({
     totalAmount: invoice.total_amount,
     amountPaid: invoice.amount_paid,
@@ -897,6 +953,53 @@ export default function InvoicePaymentPage() {
                         )}
                       </AlertDescription>
                     </Alert>
+                  )}
+
+                  {paymentNotConfigured && (
+                    <div className="rounded-xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-white p-5 shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-full bg-amber-100 p-2 text-amber-700"><Landmark className="h-5 w-5" /></div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-stone-900">Online payment is not available yet</p>
+                          <p className="mt-1 text-sm text-stone-600">
+                            {companyName} has not connected an online payment provider. You can pay by EFT using the instructions below, then tell the company so they can verify it.
+                          </p>
+                        </div>
+                      </div>
+                      {hasBankDetails ? (
+                        <div className="mt-4 rounded-lg border border-amber-200 bg-white p-4 text-sm">
+                          <p className="mb-2 font-semibold text-stone-900">EFT payment details</p>
+                          <div className="grid grid-cols-[120px_1fr] gap-y-1">
+                            <span className="text-stone-500">Bank</span><span className="font-medium">{bankDetails.name}</span>
+                            {bankDetails.holder && <><span className="text-stone-500">Account name</span><span className="font-medium">{bankDetails.holder}</span></>}
+                            <span className="text-stone-500">Account number</span><span className="font-mono font-medium">{bankDetails.account}</span>
+                            {bankDetails.branch && <><span className="text-stone-500">Branch code</span><span className="font-mono font-medium">{bankDetails.branch}</span></>}
+                            {bankDetails.type && <><span className="text-stone-500">Account type</span><span className="font-medium capitalize">{bankDetails.type}</span></>}
+                          </div>
+                          <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">Use <strong>{invoice.invoice_number}</strong> as your payment reference.</p>
+                          {bankDetails.instructions && <p className="mt-2 text-xs text-stone-600">{bankDetails.instructions}</p>}
+                        </div>
+                      ) : (
+                        <p className="mt-4 rounded-lg bg-white p-3 text-sm text-stone-700">Please contact {companyName} for their EFT or bank details.</p>
+                      )}
+                      {hasBankDetails && (
+                        <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
+                          <p className="text-sm text-stone-700">After making the transfer, confirm it here so the team can match it to this invoice.</p>
+                          <label className="mt-3 block text-xs font-medium text-stone-600">
+                            Optional proof (PDF, JPG, PNG or WEBP; max 8 MB)
+                            <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" />
+                          </label>
+                          <Button type="button" size="sm" className="mt-3 bg-brand-primary hover:opacity-90" onClick={claimPublicEft} disabled={processing || eftClaimedPublic}>
+                            {eftClaimedPublic ? "Confirmation sent for review" : proofFile ? "Send payment proof for review" : "I’ve made this EFT payment"}
+                          </Button>
+                        </div>
+                      )}
+                      {company.email && (
+                        <a className="mt-4 inline-flex text-sm font-semibold text-brand-primary underline" href={`mailto:${company.email}?subject=${encodeURIComponent(`Payment instructions - ${invoice.invoice_number}`)}`}>
+                          Contact {companyName} about payment
+                        </a>
+                      )}
+                    </div>
                   )}
 
                   <div>

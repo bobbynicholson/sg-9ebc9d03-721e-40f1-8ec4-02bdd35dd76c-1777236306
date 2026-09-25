@@ -26,7 +26,7 @@
  * (the actual importer). The wizard surfaces a "Skip + bulk import"
  * link for caterers who already have data they want to upload first.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -35,7 +35,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -87,6 +87,14 @@ interface CompanyForm {
   vat_rate: number;
 }
 
+type PaymentProvider = "payfast" | "yoco" | "stripe";
+
+interface PaymentSetupValues {
+  provider: PaymentProvider;
+  is_test: boolean;
+  credentials: Record<string, string>;
+}
+
 const EMPTY_FORM: CompanyForm = {
   company_name: "", legal_name: "", email: "", phone: "", website: "",
   registration_number: "", tax_number: "",
@@ -107,6 +115,7 @@ const STEPS = [
   { id: "address",  label: "Address",   icon: MapPin },
   { id: "branding", label: "Branding",  icon: Palette },
   { id: "banking",  label: "Banking",   icon: Landmark },
+  { id: "payment",  label: "Payments",  icon: CreditCard },
   { id: "vat",      label: "VAT",       icon: Receipt },
   { id: "email",    label: "Email",     icon: ShieldCheck },
   { id: "clients",  label: "Clients",   icon: Users },
@@ -118,7 +127,7 @@ type StepId = typeof STEPS[number]["id"];
 // Data-bearing sections (Welcome + Done excluded). Shared by the
 // Welcome checklist and the hero completion chip so both always
 // report the same "X of Y" count.
-const SECTION_IDS: StepId[] = ["company", "address", "branding", "banking", "vat", "email", "clients"];
+const SECTION_IDS: StepId[] = ["company", "address", "branding", "banking", "payment", "vat", "email", "clients"];
 
 // ONB-B (task #217, 2026-05-25): pure helper - is this step's
 // key data already present on the companies row?  Drives the
@@ -131,6 +140,7 @@ function isStepComplete(stepId: StepId, form: CompanyForm): boolean {
     case "address":  return !!(form.address_line1.trim() && form.city.trim());
     case "branding": return !!form.primary_color && form.primary_color !== "#9333ea";
     case "banking":  return !!form.bank_name.trim();
+    case "payment":  return false; // tracked in payment_gateways, not the company form
     case "vat":      return form.vat_registered ? !!form.vat_number.trim() : true; // not-registered is a real answer
     case "email":    return false; // tracked in email_provider_settings, not on the form
     case "clients":  return false; // tracked via clients table count, not on the form
@@ -297,6 +307,66 @@ function OnboardingWizard() {
   const goBack = () => {
     const prevIdx = stepIndex - 1;
     if (prevIdx >= 0) setStep(STEPS[prevIdx].id);
+  };
+
+  const saveBrandingDraft = async (patch: Partial<CompanyForm>) => {
+    if (!companyId) return;
+    const { error } = await (supabase as any)
+      .from("companies")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", companyId);
+    if (error) {
+      captureException(error, {
+        tags: { route: "/admin/onboarding", step: "branding", companyId },
+      });
+      toast({
+        title: "Couldn't autosave branding",
+        description: error.message || "Your changes are still on screen. Try Save & continue.",
+        variant: "destructive",
+      });
+    } else {
+      refreshProfile?.();
+    }
+  };
+
+  const savePaymentSetup = async (setup: PaymentSetupValues): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/payment-gateways", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(setup),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.gateway?.id) {
+        throw new Error(payload?.error || "The payment gateway could not be saved.");
+      }
+
+      const activateResponse = await fetch(`/api/payment-gateways/${payload.gateway.id}/activate`, {
+        method: "POST",
+      });
+      const activatePayload = await activateResponse.json().catch(() => ({}));
+      if (!activateResponse.ok) {
+        throw new Error(activatePayload?.error || "The payment gateway was saved but could not be activated.");
+      }
+
+      toast({
+        title: `${setup.provider[0].toUpperCase()}${setup.provider.slice(1)} payment gateway saved`,
+        description: setup.is_test
+          ? "Test mode is active. No real money will move."
+          : "Live mode is active. Real customer payments will use this company account.",
+      });
+      return true;
+    } catch (error: any) {
+      captureException(error, {
+        tags: { route: "/admin/onboarding", step: "payment", companyId: companyId || "" },
+      });
+      toast({
+        title: "Couldn’t save payment gateway",
+        description: error?.message || "Check the provider details and try again.",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
 
   const finalizeAndExit = async () => {
@@ -533,6 +603,7 @@ function OnboardingWizard() {
                   setForm={setForm}
                   saving={saving}
                   onBack={goBack}
+                  onAutoSave={saveBrandingDraft}
                   onNext={async () => {
                     const ok = await saveStep({
                       primary_color: form.primary_color || null as any,
@@ -559,6 +630,18 @@ function OnboardingWizard() {
                       bank_account_type: form.bank_account_type || null as any,
                       eft_instructions: form.eft_instructions.trim() || null as any,
                     }, "Banking");
+                    if (ok) goNext();
+                  }}
+                  onSkip={goNext}
+                />
+              )}
+
+              {step === "payment" && (
+                <PaymentStep
+                  saving={saving}
+                  onBack={goBack}
+                  onNext={async (setup) => {
+                    const ok = await savePaymentSetup(setup);
                     if (ok) goNext();
                   }}
                   onSkip={goNext}
@@ -910,8 +993,27 @@ function AddressStep({
 }
 
 function BrandingStep({
-  form, setForm, saving, onBack, onNext,
-}: StepProps) {
+  form, setForm, saving, onBack, onNext, onAutoSave,
+}: StepProps & { onAutoSave: (patch: Partial<CompanyForm>) => Promise<void> }) {
+  const firstRender = useRef(true);
+
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void onAutoSave({
+        primary_color: form.primary_color || null as any,
+        secondary_color: form.secondary_color || null as any,
+        logo_url: form.logo_url.trim() || null as any,
+      });
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+  }, [form.primary_color, form.secondary_color, form.logo_url]);
+
   const gradient = `linear-gradient(135deg, ${form.primary_color} 0%, ${form.secondary_color} 100%)`;
   return (
     <StepShell
@@ -1042,6 +1144,140 @@ function BankingStep({
         <Button onClick={onNext} disabled={saving} className="ml-auto bg-brand-primary hover:opacity-90">
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
           Save & continue <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
+    </StepShell>
+  );
+}
+
+const PAYMENT_FIELDS: Record<PaymentProvider, Array<{ key: string; label: string; secret?: boolean; optional?: boolean }>> = {
+  payfast: [
+    { key: "merchantId", label: "Merchant ID" },
+    { key: "merchantKey", label: "Merchant key", secret: true },
+    { key: "passphrase", label: "Passphrase", secret: true },
+  ],
+  yoco: [
+    { key: "secretKey", label: "Secret key", secret: true },
+    { key: "publicKey", label: "Public key" },
+    { key: "webhookSecret", label: "Webhook secret", secret: true, optional: true },
+  ],
+  stripe: [
+    { key: "secretKey", label: "Secret key", secret: true },
+    { key: "publishableKey", label: "Publishable key" },
+    { key: "webhookSigningSecret", label: "Webhook signing secret", secret: true },
+  ],
+};
+
+function PaymentStep({
+  saving, onBack, onNext, onSkip,
+}: {
+  saving: boolean;
+  onBack: () => void;
+  onNext: (setup: PaymentSetupValues) => Promise<void>;
+  onSkip: () => void;
+}) {
+  const [provider, setProvider] = useState<PaymentProvider>("payfast");
+  const [isTest, setIsTest] = useState(true);
+  const [credentials, setCredentials] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const fields = PAYMENT_FIELDS[provider];
+
+  const changeProvider = (next: PaymentProvider) => {
+    setProvider(next);
+    setCredentials({});
+    setValidationError(null);
+  };
+
+  const submit = async () => {
+    const missing = fields
+      .filter((field) => !field.optional && !(credentials[field.key] || "").trim())
+      .map((field) => field.label);
+    if (missing.length > 0) {
+      setValidationError(`Enter the required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.`);
+      return;
+    }
+    setValidationError(null);
+    setSubmitting(true);
+    try {
+      await onNext({ provider, is_test: isTest, credentials });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const busy = saving || submitting;
+  return (
+    <StepShell
+      icon={CreditCard}
+      title="How will customers pay?"
+      description="Use the company’s own payment account. CateringMS will never use its platform payment account for this company’s customer invoices."
+    >
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        Start in test mode with sandbox credentials. Switch to live mode only after the provider account and webhook are ready.
+      </div>
+
+      <Field id="payment_provider" label="Payment provider">
+        <select
+          id="payment_provider"
+          value={provider}
+          onChange={(e) => changeProvider(e.target.value as PaymentProvider)}
+          disabled={busy}
+          className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+        >
+          <option value="payfast">PayFast</option>
+          <option value="yoco">Yoco</option>
+          <option value="stripe">Stripe</option>
+        </select>
+      </Field>
+
+      <div className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-3">
+        <div>
+          <p className="text-sm font-medium">Test mode</p>
+          <p className="text-xs text-slate-500">Sandbox payments only; no real money moves.</p>
+        </div>
+        <input
+          type="checkbox"
+          checked={isTest}
+          onChange={(e) => setIsTest(e.target.checked)}
+          disabled={busy}
+          className="h-4 w-4"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {fields.map((field) => (
+          <Field key={field.key} id={`payment_${field.key}`} label={`${field.label}${field.optional ? " (optional)" : " *"}`}>
+            <Input
+              id={`payment_${field.key}`}
+              type={field.secret ? "password" : "text"}
+              value={credentials[field.key] || ""}
+              onChange={(e) => setCredentials((current) => ({ ...current, [field.key]: e.target.value }))}
+              disabled={busy}
+              autoComplete="off"
+            />
+          </Field>
+        ))}
+      </div>
+
+      {validationError && (
+        <p className="text-sm text-red-600">{validationError}</p>
+      )}
+
+      <p className="text-xs text-slate-500">
+        Credentials are sent to the secure server endpoint and are not stored in the onboarding form. The provider webhook must be configured separately before live payments.
+      </p>
+
+      <div className="flex flex-col sm:flex-row gap-2 pt-4">
+        <Button variant="outline" onClick={onBack} disabled={busy}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        </Button>
+        <Button variant="ghost" onClick={onSkip} disabled={busy} className="text-slate-500">
+          Skip for now
+        </Button>
+        <Button onClick={submit} disabled={busy} className="ml-auto bg-brand-primary hover:opacity-90">
+          {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+          Save & activate <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </div>
     </StepShell>

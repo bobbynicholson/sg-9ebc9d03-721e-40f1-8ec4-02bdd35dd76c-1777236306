@@ -333,7 +333,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
 
     if (!result.ok) {
-      return res.status(400).json({ error: result.error });
+      const paymentNotConfigured = /no active payment gateway/i.test(String(result.error || ""));
+      return res.status(400).json({
+        error: result.error,
+        ...(paymentNotConfigured ? { code: "payment_not_configured" } : {}),
+      });
     }
 
     return res.status(200).json({

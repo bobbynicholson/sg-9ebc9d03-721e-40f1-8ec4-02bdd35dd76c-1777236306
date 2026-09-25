@@ -37,6 +37,7 @@ interface PendingClaim {
   payment_date: string | null;
   notes: string | null;
   created_at: string;
+  payment_proof_path?: string | null;
   invoices: {
     id: string;
     invoice_number: string;
@@ -99,7 +100,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
     const { data, error } = await supabase
       .from("payments")
       .select(
-        "id, amount, payment_reference, payment_date, notes, created_at, " +
+        "id, amount, payment_reference, payment_date, notes, created_at, payment_proof_path, " +
         "invoices:invoice_id ( id, invoice_number, total_amount, balance_due ), " +
         "clients:client_id ( client_name, email )"
       )
@@ -316,6 +317,19 @@ function ClaimRow({
             <div className="italic text-slate-600 mt-1 line-clamp-2">
               &ldquo;{claim.notes}&rdquo;
             </div>
+          )}
+          {claim.payment_proof_path && (
+            <button
+              type="button"
+              className="mt-1 text-xs font-semibold text-brand-primary underline"
+              onClick={async () => {
+                const response = await fetch(`/api/payments/proof-url?payment_id=${encodeURIComponent(claim.id)}`);
+                const body = await response.json().catch(() => ({}));
+                if (response.ok && body.url) window.open(body.url, "_blank", "noopener,noreferrer");
+              }}
+            >
+              View payment proof
+            </button>
           )}
         </div>
       </div>

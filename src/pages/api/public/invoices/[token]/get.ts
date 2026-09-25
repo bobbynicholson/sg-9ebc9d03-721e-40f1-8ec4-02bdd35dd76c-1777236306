@@ -118,6 +118,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       companies:company_id (
         id, slug, company_name, logo_url, email, phone_number:phone,
         vat_registered, vat_number, vat_rate, deposit_percent, registration_number,
+        bank_name, bank_account_holder, bank_account_number, bank_branch_code,
+        bank_account_type, eft_instructions,
         primary_color, secondary_color, accent_color,
         brand_font_body, brand_font_display
       )

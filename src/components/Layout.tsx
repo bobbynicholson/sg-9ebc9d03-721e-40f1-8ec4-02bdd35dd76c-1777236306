@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { TrialExpiryBanner } from "@/components/TrialExpiryBanner";
 import { PageWorkbench } from "@/components/portal/ui";
+import { PaymentSetupBanner } from "@/components/billing/PaymentSetupBanner";
 
 interface LayoutProps {
   children: ReactNode;
@@ -77,6 +78,7 @@ export function Layout({
       )}
       {/* Trial Expiry Banner - Shows for authenticated users with trial status */}
       {user && <TrialExpiryBanner />}
+      {isPortal && <PaymentSetupBanner />}
 
       {/* Header - Public/Marketing header */}
       {showHeader && !user && <Header />}

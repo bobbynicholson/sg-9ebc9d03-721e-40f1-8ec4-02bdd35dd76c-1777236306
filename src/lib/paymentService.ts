@@ -65,10 +65,9 @@ export interface PaymentSessionResult {
 }
 
 /**
- * Resolve and dispatch to the company's active payment provider. If no
- * gateway has been configured, falls back to PayFast with env-var
- * credentials - preserves the legacy single-tenant behaviour so
- * existing deployments don't break the moment this code lands.
+ * Resolve and dispatch to the company's active payment provider. A tenant
+ * must configure its own gateway; platform credentials are never used for
+ * customer payments.
  */
 export async function createPaymentSession(
   input: PaymentSessionInput,
@@ -80,11 +79,11 @@ export async function createPaymentSession(
       sb,
     );
 
-    // No tenant config - fall back to legacy env-var PayFast so
-    // existing single-tenant deployments keep working without forcing
-    // a reconfigure on the day of release.
     if (!active) {
-      return await dispatchLegacyPayFast(input);
+      return {
+        ok: false,
+        error: "This company has no active payment gateway. Configure its own provider in onboarding or Admin → Payment Gateways.",
+      };
     }
 
     const provider = active.gateway.provider as PaymentGatewayProvider;
