@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { dashboardTodoService } from "@/services/dashboardTodoService";
+import { DASHBOARD_TODO_CHANGED_EVENT, dashboardTodoService } from "@/services/dashboardTodoService";
 import { onboardingProgressService, type OnboardingState } from "@/services/onboardingProgressService";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
@@ -97,6 +97,17 @@ export function AdminSetupSticky() {
     // every render caused by unrelated admin page data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, slug, isTenantAdmin, isPlatformAdmin]);
+
+  useEffect(() => {
+    if (!companyId || typeof window === "undefined") return;
+    const onTodoChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ companyId?: string; taskId?: string; completed?: boolean }>).detail;
+      if (detail?.companyId !== companyId || !detail.taskId) return;
+      setChecked((current) => ({ ...current, [detail.taskId as string]: Boolean(detail.completed) }));
+    };
+    window.addEventListener(DASHBOARD_TODO_CHANGED_EVENT, onTodoChanged);
+    return () => window.removeEventListener(DASHBOARD_TODO_CHANGED_EVENT, onTodoChanged);
+  }, [companyId]);
 
   const incompleteOnboarding = useMemo(
     () => onboarding?.steps.filter((step) => step.required && !step.completed) ?? [],

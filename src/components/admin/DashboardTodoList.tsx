@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { dashboardTodoService } from "@/services/dashboardTodoService";
+import { DASHBOARD_TODO_CHANGED_EVENT, dashboardTodoService } from "@/services/dashboardTodoService";
 import { onboardingProgressService } from "@/services/onboardingProgressService";
 
 interface Props {
@@ -117,6 +117,17 @@ export function DashboardTodoList({ companyId, slug }: Props) {
       });
     return () => { cancelled = true; };
   }, [companyId, slug, toast]);
+
+  useEffect(() => {
+    if (!companyId || typeof window === "undefined") return;
+    const onTodoChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ companyId?: string; taskId?: string; completed?: boolean }>).detail;
+      if (detail?.companyId !== companyId || !detail.taskId) return;
+      setChecked((current) => ({ ...current, [detail.taskId as string]: Boolean(detail.completed) }));
+    };
+    window.addEventListener(DASHBOARD_TODO_CHANGED_EVENT, onTodoChanged);
+    return () => window.removeEventListener(DASHBOARD_TODO_CHANGED_EVENT, onTodoChanged);
+  }, [companyId]);
 
   const completedCount = todos.filter((todo) => checked[todo.id as TodoId]).length;
   const complete = mounted && onboardingComplete === true && completedCount === todos.length;
