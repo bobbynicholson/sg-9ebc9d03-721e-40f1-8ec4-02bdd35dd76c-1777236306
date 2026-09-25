@@ -103,7 +103,10 @@ export function AdminSetupSticky() {
     [onboarding],
   );
   const pendingTasks = SETUP_TASKS.filter((task) => !checked[task.id]);
-  const onboardingComplete = Boolean(onboarding?.allRequiredComplete);
+  // Finishing the wizard persists companies.onboarding_completed_at. That
+  // timestamp is authoritative even when a data-signal count (for example
+  // a session-only Welcome or Review step) has not caught up yet.
+  const onboardingComplete = Boolean(onboarding?.completedAt || onboarding?.allRequiredComplete);
   // Onboarding is the first gate. Until its required steps are complete,
   // keep the sticky panel focused on those steps instead of competing with
   // the optional post-onboarding setup list.

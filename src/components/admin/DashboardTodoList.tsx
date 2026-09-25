@@ -105,7 +105,7 @@ export function DashboardTodoList({ companyId, slug }: Props) {
       .then(([rows, onboarding]) => {
         if (cancelled) return;
         setChecked(Object.fromEntries(rows.map((row) => [row.task_id, row.completed])));
-        setOnboardingComplete(onboarding.allRequiredComplete);
+        setOnboardingComplete(Boolean(onboarding.completedAt || onboarding.allRequiredComplete));
       })
       .catch((error) => {
         if (cancelled) return;
