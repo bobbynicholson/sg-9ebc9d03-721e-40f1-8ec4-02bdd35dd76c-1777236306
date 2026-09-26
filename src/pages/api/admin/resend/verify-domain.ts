@@ -97,29 +97,35 @@ async function handler(
     // after a dashboard re-create/force verification; using the old id can
     // otherwise return 404 before the status is ever refreshed.
     const listedBeforeVerify = await listResendDomains();
+    let listedVerifiedDomain: any = null;
     if (!isResendError(listedBeforeVerify)) {
       const sameName = listedBeforeVerify
         .filter((domain: any) => String(domain?.name || "").trim().toLowerCase() === targetName)
         .sort((a: any, b: any) => Number(b?.status === "verified") - Number(a?.status === "verified"));
       if (sameName[0]?.id) {
         (row as any).resend_domain_id = sameName[0].id;
+        if (sameName[0].status === "verified") listedVerifiedDomain = sameName[0];
       }
     }
 
-    // Trigger Resend to re-check now. Without this the domain status
-    // can sit on 'not_started' indefinitely even when DNS is live.
-    // Best-effort: if the trigger fails (e.g. already verified, or rate
-    // limited), fall through and read the current state anyway.
-    const triggered = await verifyResendDomain((row as any).resend_domain_id);
-    if (isResendError(triggered)) {
-      console.warn(
-        `[verify-domain] trigger failed for ${(row as any).resend_domain_id}:`,
-        triggered.error,
-      );
-    }
-
     let effectiveDomainId = (row as any).resend_domain_id as string;
-    let fresh = await getResendDomain(effectiveDomainId);
+    // If Resend's authoritative list already says verified, use that object
+    // directly. Calling POST /verify again is unnecessary and can leave a
+    // verified domain looking pending when the verification endpoint is
+    // eventually consistent.
+    let fresh: any = listedVerifiedDomain || null;
+    if (!fresh) {
+      // Trigger Resend to re-check now. Without this the domain status can
+      // sit on 'not_started' indefinitely even when DNS is live.
+      const triggered = await verifyResendDomain(effectiveDomainId);
+      if (isResendError(triggered)) {
+        console.warn(
+          `[verify-domain] trigger failed for ${effectiveDomainId}:`,
+          triggered.error,
+        );
+      }
+      fresh = await getResendDomain(effectiveDomainId);
+    }
     // A force-reverify or a manual Resend dashboard change can leave the
     // tenant row pointing at an older domain id. If the saved id is still
     // pending, resolve the current Resend object by domain name before
