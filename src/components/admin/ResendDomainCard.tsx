@@ -303,6 +303,10 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
 
     // Kick off an immediate diagnostic refresh on mount of pending state.
     void refreshDiagnostic();
+    // Also ask Resend for the provider status immediately. Previously the
+    // first provider check waited for the 60-second interval, which left a
+    // domain that was already verified looking like it was still propagating.
+    void runVerify(false);
 
     setSecondsToNextCheck(POLL_INTERVAL_MS / 1000);
 
