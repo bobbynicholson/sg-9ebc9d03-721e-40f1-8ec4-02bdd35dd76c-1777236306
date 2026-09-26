@@ -133,6 +133,24 @@ export function ProtectedRoute({
     checkAuth();
   }, [user, profile, allowedRoles, denyRoles, userRoles, activeRole]);
 
+  // Platform pages are global and belong only to the platform operator.
+  // If a tenant user follows an old bookmark or a stale platform link,
+  // redirect immediately instead of rendering a large Access Denied page.
+  // Middleware still enforces the server-side boundary; this handles the
+  // client-side role/profile mismatch without exposing the platform shell.
+  useEffect(() => {
+    if (
+      loading || isChecking || !requireAuth || !user || authorized ||
+      !router.pathname.startsWith("/admin/platform")
+    ) return;
+
+    const landingRole = normalizeRoleValue(activeRole) || normalizeRoleValue(user.active_role) || user.role;
+    const landingPage = getRoleLandingPage(landingRole, user.company_slug);
+    if (landingPage && landingPage !== router.asPath) {
+      void router.replace(landingPage);
+    }
+  }, [loading, isChecking, requireAuth, user, authorized, router, activeRole]);
+
   // Show loading state
   if (loading || isChecking) {
     return (
@@ -150,6 +168,17 @@ export function ProtectedRoute({
 
   // Show unauthorized message
   if (requireAuth && user && !authorized) {
+    // Never show the platform permission screen to tenant users. The
+    // redirect effect above is intentionally paired with this fast shell so
+    // there is no flash of a confusing global-admin error page.
+    if (router.pathname.startsWith("/admin/platform")) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <Loader2 className="w-6 h-6 text-slate-500 animate-spin" aria-label="Redirecting" />
+        </div>
+      );
+    }
+
     const redirectToHome = () => {
       const landingRole = normalizeRoleValue(activeRole) || normalizeRoleValue(user.active_role) || user.role;
       const landingPage = getRoleLandingPage(landingRole, user.company_slug);

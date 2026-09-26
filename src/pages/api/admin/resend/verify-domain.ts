@@ -19,7 +19,7 @@
  */
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { getResendDomain, isResendError, verifyResendDomain } from "@/lib/resendDomains";
+import { getResendDomain, isResendError, listResendDomains, verifyResendDomain } from "@/lib/resendDomains";
 import { emailService } from "@/services/emailService";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -104,7 +104,25 @@ async function handler(
       );
     }
 
-    const fresh = await getResendDomain((row as any).resend_domain_id);
+    let effectiveDomainId = (row as any).resend_domain_id as string;
+    let fresh = await getResendDomain(effectiveDomainId);
+    // A force-reverify or a manual Resend dashboard change can leave the
+    // tenant row pointing at an older domain id. If the saved id is still
+    // pending, resolve the current Resend object by domain name before
+    // declaring the tenant pending.
+    if (!isResendError(fresh) && (fresh as any).status !== "verified") {
+      const listed = await listResendDomains();
+      if (!isResendError(listed)) {
+        const targetName = String((row as any).resend_sending_domain || "").trim().toLowerCase();
+        const current = listed.find((domain: any) =>
+          String(domain?.name || "").trim().toLowerCase() === targetName,
+        );
+        if (current?.id && current.id !== effectiveDomainId) {
+          effectiveDomainId = current.id;
+          fresh = await getResendDomain(effectiveDomainId);
+        }
+      }
+    }
     if (isResendError(fresh)) {
       // 404 from Resend means the domain was deleted out from under us
       // (e.g. via the Resend dashboard). Surface a clear error.
@@ -138,6 +156,7 @@ async function handler(
       .from("email_provider_settings")
       .update({
         resend_dns_records: newRecords,
+        resend_domain_id: effectiveDomainId,
         resend_domain_status: newStatus,
         resend_domain_verified_at: verifiedAt,
         is_verified: newStatus === "verified",

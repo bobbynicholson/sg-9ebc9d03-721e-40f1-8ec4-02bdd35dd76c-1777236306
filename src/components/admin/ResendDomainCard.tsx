@@ -180,7 +180,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
   // services/emailService.resolveFromAddress so this card and the
   // outbound mail agree.
   const effectiveSender = useMemo(() => {
-    const verified = !!state.verifiedAt;
+    const verified = state.status === "verified";
     const domain = (state.domain || "").toLowerCase();
     const fromEmail = (state.fromEmail || "").toLowerCase();
     const matchesDomain = !!(domain && fromEmail && fromEmail.endsWith("@" + domain));
