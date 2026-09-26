@@ -14,8 +14,9 @@
  *   verified           -> green success card
  *   failed             -> red banner with retry
  *
- * Auto-poll: while pending, fetch /api/admin/resend/verify-domain every
- * 60s and refresh the live DNS diagnostic from /api/admin/resend/dns-check.
+ * Auto-poll: while pending, refresh the live DNS diagnostic every 60s.
+ * Provider verification runs on load, webhook delivery, or manual action;
+ * we do not repeatedly POST Resend's verify endpoint.
  * Caps at 60 minutes total elapsed.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -315,15 +316,18 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
       setSecondsToNextCheck((s) => (s <= 1 ? POLL_INTERVAL_MS / 1000 : s - 1));
     }, 1000);
 
-    // Verify + diagnostic poll.
-    pollTimerRef.current = window.setInterval(() => {
+  // DNS diagnostic poll. Do not POST Resend's verify endpoint every minute:
+  // once public DNS matches, repeated provider verification calls do not
+  // accelerate Resend and only make a pending domain look stuck. Provider
+  // status is refreshed on initial load, by the domain webhook, or by the
+  // operator's explicit Verify now action.
+  pollTimerRef.current = window.setInterval(() => {
       const startedAt = pollStartedAt ?? new Date();
       if (Date.now() - startedAt.getTime() > MAX_POLL_DURATION_MS) {
         setPollExhausted(true);
         stopPolling();
         return;
       }
-      void runVerify(false);
       void refreshDiagnostic();
     }, POLL_INTERVAL_MS);
 
