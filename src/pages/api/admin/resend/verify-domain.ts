@@ -92,6 +92,20 @@ async function handler(
       });
     }
 
+    const targetName = String((row as any).resend_sending_domain || "").trim().toLowerCase();
+    // Resolve by name before using the saved id. Resend can issue a new id
+    // after a dashboard re-create/force verification; using the old id can
+    // otherwise return 404 before the status is ever refreshed.
+    const listedBeforeVerify = await listResendDomains();
+    if (!isResendError(listedBeforeVerify)) {
+      const sameName = listedBeforeVerify
+        .filter((domain: any) => String(domain?.name || "").trim().toLowerCase() === targetName)
+        .sort((a: any, b: any) => Number(b?.status === "verified") - Number(a?.status === "verified"));
+      if (sameName[0]?.id) {
+        (row as any).resend_domain_id = sameName[0].id;
+      }
+    }
+
     // Trigger Resend to re-check now. Without this the domain status
     // can sit on 'not_started' indefinitely even when DNS is live.
     // Best-effort: if the trigger fails (e.g. already verified, or rate
@@ -113,7 +127,6 @@ async function handler(
     if (!isResendError(fresh) && (fresh as any).status !== "verified") {
       const listed = await listResendDomains();
       if (!isResendError(listed)) {
-        const targetName = String((row as any).resend_sending_domain || "").trim().toLowerCase();
         const current = listed.find((domain: any) =>
           String(domain?.name || "").trim().toLowerCase() === targetName,
         );
