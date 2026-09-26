@@ -725,11 +725,11 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
                   <p className="font-semibold text-amber-900">Waiting on Resend's verifier</p>
                   <p className="text-sm text-amber-900/90">
                     Your DNS records are live and match exactly what Resend asked for (we just confirmed all expected records from public DNS, see the green ticks below). Now Resend's own verifier needs to run its DNS check and flip the status.
-                    <strong> This is on Resend's side, not yours and not ours.</strong> It usually flips within a minute or two of clicking Verify now.
+                    <strong> Your DNS is correct; Resend has not yet reported the domain as verified.</strong> This is a provider-side state, not a missing DNS record. The app accepts Resend's <code>domain.updated</code> webhook and also polls as a fallback.
                   </p>
                   <ul className="text-xs text-amber-900/80 space-y-0.5 ml-1">
                     <li>Hit <strong>Verify now</strong> at the bottom of this card to trigger another check.</li>
-                    <li>If still pending after 5 minutes of trying, see "Still stuck?" below.</li>
+                    <li>If Resend remains pending, configure Resend's webhook endpoint as <code>https://cateringms.com/api/webhooks/resend</code> and include <code>domain.updated</code>. The server must have the matching <code>RESEND_WEBHOOK_SECRET</code>.</li>
                   </ul>
                 </div>
               </div>

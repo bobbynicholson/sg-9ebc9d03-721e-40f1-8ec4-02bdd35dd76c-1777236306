@@ -373,7 +373,7 @@ export const emailService = {
     // touching DNS.
     const forcePlatform = !!config.force_platform_sender;
 
-    const verified = !!config.resend_domain_verified_at;
+    const verified = config.resend_domain_status === "verified";
     const sendingDomain = (config.resend_sending_domain || "").toLowerCase();
     const matchesDomain =
       sendingDomain && email && email.endsWith(`@${sendingDomain}`);
@@ -928,7 +928,7 @@ export const emailService = {
       if (config.provider === "resend" && (config.from_email || "").trim()) {
         const fromEmail = (config.from_email || "").trim().toLowerCase();
         const sendingDomain = (config.resend_sending_domain || "").trim().toLowerCase();
-        const verified = !!config.resend_domain_verified_at;
+        const verified = config.resend_domain_status === "verified";
         if (verified && sendingDomain && fromEmail && !fromEmail.endsWith(`@${sendingDomain}`)) {
           await this.logEmailSent(
             payload.companyId,

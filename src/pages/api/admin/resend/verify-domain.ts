@@ -140,6 +140,7 @@ async function handler(
         resend_dns_records: newRecords,
         resend_domain_status: newStatus,
         resend_domain_verified_at: verifiedAt,
+        is_verified: newStatus === "verified",
         from_email: effectiveFromEmail,
         resend_last_checked_at: now,
         updated_at: now,

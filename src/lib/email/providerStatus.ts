@@ -93,7 +93,6 @@ export async function getEmailProviderStatus(
   if (error || !data) return PLATFORM_DEFAULT_NO_ROW;
 
   const provider = (data.provider || "").toLowerCase();
-  const isVerified = !!data.is_verified;
   const fromEmail: string | null = data.from_email || null;
 
   // No explicit provider chosen yet - same as no row.
@@ -112,7 +111,10 @@ export async function getEmailProviderStatus(
   // platform fallback. If the domain isn't verified, emails still go
   // out from noreply@send.cateringms.com with Reply-To = fromEmail.
   if (provider === "resend") {
-    const verified = data.resend_domain_status === "verified" || isVerified;
+    // Resend's provider status is authoritative. Do not let a stale legacy
+    // is_verified=true bit keep routing mail through a domain that Resend
+    // currently reports as pending or failed.
+    const verified = data.resend_domain_status === "verified";
     return {
       state: verified ? "verified" : "platform_default",
       configured: true,

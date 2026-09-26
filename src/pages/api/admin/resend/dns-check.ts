@@ -101,8 +101,13 @@ function looksQuoteWrapped(chunks: string[]): boolean {
 function valuesMatch(found: string, expected: string): boolean {
   if (!found || !expected) return false;
   // SPF and similar records can have benign whitespace differences.
-  const a = found.replace(/\s+/g, " ").trim().toLowerCase();
-  const b = expected.replace(/\s+/g, " ").trim().toLowerCase();
+  const normalise = (value: string) => value
+    .replace(/^"+|"+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  const a = normalise(found);
+  const b = normalise(expected);
   return a === b;
 }
 

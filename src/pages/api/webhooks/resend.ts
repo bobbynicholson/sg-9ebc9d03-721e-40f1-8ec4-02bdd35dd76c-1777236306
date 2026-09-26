@@ -8,6 +8,7 @@
  * email_automation_log where status != 'sent').
  *
  * Events handled:
+ *   - domain.updated   -> synchronise Resend domain verification state
  *   - email.bounced     -> status='bounced'
  *   - email.complained  -> status='complained' (spam report)
  *
@@ -152,6 +153,65 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const type = String(event?.type || "");
   const data = event?.data || {};
   const supabase = getServiceSupabase();
+
+  // Domain events are account-level events (there are no email tags to
+  // identify a tenant). Match by Resend domain id first, then by name.
+  // The hourly cron remains a recovery path if a webhook is unavailable.
+  if (type === "domain.updated" || type === "domain.created") {
+    const domainId = typeof data?.id === "string" ? data.id : null;
+    const domainName = typeof data?.name === "string"
+      ? data.name.trim().toLowerCase().replace(/^www\./, "")
+      : null;
+    if (!domainId && !domainName) {
+      return res.status(200).json({ ok: true, skipped: "domain_without_identity" });
+    }
+
+    let query = (supabase as any)
+      .from("email_provider_settings")
+      .select("id, company_id, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at")
+      .eq("provider", "resend");
+    if (domainId) query = query.eq("resend_domain_id", domainId);
+    else query = query.ilike("resend_sending_domain", domainName);
+    const { data: setting, error: settingError } = await query.maybeSingle();
+    if (settingError) {
+      console.error("[webhooks/resend] domain setting lookup failed", settingError.message);
+      return res.status(500).json({ ok: false, error: "Could not locate domain setting" });
+    }
+    if (!setting) {
+      return res.status(200).json({ ok: true, skipped: "unknown_domain" });
+    }
+
+    const newStatus = String(data?.status || "pending").toLowerCase();
+    const verified = newStatus === "verified";
+    const wasVerified = setting.resend_domain_status === "verified" || !!setting.resend_domain_verified_at;
+    const now = new Date().toISOString();
+    const update: Record<string, unknown> = {
+      resend_domain_status: newStatus,
+      resend_domain_verified_at: verified ? setting.resend_domain_verified_at || now : null,
+      is_verified: verified,
+      resend_last_checked_at: now,
+      updated_at: now,
+    };
+    if (Array.isArray(data?.records)) update.resend_dns_records = data.records;
+    const { error: updateError } = await (supabase as any)
+      .from("email_provider_settings")
+      .update(update)
+      .eq("id", setting.id);
+    if (updateError) {
+      console.error("[webhooks/resend] domain state update failed", updateError.message);
+      return res.status(500).json({ ok: false, error: "Could not save domain verification state" });
+    }
+
+    console.log(
+      `[resend-domain-webhook] company_id=${setting.company_id} domain=${setting.resend_sending_domain} status=${newStatus}`,
+    );
+    return res.status(200).json({
+      ok: true,
+      recorded: "domain.updated",
+      status: newStatus,
+      newly_verified: verified && !wasVerified,
+    });
+  }
 
   // TIGHTEN I.45: pull company_id from Resend tags. emailService now
   // tags every send with company_id + template, so any event for a
