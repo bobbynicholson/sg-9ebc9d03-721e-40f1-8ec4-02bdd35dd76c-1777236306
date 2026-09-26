@@ -687,6 +687,25 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         </p>
       </div>
 
+      {/* Make the two external states explicit. A domain can have all DNS
+          instructions registered with Resend while Resend is still running
+          its final sender-activation check. Users should see their finished
+          work without us incorrectly claiming that custom sending is live. */}
+      {state.domain && state.records.length > 0 && !verified && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-700 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1 text-sm text-emerald-900">
+              <p className="font-semibold">DNS setup complete</p>
+              <p>
+                Resend has the required DKIM, SPF, MX, and CNAME records for <strong>{state.domain}</strong>.
+                Final sender activation is still waiting for Resend. Until it reports <strong>Verified</strong>, emails safely continue through the shared sender.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* VERIFIED CELEBRATION */}
       {verified && (
         <div
