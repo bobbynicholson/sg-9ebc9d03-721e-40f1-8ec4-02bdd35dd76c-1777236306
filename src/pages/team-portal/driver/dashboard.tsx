@@ -8,14 +8,11 @@ import {
   CheckCircle,
   Navigation,
   TrendingUp,
-  Banknote,
   Bell,
   CalendarDays,
   Camera,
   X,
-  Printer,
   RefreshCw,
-  Route as RouteIcon,
   ExternalLink,
 } from "lucide-react";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
@@ -38,15 +35,15 @@ import { WidgetErrorBoundary } from "@/components/dashboard/WidgetErrorBoundary"
 import { AvailableJobsCard } from "@/components/driver/AvailableJobsCard";
 import { WaiterServicePanel } from "@/components/waiter/WaiterServicePanel";
 import { UserRole } from "@/types/app";
-import { PWAInstallPrompt } from "@/components/driver/PWAInstallPrompt";
 import { DriverClockButton } from "@/components/driver/DriverClockButton";
 import { DriverStatusDialog } from "@/components/driver/DriverStatusDialog";
 import { DriverShiftHistory } from "@/components/driver/DriverShiftHistory";
 import { DriverLeaderboardStrip } from "@/components/driver/DriverLeaderboardStrip";
+import { DriverDetailsDisclosure } from "@/components/driver/DriverDetailsDisclosure";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
-import { PortalOverview, PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalCard } from "@/components/portal/ui";
 import { ChatBot } from "@/components/ChatBot";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -87,6 +84,59 @@ interface Job {
   pickup_time?: string;
   delivery_distance_km?: number | null;
   special_instructions?: string | null;
+}
+
+function DriverDashboardSummary({
+  loading,
+  assigned,
+  today,
+  completed,
+  alerts,
+}: {
+  loading: boolean;
+  assigned: number;
+  today: number;
+  completed: number;
+  alerts: number;
+}) {
+  const leftToDo = Math.max(today - completed, 0);
+  const cards = [
+    { label: "Assigned", value: assigned, helper: "Your active deliveries", icon: Truck, className: "border-l-slate-300" },
+    { label: "Today", value: today, helper: "Scheduled for today", icon: CalendarDays, className: "border-l-slate-300" },
+    { label: "Left to do", value: leftToDo, helper: "Still to complete", icon: Clock, className: leftToDo > 0 ? "border-l-amber-400" : "border-l-slate-300" },
+    { label: "Alerts", value: alerts, helper: alerts > 0 ? "Needs your attention" : "All clear", icon: Bell, className: alerts > 0 ? "border-l-rose-400" : "border-l-slate-300" },
+  ];
+  return (
+    <>
+      <PortalCard className="mb-4 sm:mb-6">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Today</p>
+        <h2 className="mt-1 text-lg font-semibold leading-tight text-slate-950 dark:text-white">
+          {loading ? "Loading your work" : assigned === 0 ? "No deliveries assigned yet" : "Your daily snapshot"}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+          {loading
+            ? "Checking your assigned work and shift status."
+            : assigned === 0
+              ? "Your next delivery will appear here when dispatch assigns it. Use View all deliveries to check your history."
+              : "These numbers show what is assigned, scheduled, unfinished, and needing attention."}
+        </p>
+      </PortalCard>
+      <PortalCard className="mb-4 sm:mb-6">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {cards.map(({ label, value, helper, icon: Icon, className }) => (
+            <div key={label} className={`min-w-0 rounded-lg border border-l-2 bg-slate-50 px-3 py-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300 ${className}`}>
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <p className="truncate text-xs font-semibold">{label}</p>
+              </div>
+              <p className="mt-2 truncate text-xl font-semibold leading-none tabular-nums">{value}</p>
+              <p className="mt-1 line-clamp-2 text-xs leading-4 opacity-80">{helper}</p>
+            </div>
+          ))}
+        </div>
+      </PortalCard>
+    </>
+  );
 }
 
 function DriverDashboardInner() {
@@ -786,25 +836,6 @@ function DriverDashboardInner() {
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            {/* DRV-J (driver deep audit, DRV-32 / DRV-60):
-                paper backup. A driver in a cab at 6am with a
-                flat phone battery still needs to know who's
-                where today. Print walks the current jobs list
-                (already date-windowed by DRV-B). */}
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (jobs.length === 0) {
-                  toast({ title: "Nothing to print", description: "No assigned jobs in your work window." });
-                  return;
-                }
-                setTimeout(() => window.print(), 100);
-              }}
-              className="gap-1.5"
-            >
-              <Printer className="w-4 h-4" />
-              Print run sheet
-            </Button>
           </div>
         }
         meta={
@@ -821,72 +852,60 @@ function DriverDashboardInner() {
                 {hoursWorkedToday.toFixed(1)}h clocked today
               </span>
             )}
-            {earningsLoaded && !earningsError && (
-              <span className={heroChip}>
-                <Banknote className="h-3 w-3" />
-                {tenantCurrency.format(totalEarnings, 0)} month to date
-              </span>
-            )}
             {unreadCount > 0 && (
               <span className={heroChip}>
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                 {unreadCount} new {unreadCount === 1 ? "alert" : "alerts"}
               </span>
             )}
-            {/* Bobby's brief: after a claim, the driver should see an
-                unmistakable path to the route page where the new job
-                lives. */}
-            {!loading && !jobsError && jobs.length > 0 && (
-              <Link
-                href={withSlug("/team-portal/driver/routes")}
-                className={`${heroChip} hover:bg-white/20 transition-colors duration-150`}
-              >
-                <RouteIcon className="h-3 w-3" />
-                Route board ({jobs.length})
-              </Link>
-            )}
           </>
-        }
-        overview={
-          jobsError ? undefined : (
-            <PortalOverview
-              eyebrow="Driver workspace"
-              title={
-                loading
-                  ? "Loading your work for today"
-                  : jobs.length > 0
-                    ? "Start with your next pickup, then work the route"
-                    : "No assigned deliveries in your work window"
-              }
-              description="This page is the driver's first stop: clock in, see the next pickup, open the route board, claim open jobs, and check GPS sharing before leaving the kitchen."
-              items={[
-                { label: "Assigned", value: jobs.length, helper: "Active work window", icon: Truck, tone: jobs.length > 0 ? "brand" : "neutral" },
-                { label: "Today", value: todaysJobs.length, helper: "Scheduled for today", icon: CalendarDays, tone: "neutral" },
-                { label: "Left to do", value: Math.max(todaysJobs.length - completedToday, 0), helper: `${completedToday} completed`, icon: Clock, tone: todaysJobs.length - completedToday > 0 ? "warning" : "success" },
-                { label: "Alerts", value: unreadCount, helper: unreadCount > 0 ? "Needs a look" : "All clear", icon: Bell, tone: unreadCount > 0 ? "danger" : "success" },
-              ]}
-              actions={
-                <>
-                  <Button asChild size="sm" className="bg-brand-primary text-white hover:opacity-90">
-                    <Link href={withSlug("/team-portal/driver/routes")}>Open route board</Link>
-                  </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={withSlug("/team-portal/driver/deliveries")}>All deliveries</Link>
-                  </Button>
-                  <Button asChild size="sm" variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30">
-                    <Link href={withSlug("/team-portal/driver/notifications")}>
-                      <Bell className="mr-1.5 h-4 w-4" />
-                      Notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}
-                    </Link>
-                  </Button>
-                </>
-              }
-            />
-          )
         }
       >
         {/* #today anchor kept for the DriverNav deep-link. */}
           <div id="today" className="scroll-mt-24">
+
+            {/* Driver command order: destinations first, then shift control,
+                then the compact daily snapshot. Keep the landing view
+                glanceable; detailed records remain lower on the page. */}
+            <div className="mb-4 sm:mb-6 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/95">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Start here</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Check your deliveries and messages before you clock in.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  asChild
+                  size="sm"
+                  className="bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-700"
+                >
+                  <Link href={withSlug("/team-portal/driver/deliveries")}>View all deliveries</Link>
+                </Button>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30"
+                >
+                  <Link href={withSlug("/team-portal/driver/notifications")}>
+                    <Bell className="mr-1.5 h-4 w-4" />
+                    Open notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <div id="clock" className="mb-4 sm:mb-6 scroll-mt-24">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Shift status</p>
+              <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
+            </div>
+
+            {!jobsError && (
+              <DriverDashboardSummary
+                loading={loading}
+                assigned={jobs.length}
+                today={todaysJobs.length}
+                completed={completedToday}
+                alerts={unreadCount}
+              />
+            )}
 
             {/* Recovery card: the assignments/orders load failed.
                 Pre-restructure this state rendered as a silently
@@ -906,53 +925,6 @@ function DriverDashboardInner() {
                 </Button>
               </div>
             )}
-
-            {/* DRV-F (driver deep audit, DRV-38): "Next pickup at HH:MM
-                @ {venue}" as the largest glanceable element. Most-asked
-                driver question - currency (in the Earnings card below)
-                is motivation; pickup time is action. High-contrast for
-                sunlight legibility; tap-to-call client phone built in. */}
-            {!loading && jobs.length > 0 && (() => {
-              // Sort by event_date asc, then pickup_time asc, take the
-              // earliest still-pending job. Filter out delivered so the
-              // banner advances to the next stop after each handover.
-              const nextPickup = [...jobs]
-                .filter((j) => j.status !== "delivered" && j.status !== "completed")
-                .sort((a, b) => {
-                  const aKey = `${a.event_date} ${a.pickup_time || a.event_time || ""}`;
-                  const bKey = `${b.event_date} ${b.pickup_time || b.event_time || ""}`;
-                  return aKey.localeCompare(bKey);
-                })[0];
-              if (!nextPickup) return null;
-              const pickupLabel = nextPickup.pickup_time || nextPickup.event_time;
-              return (
-                <PortalCard className="mb-4 sm:mb-6 border-l-4 border-l-brand-primary">
-                  <p className="text-xs sm:text-sm uppercase tracking-wide font-semibold text-brand-primary mb-1.5">Next pickup</p>
-                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-3xl sm:text-4xl md:text-5xl font-semibold tabular-nums leading-tight text-slate-900 dark:text-white">
-                        {pickupLabel || "Time TBD"}
-                      </p>
-                      <p className="text-base sm:text-lg font-semibold mt-1 truncate text-slate-900 dark:text-white">
-                        {nextPickup.client_name}
-                      </p>
-                      <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 truncate">
-                        {nextPickup.venue_address}
-                      </p>
-                    </div>
-                    {nextPickup.client_phone && (
-                      <a
-                        href={`tel:${nextPickup.client_phone}`}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-brand-primary text-white font-semibold min-h-11 hover:opacity-90 transition-opacity duration-150"
-                      >
-                        <Bell className="w-4 h-4" />
-                        Call client
-                      </a>
-                    )}
-                  </div>
-                </PortalCard>
-              );
-            })()}
 
             {/* ODOC H.9: top-of-page operational block. Bobby's brief:
                 the driver should land on earnings + jobs + their list,
@@ -1035,48 +1007,63 @@ function DriverDashboardInner() {
               </div>
             </PortalCard>
 
-            {/* Stats Grid - 4 KPI tiles. Moved up with the earnings
-                + deliveries block (ODOC H.9). */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
-              <StatTile
-                icon={Truck}
-                label="Today's jobs"
-                value={todaysJobs.length}
-                hint="Deliveries assigned to you today"
-              />
-              <StatTile
-                icon={CheckCircle}
-                label="Completed"
-                value={completedToday}
-                hint="Finished and signed off today"
-              />
-              <StatTile
-                icon={Clock}
-                label="Pending"
-                value={todaysJobs.length - completedToday}
-                hint="Still left to do today"
-              />
-              <StatTile
-                icon={Banknote}
-                label="This month"
-                value={tenantCurrency.format(totalEarnings)}
-                hint="Hourly + distance + callout"
-              />
-            </div>
-
             {/* Driver leaderboard - shows this month's top drivers.
                 Only renders when there are 2+ drivers to compare. */}
-            <DriverLeaderboardStrip
-              companyId={user?.company_id}
-              currentUserId={user?.id}
-            />
+            <DriverDetailsDisclosure label="September leaderboard" count="Open leaderboard" className="mb-4 sm:mb-6">
+              <DriverLeaderboardStrip
+                companyId={user?.company_id}
+                currentUserId={user?.id}
+                hideHeader
+              />
+            </DriverDetailsDisclosure>
+
+            {/* Keep the next actionable stop below the requested summary
+                stack so the first screen reads as controls, status, pay,
+                leaderboard, then route detail. */}
+            {!loading && jobs.length > 0 && (() => {
+              const nextPickup = [...jobs]
+                .filter((j) => j.status !== "delivered" && j.status !== "completed")
+                .sort((a, b) => {
+                  const aKey = `${a.event_date} ${a.pickup_time || a.event_time || ""}`;
+                  const bKey = `${b.event_date} ${b.pickup_time || b.event_time || ""}`;
+                  return aKey.localeCompare(bKey);
+                })[0];
+              if (!nextPickup) return null;
+              const pickupLabel = nextPickup.pickup_time || nextPickup.event_time;
+              return (
+                <PortalCard className="mb-4 sm:mb-6 border-l-4 border-l-brand-primary">
+                  <p className="text-xs sm:text-sm uppercase tracking-wide font-semibold text-brand-primary mb-1.5">Next pickup</p>
+                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-3xl sm:text-4xl md:text-5xl font-semibold tabular-nums leading-tight text-slate-900 dark:text-white">
+                        {pickupLabel || "Time TBD"}
+                      </p>
+                      <p className="text-base sm:text-lg font-semibold mt-1 truncate text-slate-900 dark:text-white">
+                        {nextPickup.client_name}
+                      </p>
+                      <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 truncate">
+                        {nextPickup.venue_address}
+                      </p>
+                    </div>
+                    {nextPickup.client_phone && (
+                      <a
+                        href={`tel:${nextPickup.client_phone}`}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-brand-primary text-white font-semibold min-h-11 hover:opacity-90 transition-opacity duration-150"
+                      >
+                        <Bell className="w-4 h-4" />
+                        Call client
+                      </a>
+                    )}
+                  </div>
+                </PortalCard>
+              );
+            })()}
 
             {/* My Deliveries - moved up with the earnings + stats
                 block (ODOC H.9). Every active job carries an "Open
                 brief" pill to the unified /order/[id]?role=driver
                 doc. */}
-            <PortalCard className="mb-4 sm:mb-6">
-              <PortalCardHeader title="My deliveries" />
+            <DriverDetailsDisclosure label="My deliveries" count={`${jobs.length} ${jobs.length === 1 ? "delivery" : "deliveries"}`} className="mb-4 sm:mb-6">
               <div className="space-y-2 sm:space-y-3">
                   {loading ? (
                     <div className="space-y-2" aria-busy="true" aria-label="Loading deliveries">
@@ -1101,6 +1088,14 @@ function DriverDashboardInner() {
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-md mx-auto">
                           Once dispatch assigns you to an event, it'll show up here with the route, ETA and pickup details.
                         </p>
+                        <div className="mt-5 flex flex-wrap justify-center gap-2">
+                          <Button asChild size="sm" className="bg-brand-primary text-white hover:opacity-90">
+                            <Link href={withSlug("/team-portal/driver/deliveries")}>View all deliveries</Link>
+                          </Button>
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={withSlug("/team-portal/driver/routes")}>Open routes</Link>
+                          </Button>
+                        </div>
                       </div>
                     )
                   ) : (
@@ -1220,15 +1215,7 @@ function DriverDashboardInner() {
                     ))
                   )}
               </div>
-            </PortalCard>
-
-            {/* Phase 10 #10: one-tap clock-in / clock-out.
-             *  Replaces the only-after-the-fact admin-logged shift
-             *  flow with a real-time clock. Drives the BCEA
-             *  fatigue checks (Phase 7 #2) honestly. */}
-            <div id="clock" className="mb-4 sm:mb-6 scroll-mt-24">
-              <DriverClockButton driverId={user?.id} companyId={user?.company_id} />
-            </div>
+            </DriverDetailsDisclosure>
 
             {/* Wave 43 T2: driver self-claim surface. Lists confirmed
                 orders in this company that are still unassigned --
@@ -1238,7 +1225,9 @@ function DriverDashboardInner() {
                 notification. Refreshes loadDriverJobs() so the
                 claimed order appears in active deliveries. */}
             <WidgetErrorBoundary label="Available jobs">
-              <AvailableJobsCard onClaimed={loadDriverJobs} />
+              <DriverDetailsDisclosure label="Available jobs" count="Open to claim" className="mb-4 sm:mb-6">
+                <AvailableJobsCard onClaimed={loadDriverJobs} />
+              </DriverDetailsDisclosure>
             </WidgetErrorBoundary>
 
             {/* WTR-A (XSC Wave C, task #259): waiter / on-site
@@ -1250,29 +1239,20 @@ function DriverDashboardInner() {
                 with a tap per phase, an equipment-back-to-kitchen
                 helper, and a notes capture for the office. */}
             {isWaiter && (
-              <div className="mb-4 sm:mb-6">
+              <DriverDetailsDisclosure label="Service today" count="Open service panel" className="mb-4 sm:mb-6">
                 <WidgetErrorBoundary label="Service today">
                   <WaiterServicePanel />
                 </WidgetErrorBoundary>
-              </div>
+              </DriverDetailsDisclosure>
             )}
 
             {/* Phase 17 #4: recent shift history. Driver-side
              *  sanity-check for 'did I forget to clock out
              *  yesterday?' Self-hides until at least one
              *  shift is recorded. */}
-            <div className="mb-4 sm:mb-6">
+            <DriverDetailsDisclosure label="Shift history" count="Open history" className="mb-4 sm:mb-6">
               <DriverShiftHistory driverId={user?.id} />
-            </div>
-
-            {/* Phase 7 #4: A2HS prompt. Renders only when the
-             *  browser fires beforeinstallprompt (Chrome / Edge /
-             *  Android) or when we detect iOS Safari. Self-hides
-             *  if the app is already running standalone or the
-             *  driver dismissed it within the last 14 days. */}
-            <div className="mb-4 sm:mb-6">
-              <PWAInstallPrompt />
-            </div>
+            </DriverDetailsDisclosure>
 
             {/* GPS pinger status. Quiet when no active jobs; brand
              *  pulse while the foreground hook is dripping coords to

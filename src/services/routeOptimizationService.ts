@@ -404,8 +404,11 @@ export const routeOptimizationService = {
     lowerDate.setDate(lowerDate.getDate() - 7);
     const upperDate = new Date(today);
     upperDate.setDate(upperDate.getDate() + 14);
-    const lowerISO = toZonedISO(lowerDate, timezone);
-    const upperISO = toZonedISO(upperDate, timezone);
+    // orders.event_date is a date column. Compare date strings rather than
+    // full timestamps so a tenant timezone offset cannot move the boundary
+    // across a day and hide an otherwise valid assigned stop.
+    const lowerISO = toZonedISO(lowerDate, timezone).slice(0, 10);
+    const upperISO = toZonedISO(upperDate, timezone).slice(0, 10);
 
     // Orders may have either `driver_id` (legacy), `assigned_driver_id`
     // (primary), or `secondary_driver_id` (supporting driver) populated.
@@ -415,7 +418,17 @@ export const routeOptimizationService = {
       .select("*")
       .eq("company_id", companyId)
       .or(`assigned_driver_id.eq.${driverId},driver_id.eq.${driverId},secondary_driver_id.eq.${driverId}`)
-      .in("status", ["confirmed", "preparing", "ready", "in_transit"])
+      // Keep this in sync with the driver's assignment flow. Once dispatch
+      // assigns a job, its order can remain `confirmed`/`ready` or move
+      // through the driver states before the route board is opened.
+      .in("status", [
+        "pending",
+        "confirmed",
+        "preparing",
+        "ready",
+        "in_transit",
+        "paused",
+      ])
       .gte("event_date", lowerISO)
       .lte("event_date", upperISO)
       .not("venue_lat", "is", null)

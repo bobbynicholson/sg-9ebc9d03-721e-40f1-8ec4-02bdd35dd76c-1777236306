@@ -64,18 +64,22 @@ export function ProfileTab({
   const canEditCompanyName = role === "owner" || role === "admin" || role === "super_admin";
 
   return (
-    <div className="space-y-6">
-      <Card className="border-0 shadow-lg dark:bg-slate-800">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 dark:text-white">
-            <User className="w-5 h-5" />
-            Profile Overview
+    <div className="space-y-5">
+      <Card className="overflow-hidden border border-slate-200/90 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="h-2 bg-gradient-to-r from-brand-primary via-brand-primary/70 to-orange-400" />
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg dark:text-white">
+            <User className="h-5 w-5 text-brand-primary" />
+            Your profile
           </CardTitle>
+          <CardDescription className="dark:text-slate-400">
+            This is how your team sees you in the driver portal.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="flex flex-col items-center gap-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-start dark:border-slate-700 dark:bg-slate-800/70">
             <div className="flex flex-col items-center gap-3">
-              <Avatar className="w-24 h-24">
+              <Avatar className="h-24 w-24 ring-4 ring-white dark:ring-slate-900">
                 <AvatarImage src={formData.avatar_url} />
                 <AvatarFallback className="text-2xl bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300">
                   {getInitials(formData.full_name || "User")}
@@ -98,14 +102,14 @@ export function ProfileTab({
                 <Camera className="w-4 h-4 mr-2" />
                 {uploadingAvatar ? "Uploading..." : "Change Photo"}
               </Button>
-              <p className="text-[10px] text-slate-500 text-center">JPG, PNG or WebP. Max 5 MB.</p>
+              <p className="text-center text-[10px] text-slate-500 dark:text-slate-400">JPG, PNG or WebP · Max 5 MB</p>
             </div>
 
-            <div className="flex-1 space-y-4">
+            <div className="grid w-full flex-1 gap-4 sm:grid-cols-2">
               <div>
-                <Label className="text-sm text-slate-600 dark:text-slate-400">Role</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Role</Label>
                 <div className="mt-1">
-                  <Badge variant="secondary" className="text-sm">
+                  <Badge variant="secondary" className="bg-white text-sm shadow-sm dark:bg-slate-900">
                     <Briefcase className="w-3 h-3 mr-1" />
                     {ROLE_NAMES[role as keyof typeof ROLE_NAMES] || role}
                   </Badge>
@@ -113,8 +117,8 @@ export function ProfileTab({
               </div>
 
               <div>
-                <Label className="text-sm text-slate-600 dark:text-slate-400">Account Created</Label>
-                <p className="text-slate-900 dark:text-slate-100">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Member since</Label>
+                <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
                   {new Date(profile?.created_at || "").toLocaleDateString("en-US", {
                     year: "numeric",
                     month: "long",
@@ -125,8 +129,8 @@ export function ProfileTab({
 
               {(company?.company_name || profile?.company_name) && (
                 <div>
-                  <Label className="text-sm text-slate-600 dark:text-slate-400">Company</Label>
-                  <p className="text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Company</Label>
+                  <p className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100">
                     <Building2 className="w-4 h-4" />
                     {company?.company_name || profile?.company_name}
                   </p>
@@ -137,20 +141,20 @@ export function ProfileTab({
         </CardContent>
       </Card>
 
-      <Card className="border-0 shadow-lg dark:bg-slate-800">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 dark:text-white">
-            <User className="w-5 h-5" />
-            Personal Information
+      <Card className="border border-slate-200/90 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg dark:text-white">
+            <User className="h-5 w-5 text-brand-primary" />
+            Personal information
           </CardTitle>
           <CardDescription className="dark:text-slate-400">
-            Update your personal details and contact information
+            Keep your name and contact details up to date.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="dark:text-slate-200">Full Name</Label>
+              <Label className="dark:text-slate-200">Full name</Label>
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
@@ -163,7 +167,7 @@ export function ProfileTab({
             </div>
 
             <div className="space-y-2">
-              <Label className="dark:text-slate-200">Email Address</Label>
+              <Label className="dark:text-slate-200">Login email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 {/* Read-only: this is the login identity. Editing it here only
@@ -187,7 +191,7 @@ export function ProfileTab({
             </div>
 
             <div className="space-y-2">
-              <Label className="dark:text-slate-200">Phone Number</Label>
+              <Label className="dark:text-slate-200">Phone number</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
@@ -200,7 +204,7 @@ export function ProfileTab({
             </div>
 
             <div className="space-y-2">
-              <Label className="dark:text-slate-200">Company Name</Label>
+              <Label className="dark:text-slate-200">Company name</Label>
               <div className="relative">
                 <Building2 className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input
@@ -223,7 +227,7 @@ export function ProfileTab({
             <Button
               onClick={onSave}
               disabled={saving}
-              className="bg-orange-600 hover:bg-orange-700"
+                className="bg-brand-primary text-white hover:bg-brand-primary/90"
             >
               {saving ? (
                 <>

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
+import { DriverDetailsDisclosure } from "@/components/driver/DriverDetailsDisclosure";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { PortalCard, PortalCardHeader, PortalOverview } from "@/components/portal/ui";
@@ -259,7 +260,7 @@ function DriverDeliveriesInner() {
     <DriverPageShell
       pageTitle="All deliveries - Driver Portal"
       heading="All deliveries"
-      subheading="Every order assigned to you, past and upcoming."
+      subheading="Search, filter, and open one delivery at a time."
       icon={Truck}
       width="full"
       headerAction={
@@ -297,13 +298,14 @@ function DriverDeliveriesInner() {
         <PortalOverview
           eyebrow="Delivery history"
           title={showSkeleton ? "Loading your assigned deliveries" : stats.upcoming > 0 ? "Upcoming work sits above completed history" : "All assigned deliveries are in one place"}
-          description="Use this page for assigned orders across time. Search by client or venue, open the driver brief, and use the active rows to complete handover stages."
+          description="Search the list, then open a delivery for its brief, actions, and handover details."
           items={[
             { label: "All deliveries", value: stats.total, helper: "Past and upcoming", icon: Truck, tone: stats.total > 0 ? "brand" : "neutral" },
             { label: "Upcoming", value: stats.upcoming, helper: "Still to do", icon: Clock, tone: stats.upcoming > 0 ? "warning" : "success" },
             { label: "Completed", value: stats.completed, helper: "Finished runs", icon: CheckCircle2, tone: "success" },
             { label: "Guests", value: stats.totalGuests, helper: "Across deliveries", icon: Package, tone: "neutral" },
           ]}
+          splitCards
           actions={
             <>
               {/* Consolidation repoints: /schedule folded into the calendar
@@ -343,13 +345,38 @@ function DriverDeliveriesInner() {
 
       {!error && (
         <PortalCard id="delivery-history" data-chat-section="driver.deliveries.history" data-chat-section-label="Delivery history" className="scroll-mt-20">
-          <PortalCardHeader title="Delivery history" />
+          <PortalCardHeader title="Your delivery list" />
           {showSkeleton ? (
             <div className="py-12 flex items-center justify-center text-slate-500 dark:text-slate-400 gap-2" aria-busy="true">
               <Loader2 className="w-5 h-5 animate-spin" />
               Loading deliveries...
             </div>
           ) : (
+            orders.length === 0 ? (
+              <div className="py-12 px-4 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                  <Truck className="h-7 w-7 text-slate-400 dark:text-slate-500" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">No deliveries assigned yet</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600 dark:text-slate-400">
+                  Dispatch will add your delivery here with the pickup time, route, venue, and delivery actions.
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <Link
+                    href={withSlug("/team-portal/driver/calendar")}
+                    className="inline-flex min-h-10 items-center rounded-md bg-brand-primary px-4 text-sm font-semibold text-white hover:opacity-90"
+                  >
+                    View calendar
+                  </Link>
+                  <Link
+                    href={withSlug("/team-portal/driver/routes")}
+                    className="inline-flex min-h-10 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Open routes
+                  </Link>
+                </div>
+              </div>
+            ) : (
             <>
               <div className="relative max-w-md mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
@@ -392,6 +419,7 @@ function DriverDeliveriesInner() {
                 </TabsContent>
               </Tabs>
             </>
+            )
           )}
         </PortalCard>
       )}
@@ -428,6 +456,20 @@ function DeliveryList({
         <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
           When dispatch assigns you a job it shows up here. Upcoming runs sit at the top, finished ones drop into your history below.
         </p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Link
+            href={withSlug("/team-portal/driver/calendar")}
+            className="inline-flex min-h-9 items-center rounded-md bg-brand-primary px-3 text-sm font-semibold text-white hover:opacity-90"
+          >
+            View calendar
+          </Link>
+          <Link
+            href={withSlug("/team-portal/driver/routes")}
+            className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Open routes
+          </Link>
+        </div>
       </div>
     );
   }
@@ -590,7 +632,12 @@ function DeliveryList({
                 category metadata are back-office concerns; the driver
                 only needs what to load and how many. */}
             {(equipment.length > 0 || menu.length > 0) && (
-              <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <DriverDetailsDisclosure
+                label="Load details"
+                count={`${menu.length + equipment.length} items`}
+                className="border-slate-100 dark:border-slate-800"
+              >
+              <div className="space-y-3">
                 {menu.length > 0 && (
                   <div>
                     <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
@@ -638,6 +685,7 @@ function DeliveryList({
                   </div>
                 )}
               </div>
+              </DriverDetailsDisclosure>
             )}
 
             {/* Wave 48 A1 - the post-event confirmation panel surfaces

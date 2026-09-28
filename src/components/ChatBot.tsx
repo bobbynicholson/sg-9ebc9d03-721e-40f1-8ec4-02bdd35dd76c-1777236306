@@ -550,12 +550,14 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
         {!isOpen && (
           <Button
             onClick={() => setIsOpen(true)}
-            aria-label="Open AI assistant"
+            aria-label={`Open ${config.title}`}
+            title={`Open ${config.title}`}
             className={cn(
-              "group relative h-14 w-14 rounded-2xl border border-white/15 bg-slate-950 p-0 shadow-[0_16px_40px_-14px_rgba(15,23,42,0.65)] transition duration-200 hover:-translate-y-0.5 hover:bg-slate-900 hover:shadow-[0_20px_46px_-14px_rgba(15,23,42,0.75)]",
+              "group relative flex h-12 w-auto items-center gap-2 rounded-2xl border border-white/15 bg-slate-950 px-4 text-sm font-semibold text-white shadow-[0_16px_40px_-14px_rgba(15,23,42,0.65)] transition duration-200 hover:-translate-y-0.5 hover:bg-slate-900 hover:shadow-[0_20px_46px_-14px_rgba(15,23,42,0.75)] sm:h-14",
             )}
           >
             <MessageSquare className="h-5 w-5 text-white transition-transform duration-200 group-hover:scale-105" />
+            <span className="hidden sm:inline">Ask assistant</span>
             <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" aria-hidden="true" />
           </Button>
         )}

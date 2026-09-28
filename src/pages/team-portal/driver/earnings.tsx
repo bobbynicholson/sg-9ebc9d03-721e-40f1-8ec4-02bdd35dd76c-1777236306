@@ -25,10 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Banknote, Clock, Download, ExternalLink, Loader2, MapPin, RefreshCw, Route, TrendingUp, Truck, MessageCircle,
+  Banknote, Clock, Download, ExternalLink, Loader2, RefreshCw, Route, TrendingUp, Truck, MessageCircle,
 } from "lucide-react";
-import { PortalCard, PortalCardHeader, PortalOverview, StatTile } from "@/components/portal/ui";
+import { PortalCard, PortalCardHeader, PortalOverview } from "@/components/portal/ui";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
+import { DriverDetailsDisclosure } from "@/components/driver/DriverDetailsDisclosure";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -212,8 +213,6 @@ function DriverEarningsInner() {
     URL.revokeObjectURL(url);
   };
 
-  const chip = "inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white";
-
   return (
     <DriverPageShell
       pageTitle="My earnings - CateringMS"
@@ -232,25 +231,16 @@ function DriverEarningsInner() {
           <Download className="w-4 h-4 mr-2" /> Export CSV
         </Button>
       }
-      meta={
-        ready ? (
-          <>
-            <span className={chip}>{PRESET_LABELS[preset]}: {from} to {to}</span>
-            <span className={chip}><Banknote className="h-3.5 w-3.5" /> {formatR(stats!.grandTotal)} total</span>
-            <span className={chip}><Clock className="h-3.5 w-3.5" /> {stats!.hoursTotal.toFixed(1)}h worked</span>
-          </>
-        ) : undefined
-      }
       overview={
         <PortalOverview
-          eyebrow="Pay summary"
-          title={error ? "Earnings could not be loaded" : loading ? "Calculating driver pay" : stats ? "Pay is split into hours, distance, and callouts" : "No earnings data for this period"}
-          description={`Current period: ${from} to ${to}. The breakdown uses the same driver pay service as admin settlement, so this page and the back office agree.`}
+          eyebrow="Your pay summary"
+          title={error ? "Earnings could not be loaded" : loading ? "Calculating your pay" : stats ? "See your total pay at a glance" : "No earnings for this period"}
+          description={`${PRESET_LABELS[preset]} · ${from} to ${to}. Your total includes shift hours, delivery distance, and callout pay.`}
           items={[
-            { label: "Total", value: ready ? formatR(stats!.grandTotal) : "-", helper: "Selected period", icon: TrendingUp, tone: ready && stats!.grandTotal > 0 ? "brand" : "neutral" },
-            { label: "Hours", value: ready ? `${stats!.hoursTotal.toFixed(1)}h` : "-", helper: ready ? `${stats!.shiftCount} shifts` : "No shifts loaded", icon: Clock, tone: "neutral" },
-            { label: "Distance", value: ready ? `${stats!.distanceKm.toFixed(1)} km` : "-", helper: "Round-trip km", icon: Route, tone: "neutral" },
-            { label: "Deliveries", value: ready ? stats!.deliveryCount : "-", helper: "Callout count", icon: Truck, tone: "neutral" },
+            { label: "Total pay", value: ready ? formatR(stats!.grandTotal) : "-", helper: "For this period", icon: TrendingUp, tone: ready && stats!.grandTotal > 0 ? "brand" : "neutral" },
+            { label: "Hours worked", value: ready ? `${stats!.hoursTotal.toFixed(1)}h` : "-", helper: ready ? `${stats!.shiftCount} shifts` : "Waiting for data", icon: Clock, tone: "neutral" },
+            { label: "Distance", value: ready ? `${stats!.distanceKm.toFixed(1)} km` : "-", helper: "Recorded delivery distance", icon: Route, tone: "neutral" },
+            { label: "Deliveries", value: ready ? stats!.deliveryCount : "-", helper: "Completed delivery entries", icon: Truck, tone: "neutral" },
           ]}
           actions={
             <Link
@@ -260,18 +250,18 @@ function DriverEarningsInner() {
               Review deliveries
             </Link>
           }
+          splitCards
         />
       }
     >
-      {/* Period picker */}
-      <PortalCard className="mb-6">
+      <DriverDetailsDisclosure label="Change date range" count={`${from} to ${to}`} className="mb-6">
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <Label className="text-xs text-slate-500 dark:text-slate-400">Period</Label>
             <select
               value={preset}
               onChange={(e) => setPreset(e.target.value as Preset)}
-              className="mt-1 block rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="mt-1 block min-h-11 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
               <option value="last_7">Last 7 days</option>
               <option value="last_30">Last 30 days</option>
@@ -286,7 +276,7 @@ function DriverEarningsInner() {
               type="date"
               value={from}
               onChange={(e) => { setFrom(e.target.value); setPreset("custom"); }}
-              className="mt-1 w-44 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="mt-1 min-h-11 w-44 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </div>
           <div>
@@ -295,11 +285,11 @@ function DriverEarningsInner() {
               type="date"
               value={to}
               onChange={(e) => { setTo(e.target.value); setPreset("custom"); }}
-              className="mt-1 w-44 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="mt-1 min-h-11 w-44 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </div>
         </div>
-      </PortalCard>
+      </DriverDetailsDisclosure>
 
       {error ? (
         <div className="mb-6 rounded-lg border border-rose-200 bg-white p-5 shadow-sm dark:border-rose-900/50 dark:bg-slate-900">
@@ -323,33 +313,10 @@ function DriverEarningsInner() {
         </PortalCard>
       ) : (
         <>
-          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatTile
-              label="Total earned"
-              value={formatR(stats.grandTotal)}
-              icon={TrendingUp}
-              hint={`${stats.hoursTotal.toFixed(1)}h + ${stats.distanceKm.toFixed(1)}km + ${stats.deliveryCount} callouts`}
-            />
-            <StatTile
-              label="Hourly pay"
-              value={formatR(stats.hourlyPay)}
-              icon={Clock}
-              hint={`${stats.shiftCount} shift${stats.shiftCount === 1 ? "" : "s"} @ ${formatR(stats.rates.hourly_rate)}/hr`}
-            />
-            <StatTile
-              label="Distance pay"
-              value={formatR(stats.distancePay)}
-              icon={Route}
-              hint={`${stats.distanceKm.toFixed(1)} km (round-trip) @ ${formatR(stats.rates.distance_rate_per_km)}/km`}
-            />
-            <StatTile
-              label="Callout pay"
-              value={formatR(stats.calloutPay)}
-              icon={MapPin}
-              hint={`${stats.deliveryCount} dispatch${stats.deliveryCount === 1 ? "" : "es"} @ ${formatR(stats.rates.base_callout_fee)} flat`}
-            />
-          </div>
-
+          <DriverDetailsDisclosure
+            label="Pay breakdown"
+            count={`${stats.shiftCount + stats.deliveryCount} entries`}
+          >
           <PortalCard>
             <PortalCardHeader title="Pay breakdown" />
             <p className="-mt-2 mb-4 text-xs text-slate-500 dark:text-slate-400">
@@ -368,6 +335,7 @@ function DriverEarningsInner() {
               </TabsContent>
             </Tabs>
           </PortalCard>
+          </DriverDetailsDisclosure>
         </>
       )}
     </DriverPageShell>

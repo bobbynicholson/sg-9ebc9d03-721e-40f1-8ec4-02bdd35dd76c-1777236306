@@ -345,6 +345,7 @@ export function PortalOverview({
   items,
   actions,
   className,
+  splitCards = false,
 }: {
   eyebrow?: React.ReactNode;
   title: React.ReactNode;
@@ -352,7 +353,65 @@ export function PortalOverview({
   items?: PortalOverviewItem[];
   actions?: React.ReactNode;
   className?: string;
+  /** Render the heading/actions and metric cards as two separate cards. */
+  splitCards?: boolean;
 }) {
+  const heading = (
+    <div className="min-w-0">
+      {eyebrow && (
+        <p className="text-xs font-semibold uppercase tracking-normal text-slate-500 dark:text-slate-400">
+          {eyebrow}
+        </p>
+      )}
+      <h2 className="mt-1 text-lg font-semibold leading-tight text-slate-950 dark:text-white">
+        {title}
+      </h2>
+      {description && (
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+          {description}
+        </p>
+      )}
+      {actions && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {actions}
+        </div>
+      )}
+    </div>
+  );
+  const metricCards = items && items.length > 0 ? (
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item, index) => {
+        const Icon = item.icon;
+        const tone = item.tone || "neutral";
+        return (
+          <div key={index} className={cn("min-w-0 rounded-lg border border-l-2 px-3 py-3", OVERVIEW_TONES[tone])}>
+            <div className="flex items-center gap-2">
+              {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
+              <p className="truncate text-xs font-semibold">{item.label}</p>
+            </div>
+            <p className="mt-2 truncate text-xl font-semibold leading-none tabular-nums">{item.value}</p>
+            {item.helper && <p className="mt-1 line-clamp-2 text-xs leading-4 opacity-80">{item.helper}</p>}
+          </div>
+        );
+      })}
+    </div>
+  ) : null;
+
+  if (splitCards) {
+    return (
+      <>
+        <section className={cn("mb-4 rounded-xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/95 sm:p-5", SOFT_SHADOW, className)}>
+          {heading}
+        </section>
+        {metricCards && (
+          <section className={cn("mb-6 rounded-xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/95 sm:p-5", SOFT_SHADOW)}>
+            {metricCards}
+          </section>
+        )}
+      </>
+    );
+  }
+
   return (
     <section
       className={cn(
@@ -362,57 +421,8 @@ export function PortalOverview({
       )}
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start">
-        <div className="min-w-0">
-          {eyebrow && (
-            <p className="text-xs font-semibold uppercase tracking-normal text-slate-500 dark:text-slate-400">
-              {eyebrow}
-            </p>
-          )}
-          <h2 className="mt-1 text-lg font-semibold leading-tight text-slate-950 dark:text-white">
-            {title}
-          </h2>
-          {description && (
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              {description}
-            </p>
-          )}
-          {actions && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              {actions}
-            </div>
-          )}
-        </div>
-
-        {items && items.length > 0 && (
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {items.map((item, index) => {
-              const Icon = item.icon;
-              const tone = item.tone || "neutral";
-              return (
-                <div
-                  key={index}
-                  className={cn(
-                    "min-w-0 rounded-lg border border-l-2 px-3 py-3",
-                    OVERVIEW_TONES[tone],
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />}
-                    <p className="truncate text-xs font-semibold">{item.label}</p>
-                  </div>
-                  <p className="mt-2 truncate text-xl font-semibold leading-none tabular-nums">
-                    {item.value}
-                  </p>
-                  {item.helper && (
-                    <p className="mt-1 line-clamp-2 text-xs leading-4 opacity-80">
-                      {item.helper}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {heading}
+        {metricCards}
       </div>
     </section>
   );

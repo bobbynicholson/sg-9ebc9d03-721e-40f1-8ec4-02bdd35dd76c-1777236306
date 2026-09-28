@@ -36,6 +36,7 @@ import {
   Users, Loader2, Hand, ExternalLink, Truck, RefreshCw, Navigation, CalendarClock, MessageCircle,
 } from "lucide-react";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
+import { DriverDetailsDisclosure } from "@/components/driver/DriverDetailsDisclosure";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -249,21 +250,6 @@ function DriverCalendarInner() {
 
   const todayIso = toLocalISO(new Date());
 
-  // Month-scoped counts for the hero chips (the fetch window pads a
-  // week each side; chips should speak about the month on screen).
-  const monthCounts = useMemo(() => {
-    const startIso = toLocalISO(startOfMonth(cursor));
-    const endIso = toLocalISO(endOfMonth(cursor));
-    let mine = 0;
-    let open = 0;
-    for (const o of orders) {
-      if (!o.event_date || o.event_date < startIso || o.event_date > endIso) continue;
-      if (o.is_mine) mine += 1;
-      else open += 1;
-    }
-    return { mine, open };
-  }, [orders, cursor]);
-
   // Absorbed schedule page: bucket upcoming assigned jobs by local
   // calendar day distance (parseLocalDay both sides - see file header).
   const agendaGroups = useMemo(() => {
@@ -332,7 +318,7 @@ function DriverCalendarInner() {
     <DriverPageShell
       pageTitle="Calendar - Driver Portal"
       heading="My calendar"
-      subheading="Slate dots = jobs already yours. Brand dots = jobs in your company waiting to be claimed. Your upcoming schedule is listed below the grid."
+      subheading="Pick a day to see only the work scheduled for it."
       icon={CalendarIcon}
       width="wide"
       headerAction={
@@ -358,33 +344,18 @@ function DriverCalendarInner() {
           </Button>
         </>
       }
-      meta={
-        !loading && !error ? (
-          <>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {monthCounts.mine} job{monthCounts.mine === 1 ? "" : "s"} this month
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-              {monthCounts.open} open to claim
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-              {upcoming.length} upcoming assigned
-            </span>
-          </>
-        ) : undefined
-      }
       overview={
         <PortalOverview
-          eyebrow="Calendar"
-          title="Scan your month, then claim open work"
-          description="Each day shows your assigned jobs and tenant jobs still open to drivers. Select a day to see addresses, collect times, and claim actions. The upcoming schedule below groups your assigned jobs by when you need to act."
+          eyebrow="How to use your calendar"
+          title="Choose a month, then tap a day"
+          description="Your assigned jobs and open jobs are marked on the calendar. Tap a day to see the job details and available actions."
           items={[
-            { label: "Month", value: cursor.toLocaleDateString("en-ZA", { month: "short", year: "numeric" }), helper: "Visible grid", icon: CalendarIcon, tone: "brand" },
-            { label: "Your jobs", value: orders.filter((o) => o.is_mine).length, helper: "In this window", icon: Truck, tone: "neutral" },
-            { label: "Open jobs", value: orders.filter((o) => !o.is_mine).length, helper: "Available to claim", icon: Hand, tone: orders.some((o) => !o.is_mine) ? "warning" : "success" },
-            { label: "Upcoming", value: upcoming.length, helper: "Assigned from today", icon: CalendarClock, tone: upcoming.length > 0 ? "brand" : "neutral" },
+            { label: "This month", value: cursor.toLocaleDateString("en-ZA", { month: "short", year: "numeric" }), helper: "Calendar currently shown", icon: CalendarIcon, tone: "brand" },
+            { label: "Your jobs", value: orders.filter((o) => o.is_mine).length, helper: "Assigned to you", icon: Truck, tone: "neutral" },
+            { label: "Open jobs", value: orders.filter((o) => !o.is_mine).length, helper: "You can claim these", icon: Hand, tone: orders.some((o) => !o.is_mine) ? "warning" : "success" },
+            { label: "Upcoming", value: upcoming.length, helper: "Assigned from today onward", icon: CalendarClock, tone: upcoming.length > 0 ? "brand" : "neutral" },
           ]}
+          splitCards
         />
       }
     >
@@ -408,9 +379,12 @@ function DriverCalendarInner() {
           {/* Month nav */}
           <PortalCard className="mb-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                {cursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
-              </h2>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                  {cursor.toLocaleDateString("en-ZA", { month: "long", year: "numeric" })}
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Tap a date to see the jobs for that day</p>
+              </div>
               <div className="flex items-center gap-1">
                 <Button
                   variant="outline"
@@ -420,14 +394,6 @@ function DriverCalendarInner() {
                   aria-label="Previous month"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="min-h-11"
-                  onClick={jumpToToday}
-                >
-                  Today
                 </Button>
                 <Button
                   variant="outline"
@@ -509,6 +475,12 @@ function DriverCalendarInner() {
                       <span className="w-2 h-2 rounded-full bg-brand-primary" /> Open to claim
                     </span>
                   </div>
+                  {!loading && !error && orders.length === 0 && (
+                    <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                      <p className="font-semibold text-slate-900 dark:text-white">No jobs showing for this month</p>
+                      <p className="mt-1">Dispatch will add assigned work here. Use <span className="font-semibold">Upcoming</span> below to check your next assigned jobs.</p>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -516,6 +488,11 @@ function DriverCalendarInner() {
 
           {/* Selected-day detail */}
           {selectedDay && selectedDayDate && (
+            <DriverDetailsDisclosure
+              label={selectedDayDate.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long" })}
+              count={`${selectedOrders.length} ${selectedOrders.length === 1 ? "job" : "jobs"}`}
+              className="mb-4"
+            >
             <PortalCard>
               <PortalCardHeader
                 title={selectedDayDate.toLocaleDateString("en-ZA", {
@@ -632,6 +609,7 @@ function DriverCalendarInner() {
                 )}
               </div>
             </PortalCard>
+            </DriverDetailsDisclosure>
           )}
 
           {/* Upcoming schedule agenda (absorbed /driver/schedule page).
@@ -639,7 +617,8 @@ function DriverCalendarInner() {
               onwards, grouped by when the driver needs to act. Kept
               deliberately money-free - see file header. */}
           {!error && (
-            <div className="mt-8">
+            <DriverDetailsDisclosure label="Upcoming schedule" count={`${upcoming.length} jobs`} className="mt-4">
+            <div>
               <div className="mb-3 flex items-center gap-2">
                 <CalendarClock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Upcoming schedule</h2>
@@ -772,6 +751,7 @@ function DriverCalendarInner() {
                 </div>
               )}
             </div>
+            </DriverDetailsDisclosure>
           )}
     </DriverPageShell>
   );

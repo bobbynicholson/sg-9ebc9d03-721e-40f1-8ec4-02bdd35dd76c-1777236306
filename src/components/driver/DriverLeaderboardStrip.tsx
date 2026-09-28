@@ -26,6 +26,7 @@ interface Entry {
 interface Props {
   companyId: string | null | undefined;
   currentUserId: string | null | undefined;
+  hideHeader?: boolean;
 }
 
 const MEDALS = ["🥇", "🥈", "🥉"];
@@ -38,7 +39,7 @@ function hoursBetween(start: string | null, end: string | null): number {
   return (e - s) / 3_600_000;
 }
 
-export function DriverLeaderboardStrip({ companyId, currentUserId }: Props) {
+export function DriverLeaderboardStrip({ companyId, currentUserId, hideHeader = false }: Props) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -130,18 +131,19 @@ export function DriverLeaderboardStrip({ companyId, currentUserId }: Props) {
 
   return (
     <div className="mb-4 sm:mb-6 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-        <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
-        <span className="text-sm font-semibold text-slate-900 dark:text-white">
-          {monthLabel} leaderboard
-        </span>
-        {myRank >= 0 && (
-          <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">
-            You&apos;re #{myRank + 1}
+      {!hideHeader && (
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+          <Trophy className="w-4 h-4 text-amber-500 flex-shrink-0" />
+          <span className="text-sm font-semibold text-slate-900 dark:text-white">
+            {monthLabel} leaderboard
           </span>
-        )}
-      </div>
+          {myRank >= 0 && (
+            <span className="ml-auto text-[11px] text-slate-500 dark:text-slate-400">
+              You&apos;re #{myRank + 1}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Scrollable entries */}
       <div className="overflow-x-auto">

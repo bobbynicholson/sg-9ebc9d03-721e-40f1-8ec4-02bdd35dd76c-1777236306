@@ -8,13 +8,14 @@ import {
   Clock,
   CheckCircle,
   Route as RouteIcon,
-  TrendingUp,
   Banknote,
-  Fuel,
   Leaf,
   ChevronRight,
   Map,
   AlertCircle,
+  Bell,
+  CalendarDays,
+  Truck,
   Play,
   Pause,
   Flag,
@@ -36,11 +37,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
-import { PortalCard, PortalCardHeader, PortalOverview, StatTile } from "@/components/portal/ui";
+import { DriverDetailsDisclosure } from "@/components/driver/DriverDetailsDisclosure";
+import { PortalCard, PortalCardHeader } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { routeOptimizationService, OptimizedRoute, DeliveryStop } from "@/services/routeOptimizationService";
 import driverService from "@/services/driverService";
+import { notificationService } from "@/services/notificationService";
 import { useDriverPayRates } from "@/hooks/useDriverPayRates";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
@@ -91,6 +94,47 @@ interface StopAssignment {
   status: string;
 }
 
+function DriverRouteSummary({
+  assigned,
+  today,
+  leftToDo,
+  alerts,
+}: {
+  assigned: number;
+  today: number;
+  leftToDo: number;
+  alerts: number;
+}) {
+  const cards = [
+    { label: "Assigned", value: assigned, helper: "Your active deliveries", icon: Truck, className: "border-l-slate-300" },
+    { label: "Today", value: today, helper: "Scheduled for today", icon: CalendarDays, className: "border-l-slate-300" },
+    { label: "Left to do", value: leftToDo, helper: "Still to complete", icon: Clock, className: leftToDo > 0 ? "border-l-amber-400" : "border-l-slate-300" },
+    { label: "Alerts", value: alerts, helper: alerts > 0 ? "Needs your attention" : "All clear", icon: Bell, className: alerts > 0 ? "border-l-rose-400" : "border-l-slate-300" },
+  ];
+  return (
+    <>
+      <PortalCard className="mb-4 sm:mb-6">
+        <p className="text-xs font-semibold uppercase tracking-normal text-slate-500 dark:text-slate-400">Today</p>
+        <h2 className="mt-1 text-lg font-semibold leading-tight text-slate-950 dark:text-white">Your daily snapshot</h2>
+      </PortalCard>
+      <PortalCard className="mb-4 sm:mb-6">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {cards.map(({ label, value, helper, icon: Icon, className }) => (
+            <div key={label} className={`min-w-0 rounded-lg border border-l-2 bg-slate-50 px-3 py-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300 ${className}`}>
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <p className="truncate text-xs font-semibold">{label}</p>
+              </div>
+              <p className="mt-2 truncate text-xl font-semibold leading-none tabular-nums">{value}</p>
+              <p className="mt-1 line-clamp-2 text-xs leading-4 opacity-80">{helper}</p>
+            </div>
+          ))}
+        </div>
+      </PortalCard>
+    </>
+  );
+}
+
 function DriverRoutesInner() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -132,6 +176,19 @@ function DriverRoutesInner() {
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [chatStop, setChatStop] = useState<DeliveryStop | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    const loadUnread = () => {
+      void notificationService.getUnreadCount(user.id, "driver").then((count) => {
+        if (active) setUnreadCount(count);
+      });
+    };
+    loadUnread();
+    return () => { active = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.id && user?.company_id) {
@@ -538,20 +595,19 @@ function DriverRoutesInner() {
         icon={RouteIcon}
         width="full"
         hideFooter
-        overview={
-          <PortalOverview
-            eyebrow="Route control"
-            title="No route is assigned yet"
-            description="When dispatch assigns or optimises a route, this page becomes the driver's route board with the current stop, map, stop list, and trip clock."
-            items={[
-              { label: "Stops", value: 0, helper: "Assigned today", icon: RouteIcon, tone: "neutral" },
-              { label: "Trip clock", value: "Off", helper: "Starts with shift", icon: Clock, tone: "neutral" },
-              { label: "Map", value: "Waiting", helper: "Needs route", icon: Map, tone: "neutral" },
-              { label: "Action", value: "Dispatch", helper: "Contact dispatch if this looks wrong", icon: AlertCircle, tone: "warning" },
-            ]}
-          />
-        }
       >
+        <div className="mb-4 sm:mb-6 flex flex-wrap gap-2">
+          <Button asChild size="sm" className="bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-700">
+            <Link href={withSlug("/team-portal/driver/deliveries")}>All deliveries</Link>
+          </Button>
+          <Button asChild size="sm" variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30">
+            <Link href={withSlug("/team-portal/driver/notifications")}>
+              <Bell className="mr-1.5 h-4 w-4" />
+              Notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}
+            </Link>
+          </Button>
+        </div>
+        <DriverRouteSummary assigned={0} today={0} leftToDo={0} alerts={unreadCount} />
         <PortalCard padded={false}>
           <div className="py-16 px-6 text-center">
             <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
@@ -561,6 +617,20 @@ function DriverRoutesInner() {
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
               You don&apos;t have any optimised routes right now. Check back later or contact dispatch.
             </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => void loadOptimizedRoute()}
+                disabled={loading}
+                className="bg-brand-primary text-white hover:opacity-90"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Refresh route
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link href={withSlug("/team-portal/driver/deliveries")}>View deliveries</Link>
+              </Button>
+            </div>
           </div>
         </PortalCard>
         <ChatBot userRole="driver" companyId={user?.company_id} />
@@ -568,7 +638,6 @@ function DriverRoutesInner() {
     );
   }
 
-  const stats = routeOptimizationService.calculateRouteStats(route);
   const completedStops = route.stops.filter(s => s.status === "completed" || s.status === "delivered").length;
   const remainingStops = route.stops.length - completedStops;
   const currentStop = route.stops[currentStopIndex];
@@ -686,27 +755,19 @@ function DriverRoutesInner() {
       headerAction={tripControls}
       meta={metaChips}
       hideFooter
-      overview={
-        <PortalOverview
-          eyebrow="Route control"
-          title={tripCompleted ? "Route completed" : tripStarted ? "Work the current stop" : "Start your shift, then start each delivery"}
-          description="The route page is for sequence, map, trip clock, and stop-level actions. Use Start delivery on each stop only when you are leaving for that client."
-          items={[
-            { label: "Stops done", value: `${completedStops}/${route.stops.length}`, helper: `${Math.round((completedStops / route.stops.length) * 100)}% complete`, icon: CheckCircle, tone: completedStops === route.stops.length ? "success" : "brand" },
-            { label: "Current stop", value: currentStop ? currentStop.client_name : "None", helper: currentStop?.pickup_time ? `Collect ${currentStop.pickup_time.slice(0, 5)}` : "Pickup time not set", icon: Navigation, tone: "brand" },
-            { label: "Distance", value: `${route.total_distance.toFixed(1)} km`, helper: `${route.total_duration} min estimated`, icon: RouteIcon, tone: "neutral" },
-            { label: "Estimated", value: tenantCurrency.format(estimatedEarnings, 0), helper: "Callout + round-trip km", icon: Banknote, tone: "neutral" },
-          ]}
-          actions={
-            <Button asChild size="sm" variant="outline">
-              {/* /tracking merged into this page - the current-stop
-                  card carries the manifest + arrival action now. */}
-              <a href="#current">Jump to current stop</a>
-            </Button>
-          }
-        />
-      }
     >
+          <div className="mb-4 sm:mb-6 flex flex-wrap gap-2">
+            <Button asChild size="sm" className="bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-700">
+              <Link href={withSlug("/team-portal/driver/deliveries")}>All deliveries</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900/60 dark:text-blue-300 dark:hover:bg-blue-950/30">
+              <Link href={withSlug("/team-portal/driver/notifications")}>
+                <Bell className="mr-1.5 h-4 w-4" />
+                Notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}
+              </Link>
+            </Button>
+          </div>
+          <DriverRouteSummary assigned={route.stops.length} today={route.stops.length} leftToDo={remainingStops} alerts={unreadCount} />
           <div className="mb-6 lg:mb-8">
             {/* Progress Banner */}
             <PortalCard>
@@ -752,34 +813,6 @@ function DriverRoutesInner() {
                   </div>
                 )}
             </PortalCard>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6 lg:mb-8">
-            <StatTile
-              icon={TrendingUp}
-              label="Total distance"
-              value={`${route.total_distance.toFixed(1)} km`}
-              hint="Across every stop on today's route"
-            />
-            <StatTile
-              icon={Clock}
-              label="Est. time"
-              value={`${route.total_duration} min`}
-              hint="Including driving between stops"
-            />
-            <StatTile
-              icon={Fuel}
-              label="Fuel cost"
-              value={tenantCurrency.format(stats.estimatedFuelCost, 0)}
-              hint="Rough cost at an average rate per km"
-            />
-            <StatTile
-              icon={Leaf}
-              label="CO2 impact"
-              value={`${stats.carbonFootprint.toFixed(1)} kg`}
-              hint="Estimated emissions for this route"
-            />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1061,6 +1094,7 @@ function DriverRoutesInner() {
 
             {/* Route Map */}
             <div className="lg:col-span-2">
+              <DriverDetailsDisclosure label="Route map" count="Open map">
               <PortalCard className="h-[500px] lg:h-[700px] flex flex-col">
                 <PortalCardHeader
                   title={
@@ -1074,11 +1108,13 @@ function DriverRoutesInner() {
                   <RouteMap route={route} />
                 </div>
               </PortalCard>
+              </DriverDetailsDisclosure>
             </div>
           </div>
 
           {/* All Stops List */}
-          <PortalCard className="mt-6">
+          <DriverDetailsDisclosure label={`Complete route (${route.stops.length} stops)`} count="Open list" className="mt-4">
+          <PortalCard>
             <PortalCardHeader
               title={
                 <span className="flex items-center gap-2">
@@ -1261,6 +1297,7 @@ function DriverRoutesInner() {
                 })}
               </div>
           </PortalCard>
+          </DriverDetailsDisclosure>
 
       {/* Delivery Status Modal */}
       {selectedDelivery && (

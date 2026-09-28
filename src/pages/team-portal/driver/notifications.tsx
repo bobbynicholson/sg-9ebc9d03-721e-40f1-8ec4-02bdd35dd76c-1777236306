@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { notificationService, Notification } from "@/services/notificationService";
 import { useToast } from "@/hooks/use-toast";
 import { DriverPageShell } from "@/components/driver/DriverPageShell";
+import { DriverDetailsDisclosure } from "@/components/driver/DriverDetailsDisclosure";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -219,71 +220,52 @@ function DriverNotificationsInner() {
     <DriverPageShell
       pageTitle="Notifications - Driver Portal"
       heading="Notifications"
-      subheading="Dispatch alerts, route changes, customer messages."
+      subheading="Open an alert only when you need its details."
       icon={Bell}
       width="full"
       headerAction={headerActions}
-      meta={
-        !loading && !loadError ? (
-          <>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-              {unreadCount > 0 ? (
-                <span className="relative flex h-2 w-2" aria-hidden>
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75 motion-reduce:hidden" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-400" />
-                </span>
-              ) : (
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-              )}
-              {unreadCount} unread
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-              {visible.length} {tab === "unread" ? "unread shown" : `notification${visible.length === 1 ? "" : "s"}`}
-            </span>
-            {staleCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/15 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
-                {staleCount} stale
-              </span>
-            )}
-          </>
-        ) : undefined
-      }
       overview={
         loadError ? undefined : (
         <PortalOverview
-          eyebrow="Inbox"
-          title={unreadCount > 0 ? "Handle unread dispatch updates first" : "No unread driver alerts"}
-          description="This inbox is for dispatch changes, route updates, and customer-related alerts. Stale rows can be cleared so new day-of work stays visible."
+          eyebrow="Your notification inbox"
+          title={unreadCount > 0 ? "You have updates to check" : "You are all caught up"}
+          description="Unread alerts need your attention. Tap a notification to open the related route, delivery, or message."
           items={[
-            { label: "Unread", value: unreadCount, helper: "Needs attention", icon: Bell, tone: unreadCount > 0 ? "danger" : "success" },
-            { label: "Visible", value: visible.length, helper: tab === "unread" ? "Unread tab" : "All notifications", icon: ExternalLink, tone: "neutral" },
-            { label: "Stale", value: staleCount, helper: `Older than ${STALE_NOTIFICATION_DAYS} days`, icon: Archive, tone: staleCount > 0 ? "warning" : "success" },
-            { label: "Filter", value: tab === "unread" ? "Unread" : "All", helper: "Current view", icon: CheckCircle2, tone: "neutral" },
+            { label: "Unread", value: unreadCount, helper: "Needs your attention", icon: Bell, tone: unreadCount > 0 ? "danger" : "success" },
+            { label: "All notifications", value: visible.length, helper: "Available to review", icon: ExternalLink, tone: "neutral" },
+            { label: "Older alerts", value: staleCount, helper: `Older than ${STALE_NOTIFICATION_DAYS} days`, icon: Archive, tone: staleCount > 0 ? "warning" : "success" },
+            { label: "Showing", value: tab === "unread" ? "Unread" : "All", helper: "Current list filter", icon: CheckCircle2, tone: "neutral" },
           ]}
+          splitCards
         />
         )
       }
     >
       <div className="space-y-4">
-          <div className="flex w-full gap-1 overflow-x-auto mb-4">
-            <Button
-              variant={tab === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTab("all")}
-              className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "all" && "bg-brand-primary hover:opacity-90 text-white")}
-            >
-              All
-            </Button>
-            <Button
-              variant={tab === "unread" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTab("unread")}
-              className={cn("flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "unread" && "bg-brand-primary hover:opacity-90 text-white")}
-            >
-              Unread
-              {unreadCount > 0 && <span className="ml-1.5 bg-white/20 px-1.5 rounded text-[10px] tabular-nums">{unreadCount}</span>}
-            </Button>
-          </div>
+          <DriverDetailsDisclosure
+            label="Change notification view"
+            count={tab === "unread" ? "Unread only" : "All notifications"}
+            className="mb-4"
+          >
+            <div className="flex w-full gap-2 overflow-x-auto">
+              <Button
+                variant={tab === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTab("all")}
+                className={cn("min-h-11 flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "all" && "bg-brand-primary hover:opacity-90 text-white")}
+              >
+                All notifications
+              </Button>
+              <Button
+                variant={tab === "unread" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTab("unread")}
+                className={cn("min-h-11 flex-1 justify-center min-w-[120px] whitespace-nowrap", tab === "unread" && "bg-brand-primary hover:opacity-90 text-white")}
+              >
+                Unread{unreadCount > 0 ? ` (${unreadCount})` : ""}
+              </Button>
+            </div>
+          </DriverDetailsDisclosure>
 
           {loading ? (
             <PortalCard className="py-12 text-center">
