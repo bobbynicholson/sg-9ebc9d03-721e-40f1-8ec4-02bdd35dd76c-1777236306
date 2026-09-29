@@ -88,7 +88,7 @@ export function KitchenLiveStateStrip() {
       icon: Clock,
       tone: counts.overdue > 0 ? "critical" : "muted",
       pulse: counts.overdue > 0,
-      href: "/team-portal/kitchen/production?filter=overdue",
+      href: "/team-portal/kitchen/today#prep",
       aria: `${counts.overdue} overdue prep tasks. Tap to view.`,
     },
     {
@@ -97,7 +97,7 @@ export function KitchenLiveStateStrip() {
       value: counts.loading ? "…" : String(counts.onPass),
       icon: Flame,
       tone: counts.onPass > 0 ? "warning" : "muted",
-      href: "/team-portal/kitchen/production?filter=ready",
+      href: "/team-portal/kitchen/today#orders",
       aria: `${counts.onPass} orders ready on the pass. Tap to view.`,
     },
     {

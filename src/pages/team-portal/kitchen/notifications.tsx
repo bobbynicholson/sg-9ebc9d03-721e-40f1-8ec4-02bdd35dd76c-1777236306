@@ -339,6 +339,7 @@ function KitchenNotificationsPageInner() {
                 <Link href={withSlug("/team-portal/kitchen/today")}>Kitchen today</Link>
               </Button>
             }
+            splitCards
           />
         )
       }

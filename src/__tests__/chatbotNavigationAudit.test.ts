@@ -124,9 +124,9 @@ describe("chatbot local Phase 2 audit", () => {
   it("keeps broad kitchen questions linked to the signed-in kitchen workspace", () => {
     for (const role of ["kitchen_manager", "kitchen_staff"]) {
       expect(getRelevantNavigation("Tell me how you can help me here", role, 3).map((item) => item.ref))
-        .toEqual(["kitchen.today", "kitchen.production", "kitchen.stock"]);
+        .toEqual(["kitchen.today", "kitchen.stock"]);
       expect(getRelevantNavigation("Tell me about today's work that I have", role, 3).map((item) => item.ref))
-        .toEqual(["kitchen.today", "kitchen.production", "kitchen.stock"]);
+        .toEqual(["kitchen.today", "kitchen.stock"]);
     }
   });
 

@@ -12,7 +12,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Package, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2, ShoppingCart, CheckCircle2 } from "lucide-react";
+import { Package, AlertTriangle, Loader2, ChefHat, RefreshCw, MapPin, ArrowUpDown, Plus, Minus, Trash2, ShoppingCart, CheckCircle2, ChevronDown } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PortalCard, StatTile } from "@/components/portal/ui";
 import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
@@ -80,6 +80,7 @@ function KitchenStockPageInner() {
   // generic warehouse items the kitchen doesn't touch.
   const [recipeLinkedOnly, setRecipeLinkedOnly] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
 
   const [usingItem, setUsingItem] = useState<Inventory | null>(null);
@@ -371,6 +372,9 @@ function KitchenStockPageInner() {
     const inRecipes = items.filter((i) => recipeLinkedIds.has(i.id)).length;
     return { total, below, out, inRecipes };
   }, [items, recipeLinkedIds]);
+  const activeFilterCount = [
+    Boolean(search), category !== "all", storage !== "all", belowParOnly, recipeLinkedOnly, sortKey !== "name",
+  ].filter(Boolean).length;
 
   const openUse = (item: Inventory) => {
     setUsingItem(item);
@@ -521,7 +525,7 @@ function KitchenStockPageInner() {
                 As of {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
-            <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="w-full gap-1.5 sm:w-auto">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
               Refresh
             </Button>
@@ -607,13 +611,13 @@ function KitchenStockPageInner() {
             {/* First-screen stat band. Skeletons while loading so the
                 tiles never flash zeros that just mean "not loaded yet". */}
             {firstLoad ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6" aria-hidden="true">
+              <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4" aria-hidden="true">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="h-24 rounded-xl border border-slate-200 bg-white animate-pulse motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+              <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
                 <StatTile
                   label={<span className="flex items-center gap-1">Total items<InfoTooltip content="Every active line item in your kitchen stock list." /></span>}
                   value={stats.total}
@@ -633,8 +637,27 @@ function KitchenStockPageInner() {
               </div>
             )}
 
-            <PortalCard padded className="mb-6">
-              <div className="flex flex-col gap-3">
+            <PortalCard padded={false} className="mb-6 border-brand-primary/15">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5 dark:border-slate-800">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Stock filters</p>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    {activeFilterCount > 0 ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active · ${filtered.length} items shown` : "Search and narrow the stock list when you need to."}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={isFiltersOpen ? "outline" : "default"}
+                  onClick={() => setIsFiltersOpen((open) => !open)}
+                  aria-expanded={isFiltersOpen}
+                  className="h-9 shrink-0 gap-1.5"
+                >
+                  {isFiltersOpen ? "Hide filters" : "Open filters"}
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isFiltersOpen ? "rotate-180" : ""}`} />
+                </Button>
+              </div>
+              {isFiltersOpen && <div className="p-4 sm:p-5"><div className="flex flex-col gap-3">
                 <div className="flex flex-col sm:flex-row gap-3">
                   <AdminSearchField
                     value={search}
@@ -669,10 +692,10 @@ function KitchenStockPageInner() {
                       (familiar). "Status" floats out-of-stock and
                       below-par to the top, "Location" groups by
                       storage for end-of-shift walkthroughs. */}
-                  <div className="ml-auto inline-flex items-center gap-1.5">
+                  <div className="ml-auto inline-flex w-full items-center gap-1.5 sm:w-auto">
                     <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
                     <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-                      <SelectTrigger className="h-10 w-[160px]"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-10 w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="name">A-Z</SelectItem>
                         <SelectItem value="status">Status (low first)</SelectItem>
@@ -701,10 +724,17 @@ function KitchenStockPageInner() {
                     </Button>
                   </div>
                 )}
-              </div>
+              </div></div>}
             </PortalCard>
 
             <PortalCard padded={false}>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-brand-primary" />
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Stock items</p>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Tap an item to log usage, receipts, waste, or a count.</p>
+              </div>
               {firstLoad ? (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-hidden="true">
                   {Array.from({ length: 6 }).map((_, idx) => (
@@ -760,7 +790,7 @@ function KitchenStockPageInner() {
                       else suggestion = Math.max(min, min * 2 - stock);
                     }
                     return (
-                      <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors duration-150 flex items-center gap-3">
+                      <button key={i.id} onClick={() => openUse(i)} className="flex w-full flex-col items-start gap-3 p-4 text-left transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/40 sm:flex-row sm:items-center">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</span>
@@ -791,7 +821,7 @@ function KitchenStockPageInner() {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-4 flex-shrink-0">
+                        <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:shrink-0 sm:justify-end">
                           <Badge variant="outline" className={`${tone(i)} justify-center min-w-[76px]`}>{label(i)}</Badge>
                           <span className="text-right tabular-nums min-w-[72px]">
                             <span className="font-semibold text-base text-slate-900 dark:text-white">{stock}</span>

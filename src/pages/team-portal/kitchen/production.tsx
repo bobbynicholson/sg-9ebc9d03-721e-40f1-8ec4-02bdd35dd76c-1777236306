@@ -13,6 +13,7 @@
 // (emerald done, amber in-flight, rose overdue).
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { Badge } from "@/components/ui/badge";
 import {
   Calendar, Clock, Users as UsersIcon, Loader2, ChevronLeft, ChevronRight,
@@ -1426,7 +1427,31 @@ export default function KitchenProductionPage() {
         UserRole.REGION_ADMIN,
       ]}
     >
-      <KitchenProductionPageInner />
+      <KitchenProductionRedirect />
     </ProtectedRoute>
+  );
+}
+
+/**
+ * The production board was replaced by the Today + Calendar workflow.
+ * Keep this legacy URL as a safe deep-link redirect so bookmarks and old
+ * browser tabs never show the retired page again.
+ */
+function KitchenProductionRedirect() {
+  const router = useRouter();
+  const { withSlug } = useTenantHref();
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    void router.replace(withSlug("/team-portal/kitchen/calendar?view=month"));
+  }, [router.isReady, withSlug, router]);
+
+  return (
+    <div className="min-h-[40vh] flex items-center justify-center px-6">
+      <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+        <p className="text-sm font-semibold text-slate-900">Opening the kitchen calendar…</p>
+        <p className="mt-1 text-xs text-slate-500">Today&apos;s live work is now managed from Today and Calendar.</p>
+      </div>
+    </div>
   );
 }

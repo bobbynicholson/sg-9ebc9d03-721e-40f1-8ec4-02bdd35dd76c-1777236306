@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, Banknote, Activity, MessageSquareText, Check, Calendar as CalendarIcon, Wallet, ChevronRight, Lock, UserCheck, RefreshCw } from "lucide-react";
+import { Users, Clock, Loader2, Play, Square, ChefHat, TrendingUp, Target, Coffee, AlertTriangle, Banknote, Activity, MessageSquareText, Check, Calendar as CalendarIcon, Wallet, ChevronDown, ChevronRight, Lock, UserCheck, RefreshCw } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -95,6 +95,10 @@ function KitchenDutyRosterPageInner() {
   // than pretending "no notes yet".
   const [handoffsError, setHandoffsError] = useState(false);
   const [perfError, setPerfError] = useState(false);
+  const [isLiveFloorOpen, setIsLiveFloorOpen] = useState(false);
+  const [isHandoffsOpen, setIsHandoffsOpen] = useState(false);
+  const [isPerformanceOpen, setIsPerformanceOpen] = useState(false);
+  const [isRecentShiftsOpen, setIsRecentShiftsOpen] = useState(false);
   // Ref-based double-submit latch for clock-in. The `saving` state
   // alone leaves a gap between the second tap and the re-render that
   // disables the button; two taps in that gap used to be able to
@@ -955,7 +959,7 @@ function KitchenDutyRosterPageInner() {
               size="sm"
               onClick={() => load()}
               disabled={loading}
-              className="gap-1.5"
+              className="w-full gap-1.5 sm:w-auto"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -1020,13 +1024,13 @@ function KitchenDutyRosterPageInner() {
               live because the useMemo deps include `now`. Skeletons
               while loading so a not-yet-loaded 0 never renders. */}
           {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6" aria-busy="true" aria-label="Loading team stats">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-6" aria-busy="true" aria-label="Loading team stats">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-24 rounded-xl border border-slate-200 bg-white animate-pulse dark:border-slate-800 dark:bg-slate-900" />
               ))}
             </div>
           ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
             <StatTile
               label="On duty now"
               icon={Activity}
@@ -1150,24 +1154,24 @@ function KitchenDutyRosterPageInner() {
                         })()}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                       {myActiveShift && (
                         <Button
                           onClick={() => handleToggleBreak(myActiveShift)}
                           disabled={saving}
                           variant="outline"
-                          className={onBreak ? "border-brand-primary/40 text-brand-primary hover:bg-brand-primary/5 dark:border-brand-primary/40 dark:hover:bg-brand-primary/10" : ""}
+                          className={`w-full sm:w-auto ${onBreak ? "border-brand-primary/40 text-brand-primary hover:bg-brand-primary/5 dark:border-brand-primary/40 dark:hover:bg-brand-primary/10" : ""}`}
                         >
                           <Coffee className="h-4 w-4 mr-2" />
                           {onBreak ? "End break" : "Start break"}
                         </Button>
                       )}
                       {myActiveShift ? (
-                        <Button onClick={() => openEndShift(myActiveShift)} disabled={saving} className="bg-rose-600 hover:bg-rose-700">
+                          <Button onClick={() => openEndShift(myActiveShift)} disabled={saving} className="w-full bg-rose-600 hover:bg-rose-700 sm:w-auto">
                           <Square className="h-4 w-4 mr-2" />Clock out
                         </Button>
                       ) : (
-                        <Button onClick={startShift} disabled={saving} className="bg-brand-primary hover:opacity-90">
+                        <Button onClick={startShift} disabled={saving} className="w-full bg-brand-primary hover:opacity-90 sm:w-auto">
                           {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Clocking in</> : <><Play className="h-4 w-4 mr-2" />Clock in</>}
                         </Button>
                       )}
@@ -1283,21 +1287,35 @@ function KitchenDutyRosterPageInner() {
             </PortalCard>
           )}
 
-          <div id="team" className="flex items-center justify-between mb-3 px-0.5 scroll-mt-24">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+          <div id="team" className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsLiveFloorOpen((open) => !open)}
+              aria-expanded={isLiveFloorOpen}
+              aria-controls="kitchen-live-floor"
+              className="flex min-w-0 items-center gap-2 text-left"
+            >
+            <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900 dark:text-white sm:text-lg">
               <Activity className="w-4 h-4 text-brand-primary" />
               Live floor
               <span className="text-sm font-normal text-slate-500">·</span>
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400 tabular-nums">{active.length}</span>
-              <InfoTooltip content="Everyone currently clocked in for a kitchen shift. Updates the second someone clocks in or out." />
+              <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:text-slate-300">
+                {isLiveFloorOpen ? "Hide" : "Open"}
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isLiveFloorOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+              </span>
             </h2>
+            </button>
+              <InfoTooltip content="Everyone currently clocked in for a kitchen shift. Updates the second someone clocks in or out." />
+            </div>
             {/* KIT3-F: roster coverage chip. "3 of 4 rostered chefs
                 clocked in" surfaces gaps so the manager knows whether
                 to chase anyone. Visible to all roles - it's an
                 attendance signal, not a pay signal. */}
             {rosterCoverage && rosterCoverage.rostered > 0 && (
               <span
-                className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border ${
+                className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium ${
                   rosterCoverage.clockedIn >= rosterCoverage.rostered
                     ? "bg-brand-primary/10 border-brand-primary/20 text-brand-primary dark:bg-brand-primary/15 dark:border-brand-primary/30"
                     : rosterCoverage.clockedIn === 0
@@ -1311,7 +1329,7 @@ function KitchenDutyRosterPageInner() {
               </span>
             )}
           </div>
-          <PortalCard padded={false} className="mb-8">
+          {isLiveFloorOpen && <PortalCard id="kitchen-live-floor" padded={false} className="mb-8">
             <div>
               {loading ? (
                 <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
@@ -1358,7 +1376,7 @@ function KitchenDutyRosterPageInner() {
                     return (
                       <li
                         key={s.id}
-                        className={`p-4 flex items-center gap-3 transition-colors ${
+                        className={`flex flex-col items-start gap-3 p-4 transition-colors sm:flex-row sm:items-center ${
                           isMe ? "bg-brand-primary/5 hover:bg-brand-primary/10 dark:bg-brand-primary/10 dark:hover:bg-brand-primary/15" : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
                         }`}
                       >
@@ -1383,7 +1401,7 @@ function KitchenDutyRosterPageInner() {
                           </div>
                           <div className="text-xs text-slate-500 dark:text-slate-400 capitalize">{s.shift_type ?? "kitchen"} · started {s.shift_start ? formatDistanceToNow(new Date(s.shift_start), { addSuffix: true }) : "--"}</div>
                         </div>
-                        <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:border-brand-primary/30 tabular-nums">
+                        <Badge variant="outline" className="self-end bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:border-brand-primary/30 tabular-nums sm:self-auto">
                           <Clock className="h-3 w-3 mr-1" />{fmtDuration(s.shift_start)}
                         </Badge>
                       </li>
@@ -1392,7 +1410,7 @@ function KitchenDutyRosterPageInner() {
                 </ul>
               )}
             </div>
-          </PortalCard>
+          </PortalCard>}
 
           {/* Wave 35: NEW SECTION (data already collected, just
               never displayed). kitchen_handoffs is written on every
@@ -1403,8 +1421,9 @@ function KitchenDutyRosterPageInner() {
               Now wired up: shows the latest 12 notes, an
               "Acknowledge" button on unread ones, dimmed visual
               treatment on already-acked notes. */}
-          <div className="flex items-center justify-between mb-3 px-0.5">
-            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <button type="button" onClick={() => setIsHandoffsOpen((open) => !open)} aria-expanded={isHandoffsOpen} aria-controls="kitchen-handoff-notes" className="flex min-w-0 items-center gap-2 text-left">
+            <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900 dark:text-white sm:text-lg">
               <MessageSquareText className="w-4 h-4 text-slate-400 dark:text-slate-500" />
               Hand-off notes
               {handoffs.filter((h) => !h.acknowledged_at).length > 0 && (
@@ -1414,8 +1433,13 @@ function KitchenDutyRosterPageInner() {
               )}
               <InfoTooltip content="What the previous shift left for you. Tap Acknowledge so the author knows you saw it." />
             </h2>
+            <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:text-slate-300">
+              {isHandoffsOpen ? "Hide" : "Open"}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isHandoffsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            </span>
+            </button>
           </div>
-          <PortalCard padded={false} className="mb-8">
+          {isHandoffsOpen && <PortalCard id="kitchen-handoff-notes" padded={false} className="mb-8">
             <div>
               {loading ? (
                 <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
@@ -1492,19 +1516,25 @@ function KitchenDutyRosterPageInner() {
                 </ul>
               )}
             </div>
-          </PortalCard>
+          </PortalCard>}
 
           {/* Phase 3 + Wave 35: chef performance, restyled. Visual
               ranking with on-time bar; bigger numbers; ChefHat
               avatar with rank pill. */}
-          <div className="flex items-center justify-between mb-3 px-0.5">
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <button type="button" onClick={() => setIsPerformanceOpen((open) => !open)} aria-expanded={isPerformanceOpen} aria-controls="kitchen-performance" className="flex min-w-0 items-center gap-2 text-left">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Target className="w-4 h-4 text-slate-400 dark:text-slate-500" />
               This week's chefs
               <InfoTooltip content={"Rolling 7-day rollup of completed prep tasks by chef.\n\nOn-time = task completed within 5 minutes of its planned end (start_at + duration).\n\nYield variance = average % difference between planned and actual yield, only shows if your team logs actuals."} />
             </h2>
+            <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:text-slate-300">
+              {isPerformanceOpen ? "Hide" : "Open"}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isPerformanceOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            </span>
+            </button>
           </div>
-          <PortalCard padded={false} className="mb-8">
+          {isPerformanceOpen && <PortalCard id="kitchen-performance" padded={false} className="mb-8">
             <div>
               {loading ? (
                 <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
@@ -1584,19 +1614,25 @@ function KitchenDutyRosterPageInner() {
                 </ul>
               )}
             </div>
-          </PortalCard>
+          </PortalCard>}
 
           {/* Wave 35: recent shifts grouped by day so the operator
               can see "Friday: 3 shifts" at a glance instead of a
               flat 20-row stream. Each shift compact one-liner. */}
-          <div className="flex items-center justify-between mb-3 px-0.5">
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <button type="button" onClick={() => setIsRecentShiftsOpen((open) => !open)} aria-expanded={isRecentShiftsOpen} aria-controls="kitchen-recent-shifts" className="flex min-w-0 items-center gap-2 text-left">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <CalendarIcon className="w-4 h-4 text-slate-600 dark:text-slate-400" />
               Recent shifts
               <InfoTooltip content="Shifts that ended in the last 7 days, newest first, grouped by day. The same window the stat tiles above sum over." />
             </h2>
+            <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:text-slate-300">
+              {isRecentShiftsOpen ? "Hide" : "Open"}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isRecentShiftsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+            </span>
+            </button>
           </div>
-          <PortalCard padded={false}>
+          {isRecentShiftsOpen && <PortalCard id="kitchen-recent-shifts" padded={false}>
             <div>
               {loading ? (
                 <div className="flex items-center justify-center py-10 text-slate-500"><Loader2 className="h-5 w-5 animate-spin mr-2 motion-reduce:animate-none" />Loading...</div>
@@ -1653,7 +1689,7 @@ function KitchenDutyRosterPageInner() {
                 </div>
               )}
             </div>
-          </PortalCard>
+          </PortalCard>}
         </>
         )}
       </KitchenPageShell>

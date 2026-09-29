@@ -19,7 +19,7 @@
  * rate columns at the SQL level.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  ChefHat, Clock, Coffee, Pencil, Loader2, Users, AlertTriangle, ChevronRight,
+  ChefHat, Clock, Coffee, Pencil, Loader2, Users, AlertTriangle, ChevronRight, ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
@@ -138,6 +138,7 @@ export function KitchenStaffTileBoard({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [now, setNow] = useState(new Date());
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Manual override dialog state
   const [overrideTarget, setOverrideTarget] = useState<{
@@ -512,35 +513,71 @@ export function KitchenStaffTileBoard({
   const manageHref = withSlug(`/admin/staff?department=${department}`);
 
   return (
-    <Card className="border-0 shadow-md">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base sm:text-lg flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-brand-primary" />
-            {deptLabel}
-            <Badge variant="outline" className={`tabular-nums ${onDutyCount > 0 ? "bg-brand-primary/10 text-brand-primary border-brand-primary/20" : ""}`}>
-              {onDutyCount} on duty
-            </Badge>
-            <Badge variant="outline" className="tabular-nums bg-slate-50 text-slate-600 border-slate-200">
-              {availableCount} available
-            </Badge>
+    <Card className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-lg shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/20">
+      <CardHeader className="relative overflow-hidden bg-gradient-to-br from-slate-50 via-white to-brand-primary/5 p-4 sm:p-6 dark:from-slate-900 dark:via-slate-900 dark:to-brand-primary/10">
+        <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-brand-primary/10 blur-2xl" />
+        <CardTitle className="relative flex items-center justify-between gap-3 text-base sm:text-lg">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-primary text-white shadow-md shadow-brand-primary/20">
+              <Users className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-bold tracking-tight">{deptLabel}</span>
+              <span className="mt-0.5 block text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                Live staffing and shift control
+              </span>
+            </span>
             <InfoTooltip content={canManageThisBoard
               ? "Managers can clock the whole team in or out and fix missed shifts.\n\nLong-press (or tap the pencil) to back-date a clock-in or fix a missed clock-out. A reason is required and gets stamped on the shift."
               : "Staff can clock their own linked tile in or out. Managers can clock the whole team and fix missed shifts."
             } />
           </span>
-          {staff.length > 0 && canManageThisBoard && (
-            <Link
-              href={manageHref}
-              className="text-xs font-normal text-slate-500 hover:text-brand-primary inline-flex items-center gap-1"
+          <span className="flex shrink-0 items-center gap-2">
+            {isExpanded && staff.length > 0 && canManageThisBoard && (
+              <Link
+                href={manageHref}
+                className="hidden items-center gap-1 rounded-lg px-2 py-2 text-xs font-semibold text-slate-500 transition-colors hover:bg-white/80 hover:text-brand-primary sm:inline-flex dark:hover:bg-slate-800"
+              >
+                Manage <ChevronRight className="h-3 w-3" />
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsExpanded((expanded) => !expanded)}
+              aria-expanded={isExpanded}
+              aria-label={`${isExpanded ? "Collapse" : "Expand"} ${deptLabel}`}
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
             >
-              Manage <ChevronRight className="w-3 h-3" />
-            </Link>
-          )}
+              {isExpanded ? "Close" : "Open team"}
+              <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+            </button>
+          </span>
         </CardTitle>
+        <CardDescription className="relative mt-4 text-xs text-slate-600 dark:text-slate-300">
+          {isExpanded ? "Tap a person to update their shift, start a break, or correct a missed clock-out." : "A quick view of who is working now. Open the team to manage shifts."}
+        </CardDescription>
+
+        {isExpanded && <div className="relative mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="rounded-2xl border border-brand-primary/15 bg-white/80 px-3 py-3 dark:border-brand-primary/25 dark:bg-slate-900/70">
+            <p className="text-2xl font-bold tabular-nums text-brand-primary">{onDutyCount}</p>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">On duty</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 dark:border-slate-700 dark:bg-slate-900/70">
+            <p className="text-2xl font-bold tabular-nums text-slate-800 dark:text-white">{availableCount}</p>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Available</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-3 dark:border-slate-700 dark:bg-slate-900/70">
+            <p className="text-2xl font-bold tabular-nums text-slate-800 dark:text-white">{staff.length}</p>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Team size</p>
+          </div>
+        </div>}
       </CardHeader>
 
-      <CardContent>
+      {isExpanded && <CardContent className="border-t border-slate-100 p-4 dark:border-slate-800 sm:p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-primary/15 bg-brand-primary/5 px-3 py-2.5 text-xs text-slate-600 dark:border-brand-primary/25 dark:bg-brand-primary/10 dark:text-slate-300">
+          <span className="font-medium text-slate-700 dark:text-slate-200">Live team board</span>
+          <span>Tap a tile to clock in/out · pencil for a manual correction</span>
+        </div>
         {loading ? (
           <div className="flex items-center justify-center py-8 text-slate-500 dark:text-slate-400 text-sm">
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading team...
@@ -587,6 +624,12 @@ export function KitchenStaffTileBoard({
                 isOnBreak ? "bg-amber-50 border-amber-300 hover:bg-amber-100" :
                 isOnShift ? "bg-brand-primary/10 border-brand-primary/30 hover:bg-brand-primary/15" :
                             "bg-slate-50 border-slate-200 hover:bg-slate-100";
+              const statusLabel = isOnBreak ? "On break" : isOnShift ? "On duty" : "Off duty";
+              const statusClass = isOnBreak
+                ? "bg-amber-100 text-amber-800"
+                : isOnShift
+                ? "bg-brand-primary/15 text-brand-primary"
+                : "bg-slate-200 text-slate-600";
 
               return (
                 <div
@@ -648,6 +691,9 @@ export function KitchenStaffTileBoard({
                         )}
                       </div>
                     </div>
+                    <div className={`mb-2 inline-flex rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${statusClass}`}>
+                      {statusLabel}
+                    </div>
 
                     {!isOnShift && (
                       <div className="text-xs text-slate-600 flex items-center gap-1.5">
@@ -691,7 +737,7 @@ export function KitchenStaffTileBoard({
             })}
           </div>
         )}
-      </CardContent>
+      </CardContent>}
 
       {/* ── Clock-in confirm (Wave 45 follow-up) ────────────────────────
           Friendly two-tap pattern - the first tap on the tile captures

@@ -11,7 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChefHat, Clock, CheckCircle, Calendar, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Printer, RefreshCw } from "lucide-react";
+import { ChefHat, Clock, CheckCircle, Calendar, CalendarDays, Users, Package, AlertTriangle, Truck, ExternalLink, Loader2, Printer, RefreshCw, ChevronDown, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
@@ -130,6 +130,9 @@ function KitchenDashboardInner() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [planningOrders, setPlanningOrders] = useState<KitchenPlanningOrder[]>([]);
   const [selectedDate, setSelectedDate] = useState(() => localISO(new Date()));
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  const [isTodayOrdersOpen, setIsTodayOrdersOpen] = useState(false);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   // Command-centre restructure (2026-07-02): the primary reads (orders /
@@ -1110,6 +1113,10 @@ function KitchenDashboardInner() {
   const selectedDayLabel = Number.isNaN(selectedDayDate.getTime())
     ? selectedDate
     : selectedDayDate.toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "short" });
+  const selectCalendarDay = (iso: string) => {
+    setSelectedDate(iso);
+    setIsCalendarExpanded(true);
+  };
   // Imminent = event_time within the next 4 hours. Catches the
   // "starting prep right now" cases without dragging dinner
   // events 8h away into the alarm list.
@@ -1160,6 +1167,63 @@ function KitchenDashboardInner() {
   const inPrepCount = orders.filter((o) => o.status === "preparing").length;
   const readyCount = orders.filter((o) => o.status === "ready").length;
   const todayGuests = todayOrders.reduce((sum, o) => sum + (o.guest_count || 0), 0);
+  const summaryStats = (
+    /* Keep the service summary above every other kitchen workstream so the
+       first glance is always today's operational state. */
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
+      {loading || loadError ? (
+        [0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
+        ))
+      ) : (
+        <>
+          <StatTile
+            icon={Calendar}
+            label="Today's orders"
+            value={todayOrders.length}
+            hint="Confirmed, in prep or ready today"
+          />
+          <StatTile
+            icon={Users}
+            label="Total guests"
+            value={todayGuests}
+            hint="Across all of today's events"
+          />
+          <StatTile
+            icon={Clock}
+            label="In prep"
+            value={inPrepCount}
+            hint="Being cooked right now"
+          />
+          <StatTile
+            icon={CheckCircle}
+            label="Ready"
+            value={readyCount}
+            hint="Packed, waiting for the driver"
+          />
+          {(() => {
+            let total = 0;
+            let done = 0;
+            for (const o of orders) {
+              const p = progressByOrder[o.id];
+              if (!p) continue;
+              total += p.total;
+              done += p.done;
+            }
+            const pct = total > 0 ? Math.round((done / total) * 100) : null;
+            return (
+              <StatTile
+                icon={CheckCircle}
+                label="Prep readiness"
+                value={pct == null ? "-" : `${pct}%`}
+                hint={pct == null ? "No prep tasks recorded yet" : `${done} of ${total} prep tasks done`}
+              />
+            );
+          })()}
+        </>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -1271,6 +1335,7 @@ function KitchenDashboardInner() {
           </>
         }
       >
+        {summaryStats}
         <DailyOperationsTasks audience="kitchen" />
           {/* Recovery card: one or more of the primary board reads
               failed. Pre-restructure the failure was capture-only and
@@ -1408,90 +1473,61 @@ function KitchenDashboardInner() {
             </PortalCard>
           )}
 
-          {/* Stats Grid - KIT3-A (task #244): rolling readiness +
-              skeleton during load so the chef doesn't read "0 / 0 /
-              0 / 0" as genuine zeros before data arrives. Skeletons
-              also hold while loadError is up - genuine zeros and
-              failed-to-load must never look the same. */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
-            {loading || loadError ? (
-              [0, 1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
-              ))
-            ) : (
-              <>
-                <StatTile
-                  icon={Calendar}
-                  label="Today's orders"
-                  value={todayOrders.length}
-                  hint="Confirmed, in prep or ready today"
-                />
-                <StatTile
-                  icon={Users}
-                  label="Total guests"
-                  value={todayGuests}
-                  hint="Across all of today's events"
-                />
-                <StatTile
-                  icon={Clock}
-                  label="In prep"
-                  value={inPrepCount}
-                  hint="Being cooked right now"
-                />
-                <StatTile
-                  icon={CheckCircle}
-                  label="Ready"
-                  value={readyCount}
-                  hint="Packed, waiting for the driver"
-                />
-                {/* KIT3-A new tile: rolling prep readiness across
-                    every active order. Sum of completed prep tasks
-                    over total, formatted as a percentage. Empty when
-                    there are no tasks at all. */}
-                {(() => {
-                  let total = 0;
-                  let done = 0;
-                  for (const o of orders) {
-                    const p = progressByOrder[o.id];
-                    if (!p) continue;
-                    total += p.total;
-                    done += p.done;
-                  }
-                  const pct = total > 0 ? Math.round((done / total) * 100) : null;
-                  return (
-                    <StatTile
-                      icon={CheckCircle}
-                      label="Prep readiness"
-                      value={pct == null ? "-" : `${pct}%`}
-                      hint={pct == null ? "No prep tasks recorded yet" : `${done} of ${total} prep tasks done`}
-                    />
-                  );
-                })()}
-              </>
-            )}
-          </div>
-
-          <PortalCard className="mb-6 sm:mb-8">
+          <PortalCard className="mb-6 overflow-hidden sm:mb-8">
             <PortalCardHeader
               title={
-                <span className="text-base sm:text-lg md:text-xl flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-brand-primary" />
-                  Event calendar
+                <span className="flex items-center gap-2 text-base sm:text-lg md:text-xl">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary">
+                    <Calendar className="h-5 w-5" />
+                  </span>
+                  <span>
+                    <span className="block">Event calendar</span>
+                    <span className="mt-0.5 block text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                      Today first · plan the rest when you need it
+                    </span>
+                  </span>
                 </span>
               }
               action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedDate(todayLocalISO)}
-                  className="h-9"
-                >
-                  Today
-                </Button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    variant={isCalendarOpen ? "outline" : "default"}
+                    size="sm"
+                    onClick={() => setIsCalendarOpen((open) => !open)}
+                    className="h-9 gap-1.5"
+                    aria-expanded={isCalendarOpen}
+                  >
+                    {isCalendarOpen ? "Close calendar" : "Open calendar"}
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isCalendarOpen ? "rotate-180" : ""}`} />
+                  </Button>
+                  {isCalendarOpen && <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setSelectedDate(todayLocalISO); setIsCalendarExpanded(false); }}
+                    className="h-9 gap-1.5"
+                  >
+                    <CalendarDays className="h-3.5 w-3.5" /> Today
+                  </Button>
+                  <Link
+                    href={withSlug("/team-portal/kitchen/calendar?view=month")}
+                    className="hidden h-9 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-brand-primary/40 hover:text-brand-primary sm:inline-flex dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    Month plan <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                  <Link
+                    href={withSlug("/team-portal/kitchen/calendar?view=month")}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-md bg-brand-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    Full calendar <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                  </>}
+                </div>
               }
             />
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+            {isCalendarOpen && <div className="space-y-4">
+              {isCalendarExpanded && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                 {calendarDays.map(({ date, iso }) => {
                   const dayOrders = planningOrdersByDate.get(iso) || [];
                   const isSelected = iso === selectedDate;
@@ -1505,7 +1541,7 @@ function KitchenDashboardInner() {
                     <button
                       key={iso}
                       type="button"
-                      onClick={() => setSelectedDate(iso)}
+                      onClick={() => selectCalendarDay(iso)}
                       className={`min-h-[84px] rounded-lg border px-3 py-2 text-left transition-colors ${
                         isSelected
                           ? "border-brand-primary bg-brand-primary/10 text-slate-950 dark:text-white dark:border-brand-primary/60 dark:bg-brand-primary/15"
@@ -1539,6 +1575,25 @@ function KitchenDashboardInner() {
                     </button>
                   );
                 })}
+              </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60">
+                <div className="flex min-w-0 items-center gap-2">
+                  <CalendarDays className="h-4 w-4 shrink-0 text-brand-primary" />
+                  <p className="truncate text-xs text-slate-600 dark:text-slate-300">
+                    {isCalendarExpanded ? "Choose a day to view its kitchen orders." : "Only today is open. Expand to browse the week."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCalendarExpanded((expanded) => !expanded)}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  aria-expanded={isCalendarExpanded}
+                >
+                  {isCalendarExpanded ? "Hide week" : "Browse week"}
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isCalendarExpanded ? "rotate-180" : ""}`} />
+                </button>
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -1619,7 +1674,7 @@ function KitchenDashboardInner() {
                   </ul>
                 )}
               </div>
-            </div>
+            </div>}
           </PortalCard>
 
           {damageAlerts.length > 0 && (
@@ -1837,17 +1892,35 @@ function KitchenDashboardInner() {
               Now they see a clear "no live pickups" reassurance. */}
           {!loading && !loadError && !nextPickup && orders.length === 0 && needsClosureOrders.length === 0 && (
             <PortalCard padded={false} className="mb-4 sm:mb-6 border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
-              <div className="p-4 sm:p-5 flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Next pickup</p>
+              <div className="p-4 sm:p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-200/80 text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                    <CheckCircle className="h-5 w-5" />
+                  </span>
+                  <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Kitchen workspace</p>
                   <p className="text-xl sm:text-2xl font-semibold text-slate-700 dark:text-slate-200 leading-tight mt-1">
                     All quiet
                   </p>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                     No live orders right now. Use the breather to prep ahead, deep-clean, or restock.
                   </p>
+                  </div>
                 </div>
-                <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 text-slate-400 dark:text-slate-500" />
+                <div className="flex flex-wrap gap-2 sm:shrink-0">
+                  <Link
+                    href={withSlug("/team-portal/kitchen/prep-list")}
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg bg-brand-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    Start prep
+                  </Link>
+                  <Link
+                    href={withSlug("/team-portal/kitchen/stock")}
+                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    Check stock
+                  </Link>
+                </div>
               </div>
             </PortalCard>
           )}
@@ -2035,17 +2108,29 @@ function KitchenDashboardInner() {
             </PortalCard>
           )}
 
-          {/* Active orders, kanban (Confirmed / In prep / Ready) */}
+          {/* Today's orders only; future work lives on the Kitchen calendar. */}
           <PortalCard id="handover" className="scroll-mt-24">
             <PortalCardHeader
               title={
                 <span className="text-base sm:text-lg md:text-xl flex items-center gap-2">
-                  Active orders
+                  Today&apos;s orders
+                  <Badge variant="outline" className="tabular-nums">{todayOrders.length}</Badge>
                   <InfoTooltip content="Three columns: Confirmed (waiting to start) → In prep (cooking now) → Ready (waiting for driver). Move cards by completing tasks. Tap Mark ready to notify the driver." />
                 </span>
               }
+              action={
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Link href={withSlug("/team-portal/kitchen/calendar?view=month")} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                    See all kitchen plans <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                  <Button variant={isTodayOrdersOpen ? "outline" : "default"} size="sm" onClick={() => setIsTodayOrdersOpen((open) => !open)} className="h-9 gap-1.5" aria-expanded={isTodayOrdersOpen}>
+                    {isTodayOrdersOpen ? "Close" : "Open today"}
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isTodayOrdersOpen ? "rotate-180" : ""}`} />
+                  </Button>
+                </div>
+              }
             />
-            <div>
+            {isTodayOrdersOpen && <div>
               {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3" aria-busy="true" aria-label="Loading active orders">
                   {[0, 1, 2].map((i) => (
@@ -2058,7 +2143,7 @@ function KitchenDashboardInner() {
                     </div>
                   ))}
                 </div>
-              ) : orders.length === 0 ? (
+              ) : todayOrders.length === 0 ? (
                 loadError ? (
                   // Don't claim "All caught up" when the load actually
                   // failed; the Retry card at the top owns recovery.
@@ -2078,9 +2163,9 @@ function KitchenDashboardInner() {
                 )
               ) : (() => {
                 const byStatus: Record<string, Order[]> = {
-                  confirmed: orders.filter(o => o.status === "confirmed"),
-                  preparing: orders.filter(o => o.status === "preparing"),
-                  ready:     orders.filter(o => o.status === "ready"),
+                  confirmed: todayOrders.filter(o => o.status === "confirmed"),
+                  preparing: todayOrders.filter(o => o.status === "preparing"),
+                  ready:     todayOrders.filter(o => o.status === "ready"),
                 };
                 const COLUMNS: Array<{
                   key: keyof typeof byStatus;
@@ -2372,7 +2457,7 @@ function KitchenDashboardInner() {
                   </div>
                 );
               })()}
-            </div>
+            </div>}
           </PortalCard>
       </KitchenPageShell>
 

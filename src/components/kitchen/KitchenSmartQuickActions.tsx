@@ -6,8 +6,8 @@
  * the most likely "what I need right now" actions:
  *
  *   off     - Today, Recipes, Stock     (informational browse)
- *   prep    - Prep List, Production, Stock  (gear up)
- *   service - Production, Today, Mark ready  (act fast)
+ *   prep    - Prep List, Calendar, Stock     (gear up)
+ *   service - Today, Calendar, Prep List     (act fast)
  *   close   - Team, Hand-off note, Stock used  (wrap up)
  *
  * Wraps the existing MobileQuickActions presenter so the visual
@@ -36,12 +36,12 @@ export function KitchenSmartQuickActions({ onNavigate }: KitchenSmartQuickAction
     ],
     prep: [
       { href: "/team-portal/kitchen/prep-list",  label: "Prep list",  sub: "Today's tasks",      icon: ClipboardList, accent },
-      { href: "/team-portal/kitchen/production", label: "Production", sub: "Day grid",           icon: ChefHat,       accent },
+      { href: "/team-portal/kitchen/calendar?view=month", label: "Calendar", sub: "Plan the month",    icon: ChefHat,       accent },
       { href: "/team-portal/kitchen/stock",      label: "Stock",      sub: "Quick deduct",       icon: Package,       accent },
     ],
     service: [
-      { href: "/team-portal/kitchen/production", label: "Production", sub: "Mark items ready",   icon: Flame,         accent },
       { href: "/team-portal/kitchen/today",      label: "Service",    sub: "Service desk view",  icon: LayoutDashboard, accent },
+      { href: "/team-portal/kitchen/calendar?view=month", label: "Calendar", sub: "Plan upcoming work", icon: Flame,         accent },
       { href: "/team-portal/kitchen/prep-list",  label: "Prep list",  sub: "Last-minute prep",   icon: ClipboardList, accent },
     ],
     close: [

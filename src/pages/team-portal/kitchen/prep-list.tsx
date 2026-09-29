@@ -75,6 +75,7 @@ const dayBucket = (d: string, today: Date) => {
 };
 
 type ViewMode = "by_order" | "by_ingredient";
+type HorizonDays = 0 | 7 | 14 | 30;
 
 function KitchenPrepListPageInner() {
   const { profile } = useAuth();
@@ -115,10 +116,9 @@ function KitchenPrepListPageInner() {
   // previously hid the real cause.
   const [confirmedOrdersInWindow, setConfirmedOrdersInWindow] = useState(0);
 
-  // KIT3-E: horizon selector. Chef gets to pick how far out the pull
-  // list looks. 7d (default) keeps the 6am view on the imminent prep
-  // load; 14d / 30d widen it for tenants that plan ahead.
-  const [horizonDays, setHorizonDays] = useState<7 | 14 | 30>(7);
+  // KIT3-E: horizon selector. Today is the default operating view; the
+  // wider windows remain available when the kitchen wants to plan ahead.
+  const [horizonDays, setHorizonDays] = useState<HorizonDays>(0);
   // "As of" timestamp - last successful load. Surfaces in the
   // header so the chef knows whether the screen is fresh.
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
@@ -574,6 +574,7 @@ function KitchenPrepListPageInner() {
   // `aggregated`), never from separate count queries that could drift.
   const ordersToday = orders.filter((o) => o.bucket === "Today").length;
   const aggregatedReady = !aggregatedLoading && !aggregatedError;
+  const horizonLabel = horizonDays === 0 ? "Today" : `next ${horizonDays} days`;
 
   return (
     <KitchenPageShell
@@ -584,7 +585,7 @@ function KitchenPrepListPageInner() {
           ? "Everything to pull from stores for upcoming bookings."
           : loading
             ? "Loading what to pull from stores..."
-            : `What to pull from stores across ${orders.length} order${orders.length === 1 ? "" : "s"} in the next ${horizonDays} days.`
+            : `What to pull from stores across ${orders.length} order${orders.length === 1 ? "" : "s"} for ${horizonLabel.toLowerCase()}.`
       }
       icon={ClipboardList}
       headerAction={
@@ -605,7 +606,7 @@ function KitchenPrepListPageInner() {
           {!loading && !loadError && (
             <span className={KITCHEN_HERO_CHIP}>
               <Layers className="h-3 w-3" />
-              {orders.length} order{orders.length === 1 ? "" : "s"} in {horizonDays}d
+              {orders.length} order{orders.length === 1 ? "" : "s"} in {horizonDays === 0 ? "today" : `${horizonDays}d`}
             </span>
           )}
           {!loading && !loadError && (
@@ -645,23 +646,24 @@ function KitchenPrepListPageInner() {
                 : aggregatedReady && shortfallCount > 0
                   ? "Buy the short items before you start pulling"
                   : orders.length > 0
-                    ? `Pull stock for the next ${horizonDays} days`
+                    ? `Pull stock for ${horizonLabel.toLowerCase()}`
                     : "Nothing to pull in this window"
             }
             description="One card per booking with scaled ingredients, equipment to pack and allergen notes. The by-ingredient view totals demand across every order and flags what stores can't cover."
             items={[
-              { label: "Orders", value: loading ? "-" : orders.length, helper: `Next ${horizonDays} days`, icon: Layers, tone: !loading && orders.length > 0 ? "brand" : "neutral" },
+              { label: "Orders", value: loading ? "-" : orders.length, helper: horizonDays === 0 ? "Events today" : `Next ${horizonDays} days`, icon: Layers, tone: !loading && orders.length > 0 ? "brand" : "neutral" },
               { label: "Today", value: loading ? "-" : ordersToday, helper: "Events on today", icon: Calendar, tone: !loading && ordersToday > 0 ? "warning" : "neutral" },
               { label: "Ingredients", value: aggregatedReady ? aggregated.length : "-", helper: "Distinct lines to pull", icon: Package, tone: "neutral" },
               { label: "Short", value: aggregatedReady ? shortfallCount : "-", helper: aggregatedReady && shortfallCount > 0 ? "Needs buying" : "Stores cover it", icon: ShoppingCart, tone: aggregatedReady && shortfallCount > 0 ? "danger" : "success" },
             ]}
+            splitCards
             actions={
               <>
-                <Button asChild size="sm" variant="outline">
+                <Button asChild size="sm" variant="default" className="bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90">
                   <Link href={withSlug("/team-portal/kitchen/stock")}>Stock room</Link>
                 </Button>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={withSlug("/team-portal/kitchen/production")}>Production board</Link>
+                <Button asChild size="sm" variant="default" className="bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90">
+                  <Link href={withSlug("/team-portal/kitchen/today")}>Today&apos;s kitchen work</Link>
                 </Button>
               </>
             }
@@ -723,7 +725,7 @@ function KitchenPrepListPageInner() {
                     {shortfallCount} ingredient{shortfallCount === 1 ? "" : "s"} short for upcoming orders
                   </p>
                   <p className="text-xs text-rose-700 dark:text-rose-300 mt-0.5">
-                    Aggregated across every confirmed booking in the next {horizonDays} days.
+                    Aggregated across every confirmed booking for {horizonLabel.toLowerCase()}.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -790,7 +792,7 @@ function KitchenPrepListPageInner() {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">Look ahead</span>
                 <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                  {([7, 14, 30] as const).map((d) => (
+                  {([0, 7, 14, 30] as const).map((d) => (
                     <button
                       key={d}
                       type="button"
@@ -801,7 +803,7 @@ function KitchenPrepListPageInner() {
                           : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                       }`}
                     >
-                      {d}d
+                      {d === 0 ? "Today" : `${d}d`}
                     </button>
                   ))}
                 </div>
@@ -886,7 +888,7 @@ function KitchenPrepListPageInner() {
               )
             ) : (
               <PortalCard id="prep-demand" data-chat-section="kitchen.prep.demand" data-chat-section-label="Prep demand">
-                <PortalCardHeader title={`Total demand - next ${horizonDays} days`} />
+                <PortalCardHeader title={`Total demand - ${horizonLabel.toLowerCase()}`} />
                 <p className="text-xs text-slate-600 dark:text-slate-400 -mt-2 mb-3">
                   Sums every confirmed order's ingredient need against your current stock.
                   Shortfalls float to the top.
@@ -971,11 +973,11 @@ function KitchenPrepListPageInner() {
                     {confirmedOrdersInWindow} order{confirmedOrdersInWindow === 1 ? "" : "s"} booked, but nothing to prep
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
-                    The menu items on these orders don&apos;t have recipes attached, so the prep list can&apos;t show ingredients. Open the Production grid to see prep tasks (which use simpler timing fields), or ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe</span>.
+                    The menu items on these orders don&apos;t have recipes attached, so the prep list can&apos;t show ingredients. Open Today&apos;s kitchen work to review the live order handoff, or ask admin to add recipes in <span className="font-mono text-xs">Menu &rarr; edit item &rarr; Recipe</span>.
                   </p>
                   <div className="inline-flex items-center gap-3 mt-3">
-                    <Link href={withSlug("/team-portal/kitchen/production")} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 hover:underline font-semibold">
-                      Open production <ExternalLink className="w-3 h-3" />
+                    <Link href={withSlug("/team-portal/kitchen/today")} className="inline-flex items-center gap-1 text-xs text-brand-primary hover:opacity-80 hover:underline font-semibold">
+                      Open today&apos;s work <ExternalLink className="w-3 h-3" />
                     </Link>
                     {/* Wave 70.44b - role-gated; see comment above. */}
                     {canEditMenu && (

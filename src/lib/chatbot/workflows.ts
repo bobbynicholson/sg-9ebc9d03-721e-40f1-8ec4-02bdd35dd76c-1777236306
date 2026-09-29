@@ -65,7 +65,7 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
       { id: "check-order", title: "Check the confirmed order", description: "Verify the event date, guest count, venue, and current order status.", ref: "admin.orders.list" },
       { id: "check-stock", title: "Check stock and shortages", description: "Review inventory and identify anything that must be purchased before production.", ref: "admin.inventory.catalogue" },
       { id: "plan-buying", title: "Plan urgent purchases", description: "Open the buy-now list to assign shortages and procurement priorities.", ref: "admin.shopping.buy-now" },
-      { id: "plan-production", title: "Coordinate kitchen production", description: "Review the production board and prep demand for the event handoff.", ref: "kitchen.production.board" },
+      { id: "plan-production", title: "Coordinate kitchen production", description: "Review today's kitchen workload and prep demand for the event handoff.", ref: "kitchen.today" },
       { id: "plan-delivery", title: "Plan delivery and dispatch", description: "Assign routes and confirm the delivery plan for the event.", ref: "admin.route-planning" },
       { id: "monitor-live", title: "Monitor live operations", description: "Track active deliveries and resolve exceptions from the live operations view.", ref: "admin.tracking.map" },
     ],
@@ -78,7 +78,7 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
     roles: KITCHEN,
     steps: [
       { id: "kitchen-today", title: "Open today's kitchen workload", description: "Start with the day's orders, timing, and assigned responsibilities.", ref: "kitchen.today" },
-      { id: "production-board", title: "Review the production board", description: "Check production readiness, order sequence, and handoffs.", ref: "kitchen.production.board" },
+      { id: "calendar", title: "Plan the kitchen calendar", description: "Review the month calendar for event timing, readiness, and handoffs.", ref: "kitchen.today" },
       { id: "prep-list", title: "Complete the prep list", description: "Work through assigned prep tasks and record completion status.", ref: "kitchen.prep" },
       { id: "check-stock", title: "Confirm ingredient stock", description: "Check ingredient stock and identify shortages before service.", ref: "kitchen.stock" },
     ],

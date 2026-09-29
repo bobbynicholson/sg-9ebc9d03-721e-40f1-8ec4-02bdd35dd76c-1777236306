@@ -58,7 +58,6 @@ export const CORE_NAVIGATION_REFS: ChatNavigationRef[] = [
   { ref: "admin.ai-brain", label: "AI brain", href: "/admin/ai-brain", description: "Approved assistant knowledge and sync controls", keywords: ["ai brain", "knowledge", "rag", "assistant knowledge", "resync", "re-sync", "source"], roles: ["super_admin", "owner", "company_admin"] },
 
   { ref: "kitchen.today", label: "Kitchen today", href: "/team-portal/kitchen/today", description: "Today's kitchen work", keywords: ["kitchen today", "today kitchen", "today's prep", "today prep"], roles: ["kitchen_manager", "kitchen_staff"] },
-  { ref: "kitchen.production", label: "Kitchen production", href: "/team-portal/kitchen/production", description: "Production plan and handoffs", keywords: ["production", "prep", "preparation", "production plan", "handoff"], roles: ["kitchen_manager", "kitchen_staff"] },
   { ref: "kitchen.prep", label: "Kitchen prep list", href: "/team-portal/kitchen/prep-list", description: "Prep tasks and assignments", keywords: ["prep list", "prep task", "prep tasks", "assigned prep"], roles: ["kitchen_manager", "kitchen_staff"] },
   { ref: "kitchen.stock", label: "Kitchen stock", href: "/team-portal/kitchen/stock", description: "Ingredient stock for production", keywords: ["kitchen stock", "ingredients", "ingredient stock"], roles: ["kitchen_manager", "kitchen_staff"] },
   { ref: "kitchen.management", label: "Kitchen team management", href: "/team-portal/kitchen/management", description: "Manage the kitchen roster, clock-ins, and daily work notes", keywords: ["kitchen team management", "manage kitchen team", "kitchen manager", "kitchen diary"], roles: ["kitchen_manager"] },
@@ -117,8 +116,8 @@ const OVERVIEW_REFS_BY_ROLE: Record<string, string[]> = {
   region_admin: ["admin.dashboard", "admin.offering", "admin.orders"],
   sales_admin: ["admin.dashboard", "admin.offering", "admin.orders"],
   admin: ["admin.dashboard", "admin.offering", "admin.orders"],
-  kitchen_manager: ["kitchen.today", "kitchen.production", "kitchen.stock"],
-  kitchen_staff: ["kitchen.today", "kitchen.production", "kitchen.stock"],
+  kitchen_manager: ["kitchen.today", "kitchen.stock"],
+  kitchen_staff: ["kitchen.today", "kitchen.stock"],
   shopping_staff: ["shopping.dashboard", "shopping.buy-list", "shopping.inventory"],
   shopping: ["shopping.dashboard", "shopping.buy-list", "shopping.inventory"],
   driver: ["driver.dashboard", "driver.routes", "driver.deliveries"],
@@ -642,7 +641,7 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   // generic words such as "active" or "current" attach nearby sales links.
   if (isCurrentSubscriptionQuestion(query)) return getSubscriptionNavigation(role, limit);
   if (["kitchen_manager", "kitchen_staff"].includes(role) && isKitchenInventoryQuestion(query)) {
-    return ["kitchen.stock", "kitchen.today", "kitchen.production"]
+    return ["kitchen.stock", "kitchen.today"]
       .map((ref) => NAVIGATION_REFS.find((item) => item.ref === ref))
       .filter((item): item is ChatNavigationRef => Boolean(item))
       .slice(0, limit);

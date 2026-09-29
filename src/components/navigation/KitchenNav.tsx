@@ -8,13 +8,12 @@
  * during a service and needs a tighter, more intelligent surface.
  *
  * Restructured into:
- *   LIVE NOW    - Today, Production, Prep List   (3 items, always open)
- *   KITCHEN OPS - Team, Stock, Recipes           (3 items, closed by default)
+ *   LIVE NOW    - Today, Clock, Prep List        (3 items, always open)
+ *   KITCHEN OPS - Calendar, Team, Stock, Recipes (closed by default)
  *   FOOTER      - Notifications, Settings        (footer treatment)
  *
  * Renames done in this wave:
  *   "Overview"            -> "Today"
- *   "Production Schedule" -> "Production"
  *   "Duty Roster"         -> "Team"
  *   "Menu Items"          -> "Recipes"
  *   "Kitchen Stock"       -> "Stock"
@@ -33,9 +32,9 @@ import {
   Users,
   Bell,
   BookOpen,
-  Flame,
   Clock,
   CalendarClock,
+  CalendarDays,
   Settings,
 } from "lucide-react";
 import { PortalSidebar, type PortalSidebarConfig } from "./PortalSidebar";
@@ -65,7 +64,6 @@ export function KitchenNav(_: KitchenNavProps = {}) {
   // it runs on every kitchen portal page.
   useServiceModeToast();
 
-  const isService = serviceMode.mode === "service";
   const activeRole = String(profile?.active_role || profile?.role || user?.active_role || user?.role || "").toLowerCase();
   const canSeeManagerLinks = [
     "kitchen_manager",
@@ -89,12 +87,12 @@ export function KitchenNav(_: KitchenNavProps = {}) {
     searchHint: "Search recipes, prep...",
     dashboardHref: "/team-portal/kitchen/today",
     mobileQuickActions: [
+      { href: "/team-portal/kitchen/today",       label: "Today",            sub: "Your service desk",    icon: LayoutDashboard, accent: BRAND_ACCENT },
       { href: "/team-portal/kitchen/prep-list",  label: "Today's prep",  sub: "Per-order ingredients", icon: ClipboardList, accent: BRAND_ACCENT },
-      { href: "/team-portal/kitchen/production", label: "Production",    sub: "Mark items ready",      icon: ChefHat,       accent: BRAND_ACCENT },
       { href: "/team-portal/kitchen/stock",      label: "Stock check",   sub: "Pull from inventory",   icon: Package,       accent: BRAND_ACCENT },
     ],
     // Keep just the compact service-mode badge in the sidebar; the live
-    // prep/production pill strip was dropped from the rail (it lives on
+    // prep pill strip was dropped from the rail (it lives on
     // the kitchen dashboard) to match the slimmer admin + platform nav.
     renderTopSlot: () => <KitchenServiceModeBadge />,
     renderMobileQuickActions: ({ onNavigate }) => (
@@ -127,25 +125,6 @@ export function KitchenNav(_: KitchenNavProps = {}) {
             description: "Clock in / out",
           },
           {
-            title: "Production",
-            href: "/team-portal/kitchen/production",
-            icon: ChefHat,
-            description: "Mark items ready",
-            badge: () => {
-              if (counts.overdue > 0) return { text: `${counts.overdue} overdue`, tone: "critical", pulse: true };
-              if (counts.onPass > 0)  return { text: `${counts.onPass} on pass`, tone: "warning" };
-              if (counts.inPrep > 0)  return { text: `${counts.inPrep} in prep`, tone: "default" };
-              return null;
-            },
-            // Wave 70.7 - icon overlay swap during service.
-            // The base ChefHat icon stays so the chef's muscle-memory
-            // shape isn't disrupted; a small flame badge sits in the
-            // top-right corner only during service hours.
-            iconOverlay: () => isService ? (
-              <Flame className="h-2.5 w-2.5 text-brand-primary drop-shadow-sm" />
-            ) : null,
-          },
-          {
             title: "Prep List",
             href: "/team-portal/kitchen/prep-list",
             icon: ClipboardList,
@@ -158,6 +137,7 @@ export function KitchenNav(_: KitchenNavProps = {}) {
         title: "Kitchen ops",
         defaultOpen: false,
         items: [
+          { title: "Kitchen calendar", href: "/team-portal/kitchen/calendar", icon: CalendarDays, description: "Month planning" },
           { title: "Team",    href: "/team-portal/kitchen/duty#team",  icon: Users,    description: "Staff on duty" },
           { title: "Stock",   href: "/team-portal/kitchen/stock", icon: Package,  description: "Inventory levels" },
           { title: "Recipes", href: "/team-portal/kitchen/menu",  icon: BookOpen, description: "Recipe library" },

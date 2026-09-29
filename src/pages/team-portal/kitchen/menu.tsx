@@ -9,7 +9,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
-import { BookOpen, Loader2, Clock, Users as UsersIcon, ImageOff, RefreshCw, AlertTriangle, LayoutGrid } from "lucide-react";
+import { BookOpen, Loader2, Clock, Users as UsersIcon, ImageOff, RefreshCw, AlertTriangle, LayoutGrid, ChevronDown, ChevronRight } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { KitchenPageShell, KITCHEN_HERO_CHIP } from "@/components/kitchen/KitchenPageShell";
 import { AdminSearchField } from "@/components/admin/AdminControlSurface";
@@ -81,6 +81,7 @@ function KitchenMenuItemsPageInner() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const [selected, setSelected] = useState<MenuItem | null>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -223,6 +224,7 @@ function KitchenMenuItemsPageInner() {
     const offMenu = items.filter(isOffMenu).length;
     return { total, cats, allergenFlagged, offMenu };
   }, [items, categories]);
+  const activeFilterCount = Number(Boolean(search)) + Number(category !== "all");
 
   // Chips/subheading only speak once the library has loaded without
   // error. Not gated on `loading`: the realtime sub re-runs load() on
@@ -299,13 +301,13 @@ function KitchenMenuItemsPageInner() {
             {/* First-screen stat band. Skeletons while the first load is
                 in flight so the tiles never flash misleading zeros. */}
             {firstLoad ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6" aria-hidden="true">
+              <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4" aria-hidden="true">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="h-24 rounded-xl border border-slate-200 bg-white animate-pulse motion-reduce:animate-none dark:border-slate-800 dark:bg-slate-900" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+              <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
                 <StatTile
                   icon={BookOpen}
                   label="Dishes"
@@ -333,18 +335,28 @@ function KitchenMenuItemsPageInner() {
               </div>
             )}
 
-            {/* Toolbar: search + category in one card. */}
-            <PortalCard className="mb-6 flex flex-col gap-3 sm:flex-row" padded>
-              <AdminSearchField
-                value={search}
-                onChange={setSearch}
-                placeholder="Search by name, category, dietary tag..."
-                className="flex-1"
-              />
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="h-10 w-full sm:w-[200px]"><SelectValue placeholder="Category" /></SelectTrigger>
-                <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
-              </Select>
+            {/* Search is available on demand so the recipe cards remain the
+                visual focus when the kitchen is simply browsing. */}
+            <PortalCard className="mb-6 border-brand-primary/15" padded={false}>
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Recipe filters</p>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    {activeFilterCount > 0 ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} active · ${filtered.length} dishes shown` : "Search or browse by category when you need to."}
+                  </p>
+                </div>
+                <Button type="button" size="sm" variant={isFiltersOpen ? "outline" : "default"} onClick={() => setIsFiltersOpen((open) => !open)} aria-expanded={isFiltersOpen} className="h-9 shrink-0 gap-1.5">
+                  {isFiltersOpen ? "Hide filters" : "Open filters"}
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isFiltersOpen ? "rotate-180" : ""}`} />
+                </Button>
+              </div>
+              {isFiltersOpen && <div className="flex flex-col gap-3 border-t border-slate-200 p-4 dark:border-slate-800 sm:flex-row sm:p-5">
+                <AdminSearchField value={search} onChange={setSearch} placeholder="Search by name, category, dietary tag..." className="flex-1" />
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="h-10 w-full sm:w-[200px]"><SelectValue placeholder="Category" /></SelectTrigger>
+                  <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c === "all" ? "All categories" : c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>}
             </PortalCard>
 
             {firstLoad ? (
@@ -393,36 +405,32 @@ function KitchenMenuItemsPageInner() {
               <div className="space-y-6">
                 {Object.entries(grouped).map(([cat, list]) => (
                   <div key={cat}>
-                    <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-1">{cat} ({list.length})</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                      <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{cat}</h2>
+                      <span className="text-[11px] font-medium tabular-nums text-slate-400 dark:text-slate-500">{list.length} dish{list.length === 1 ? "" : "es"}</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                       {list.map((i) => (
-                        <button key={i.id} onClick={() => loadIngredients(i)} className="text-left bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)] hover:border-brand-primary/40 dark:hover:border-brand-primary/40 hover:-translate-y-0.5 transition-[box-shadow,border-color,transform] duration-200 ease-standard motion-reduce:transform-none motion-reduce:transition-none overflow-hidden">
-                          <div className="aspect-[16/9] bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                        <button key={i.id} onClick={() => loadIngredients(i)} className="group flex min-h-[112px] w-full items-stretch gap-3 overflow-hidden rounded-xl border border-slate-200/80 bg-white text-left shadow-sm transition-[box-shadow,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-brand-primary/40 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-primary/40 motion-reduce:transform-none motion-reduce:transition-none">
+                          <div className="flex h-auto w-24 shrink-0 items-center justify-center overflow-hidden bg-slate-100 dark:bg-slate-800 sm:w-28">
                             {i.image_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={i.image_url} alt={i.item_name ?? ""} loading="lazy" className="w-full h-full object-cover" />
+                              <img src={i.image_url} alt={i.item_name ?? ""} loading="lazy" className="h-full w-full object-cover" />
                             ) : (
-                              <ImageOff className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                              <BookOpen className="h-7 w-7 text-slate-300 dark:text-slate-600" />
                             )}
                           </div>
-                          <div className="p-3">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <div className="font-medium text-slate-900 dark:text-white truncate flex-1">{i.item_name}</div>
-                              {/* Price chip removed for kitchen staff.
-                                  Audit (May 2026) classified per-dish
-                                  client price + margin chip as finance
-                                  info - belongs to directors/admin only,
-                                  not the cook reading the prep list. The
-                                  full margin breakdown still lives on
-                                  /admin/menu for owners. */}
+                          <div className="min-w-0 flex-1 py-3 pr-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 truncate font-semibold text-slate-900 dark:text-white">{i.item_name}</div>
                               {isOffMenu(i) && (
-                                <Badge variant="outline" className="text-[10px] shrink-0 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900">
+                                <Badge variant="outline" className="shrink-0 bg-amber-50 text-[10px] text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-900">
                                   Off menu
                                 </Badge>
                               )}
                             </div>
-                            {i.description && <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mb-2">{i.description}</p>}
-                            <div className="flex flex-wrap items-center gap-1.5">
+                            {i.description && <p className="mt-1 line-clamp-1 text-xs text-slate-600 dark:text-slate-400 sm:line-clamp-2">{i.description}</p>}
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
                               {(i.dietary_tags || []).slice(0, 3).map((t) => (
                                 <Badge key={t} variant="outline" className={`text-[10px] ${dietaryTone[t] ?? NEUTRAL_TAG}`}>{t}</Badge>
                               ))}
@@ -435,6 +443,9 @@ function KitchenMenuItemsPageInner() {
                                 </span>
                               )}
                             </div>
+                          </div>
+                          <div className="flex shrink-0 items-center pr-3 text-slate-300 transition-colors group-hover:text-brand-primary dark:text-slate-600 dark:group-hover:text-brand-primary">
+                            <ChevronRight className="h-4 w-4" />
                           </div>
                         </button>
                       ))}

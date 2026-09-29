@@ -154,6 +154,8 @@ function KitchenTeamPage() {
   const [prepRows, setPrepRows] = useState<PrepRow[]>([]);
   // KIT-B: send-prep-list WhatsApp dialog state.
   const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [isIntelOpen, setIsIntelOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   // KIT-B: tick bumped by the realtime channel below; gates the
   // existing load() useEffect so realtime fan-out re-runs the
   // payload without re-mounting.
@@ -608,7 +610,34 @@ function KitchenTeamPage() {
           />
           <PageWorkbench className="no-print" />
 
-          <TeamManagerWorkspace department="kitchen" />
+          {loading && (
+            <div aria-hidden="true" className="no-print">
+              <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!loading && !error && (
+            <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 lg:grid-cols-4 no-print">
+              <Link href={withSlug("/admin/kitchen-staff")} className="block">
+                <StatTile label="Active team" value={stats.active} icon={Users} hint="Roster, rates, departments." />
+              </Link>
+              <Link href={withSlug("/admin/staff-hours")} className="block">
+                <StatTile label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="Kitchen shifts, Monday to now." />
+              </Link>
+              <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)} className="block">
+                <StatTile label="Jobs today" value={stats.jobsToday} icon={ClipboardList} hint="Events on today's calendar." />
+              </Link>
+              <Link href={withSlug("/admin/kitchen-schedule")} className="block">
+                <StatTile label="Prep tasks done" value={`${stats.prepDone}/${totalPrep}`} icon={Flame} hint={stats.prepOverdue > 0 ? `${stats.prepOverdue} overdue right now.` : "Today's prep pipeline."} />
+              </Link>
+            </div>
+          )}
+
+          <TeamManagerWorkspace department="kitchen" defaultRosterOpen={false} showSummaryStats={false} defaultWorkspaceOpen={false} />
 
           {/* Command-centre audit (2026-07-02): visible load-failure
               state with Retry. captureException alone left the cards
@@ -630,51 +659,6 @@ function KitchenTeamPage() {
                 </Button>
               </CardContent>
             </Card>
-          )}
-
-          {/* Command-centre restructure (2026-07-02): loading skeleton
-              INSIDE the shell. Pre-fix the intel cards rendered their
-              zero-state copy ("No prep tasks today") while the first
-              load was still running, which reads as real data. */}
-          {loading && (
-            <div aria-hidden="true" className="no-print">
-              <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900/95" />
-                ))}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="h-24 animate-pulse rounded-lg border border-slate-200 bg-white shadow-sm" />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Command-centre restructure (2026-07-02): the three roster
-              quick-stat badges became the standard StatTile row (real
-              aggregates, same drilldown links). Semantic chips (clocked,
-              burn, handovers) stay as the strip below. */}
-          {!loading && !error && (
-            <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4 no-print">
-              <Link href={withSlug("/admin/kitchen-staff")} className="block">
-                <StatTile label="Active team" value={stats.active} icon={Users} hint="Roster, rates, departments." />
-              </Link>
-              <Link href={withSlug("/admin/staff-hours")} className="block">
-                <StatTile label="Hours this week" value={`${stats.hoursWeek}h`} icon={Clock} hint="Kitchen shifts, Monday to now." />
-              </Link>
-              <Link href={withSlug(`/admin/calendar?date=${toLocalISO(new Date())}`)} className="block">
-                <StatTile label="Jobs today" value={stats.jobsToday} icon={ClipboardList} hint="Events on today's calendar." />
-              </Link>
-              <Link href={withSlug("/admin/kitchen-schedule")} className="block">
-                <StatTile
-                  label="Prep tasks done"
-                  value={`${stats.prepDone}/${totalPrep}`}
-                  icon={Flame}
-                  hint={stats.prepOverdue > 0 ? `${stats.prepOverdue} overdue right now.` : "Today's prep pipeline."}
-                />
-              </Link>
-            </div>
           )}
 
           {/* KIT-A: semantic quick chips. */}
@@ -760,7 +744,18 @@ function KitchenTeamPage() {
               Mirrors the cleaning landing's pattern (damages + supplies)
               but kitchen-shaped. Hidden while loading (the skeleton
               above stands in). */}
-          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 no-print ${loading ? "hidden" : ""}`}>
+          <div className={`mb-4 no-print ${loading ? "hidden" : ""}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">Kitchen intelligence</p>
+                <p className="mt-0.5 text-xs text-slate-500">Prep readiness, tomorrow&apos;s load, equipment, and stock risk.</p>
+              </div>
+              <button type="button" onClick={() => setIsIntelOpen((open) => !open)} aria-expanded={isIntelOpen} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary">
+                {isIntelOpen ? "Hide" : "Open"} insights
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isIntelOpen ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+            {isIntelOpen && <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             {/* Today's prep pipeline. Bar + status counts + overdue
                 chip. Done-percent caption frames where the kitchen
                 actually is right now. */}
@@ -891,10 +886,22 @@ function KitchenTeamPage() {
                 </CardContent>
               </Card>
             </Link>
+            </div>}
           </div>
 
           {/* Tile shortcuts - unchanged routing, slug-wrapped now. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 no-print">
+          <div className="no-print">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Kitchen tools</p>
+                <p className="mt-0.5 text-xs text-slate-500">Open the deeper admin workspaces when you need them.</p>
+              </div>
+              <button type="button" onClick={() => setIsShortcutsOpen((open) => !open)} aria-expanded={isShortcutsOpen} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 transition-colors hover:border-brand-primary/40 hover:text-brand-primary">
+                {isShortcutsOpen ? "Hide" : "Open"} tools
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isShortcutsOpen ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+          {isShortcutsOpen && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {tiles.map((t) => (
               <Link key={t.label} href={withSlug(t.href)}>
                 <Card className="border border-slate-200 bg-white shadow-sm transition-colors hover:border-slate-300">
@@ -911,16 +918,19 @@ function KitchenTeamPage() {
                 </Card>
               </Link>
             ))}
+          </div>}
           </div>
 
           {/* KIT-A: an at-a-glance "what's surfaced where" hint at
               the bottom so a new operator knows the deeper drilldowns
               exist (handovers / wages / live ops). */}
-          <p className="text-xs text-slate-500 text-center mt-6 no-print">
-            Detailed live ops live at <Link href={withSlug("/admin/tracking")} className="text-brand-primary hover:underline">/admin/tracking</Link> /
-            wage reports at <Link href={withSlug("/admin/wages")} className="text-brand-primary hover:underline">/admin/wages</Link> /
-            equipment handovers live in the cleaning portal.
-          </p>
+          <div className="no-print mt-6 flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs dark:border-slate-800 dark:bg-slate-900/60">
+            <span className="font-semibold text-slate-600 dark:text-slate-300">More admin workspaces</span>
+            <span className="hidden text-slate-300 sm:inline">·</span>
+            <Link href={withSlug("/admin/tracking")} className="rounded-md px-2 py-1 font-medium text-brand-primary transition-colors hover:bg-brand-primary/10 hover:underline">Live operations</Link>
+            <Link href={withSlug("/admin/wages")} className="rounded-md px-2 py-1 font-medium text-brand-primary transition-colors hover:bg-brand-primary/10 hover:underline">Wage reports</Link>
+            <Link href={withSlug("/admin/equipment?tab=handovers")} className="rounded-md px-2 py-1 font-medium text-brand-primary transition-colors hover:bg-brand-primary/10 hover:underline">Equipment handovers</Link>
+          </div>
           {/* TIGHTEN I.30 (admin.md section 7 follow-up #5):
               Kitchen rules co-located with the kitchen team.
               Kitchen rules are operational policy (prep timing,

@@ -148,6 +148,8 @@ function KitchenScheduleGrid() {
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(companyId);
   const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date()));
+  const [selectedDayIso, setSelectedDayIso] = useState(() => toLocalISO(new Date()));
+  const [isFullScheduleOpen, setIsFullScheduleOpen] = useState(false);
 
   // Wave 66.6 - honour ?date=YYYY-MM-DD URL param. The Wave 66.4
   // timeline rewrite repointed the kitchen_prep_in_progress dot to
@@ -161,6 +163,7 @@ function KitchenScheduleGrid() {
     const parsed = new Date(raw);
     if (Number.isNaN(parsed.getTime())) return;
     setWeekStart(startOfWeek(parsed));
+    setSelectedDayIso(raw);
   }, [router.isReady, router.query.date]);
   // Wave 66.2 - view mode. Week = the original Mon-Sun grid.
   // Month = a 4-6 row calendar overview showing chef count + event
@@ -422,6 +425,11 @@ function KitchenScheduleGrid() {
 
   // "Today" follows the tenant's wall clock, not the browser's.
   const todayIso = toLocalISO(tenantToday(tenantTimezone || DEFAULT_TENANT_TIMEZONE));
+  const selectedDay = new Date(`${selectedDayIso}T12:00:00`);
+  const selectedDayShifts = shifts
+    .filter((shift) => shift.shift_date === selectedDayIso)
+    .sort((a, b) => (a.planned_start || "").localeCompare(b.planned_start || ""));
+  const selectedDayOrders = ordersByDate.get(selectedDayIso) || [];
 
   // Command-centre stat row: real aggregates over the fetched range
   // (week or month grid). Missed = flagged by the clock sweep OR a
@@ -587,8 +595,12 @@ function KitchenScheduleGrid() {
             />
             <PageWorkbench />
 
-            {/* Stat row: live aggregates for the range in view. */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Range summary stays permanently visible so the four operational totals are always available. */}
+            <Card className="mb-4 border-slate-200 shadow-sm dark:border-slate-800">
+              <CardHeader className="py-3">
+                <div><CardTitle className="text-sm">Range summary</CardTitle><CardDescription className="text-xs">Totals for the selected week or month.</CardDescription></div>
+              </CardHeader>
+              <CardContent className="border-t border-slate-200 pt-4 dark:border-slate-800"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile
                 label="Chefs on roster"
                 value={loading ? "…" : staff.length}
@@ -613,7 +625,31 @@ function KitchenScheduleGrid() {
                 icon={CalendarIcon}
                 hint={stats.missed > 0 ? `${stats.missed} missed shift${stats.missed === 1 ? "" : "s"} in range` : "Demand in this range"}
               />
-            </div>
+              </div></CardContent>
+            </Card>
+
+            <Card className="mb-4 border-brand-primary/20 shadow-sm">
+              <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-brand-primary/10 bg-brand-primary/5 pb-3 dark:bg-brand-primary/10">
+                <div className="min-w-0">
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                    {selectedDayIso === todayIso ? "Today" : selectedDay.toLocaleDateString("en-ZA", { weekday: "long" })}
+                    <Badge variant="outline" className="border-brand-primary/25 bg-white text-brand-primary dark:bg-slate-900">{selectedDay.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</Badge>
+                  </CardTitle>
+                  <CardDescription className="mt-1 text-xs">Day details open first. Use the full schedule only when you need wider planning.</CardDescription>
+                </div>
+                <Button type="button" size="sm" onClick={() => setIsFullScheduleOpen(true)} className="h-9 shrink-0 gap-1.5">Open full schedule <ChevronRight className="h-3.5 w-3.5" /></Button>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-5">
+                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Events</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : selectedDayOrders.length}</p></div>
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Shifts</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : selectedDayShifts.length}</p></div>
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Chefs</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : new Set(selectedDayShifts.map((shift) => shift.staff_id)).size}</p></div>
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Planned hours</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : `${selectedDayShifts.reduce((sum, shift) => sum + plannedHours(shift.planned_start, shift.planned_end), 0).toFixed(1)}h`}</p></div>
+                </div>
+                {selectedDayOrders.length > 0 && <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-900 dark:bg-blue-950/20"><p className="text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-200">Booked events</p><div className="mt-2 flex flex-wrap gap-2">{selectedDayOrders.map((order) => <Link key={order.id} href={withSlug(`/admin/orders/${order.id}`)} className="rounded-md bg-white px-2 py-1 text-xs font-medium text-blue-800 shadow-sm hover:underline dark:bg-slate-900 dark:text-blue-200">{order.order_number || order.client_name || "Event"} · {order.guest_count ?? "?"} guests</Link>)}</div></div>}
+                {selectedDayShifts.length === 0 ? <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700">No kitchen shifts planned for this day. Open the full schedule to add coverage.</div> : <div className="grid gap-2 sm:grid-cols-2">{selectedDayShifts.map((shift) => { const chef = staff.find((person) => person.id === shift.staff_id); return <div key={shift.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{chef?.full_name || chef?.email || "Kitchen team member"}</p><p className="text-xs text-slate-500">{fmtTime(shift.planned_start)} - {fmtTime(shift.planned_end)}</p></div><Badge variant="outline" className="shrink-0 capitalize">{(shift.status || "scheduled").replace(/_/g, " ")}</Badge></div>; })}</div>}
+              </CardContent>
+            </Card>
 
             {loadError && (
               <Alert variant="destructive">
@@ -627,7 +663,7 @@ function KitchenScheduleGrid() {
               </Alert>
             )}
 
-            <Card>
+            {isFullScheduleOpen && <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
                   {staff.length} chef{staff.length === 1 ? "" : "s"}
@@ -1001,8 +1037,10 @@ function KitchenScheduleGrid() {
                                   // Jump into week view for the
                                   // week containing this day so
                                   // the operator can roster.
+                                  setSelectedDayIso(iso);
                                   setWeekStart(startOfWeek(d));
                                   setViewMode("week");
+                                  setIsFullScheduleOpen(true);
                                 }}
                                 className={`text-left min-h-[60px] sm:min-h-[88px] p-1 sm:p-1.5 transition ${
                                   !inMonth ? "bg-slate-50 text-slate-400" :
@@ -1086,7 +1124,7 @@ function KitchenScheduleGrid() {
                   })()
                 )}
               </CardContent>
-            </Card>
+            </Card>}
           </div>
         </PortalShell>
         <Footer />
