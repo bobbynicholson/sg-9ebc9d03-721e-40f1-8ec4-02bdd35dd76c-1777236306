@@ -21,7 +21,8 @@ const mockSubscriptions = new Map<string, any>();
 let mockCompany: any;
 let mockActivationFailure = false;
 const mockDb = { from: (table: string) => {
-  let operation = "select", payload: any, filters: Record<string, any> = {};
+  let operation = "select", payload: any;
+  const filters: Record<string, any> = {};
   const run = () => {
     if (table === "subscription_webhook_events") {
       const key = payload?.event_id || filters.event_id;
