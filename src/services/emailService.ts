@@ -92,16 +92,8 @@ export interface SendEmailPayload {
    * deliberately silenced them) but comms_paused_until is bypassed.
    */
   bypassQuarantine?: boolean;
-  /**
-   * For system-critical onboarding mail (staff invite, magic-link
-   * sign-in) only. When the tenant has NOT configured an email provider
-   * yet - true for every brand-new company - fall back to the platform
-   * shared Resend sender (noreply@send.cateringms.com) instead of
-   * failing with no_provider, so the very first invite / sign-in link
-   * can still go out. Does NOT change behaviour for normal tenant mail
-   * (quotes, invoices, automations), which still requires the tenant to
-   * opt into a sender. No-op if RESEND_API_KEY isn't set platform-side.
-   */
+  /** Use the shared sender when no tenant provider exists. Defaults to true.
+   * Set false only when explicitly testing a tenant's provider setup. */
   allowPlatformFallback?: boolean;
   /**
    * Optional file attachments. Used initially for the Quote PDF on
@@ -374,7 +366,7 @@ export const emailService = {
     const forcePlatform = !!config.force_platform_sender;
 
     const verified = config.resend_domain_status === "verified";
-    const sendingDomain = (config.resend_sending_domain || "").toLowerCase();
+    const sendingDomain = (config.resend_sending_domain || "").trim().toLowerCase();
     const matchesDomain =
       sendingDomain && email && email.endsWith(`@${sendingDomain}`);
 
@@ -573,16 +565,10 @@ export const emailService = {
     }
 
     if (!config || !config.enabled) {
-      // Platform fallback for system-critical onboarding mail: a
-      // brand-new company has no provider row yet, which would otherwise
-      // block its first staff invite / magic-link. When the caller opts
-      // in (allowPlatformFallback) and the platform Resend key exists,
-      // synthesise a shared-sender config so the mail still goes out
-      // from noreply@send.cateringms.com (replies route to the company
-      // email when known). Normal tenant mail does NOT set the flag, so
-      // its no_provider behaviour is unchanged.
+      // Shared sender fallback for all application mail.
+      // Use the platform sender when the company has no usable provider row.
       const canFallback =
-        !!(payload as any).allowPlatformFallback && !!process.env.RESEND_API_KEY;
+        payload.allowPlatformFallback !== false && !!process.env.RESEND_API_KEY;
       if (canFallback) {
         let companyName = "CateringMS";
         let companyEmail: string | null = null;
@@ -912,50 +898,16 @@ export const emailService = {
     }
 
     try {
-      // Pre-flight gates for Resend that don't require burning an API
-      // call. We only run these when the tenant's own from_email is
-      // set - empty from_email is fine because the resolver falls back
-      // to the shared CateringMS sender.
-      //
-      // When the tenant's domain is registered but not yet verified, we
-      // do NOT block. resolveFromAddress already falls back to the
-      // shared sender (noreply@send.cateringms.com) with reply-to set
-      // to the operator's address, so the email still delivers and
-      // replies still land in their inbox. Blocking would break
-      // system-critical sends like client magic-links during the
-      // verify-DNS window. The mismatch check below stays a hard error
-      // because that's a real config bug the operator should see.
-      if (config.provider === "resend" && (config.from_email || "").trim()) {
-        const fromEmail = (config.from_email || "").trim().toLowerCase();
-        const sendingDomain = (config.resend_sending_domain || "").trim().toLowerCase();
-        const verified = config.resend_domain_status === "verified";
-        if (verified && sendingDomain && fromEmail && !fromEmail.endsWith(`@${sendingDomain}`)) {
-          await this.logEmailSent(
-            payload.companyId,
-            payload.template || "custom",
-            payload.to,
-            payload.variables?.clientName || "N/A",
-            finalSubject,
-            payload.orderId,
-            payload.quoteId,
-            (payload as any)._client,
-            "failed",
-            `from_email ${fromEmail} doesn't match verified domain ${sendingDomain}`,
-          );
-          return {
-            success: false,
-            error: `Your From email needs to end in @${sendingDomain}.`,
-            error_code: "from_email_domain_mismatch",
-            fix_link: "/admin/email-settings#resend",
-            context: { domain: sendingDomain, from_email: fromEmail },
-          };
-        }
-      }
-
+      // resolveFromAddress selects the verified custom domain or shared sender.
+      // A mismatched From address uses the shared sender as well.
       let providerResult: { ok: true } | { ok: false; status?: number; body?: any; message: string; code?: string } | null = null;
 
       if (config.provider === 'resend' && process.env.RESEND_API_KEY) {
         const { from, replyTo } = this.resolveFromAddress(config);
+        console.info("[emailService] sender selected", {
+          companyId: payload.companyId, provider: config.provider, from,
+          mode: from.endsWith(`<${SHARED_FROM_EMAIL}>`) ? "shared" : "custom",
+        });
         // TIGHTEN I.43 (2026-06-01): inject List-Unsubscribe +
         // List-Unsubscribe-Post headers so Gmail / Yahoo's 2024
         // bulk-sender rules treat us as compliant. Missing these

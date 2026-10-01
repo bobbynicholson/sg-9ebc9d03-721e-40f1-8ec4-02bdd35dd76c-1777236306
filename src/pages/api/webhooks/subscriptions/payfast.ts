@@ -14,7 +14,7 @@
  * PayFast's retry queue doesn't pile up.
  *
  * Signature verification per PayFast docs:
- *   1. Sort POST form fields alphabetically by key (excluding `signature`).
+ *   1. Keep POST form fields in received order (excluding `signature`).
  *   2. Concatenate `key=urlencode(value)` with `&` separator.
  *   3. If passphrase set, append `&passphrase=<urlencoded>`.
  *   4. MD5 the result. Compare (case-insensitive) to the `signature` field.
@@ -55,24 +55,22 @@ export const config = { api: { bodyParser: true } };
 
 /**
  * Compute the PayFast MD5 signature over the POST body. PayFast wants
- * the fields in the order they were sent, but for ITN verification the
- * accepted practice (and what the official PHP sample does) is
- * alphabetical-by-key with `signature` excluded. We urlencode values
+ * the fields in the order they were sent, with `signature` excluded. We urlencode values
  * with `+` for spaces, matching PHP's `urlencode`, NOT Node's
  * encodeURIComponent (which uses `%20`).
  */
 function payfastEncode(v: string): string {
-  return encodeURIComponent(v).replace(/%20/g, "+");
+  return encodeURIComponent(v.trim()).replace(/%20/g, "+")
+    .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
-function computePayfastSignature(
+export function computePayfastSignature(
   fields: Record<string, string>,
   passphrase: string | null,
 ): string {
   const keys = Object.keys(fields)
     .filter((k) => k !== "signature")
-    .filter((k) => fields[k] !== "" && fields[k] != null)
-    .sort();
+    .filter((k) => fields[k] !== "" && fields[k] != null);
   const parts = keys.map((k) => `${k}=${payfastEncode(String(fields[k]))}`);
   if (passphrase) {
     parts.push(`passphrase=${payfastEncode(passphrase)}`);
@@ -106,18 +104,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Must match the credentials the checkout signed with. The
-  // subscription checkout runs client-side and can therefore only read
-  // the NEXT_PUBLIC_PAYFAST_* vars, so those are the source of truth for
-  // platform subscription billing; PAYFAST_PLATFORM_* is accepted as an
-  // optional override if an operator mirrored it server-side. Reading a
-  // different var than the checkout used is exactly why the ITN failed
-  // verification and the company never went active.
+  // Use the same server-side credentials as subscription checkout.
   const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
   const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
-  const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
+  const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
 
-  if (!merchantId || !merchantKey) {
+  if (!merchantId || !merchantKey || !passphrase) {
     console.warn(
       "[subscriptions/payfast] env vars missing - PAYFAST_PLATFORM_MERCHANT_ID or PAYFAST_PLATFORM_MERCHANT_KEY. Returning 200 OK without processing.",
     );
@@ -140,7 +132,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   // Sanity check the merchant id matches ours - belt-and-braces with
   // signature verification.
-  if (body.merchant_id && body.merchant_id !== merchantId) {
+  if (Object.values(body).some((v) => typeof v !== "string")) return res.status(400).json({ error: "Expected form-encoded notification" });
+  if (body.merchant_id !== merchantId) {
     console.warn("[subscriptions/payfast] merchant_id mismatch:", body.merchant_id);
     return res.status(400).json({ error: "merchant_id mismatch" });
   }
@@ -158,12 +151,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(401).json({ error: "Invalid signature" });
   }
 
+  const testMode = (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true";
+  try {
+    const validation = await fetch(`https://${testMode ? "sandbox" : "www"}.payfast.co.za/eng/query/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: Object.entries(body).filter(([k]) => k !== "signature").map(([k, v]) => `${k}=${payfastEncode(v)}`).join("&"),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!validation.ok) return res.status(503).json({ error: "PayFast validation unavailable" });
+    if ((await validation.text()).trim() !== "VALID") return res.status(401).json({ error: "PayFast rejected notification" });
+  } catch {
+    return res.status(503).json({ error: "PayFast validation unavailable; retry notification" });
+  }
   const sb = getServiceSupabase();
 
   // Idempotency key: PayFast pf_payment_id is the canonical per-event
   // identifier. m_payment_id is our own reference passed at create
   // time. Use pf_payment_id when present, fall back to m_payment_id.
-  const eventId = body.pf_payment_id || body.m_payment_id || `payfast-${Date.now()}`;
+  const eventId = body.pf_payment_id ? `${body.pf_payment_id}:${body.payment_status}` :
+    (body.token && `${body.token}:${body.payment_status}:${body.billing_date || ""}`) || body.m_payment_id;
+  if (!eventId) return res.status(400).json({ error: "Missing payment reference" });
   const eventType = body.payment_status
     ? `payment_status.${(body.payment_status as string).toLowerCase()}`
     : "unknown";
@@ -176,10 +184,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       event_type: eventType,
       // eslint-disable-next-line no-restricted-syntax -- table added by 20260522080000_subscription_webhook_scaffold; types regen pending
       raw: body as any,
+      rejection_reason: "processing",
     });
   if (logErr) {
     if ((logErr as any).code === "23505") {
-      return res.status(200).json({ ok: true, duplicate: true });
+      const { data: existing, error } = await sb.from("subscription_webhook_events")
+        .select("rejection_reason, processed_at").eq("provider", "payfast").eq("event_id", eventId).single();
+      if (error) return res.status(503).json({ error: "Could not read payment event" });
+      if (existing.rejection_reason === null) return res.status(200).json({ ok: true, duplicate: true });
+      if (existing.rejection_reason === "processing" && Date.now() - new Date(existing.processed_at).getTime() < 60000) {
+        return res.status(503).json({ error: "Payment event is being processed; retry" });
+      }
+      const { data: claimed, error: claimError } = await sb.from("subscription_webhook_events")
+        .update({ rejection_reason: "processing", processed_at: new Date().toISOString() })
+        .eq("provider", "payfast").eq("event_id", eventId)
+        .eq("processed_at", existing.processed_at).select("id");
+      if (claimError || !claimed?.length) return res.status(503).json({ error: "Payment event is being retried" });
+    } else {
+      return res.status(503).json({ error: "Could not record payment event" });
     }
     console.error("[subscriptions/payfast] event log insert failed:", logErr);
   }
@@ -212,7 +234,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .update({ rejection_reason: "no_company_for_token" })
       .eq("provider", "payfast")
       .eq("event_id", eventId);
-    return res.status(200).json({ ok: true, skipped: "unknown_company" });
+    return res.status(503).json({ error: "Company not found; retry notification" });
   }
 
   await sb
@@ -223,7 +245,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     const paymentStatus = (body.payment_status || "").toUpperCase();
-    const isFirstPayment = body.subscription_type === "1";
+    if (!["COMPLETE", "FAILED", "CANCELLED"].includes(paymentStatus)) {
+      const { error } = await sb.from("subscription_webhook_events").update({ rejection_reason: null })
+        .eq("provider", "payfast").eq("event_id", eventId);
+      if (error) throw error;
+      return res.status(200).json({ ok: true, ignored: paymentStatus });
+    }
+    let isFirstPayment = body.subscription_type === "1";
     const newStatus = mapPayfastToStatus(paymentStatus, isFirstPayment);
 
     // Companies row update - source of truth for "is this tenant
@@ -233,31 +261,51 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (token) companyPatch.payfast_subscription_token = token;
     // custom_str2 carries the plan id (createSubscriptionParams sets it),
     // so the company's stored plan reflects what they actually bought.
-    const planFromCustom = (body.custom_str2 || "").trim();
+    const { data: currentCompany, error: currentError } = await sb.from("companies")
+      .select("subscription_plan, subscription_status, trial_ends_at, payfast_subscription_token").eq("id", companyId).single();
+    if (currentError) throw currentError;
+    const subscriptionToken = token || currentCompany.payfast_subscription_token;
+    if (!subscriptionToken) throw new Error("Missing PayFast recurring billing token");
+    const subscriptionDigest = crypto.createHash("sha256").update(`payfast-subscription:${subscriptionToken}`).digest("hex");
+    const subscriptionId = `${subscriptionDigest.slice(0, 8)}-${subscriptionDigest.slice(8, 12)}-4${subscriptionDigest.slice(13, 16)}-a${subscriptionDigest.slice(17, 20)}-${subscriptionDigest.slice(20, 32)}`;
+    const { data: previousSubscription, error: subscriptionReadError } = await sb.from("subscriptions")
+      .select("billing_cycle, amount, plan_id, cancel_at_period_end, current_period_end").eq("id", subscriptionId).maybeSingle();
+    if (subscriptionReadError) throw subscriptionReadError;
+    isFirstPayment = !previousSubscription;
+    if (paymentStatus === "CANCELLED" && previousSubscription?.cancel_at_period_end &&
+        new Date(previousSubscription.current_period_end).getTime() > Date.now()) {
+      companyPatch.subscription_status = currentCompany.subscription_status;
+    }
+    const planFromCustom = (body.custom_str2 || currentCompany.subscription_plan || "").trim();
+    if (!getPlanById(planFromCustom)) throw new Error("Unknown subscription plan");
+    const cycle = (body.custom_str3 || previousSubscription?.billing_cycle || (body.frequency === "6" ? "annual" : "monthly")).toLowerCase();
+    const billingCycle = cycle.includes("annual") || cycle.includes("year") ? "yearly" : "monthly";
     if (planFromCustom) companyPatch.subscription_plan = planFromCustom;
 
-    // Amount sanity check. The ITN is already signature-verified (PayFast
-    // can't be forged), so this is monitoring, not a hard gate: flag when
-    // the paid amount doesn't match the plan's price for the billing cycle,
-    // so price-table drift / tampering is visible instead of trusting the
-    // ITN's plan blindly. Recorded on the event, not blocking the renewal.
+    // Reject underpayments before granting paid access. A verified
+    // zero-amount setup preserves an existing, unexpired trial.
     if (paymentStatus === "COMPLETE" && planFromCustom) {
       const plan = getPlanById(planFromCustom);
       if (plan) {
-        const cycle = (body.custom_str3 || "").toLowerCase();
-        const expected = cycle.includes("annual") || cycle.includes("year")
-          ? plan.annualPrice : plan.monthlyPrice;
+        const expected = previousSubscription?.amount ?? (billingCycle === "yearly" ? plan.annualPrice : plan.monthlyPrice);
         const paid = Number(body.amount_gross || body.amount || 0);
-        if (expected > 0 && Math.abs(paid - expected) > 1) {
+        const trialSetup = paid === 0 && currentCompany.subscription_status === "trial" &&
+          currentCompany.trial_ends_at && new Date(currentCompany.trial_ends_at).getTime() > Date.now() && token;
+        if (trialSetup) companyPatch.subscription_status = "trial";
+        if (!trialSetup && (!Number.isFinite(paid) || Math.abs(paid - expected) > 0.01)) {
           console.error(`[subscriptions/payfast] AMOUNT MISMATCH company ${companyId}: plan ${planFromCustom} (${cycle}) expected R${expected}, paid R${paid}`);
           await sb.from("subscription_webhook_events")
             .update({ rejection_reason: `amount_mismatch: expected ${expected}, paid ${paid}` })
             .eq("provider", "payfast").eq("event_id", eventId);
+          return res.status(400).json({ error: "Subscription amount mismatch" });
         }
+      } else {
+        return res.status(400).json({ error: "Unknown subscription plan" });
       }
     }
 
-    await sb.from("companies").update(companyPatch).eq("id", companyId);
+    const { data: updatedCompany, error: activationError } = await sb.from("companies").update(companyPatch).eq("id", companyId).select("id");
+    if (activationError || !updatedCompany?.length) throw activationError || new Error("Company activation failed");
 
     // billing_history row for the operator's records. NOTE: billing_history
     // has NO company_id column and user_id is NOT NULL - it FKs to the owner
@@ -272,23 +320,56 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ownerId = (ownerRow as any)?.owner_id ?? null;
       ownerCompany = ownerRow as any;
     }
-    const cycleRaw = (body.custom_str3 || "").toLowerCase();
-    const billingCycle = cycleRaw.includes("annual") || cycleRaw.includes("year") ? "yearly" : "monthly";
+    if (!ownerId) throw new Error("Company owner missing for subscription");
+    const selectedPlan = getPlanById(planFromCustom);
+    if (!selectedPlan) throw new Error("Unknown subscription plan");
+    const periodStart = new Date();
+    const periodEnd = new Date(periodStart);
+    if (paymentStatus !== "COMPLETE" && previousSubscription?.current_period_end) {
+      periodEnd.setTime(new Date(previousSubscription.current_period_end).getTime());
+    } else if (companyPatch.subscription_status === "trial" && currentCompany.trial_ends_at) {
+      periodEnd.setTime(new Date(currentCompany.trial_ends_at).getTime());
+    } else if (billingCycle === "yearly") {
+      periodEnd.setUTCFullYear(periodEnd.getUTCFullYear() + 1);
+    } else {
+      const day = periodEnd.getUTCDate();
+      periodEnd.setUTCDate(1);
+      periodEnd.setUTCMonth(periodEnd.getUTCMonth() + 1);
+      const lastDay = new Date(Date.UTC(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth() + 1, 0)).getUTCDate();
+      periodEnd.setUTCDate(Math.min(day, lastDay));
+    }
+    const { error: subscriptionError } = await sb.from("subscriptions").upsert({
+      id: subscriptionId, company_id: companyId, user_id: ownerId,
+      plan_id: selectedPlan.id, plan_name: selectedPlan.name,
+      amount: previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice),
+      billing_cycle: billingCycle, currency: "ZAR", status: String(companyPatch.subscription_status),
+      current_period_start: periodStart.toISOString(), current_period_end: periodEnd.toISOString(),
+      next_billing_date: paymentStatus === "CANCELLED" ? null : periodEnd.toISOString(),
+      trial_ends_at: currentCompany.trial_ends_at, updated_at: new Date().toISOString(),
+    });
+    if (subscriptionError) throw subscriptionError;
     if (paymentStatus === "COMPLETE" || paymentStatus === "FAILED") {
       if (!ownerId) {
-        console.error("[subscriptions/payfast] no owner_id for company; skipping billing_history", companyId);
+        throw new Error("Company owner missing for billing history");
       } else {
-        const { error: bhErr } = await sb.from("billing_history").insert({
+        const digest = crypto.createHash("sha256").update(`payfast:${eventId}`).digest("hex");
+        const billingId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-4${digest.slice(13, 16)}-a${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+        const { error: bhErr } = await sb.from("billing_history").upsert({
+          id: billingId,
+          subscription_id: subscriptionId,
           user_id: ownerId,
           amount: Number(body.amount_gross || body.amount || 0),
           currency: "ZAR",
           status: paymentStatus === "COMPLETE" ? "completed" : "failed",
           payment_method: "payfast",
         } as any);
-        if (bhErr) console.error("[subscriptions/payfast] billing_history insert failed:", bhErr);
+        if (bhErr) throw bhErr;
       }
     }
 
+    const { error: completedError } = await sb.from("subscription_webhook_events")
+      .update({ rejection_reason: null, processed_at: new Date().toISOString() }).eq("provider", "payfast").eq("event_id", eventId);
+    if (completedError) throw completedError;
     // Billing emails - the templates edited on
     // /admin/platform/messaging-templates (subscription_started,
     // payment_succeeded, payment_failed) had no live send path until
@@ -302,21 +383,28 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (paymentStatus === "COMPLETE" && isFirstPayment) {
           await billingEmailService.notifySubscriptionStarted(ownerId, {
             plan_name: plan?.name || planFromCustom || "your plan",
-            amount: paidAmount,
+            amount: previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice),
+            paid_amount: paidAmount,
+            billing_mode: "recurring",
+            subscription_status: String(companyPatch.subscription_status),
             currency: "ZAR",
             billing_cycle: billingCycle,
-            next_billing_date: body.billing_date || null,
+            next_billing_date: periodEnd.toISOString(),
           });
         }
-        if (paymentStatus === "COMPLETE") {
+        if (paymentStatus === "COMPLETE" && paidAmount > 0) {
           await billingEmailService.notifyPaymentSucceeded(ownerId, {
             amount: paidAmount,
+            plan_name: selectedPlan.name,
+            billing_cycle: billingCycle,
+            billing_mode: "recurring",
+            recurring_amount: previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice),
             currency: "ZAR",
             paid_at: nowIso,
             transaction_id: body.pf_payment_id || null,
             billing_period_start: nowIso,
-            billing_period_end: body.billing_date || nowIso,
-            next_billing_date: body.billing_date || null,
+            billing_period_end: periodEnd.toISOString(),
+            next_billing_date: periodEnd.toISOString(),
           });
         } else if (paymentStatus === "FAILED") {
           await billingEmailService.notifyPaymentFailed(ownerId, {
@@ -420,6 +508,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[subscriptions/payfast] notification failed:", notifyErr);
     }
   } catch (e: any) {
+    await sb.from("subscription_webhook_events").update({ rejection_reason: "processing_failed" }).eq("provider", "payfast").eq("event_id", eventId);
     console.error("[subscriptions/payfast] handler failed:", e);
     return res.status(500).json({ error: e?.message || "handler failed" });
   }

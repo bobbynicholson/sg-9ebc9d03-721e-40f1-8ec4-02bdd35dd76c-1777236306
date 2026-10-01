@@ -122,7 +122,7 @@ export default function ResetPassword() {
 
     try {
       // Update password using Supabase Auth
-      const { error: updateError } = await supabase.auth.updateUser({
+      const { data: updatedAuth, error: updateError } = await supabase.auth.updateUser({
         password: password
       });
 
@@ -130,6 +130,11 @@ export default function ResetPassword() {
         throw updateError;
       }
 
+      if (isInvite && updatedAuth.user) {
+        const { error: invitationError } = await supabase.from("staff_invitations")
+          .update({ status: "accepted" }).eq("user_id", updatedAuth.user.id).eq("status", "pending");
+        if (invitationError) console.warn("Could not mark portal invitation accepted:", invitationError);
+      }
       setSuccess(true);
 
       // After setting the password the user already has a live session.

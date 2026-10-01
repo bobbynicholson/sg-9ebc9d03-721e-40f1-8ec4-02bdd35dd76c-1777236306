@@ -578,11 +578,14 @@ function KitchenStaffPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role: inviteRole,
-          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Could not send invite");
+      if (json.profile_id) {
+        setEditTarget({ ...editTarget, linked_profile_id: json.profile_id, email: draft.email.trim() || editTarget.email });
+        void load();
+      }
+      if (!res.ok || json.email_sent !== true) throw new Error(json?.error || json?.message || "Could not send invite");
       toast({
         title: "Portal invite sent",
         description: json.message || `Invite sent to ${draft.email || editTarget.email}`,
@@ -1631,6 +1634,10 @@ function KitchenStaffPage() {
                 This staff member has a portal login. Manage roles + permissions on{" "}
                 <Link href={withSlug("/admin/users")} className="underline">Users</Link>.
               </p>
+              <Button type="button" variant="outline" className="mt-2" disabled={inviting || saving}
+                onClick={handleSendInvite}>
+                {inviting ? "Sending..." : "Resend portal invite"}
+              </Button>
             </div>
           )}
 

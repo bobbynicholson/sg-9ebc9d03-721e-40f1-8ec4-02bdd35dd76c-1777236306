@@ -91,6 +91,11 @@ async function seedPrimaryDepartment(admin: any, userId: string, dbRole: string,
       is_primary: true,
       assigned_by: assignedBy,
     });
+    if (dbRole === "kitchen_manager" || dbRole === "cleaning_manager") {
+      await admin.from("user_departments").insert({
+        user_id: userId, department: dbRole, is_primary: false, assigned_by: assignedBy,
+      });
+    }
   } catch (e: any) {
     console.warn("[create-user] seeding user_departments failed (non-fatal):", e?.message);
   }
@@ -229,8 +234,8 @@ async function handler(
 
     // Origin for the staff member's login link in the onboarding email.
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
       (req.headers.origin as string) ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
       `https://${req.headers.host || "cateringms.com"}`;
 
     if (callerRole !== "super_admin") {
@@ -308,6 +313,7 @@ async function handler(
           await seedPrimaryDepartment(admin, match.id, activeRole, callerAuth.id);
           // Email the staff member their invite / set-password link.
           const healInvite = await sendStaffInviteEmail(admin, {
+            userId: match.id, invitedBy: callerAuth.id,
             email,
             fullName: full_name,
             role,
@@ -407,6 +413,7 @@ async function handler(
     // Email the staff member their invite / set-password link so
     // onboarding doesn't depend on the admin manually relaying anything.
     const inviteResult = await sendStaffInviteEmail(admin, {
+      userId: newUserId, invitedBy: callerAuth.id,
       email,
       fullName: full_name,
       role,

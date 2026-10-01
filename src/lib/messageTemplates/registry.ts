@@ -1446,10 +1446,10 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     group: "Subscription",
     label: "Subscription started",
     description: "Welcome email when a tenant first subscribes.",
-    defaultSubject: "Welcome to CateringMS! Your subscription is active",
+    defaultSubject: "Welcome to CateringMS! Your subscription is confirmed",
     defaultBody:
       `Hi {{user_name}},\n\n` +
-      `Thank you for subscribing to our {{plan_name}} plan. Your subscription is now active and ready to use.\n\n` +
+      `Thank you for subscribing to our {{plan_name}} plan. Your billing agreement is confirmed. Your existing trial, if applicable, continues until its scheduled end.\n\n` +
       `Plan: {{plan_name}}\n` +
       `Amount: {{amount}}\n` +
       `Billing cycle: {{billing_cycle}}\n` +

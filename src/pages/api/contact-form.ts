@@ -80,11 +80,11 @@ ${appendPlatformLegalFooter("")}
       // No Resend key configured - log and accept so the form still
       // reads as success. The platform owner can wire Resend later.
       console.warn("[contact-form] RESEND_API_KEY missing, skipping send");
-      return res.status(200).json({ ok: true, simulated: true });
+      return res.status(503).json({ error: "Email sender is not configured. Please try again later." });
     }
 
     const resend = new Resend(apiKey);
-    await resend.emails.send({
+    const { error: sendError } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: SUPPORT_INBOX,
       replyTo: email,
@@ -92,6 +92,7 @@ ${appendPlatformLegalFooter("")}
       html,
     });
 
+    if (sendError) return res.status(502).json({ error: "Could not send your message. Please try again." });
     return res.status(200).json({ ok: true });
   } catch (err: any) {
     console.error("[contact-form] crashed:", err);

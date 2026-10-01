@@ -20,7 +20,7 @@ import {
   AlertCircle,
   Sparkles,
 } from "lucide-react";
-import { getPlanById, formatCurrency, calculateTrialEndDate } from "@/lib/payfastService";
+import { getPlanById, formatCurrency } from "@/lib/payfastService";
 import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,7 +50,8 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
 
   const plan = getPlanById(planId as string);
-  const trialEndDate = calculateTrialEndDate();
+  const trialEndDate = authCompany?.trial_ends_at ? new Date(authCompany.trial_ends_at) : null;
+  const hasTrial = authCompany?.subscription_status === "trial" && !!trialEndDate && trialEndDate.getTime() > Date.now();
 
   useEffect(() => {
     if (!plan && planId) {
@@ -151,7 +152,7 @@ export default function CheckoutPage() {
       <PortalShell>
         <PortalHeader
           title="Subscription Checkout"
-          subtitle={`Start the ${plan.name} plan trial for ${company || "your company"}.`}
+          subtitle={`Subscribe to the ${plan.name} plan for ${company || "your company"}.`}
           icon={CreditCard}
           actions={(
             <Link href="/pricing">
@@ -171,17 +172,17 @@ export default function CheckoutPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="w-5 h-5 text-slate-600" />
                     <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0">
-                      {PLATFORM_TRIAL_DAYS}-Day Free Trial
+                      {hasTrial ? "Trial period" : "Recurring subscription"}
                     </Badge>
                   </div>
-                  <CardTitle className="text-2xl">Start Your Free Trial</CardTitle>
+                  <CardTitle className="text-2xl">{hasTrial ? "Set Up Billing After Your Trial" : "Start Your Subscription"}</CardTitle>
                   <CardDescription>
-                    No payment required today. Your card will only be charged after your trial ends on{" "}
-                    {trialEndDate.toLocaleDateString("en-ZA", {
+                    {hasTrial ? <>No payment required today. Your card will be charged after your existing trial ends on{" "}
+                    {trialEndDate!.toLocaleDateString("en-ZA", {
                       day: "numeric",
                       month: "long",
                       year: "numeric",
-                    })}
+                    })}</> : <>Your first payment is due today. PayFast will charge your card automatically each {billingCycle === "annual" ? "year" : "month"} until you cancel.</>}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -302,13 +303,13 @@ export default function CheckoutPage() {
                       ) : (
                         <>
                           <CreditCard className="w-5 h-5 mr-2" />
-                    Start {PLATFORM_TRIAL_DAYS}-Day Free Trial
+                          {hasTrial ? "Set Up Recurring Billing" : `Pay ${formatCurrency(amount)} and Subscribe`}
                         </>
                       )}
                     </Button>
 
                     <p className="text-xs text-center text-slate-500">
-                      By starting your trial, you authorize us to charge your payment method after the trial ends
+                      You authorize PayFast to charge {formatCurrency(amount)} automatically every {billingCycle === "annual" ? "year" : "month"}{hasTrial ? " after your existing trial ends" : ", starting today"}, until you cancel.
                     </p>
                   </form>
                 </CardContent>
@@ -347,10 +348,10 @@ export default function CheckoutPage() {
                         </span>
                       </div>
                     )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">14-day trial discount</span>
+                    {hasTrial && <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Existing trial</span>
                       <span className="text-brand-primary font-medium">-{formatCurrency(amount)}</span>
-                    </div>
+                    </div>}
                   </div>
 
                   <Separator />
@@ -358,8 +359,8 @@ export default function CheckoutPage() {
                   <div className="flex justify-between items-baseline">
                     <span className="font-semibold">Due Today</span>
                     <div className="text-right">
-                      <span className="text-2xl font-bold">R0</span>
-                          <p className="text-xs text-slate-500">Free for {PLATFORM_TRIAL_DAYS} days</p>
+                      <span className="text-2xl font-bold">{formatCurrency(hasTrial ? 0 : amount)}</span>
+                          <p className="text-xs text-slate-500">{hasTrial ? "No charge during your remaining trial" : "First subscription payment"}</p>
                     </div>
                   </div>
 
@@ -367,9 +368,9 @@ export default function CheckoutPage() {
                     <div className="flex items-start gap-2">
                       <Zap className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-medium text-blue-900 mb-1">Starting {trialEndDate.toLocaleDateString()}</p>
+                        <p className="text-sm font-medium text-blue-900 mb-1">{hasTrial ? `Starting ${trialEndDate!.toLocaleDateString()}` : "Automatic recurring billing"}</p>
                         <p className="text-sm text-blue-700">
-                          {formatCurrency(billingCycle === "monthly" ? plan.monthlyPrice : monthlyEquivalent)}/month
+                          {formatCurrency(amount)}/{billingCycle === "annual" ? "year" : "month"}
                         </p>
                       </div>
                     </div>

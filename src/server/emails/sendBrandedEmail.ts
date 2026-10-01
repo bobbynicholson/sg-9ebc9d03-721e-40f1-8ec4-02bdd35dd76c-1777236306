@@ -1,36 +1,9 @@
-/**
- * Central server-side function for sending branded React-Email templates.
- *
- * Resolves which provider to use in this order:
- *   1. The tenant's email_settings row - if a company has configured
- *      Resend or SMTP for itself, we honour that so client-facing emails
- *      come from their domain.
- *   2. The platform's RESEND_API_KEY env var - used for platform-level
- *      sends (signup welcome, super-admin alerts) and as the fallback
- *      when a tenant hasn't set up their own provider yet so onboarding
- *      doesn't block on email config.
- *   3. Console-only simulation - so local dev doesn't need any creds.
- *
- * This is server-only - it uses @react-email/render (Node-only) and the
- * Supabase service-role client. Don't import from the browser.
- */
+/** Branded templates use the same custom/shared sender routing as all tenant mail. */
 import { render } from "@react-email/render";
 import * as React from "react";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import {
-  appendCompanyLegalFooter,
-  appendPlatformLegalFooter,
-} from "@/services/email/legalEmailFooter";
-
-type ServiceRoleClient = ReturnType<typeof getServiceSupabase>;
-
-function tryServiceClient(): ServiceRoleClient | null {
-  try {
-    return getServiceSupabase();
-  } catch {
-    return null;
-  }
-}
+import { emailService } from "@/services/emailService";
+import { appendPlatformLegalFooter } from "@/services/email/legalEmailFooter";
 
 export interface SendBrandedEmailArgs {
   /** React Email component to render. */
@@ -64,219 +37,37 @@ export interface SendBrandedEmailArgs {
 
 interface SendResult {
   ok: boolean;
-  provider: "resend-tenant" | "resend-platform" | "smtp-tenant" | "simulation";
+  provider: "tenant-routing" | "resend-platform";
   error?: string;
 }
 
-// Platform identity. Both env-driven so renaming the SaaS later is a
-// config change - no code edit, no rebuild beyond a redeploy. Fall
-// back to CateringMS so nothing breaks if the env var isn't set.
-const PLATFORM_FROM_NAME = process.env.PLATFORM_BRAND_NAME || "CateringMS";
-// Default to the platform's VERIFIED shared sender, not Resend's sandbox
-// address (onboarding@resend.dev only delivers to the Resend account
-// owner, so platform mail silently never reached real recipients when
-// PLATFORM_FROM_EMAIL wasn't set). Matches SHARED_FROM_EMAIL in
-// emailService. An explicit PLATFORM_FROM_EMAIL env still wins.
-const PLATFORM_FROM_EMAIL = process.env.PLATFORM_FROM_EMAIL || "noreply@send.cateringms.com";
-
 export async function sendBrandedEmail(args: SendBrandedEmailArgs): Promise<SendResult> {
-  let html = await render(args.component);
-  const text = await render(args.component, { plainText: true });
-
-  // Resolve tenant provider config if we have a companyId.
-  let tenantProvider: string | null = null;
-  let tenantFromName: string | null = null;
-  let tenantFromEmail: string | null = null;
-  let tenantSmtp: { host: string; port: number; user: string; password: string } | null = null;
-
-  const sb = tryServiceClient();
-
-  // This transport bypasses emailService, so the mandatory legal footer
-  // (confidentiality notice + terms link) has to be applied here too.
-  // Never let footer decoration break an invite/welcome send.
-  try {
-    if (args.legalAudience !== "platform" && args.companyId) {
-      html = await appendCompanyLegalFooter(html, {
-        companyId: args.companyId,
-        client: sb,
-      });
-    } else {
-      html = appendPlatformLegalFooter(html);
-    }
-  } catch (e) {
-    console.warn("[sendBrandedEmail] legal footer failed, sending without it:", e);
-  }
-  if (args.companyId && sb) {
-    try {
-      const { data } = await sb
-        .from("email_settings")
-        // email_settings only has smtp_port among the SMTP fields; host/user/
-        // password aren't modelled, so per-tenant SMTP creds can't be loaded
-        // here. Selecting the missing columns 400'd the whole row (losing
-        // from_name/from_email branding too), so we select only real columns.
-        .select("enabled,provider,from_name,from_email,smtp_port")
-        .eq("user_id", args.companyId)
-        .maybeSingle();
-      if (data?.enabled) {
-        tenantProvider = data.provider;
-        tenantFromName = data.from_name;
-        tenantFromEmail = data.from_email;
-        const smtpHost = (data as any).smtp_host as string | undefined;
-        if (data.provider === "smtp" && smtpHost) {
-          tenantSmtp = {
-            host: smtpHost,
-            port: parseInt(String(data.smtp_port), 10) || 587,
-            user: (data as any).smtp_user || "",
-            password: (data as any).smtp_password || "",
-          };
-        }
-      }
-    } catch (e) {
-      console.warn("[sendBrandedEmail] couldn't load tenant email_settings:", e);
-    }
-  }
-
-  // Older tenant email rows may not have a display name. The shared
-  // platform address should still appear as the company's name in the
-  // recipient's inbox whenever this is a tenant-scoped message.
-  const configuredTenantFromName = String(tenantFromName || "").trim();
-  if (
-    args.companyId &&
-    sb &&
-    (!configuredTenantFromName || configuredTenantFromName.toLowerCase() === "cateringms")
-  ) {
-    try {
-      const { data: company } = await sb
-        .from("companies")
-        .select("company_name")
-        .eq("id", args.companyId)
-        .maybeSingle();
-      if ((company as any)?.company_name) tenantFromName = (company as any).company_name;
-    } catch (e) {
-      console.warn("[sendBrandedEmail] couldn't load company sender name:", e);
-    }
-  }
-
-  const fromName = args.fromName || tenantFromName || PLATFORM_FROM_NAME;
-  const fromEmail = args.fromEmail || tenantFromEmail || PLATFORM_FROM_EMAIL;
-  const fromHeader = `${fromName} <${fromEmail}>`;
-
-  // Try tenant's own Resend (so emails come from their verified domain)
-  if (tenantProvider === "resend" && process.env.RESEND_API_KEY) {
-    const ok = await postToResend({ from: fromHeader, to: args.to, subject: args.subject, html, text });
-    await logSent(sb, args, ok);
-    return { ok, provider: "resend-tenant" };
-  }
-
-  // Tenant SMTP path
-  if (tenantProvider === "smtp" && tenantSmtp) {
-    const ok = await sendSmtp({ ...tenantSmtp, from: fromHeader, to: args.to, subject: args.subject, html, text });
-    await logSent(sb, args, ok);
-    return { ok, provider: "smtp-tenant" };
-  }
-
-  // Platform fallback: Resend with our own key
-  if (process.env.RESEND_API_KEY) {
-    const ok = await postToResend({
-      from: `${fromName} <${PLATFORM_FROM_EMAIL}>`,
-      to: args.to,
-      subject: args.subject,
-      html,
-      text,
+  const html = await render(args.component);
+  if (args.companyId) {
+    const result = await emailService.sendEmailDetailed({
+      companyId: args.companyId, to: args.to, subject: args.subject, body: html,
+      template: args.templateType, variables: { clientName: args.recipientName || "" },
+      bypassQuarantine: true, allowPlatformFallback: true, skipBrandedShell: true,
+      legalAudience: args.legalAudience, _client: getServiceSupabase(),
     });
-    await logSent(sb, args, ok);
-    return { ok, provider: "resend-platform" };
+    return { ok: result.success, provider: "tenant-routing", error: result.error };
   }
-
-  // Last resort: simulation log so local dev doesn't break.
-  console.log("----- BRANDED EMAIL SIMULATION (no provider configured) -----");
-  console.log(`To: ${args.to}`);
-  console.log(`Subject: ${args.subject}`);
-  console.log(`Plain-text preview: ${text.slice(0, 240)}...`);
-  console.log("--------------------------------------------------------------");
-  await logSent(sb, args, true);
-  return { ok: true, provider: "simulation" };
-}
-
-interface ResendPayload {
-  from: string;
-  to: string;
-  subject: string;
-  html: string;
-  text: string;
-}
-
-async function postToResend(p: ResendPayload): Promise<boolean> {
+  // Platform messages have no tenant domain to resolve and always use shared mail.
+  if (!process.env.RESEND_API_KEY) {
+    return { ok: false, provider: "resend-platform", error: "Email provider is not configured" };
+  }
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(p),
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: `${args.fromName || process.env.PLATFORM_BRAND_NAME || "CateringMS"} <${process.env.PLATFORM_FROM_EMAIL || "noreply@send.cateringms.com"}>`,
+        to: args.to, subject: args.subject, html: appendPlatformLegalFooter(html),
+        text: await render(args.component, { plainText: true }),
+      }),
     });
-    if (!res.ok) {
-      const err = await res.text().catch(() => "");
-      console.error("[sendBrandedEmail] Resend rejected:", res.status, err);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("[sendBrandedEmail] Resend fetch failed:", err);
-    return false;
-  }
-}
-
-interface SmtpPayload extends ResendPayload {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-}
-
-async function sendSmtp(p: SmtpPayload): Promise<boolean> {
-  try {
-    // Lazy import nodemailer so the module isn't pulled in for Resend-only paths.
-    const { createTransport } = await import("nodemailer");
-    const transporter = createTransport({
-      host: p.host,
-      port: p.port,
-      secure: p.port === 465,
-      auth: p.user ? { user: p.user, pass: p.password } : undefined,
-    });
-    await transporter.sendMail({
-      from: p.from,
-      to: p.to,
-      subject: p.subject,
-      html: p.html,
-      text: p.text,
-    });
-    return true;
-  } catch (err) {
-    console.error("[sendBrandedEmail] SMTP send failed:", err);
-    return false;
-  }
-}
-
-async function logSent(
-  sb: ServiceRoleClient | null,
-  args: SendBrandedEmailArgs,
-  ok: boolean,
-): Promise<void> {
-  if (!sb || !args.companyId) return;
-  try {
-    await sb.from("email_automation_log").insert([
-      {
-        user_id: args.companyId,
-        template_type: args.templateType,
-        recipient_email: args.to,
-        recipient_name: args.recipientName || "",
-        subject: args.subject,
-        status: ok ? "sent" : "failed",
-      },
-    ]);
-  } catch (e) {
-    console.warn("[sendBrandedEmail] couldn't write log:", e);
+    return { ok: response.ok, provider: "resend-platform", ...(response.ok ? {} : { error: `Email provider rejected the send (${response.status})` }) };
+  } catch {
+    return { ok: false, provider: "resend-platform", error: "Could not reach email provider" };
   }
 }

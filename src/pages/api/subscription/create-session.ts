@@ -39,7 +39,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: profile } = await ssr
       .from("profiles")
-      .select("company_id, full_name, email")
+      .select("company_id, full_name, email, role")
       .eq("id", user.id)
       .maybeSingle();
     const companyId = (profile as any)?.company_id as string | undefined;
@@ -47,6 +47,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "Your account isn't linked to a company yet." });
     }
 
+    if (!["owner", "company_admin", "admin", "super_admin"].includes((profile as any)?.role)) {
+      return res.status(403).json({ error: "Only a company administrator can manage billing." });
+    }
     const body = (req.body || {}) as any;
     const planId = String(body.planId || "");
     const cycle = body.cycle === "annual" ? "annual" : "monthly";
@@ -54,21 +57,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!plan) return res.status(400).json({ error: "Unknown plan." });
 
     const admin = getServiceSupabase();
-    const { data: companyRow } = await admin
+    const { data: companyRow, error: companyError } = await admin
       .from("companies")
-      .select("trial_ends_at, subscription_status")
+      .select("trial_ends_at, subscription_status, payfast_subscription_token")
       .eq("id", companyId)
       .maybeSingle();
+    if (companyError) throw companyError;
+    if (!companyRow) return res.status(404).json({ error: "Company not found." });
+    if (companyRow.payfast_subscription_token && ["active", "trial", "past_due"].includes(companyRow.subscription_status)) {
+      return res.status(409).json({ error: "This company already has recurring billing. Manage the existing subscription before starting another." });
+    }
 
     // Platform PayFast credentials (server-only; never NEXT_PUBLIC for the
     // passphrase). Fall back to the NEXT_PUBLIC_* names so an existing
     // single-account setup keeps working.
     const merchantId = process.env.PAYFAST_PLATFORM_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
     const merchantKey = process.env.PAYFAST_PLATFORM_MERCHANT_KEY || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
-    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
+    const passphrase = process.env.PAYFAST_PLATFORM_PASSPHRASE || process.env.PAYFAST_PASSPHRASE || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
     const testMode =
       (process.env.PAYFAST_PLATFORM_TEST_MODE || process.env.NEXT_PUBLIC_PAYFAST_TEST_MODE) === "true";
-    if (!merchantId || !merchantKey) {
+    if (!merchantId || !merchantKey || !passphrase) {
       return res.status(400).json({
         error: "Plan billing isn't configured yet. Set the platform PayFast credentials.",
       });
@@ -99,6 +107,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       (req.headers.origin as string) ||
       `https://${req.headers.host || "cateringms.com"}`;
 
+    const checkoutOrigin = new URL(baseUrl);
+    if (checkoutOrigin.protocol !== "https:" || /^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(checkoutOrigin.hostname)) {
+      return res.status(400).json({ error: "PayFast needs a public HTTPS callback. Open the app through a public HTTPS URL and set NEXT_PUBLIC_SITE_URL to that URL before checkout." });
+    }
     const svc = new PayFastService({ merchantId, merchantKey, passphrase, testMode });
     // custom_str1 = company_id (server-resolved) so the webhook flips the
     // right company to 'active'. custom_str2 = plan id, custom_str3 = cycle.
@@ -110,7 +122,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       companyRow?.subscription_status === "trial" && companyRow.trial_ends_at
         ? new Date(companyRow.trial_ends_at).getTime() > Date.now()
           ? new Date(companyRow.trial_ends_at).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0]
+          : undefined
         : undefined,
     );
     const html = svc.generatePaymentForm(params);

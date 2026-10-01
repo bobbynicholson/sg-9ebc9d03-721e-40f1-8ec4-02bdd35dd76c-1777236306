@@ -175,6 +175,19 @@ export const subscriptionService = {
     reason?: string,
     feedback?: string
   ): Promise<CancellationRequest | null> {
+    const { data: linkedSubscription } = await supabase.from("subscriptions").select("company_id").eq("id", subscriptionId).single();
+    if (linkedSubscription) {
+      const { data: company } = await supabase.from("companies").select("payfast_subscription_token").eq("id", linkedSubscription.company_id).single();
+      if (company?.payfast_subscription_token) {
+        const response = await fetch("/api/subscription/manage", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "cancel", subscriptionId, immediate, reason, feedback }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not change PayFast billing");
+        return null;
+      }
+    }
     const { data: subscription, error: subscriptionErr } = await supabase
       .from("subscriptions")
       .select("status")
@@ -214,6 +227,18 @@ export const subscriptionService = {
   },
 
   async reactivateSubscription(subscriptionId: string): Promise<Subscription | null> {
+    const { data: linkedSubscription } = await supabase.from("subscriptions").select("company_id").eq("id", subscriptionId).single();
+    if (linkedSubscription) {
+      const { data: company } = await supabase.from("companies").select("payfast_subscription_token").eq("id", linkedSubscription.company_id).single();
+      if (company?.payfast_subscription_token) {
+        const response = await fetch("/api/subscription/manage", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "resume", subscriptionId }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not resume PayFast billing");
+        return result.subscription;
+      }
+    }
     const updates: SubscriptionUpdate = {
       cancel_at_period_end: false,
       status: "active",

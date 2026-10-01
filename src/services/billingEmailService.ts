@@ -4,6 +4,7 @@ import { emailService } from "./emailService";
 import { resolveEmailTemplate } from "./email/templateResolver";
 import { getTemplateDefinition } from "@/lib/messageTemplates/registry";
 import { buildTenantHref } from "@/lib/tenantUrl";
+import { billingDisclosure } from "@/lib/billingDisclosure";
 
 // Server context resolution, same pattern as emailNotificationService /
 // orderWorkflow: the notify* methods are invoked from webhooks and crons
@@ -451,7 +452,7 @@ export class BillingEmailService {
         companyId,
         to,
         subject: resolved.subject,
-        body: resolved.bodyHtml,
+        body: resolved.bodyHtml + billingDisclosure({ ...data, company_name: variables.company_name }),
         // Billing mail is CateringMS -> caterer, so the legal footer must
         // carry the platform /terms link, not the tenant's client T&Cs.
         legalAudience: "platform",
@@ -504,6 +505,10 @@ export class BillingEmailService {
         userName: profile.full_name || "there",
         planName: subscription.plan_name,
         amount: fmtBillingAmount(subscription.amount, subscription.currency),
+        paidAmount: fmtBillingAmount(subscription.paid_amount, subscription.currency),
+        recurringAmount: fmtBillingAmount(subscription.amount, subscription.currency),
+        billingMode: subscription.billing_mode,
+        isTrial: subscription.subscription_status === "trial",
         billingCycle: subscription.billing_cycle === "monthly" ? "Monthly" : "Yearly",
         nextBillingDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
         subscriptionUrl: buildBillingUrl(slug, "/admin/subscription")
@@ -531,6 +536,12 @@ export class BillingEmailService {
       {
         userName: profile.full_name || "there",
         amount: fmtBillingAmount(payment.amount, payment.currency),
+        paidAmount: fmtBillingAmount(payment.amount, payment.currency),
+        recurringAmount: fmtBillingAmount(payment.recurring_amount, payment.currency),
+        billingMode: payment.billing_mode,
+        billingCycle: payment.billing_cycle === "monthly" ? "Monthly" : "Yearly",
+        planName: payment.plan_name,
+        subscriptionUrl: buildBillingUrl(slug, "/admin/subscription"),
         paymentDate: new Date(payment.paid_at).toLocaleDateString(),
         transactionId: payment.transaction_id || "N/A",
         billingPeriodStart: new Date(payment.billing_period_start).toLocaleDateString(),

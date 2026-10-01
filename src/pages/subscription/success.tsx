@@ -8,10 +8,26 @@ import { CheckCircle, ArrowRight, Calendar, Mail, Zap } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function SubscriptionSuccessPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const { profile, company } = useAuth() as any;
+  const [confirmed, setConfirmed] = useState(false);
+  const companyId = company?.id || profile?.company_id;
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    const check = async () => {
+      const { data } = await supabase.from("companies").select("subscription_status, payfast_subscription_token").eq("id", companyId).maybeSingle();
+      if (!cancelled && data?.payfast_subscription_token && ["active", "trial"].includes(data.subscription_status || "")) setConfirmed(true);
+    };
+    void check();
+    const timer = setInterval(check, 3000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [companyId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -50,11 +66,11 @@ export default function SubscriptionSuccessPage() {
           
           <div className="space-y-2">
             <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0 px-4 py-1.5">
-              Payment Submitted
+              {confirmed ? "Subscription Confirmed" : "Payment Submitted"}
             </Badge>
-            <CardTitle className="text-3xl font-bold">Your subscription is being confirmed</CardTitle>
+            <CardTitle className="text-3xl font-bold">{confirmed ? "Your subscription is confirmed" : "Your subscription is being confirmed"}</CardTitle>
             <CardDescription className="text-lg">
-              Your payment provider is processing the request. Access changes only after CateringMS receives and verifies the provider webhook.
+              {confirmed ? "PayFast confirmation has been received. You can continue to your company dashboard." : "Your payment provider is processing the request. Access changes only after CateringMS receives and verifies the provider webhook."}
             </CardDescription>
           </div>
         </CardHeader>
@@ -71,7 +87,7 @@ export default function SubscriptionSuccessPage() {
                 <div>
                   <h4 className="font-medium mb-1">Check your email</h4>
                   <p className="text-sm text-slate-600">
-                    We have sent you a confirmation email with your account details and getting started guide.
+                    Billing confirmation emails are sent after the provider notification is verified. If confirmation stays pending, contact support with your PayFast payment reference.
                   </p>
                 </div>
               </div>
@@ -129,7 +145,7 @@ export default function SubscriptionSuccessPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Link href="/" className="flex-1">
+            <Link href={company?.slug ? `/${company.slug}/admin/dashboard` : "/admin/dashboard"} className="flex-1">
               <Button className="w-full h-12 bg-gradient-to-r from-slate-500 to-rose-500 hover:opacity-90">
                 Go to Dashboard
                 <ArrowRight className="w-4 h-4 ml-2" />

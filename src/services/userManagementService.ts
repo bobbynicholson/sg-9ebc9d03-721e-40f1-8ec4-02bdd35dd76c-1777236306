@@ -120,13 +120,14 @@ export const userManagementService = {
       // FIX: Check if email was sent successfully
       let emailError = null;
       try {
-        await billingEmailService.sendStaffInvitationEmail(
+        const emailed = await billingEmailService.sendStaffInvitationEmail(
             email,
             invitedBy,
             company?.company_name || "the company",
             invitationUrl,
             companyId
         );
+        if (!emailed) emailError = "Email delivery failed. Check Email settings and retry.";
       } catch (e: any) {
         emailError = e.message;
         console.error("Failed to send staff invitation email:", e);

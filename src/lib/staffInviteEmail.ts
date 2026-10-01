@@ -13,10 +13,10 @@
  * the link), sets their OWN password, and is taken into their portal -
  * no password travels by email.
  *
- * Fallbacks (so onboarding still completes if the link can't be minted):
- *   - tempPassword provided -> email the temp password + login URL.
- *   - neither -> email "use Forgot password at {loginUrl}".
+ * Link generation or delivery failure is reported to the admin for resend.
+ * Only emails containing an activation link can be reported as delivered.
  */
+import { randomUUID } from "crypto";
 import { emailService } from "@/services/emailService";
 
 export function escapeHtml(s: string): string {
@@ -40,8 +40,12 @@ export interface StaffInviteArgs {
   role: string;
   companyId: string;
   baseUrl: string;
-  /** Optional - only used as a fallback when the set-password link can't be minted. */
+  /** Legacy caller compatibility. Temporary passwords are never emailed. */
   tempPassword?: string;
+  /** Already minted by the staff provisioning endpoint. */
+  acceptInviteUrl?: string;
+  userId?: string;
+  invitedBy?: string;
 }
 
 export interface StaffInviteResult {
@@ -78,10 +82,27 @@ export async function sendStaffInviteEmail(
     const firstName = (args.fullName || "there").trim().split(/\s+/)[0] || "there";
     const roleLabel = humaniseRole(args.role);
 
+    if (args.userId && args.invitedBy) {
+      const { data: pending, error: lookupError } = await admin.from("staff_invitations")
+        .select("id").eq("company_id", args.companyId).eq("user_id", args.userId)
+        .eq("status", "pending").limit(1).maybeSingle();
+      if (lookupError) return { emailed: false, errorCode: "invitation_tracking_failed", via: "fallback", loginUrl };
+      const invitation = {
+        company_id: args.companyId, user_id: args.userId, email: args.email,
+        full_name: args.fullName, role: args.role, invited_by: args.invitedBy,
+        status: "pending", invitation_token: randomUUID(),
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+      const { error: trackingError } = pending
+        ? await admin.from("staff_invitations").update(invitation).eq("id", pending.id)
+        : await admin.from("staff_invitations").insert(invitation);
+      if (trackingError) return { emailed: false, errorCode: "invitation_tracking_failed", via: "fallback", loginUrl };
+    }
+
     // Try to mint a set-password (recovery) link so the invitee picks
     // their own password instead of receiving a temp one by email.
-    let inviteLink: string | null = null;
-    try {
+    let inviteLink: string | null = args.acceptInviteUrl || null;
+    if (!inviteLink) try {
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "recovery",
         email: args.email,
@@ -91,6 +112,10 @@ export async function sendStaffInviteEmail(
       else console.warn("[staffInviteEmail] generateLink failed:", linkErr.message);
     } catch (linkEx: any) {
       console.warn("[staffInviteEmail] generateLink threw:", linkEx?.message);
+    }
+
+    if (!inviteLink) {
+      return { emailed: false, errorCode: "link_generation_failed", via: "fallback", loginUrl };
     }
 
     const header = `<tr><td style="padding:28px 28px 8px">
@@ -103,13 +128,8 @@ export async function sendStaffInviteEmail(
           Sent by ${escapeHtml(companyName)} via CateringMS. If you weren't expecting this, you can ignore this email.
         </td></tr>`;
 
-    let inner: string;
-    let subject: string;
-    let via: StaffInviteResult["via"] = "fallback";
-    if (inviteLink) {
-      via = "invite_link";
-      subject = `You've been invited to ${companyName}`;
-      inner = `${header} Set your password to activate your account and sign in.
+    const subject = `You've been invited to ${companyName}`;
+    const inner = `${header} Set your password to activate your account and sign in.
           </p>
           <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 20px"><tr><td align="left" style="border-radius:10px;background:${accent}">
             <a href="${inviteLink}" style="display:inline-block;padding:14px 28px;font-weight:600;font-size:15px;color:#ffffff;text-decoration:none">Set your password</a>
@@ -119,31 +139,6 @@ export async function sendStaffInviteEmail(
           <p style="margin:0;font-size:13px;line-height:1.6;color:#94a3b8">
             Once your password is set, sign in any time at <a href="${loginUrl}" style="color:${accent}">${loginUrl}</a>.
           </p>`;
-    } else if (args.tempPassword) {
-      via = "temp_password";
-      subject = `Your ${companyName} staff sign-in details`;
-      inner = `${header} Sign in with the details below, then change your password.
-          </p>
-          <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px">
-            <tr><td style="padding:16px 18px;font-size:14px;color:#0f172a;line-height:1.9">
-              <div><span style="color:#64748b">Email:</span> <strong>${escapeHtml(args.email)}</strong></div>
-              <div><span style="color:#64748b">Temporary password:</span> <strong style="font-family:Menlo,Consolas,monospace">${escapeHtml(args.tempPassword)}</strong></div>
-            </td></tr>
-          </table>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr><td align="left" style="border-radius:10px;background:${accent}">
-            <a href="${loginUrl}" style="display:inline-block;padding:14px 28px;font-weight:600;font-size:15px;color:#ffffff;text-decoration:none">Sign in to your portal</a>
-          </td></tr></table>
-          <p style="margin:0;font-size:13px;line-height:1.6;color:#94a3b8">
-            For your security, please change this password after your first sign-in.
-          </p>`;
-    } else {
-      subject = `You've been invited to ${companyName}`;
-      inner = `${header} To activate your account, go to the sign-in page and choose "Forgot password" to set your password.
-          </p>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 20px"><tr><td align="left" style="border-radius:10px;background:${accent}">
-            <a href="${loginUrl}" style="display:inline-block;padding:14px 28px;font-weight:600;font-size:15px;color:#ffffff;text-decoration:none">Go to sign-in</a>
-          </td></tr></table>`;
-    }
 
     const html = `<!doctype html>
 <html><body style="margin:0;background:#f8fafc;font-family:Helvetica,Arial,sans-serif;color:#0f172a">
@@ -172,7 +167,7 @@ ${footer}
     return {
       emailed: !!detailed.success,
       errorCode: detailed.success ? undefined : ((detailed as any).error_code || "unknown"),
-      via,
+      via: "invite_link",
       loginUrl,
     };
   } catch (e: any) {

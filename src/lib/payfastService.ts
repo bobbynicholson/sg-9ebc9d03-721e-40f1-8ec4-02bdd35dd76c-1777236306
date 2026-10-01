@@ -111,10 +111,14 @@ export class PayFastService {
       billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice;
     const frequency = billingCycle === "monthly" ? "3" : "6";
     const today = new Date();
-    const defaultBillingDate = new Date(today.setDate(today.getDate() + PLATFORM_TRIAL_DAYS))
-      .toISOString()
-      .split("T")[0];
-    const billingDate = billingDateOverride || defaultBillingDate;
+    const nextCharge = new Date(today);
+    const day = nextCharge.getUTCDate();
+    nextCharge.setUTCDate(1);
+    nextCharge.setUTCMonth(nextCharge.getUTCMonth() + (billingCycle === "annual" ? 12 : 1));
+    const lastDay = new Date(Date.UTC(nextCharge.getUTCFullYear(), nextCharge.getUTCMonth() + 1, 0)).getUTCDate();
+    nextCharge.setUTCDate(Math.min(day, lastDay));
+    const billingDate = billingDateOverride || nextCharge.toISOString().split("T")[0];
+    const isTrial = !!billingDateOverride && billingDateOverride > today.toISOString().split("T")[0];
 
     const params: Record<string, string> = {
       merchant_id: this.config.merchantId,
@@ -131,11 +135,8 @@ export class PayFastService {
       name_first: user.firstName,
       name_last: user.lastName,
       email_address: user.email,
-      subscription_type: "1",
-      billing_date: billingDate,
-      recurring_amount: amount.toString(),
-      frequency: frequency,
-      cycles: "0",
+      m_payment_id: crypto.randomUUID(),
+      amount: isTrial ? "0.00" : amount.toFixed(2),
       item_name: `${plan.name} Plan - ${billingCycle}`,
       item_description: `${plan.name} subscription (${billingCycle} billing)`,
       custom_str1: user.userId,
@@ -143,6 +144,11 @@ export class PayFastService {
       custom_str3: billingCycle,
       email_confirmation: "1",
       confirmation_address: user.email,
+      subscription_type: "1",
+      billing_date: billingDate,
+      recurring_amount: amount.toFixed(2),
+      frequency,
+      cycles: "0",
     };
 
     const signature = this.generateSignature(params);
@@ -189,17 +195,25 @@ export class PayFastService {
     return generatedSignature === signature;
   }
 
+  private subscriptionHeaders(extra: Record<string, string> = {}): Record<string, string> {
+    const headers = { "merchant-id": this.config.merchantId, version: "v1", timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00") };
+    const params: Record<string, string> = { ...headers, ...extra, passphrase: this.config.passphrase };
+    const source = Object.keys(params).sort().map((key) => `${key}=${pfUrlEncode(params[key])}`).join("&");
+    return { ...headers, signature: crypto.createHash("md5").update(source).digest("hex") };
+  }
+
+  private subscriptionUrl(token: string, action: string): string {
+    return `https://api.payfast.co.za/subscriptions/${encodeURIComponent(token)}/${action}${this.config.testMode ? "?testing=true" : ""}`;
+  }
+
   async cancelSubscription(token: string): Promise<boolean> {
     try {
       const response = await fetch(
-        "https://api.payfast.co.za/subscriptions/" + token + "/cancel",
+        this.subscriptionUrl(token, "cancel"),
         {
           method: "PUT",
-          headers: {
-            "merchant-id": this.config.merchantId,
-            version: "v1",
-            timestamp: new Date().toISOString(),
-          },
+          headers: this.subscriptionHeaders(),
+          signal: AbortSignal.timeout(15000),
         }
       );
 
@@ -213,14 +227,11 @@ export class PayFastService {
   async fetchSubscription(token: string): Promise<any> {
     try {
       const response = await fetch(
-        "https://api.payfast.co.za/subscriptions/" + token + "/fetch",
+        this.subscriptionUrl(token, "fetch"),
         {
           method: "GET",
-          headers: {
-            "merchant-id": this.config.merchantId,
-            version: "v1",
-            timestamp: new Date().toISOString(),
-          },
+          headers: this.subscriptionHeaders(),
+          signal: AbortSignal.timeout(15000),
         }
       );
 
@@ -240,16 +251,15 @@ export class PayFastService {
   ): Promise<boolean> {
     try {
       const response = await fetch(
-        `https://api.payfast.co.za/subscriptions/${token}/pause`,
+        this.subscriptionUrl(token, "pause"),
         {
           method: "PUT",
           headers: {
-            "merchant-id": this.config.merchantId,
+            ...this.subscriptionHeaders({ cycles: String(cycles) }),
             "Content-Type": "application/json",
-            version: "v1",
-            timestamp: new Date().toISOString(),
           },
           body: JSON.stringify({ cycles }),
+          signal: AbortSignal.timeout(15000),
         }
       );
 
@@ -263,14 +273,11 @@ export class PayFastService {
   async unpauseSubscription(token: string): Promise<boolean> {
     try {
       const response = await fetch(
-        `https://api.payfast.co.za/subscriptions/${token}/unpause`,
+        this.subscriptionUrl(token, "unpause"),
         {
           method: "PUT",
-          headers: {
-            "merchant-id": this.config.merchantId,
-            version: "v1",
-            timestamp: new Date().toISOString(),
-          },
+          headers: this.subscriptionHeaders(),
+          signal: AbortSignal.timeout(15000),
         }
       );
 

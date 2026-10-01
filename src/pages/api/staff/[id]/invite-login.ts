@@ -18,11 +18,10 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import * as React from "react";
+import { randomUUID } from "crypto";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { sendBrandedEmail } from "@/server/emails/sendBrandedEmail";
-import StaffInviteEmail, { type InvitedRole } from "@/emails/StaffInviteEmail";
+import { sendStaffInviteEmail } from "@/lib/staffInviteEmail";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -34,23 +33,14 @@ const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "
 // and every kitchen/cleaning/shopping portal invite 500'd. Same fix
 // already applied in create-user.ts.
 const ROLE_MAP: Record<string, string> = {
+  kitchen_manager: "kitchen_staff",
   kitchen_staff: "kitchen_staff",
+  cleaning_manager: "cleaning_staff",
   cleaning_staff: "cleaning_staff",
   shopping_staff: "shopping_staff",
   driver: "driver",
   admin: "admin",
   owner: "admin",
-};
-
-// Keyed off the canonical dbRole now produced above.
-const BRANDED_ROLE_MAP: Record<string, InvitedRole> = {
-  kitchen_staff: "kitchen",
-  cleaning_staff: "cleaning",
-  shopping_staff: "shopping",
-  driver: "driver",
-  admin: "admin",
-  company_admin: "company_admin",
-  owner: "company_admin",
 };
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -76,9 +66,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const staffId = String(req.query.id || "");
     if (!staffId) return res.status(400).json({ error: "Missing staff id" });
 
-    const { role: requestedRole, redirectTo } = (req.body || {}) as { role?: string; redirectTo?: string };
+    const { role: requestedRole } = (req.body || {}) as { role?: string };
     const roleInput = (requestedRole || "kitchen_staff").toLowerCase();
-    const dbRole = ROLE_MAP[roleInput] || roleInput;
+    const dbRole = ROLE_MAP[roleInput];
+    if (!dbRole) return res.status(400).json({ error: "Invalid portal role" });
 
     let admin: any;
     try {
@@ -91,7 +82,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Tenant check + grab staff details to seed the profile.
     const { data: staff, error: staffErr } = await admin
       .from("kitchen_staff_members")
-      .select("id, company_id, full_name, email, phone, linked_profile_id, departments, role_title")
+      .select("id, company_id, full_name, email, phone, linked_profile_id, departments, role_title, region_id")
       .eq("id", staffId)
       .maybeSingle();
     if (staffErr || !staff) return res.status(404).json({ error: "Staff member not found" });
@@ -101,43 +92,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!staff.email) {
       return res.status(400).json({ error: "Staff member has no email on record. Add one first." });
     }
-    if (staff.linked_profile_id) {
-      return res.status(409).json({ error: "Staff member already has a portal login linked." });
+    const email = String(staff.email).trim().toLowerCase();
+    let authUserId: string | null = staff.linked_profile_id || null;
+    // Page through auth users so retries can recover partially-created accounts.
+    if (!authUserId) {
+      for (let page = 1; ; page++) {
+        const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+        if (error) return res.status(500).json({ error: "Could not check existing portal accounts. Try again." });
+        const users = data?.users || [];
+        const match = users.find((u: any) => u.email?.toLowerCase() === email);
+        if (match) { authUserId = match.id; break; }
+        if (users.length < 1000) break;
+      }
     }
-
-    // Look for an existing auth user with this email (e.g. a returning
-    // staff member who was invited before).
-    let authUserId: string | null = null;
-    try {
-      const { data: existing } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      const match = existing?.users?.find((u: any) => u.email?.toLowerCase() === String(staff.email).toLowerCase());
-      if (match) authUserId = match.id;
-    } catch (lookupErr: any) {
-      console.warn("Auth user lookup failed:", lookupErr?.message);
+    let existingProfile: any = null;
+    if (authUserId) {
+      const { data, error } = await admin.from("profiles")
+        .select("id, company_id, role, active_role").eq("id", authUserId).maybeSingle();
+      if (error) return res.status(500).json({ error: "Could not check existing profile" });
+      existingProfile = data;
+      if (data?.company_id && data.company_id !== staff.company_id) {
+        return res.status(409).json({ error: "This email already belongs to another company. Use a different email." });
+      }
+      const { data: authData, error: authError } = await admin.auth.admin.getUserById(authUserId);
+      if (authError || !authData?.user || authData.user.email?.toLowerCase() !== email) {
+        return res.status(409).json({ error: "The linked login has a different email. Manage its email in Users before resending." });
+      }
     }
-
-    // Resolve the tenant brand once - used for the invite email styling.
-    const { data: company, error: companyErr } = await admin
-      .from("companies")
-      .select("company_name, primary_color, logo_url, slug")
-      .eq("id", staff.company_id)
-      .maybeSingle();
-    if (companyErr) {
-      console.error("[staff/[id]/invite-login] companies fetch failed:", companyErr);
-    }
-    const brand = {
-      name: company?.company_name || "Your team",
-      primaryColor: company?.primary_color || undefined,
-      logoUrl: company?.logo_url || undefined,
-    };
-
-    // Pick the invite acceptance redirect destination. If the caller
-    // didn't pass one, send them to the tenant's auth callback so they
-    // land back inside the company portal after setting a password.
-    const origin = req.headers.origin || `https://${req.headers.host}`;
-    const finalRedirect =
-      redirectTo ||
-      (company?.slug ? `${origin}/${company.slug}/auth/callback` : `${origin}/auth/callback`);
+    // Use the current portal's origin for both custom and shared portal hosts.
+    const origin = String(req.headers.origin || `https://${req.headers.host}`).replace(/\/$/, "");
+    const finalRedirect = `${origin}/auth/reset-password?invite=1`;
 
     // Generate the activation link without sending Supabase's default
     // template - we send our own branded React-Email instead.
@@ -145,14 +129,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!authUserId) {
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "invite",
-        email: staff.email,
+        email,
         options: {
           redirectTo: finalRedirect,
           data: {
             full_name: staff.full_name,
             company_id: staff.company_id,
             role: dbRole,
-            active_role: dbRole,
+            active_role: roleInput,
             phone: staff.phone || null,
             invited_from: "staff_admin",
             staff_member_id: staff.id,
@@ -166,15 +150,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       authUserId = linkData.user.id;
       acceptInviteUrl = linkData.properties.action_link;
     } else {
-      // Existing auth user - generate a magic-link they can use to set
+      // Existing auth user - generate a recovery link they can use to set
       // up their portal access without going through invite-acceptance.
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-        type: "magiclink",
-        email: staff.email,
+        type: "recovery",
+        email,
         options: { redirectTo: finalRedirect },
       });
       if (linkErr || !linkData?.properties?.action_link) {
-        console.error("generateLink magiclink failed:", linkErr);
+        console.error("generateLink recovery failed:", linkErr);
         return res.status(500).json({ error: dbErrorMessage(linkErr) || "Could not create login link" });
       }
       acceptInviteUrl = linkData.properties.action_link;
@@ -182,18 +166,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     // Upsert a profile row so the auth user has a tenant + role on file
     // the moment they accept the invite.
-    const { error: profileErr } = await admin
+    const { error: profileErr } = existingProfile?.company_id ? { error: null } : await admin
       .from("profiles")
       .upsert(
         {
           id: authUserId,
-          email: staff.email,
+          email,
           full_name: staff.full_name,
           phone: staff.phone || null,
           company_id: staff.company_id,
           role: dbRole,
-          active_role: dbRole,
+          active_role: roleInput,
           is_active: true,
+          region_id: staff.region_id || null,
         },
         { onConflict: "id" },
       );
@@ -213,45 +198,53 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: dbErrorMessage(linkErr) });
     }
 
-    // Send the branded invite email. Don't fail the whole request if
-    // the send fails - the auth user + profile are already provisioned,
-    // and the admin can resend from the staff list.
-    const recipientFirstName = (staff.full_name || "").split(" ")[0] || staff.full_name || "there";
-    const inviterName =
-      ((callerProfile as any)?.full_name as string | undefined) || undefined;
-    const brandedRole = BRANDED_ROLE_MAP[dbRole] || "kitchen";
-    let emailOk = true;
-    let emailProvider: string | undefined;
-    try {
-      const result = await sendBrandedEmail({
-        component: React.createElement(StaffInviteEmail, {
-          recipientFirstName,
-          inviterName,
-          acceptInviteUrl: acceptInviteUrl as string,
-          role: brandedRole,
-          brand,
-        }),
-        to: staff.email,
-        subject: `${brand.name} invited you to the ${brandedRole} portal`,
-        companyId: staff.company_id,
-        templateType: `staff_invite_${brandedRole}`,
-        recipientName: staff.full_name || undefined,
+    // Record the invitation before sending so a failed delivery remains visible
+    // and can be retried from either Staff or Users & Roles.
+    const { data: pending, error: pendingErr } = await admin.from("staff_invitations")
+      .select("id").eq("company_id", staff.company_id).eq("user_id", authUserId)
+      .eq("status", "pending").limit(1).maybeSingle();
+    if (pendingErr) return res.status(500).json({ error: "Login created, but invitation tracking failed. Retry the invite." });
+    const invitation = {
+      company_id: staff.company_id, user_id: authUserId, email,
+      full_name: staff.full_name, role: existingProfile?.active_role || roleInput,
+      invited_by: callerAuth.id, status: "pending",
+      invitation_token: randomUUID(),
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+    const { error: invitationErr } = pending
+      ? await admin.from("staff_invitations").update(invitation).eq("id", pending.id)
+      : await admin.from("staff_invitations").insert(invitation);
+    if (invitationErr) return res.status(500).json({ error: dbErrorMessage(invitationErr) });
+
+    if (!existingProfile?.company_id) {
+      const department = roleInput.startsWith("kitchen") ? "kitchen"
+        : roleInput.startsWith("cleaning") ? "cleaning"
+        : roleInput === "shopping_staff" ? "buyer" : dbRole;
+      const { error: deptErr } = await admin.from("user_departments").insert({
+        user_id: authUserId, department, is_primary: true, assigned_by: callerAuth.id,
       });
-      emailOk = result.ok;
-      emailProvider = result.provider;
-    } catch (sendErr) {
-      console.error("Branded invite email failed:", sendErr);
-      emailOk = false;
+      if (deptErr) console.warn("Could not seed staff department:", deptErr);
+      if (roleInput.endsWith("_manager")) {
+        const { error: managerErr } = await admin.from("user_departments").insert({
+          user_id: authUserId, department: roleInput, is_primary: false, assigned_by: callerAuth.id,
+        });
+        if (managerErr) console.warn("Could not seed manager access:", managerErr);
+      }
     }
 
+    const result = await sendStaffInviteEmail(admin, {
+      email, fullName: staff.full_name || "", role: existingProfile?.active_role || roleInput,
+      companyId: staff.company_id, baseUrl: origin, acceptInviteUrl: acceptInviteUrl as string,
+    });
+    if (!result.emailed) {
+      return res.status(502).json({
+        ok: false, profile_id: authUserId, email_sent: false, errorCode: result.errorCode,
+        error: "Portal login created and listed in Users, but the invite email could not be sent. Check Email settings and resend the invite.",
+      });
+    }
     return res.status(200).json({
-      ok: true,
-      profile_id: authUserId,
-      email_sent: emailOk,
-      email_provider: emailProvider,
-      message: emailOk
-        ? `Invite sent to ${staff.email}`
-        : `Login provisioned but the invite email didn't go through. Try resending.`,
+      ok: true, profile_id: authUserId, email_sent: true,
+      message: `Invite sent to ${email}`,
     });
   } catch (e: any) {
     console.error("invite-login crashed:", e);

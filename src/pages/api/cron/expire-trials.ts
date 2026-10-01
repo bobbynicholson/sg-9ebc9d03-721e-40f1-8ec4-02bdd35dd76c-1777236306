@@ -40,6 +40,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     const nowIso = new Date().toISOString();
+    // PayFast is cancelled immediately to stop future deductions; paid
+    // access remains available until the chosen end of the billing period.
+    const { data: endedSubscriptions, error: endedError } = await sb.from("subscriptions")
+      .select("id, company_id").eq("cancel_at_period_end", true)
+      .neq("status", "cancelled").lte("current_period_end", nowIso).limit(2000);
+    if (endedError) throw endedError;
+    if (!dryRun) {
+      for (const ended of endedSubscriptions || []) {
+        const { error: companyError } = await sb.from("companies").update({ subscription_status: "cancelled", updated_at: nowIso })
+          .eq("id", ended.company_id);
+        if (companyError) throw companyError;
+        const { error: subscriptionError } = await sb.from("subscriptions").update({ status: "cancelled", cancelled_at: nowIso, next_billing_date: null })
+          .eq("id", ended.id);
+        if (subscriptionError) throw subscriptionError;
+      }
+    }
 
     // Lapsed trials: still on 'trial', a trial_ends_at that has passed,
     // not soft-deleted.

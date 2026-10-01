@@ -59,7 +59,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Resolve the target user.
     const { data: target } = await admin
       .from("profiles")
-      .select("id, email, full_name, role, company_id")
+      .select("id, email, full_name, role, active_role, company_id")
       .eq("id", userId)
       .maybeSingle();
     if (!target || !(target as any).email) {
@@ -76,15 +76,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
       (req.headers.origin as string) ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
       `https://${req.headers.host || "cateringms.com"}`;
 
     // No tempPassword passed: the helper mints a fresh set-password link.
     const result = await sendStaffInviteEmail(admin, {
+      userId: t.id, invitedBy: caller.id,
       email: t.email,
       fullName: t.full_name || "",
-      role: t.role || "team member",
+      role: t.active_role || t.role || "team member",
       companyId: t.company_id,
       baseUrl,
     });
@@ -94,7 +95,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         error:
           result.errorCode === "no_provider"
             ? "This company hasn't set up an email sender yet, so the invite can't be emailed. Set one up under Email settings, then resend."
-            : "Couldn't send the invite email. Please try again.",
+            : result.errorCode === "link_generation_failed"
+              ? "Could not generate an activation link. Please resend the invitation."
+              : result.errorCode === "invitation_tracking_failed"
+                ? "Could not record the pending invitation. Please try again."
+                : "Couldn't send the invite email. Please try again.",
         errorCode: result.errorCode,
       });
     }
