@@ -104,9 +104,11 @@ export class PayFastService {
     // legacy client-side caller.
     baseUrl?: string,
     billingDateOverride?: string,
+    tenantSlug?: string,
   ): PayFastSubscriptionParams {
     const origin =
       baseUrl || (typeof window !== "undefined" ? window.location.origin : "");
+    const tenantPath = tenantSlug ? `/${encodeURIComponent(tenantSlug)}` : "";
     const amount =
       billingCycle === "monthly" ? plan.monthlyPrice : plan.annualPrice;
     const frequency = billingCycle === "monthly" ? "3" : "6";
@@ -123,10 +125,10 @@ export class PayFastService {
     const params: Record<string, string> = {
       merchant_id: this.config.merchantId,
       merchant_key: this.config.merchantKey,
-      return_url: `${origin}/subscription/success`,
+      return_url: `${origin}${tenantPath}/subscription/success`,
       // /subscription/cancelled doesn't exist; send a cancelled checkout
       // back to the subscription page so they can retry.
-      cancel_url: `${origin}/admin/subscription?cancelled=1`,
+      cancel_url: `${origin}${tenantPath}/admin/subscription?cancelled=1`,
       // ITN target. Was /api/payfast/notify, which doesn't exist (404) -
       // so PayFast's payment notification never landed and the company
       // was never flipped to 'active'. The real subscription webhook is

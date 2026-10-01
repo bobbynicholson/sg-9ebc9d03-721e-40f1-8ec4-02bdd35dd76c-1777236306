@@ -6,7 +6,12 @@ jest.mock("@/lib/supabase/server", () => ({ createPagesServerClient: () => ({
   from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockProfile }) }) }) }),
 }) }));
 jest.mock("@/lib/supabase/service", () => ({ getServiceSupabase: () => ({
-  from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockCompany, error: null }) }) }) }),
+  from: (table: string) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({
+    data: table === "platform_pricing_plans"
+      ? { slug: "starter", name: "Starter", zar_price: 299, features: [], is_active: true }
+      : mockCompany,
+    error: null,
+  }) }) }) }),
 }) }));
 
 let mockUser: any;
@@ -15,7 +20,7 @@ let mockCompany: any;
 beforeEach(() => {
   mockUser = { id: "owner-1", email: "owner@example.com" };
   mockProfile = { company_id: "company-1", role: "company_admin", full_name: "Owner Buyer" };
-  mockCompany = { subscription_status: "trial", trial_ends_at: "2099-01-01", payfast_subscription_token: null };
+  mockCompany = { subscription_status: "trial", trial_ends_at: "2099-01-01", payfast_subscription_token: null, slug: "test-company" };
   process.env.PAYFAST_PLATFORM_MERCHANT_ID = "merchant";
   process.env.PAYFAST_PLATFORM_MERCHANT_KEY = "key";
   process.env.PAYFAST_PLATFORM_PASSPHRASE = "secret";
@@ -54,4 +59,12 @@ it("charges immediately after trial expiry", async () => {
   const result = await checkout();
   expect(result.statusCode).toBe(200);
   expect(result.body.html).toContain('name="amount" value="299.00"');
+});
+it("uses the normalized site origin and tenant-scoped return route", async () => {
+  process.env.NEXT_PUBLIC_SITE_URL = "https://example.com/deployment-path/";
+  const result = await checkout("https://preview.example.com");
+  expect(result.statusCode).toBe(200);
+  expect(result.body.html).toContain('name="return_url" value="https://example.com/test-company/subscription/success"');
+  expect(result.body.html).toContain('name="cancel_url" value="https://example.com/test-company/admin/subscription?cancelled=1"');
+  expect(result.body.html).toContain('name="notify_url" value="https://example.com/api/webhooks/subscriptions/payfast"');
 });

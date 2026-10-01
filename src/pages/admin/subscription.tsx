@@ -48,6 +48,8 @@ import {  UserRole  } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
+import { supabase } from "@/integrations/supabase/client";
+import { shouldShowExpiredSubscriptionPage } from "@/lib/subscriptionAccess";
 
 type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
@@ -186,8 +188,24 @@ function SubscriptionPage() {
   const router = useRouter();
   const { withSlug } = useTenantHref();
   const routeTenantSlug = getTenantSlugFromPathname(router.asPath);
-  const expiredAccess = router.query.expired === "1"
-    || ["suspended", "cancelled"].includes(String(company?.subscription_status || "").toLowerCase());
+  const scopedSuccessPath = routeTenantSlug
+    ? `/${routeTenantSlug}/subscription/success`
+    : company?.slug
+      ? `/${company.slug}/subscription/success`
+      : "/subscription/success";
+  const [verifiedCompanyStatus, setVerifiedCompanyStatus] = useState<{
+    status: string | null;
+    trialEndsAt: string | null;
+  } | null>(null);
+  const companyId = company?.id || user?.company_id || null;
+  const companyStatus = verifiedCompanyStatus?.status ?? company?.subscription_status ?? null;
+  const companyTrialEndsAt = verifiedCompanyStatus?.trialEndsAt ?? company?.trial_ends_at ?? null;
+  const paymentReturnHint = router.query.expired === "1" || router.query.payment === "pending";
+  const expiredAccess = shouldShowExpiredSubscriptionPage(
+    companyStatus,
+    companyTrialEndsAt,
+    paymentReturnHint,
+  );
   const [redirectingToScopedPage, setRedirectingToScopedPage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -204,6 +222,46 @@ function SubscriptionPage() {
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
   const [exportData, setExportData] = useState(false);
+
+  // A PayFast return can arrive before its server notification. Recheck the
+  // company row while the expired hint is present; once the verified webhook
+  // restores access, send the owner to the tenant-scoped success page.
+  useEffect(() => {
+    if (!router.isReady || !paymentReturnHint || !companyId) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const checkPaymentStatus = async () => {
+      attempts += 1;
+      try {
+        const { data, error } = await supabase
+          .from("companies")
+          .select("subscription_status, trial_ends_at")
+          .eq("id", companyId)
+          .maybeSingle();
+        if (cancelled || error || !data) return;
+
+        const status = String(data.subscription_status || "").toLowerCase();
+        const trialEndsAt = data.trial_ends_at || null;
+        setVerifiedCompanyStatus({ status: status || null, trialEndsAt });
+        if (status === "active") {
+          if (timer) clearInterval(timer);
+          void router.replace(scopedSuccessPath);
+          return;
+        }
+        if (attempts >= 20 && timer) clearInterval(timer);
+      } catch (error) {
+        console.warn("Could not refresh subscription status after payment:", error);
+      }
+    };
+
+    const timer = setInterval(() => { void checkPaymentStatus(); }, 3000);
+    void checkPaymentStatus();
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [router, router.isReady, paymentReturnHint, companyId, scopedSuccessPath]);
 
   // A bare subscription URL is ambiguous: platform billing belongs in the
   // platform workspace, while a company subscription must carry the tenant

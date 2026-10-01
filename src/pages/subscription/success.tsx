@@ -20,12 +20,15 @@ export default function SubscriptionSuccessPage() {
     if (!companyId) return;
     let cancelled = false;
     const check = async () => {
-      const { data } = await supabase.from("companies").select("subscription_status, payfast_subscription_token").eq("id", companyId).maybeSingle();
-      if (!cancelled && data?.payfast_subscription_token && ["active", "trial"].includes(data.subscription_status || "")) setConfirmed(true);
+      const { data } = await supabase.from("companies").select("subscription_status").eq("id", companyId).maybeSingle();
+      if (!cancelled && ["active", "trial"].includes(String(data?.subscription_status || "").toLowerCase())) {
+        setConfirmed(true);
+        clearInterval(timer);
+      }
     };
+    const timer = setInterval(() => { void check(); }, 3000);
     void check();
-    const timer = setInterval(check, 3000);
-    return () => { cancelled = true; clearInterval(timer); };
+    return () => { cancelled = true; if (timer) clearInterval(timer); };
   }, [companyId]);
 
   useEffect(() => {
@@ -157,7 +160,9 @@ export default function SubscriptionSuccessPage() {
                   Check payment status
                 </Button>
                 <Link
-                  href={company?.slug ? `/${company.slug}/admin/subscription?expired=1` : "/admin/subscription?expired=1"}
+                  href={company?.slug
+                    ? `/${company.slug}/admin/subscription?payment=pending`
+                    : "/admin/subscription?payment=pending"}
                   className="flex-1"
                 >
                   <Button variant="outline" className="w-full h-12">Return to billing</Button>

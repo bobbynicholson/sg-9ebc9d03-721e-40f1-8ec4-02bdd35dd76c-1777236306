@@ -60,7 +60,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const { data: companyRow, error: companyError } = await admin
       .from("companies")
-      .select("trial_ends_at, subscription_status, payfast_subscription_token")
+      .select("trial_ends_at, subscription_status, payfast_subscription_token, slug")
       .eq("id", companyId)
       .maybeSingle();
     if (companyError) throw companyError;
@@ -113,18 +113,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "PayFast needs a public HTTPS callback. Open the app through a public HTTPS URL and set NEXT_PUBLIC_SITE_URL to that URL before checkout." });
     }
     const svc = new PayFastService({ merchantId, merchantKey, passphrase, testMode });
+    // Always send PayFast back to the public site root, and preserve the
+    // company URL so its return lands on the right tenant's success screen.
+    const siteOrigin = checkoutOrigin.origin;
+    const tenantSlug = String((companyRow as any).slug || "").trim();
     // custom_str1 = company_id (server-resolved) so the webhook flips the
     // right company to 'active'. custom_str2 = plan id, custom_str3 = cycle.
     const params = svc.createSubscriptionParams(
       plan,
       { firstName: firstName || "Customer", lastName, email, userId: companyId },
       cycle,
-      baseUrl,
+      siteOrigin,
       companyRow?.subscription_status === "trial" && companyRow.trial_ends_at
         ? new Date(companyRow.trial_ends_at).getTime() > Date.now()
           ? new Date(companyRow.trial_ends_at).toISOString().split("T")[0]
           : undefined
         : undefined,
+      tenantSlug || undefined,
     );
     const html = svc.generatePaymentForm(params);
 

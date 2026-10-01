@@ -147,6 +147,20 @@ it("builds zero initial trial amount and charges the plan after trial expiry", (
   expect(trial.notify_url).toBe("https://example.com/api/webhooks/subscriptions/payfast");
   expect(svc.generatePaymentForm(trial)).not.toContain("secret");
 });
+it("returns PayFast to the tenant-scoped success and cancellation routes", () => {
+  const svc = new PayFastService({ merchantId: "merchant", merchantKey: "key", passphrase: "secret", testMode: false });
+  const params: any = svc.createSubscriptionParams(
+    plan,
+    { firstName: "Cal", lastName: "Buyer", email: "cal@example.com", userId: "company-1" },
+    "monthly",
+    "https://example.com",
+    undefined,
+    "raj267748-payfast-test",
+  );
+  expect(params.return_url).toBe("https://example.com/raj267748-payfast-test/subscription/success");
+  expect(params.cancel_url).toBe("https://example.com/raj267748-payfast-test/admin/subscription?cancelled=1");
+  expect(params.notify_url).toBe("https://example.com/api/webhooks/subscriptions/payfast");
+});
 it("records annual automatic renewals without repeated checkout metadata", async () => {
   const first = notification({ custom_str3: "annual", amount_gross: String(plan.annualPrice) });
   expect((await deliver(first)).statusCode).toBe(200);
