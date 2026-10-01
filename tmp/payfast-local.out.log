@@ -1,0 +1,56 @@
+   ▲ Next.js 15.2.8
+   - Local:        http://localhost:3001
+   - Network:      http://172.20.128.1:3001
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2s
+ ✓ Compiled /middleware in 486ms (156 modules)
+[middleware] [INFO] request /api/subscription/create-session
+ ○ Compiling /api/subscription/create-session ...
+ ✓ Compiled /api/subscription/create-session in 2.6s (381 modules)
+
+[logger] Run #564 - logs → logs\run-564-2026-10-01_14-46-43
+
+ POST /api/subscription/create-session 401 in 2737ms
+[middleware] [INFO] request /api/webhooks/subscriptions/payfast
+ ○ Compiling /api/webhooks/subscriptions/payfast ...
+ ✓ Compiled /api/webhooks/subscriptions/payfast in 1342ms (486 modules)
+
+[logger] Run #565 - logs → logs\run-565-2026-10-01_14-46-44
+
+ POST /api/webhooks/subscriptions/payfast 400 in 1381ms
+ ✓ Compiled in 669ms (357 modules)
+ ✓ Compiled in 356ms (357 modules)
+[middleware] [INFO] request /api/subscription/manage
+ ○ Compiling /api/subscription/manage ...
+ ✓ Compiled /api/subscription/manage in 578ms (380 modules)
+
+[logger] Run #566 - logs → logs\run-566-2026-10-01_14-50-44
+
+ POST /api/subscription/manage 401 in 628ms
+[middleware] [INFO] request /subscription/success
+ ○ Compiling /subscription/success ...
+ ✓ Compiled /subscription/success in 9.6s (1224 modules)
+ ✓ Compiled in 540ms (1224 modules)
+ GET /subscription/success 200 in 10736ms
+[middleware] [INFO] request /subscription/checkout
+ ○ Compiling /subscription/checkout ...
+ ✓ Compiled /subscription/checkout in 2.4s (1258 modules)
+ GET /subscription/checkout?plan=starter&cycle=monthly 200 in 2831ms
+ ✓ Compiled in 1009ms (1258 modules)
+ ✓ Compiled in 1582ms (1258 modules)
+ ✓ Compiled in 609ms (763 modules)
+ ✓ Compiled in 483ms (763 modules)
+ ✓ Compiled in 441ms (763 modules)
+ ✓ Compiled in 1226ms (1120 modules)
+ ✓ Compiled in 638ms (763 modules)
+ ✓ Compiled in 500ms (763 modules)
+ ✓ Compiled in 191ms (763 modules)
+ ✓ Compiled in 181ms (763 modules)
+ ✓ Compiled in 196ms (763 modules)
+ ✓ Compiled in 198ms (763 modules)
+[middleware] [INFO] request /subscription/checkout
+ ○ Compiling /subscription/checkout ...
+ ✓ Compiled /subscription/checkout in 1712ms (1162 modules)
+ GET /subscription/checkout?plan=starter 200 in 2137ms

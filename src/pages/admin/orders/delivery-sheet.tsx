@@ -6,7 +6,7 @@
  * a single order; dispatch needs the opposite - the whole day
  * on one A4 sheet for the morning briefing. Until now they were
  * screenshotting the orders kanban or copying rows into a Google
- * Sheet by hand.
+ * Sheet by hand.ubduhiek
  *
  * Auto-fires window.print() once data lands so the ?date=...
  * deep-link reads as 'open + print today's sheet' from the

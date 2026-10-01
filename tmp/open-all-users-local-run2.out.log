@@ -1,0 +1,12 @@
+opened super-admin      bobby@skylight-digital.co.za -> http://localhost:3000/admin/platform/dashboard
+opened company-admin    hello@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/admin/dashboard
+opened admin            admin@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/admin/dashboard
+opened kitchen-manager  kitchen.manager.demo@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/team-portal/kitchen/today
+opened kitchen          kitchen@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/team-portal/kitchen/today
+opened driver           driver@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/team-portal/driver/dashboard
+opened shopping         shopping@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/team-portal/shopping/dashboard
+opened cleaning-manager cleaning.manager.demo@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/team-portal/cleaning/dashboard
+opened cleaning         cleaning@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/team-portal/cleaning/dashboard
+opened client           universalsportmags23@gmail.com -> http://localhost:3000/spit-braai-delivery/client-portal/dashboard
+
+Local windows open. Edit code -> save -> the dev server hot-reloads. Ctrl+C here won't close the windows.

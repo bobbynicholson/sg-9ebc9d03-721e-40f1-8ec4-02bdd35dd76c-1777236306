@@ -1,0 +1,129 @@
+FAILED super-admin: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\super-admin --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=22704[22m
+[2m  - [pid=22704][out] Opening in existing browser session.[22m
+[2m  - [pid=22704] <gracefully close start>[22m
+[2m  - [pid=22704] <kill>[22m
+[2m  - [pid=22704] <will force kill>[22m
+[2m  - [pid=22704] taskkill stderr: ERROR: The process "22704" not found.[22m
+[2m  - [pid=22704] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=22704] starting temporary directories cleanup[22m
+[2m  - [pid=22704] finished temporary directories cleanup[22m
+[2m  - [pid=22704] <gracefully close end>[22m
+
+FAILED company-admin: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\company-admin --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=9720[22m
+[2m  - [pid=9720][out] Opening in existing browser session.[22m
+[2m  - [pid=9720] <gracefully close start>[22m
+[2m  - [pid=9720] <kill>[22m
+[2m  - [pid=9720] <will force kill>[22m
+[2m  - [pid=9720] taskkill stderr: ERROR: The process "9720" not found.[22m
+[2m  - [pid=9720] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=9720] starting temporary directories cleanup[22m
+[2m  - [pid=9720] finished temporary directories cleanup[22m
+[2m  - [pid=9720] <gracefully close end>[22m
+
+opened admin            admin@spitbraaidelivery.co.za -> http://localhost:3000/spit-braai-delivery/admin/dashboard
+FAILED kitchen-manager: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\kitchen-manager --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=24040[22m
+[2m  - [pid=24040][out] Opening in existing browser session.[22m
+[2m  - [pid=24040] <gracefully close start>[22m
+[2m  - [pid=24040] <kill>[22m
+[2m  - [pid=24040] <will force kill>[22m
+[2m  - [pid=24040] taskkill stderr: ERROR: The process "24040" not found.[22m
+[2m  - [pid=24040] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=24040] starting temporary directories cleanup[22m
+[2m  - [pid=24040] finished temporary directories cleanup[22m
+[2m  - [pid=24040] <gracefully close end>[22m
+
+FAILED kitchen: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\kitchen --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=28476[22m
+[2m  - [pid=28476][out] Opening in existing browser session.[22m
+[2m  - [pid=28476] <gracefully close start>[22m
+[2m  - [pid=28476] <kill>[22m
+[2m  - [pid=28476] <will force kill>[22m
+[2m  - [pid=28476] taskkill stderr: ERROR: The process "28476" not found.[22m
+[2m  - [pid=28476] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=28476] starting temporary directories cleanup[22m
+[2m  - [pid=28476] finished temporary directories cleanup[22m
+[2m  - [pid=28476] <gracefully close end>[22m
+
+FAILED driver: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\driver --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=39688[22m
+[2m  - [pid=39688][out] Opening in existing browser session.[22m
+[2m  - [pid=39688] <gracefully close start>[22m
+[2m  - [pid=39688] <kill>[22m
+[2m  - [pid=39688] <will force kill>[22m
+[2m  - [pid=39688] taskkill stderr: ERROR: The process "39688" not found.[22m
+[2m  - [pid=39688] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=39688] starting temporary directories cleanup[22m
+[2m  - [pid=39688] finished temporary directories cleanup[22m
+[2m  - [pid=39688] <gracefully close end>[22m
+
+FAILED shopping: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\shopping --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=15176[22m
+[2m  - [pid=15176][out] Opening in existing browser session.[22m
+[2m  - [pid=15176] <gracefully close start>[22m
+[2m  - [pid=15176] <kill>[22m
+[2m  - [pid=15176] <will force kill>[22m
+[2m  - [pid=15176] taskkill stderr: ERROR: The process "15176" not found.[22m
+[2m  - [pid=15176] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=15176] starting temporary directories cleanup[22m
+[2m  - [pid=15176] finished temporary directories cleanup[22m
+[2m  - [pid=15176] <gracefully close end>[22m
+
+FAILED cleaning-manager: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\cleaning-manager --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=22700[22m
+[2m  - [pid=22700][out] Opening in existing browser session.[22m
+[2m  - [pid=22700] <gracefully close start>[22m
+[2m  - [pid=22700] <kill>[22m
+[2m  - [pid=22700] <will force kill>[22m
+[2m  - [pid=22700] taskkill stderr: ERROR: The process "22700" not found.[22m
+[2m  - [pid=22700] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=22700] starting temporary directories cleanup[22m
+[2m  - [pid=22700] finished temporary directories cleanup[22m
+[2m  - [pid=22700] <gracefully close end>[22m
+
+FAILED cleaning: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\cleaning --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=36336[22m
+[2m  - [pid=36336][out] Opening in existing browser session.[22m
+[2m  - [pid=36336] <gracefully close start>[22m
+[2m  - [pid=36336] <kill>[22m
+[2m  - [pid=36336] <will force kill>[22m
+[2m  - [pid=36336] taskkill stderr: ERROR: The process "36336" not found.[22m
+[2m  - [pid=36336] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=36336] starting temporary directories cleanup[22m
+[2m  - [pid=36336] finished temporary directories cleanup[22m
+[2m  - [pid=36336] <gracefully close end>[22m
+
+FAILED client: browserType.launchPersistentContext: Opening in existing browser session. This usually means that the profile is already in use by another instance of Chromium.
+Call log:
+[2m  - <launching> C:\Users\raj\AppData\Local\ms-playwright\chromium-1228\chrome-win64\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --no-sandbox --new-window --disk-cache-size=1 --media-cache-size=1 --aggressive-cache-discard --user-data-dir=D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\.browser-profiles-local\client --remote-debugging-pipe about:blank[22m
+[2m  - <launched> pid=9952[22m
+[2m  - [pid=9952][out] Opening in existing browser session.[22m
+[2m  - [pid=9952] <gracefully close start>[22m
+[2m  - [pid=9952] <kill>[22m
+[2m  - [pid=9952] <will force kill>[22m
+[2m  - [pid=9952] taskkill stderr: ERROR: The process "9952" not found.[22m
+[2m  - [pid=9952] <process did exit: exitCode=0, signal=null>[22m
+[2m  - [pid=9952] starting temporary directories cleanup[22m
+[2m  - [pid=9952] finished temporary directories cleanup[22m
+[2m  - [pid=9952] <gracefully close end>[22m
+
+
+Local windows open. Edit code -> save -> the dev server hot-reloads. Ctrl+C here won't close the windows.

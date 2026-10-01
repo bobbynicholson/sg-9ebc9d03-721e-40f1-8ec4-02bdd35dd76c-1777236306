@@ -1,0 +1,878 @@
+
+> softgen-starter@2.3.1 dev
+> next dev
+
+   ▲ Next.js 15.2.8
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.56.1:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1782ms
+ ✓ Compiled /middleware in 217ms (156 modules)
+[middleware] [INFO] request /auth/login
+ ○ Compiling /auth/login ...
+ ✓ Compiled /auth/login in 8.5s (1152 modules)
+ ✓ Compiled in 414ms (1152 modules)
+ GET /auth/login 200 in 9665ms
+[middleware] [INFO] request /auth/login
+ GET /auth/login 200 in 233ms
+[middleware] [INFO] request /admin/platform
+ ✓ Compiled /admin/platform in 328ms (1156 modules)
+ GET /admin/platform 307 in 680ms
+[middleware] [INFO] request /admin/platform/dashboard
+ ○ Compiling /admin/platform/dashboard ...
+ ✓ Compiled /admin/platform/dashboard in 3.4s (1348 modules)
+ GET /admin/platform/dashboard 200 in 3867ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard 200 in 244ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ ○ Compiling /admin/dashboard ...
+[middleware] [INFO] request /api/auth/roles
+ ✓ Compiled /api/auth/roles in 4.2s (3129 modules)
+
+[logger] Run #545 - logs → logs\run-545-2026-09-29_13-13-26
+
+ GET /spit-braai-delivery/admin/dashboard 200 in 6006ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json 200 in 242ms
+ GET /api/auth/roles 200 in 6153ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 200 in 1215ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ GET /spit-braai-delivery/admin/dashboard 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ ○ Compiling /team-portal/kitchen/today ...
+ ✓ Compiled /team-portal/kitchen/today in 2.8s (3251 modules)
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 3303ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+ ○ Compiling /team-portal/driver/dashboard ...
+ ✓ Compiled /team-portal/driver/dashboard in 2.6s (3371 modules)
+ GET /spit-braai-delivery/team-portal/driver/dashboard 200 in 3139ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json 200 in 296ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ ○ Compiling /team-portal/shopping/dashboard ...
+ ✓ Compiled /team-portal/shopping/dashboard in 2.9s (3645 modules)
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 3410ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 240ms
+[middleware] [INFO] request /sw.js
+[middleware] [INFO] request /team-portal/driver/dashboard
+[middleware] [INFO] request /team-portal/driver/deliveries
+[middleware] [INFO] request /team-portal/driver/routes
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ ○ Compiling /team-portal/cleaning/dashboard ...
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ ✓ Compiled /team-portal/cleaning/dashboard in 6.5s (3816 modules)
+ GET /team-portal/driver/dashboard 200 in 7368ms
+ GET /team-portal/driver/deliveries 200 in 7370ms
+ GET /spit-braai-delivery/admin/dashboard 200 in 2627ms
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 7074ms
+ GET /team-portal/driver/routes 200 in 7373ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 246ms
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 246ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ ○ Compiling /client-portal/dashboard ...
+ ✓ Compiled /client-portal/dashboard in 2.9s (3850 modules)
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 3536ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 381ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard 200 in 297ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #546 - logs → logs\run-546-2026-09-29_13-15-50
+
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ GET /spit-braai-delivery/admin/dashboard 200 in 470ms
+ GET /api/auth/roles 200 in 932ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 200 in 663ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ GET /spit-braai-delivery/admin/dashboard 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 403ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 240ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+ GET /spit-braai-delivery/team-portal/driver/dashboard 200 in 344ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 297ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 315ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /sw.js
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 226ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 254ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 255ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /.well-known/appspecific/com.chrome.devtools.json
+ ○ Compiling /404 ...
+ ✓ Compiled /404 in 2s (3781 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 2458ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/orders
+ ○ Compiling /admin/orders ...
+ ✓ Compiled /admin/orders in 3.6s (3959 modules)
+ GET /_next/data/development/spit-braai-delivery/admin/orders.json?company_slug=spit-braai-delivery 200 in 4266ms
+[middleware] [INFO] request /api/admin/orders
+ ✓ Compiled /api/admin/orders in 163ms (1051 modules)
+ GET /api/admin/orders?company_id=0e139a19-6526-4e1f-9bf7-87d6adbee5f8 200 in 687ms
+[middleware] [INFO] request /api/admin/orders
+ GET /api/admin/orders?company_id=0e139a19-6526-4e1f-9bf7-87d6adbee5f8 200 in 210ms
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+ ○ Compiling /admin/quotes/new ...
+ ✓ Compiled /admin/quotes/new in 2.8s (3999 modules)
+ GET /_next/data/development/spit-braai-delivery/admin/quotes/new.json?company_slug=spit-braai-delivery 200 in 3315ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/production
+ ○ Compiling /team-portal/kitchen/production ...
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ ✓ Compiled /team-portal/kitchen/duty in 2.8s (3857 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/production.json?company_slug=spit-braai-delivery 200 in 3341ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json?company_slug=spit-braai-delivery 200 in 2556ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json?company_slug=spit-braai-delivery 200 in 293ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json?company_slug=spit-braai-delivery 200 in 240ms
+[middleware] [INFO] request /api/chat
+ ○ Compiling /api/chat ...
+ ✓ Compiled /api/chat in 780ms (1036 modules)
+
+[logger] Run #547 - logs → logs\run-547-2026-09-29_13-26-42
+
+ GET /api/chat?limit=50 200 in 2638ms
+[middleware] [INFO] request /api/chat
+ POST /api/chat 200 in 4020ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json?company_slug=spit-braai-delivery 200 in 516ms
+[middleware] [INFO] request /api/chat
+ GET /api/chat?limit=50 200 in 1761ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/production
+ ✓ Compiled /team-portal/kitchen/production in 310ms (3913 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/production.json?company_slug=spit-braai-delivery 200 in 781ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/calendar
+ ○ Compiling /team-portal/driver/calendar ...
+ ✓ Compiled /team-portal/driver/calendar in 1143ms (3849 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/calendar.json?company_slug=spit-braai-delivery 200 in 1691ms
+[middleware] [INFO] request /sw.js
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ ○ Compiling /team-portal/kitchen/prep-list ...
+ ✓ Compiled /team-portal/kitchen/prep-list in 1327ms (3768 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/prep-list.json?company_slug=spit-braai-delivery 200 in 1790ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+ ✓ Compiled /team-portal/driver/dashboard in 331ms (3851 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json?company_slug=spit-braai-delivery 200 in 865ms
+[middleware] [INFO] request /sw.js
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ ✓ Compiled /team-portal/kitchen/duty in 355ms (3861 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json?company_slug=spit-braai-delivery 200 in 826ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/stock
+ ○ Compiling /team-portal/kitchen/stock ...
+ ✓ Compiled /team-portal/kitchen/stock in 2.8s (3867 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/stock.json?company_slug=spit-braai-delivery 200 in 3301ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/menu
+ ○ Compiling /team-portal/kitchen/menu ...
+ ✓ Compiled /team-portal/kitchen/menu in 1350ms (3855 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/menu.json?company_slug=spit-braai-delivery 200 in 1947ms
+[middleware] [INFO] request /api/chat
+ ○ Compiling /api/chat ...
+ ✓ Compiled /api/chat in 928ms (1039 modules)
+
+[logger] Run #548 - logs → logs\run-548-2026-09-29_13-35-15
+
+ GET /api/chat?limit=50 200 in 2841ms
+[middleware] [INFO] request /api/chat
+ GET /api/chat?limit=50 200 in 1144ms
+[middleware] [INFO] request /api/chat
+ GET /api/chat?limit=50 200 in 656ms
+[middleware] [INFO] request /api/chat
+ POST /api/chat 200 in 3276ms
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/urgent.wav
+ ✓ Compiled in 17.4s (3847 modules)
+ ✓ Compiled in 1805ms (3847 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 759ms
+ ✓ Compiled in 1606ms (3847 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 1082ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 111ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 254ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 274ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 128ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 264ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 265ms
+ ✓ Compiled in 1561ms (3847 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/calendar
+ ○ Compiling /admin/calendar ...
+[middleware] [INFO] request /spit-braai-delivery/admin/calendar
+ ✓ Compiled /admin/calendar in 8.5s (3869 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/calendar
+ GET /_next/data/development/spit-braai-delivery/admin/calendar.json?view=week&company_slug=spit-braai-delivery 200 in 9521ms
+ GET /_next/data/development/spit-braai-delivery/admin/calendar.json?view=month&company_slug=spit-braai-delivery 200 in 1879ms
+ GET /_next/data/development/spit-braai-delivery/admin/calendar.json?company_slug=spit-braai-delivery 200 in 468ms
+[middleware] [INFO] request /spit-braai-delivery/admin/calendar
+ GET /_next/data/development/spit-braai-delivery/admin/calendar.json?company_slug=spit-braai-delivery 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 553ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 268ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 262ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 107ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 265ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 263ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 237ms
+ ✓ Compiled in 2.2s (3847 modules)
+ ✓ Compiled in 1709ms (3847 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 752ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ ○ Compiling /team-portal/kitchen/calendar ...
+ ✓ Compiled /team-portal/kitchen/calendar in 2.9s (3853 modules)
+ GET /spit-braai-delivery/team-portal/kitchen/calendar 200 in 3810ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 2020ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 299ms
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 6s (3847 modules)
+ ✓ Compiled in 4.2s (3847 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 3065ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 66ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 23ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 263ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ ○ Compiling /team-portal/kitchen/calendar ...
+ ✓ Compiled /team-portal/kitchen/calendar in 4.4s (3853 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/calendar.json?view=month&company_slug=spit-braai-delivery 200 in 5539ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 475ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 267ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 262ms
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 191ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 383ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 282ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 108ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 259ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 271ms
+ ✓ Compiled in 2.4s (3847 modules)
+ ✓ Compiled in 985ms (3847 modules)
+ ✓ Compiled in 2.6s (3847 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 804ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 572ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 248ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 1177ms (3847 modules)
+ ✓ Compiled in 1126ms (3847 modules)
+ ✓ Compiled in 1655ms (3847 modules)
+ ✓ Compiled in 966ms (3847 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 1748ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /spit-braai-delivery/team-portal/kitchen/today 200 in 743ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 280ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ ○ Compiling /team-portal/kitchen/calendar ...
+ ✓ Compiled /team-portal/kitchen/calendar in 10.7s (3853 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/calendar.json?view=week&company_slug=spit-braai-delivery 200 in 12333ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json 200 in 700ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/calendar.json?company_slug=spit-braai-delivery 200 in 271ms
+ ✓ Compiled in 1206ms (3805 modules)
+ ✓ Compiled in 2.1s (3805 modules)
+ ✓ Compiled in 843ms (3805 modules)
+ ✓ Compiled in 891ms (3805 modules)
+ ✓ Compiled in 574ms (2847 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /spit-braai-delivery/team-portal/kitchen/calendar 200 in 663ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /spit-braai-delivery/team-portal/kitchen/calendar 200 in 356ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/calendar.json 200 in 509ms
+ ✓ Compiled in 3.5s (3805 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /spit-braai-delivery/team-portal/kitchen/calendar 200 in 717ms
+ ✓ Compiled in 1052ms (3805 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /spit-braai-delivery/team-portal/kitchen/calendar 200 in 552ms
+[middleware] [INFO] request /
+ ○ Compiling / ...
+ ✓ Compiled / in 2.7s (4222 modules)
+ GET / 200 in 3313ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /spit-braai-delivery/team-portal/kitchen/calendar 200 in 54ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /spit-braai-delivery/team-portal/kitchen/calendar 200 in 322ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/calendar.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/today
+ ○ Compiling /team-portal/kitchen/today ...
+ ✓ Compiled /team-portal/kitchen/today in 4.3s (3853 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/today.json?company_slug=spit-braai-delivery 200 in 5207ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ ○ Compiling /team-portal/kitchen/management ...
+ ✓ Compiled /team-portal/kitchen/management in 1948ms (3863 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery 200 in 5064ms
+ GET /spit-braai-delivery/team-portal/kitchen/calendar 200 in 501ms
+[middleware] [INFO] request /api/admin/team-management
+ ○ Compiling /api/admin/team-management ...
+ ✓ Compiled /api/admin/team-management in 4.5s (1028 modules)
+
+[logger] Run #549 - logs → logs\run-549-2026-09-29_17-56-00
+
+ GET /api/admin/team-management?department=kitchen 200 in 9394ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2343ms
+ ✓ Compiled in 1025ms (3904 modules)
+ ✓ Compiled in 885ms (3856 modules)
+ ✓ Compiled in 629ms (2852 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ ○ Compiling /_error ...
+ GET /spit-braai-delivery/team-portal/kitchen/management 500 in 4697ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled /api/admin/team-management in 5.6s (3809 modules)
+ ✓ Compiled (3850 modules)
+
+[logger] Run #550 - logs → logs\run-550-2026-09-29_17-58-51
+
+ GET /api/admin/team-management?department=kitchen 200 in 9087ms
+[middleware] [INFO] request /api/admin/team-management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 640ms
+ GET /api/admin/team-management?department=kitchen 200 in 2756ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 123ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 251ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json 200 in 263ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 1394ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 1384ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 125ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 263ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json 200 in 268ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2738ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2247ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 299ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 401 in 159ms
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json 200 in 370ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 401 in 49ms
+ ✓ Compiled in 865ms (3850 modules)
+[middleware] [INFO] request /api/admin/team-management
+
+[logger] Run #551 - logs → logs\run-551-2026-09-29_18-00-35
+
+ GET /api/admin/team-management?department=kitchen 200 in 2434ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled in 803ms (3850 modules)
+
+[logger] Run #552 - logs → logs\run-552-2026-09-29_18-00-40
+
+ GET /api/admin/team-management?department=kitchen 200 in 2361ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 593ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled in 2.4s (3850 modules)
+
+[logger] Run #553 - logs → logs\run-553-2026-09-29_18-01-15
+
+ GET /api/admin/team-management?department=kitchen 200 in 1820ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 699ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 128ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 138ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 257ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json 200 in 251ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2389ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2265ms
+ ✓ Compiled in 1057ms (3850 modules)
+[middleware] [INFO] request /api/admin/team-management
+
+[logger] Run #554 - logs → logs\run-554-2026-09-29_18-03-04
+
+ GET /api/admin/team-management?department=kitchen 200 in 4034ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 382ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ GET /spit-braai-delivery/team-portal/kitchen/management 200 in 387ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json 200 in 264ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2528ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2342ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/production
+ ○ Compiling /team-portal/kitchen/production ...
+ ✓ Compiled /team-portal/kitchen/production in 8.7s (3862 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/production.json?company_slug=spit-braai-delivery 200 in 9357ms
+ ✓ Compiled in 9.3s (3811 modules)
+[middleware] [INFO] request /admin/platform/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/quotes/new
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /api/chat
+ ○ Compiling /api/chat ...
+ GET /_next/data/development/admin/platform/dashboard.json 200 in 2052ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json?company_slug=spit-braai-delivery 200 in 2030ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json?company_slug=spit-braai-delivery 200 in 2030ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery 200 in 2007ms
+ GET /_next/data/development/spit-braai-delivery/client-portal/dashboard.json?company_slug=spit-braai-delivery 200 in 2045ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json?company_slug=spit-braai-delivery 200 in 2008ms
+ GET /_next/data/development/spit-braai-delivery/admin/quotes/new.json?company_slug=spit-braai-delivery 200 in 2008ms
+ ✓ Compiled /api/chat in 3s (1017 modules)
+
+[logger] Run #555 - logs → logs\run-555-2026-09-29_18-06-57
+
+ GET /api/chat?limit=50 200 in 4835ms
+ ✓ Compiled in 2.3s (3867 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ ○ Compiling /team-portal/kitchen/calendar ...
+ ✓ Compiled /team-portal/kitchen/calendar in 4.8s (3873 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/calendar.json?view=month&company_slug=spit-braai-delivery 200 in 5329ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/production
+ GET /spit-braai-delivery/team-portal/kitchen/production 200 in 354ms
+ ✓ Compiled in 743ms (2853 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /spit-braai-delivery/team-portal/kitchen/calendar?view=month 200 in 127ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ GET /spit-braai-delivery/team-portal/kitchen/calendar?view=month 200 in 278ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/calendar.json?view=month 200 in 276ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ ○ Compiling /team-portal/kitchen/duty ...
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ ✓ Compiled /team-portal/kitchen/prep-list in 12.7s (3825 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json?company_slug=spit-braai-delivery 200 in 13643ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/prep-list.json?company_slug=spit-braai-delivery 200 in 10891ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/prep-list.json?company_slug=spit-braai-delivery 200 in 266ms
+ ✓ Compiled in 2.1s (3805 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ GET /spit-braai-delivery/team-portal/kitchen/prep-list 200 in 1020ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ GET /spit-braai-delivery/team-portal/kitchen/prep-list 200 in 145ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ GET /spit-braai-delivery/team-portal/kitchen/prep-list 200 in 126ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ GET /spit-braai-delivery/team-portal/kitchen/prep-list 200 in 259ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/prep-list.json 200 in 261ms
+ ✓ Compiled in 1019ms (3805 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ GET /spit-braai-delivery/team-portal/kitchen/prep-list 200 in 409ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ GET /spit-braai-delivery/team-portal/kitchen/prep-list 200 in 417ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/prep-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/prep-list.json 200 in 259ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/calendar
+ ○ Compiling /team-portal/kitchen/calendar ...
+ ✓ Compiled /team-portal/kitchen/calendar in 1020ms (3811 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/calendar.json?company_slug=spit-braai-delivery 200 in 1818ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ ○ Compiling /team-portal/kitchen/duty ...
+ ✓ Compiled /team-portal/kitchen/duty in 938ms (3825 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json?company_slug=spit-braai-delivery 200 in 1714ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 244ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json 200 in 244ms
+ ✓ Compiled in 3.7s (3813 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 950ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 262ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 159ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 138ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 277ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json 200 in 254ms
+ ✓ Compiled in 1951ms (3813 modules)
+ ✓ Compiled in 11.1s (3813 modules)
+ ✓ Compiled in 1127ms (3813 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 791ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 158ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 164ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json 200 in 239ms
+ ✓ Compiled in 641ms (3813 modules)
+ ✓ Compiled in 664ms (3813 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 456ms
+ ✓ Compiled in 514ms (3813 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 421ms
+ ✓ Compiled in 636ms (3813 modules)
+ ✓ Compiled in 548ms (3813 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ GET /spit-braai-delivery/team-portal/kitchen/duty 200 in 413ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/stock
+ ○ Compiling /team-portal/kitchen/stock ...
+ ✓ Compiled /team-portal/kitchen/stock in 3.2s (3821 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/stock.json?company_slug=spit-braai-delivery 200 in 3687ms
+[middleware] [INFO] request /team-portal/kitchen/stock
+ GET /team-portal/kitchen/stock?company_slug=spit-braai-delivery&q=&cat=&storage=&below=&recipes=&sort= 200 in 226ms
+ ✓ Compiled in 768ms (3807 modules)
+[middleware] [INFO] request /team-portal/kitchen/stock
+ GET /team-portal/kitchen/stock?company_slug=spit-braai-delivery&q=&cat=&storage=&below=&recipes=&sort= 200 in 403ms
+[middleware] [INFO] request /team-portal/kitchen/stock
+ GET /team-portal/kitchen/stock?company_slug=spit-braai-delivery&q=&cat=&storage=&below=&recipes=&sort= 200 in 153ms
+[middleware] [INFO] request /team-portal/kitchen/stock
+ GET /team-portal/kitchen/stock?company_slug=spit-braai-delivery&q=&cat=&storage=&below=&recipes=&sort= 200 in 226ms
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 1205ms (3807 modules)
+[middleware] [INFO] request /team-portal/kitchen/stock
+ GET /team-portal/kitchen/stock?company_slug=spit-braai-delivery&q=&cat=&storage=&below=&recipes=&sort= 200 in 371ms
+[middleware] [INFO] request /team-portal/kitchen/stock
+ GET /team-portal/kitchen/stock?company_slug=spit-braai-delivery&q=&cat=&storage=&below=&recipes=&sort= 200 in 145ms
+[middleware] [INFO] request /team-portal/kitchen/stock
+ GET /team-portal/kitchen/stock?company_slug=spit-braai-delivery&q=&cat=&storage=&below=&recipes=&sort= 200 in 228ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/menu
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/menu.json?company_slug=spit-braai-delivery 200 in 264ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/menu
+ GET /spit-braai-delivery/team-portal/kitchen/menu 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/menu
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/menu.json 200 in 194ms
+ ✓ Compiled in 2.6s (3799 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/menu
+ GET /spit-braai-delivery/team-portal/kitchen/menu 200 in 461ms
+ ✓ Compiled in 1076ms (3799 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/menu
+ GET /spit-braai-delivery/team-portal/kitchen/menu 200 in 419ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ ○ Compiling /team-portal/kitchen/management ...
+ ✓ Compiled /team-portal/kitchen/management in 1588ms (3809 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery 200 in 1983ms
+[middleware] [INFO] request /api/admin/team-management
+ ○ Compiling /api/admin/team-management ...
+ ✓ Compiled /api/admin/team-management in 1414ms (1001 modules)
+
+[logger] Run #556 - logs → logs\run-556-2026-09-29_18-43-50
+
+ GET /api/admin/team-management?department=kitchen 200 in 3136ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 1333ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ ○ Compiling /admin/teams/kitchen ...
+ ✓ Compiled /admin/teams/kitchen in 2.8s (3872 modules)
+ GET /_next/data/development/spit-braai-delivery/admin/teams/kitchen.json?company_slug=spit-braai-delivery 200 in 3334ms
+[middleware] [INFO] request /api/admin/team-management
+
+[logger] Run #557 - logs → logs\run-557-2026-09-29_18-43-59
+
+ GET /api/admin/team-management?department=kitchen 200 in 2404ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2192ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 401 in 63ms
+ HEAD /_next/data/development/spit-braai-delivery/admin/teams/kitchen.json 200 in 223ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled in 779ms (3866 modules)
+[middleware] [INFO] request /api/admin/team-management
+
+[logger] Run #558 - logs → logs\run-558-2026-09-29_18-45-23
+
+ GET /api/admin/team-management?department=kitchen 200 in 2283ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2234ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled in 587ms (3866 modules)
+
+[logger] Run #559 - logs → logs\run-559-2026-09-29_18-45-35
+
+ GET /api/admin/team-management?department=kitchen 200 in 1404ms
+ ✓ Compiled in 561ms (3866 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 468ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled /api/admin/team-management in 1372ms (3825 modules)
+ ✓ Compiled (3866 modules)
+
+[logger] Run #560 - logs → logs\run-560-2026-09-29_18-48-18
+
+ GET /api/admin/team-management?department=kitchen 200 in 2240ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 1369ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 516ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 401 in 47ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 401 in 31ms
+ HEAD /_next/data/development/spit-braai-delivery/admin/teams/kitchen.json 200 in 229ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 162ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 227ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ HEAD /_next/data/development/spit-braai-delivery/admin/teams/kitchen.json 200 in 227ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2266ms
+[middleware] [INFO] request /api/admin/team-management
+[middleware] [INFO] request /sounds/urgent.wav
+ GET /api/admin/team-management?department=kitchen 200 in 2179ms
+ ✓ Compiled in 589ms (3866 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 419ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled /api/admin/team-management in 830ms (3866 modules)
+
+[logger] Run #561 - logs → logs\run-561-2026-09-29_18-52-10
+
+ GET /api/admin/team-management?department=kitchen 200 in 1711ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 1355ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 400ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 223ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 401 in 28ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 401 in 19ms
+ HEAD /_next/data/development/spit-braai-delivery/admin/teams/kitchen.json 200 in 224ms
+ ✓ Compiled in 1398ms (3866 modules)
+[middleware] [INFO] request /api/admin/team-management
+
+[logger] Run #562 - logs → logs\run-562-2026-09-29_18-57-40
+
+ GET /api/admin/team-management?department=kitchen 200 in 1858ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 418ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 146ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 231ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ HEAD /_next/data/development/spit-braai-delivery/admin/teams/kitchen.json 200 in 233ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2307ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 2297ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled in 564ms (3866 modules)
+
+[logger] Run #563 - logs → logs\run-563-2026-09-29_18-59-11
+
+ GET /api/admin/team-management?department=kitchen 200 in 1450ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 1290ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 419ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 160ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ GET /spit-braai-delivery/admin/teams/kitchen 200 in 224ms
+[middleware] [INFO] request /spit-braai-delivery/admin/teams/kitchen
+ HEAD /_next/data/development/spit-braai-delivery/admin/teams/kitchen.json 200 in 237ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 1407ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=kitchen 200 in 1330ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ ○ Compiling /admin/kitchen-schedule ...
+ ✓ Compiled /admin/kitchen-schedule in 4.2s (3892 modules)
+ GET /_next/data/development/spit-braai-delivery/admin/kitchen-schedule.json?company_slug=spit-braai-delivery 200 in 4667ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ HEAD /_next/data/development/spit-braai-delivery/admin/kitchen-schedule.json 200 in 232ms
+ ✓ Compiled in 1155ms (3831 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 163ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 297ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ HEAD /_next/data/development/spit-braai-delivery/admin/kitchen-schedule.json 200 in 238ms
+ ✓ Compiled in 1997ms (3831 modules)
+ ✓ Compiled in 661ms (3831 modules)
+ ✓ Compiled in 431ms (3831 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 179ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 275ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ HEAD /_next/data/development/spit-braai-delivery/admin/kitchen-schedule.json 200 in 238ms
+ ✓ Compiled in 645ms (3831 modules)
+ ✓ Compiled in 576ms (3831 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 448ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ HEAD /_next/data/development/spit-braai-delivery/admin/kitchen-schedule.json 200 in 221ms
+ ✓ Compiled in 3s (3831 modules)
+ ✓ Compiled in 630ms (3831 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 193ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 121ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 323ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ HEAD /_next/data/development/spit-braai-delivery/admin/kitchen-schedule.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ HEAD /_next/data/development/spit-braai-delivery/admin/kitchen-schedule.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 144ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 151ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ GET /spit-braai-delivery/admin/kitchen-schedule 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-schedule
+ HEAD /_next/data/development/spit-braai-delivery/admin/kitchen-schedule.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-settings
+ ○ Compiling /admin/kitchen-settings ...
+ ✓ Compiled /admin/kitchen-settings in 3.1s (3845 modules)
+ GET /_next/data/development/spit-braai-delivery/admin/kitchen-settings.json?company_slug=spit-braai-delivery 200 in 3592ms
+[middleware] [INFO] request /spit-braai-delivery/admin/kitchen-settings
+ GET /spit-braai-delivery/admin/kitchen-settings 200 in 244ms
+[middleware] [INFO] request /spit-braai-delivery/admin/notifications
+ ○ Compiling /admin/notifications ...
+ ✓ Compiled /admin/notifications in 4.3s (3855 modules)
+ GET /spit-braai-delivery/admin/notifications 200 in 4831ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/notifications
+ ○ Compiling /team-portal/kitchen/notifications ...
+ ✓ Compiled /team-portal/kitchen/notifications in 1236ms (3837 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/notifications.json?company_slug=spit-braai-delivery 200 in 1685ms
+ ✓ Compiled in 579ms (3827 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/notifications
+ GET /spit-braai-delivery/team-portal/kitchen/notifications 200 in 408ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/stock
+ ○ Compiling /team-portal/kitchen/stock ...
+ ✓ Compiled /team-portal/kitchen/stock in 1297ms (3815 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/stock.json?company_slug=spit-braai-delivery 200 in 1878ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/duty
+ ○ Compiling /team-portal/kitchen/duty ...
+ ✓ Compiled /team-portal/kitchen/duty in 1255ms (3829 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/duty.json?company_slug=spit-braai-delivery 200 in 1716ms
+[?25h
