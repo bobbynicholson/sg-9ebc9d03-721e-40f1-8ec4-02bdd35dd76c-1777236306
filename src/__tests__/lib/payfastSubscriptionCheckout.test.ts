@@ -6,9 +6,11 @@ jest.mock("@/lib/supabase/server", () => ({ createPagesServerClient: () => ({
   from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockProfile }) }) }) }),
 }) }));
 jest.mock("@/lib/supabase/service", () => ({ getServiceSupabase: () => ({
-  from: (table: string) => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({
+  from: (table: string) => ({ select: () => ({ eq: (_column: string, value: string) => ({ maybeSingle: async () => ({
     data: table === "platform_pricing_plans"
-      ? { slug: "starter", name: "Starter", zar_price: 299, features: [], is_active: true }
+      ? value === "payfast-test"
+        ? { slug: "payfast-test", name: "PayFast Flow Test", zar_price: 5, features: ["One R5 payment only"], is_active: false }
+        : { slug: "starter", name: "Starter", zar_price: 299, features: [], is_active: true }
       : mockCompany,
     error: null,
   }) }) }) }),
@@ -67,4 +69,18 @@ it("uses the normalized site origin and tenant-scoped return route", async () =>
   expect(result.body.html).toContain('name="return_url" value="https://example.com/test-company/subscription/success"');
   expect(result.body.html).toContain('name="cancel_url" value="https://example.com/test-company/admin/subscription?cancelled=1"');
   expect(result.body.html).toContain('name="notify_url" value="https://example.com/api/webhooks/subscriptions/payfast"');
+});
+it("builds a one-time R5 flow-test payment only for the dedicated tenant", async () => {
+  mockCompany.slug = "raj267748-payfast-test";
+  const result = await checkout("https://example.com", { planId: "payfast-test" });
+  expect(result.statusCode).toBe(200);
+  expect(result.body.html).toContain('name="amount" value="5.00"');
+  expect(result.body.html).toContain('name="return_url" value="https://example.com/raj267748-payfast-test/subscription/success"');
+  expect(result.body.html).toContain('name="custom_str2" value="payfast-test"');
+  expect(result.body.html).not.toContain('name="subscription_type"');
+  expect(result.body.html).not.toContain('name="recurring_amount"');
+});
+it("rejects the R5 flow-test plan for other companies", async () => {
+  const result = await checkout("https://example.com", { planId: "payfast-test" });
+  expect(result.statusCode).toBe(403);
 });

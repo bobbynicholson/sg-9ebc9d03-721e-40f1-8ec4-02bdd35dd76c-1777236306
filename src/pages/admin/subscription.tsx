@@ -50,6 +50,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { shouldShowExpiredSubscriptionPage } from "@/lib/subscriptionAccess";
+import { PAYFAST_TEST_PLAN_ID, isPayfastTestTenant } from "@/lib/payfastTestPlan";
 
 type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 type BillingHistory = Database["public"]["Tables"]["billing_history"]["Row"];
@@ -69,6 +70,8 @@ export default function ProtectedSubscriptionPage() {
 function SubscriptionPlanPicker({ expiredAccess }: { expiredAccess: boolean }) {
   const router = useRouter();
   const { withSlug } = useTenantHref();
+  const routeTenantSlug = getTenantSlugFromPathname(router.asPath);
+  const showPayfastTestPlan = isPayfastTestTenant(routeTenantSlug);
   const [livePlans, setLivePlans] = useState<LivePlan[] | null>(null);
   const [pricingLoadError, setPricingLoadError] = useState(false);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
@@ -176,6 +179,32 @@ function SubscriptionPlanPicker({ expiredAccess }: { expiredAccess: boolean }) {
               </Card>
             );
           })}
+          {showPayfastTestPlan && (
+            <Card className="flex h-full flex-col border-dashed border-amber-400 bg-amber-50/40">
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle>PayFast Flow Test</CardTitle>
+                  <Badge variant="outline">Test only</Badge>
+                </div>
+                <CardDescription>
+                  <span className="text-2xl font-bold text-slate-900">R5</span>
+                  <span className="ml-1">one-time payment</span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <p className="flex-1 text-sm text-slate-600">
+                  Only for this test tenant. A successful payment checks the PayFast notification, success return, and access restoration. It will not recur.
+                </p>
+                <Button
+                  className="w-full gap-2"
+                  onClick={() => router.push(withSlug("/subscription/checkout?plan=" + PAYFAST_TEST_PLAN_ID + "&cycle=monthly"))}
+                >
+                  <ArrowUpCircle className="h-4 w-4" />
+                  Run R5 payment test
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </CardContent>
     </Card>

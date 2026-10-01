@@ -4,6 +4,7 @@ import {
   calculateAnnualSavings,
   type LivePlan,
 } from "@/lib/pricingCalculator";
+import { isPayfastTestPlan } from "@/lib/payfastTestPlan";
 
 type PlatformPlanRow = LivePlan & { is_active?: boolean };
 
@@ -64,6 +65,7 @@ export async function loadPlatformSubscriptionPlan(
     .maybeSingle();
 
   if (error) {
+    if (isPayfastTestPlan(normalizedId) && options.requireActive) return null;
     if (["42P01", "PGRST205"].includes(String(error.code || ""))) {
       console.warn("[platformSubscriptionPlans] live pricing table unavailable; using code fallback");
       return fallback;
@@ -72,7 +74,10 @@ export async function loadPlatformSubscriptionPlan(
   }
 
   if (!data) return options.requireActive ? null : fallback;
-  if (options.requireActive && data.is_active !== true) return null;
+  // This is a checkout-only plan. Its database row stays inactive so all
+  // generic plan listings omit it; tenant and payment handlers enforce the
+  // dedicated slug before allowing this exception.
+  if (options.requireActive && data.is_active !== true && !isPayfastTestPlan(normalizedId)) return null;
 
   const resolved = applyPlatformPricingToPlan(normalizedId, [data as PlatformPlanRow]);
   if (!resolved) throw new Error(`Platform plan ${normalizedId} has an invalid monthly price`);

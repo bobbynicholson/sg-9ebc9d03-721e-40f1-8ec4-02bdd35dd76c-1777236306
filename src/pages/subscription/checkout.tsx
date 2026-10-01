@@ -27,6 +27,8 @@ import type { LivePlan } from "@/lib/pricingCalculator";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
+import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
+import { isPayfastTestPlan, isPayfastTestTenant } from "@/lib/payfastTestPlan";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -53,12 +55,14 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
 
   const selectedPlanId = typeof planId === "string" ? planId : "";
+  const isTestPlan = isPayfastTestPlan(selectedPlanId);
+  const routeTenantSlug = getTenantSlugFromPathname(router.asPath);
   const basePlan = selectedPlanId ? getPlanById(selectedPlanId) : undefined;
   const plan = basePlan
     ? applyPlatformPricingToPlan(selectedPlanId, livePlans) || basePlan
     : undefined;
   const trialEndDate = authCompany?.trial_ends_at ? new Date(authCompany.trial_ends_at) : null;
-  const hasTrial = authCompany?.subscription_status === "trial" && !!trialEndDate && trialEndDate.getTime() > Date.now();
+  const hasTrial = !isTestPlan && authCompany?.subscription_status === "trial" && !!trialEndDate && trialEndDate.getTime() > Date.now();
 
   useEffect(() => {
     if (!plan && planId) {
@@ -67,8 +71,16 @@ export default function CheckoutPage() {
   }, [plan, planId, router]);
 
   useEffect(() => {
-    if (cycle === "monthly" || cycle === "annual") setBillingCycle(cycle);
-  }, [cycle]);
+    if (isTestPlan && !isPayfastTestTenant(routeTenantSlug)) {
+      router.replace("/admin/subscription");
+      return;
+    }
+    if (isTestPlan) setBillingCycle("monthly");
+  }, [isTestPlan, routeTenantSlug, router]);
+
+  useEffect(() => {
+    if (!isTestPlan && (cycle === "monthly" || cycle === "annual")) setBillingCycle(cycle);
+  }, [cycle, isTestPlan]);
 
   useEffect(() => {
     let cancelled = false;
@@ -180,7 +192,7 @@ export default function CheckoutPage() {
       <PortalShell>
         <PortalHeader
           title="Subscription Checkout"
-          subtitle={`Subscribe to the ${plan.name} plan for ${company || "your company"}.`}
+          subtitle={isTestPlan ? "Make one R5 payment to verify PayFast for this test tenant." : `Subscribe to the ${plan.name} plan for ${company || "your company"}.`}
           icon={CreditCard}
           actions={(
             <Link href="/pricing">
@@ -200,12 +212,12 @@ export default function CheckoutPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="w-5 h-5 text-slate-600" />
                     <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0">
-                      {hasTrial ? "Trial period" : "Recurring subscription"}
+                      {isTestPlan ? "One-time flow test" : hasTrial ? "Trial period" : "Recurring subscription"}
                     </Badge>
                   </div>
-                  <CardTitle className="text-2xl">{hasTrial ? "Set Up Billing After Your Trial" : "Start Your Subscription"}</CardTitle>
+                  <CardTitle className="text-2xl">{isTestPlan ? "Verify the PayFast Payment Flow" : hasTrial ? "Set Up Billing After Your Trial" : "Start Your Subscription"}</CardTitle>
                   <CardDescription>
-                    {hasTrial ? <>No payment required today. Your card will be charged after your existing trial ends on{" "}
+                    {isTestPlan ? <>PayFast will collect R5 once. This test plan does not start recurring billing.</> : hasTrial ? <>No payment required today. Your card will be charged after your existing trial ends on{" "}
                     {trialEndDate!.toLocaleDateString("en-ZA", {
                       day: "numeric",
                       month: "long",
@@ -277,7 +289,7 @@ export default function CheckoutPage() {
                       <div className="flex items-center gap-3">
                         <Shield className="w-5 h-5 text-brand-primary" />
                         <p className="text-sm text-slate-700 font-medium">
-                          Your trial includes all {plan.name} features
+                          {isTestPlan ? "This is a single R5 test payment for this tenant." : "Your trial includes all " + plan.name + " features."}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -289,7 +301,7 @@ export default function CheckoutPage() {
                       <div className="flex items-center gap-3">
                         <Calendar className="w-5 h-5 text-slate-600" />
                         <p className="text-sm text-slate-700">
-                          Cancel anytime during your trial, no questions asked
+                          {isTestPlan ? "No repeat payments are created by this test." : "Cancel anytime during your trial, no questions asked."}
                         </p>
                       </div>
                     </div>
@@ -331,13 +343,15 @@ export default function CheckoutPage() {
                       ) : (
                         <>
                           <CreditCard className="w-5 h-5 mr-2" />
-                          {hasTrial ? "Set Up Recurring Billing" : `Pay ${formatCurrency(amount)} and Subscribe`}
+                          {isTestPlan ? "Pay R5 once and test access" : hasTrial ? "Set Up Recurring Billing" : "Pay " + formatCurrency(amount) + " and Subscribe"}
                         </>
                       )}
                     </Button>
 
                     <p className="text-xs text-center text-slate-500">
-                      You authorize PayFast to charge {formatCurrency(amount)} automatically every {billingCycle === "annual" ? "year" : "month"}{hasTrial ? " after your existing trial ends" : ", starting today"}, until you cancel.
+                      {isTestPlan
+                        ? "This is a single R5 payment. PayFast will not create a recurring payment."
+                        : <>You authorize PayFast to charge {formatCurrency(amount)} automatically every {billingCycle === "annual" ? "year" : "month"}{hasTrial ? " after your existing trial ends" : ", starting today"}, until you cancel.</>}
                     </p>
                   </form>
                 </CardContent>
@@ -352,7 +366,7 @@ export default function CheckoutPage() {
                 <CardContent className="p-6 space-y-4">
                   <div>
                     <h3 className="font-semibold text-lg mb-1">{plan.name} Plan</h3>
-                    <p className="text-sm text-slate-600">{billingCycle === "monthly" ? "Monthly" : "Annual"} Billing</p>
+                    <p className="text-sm text-slate-600">{isTestPlan ? "One-time payment" : (billingCycle === "monthly" ? "Monthly" : "Annual") + " Billing"}</p>
                   </div>
 
                   <Separator />
@@ -388,7 +402,7 @@ export default function CheckoutPage() {
                     <span className="font-semibold">Due Today</span>
                     <div className="text-right">
                       <span className="text-2xl font-bold">{formatCurrency(hasTrial ? 0 : amount)}</span>
-                          <p className="text-xs text-slate-500">{hasTrial ? "No charge during your remaining trial" : "First subscription payment"}</p>
+                          <p className="text-xs text-slate-500">{isTestPlan ? "Single R5 test charge" : hasTrial ? "No charge during your remaining trial" : "First subscription payment"}</p>
                     </div>
                   </div>
 
@@ -396,9 +410,9 @@ export default function CheckoutPage() {
                     <div className="flex items-start gap-2">
                       <Zap className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-medium text-blue-900 mb-1">{hasTrial ? `Starting ${trialEndDate!.toLocaleDateString()}` : "Automatic recurring billing"}</p>
+                        <p className="text-sm font-medium text-blue-900 mb-1">{isTestPlan ? "One payment only" : hasTrial ? "Starting " + trialEndDate!.toLocaleDateString() : "Automatic recurring billing"}</p>
                         <p className="text-sm text-blue-700">
-                          {formatCurrency(amount)}/{billingCycle === "annual" ? "year" : "month"}
+                          {isTestPlan ? formatCurrency(amount) + " once" : formatCurrency(amount) + "/" + (billingCycle === "annual" ? "year" : "month")}
                         </p>
                       </div>
                     </div>

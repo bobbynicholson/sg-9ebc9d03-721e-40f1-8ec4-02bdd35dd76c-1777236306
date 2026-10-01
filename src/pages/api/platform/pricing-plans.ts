@@ -21,6 +21,7 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { PAYFAST_TEST_PLAN_ID } from "@/lib/payfastTestPlan";
 
 
 export interface PricingPlanRow {
@@ -50,6 +51,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("platform_pricing_plans")
         .select("slug, name, sort_order, zar_price, usd_price, gbp_price, eur_price, features, active_clients_limit, orders_per_quarter_limit, is_recommended, is_active")
         .eq("is_active", true)
+        .neq("slug", PAYFAST_TEST_PLAN_ID)
         .order("sort_order", { ascending: true });
       if (error) return res.status(500).json({ error: dbErrorMessage(error) });
       return res.status(200).json({ plans: (data || []) as PricingPlanRow[] });

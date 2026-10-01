@@ -22,6 +22,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { PayFastService } from "@/lib/payfastService";
 import { loadPlatformSubscriptionPlan } from "@/lib/platformSubscriptionPlans";
+import { isPayfastTestPlan, isPayfastTestTenant, PAYFAST_TEST_PLAN_AMOUNT_ZAR } from "@/lib/payfastTestPlan";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -55,9 +56,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const planId = String(body.planId || "");
     const cycle = body.cycle === "annual" ? "annual" : "monthly";
     const admin = getServiceSupabase();
-    const plan = await loadPlatformSubscriptionPlan(admin, planId, { requireActive: true });
-    if (!plan) return res.status(400).json({ error: "This plan is not currently available. Choose an active plan and try again." });
-
     const { data: companyRow, error: companyError } = await admin
       .from("companies")
       .select("trial_ends_at, subscription_status, payfast_subscription_token, slug")
@@ -65,6 +63,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
     if (companyError) throw companyError;
     if (!companyRow) return res.status(404).json({ error: "Company not found." });
+    const isTestPlan = isPayfastTestPlan(planId);
+    if (isTestPlan && (!isPayfastTestTenant(companyRow.slug) || body.cycle === "annual")) {
+      return res.status(403).json({ error: "The R5 one-time test payment is only available to its dedicated test tenant." });
+    }
+    const plan = await loadPlatformSubscriptionPlan(admin, planId, { requireActive: true });
+    if (!plan) return res.status(400).json({ error: "This plan is not currently available. Choose an active plan and try again." });
+    if (isTestPlan && plan.monthlyPrice !== PAYFAST_TEST_PLAN_AMOUNT_ZAR) {
+      return res.status(503).json({ error: "The R5 test plan is not configured at the expected one-time price." });
+    }
     if (companyRow.payfast_subscription_token && ["active", "trial", "past_due"].includes(companyRow.subscription_status)) {
       return res.status(409).json({ error: "This company already has recurring billing. Manage the existing subscription before starting another." });
     }
@@ -119,18 +126,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const tenantSlug = String((companyRow as any).slug || "").trim();
     // custom_str1 = company_id (server-resolved) so the webhook flips the
     // right company to 'active'. custom_str2 = plan id, custom_str3 = cycle.
-    const params = svc.createSubscriptionParams(
-      plan,
-      { firstName: firstName || "Customer", lastName, email, userId: companyId },
-      cycle,
-      siteOrigin,
-      companyRow?.subscription_status === "trial" && companyRow.trial_ends_at
-        ? new Date(companyRow.trial_ends_at).getTime() > Date.now()
-          ? new Date(companyRow.trial_ends_at).toISOString().split("T")[0]
-          : undefined
-        : undefined,
-      tenantSlug || undefined,
-    );
+    const buyer = { firstName: firstName || "Customer", lastName, email, userId: companyId };
+    const params = isTestPlan
+      ? svc.createOneTimePlanParams(plan, buyer, siteOrigin, tenantSlug || undefined)
+      : svc.createSubscriptionParams(
+          plan,
+          buyer,
+          cycle,
+          siteOrigin,
+          companyRow?.subscription_status === "trial" && companyRow.trial_ends_at
+            ? new Date(companyRow.trial_ends_at).getTime() > Date.now()
+              ? new Date(companyRow.trial_ends_at).toISOString().split("T")[0]
+              : undefined
+            : undefined,
+          tenantSlug || undefined,
+        );
     const html = svc.generatePaymentForm(params);
 
     return res.status(200).json({ ok: true, html });

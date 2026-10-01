@@ -85,7 +85,7 @@ async function manage(body: any) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockEvents.clear(); mockLedger.clear(); mockSubscriptions.clear(); mockActivationFailure = false;
-  mockCompany = { id: "company-1", owner_id: "owner-1", subscription_plan: plan.id, subscription_status: "trial", trial_ends_at: "2099-01-01" };
+  mockCompany = { id: "company-1", owner_id: "owner-1", slug: "test-company", subscription_plan: plan.id, subscription_status: "trial", trial_ends_at: "2099-01-01" };
   process.env.PAYFAST_PLATFORM_MERCHANT_ID = "merchant";
   process.env.PAYFAST_PLATFORM_MERCHANT_KEY = "key";
   process.env.PAYFAST_PLATFORM_PASSPHRASE = "secret";
@@ -160,6 +160,63 @@ it("returns PayFast to the tenant-scoped success and cancellation routes", () =>
   expect(params.return_url).toBe("https://example.com/raj267748-payfast-test/subscription/success");
   expect(params.cancel_url).toBe("https://example.com/raj267748-payfast-test/admin/subscription?cancelled=1");
   expect(params.notify_url).toBe("https://example.com/api/webhooks/subscriptions/payfast");
+});
+it("creates a signed one-time test payment with no recurring billing fields", () => {
+  const svc = new PayFastService({ merchantId: "merchant", merchantKey: "key", passphrase: "secret", testMode: false });
+  const testPlan = getPlanById("payfast-test")!;
+  const params = svc.createOneTimePlanParams(
+    testPlan,
+    { firstName: "Cal", lastName: "Buyer", email: "cal@example.com", userId: "company-1" },
+    "https://example.com",
+    "raj267748-payfast-test",
+  );
+  expect(params.amount).toBe("5.00");
+  expect(params.return_url).toBe("https://example.com/raj267748-payfast-test/subscription/success");
+  expect(params.custom_str2).toBe("payfast-test");
+  expect(params.subscription_type).toBeUndefined();
+  expect(params.recurring_amount).toBeUndefined();
+  expect(params.signature).toBe(svc.generateSignature(Object.fromEntries(Object.entries(params).filter(([key]) => key !== "signature"))));
+});
+it("activates only the dedicated test tenant from a verified one-time R5 notification", async () => {
+  const testPlan = getPlanById("payfast-test")!;
+  mockCompany.slug = "raj267748-payfast-test";
+  mockCompany.subscription_plan = null;
+  const fields: any = {
+    m_payment_id: "one-time-r5-test",
+    pf_payment_id: "test-payment-1",
+    payment_status: "COMPLETE",
+    amount_gross: "5.00",
+    custom_str1: "company-1",
+    custom_str2: testPlan.id,
+    custom_str3: "monthly",
+    merchant_id: "merchant",
+  };
+  fields.signature = computePayfastSignature(fields, "secret");
+  const result = await deliver(fields);
+  expect(result.statusCode).toBe(200);
+  expect(mockCompany.subscription_status).toBe("active");
+  expect(mockCompany.subscription_plan).toBe("payfast-test");
+  expect(mockCompany.payfast_subscription_token).toBeUndefined();
+  expect([...mockSubscriptions.values()][0].amount).toBe(5);
+  expect(billingEmailService.notifyPaymentSucceeded).toHaveBeenCalledWith("owner-1", expect.objectContaining({
+    amount: 5, billing_mode: "one_time", recurring_amount: 0,
+  }));
+});
+it("does not grant the R5 test plan to a different company", async () => {
+  const fields: any = {
+    m_payment_id: "one-time-r5-test-other",
+    pf_payment_id: "test-payment-other",
+    payment_status: "COMPLETE",
+    amount_gross: "5.00",
+    custom_str1: "company-1",
+    custom_str2: "payfast-test",
+    custom_str3: "monthly",
+    merchant_id: "merchant",
+  };
+  fields.signature = computePayfastSignature(fields, "secret");
+  const result = await deliver(fields);
+  expect(result.statusCode).toBe(500);
+  expect(mockCompany.subscription_status).toBe("trial");
 });
 it("records annual automatic renewals without repeated checkout metadata", async () => {
   const first = notification({ custom_str3: "annual", amount_gross: String(plan.annualPrice) });

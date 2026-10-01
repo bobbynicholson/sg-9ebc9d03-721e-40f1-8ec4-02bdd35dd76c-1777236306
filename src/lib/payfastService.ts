@@ -2,6 +2,7 @@ import { SubscriptionPlan, PaymentGatewayConfig } from "@/types/payments";
 import crypto from "crypto";
 import { formatLocalDate } from "@/lib/localFormat";
 import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
+import { PAYFAST_TEST_PLAN_AMOUNT_ZAR } from "@/lib/payfastTestPlan";
 
 export interface PayFastConfig {
   merchantId: string;
@@ -161,11 +162,50 @@ export class PayFastService {
     } as unknown as PayFastSubscriptionParams;
   }
 
+  /**
+   * Single-charge checkout used by the isolated R5 flow-test plan. It
+   * deliberately omits subscription fields so PayFast cannot create a
+   * recurring agreement for the test payment.
+   */
+  createOneTimePlanParams(
+    plan: SubscriptionPlan,
+    user: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      userId: string;
+    },
+    baseUrl: string,
+    tenantSlug?: string,
+  ): Record<string, string> {
+    const tenantPath = tenantSlug ? "/" + encodeURIComponent(tenantSlug) : "";
+    const params: Record<string, string> = {
+      merchant_id: this.config.merchantId,
+      merchant_key: this.config.merchantKey,
+      return_url: baseUrl + tenantPath + "/subscription/success",
+      cancel_url: baseUrl + tenantPath + "/admin/subscription?cancelled=1",
+      notify_url: baseUrl + "/api/webhooks/subscriptions/payfast",
+      name_first: user.firstName,
+      name_last: user.lastName,
+      email_address: user.email,
+      m_payment_id: crypto.randomUUID(),
+      amount: plan.monthlyPrice.toFixed(2),
+      item_name: plan.name + " - once-off test",
+      item_description: plan.name + " one-time PayFast flow test",
+      custom_str1: user.userId,
+      custom_str2: plan.id,
+      custom_str3: "monthly",
+      email_confirmation: "1",
+      confirmation_address: user.email,
+    };
+    return { ...params, signature: this.generateSignature(params) };
+  }
+
   getPaymentFormUrl(): string {
     return this.baseUrl;
   }
 
-  generatePaymentForm(params: PayFastSubscriptionParams): string {
+  generatePaymentForm(params: Record<string, string> | PayFastSubscriptionParams): string {
     // Escape attribute values so item names with quotes/ampersands
     // can't break out of the hidden input markup. The browser decodes
     // entities before POSTing, so the submitted values (and therefore
@@ -384,6 +424,18 @@ export class PayFastService {
 }
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    id: "payfast-test",
+    name: "PayFast Flow Test",
+    monthlyPrice: PAYFAST_TEST_PLAN_AMOUNT_ZAR,
+    annualPrice: PAYFAST_TEST_PLAN_AMOUNT_ZAR,
+    features: [
+      "One R5 payment only",
+      "Confirms PayFast notification and return",
+      "Test tenant access",
+    ],
+    limits: { orders: 150, regions: 1, users: 5, inventory: 200 },
+  },
   {
     id: "starter",
     name: "Starter",

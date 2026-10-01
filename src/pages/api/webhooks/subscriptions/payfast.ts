@@ -49,6 +49,7 @@ import crypto from "node:crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { loadPlatformSubscriptionPlan } from "@/lib/platformSubscriptionPlans";
+import { isPayfastTestPlan, isPayfastTestTenant, PAYFAST_TEST_PLAN_AMOUNT_ZAR } from "@/lib/payfastTestPlan";
 
 
 export const config = { api: { bodyParser: true } };
@@ -262,10 +263,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // custom_str2 carries the plan id (createSubscriptionParams sets it),
     // so the company's stored plan reflects what they actually bought.
     const { data: currentCompany, error: currentError } = await sb.from("companies")
-      .select("subscription_plan, subscription_status, trial_ends_at, payfast_subscription_token").eq("id", companyId).single();
+      .select("subscription_plan, subscription_status, trial_ends_at, payfast_subscription_token, slug").eq("id", companyId).single();
     if (currentError) throw currentError;
     const subscriptionToken = token || currentCompany.payfast_subscription_token;
-    if (!subscriptionToken && !["FAILED", "CANCELLED"].includes(paymentStatus)) {
+    const planFromCustom = (body.custom_str2 || currentCompany.subscription_plan || "").trim();
+    const isTestPlan = isPayfastTestPlan(planFromCustom);
+    if (isTestPlan && !isPayfastTestTenant(currentCompany.slug)) {
+      throw new Error("R5 PayFast test payment belongs to a different company");
+    }
+    if (!subscriptionToken && !isTestPlan && !["FAILED", "CANCELLED"].includes(paymentStatus)) {
       throw new Error("Missing PayFast recurring billing token");
     }
     // A first payment can fail before PayFast issues a recurring token.
@@ -285,9 +291,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         new Date(previousSubscription.current_period_end).getTime() > Date.now()) {
       companyPatch.subscription_status = currentCompany.subscription_status;
     }
-    const planFromCustom = (body.custom_str2 || currentCompany.subscription_plan || "").trim();
     const selectedPlan = await loadPlatformSubscriptionPlan(sb, planFromCustom);
     if (!selectedPlan) throw new Error("Unknown subscription plan");
+    if (isTestPlan && selectedPlan.monthlyPrice !== PAYFAST_TEST_PLAN_AMOUNT_ZAR) {
+      throw new Error("R5 PayFast test plan is not configured at the expected one-time price");
+    }
     const cycle = (body.custom_str3 || previousSubscription?.billing_cycle || (body.frequency === "6" ? "annual" : "monthly")).toLowerCase();
     const billingCycle = cycle.includes("annual") || cycle.includes("year") ? "yearly" : "monthly";
     if (planFromCustom) companyPatch.subscription_plan = selectedPlan.id;
@@ -359,7 +367,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         ? "suspended"
         : String(companyPatch.subscription_status),
       current_period_start: periodStart.toISOString(), current_period_end: periodEnd.toISOString(),
-      next_billing_date: paymentStatus === "CANCELLED" ? null : periodEnd.toISOString(),
+      next_billing_date: paymentStatus === "CANCELLED" || isTestPlan ? null : periodEnd.toISOString(),
       trial_ends_at: currentCompany.trial_ends_at, updated_at: new Date().toISOString(),
     });
     if (subscriptionError) throw subscriptionError;
@@ -399,11 +407,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             plan_name: selectedPlan.name || planFromCustom || "your plan",
             amount: previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice),
             paid_amount: paidAmount,
-            billing_mode: "recurring",
+            billing_mode: isTestPlan ? "one_time" : "recurring",
             subscription_status: String(companyPatch.subscription_status),
             currency: "ZAR",
             billing_cycle: billingCycle,
-            next_billing_date: periodEnd.toISOString(),
+            next_billing_date: isTestPlan ? null : periodEnd.toISOString(),
           });
         }
         if (paymentStatus === "COMPLETE" && paidAmount > 0) {
@@ -411,14 +419,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             amount: paidAmount,
             plan_name: selectedPlan.name,
             billing_cycle: billingCycle,
-            billing_mode: "recurring",
-            recurring_amount: previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice),
+            billing_mode: isTestPlan ? "one_time" : "recurring",
+            recurring_amount: isTestPlan ? 0 : previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice),
             currency: "ZAR",
             paid_at: nowIso,
             transaction_id: body.pf_payment_id || null,
             billing_period_start: nowIso,
             billing_period_end: periodEnd.toISOString(),
-            next_billing_date: periodEnd.toISOString(),
+            next_billing_date: isTestPlan ? null : periodEnd.toISOString(),
           });
         } else if (paymentStatus === "FAILED") {
           await billingEmailService.notifyPaymentFailed(ownerId, {
