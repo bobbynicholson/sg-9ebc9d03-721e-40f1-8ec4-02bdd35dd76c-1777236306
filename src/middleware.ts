@@ -597,7 +597,10 @@ export async function middleware(request: NextRequest) {
     // Always-reachable so the owner can reactivate (and to avoid a
     // redirect loop). /pricing is a public route and isn't gated here.
     const billingAllowed =
-      guardPath.startsWith("/admin/subscription") || guardPath.startsWith("/account");
+      guardPath.startsWith("/admin/subscription")
+      || guardPath.startsWith("/subscription/checkout")
+      || guardPath.startsWith("/subscription/success")
+      || guardPath.startsWith("/account");
     if (!billingAllowed) {
       const url = request.nextUrl.clone();
       if (hasAnyRole(profileRoles, ADMIN_PORTAL_ROLES) && userCompanySlug) {

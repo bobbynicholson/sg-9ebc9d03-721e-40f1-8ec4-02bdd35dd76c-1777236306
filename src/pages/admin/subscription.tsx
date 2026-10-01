@@ -28,6 +28,13 @@ import {
 } from "lucide-react";
 import { subscriptionService } from "@/services/subscriptionService";
 import { formatZAR } from "@/lib/formatters";
+import {
+  applyLivePlans,
+  calculateAnnualSavings,
+  formatPrice,
+  getAllPricingOptions,
+  type LivePlan,
+} from "@/lib/pricingCalculator";
 import type { Database } from "@/integrations/supabase/types";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -57,12 +64,130 @@ export default function ProtectedSubscriptionPage() {
   );
 }
 
+function SubscriptionPlanPicker({ expiredAccess }: { expiredAccess: boolean }) {
+  const router = useRouter();
+  const { withSlug } = useTenantHref();
+  const [livePlans, setLivePlans] = useState<LivePlan[] | null>(null);
+  const [pricingLoadError, setPricingLoadError] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
+  const planOptions = applyLivePlans(getAllPricingOptions("za"), livePlans, "za");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/platform/pricing-plans")
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Pricing request failed (${response.status})`);
+        return response.json();
+      })
+      .then((body) => {
+        if (cancelled) return;
+        if (!Array.isArray(body?.plans)) throw new Error("Pricing response did not contain a plan list");
+        setLivePlans(body.plans);
+        setPricingLoadError(false);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Could not load live subscription plans:", error);
+        setPricingLoadError(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{expiredAccess ? "Choose a plan to restore access" : "Choose a subscription plan"}</CardTitle>
+        <CardDescription>
+          Select monthly or annual billing, then continue to secure PayFast checkout.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium text-slate-600">All subscription payments are billed in South African Rand (ZAR).</p>
+          <div className="flex gap-2" aria-label="Billing cycle">
+            <Button
+              type="button"
+              size="sm"
+              variant={billingCycle === "monthly" ? "default" : "outline"}
+              onClick={() => setBillingCycle("monthly")}
+            >
+              Monthly
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={billingCycle === "annual" ? "default" : "outline"}
+              onClick={() => setBillingCycle("annual")}
+            >
+              Annual - save 15%
+            </Button>
+          </div>
+        </div>
+
+        {pricingLoadError && (
+          <Alert className="border-amber-300 bg-amber-50 text-amber-950">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Live pricing is temporarily unavailable. Showing the current fallback prices; checkout will recheck the price before sending you to PayFast.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {planOptions.map((plan, index) => {
+            const annualPrice = calculateAnnualSavings(plan.basePrice).annualPrice;
+            const price = billingCycle === "annual" ? annualPrice : plan.basePrice;
+            const checkoutPlanId = plan.id === "pro" ? "professional" : plan.id;
+            return (
+              <Card key={plan.id} className={`flex h-full flex-col ${index === 1 ? "border-brand-primary shadow-md" : ""}`}>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle>{plan.name}</CardTitle>
+                    {index === 1 && <Badge>Popular</Badge>}
+                  </div>
+                  <CardDescription>
+                    <span className="text-2xl font-bold text-slate-900">{formatPrice(price, "ZAR")}</span>
+                    <span className="ml-1">/{billingCycle === "annual" ? "year" : "month"}</span>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-1 flex-col gap-4">
+                  <div className="space-y-2 text-sm text-slate-600">
+                    <p>Up to {plan.limits.activeClients === 999999 ? "unlimited" : plan.limits.activeClients} active clients</p>
+                    <p>Up to {plan.limits.ordersPerQuarter === 999999 ? "unlimited" : plan.limits.ordersPerQuarter} orders per quarter</p>
+                  </div>
+                  <ul className="flex-1 space-y-2">
+                    {plan.features.slice(0, 4).map((feature, featureIndex) => (
+                      <li key={`${plan.id}-${featureIndex}`} className="flex gap-2 text-sm text-slate-700">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    className="w-full gap-2"
+                    onClick={() => router.push(withSlug(`/subscription/checkout?plan=${encodeURIComponent(checkoutPlanId)}&cycle=${billingCycle}`))}
+                  >
+                    <ArrowUpCircle className="h-4 w-4" />
+                    {expiredAccess ? "Restore with this plan" : "Choose this plan"}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SubscriptionPage() {
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const { withSlug } = useTenantHref();
   const routeTenantSlug = getTenantSlugFromPathname(router.asPath);
+  const expiredAccess = router.query.expired === "1"
+    || ["suspended", "cancelled"].includes(String(company?.subscription_status || "").toLowerCase());
   const [redirectingToScopedPage, setRedirectingToScopedPage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -391,6 +516,7 @@ function SubscriptionPage() {
                 </Button>
               </CardContent>
             </Card>
+            {expiredAccess && <SubscriptionPlanPicker expiredAccess={expiredAccess} />}
           </PortalShell>
         </div>
       </>
@@ -398,13 +524,9 @@ function SubscriptionPage() {
   }
 
   if (!subscription) {
-    // No subscription = trial / unpaid tenant. Render the same shell
-    // as the active-subscription view so the operator keeps the
-    // sidebar + chrome - without the AdminNav wrapper this page
-    // landed bare (no nav, no offset, content stuck at the top
-    // left). The trial banner's "View Subscription Plans" button
-    // points here so the empty state has to feel like a finished
-    // page, not a broken one.
+    // Suspended and unpaid tenants need to choose a plan from this screen.
+    // A link to /pricing alone made the expired-account route look like it
+    // had no available plans and added an unnecessary navigation step.
     return (
       <>
         <NoIndexMeta />
@@ -420,7 +542,9 @@ function SubscriptionPage() {
               title="Subscription"
               icon={CreditCard}
               subtitle={
-                trialStatus?.isInTrial
+                expiredAccess
+                  ? "Your account is suspended. Choose a plan below to restore access."
+                  : trialStatus?.isInTrial
                   ? "You're on the free trial. Pick a plan before it ends and the switchover is automatic."
                   : "Pick a plan to keep using CateringMS once your trial ends."
               }
@@ -435,24 +559,26 @@ function SubscriptionPage() {
             />
             <PageWorkbench />
 
+            {expiredAccess && (
+              <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-950">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Access stays suspended until PayFast confirms payment. If checkout is cancelled or fails, you can retry here.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Card>
               <CardHeader>
-                <CardTitle>
-                  {trialStatus?.isInTrial ? "No subscription yet" : "No active subscription"}
-                </CardTitle>
+                <CardTitle>{trialStatus?.isInTrial ? "No subscription yet" : "No active subscription"}</CardTitle>
                 <CardDescription>
                   {trialStatus?.isInTrial
                     ? "You're inside the free trial. Pick a plan now and the switchover is automatic when the trial ends, no break in service."
-                    : "You currently do not have an active subscription. Pick a plan to restore access."}
+                    : "You currently do not have an active subscription. Choose a plan below to get started."}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <Button onClick={() => router.push("/pricing")} className="gap-2">
-                  <ArrowUpCircle className="w-4 h-4" />
-                  View pricing plans
-                </Button>
-              </CardContent>
             </Card>
+            <SubscriptionPlanPicker expiredAccess={expiredAccess} />
           </PortalShell>
         </div>
       </>
@@ -525,6 +651,18 @@ function SubscriptionPage() {
             }
           />
           <PageWorkbench />
+
+          {expiredAccess && (
+            <>
+              <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-950">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Access stays suspended until PayFast confirms payment. If checkout is cancelled or fails, you can retry here.
+                </AlertDescription>
+              </Alert>
+              <SubscriptionPlanPicker expiredAccess />
+            </>
+          )}
 
           {pendingDeletion && (
             <Alert className="mb-6 border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">

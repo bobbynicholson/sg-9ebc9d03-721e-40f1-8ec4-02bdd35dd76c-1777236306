@@ -385,8 +385,8 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: "starter",
     name: "Starter",
-    monthlyPrice: 299,
-    annualPrice: 2990,
+    monthlyPrice: 999,
+    annualPrice: 10190,
     features: [
       "Up to 50 orders per month",
       "Basic lead management",
@@ -408,9 +408,9 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   },
   {
     id: "professional",
-    name: "Professional",
-    monthlyPrice: 599,
-    annualPrice: 5990,
+    name: "Pro",
+    monthlyPrice: 1899,
+    annualPrice: 19370,
     features: [
       "Up to 200 orders per month",
       "Advanced lead & CRM features",
@@ -440,8 +440,8 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: "enterprise",
     name: "Enterprise",
-    monthlyPrice: 1299,
-    annualPrice: 12990,
+    monthlyPrice: 4999,
+    annualPrice: 50990,
     features: [
       "Unlimited orders",
       "Unlimited regions/franchises",
@@ -469,7 +469,8 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
 ];
 
 export function getPlanById(planId: string): SubscriptionPlan | undefined {
-  return SUBSCRIPTION_PLANS.find((plan) => plan.id === planId);
+  const normalizedId = planId.toLowerCase() === "pro" ? "professional" : planId.toLowerCase();
+  return SUBSCRIPTION_PLANS.find((plan) => plan.id === normalizedId);
 }
 
 /**

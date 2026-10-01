@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { getPlanById, formatCurrency } from "@/lib/payfastService";
 import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
+import { applyPlatformPricingToPlan } from "@/lib/platformSubscriptionPlans";
+import type { LivePlan } from "@/lib/pricingCalculator";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui";
@@ -40,6 +42,7 @@ export default function CheckoutPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">(
     (cycle as "monthly" | "annual") || "monthly"
   );
+  const [livePlans, setLivePlans] = useState<LivePlan[] | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -49,7 +52,11 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
 
-  const plan = getPlanById(planId as string);
+  const selectedPlanId = typeof planId === "string" ? planId : "";
+  const basePlan = selectedPlanId ? getPlanById(selectedPlanId) : undefined;
+  const plan = basePlan
+    ? applyPlatformPricingToPlan(selectedPlanId, livePlans) || basePlan
+    : undefined;
   const trialEndDate = authCompany?.trial_ends_at ? new Date(authCompany.trial_ends_at) : null;
   const hasTrial = authCompany?.subscription_status === "trial" && !!trialEndDate && trialEndDate.getTime() > Date.now();
 
@@ -58,6 +65,27 @@ export default function CheckoutPage() {
       router.push("/pricing");
     }
   }, [plan, planId, router]);
+
+  useEffect(() => {
+    if (cycle === "monthly" || cycle === "annual") setBillingCycle(cycle);
+  }, [cycle]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/platform/pricing-plans")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Live pricing unavailable");
+        return response.json();
+      })
+      .then((body) => {
+        if (!cancelled && Array.isArray(body?.plans)) setLivePlans(body.plans);
+      })
+      .catch(() => {
+        // The in-code plan prices are the documented fallback when the
+        // public pricing endpoint is unavailable.
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // Prefill the form from the signed-in company's profile.
   useEffect(() => {

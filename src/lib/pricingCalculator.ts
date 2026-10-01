@@ -44,7 +44,7 @@ const BASE_PRICING_ZAR: Record<string, PricingTier> = {
   },
   pro: {
     name: "Pro",
-    basePrice: 1799,
+    basePrice: 1899,
     features: [
       "Everything in Starter",
       "Advanced Inventory with Expiry Alerts",
@@ -65,7 +65,7 @@ const BASE_PRICING_ZAR: Record<string, PricingTier> = {
   },
   enterprise: {
     name: "Enterprise",
-    basePrice: 2999,
+    basePrice: 4999,
     features: [
       "Everything in Pro",
       "Unlimited Active Clients",

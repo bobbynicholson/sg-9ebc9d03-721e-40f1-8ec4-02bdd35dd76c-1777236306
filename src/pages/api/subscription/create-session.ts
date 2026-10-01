@@ -20,7 +20,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { PayFastService, getPlanById } from "@/lib/payfastService";
+import { PayFastService } from "@/lib/payfastService";
+import { loadPlatformSubscriptionPlan } from "@/lib/platformSubscriptionPlans";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 
@@ -53,10 +54,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const body = (req.body || {}) as any;
     const planId = String(body.planId || "");
     const cycle = body.cycle === "annual" ? "annual" : "monthly";
-    const plan = getPlanById(planId);
-    if (!plan) return res.status(400).json({ error: "Unknown plan." });
-
     const admin = getServiceSupabase();
+    const plan = await loadPlatformSubscriptionPlan(admin, planId, { requireActive: true });
+    if (!plan) return res.status(400).json({ error: "This plan is not currently available. Choose an active plan and try again." });
+
     const { data: companyRow, error: companyError } = await admin
       .from("companies")
       .select("trial_ends_at, subscription_status, payfast_subscription_token")

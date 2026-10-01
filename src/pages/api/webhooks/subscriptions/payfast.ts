@@ -48,7 +48,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "node:crypto";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
-import { getPlanById } from "@/lib/payfastService";
+import { loadPlatformSubscriptionPlan } from "@/lib/platformSubscriptionPlans";
 
 
 export const config = { api: { bodyParser: true } };
@@ -265,8 +265,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select("subscription_plan, subscription_status, trial_ends_at, payfast_subscription_token").eq("id", companyId).single();
     if (currentError) throw currentError;
     const subscriptionToken = token || currentCompany.payfast_subscription_token;
-    if (!subscriptionToken) throw new Error("Missing PayFast recurring billing token");
-    const subscriptionDigest = crypto.createHash("sha256").update(`payfast-subscription:${subscriptionToken}`).digest("hex");
+    if (!subscriptionToken && !["FAILED", "CANCELLED"].includes(paymentStatus)) {
+      throw new Error("Missing PayFast recurring billing token");
+    }
+    // A first payment can fail before PayFast issues a recurring token.
+    // Keep that attempt in the ledger using an event-derived stable id;
+    // later retries with a real token get their own subscription id.
+    const subscriptionDigest = crypto.createHash("sha256").update(
+      subscriptionToken
+        ? `payfast-subscription:${subscriptionToken}`
+        : `payfast-subscription-attempt:${companyId}:${eventId}`,
+    ).digest("hex");
     const subscriptionId = `${subscriptionDigest.slice(0, 8)}-${subscriptionDigest.slice(8, 12)}-4${subscriptionDigest.slice(13, 16)}-a${subscriptionDigest.slice(17, 20)}-${subscriptionDigest.slice(20, 32)}`;
     const { data: previousSubscription, error: subscriptionReadError } = await sb.from("subscriptions")
       .select("billing_cycle, amount, plan_id, cancel_at_period_end, current_period_end").eq("id", subscriptionId).maybeSingle();
@@ -277,30 +286,35 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       companyPatch.subscription_status = currentCompany.subscription_status;
     }
     const planFromCustom = (body.custom_str2 || currentCompany.subscription_plan || "").trim();
-    if (!getPlanById(planFromCustom)) throw new Error("Unknown subscription plan");
+    const selectedPlan = await loadPlatformSubscriptionPlan(sb, planFromCustom);
+    if (!selectedPlan) throw new Error("Unknown subscription plan");
     const cycle = (body.custom_str3 || previousSubscription?.billing_cycle || (body.frequency === "6" ? "annual" : "monthly")).toLowerCase();
     const billingCycle = cycle.includes("annual") || cycle.includes("year") ? "yearly" : "monthly";
-    if (planFromCustom) companyPatch.subscription_plan = planFromCustom;
+    if (planFromCustom) companyPatch.subscription_plan = selectedPlan.id;
+
+    // A failed first charge does not create a paying subscription. Preserve
+    // the company's prior access state; recurring failures still move an
+    // existing subscription to past_due so its configured grace period can
+    // apply. The attempt row itself remains suspended and is not returned as
+    // the company's current active subscription.
+    if (paymentStatus === "FAILED" && isFirstPayment) {
+      companyPatch.subscription_status = currentCompany.subscription_status || "suspended";
+    }
 
     // Reject underpayments before granting paid access. A verified
     // zero-amount setup preserves an existing, unexpired trial.
     if (paymentStatus === "COMPLETE" && planFromCustom) {
-      const plan = getPlanById(planFromCustom);
-      if (plan) {
-        const expected = previousSubscription?.amount ?? (billingCycle === "yearly" ? plan.annualPrice : plan.monthlyPrice);
-        const paid = Number(body.amount_gross || body.amount || 0);
-        const trialSetup = paid === 0 && currentCompany.subscription_status === "trial" &&
-          currentCompany.trial_ends_at && new Date(currentCompany.trial_ends_at).getTime() > Date.now() && token;
-        if (trialSetup) companyPatch.subscription_status = "trial";
-        if (!trialSetup && (!Number.isFinite(paid) || Math.abs(paid - expected) > 0.01)) {
-          console.error(`[subscriptions/payfast] AMOUNT MISMATCH company ${companyId}: plan ${planFromCustom} (${cycle}) expected R${expected}, paid R${paid}`);
-          await sb.from("subscription_webhook_events")
-            .update({ rejection_reason: `amount_mismatch: expected ${expected}, paid ${paid}` })
-            .eq("provider", "payfast").eq("event_id", eventId);
-          return res.status(400).json({ error: "Subscription amount mismatch" });
-        }
-      } else {
-        return res.status(400).json({ error: "Unknown subscription plan" });
+      const expected = previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice);
+      const paid = Number(body.amount_gross || body.amount || 0);
+      const trialSetup = paid === 0 && currentCompany.subscription_status === "trial" &&
+        currentCompany.trial_ends_at && new Date(currentCompany.trial_ends_at).getTime() > Date.now() && token;
+      if (trialSetup) companyPatch.subscription_status = "trial";
+      if (!trialSetup && (!Number.isFinite(paid) || Math.abs(paid - expected) > 0.01)) {
+        console.error(`[subscriptions/payfast] AMOUNT MISMATCH company ${companyId}: plan ${selectedPlan.id} (${cycle}) expected R${expected}, paid R${paid}`);
+        await sb.from("subscription_webhook_events")
+          .update({ rejection_reason: `amount_mismatch: expected ${expected}, paid ${paid}` })
+          .eq("provider", "payfast").eq("event_id", eventId);
+        return res.status(400).json({ error: "Subscription amount mismatch" });
       }
     }
 
@@ -321,8 +335,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ownerCompany = ownerRow as any;
     }
     if (!ownerId) throw new Error("Company owner missing for subscription");
-    const selectedPlan = getPlanById(planFromCustom);
-    if (!selectedPlan) throw new Error("Unknown subscription plan");
     const periodStart = new Date();
     const periodEnd = new Date(periodStart);
     if (paymentStatus !== "COMPLETE" && previousSubscription?.current_period_end) {
@@ -342,7 +354,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       id: subscriptionId, company_id: companyId, user_id: ownerId,
       plan_id: selectedPlan.id, plan_name: selectedPlan.name,
       amount: previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice),
-      billing_cycle: billingCycle, currency: "ZAR", status: String(companyPatch.subscription_status),
+      billing_cycle: billingCycle, currency: "ZAR",
+      status: paymentStatus === "FAILED" && isFirstPayment
+        ? "suspended"
+        : String(companyPatch.subscription_status),
       current_period_start: periodStart.toISOString(), current_period_end: periodEnd.toISOString(),
       next_billing_date: paymentStatus === "CANCELLED" ? null : periodEnd.toISOString(),
       trial_ends_at: currentCompany.trial_ends_at, updated_at: new Date().toISOString(),
@@ -378,11 +393,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       try {
         const { billingEmailService } = await import("@/services/billingEmailService");
         const paidAmount = Number(body.amount_gross || body.amount || 0);
-        const plan = planFromCustom ? getPlanById(planFromCustom) : null;
         const nowIso = new Date().toISOString();
         if (paymentStatus === "COMPLETE" && isFirstPayment) {
           await billingEmailService.notifySubscriptionStarted(ownerId, {
-            plan_name: plan?.name || planFromCustom || "your plan",
+            plan_name: selectedPlan.name || planFromCustom || "your plan",
             amount: previousSubscription?.amount ?? (billingCycle === "yearly" ? selectedPlan.annualPrice : selectedPlan.monthlyPrice),
             paid_amount: paidAmount,
             billing_mode: "recurring",
@@ -415,7 +429,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           });
         } else if (paymentStatus === "CANCELLED") {
           await billingEmailService.notifySubscriptionCancelled(ownerId, {
-            plan_name: plan?.name || planFromCustom || "your plan",
+            plan_name: selectedPlan.name || planFromCustom || "your plan",
             cancelled_at: nowIso,
             current_period_end: body.billing_date || nowIso,
           }, "cancelled");
@@ -444,7 +458,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
         if (platformEmail) {
           const { emailService } = await import("@/services/emailService");
-          const plan = planFromCustom ? getPlanById(planFromCustom) : null;
           const paidAmount = Number(body.amount_gross || body.amount || 0);
           await emailService.sendEmail({
             companyId,
@@ -452,7 +465,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             subject: `${isFirstPayment ? "New platform subscription" : "Platform subscription renewed"}: ${ownerCompany?.company_name || companyId}`,
             body: `<h2>${isFirstPayment ? "New platform subscription" : "Platform subscription renewed"}</h2>
               <p><strong>Company:</strong> ${ownerCompany?.company_name || companyId}</p>
-              <p><strong>Plan:</strong> ${plan?.name || planFromCustom || "Unknown plan"}</p>
+            <p><strong>Plan:</strong> ${selectedPlan.name || planFromCustom || "Unknown plan"}</p>
               <p><strong>Amount:</strong> R${paidAmount.toFixed(2)}</p>
               <p><strong>Billing cycle:</strong> ${billingCycle}</p>
               <p><strong>Transaction:</strong> ${body.pf_payment_id || "N/A"}</p>
