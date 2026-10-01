@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, ArrowRight, Calendar, Mail, Zap } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
-import { PLATFORM_TRIAL_DAYS } from "@/lib/platformBilling";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -99,7 +98,7 @@ export default function SubscriptionSuccessPage() {
                 <div>
                   <h4 className="font-medium mb-1">Explore your dashboard</h4>
                   <p className="text-sm text-slate-600">
-                    Start setting up your catering business profile, add team members, and configure your settings.
+                    Once PayFast confirms the payment, access to your company workspace will be restored.
                   </p>
                 </div>
               </div>
@@ -109,9 +108,9 @@ export default function SubscriptionSuccessPage() {
                   <Calendar className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-medium mb-1">{PLATFORM_TRIAL_DAYS} days of full access</h4>
+                  <h4 className="font-medium mb-1">Access after payment confirmation</h4>
                   <p className="text-sm text-slate-600">
-                    Your company starts with a {PLATFORM_TRIAL_DAYS}-day trial. After that, the selected platform subscription is billed according to the provider confirmation.
+                    Your account stays suspended until the verified PayFast notification reaches CateringMS. This page checks for confirmation automatically.
                   </p>
                 </div>
               </div>
@@ -145,12 +144,26 @@ export default function SubscriptionSuccessPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Link href={company?.slug ? `/${company.slug}/admin/dashboard` : "/admin/dashboard"} className="flex-1">
-              <Button className="w-full h-12 bg-gradient-to-r from-slate-500 to-rose-500 hover:opacity-90">
-                Go to Dashboard
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </Link>
+            {confirmed ? (
+              <Link href={company?.slug ? `/${company.slug}/admin/dashboard` : "/admin/dashboard"} className="flex-1">
+                <Button className="w-full h-12 bg-gradient-to-r from-slate-500 to-rose-500 hover:opacity-90">
+                  Go to Dashboard
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Button variant="outline" className="flex-1 h-12" onClick={() => router.reload()}>
+                  Check payment status
+                </Button>
+                <Link
+                  href={company?.slug ? `/${company.slug}/admin/subscription?expired=1` : "/admin/subscription?expired=1"}
+                  className="flex-1"
+                >
+                  <Button variant="outline" className="w-full h-12">Return to billing</Button>
+                </Link>
+              </>
+            )}
             <Link href="/blog" className="flex-1">
               <Button variant="outline" className="w-full h-12">
                 View Getting Started Guide
