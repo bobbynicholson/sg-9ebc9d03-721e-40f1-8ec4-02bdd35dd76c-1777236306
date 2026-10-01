@@ -1,22 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-// Wave 21 audit: webhook used to import the browser anon supabase
-// client even though it runs as an unauth API route - every
-// notifications insert below was attempted under anon RLS, which
-// silently rejected the row. Operators got no "payment received"
-// alerts for PayFast IPNs unless they happened to be the row owner.
-// Switch to a service-role client at module scope (initialised
-// lazily so import-side failures don't crash cold starts).
-import { supabase as browserSupabase } from "@/integrations/supabase/client";
+// This is an unauthenticated provider callback, so all payment and
+// notification writes must use service role. Fail closed if it is not
+// available; an anon-client fallback would acknowledge callbacks while
+// silently failing the ledger writes under RLS.
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { paymentGatewayService } from "@/services/paymentGatewayService";
 let _svcCache: ReturnType<typeof getServiceSupabase> | null = null;
 function svc(): ReturnType<typeof getServiceSupabase> {
-  if (!_svcCache) {
-    try { _svcCache = getServiceSupabase(); }
-    catch (e) {
-      console.warn("[payment-confirmation] service supabase init failed; falling back to anon:", e);
-      return browserSupabase as any;
-    }
-  }
+  if (!_svcCache) _svcCache = getServiceSupabase();
   return _svcCache;
 }
 const supabase: any = new Proxy({}, {
@@ -28,8 +19,7 @@ import { emailService } from "@/services/emailService";
 import { notifyInvoicePaid } from "@/services/payments/notifyInvoicePaid";
 import crypto from "crypto";
 import { withApiLogging } from "@/lib/withApiLogging";
-import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
-import { transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { touchPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
 import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 
 
@@ -50,12 +40,10 @@ import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAtt
  *  - bodyParser disabled; signature validates over the raw form-body
  *    string before any reshape, so URL-encoding edge cases (spaces,
  *    accented characters, ampersands in values) don't break sig check.
- *  - IP allowlist via PAYFAST_ALLOWED_IPS env var (comma-separated).
- *    Empty / unset disables the check (dev convenience). Production
- *    should set: 197.97.145.144/29, 41.74.179.192/27, 102.216.36.16,
- *    102.216.36.17 - whatever PayFast publishes as their IPN egress
- *    range. CIDR not parsed here; the env var should list the exact
- *    IPs after subnet expansion.
+ *  - Optional IP allowlist via PAYFAST_ALLOWED_IPS (comma-separated,
+ *    CIDR supported). Live production notifications are still checked
+ *    against PayFast's server validation endpoint when no allowlist is
+ *    configured.
  */
 export const config = {
   api: {
@@ -167,16 +155,10 @@ function ipv4ToInt(ip: string): number | null {
 
 function isAllowedPayFastIp(ip: string | null): boolean {
   const raw = (process.env.PAYFAST_ALLOWED_IPS || "").trim();
-  if (!raw) {
-    // Audit (May 2026, Wave 6): used to return true here (allow when
-    // not configured) which meant a production deployment that
-    // forgot the env var silently lost IP gating, with only a
-    // platform-wide passphrase as the fallback verification. Now
-    // fail closed in production - the operator must populate the
-    // allowlist before going live. Non-prod environments still allow
-    // for local testing.
-    return process.env.NODE_ENV !== "production";
-  }
+  // The request handler calls this matcher only when an allowlist is
+  // configured. Without one, live events still pass PayFast's mandatory
+  // server-side validation below.
+  if (!raw) return true;
   if (!ip) return false;
   // Wave 17 audit: this used to do simple string equality on
   // PAYFAST_ALLOWED_IPS, but the env var typically lists CIDR ranges
@@ -226,120 +208,226 @@ async function handler(
     const rawBody = await readRawBody(req);
     const { ordered, map: paymentData } = parsePayFastBody(rawBody);
 
-    // Flow audit Leg C P0-2: PayFast signs every IPN with the merchant's
-    // own passphrase, not a platform-wide one. The previous code only
-    // ever read process.env.PAYFAST_PASSPHRASE so any tenant whose
-    // PayFast account had a different passphrase (i.e. every tenant in
-    // production once we onboard merchants other than the platform's
-    // own test account) would fail signature verification on EVERY
-    // IPN - payments would land but never close orders or invoices.
-    //
-    // Strategy: PayFast IPNs always carry the tenant's company id in
-    // custom_str3. Look that up first, pull the active gateway's
-    // passphrase from payment_gateway_credentials, and verify against
-    // it. Fall back to the env passphrase only when no tenant match is
-    // found (so the legacy single-tenant deployment + bootstrap of a
-    // brand-new tenant whose creds aren't in the table yet still work).
+    // Bind the callback to the tenant and the exact checkout attempt.
+    // Looking up only the currently active gateway breaks an in-flight
+    // PayFast payment as soon as the owner switches to another provider.
     const tenantCompanyIdFromIpn = (paymentData.custom_str3 || "").trim();
-    let passphrase = process.env.PAYFAST_PASSPHRASE || "";
-    // Tenant test-mode flag, captured alongside the passphrase so the
-    // server-confirm step below knows which PayFast host signed this
-    // IPN (sandbox vs live).
-    let tenantIsTest: boolean | null = null;
-    if (tenantCompanyIdFromIpn && /^[0-9a-f-]{36}$/i.test(tenantCompanyIdFromIpn)) {
-      try {
-        const { getServiceSupabase } = await import("@/lib/supabase/service");
-        const { paymentGatewayService } = await import("@/services/paymentGatewayService");
-        const svc = getServiceSupabase();
-        const tenantCfg = await paymentGatewayService.getActiveWithCredentials(
-          tenantCompanyIdFromIpn,
-          svc,
-        );
-        if (tenantCfg && tenantCfg.gateway.provider === "payfast") {
-          const tenantPassphrase = (tenantCfg.credentials?.passphrase || "").toString();
-          // Empty string is a valid PayFast configuration (no passphrase)
-          // - only fall back to env when the tenant has no payfast row
-          // at all. Once we have a payfast row, that's authoritative.
-          passphrase = tenantPassphrase;
-          tenantIsTest = !!(tenantCfg.gateway as any).is_test;
-        }
-      } catch (e) {
-        console.warn("[payfast-webhook] tenant passphrase lookup failed, using env fallback:", e);
+    const merchantIdFromIpn = (paymentData.merchant_id || "").trim();
+    const attemptId = (paymentData.custom_str5 || "").trim() || null;
+    if (!/^[0-9a-f-]{36}$/i.test(tenantCompanyIdFromIpn) || !merchantIdFromIpn) {
+      return res.status(400).json({ error: "Missing tenant or merchant reference" });
+    }
+
+    let paymentAttempt: any = null;
+    if (attemptId) {
+      const attemptColumns = "id, company_id, provider, order_id, invoice_id, payment_type, amount, currency, metadata";
+      const { data: attemptById, error: attemptByIdErr } = await supabase
+        .from("payment_attempts")
+        .select(attemptColumns)
+        .eq("id", attemptId)
+        .maybeSingle();
+      if (attemptByIdErr) throw attemptByIdErr;
+      paymentAttempt = attemptById;
+
+      // Rows created before the attempt ID became the primary key used a
+      // separate database ID, but stored this value as provider_session_id.
+      if (!paymentAttempt) {
+        const { data: attemptBySession, error: attemptBySessionErr } = await supabase
+          .from("payment_attempts")
+          .select(attemptColumns)
+          .eq("provider", "payfast")
+          .eq("provider_session_id", attemptId)
+          .maybeSingle();
+        if (attemptBySessionErr) throw attemptBySessionErr;
+        paymentAttempt = attemptBySession;
+      }
+      if (!paymentAttempt) {
+        return res.status(400).json({ error: "Payment attempt not found" });
+      }
+      if (
+        paymentAttempt.provider !== "payfast" ||
+        paymentAttempt.company_id !== tenantCompanyIdFromIpn
+      ) {
+        return res.status(400).json({ error: "Payment attempt does not match this tenant" });
       }
     }
 
-    const signedString = buildPayFastSignedString(ordered, passphrase);
-    const expectedSignature = crypto
-      .createHash("md5")
-      .update(signedString)
-      .digest("hex");
-    const providedSignature = (paymentData.signature || "").toLowerCase();
-
-    if (expectedSignature.toLowerCase() !== providedSignature) {
-      console.warn("[payfast-webhook] signature mismatch (tenant=", tenantCompanyIdFromIpn || "n/a", ")");
-      return res.status(400).json({ error: "Invalid signature" });
+    const serviceClient = getServiceSupabase();
+    const tenantPayFastConfigs = await paymentGatewayService.listCompanyProviderWithCredentials(
+      tenantCompanyIdFromIpn,
+      "payfast",
+      serviceClient,
+      true,
+    );
+    const attemptMetadata = (paymentAttempt?.metadata || {}) as Record<string, unknown>;
+    const attemptMerchantId = String(attemptMetadata.merchantId || "").trim();
+    if (attemptMerchantId && attemptMerchantId !== merchantIdFromIpn) {
+      return res.status(400).json({ error: "Merchant does not match the payment attempt" });
     }
 
-    // 2b. Server-side confirmation with PayFast - the documented ITN
-    // validation round-trip. Runs when no IP allowlist is configured
-    // (the allowlist's replacement) so a spoofed POST that somehow
-    // carried a valid-looking signature still has to be one PayFast
-    // itself recognises. Host follows the tenant's test-mode flag;
-    // legacy/no-tenant IPNs default to the live host.
-    if (!ipAllowlistConfigured && process.env.NODE_ENV === "production") {
+    let tenantIsTest: boolean | null = null;
+    const gatewayIdFromAttempt = String(attemptMetadata.gatewayId || "").trim();
+    let signatureConfigs = tenantPayFastConfigs.filter(
+      (config) => String(config.credentials.merchantId || "").trim() === merchantIdFromIpn,
+    );
+    if (gatewayIdFromAttempt) {
+      const attemptGateway = await paymentGatewayService.getByIdWithCredentials(
+        gatewayIdFromAttempt,
+        serviceClient,
+        true,
+      );
+      if (attemptGateway) {
+        if (
+          attemptGateway.gateway.company_id !== tenantCompanyIdFromIpn ||
+          attemptGateway.gateway.provider !== "payfast"
+        ) {
+          return res.status(400).json({ error: "Payment gateway does not match this tenant" });
+        }
+        signatureConfigs = [attemptGateway];
+        tenantIsTest = !!attemptGateway.gateway.is_test;
+      }
+    }
+    if (tenantIsTest === null && signatureConfigs.length > 0) {
+      tenantIsTest = !!signatureConfigs[0].gateway.is_test;
+    }
+    if (attemptMetadata.gatewayIsTest !== undefined) {
+      tenantIsTest = String(attemptMetadata.gatewayIsTest) === "true";
+    }
+
+    const passphrases = signatureConfigs.map((config) =>
+      String(config.credentials.passphrase || ""),
+    );
+    // Keep accepting old no-attempt links created by the former
+    // single-tenant env-var path. Never use platform env credentials to
+    // validate a new checkout that carries an attempt ID.
+    const legacyMerchantId =
+      process.env.PAYFAST_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID || "";
+    const legacyEnvMatches = !attemptId && legacyMerchantId === merchantIdFromIpn;
+    if (signatureConfigs.length === 0 && legacyEnvMatches) {
+      passphrases.push(
+        process.env.PAYFAST_PASSPHRASE || process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "",
+      );
+    }
+    if (signatureConfigs.length === 0 && !legacyEnvMatches && !attemptMerchantId) {
+      return res.status(400).json({ error: "No PayFast merchant is configured for this tenant" });
+    }
+
+    const providedSignature = (paymentData.signature || "").toLowerCase();
+    const signatureValid = passphrases.some((passphrase) => {
+      const expected = crypto
+        .createHash("md5")
+        .update(buildPayFastSignedString(ordered, passphrase))
+        .digest("hex");
+      return expected.toLowerCase() === providedSignature;
+    });
+
+    // PayFast's documented server check posts the complete ITN body,
+    // including its signature. Require VALID for live production events;
+    // this also allows a pending payment to finish after an owner rotates
+    // the passphrase, without storing that secret in tenant-readable data.
+    const isLiveProduction = process.env.NODE_ENV === "production" && tenantIsTest !== true;
+    let serverConfirmed = false;
+    if (isLiveProduction || (!signatureValid && process.env.NODE_ENV === "production")) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
       try {
         const confirmHost = tenantIsTest === true ? "sandbox.payfast.co.za" : "www.payfast.co.za";
-        const confirmBody = buildPayFastSignedString(
-          ordered.filter(([k]) => k !== "signature"),
-          "",
-        );
         const confirmRes = await fetch(`https://${confirmHost}/eng/query/validate`, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: confirmBody,
+          body: rawBody,
+          signal: controller.signal,
         });
         const confirmText = (await confirmRes.text()).trim().toUpperCase();
-        if (!confirmText.startsWith("VALID")) {
-          // Log-only (2026-06-12): PayFast's sandbox validate endpoint
-          // is unreliable for the shared sandbox account, and a false
-          // INVALID here would silently re-create the "client paid,
-          // invoice never flipped" incident this gate replaced. The
-          // passphrase-keyed signature check above remains the
-          // enforced authenticity gate; this round-trip is telemetry
-          // until we've observed it agreeing in production.
-          console.warn("[payfast-webhook] PayFast server-confirm returned non-VALID (continuing on signature):", { confirmHost, confirmText: confirmText.slice(0, 60) });
+        serverConfirmed = confirmRes.ok && confirmText === "VALID";
+        if (!serverConfirmed && isLiveProduction) {
+          console.warn("[payfast-webhook] PayFast rejected server confirmation:", { confirmHost, confirmText: confirmText.slice(0, 60) });
+          return res.status(400).json({ error: "PayFast did not validate this notification" });
+        }
+        if (!serverConfirmed) {
+          console.warn("[payfast-webhook] sandbox server confirmation was not VALID; relying on tenant signature:", { confirmHost, confirmText: confirmText.slice(0, 60) });
         }
       } catch (confirmErr) {
-        // PayFast's validate endpoint being unreachable shouldn't void
-        // a signature-verified payment - log loudly and continue.
-        console.warn("[payfast-webhook] PayFast server-confirm unreachable (continuing on signature):", confirmErr);
+        if (isLiveProduction) {
+          console.error("[payfast-webhook] PayFast server confirmation unavailable:", confirmErr);
+          return res.status(503).json({ error: "PayFast confirmation temporarily unavailable" });
+        }
+        console.warn("[payfast-webhook] sandbox server confirmation unavailable:", confirmErr);
+      } finally {
+        clearTimeout(timeout);
       }
     }
 
-    const attemptId = (paymentData.custom_str5 || "").trim() || null;
-    // Check payment status. Failed/cancelled IPNs are retained and notified
-    // through the same attempt lifecycle instead of disappearing as no-ops.
-    if (paymentData.payment_status !== "COMPLETE") {
+    if (!signatureValid && !serverConfirmed) {
+      console.warn("[payfast-webhook] signature mismatch (tenant=", tenantCompanyIdFromIpn, ")");
+      return res.status(400).json({ error: "Invalid signature" });
+    }
+
+    const callbackType = (paymentData.custom_str2 || "").trim().toLowerCase();
+    const callbackReference = (paymentData.custom_str1 || "").trim();
+    const callbackInvoiceId = (paymentData.custom_str4 || "").trim();
+    if (!callbackReference) {
+      return res.status(400).json({ error: "Missing payment reference" });
+    }
+    if (paymentAttempt) {
+      const expectedReference = callbackType === "invoice"
+        ? paymentAttempt.invoice_id
+        : paymentAttempt.order_id;
+      if (!expectedReference || expectedReference !== callbackReference) {
+        return res.status(400).json({ error: "Payment reference does not match the checkout" });
+      }
+      if (
+        callbackInvoiceId &&
+        /^[0-9a-f-]{36}$/i.test(callbackInvoiceId) &&
+        paymentAttempt.invoice_id !== callbackInvoiceId
+      ) {
+        return res.status(400).json({ error: "Invoice does not match the checkout" });
+      }
+      if (paymentAttempt.payment_type && paymentAttempt.payment_type !== callbackType) {
+        return res.status(400).json({ error: "Payment type does not match the checkout" });
+      }
+      const callbackAmount = Number(paymentData.amount_gross);
+      if (
+        paymentData.payment_status === "COMPLETE" &&
+        (!Number.isFinite(callbackAmount) || Math.abs(callbackAmount - Number(paymentAttempt.amount)) > 0.01)
+      ) {
+        return res.status(400).json({ error: "Amount does not match the checkout" });
+      }
+      const callbackCurrency = String(paymentData.currency || "").toUpperCase();
+      if (callbackCurrency && paymentAttempt.currency && callbackCurrency !== String(paymentAttempt.currency).toUpperCase()) {
+        return res.status(400).json({ error: "Currency does not match the checkout" });
+      }
+    }
+
+    // A pending provider status is not a failed payment. Only terminal
+    // failure statuses transition and notify; late COMPLETE callbacks can
+    // still recover an attempt that the expiry worker already closed.
+    const providerPaymentStatus = String(paymentData.payment_status || "unknown").toUpperCase();
+    if (providerPaymentStatus !== "COMPLETE") {
       try {
-        const transitioned = await transitionPaymentAttempt({
-          provider: "payfast",
-          attemptId,
-          providerSessionId: attemptId,
-          status: "failed",
-          providerStatus: paymentData.payment_status || "unknown",
-          failureReason: `PayFast payment status: ${paymentData.payment_status || "unknown"}`,
-        });
-        if (transitioned.changed && transitioned.attempt) {
-          await notifyPaymentAttemptFailed({
-            admin: supabase,
-            attempt: transitioned.attempt,
-            reason: `PayFast returned ${paymentData.payment_status || "unknown"}.`,
+        if (["FAILED", "CANCELLED", "EXPIRED"].includes(providerPaymentStatus)) {
+          const transitioned = await transitionPaymentAttempt({
+            provider: "payfast",
+            attemptId: paymentAttempt?.id || attemptId,
+            providerSessionId: attemptId,
+            status: "failed",
+            providerStatus: providerPaymentStatus,
+            failureReason: `PayFast payment status: ${providerPaymentStatus}`,
           });
+          if (transitioned.changed && transitioned.attempt) {
+            await notifyPaymentAttemptFailed({
+              admin: supabase,
+              attempt: transitioned.attempt,
+              reason: `PayFast returned ${providerPaymentStatus}.`,
+            });
+          }
+        } else if (paymentAttempt?.id) {
+          await touchPaymentAttempt(paymentAttempt.id, providerPaymentStatus);
         }
       } catch (attemptError) {
         console.warn("[payfast-webhook] failed-attempt transition failed:", attemptError);
       }
-      return res.status(200).json({ message: "Payment not complete" });
+      return res.status(200).json({ message: `Payment not complete: ${providerPaymentStatus}` });
     }
 
     const {
@@ -347,37 +435,80 @@ async function handler(
       custom_str2, // Payment type: "deposit", "balance", or "invoice"
       custom_str3, // Company ID
       custom_str4, // Identifier: "invoice" or not present
-      custom_str5,
       amount_gross,
-      pf_payment_id,
-      merchant_id
+      pf_payment_id
     } = paymentData;
 
     // Handle invoice payments (post-event final invoice flow).
     // Idempotency for this branch is handled inline below.
     if (custom_str4 === "invoice" || custom_str2 === "invoice") {
       const invoiceId = custom_str1;
-      const companyId = custom_str3;
-
-      // Idempotency guard - if we have already recorded this PayFast
-      // transaction against ANY payment row, skip the rest of the
-      // pipeline so retries are no-ops.
-      const alreadyRecorded = await isDuplicatePayFastPayment(pf_payment_id);
-      if (alreadyRecorded) {
-        return res.status(200).json({ message: "Already processed", invoiceId });
+      const companyIdFromIpn = custom_str3;
+      if (!invoiceId || !/^[0-9a-f-]{36}$/i.test(invoiceId)) {
+        return res.status(400).json({ error: "Invalid invoice reference" });
       }
 
-      // Read the invoice's client + companies info for the
-      // notification + email follow-ups (the RPC returns just IDs).
-      const { data: invoice } = await supabase
+      const { data: invoice, error: invoiceFetchError } = await supabase
         .from("invoices")
         .select("*, companies(*)")
         .eq("id", invoiceId)
+        .is("deleted_at", null)
         .maybeSingle();
+      if (invoiceFetchError) {
+        console.error("[payment-confirmation] invoice fetch failed:", invoiceFetchError);
+        return res.status(500).json({ error: "Could not load invoice" });
+      }
+      if (!invoice) return res.status(404).json({ error: "Invoice not found" });
 
-      if (invoice) {
-        const invoiceData = invoice as any;
-        const companyData = invoiceData.companies;
+      const invoiceData = invoice as any;
+      const companyData = invoiceData.companies;
+      const invoiceCompanyId = invoiceData.company_id as string;
+      const companyMatches =
+        invoiceCompanyId === companyIdFromIpn ||
+        (!paymentAttempt && companyData?.owner_id === companyIdFromIpn) ||
+        (!paymentAttempt && invoiceData.user_id === companyIdFromIpn);
+      if (!companyMatches || (paymentAttempt && paymentAttempt.company_id !== invoiceCompanyId)) {
+        return res.status(400).json({ error: "Invoice does not belong to this tenant" });
+      }
+
+      if (!pf_payment_id) return res.status(400).json({ error: "Missing PayFast payment ID" });
+      const existingPayment = await findExistingPayFastPayment(pf_payment_id);
+      if (existingPayment) {
+        if (
+          existingPayment.company_id !== invoiceCompanyId ||
+          existingPayment.invoice_id !== invoiceId ||
+          !["completed", "paid", "succeeded"].includes(String(existingPayment.payment_status || "").toLowerCase()) ||
+          Math.abs(Number(existingPayment.amount) - Number(amount_gross)) > 0.01
+        ) {
+          return res.status(409).json({ error: "PayFast payment ID is already linked to another payment" });
+        }
+        await markPayFastAttemptSucceeded(paymentAttempt, attemptId, paymentData.payment_status);
+        return res.status(200).json({ message: "Already processed", invoiceId });
+      }
+
+      const amountReceived = Number(amount_gross);
+      const invoiceBalance = invoiceData.balance_due !== null && invoiceData.balance_due !== undefined && Number.isFinite(Number(invoiceData.balance_due))
+        ? Number(invoiceData.balance_due)
+        : Math.max(0, Number(invoiceData.total_amount || 0) - Number(invoiceData.amount_paid || 0));
+      if (!(amountReceived > 0)) {
+        return res.status(400).json({ error: "Invalid invoice payment amount" });
+      }
+      // Concurrent checkout sessions can both be paid before either ITN
+      // updates the invoice. A saved attempt proves the amount was capped
+      // against the invoice when checkout was created, so record every
+      // confirmed charge even if another attempt has since closed it.
+      // Legacy callbacks without an attempt remain bounded by the live due.
+      if (!paymentAttempt && (invoiceData.status === "paid" || invoiceBalance <= 0)) {
+        return res.status(400).json({ error: "Invoice has no outstanding balance" });
+      }
+      if (!paymentAttempt && amountReceived > invoiceBalance + 0.01) {
+        return res.status(400).json({ error: "Payment exceeds invoice balance" });
+      }
+
+      {
+        // The invoice's persisted company ID, never callback data, is
+        // used for ledger writes and owner notifications.
+        const companyId = invoiceCompanyId;
 
         // Atomic invoice + payments + order update via SECURITY DEFINER
         // RPC. Three sequential writes used to leave the system in
@@ -391,19 +522,21 @@ async function handler(
             p_amount: parseFloat(amount_gross),
             p_payment_method: "payfast",
             p_transaction_id: pf_payment_id,
-            p_company_id: companyId,
+            p_company_id: invoiceCompanyId,
             p_client_id: invoiceData.client_id,
             p_currency: "ZAR",
             p_gateway_provider: "payfast",
           }
         );
 
-        if (rpcErr) {
-          console.error("Error in record_invoice_payment RPC:", rpcErr);
-          return res.status(500).json({ error: "Failed to record invoice payment" });
-        }
+      if (rpcErr) {
+        console.error("Error in record_invoice_payment RPC:", rpcErr);
+        return res.status(500).json({ error: "Failed to record invoice payment" });
+      }
 
-        if ((rpcResult as any)?.idempotent === true) {
+      await markPayFastAttemptSucceeded(paymentAttempt, attemptId, paymentData.payment_status);
+
+      if ((rpcResult as any)?.idempotent === true) {
           return res.status(200).json({
             message: "Already processed",
             invoiceId,
@@ -416,7 +549,7 @@ async function handler(
         // valid, but the old `|| companyId` fallback wrote a companies.id
         // when owner_id was null - a row no auth user could ever read.
         // Gate on a real owner uid instead of writing a junk recipient.
-        if (companyData.owner_id) {
+        if (companyData?.owner_id) {
           await supabase.from("notifications").insert([{
             company_id: companyId,
             // recipient_id is what RLS + notificationService.getNotifications
@@ -609,18 +742,6 @@ async function handler(
         console.log(`Invoice ${invoiceData.invoice_number} marked as paid - R${amount_gross}`);
       }
 
-      try {
-        await transitionPaymentAttempt({
-          provider: "payfast",
-          attemptId: custom_str5 || null,
-          providerSessionId: custom_str5 || null,
-          status: "succeeded",
-          providerStatus: paymentData.payment_status,
-        });
-      } catch (attemptError) {
-        console.warn("[payfast-webhook] invoice attempt transition failed:", attemptError);
-      }
-
       return res.status(200).json({
         message: "Invoice payment processed successfully",
         invoiceId,
@@ -631,17 +752,11 @@ async function handler(
     // Handle order payments (deposit / balance)
     const orderId = custom_str1;
     const paymentType = (custom_str2 || "").toLowerCase(); // "deposit" or "balance"
-
-    // Idempotency guard FIRST - before any DB write. If PayFast
-    // retries (which it does aggressively when the response is slow),
-    // we want the second / third / nth call to be a 200 no-op.
-    const alreadyRecorded = await isDuplicatePayFastPayment(pf_payment_id);
-    if (alreadyRecorded) {
-      return res.status(200).json({
-        success: true,
-        message: "Already processed",
-        orderId,
-      });
+    if (!orderId || !/^[0-9a-f-]{36}$/i.test(orderId)) {
+      return res.status(400).json({ error: "Invalid order reference" });
+    }
+    if (paymentType && paymentType !== "deposit" && paymentType !== "balance") {
+      return res.status(400).json({ error: "Invalid order payment type" });
     }
 
     // Get order details. FIX (2026-06-12): orderService.getOrderById
@@ -667,6 +782,75 @@ async function handler(
     }
 
     const order: any = orderRowDirect;
+    const orderCompanyId = String(order.company_id || order.user_id || "");
+    const companyMatches =
+      order.company_id === tenantCompanyIdFromIpn ||
+      (!paymentAttempt && order.user_id === tenantCompanyIdFromIpn);
+    if (!companyMatches || (paymentAttempt && paymentAttempt.company_id !== orderCompanyId)) {
+      return res.status(400).json({ error: "Order does not belong to this tenant" });
+    }
+
+    const requestedInvoiceId =
+      /^[0-9a-f-]{36}$/i.test(callbackInvoiceId)
+        ? callbackInvoiceId
+        : paymentAttempt?.invoice_id || null;
+    let linkedInvoice: any = null;
+    if (requestedInvoiceId) {
+      const { data: invoiceRow, error: linkedInvoiceErr } = await supabase
+        .from("invoices")
+        .select("id, company_id, order_id, total_amount, amount_paid, balance_due, status, deleted_at")
+        .eq("id", requestedInvoiceId)
+        .maybeSingle();
+      if (linkedInvoiceErr) {
+        console.error("[payment-webhook] linked invoice fetch failed:", linkedInvoiceErr);
+        return res.status(500).json({ error: "Could not load payment invoice" });
+      }
+      if (!invoiceRow || invoiceRow.deleted_at) {
+        return res.status(404).json({ error: "Payment invoice not found" });
+      }
+      if (
+        invoiceRow.company_id !== orderCompanyId ||
+        (invoiceRow.order_id && invoiceRow.order_id !== order.id) ||
+        (paymentAttempt && paymentAttempt.invoice_id !== invoiceRow.id)
+      ) {
+        return res.status(400).json({ error: "Invoice does not belong to this order" });
+      }
+      linkedInvoice = invoiceRow;
+    } else {
+      const { data: openInvoice, error: openInvoiceErr } = await supabase
+        .from("invoices")
+        .select("id, company_id, order_id, total_amount, amount_paid, balance_due, status, deleted_at")
+        .eq("order_id", order.id)
+        .eq("company_id", orderCompanyId)
+        .neq("status", "paid")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (openInvoiceErr) {
+        console.error("[payment-webhook] open invoice lookup failed:", openInvoiceErr);
+        return res.status(500).json({ error: "Could not load order balance" });
+      }
+      linkedInvoice = openInvoice;
+    }
+
+    // Validate tenant and invoice context before acknowledging a duplicate
+    // transaction. This keeps a replay from masking a cross-tenant mismatch.
+    if (!pf_payment_id) return res.status(400).json({ error: "Missing PayFast payment ID" });
+    const existingPayment = await findExistingPayFastPayment(pf_payment_id);
+    let alreadyRecorded = false;
+    if (existingPayment) {
+      if (
+        existingPayment.company_id !== orderCompanyId ||
+        existingPayment.order_id !== order.id ||
+        (linkedInvoice && existingPayment.invoice_id && existingPayment.invoice_id !== linkedInvoice.id) ||
+        !["completed", "paid", "succeeded"].includes(String(existingPayment.payment_status || "").toLowerCase()) ||
+        Math.abs(Number(existingPayment.amount) - Number(amount_gross)) > 0.01
+      ) {
+        return res.status(409).json({ error: "PayFast payment ID is already linked to another payment" });
+      }
+      alreadyRecorded = true;
+    }
 
     // Determine if this is deposit or balance payment. Prefer the
     // explicit custom_str2 the checkout sends; fall back to the order
@@ -690,25 +874,15 @@ async function handler(
     // lives on the invoice, not orders.deposit_amount/balance_amount
     // (which are routinely null), so we resolve the ceiling from the
     // live open invoice first, then fall back to the order columns.
-    let maxPayable = 0;
-    {
-      const { data: openInv } = await supabase
-        .from("invoices")
-        .select("total_amount, balance_due")
-        .eq("order_id", order.id)
-        .neq("status", "paid")
-        .is("deleted_at", null)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      maxPayable =
-        Number((openInv as any)?.balance_due) ||
-        Number((openInv as any)?.total_amount) ||
-        Number(order.balance_amount) ||
-        Number(order.deposit_amount) ||
-        Number(order.total_amount) ||
-        Number(amount_gross); // last resort: trust the gateway figure
-    }
+    const invoiceBalance = linkedInvoice
+      ? linkedInvoice.balance_due !== null && linkedInvoice.balance_due !== undefined && Number.isFinite(Number(linkedInvoice.balance_due))
+        ? Number(linkedInvoice.balance_due)
+        : Math.max(0, Number(linkedInvoice.total_amount || 0) - Number(linkedInvoice.amount_paid || 0))
+      : null;
+    const orderFallbackBalance = paymentType === "deposit"
+      ? Number(order.deposit_amount) || Number(order.total_amount) || 0
+      : Number(order.balance_amount) || Math.max(0, Number(order.total_amount || 0) - Number(order.amount_paid || 0));
+    const maxPayable = invoiceBalance !== null ? invoiceBalance : orderFallbackBalance;
 
     // Sanity-gate the gateway amount. The passphrase-keyed signature
     // check above already authenticated the IPN, so this is a
@@ -721,16 +895,19 @@ async function handler(
     // to partially_paid or paid accordingly. Tolerance mirrors the
     // inc-VAT rounding drift allowance used elsewhere: R1 or 0.5%.
     const got = Number(amount_gross);
-    const tolerance = Math.max(1.0, maxPayable * 0.005);
+    const tolerance = paymentAttempt ? 0.01 : Math.max(1.0, maxPayable * 0.005);
     if (!(got > 0)) {
       console.error("Invalid payment amount:", { got });
       return res.status(400).json({ error: "Invalid amount" });
     }
-    if (got > maxPayable + tolerance) {
+    if (!alreadyRecorded && !paymentAttempt && maxPayable <= 0) {
+      return res.status(400).json({ error: "Order has no outstanding balance" });
+    }
+    if (!alreadyRecorded && !paymentAttempt && got > maxPayable + tolerance) {
       console.error("Amount exceeds outstanding balance:", { got, maxPayable, tolerance });
       return res.status(400).json({ error: "Amount exceeds balance" });
     }
-    if (got < maxPayable - tolerance) {
+    if (!alreadyRecorded && got < maxPayable - tolerance) {
       console.warn("Partial payment below full balance - recording as partial:", { got, maxPayable });
     }
 
@@ -741,33 +918,35 @@ async function handler(
     // record_order_payment is GRANTed to service_role only, and the
     // orders UPDATEs are RLS-gated, so every deposit IPN failed to
     // record. Drive the writes with this file's service-role client.
-    const { data: recordedPaymentId, error: recordErr } = await (supabase as any).rpc(
-      "record_order_payment",
-      {
-        p_order_id: order.id,
-        p_amount: parseFloat(amount_gross),
-        p_payment_method: "payfast",
-        p_transaction_id: pf_payment_id,
-        p_user_id: order.user_id,
-        p_company_id: order.company_id || order.user_id,
-        p_client_id: order.client_id || null,
-        p_currency: order.currency || "ZAR",
-        p_payment_type: isDepositPayment ? "deposit" : "balance",
-        p_gateway_provider: "payfast",
-      },
-    );
-    if (recordErr) {
-      console.error("Failed to record payment:", recordErr);
-      return res.status(500).json({ error: "Failed to record payment" });
+    if (!alreadyRecorded) {
+      const { error: recordErr } = await (supabase as any).rpc(
+        "record_order_payment",
+        {
+          p_order_id: order.id,
+          p_amount: parseFloat(amount_gross),
+          p_payment_method: "payfast",
+          p_transaction_id: pf_payment_id,
+          p_user_id: order.user_id,
+          p_company_id: order.company_id || order.user_id,
+          p_client_id: order.client_id || null,
+          p_currency: order.currency || "ZAR",
+          p_payment_type: isDepositPayment ? "deposit" : "balance",
+          p_gateway_provider: "payfast",
+        },
+      );
+      if (recordErr) {
+        console.error("Failed to record payment:", recordErr);
+        return res.status(500).json({ error: "Failed to record payment" });
+      }
     }
-    void recordedPaymentId;
+    await markPayFastAttemptSucceeded(paymentAttempt, attemptId, paymentData.payment_status);
 
     // Cascade: stamp the order's deposit/confirmation flags directly
     // with the service-role client (the paymentProcessingService
     // helpers run on the anon client and silently no-op under RLS).
     if (isDepositPayment) {
       try {
-        await supabase
+        const { error: flagError } = await supabase
           .from("orders")
           .update({
             deposit_paid: true,
@@ -778,109 +957,64 @@ async function handler(
             updated_at: new Date().toISOString(),
           })
           .eq("id", order.id);
+        if (flagError) throw flagError;
       } catch (flagErr) {
-        console.warn("[payment-webhook] deposit flag update failed (non-blocking):", flagErr);
+        console.error("[payment-webhook] deposit flag update failed; requesting PayFast retry:", flagErr);
+        return res.status(500).json({ error: "Payment recorded, but the order status update needs retry" });
       }
-      await sendClientPaymentConfirmation(order, "deposit", amount_gross);
+      if (!alreadyRecorded) await sendClientPaymentConfirmation(order, "deposit", amount_gross);
     } else {
       // If the order is now fully paid AND already delivered, close it.
-      const { data: refreshed } = await supabase
+      const { data: refreshed, error: refreshedError } = await supabase
         .from("orders")
         .select("payment_status, status")
         .eq("id", order.id)
         .maybeSingle();
+      if (refreshedError) {
+        console.error("[payment-webhook] balance order refresh failed; requesting PayFast retry:", refreshedError);
+        return res.status(500).json({ error: "Payment recorded, but order status needs retry" });
+      }
       if (refreshed && (refreshed as any).payment_status === "paid"
           && (refreshed as any).status === "delivered") {
-        await supabase.from("orders").update({ status: "completed" }).eq("id", order.id);
-      }
-      await sendClientPaymentConfirmation(order, "balance", amount_gross);
-    }
-
-    // Reconcile the linked INVOICE row. record_order_payment (above)
-    // only updates the order's payment_status/amount_paid -- it never
-    // touches the invoice. Without this, a client who paid their
-    // deposit/balance invoice via PayFast leaves the invoice stuck at
-    // 'sent' with the full balance_due forever (admin invoice list +
-    // public pay link both keep showing it unpaid). Deposit/balance
-    // IPNs now carry the invoice id in custom_str4; older links fall
-    // back to the order's earliest open invoice. Best-effort + logged:
-    // the order side is already settled, so a failure here is a
-    // reconciliation gap, not lost money. The pf_payment_id dedup at
-    // the top of the order branch guarantees this runs at most once.
-    try {
-      let targetInvoiceId: string | null =
-        custom_str4 && /^[0-9a-f-]{36}$/i.test(custom_str4) ? custom_str4 : null;
-      if (!targetInvoiceId) {
-        const { data: openInv } = await supabase
-          .from("invoices")
-          .select("id")
-          .eq("order_id", order.id)
-          .neq("status", "paid")
-          .is("deleted_at", null)
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        targetInvoiceId = (openInv as any)?.id || null;
-      }
-      if (targetInvoiceId) {
-        const { data: inv } = await supabase
-          .from("invoices")
-          .select("id, total_amount, amount_paid, status")
-          .eq("id", targetInvoiceId)
-          .maybeSingle();
-        if (inv) {
-          const invData = inv as any;
-          const newAmountPaid =
-            Math.round(((Number(invData.amount_paid) || 0) + Number(amount_gross)) * 100) / 100;
-          const newBalance = Math.max(
-            0,
-            Math.round(((Number(invData.total_amount) || 0) - newAmountPaid) * 100) / 100,
-          );
-          // < 1c tolerance mirrors record_invoice_payment so float drift
-          // on inc-VAT deposit splits doesn't leave it stuck at partial.
-          const nextStatus =
-            newBalance < 0.01 ? "paid" : newAmountPaid > 0 ? "partially_paid" : "sent";
-          const invUpdate: any = {
-            amount_paid: newAmountPaid,
-            balance_due: newBalance,
-            status: nextStatus,
-            updated_at: new Date().toISOString(),
-          };
-          if (nextStatus === "paid") invUpdate.paid_at = new Date().toISOString();
-          await supabase.from("invoices").update(invUpdate).eq("id", targetInvoiceId);
-          // Link the gateway payment row to the invoice for ledger
-          // completeness (record_order_payment leaves invoice_id null).
-          await supabase
-            .from("payments")
-            .update({ invoice_id: targetInvoiceId })
-            .eq("gateway_transaction_id", pf_payment_id)
-            .is("invoice_id", null);
+        const { error: completionError } = await supabase.from("orders").update({ status: "completed" }).eq("id", order.id);
+        if (completionError) {
+          console.error("[payment-webhook] completed-order update failed; requesting PayFast retry:", completionError);
+          return res.status(500).json({ error: "Payment recorded, but order completion needs retry" });
         }
       }
-    } catch (invReconcileErr) {
-      console.warn("[payment-webhook] invoice reconcile failed (non-blocking):", invReconcileErr);
+      if (!alreadyRecorded) await sendClientPaymentConfirmation(order, "balance", amount_gross);
+    }
+
+    // record_order_payment and this invoice reconciliation are separate
+    // writes. If this step fails, return 500 so PayFast retries; the retry
+    // detects the existing order payment and safely repairs the invoice.
+    if (linkedInvoice) {
+      await reconcileOrderInvoicePayment(linkedInvoice.id, pf_payment_id);
     }
 
     // Owner / admin in-app notification (kept legacy shape for the
     // notifications inbox the owner already uses).
-    await supabase.from("notifications").insert([{
-      company_id: order.company_id || order.user_id,
-      user_id: order.user_id,
-      recipient_id: order.user_id,
-      notification_type: "payment_received",
-      title: isDepositPayment ? "Deposit Payment Received" : "Balance Payment Received",
-      message: isDepositPayment
-        ? `Deposit payment received for order ${order.order_number}`
-        : `Full payment received for order ${order.order_number}. Booking is confirmed.`,
-      priority: "high",
-    }]);
+    if (!alreadyRecorded) {
+      await supabase.from("notifications").insert([{
+        company_id: order.company_id || order.user_id,
+        user_id: order.user_id,
+        recipient_id: order.user_id,
+        notification_type: "payment_received",
+        title: isDepositPayment ? "Deposit Payment Received" : "Balance Payment Received",
+        message: isDepositPayment
+          ? `Deposit payment received for order ${order.order_number}`
+          : `Full payment received for order ${order.order_number}. Booking is confirmed.`,
+        priority: "high",
+      }]);
+    }
 
     // Phase 8 #6: also email the company contact address. The
     // in-app bell only fires when an admin happens to be in the
     // tab; for the operator on the road this email is the actual
     // 'money landed' signal and prompts them to confirm with the
     // kitchen / driver. Best-effort - never undoes the webhook.
-    try {
+    if (!alreadyRecorded) {
+      try {
       const { data: companyRow } = await supabase
         .from("companies")
         .select("email, company_name, owner_id")
@@ -923,20 +1057,8 @@ async function handler(
       }
     } catch (ownerEmailErr) {
       console.warn("[payment-webhook] owner notification email failed (non-blocking):", ownerEmailErr);
+      }
     }
-
-    try {
-      await transitionPaymentAttempt({
-        provider: "payfast",
-        attemptId: custom_str5 || null,
-        providerSessionId: custom_str5 || null,
-        status: "succeeded",
-        providerStatus: paymentData.payment_status,
-      });
-    } catch (attemptError) {
-      console.warn("[payfast-webhook] order attempt transition failed:", attemptError);
-    }
-
     return res.status(200).json({
       success: true,
       message: "Payment processed successfully"
@@ -961,23 +1083,104 @@ async function handler(
   }
 }
 
-/**
- * Look up an existing payments row by PayFast's canonical id. We check
- * both `gateway_transaction_id` (the field recordPayment writes) and
- * the legacy `transaction_id` mirror so retries are deduped regardless
- * of which column variant a previous run used.
- */
-async function isDuplicatePayFastPayment(pfPaymentId: string | undefined | null): Promise<boolean> {
-  const { exists, error } = await paymentExistsByGatewayId(supabase, pfPaymentId);
-  if (error) {
-    // Fail open - if the dedup query itself errors we'd rather process
-    // and risk a later cleanup than silently drop a real payment. The
-    // amount-mismatch + downstream FK constraints provide a second line
-    // of defence.
-    console.warn("Idempotency check failed, proceeding");
-    return false;
+/** Resolve a PayFast transaction id to its existing ledger row. */
+async function findExistingPayFastPayment(pfPaymentId: string | undefined | null): Promise<any | null> {
+  if (!pfPaymentId) return null;
+  for (const column of ["gateway_transaction_id", "transaction_id"]) {
+    const { data, error } = await supabase
+      .from("payments")
+      .select("id, company_id, invoice_id, order_id, amount, payment_status")
+      .eq(column, pfPaymentId)
+      .limit(1);
+    if (error) throw error;
+    if (Array.isArray(data) && data.length > 0) return data[0];
   }
-  return exists;
+  return null;
+}
+
+/** Mark a payment attempt as soon as its ledger transaction is confirmed. */
+async function markPayFastAttemptSucceeded(
+  attempt: any,
+  providerAttemptId: string | null,
+  providerStatus: string,
+): Promise<void> {
+  const attemptId = attempt?.id || providerAttemptId;
+  if (!attemptId) return;
+  const transitioned = await transitionPaymentAttempt({
+    provider: "payfast",
+    attemptId,
+    providerSessionId: providerAttemptId,
+    status: "succeeded",
+    providerStatus,
+  });
+  if (transitioned.changed || transitioned.attempt?.status === "succeeded") return;
+
+  // A retry can arrive after the row was already transitioned to success.
+  const { data: current, error } = await getServiceSupabase()
+    .from("payment_attempts")
+    .select("status")
+    .eq("id", attemptId)
+    .maybeSingle();
+  if (error) throw error;
+  if (current?.status !== "succeeded") {
+    throw new Error("The confirmed PayFast payment attempt could not be transitioned");
+  }
+}
+
+/**
+ * Rebuild the order-linked invoice balance from recorded payment rows.
+ * Linking the PayFast row first makes retries idempotent if the webhook
+ * stops between the order RPC and invoice update.
+ */
+async function reconcileOrderInvoicePayment(
+  invoiceId: string,
+  pfPaymentId: string,
+): Promise<void> {
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("invoices")
+    .select("id, total_amount, amount_paid, status")
+    .eq("id", invoiceId)
+    .maybeSingle();
+  if (invoiceError) throw invoiceError;
+  if (!invoice) throw new Error("Order payment invoice disappeared before reconciliation");
+
+  for (const column of ["gateway_transaction_id", "transaction_id"]) {
+    const { error } = await supabase
+      .from("payments")
+      .update({ invoice_id: invoiceId })
+      .eq(column, pfPaymentId)
+      .is("invoice_id", null);
+    if (error) throw error;
+  }
+
+  const { data: rows, error: paymentsError } = await supabase
+    .from("payments")
+    .select("amount, payment_status")
+    .eq("invoice_id", invoiceId);
+  if (paymentsError) throw paymentsError;
+
+  const paidFromLedger = (rows || []).reduce((sum: number, payment: any) => {
+    const status = String(payment.payment_status || "").toLowerCase();
+    return ["completed", "paid", "succeeded"].includes(status)
+      ? sum + (Number(payment.amount) || 0)
+      : sum;
+  }, 0);
+  const totalAmount = Number(invoice.total_amount) || 0;
+  const amountPaid = Math.round(Math.max(Number(invoice.amount_paid) || 0, paidFromLedger) * 100) / 100;
+  const balanceDue = Math.max(0, Math.round((totalAmount - amountPaid) * 100) / 100);
+  const status = balanceDue < 0.01 ? "paid" : amountPaid > 0 ? "partially_paid" : "sent";
+  const patch: Record<string, unknown> = {
+    amount_paid: amountPaid,
+    balance_due: balanceDue,
+    status,
+    updated_at: new Date().toISOString(),
+  };
+  if (status === "paid") patch.paid_at = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("invoices")
+    .update(patch)
+    .eq("id", invoiceId);
+  if (updateError) throw updateError;
 }
 
 /**

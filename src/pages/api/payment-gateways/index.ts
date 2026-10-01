@@ -132,10 +132,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       const sb = getServiceSupabase();
 
-      // Blank fields keep the stored value (the service merges), so the
-      // full required set is only enforced when there is no existing
-      // config to merge into. This also permits settings-only updates
-      // (test-mode flip, URLs) without re-typing every secret.
       const { data: existingRow } = await sb
         .from("payment_gateways")
         .select("id")
@@ -143,20 +139,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .eq("provider", provider)
         .is("deleted_at", null)
         .maybeSingle();
-      if (!existingRow) {
-        const missing = (catalogueEntry?.fields || [])
-          .filter((f) => f.required && !cleanCreds[f.key])
-          .map((f) => f.label);
-        if (missing.length > 0) {
-          return res.status(400).json({ error: `Missing required credential${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}` });
-        }
-      } else if (provider === "yoco" && body.is_test === false && !cleanCreds.webhookSecret) {
-        const existingWithCredentials = await paymentGatewayService.getByIdWithCredentials(existingRow.id, sb);
-        if (!existingWithCredentials?.credentials?.webhookSecret) {
-          return res.status(400).json({
-            error: "Yoco Webhook Signing Secret is required before enabling live payments.",
-          });
-        }
+      const existingWithCredentials = existingRow
+        ? await paymentGatewayService.getByIdWithCredentials(existingRow.id, sb)
+        : null;
+      const effectiveCredentials = {
+        ...(existingWithCredentials?.credentials || {}),
+        ...cleanCreds,
+      };
+      const missing = (catalogueEntry?.fields || [])
+        .filter((field) => field.required && !String(effectiveCredentials[field.key] || "").trim())
+        .map((field) => field.label);
+      if (missing.length > 0) {
+        return res.status(400).json({
+          error: `Missing required credential${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`,
+        });
+      }
+      if (provider === "yoco" && body.is_test === false && !effectiveCredentials.webhookSecret) {
+        return res.status(400).json({
+          error: "Yoco Webhook Signing Secret is required before enabling live payments.",
+        });
       }
 
       const result = await paymentGatewayService.upsertWithCredentials(

@@ -11,9 +11,7 @@
  * based on whichever gateway the catering company set as active in
  * /admin/payment-gateways.
  *
- * Falls back to legacy env-var PayFast when no tenant gateway has
- * been configured - preserves current behaviour for existing
- * deployments.
+ * Tenant checkouts always use the company's saved gateway credentials.
  *
  * Returns:
  *   { ok: true, provider, paymentUrl, isHtmlForm, sessionId }
@@ -30,7 +28,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { createPaymentSession } from "@/lib/paymentService";
+import { createPaymentSession, resolveActivePaymentGateway } from "@/lib/paymentService";
+import { publicAppOrigin } from "@/lib/publicAppOrigin";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { attachPaymentAttemptSession, createPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
@@ -73,7 +72,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // verify it matches when used as the auth gate.
     const { data: invoice, error: invErr } = await admin
       .from("invoices")
-      .select("id, company_id, client_id, order_id, invoice_number, balance_due, total_amount, deleted_at, status, public_token, invoice_data")
+      .select("id, company_id, client_id, order_id, invoice_number, balance_due, total_amount, amount_paid, currency, deleted_at, status, public_token")
       .eq("id", invoice_id)
       .maybeSingle();
     if (invErr || !invoice || invoice.deleted_at) {
@@ -126,6 +125,57 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(403).json({ error: "Not your invoice" });
     }
 
+    // The store-credit RPC writes a completed payments row first and this
+    // route then refreshes the invoice aggregates. If a prior request was
+    // interrupted between those writes, rebuild the payable balance from
+    // the ledger before creating another checkout. This avoids charging the
+    // customer for credit already redeemed on a previous attempt.
+    const { data: invoicePayments, error: invoicePaymentsError } = await admin
+      .from("payments")
+      .select("amount, payment_status")
+      .eq("invoice_id", invoice.id);
+    if (invoicePaymentsError) {
+      console.error("[payments/create-session] invoice payment ledger lookup failed:", invoicePaymentsError);
+      return res.status(503).json({ error: "Could not refresh the invoice balance. Please try again." });
+    }
+    const ledgerPaid = ((invoicePayments || []) as any[]).reduce((sum, payment) => {
+      return ["completed", "paid", "succeeded"].includes(String(payment.payment_status || "").toLowerCase())
+        ? sum + (Number(payment.amount) || 0)
+        : sum;
+    }, 0);
+    const reconciledAmountPaid = Math.round(Math.max(Number(invoice.amount_paid) || 0, ledgerPaid) * 100) / 100;
+    const reconciledBalanceDue = Math.max(0, Math.round(((Number(invoice.total_amount) || 0) - reconciledAmountPaid) * 100) / 100);
+    const reconciledStatus = reconciledBalanceDue < 0.01
+      ? "paid"
+      : reconciledAmountPaid > 0
+        ? "partially_paid"
+        : invoice.status;
+    if (
+      Math.abs(Number(invoice.amount_paid || 0) - reconciledAmountPaid) > 0.01 ||
+      Math.abs(Number(invoice.balance_due ?? reconciledBalanceDue) - reconciledBalanceDue) > 0.01 ||
+      invoice.status !== reconciledStatus
+    ) {
+      const { data: reconciledInvoice, error: reconcileError } = await admin
+        .from("invoices")
+        .update({
+          amount_paid: reconciledAmountPaid,
+          balance_due: reconciledBalanceDue,
+          status: reconciledStatus,
+          ...(reconciledStatus === "paid" ? { paid_at: new Date().toISOString() } : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", invoice.id)
+        .select("id")
+        .maybeSingle();
+      if (reconcileError || !reconciledInvoice) {
+        console.error("[payments/create-session] invoice balance repair failed:", reconcileError);
+        return res.status(503).json({ error: "Could not refresh the invoice balance. Please try again." });
+      }
+      invoice.amount_paid = reconciledAmountPaid;
+      invoice.balance_due = reconciledBalanceDue;
+      invoice.status = reconciledStatus;
+    }
+
     // Pull order details (deposit_paid flag, event date) so we can
     // route deposit vs balance correctly.
     let orderRow: any = null;
@@ -137,20 +187,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .maybeSingle();
       if (orderErr) {
         console.error("[payments/create-session] orders fetch failed:", orderErr);
+        return res.status(503).json({ error: "Could not verify the order behind this invoice. Please try again." });
+      }
+      if (!order) {
+        return res.status(409).json({ error: "The order behind this invoice is no longer available." });
       }
       orderRow = order;
     }
 
     const isDeposit = orderRow ? !orderRow.deposit_paid : false;
-    const defaultGross =
-      orderRow && isDeposit
-        ? Number(orderRow.deposit_amount) || Number(invoice.balance_due) || 0
-        : Number(invoice.balance_due) || Number(invoice.total_amount) || 0;
+    const invoiceBalanceDue = Math.max(0, Number(invoice.balance_due ?? (Number(invoice.total_amount || 0) - Number(invoice.amount_paid || 0))) || 0);
+    const suggestedGross = orderRow && isDeposit
+      ? Number(orderRow.deposit_amount) || invoiceBalanceDue
+      : invoiceBalanceDue;
+    const defaultGross = Math.min(Math.max(0, suggestedGross), invoiceBalanceDue);
     // The payer can choose how much to pay now (a deposit that may not
     // be exactly the configured %). Honour `pay_amount` when supplied,
     // but ALWAYS cap to the outstanding balance so a client can never
     // overpay the invoice. Falls back to the deposit/balance default.
-    const maxPayable = Number(invoice.balance_due) || defaultGross;
+    const maxPayable = invoiceBalanceDue;
     const requestedPay = Number(body.pay_amount);
     const grossAmount =
       Number.isFinite(requestedPay) && requestedPay > 0
@@ -220,10 +275,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       };
       if (newBalance < 0.01) updates.status = "paid";
       else if (newAmountPaid > 0) updates.status = "partially_paid";
-      try {
-        await admin.from("invoices").update(updates).eq("id", invoice.id);
-      } catch (e) {
-        console.warn("[create-session] invoice balance update failed:", e);
+      const { error: invoiceUpdateError } = await admin.from("invoices").update(updates).eq("id", invoice.id);
+      if (invoiceUpdateError) {
+        console.error("[create-session] invoice balance update failed:", invoiceUpdateError);
+        return res.status(503).json({ error: "Store credit was applied, but the invoice balance could not be refreshed. Please retry before paying." });
       }
       try {
         await (admin as any).from("audit_logs").insert({
@@ -259,42 +314,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
     }
 
-    // Persist the EXACT gateway charge for this attempt so the test-mode
-    // return backstop (/api/payments/confirm-return) records the amount
-    // the client actually chose to pay now (e.g. a 50% deposit), not the
-    // full outstanding balance. Before this, confirm-return blindly
-    // recorded invoice.balance_due, so a deposit payment flipped the
-    // invoice to fully "paid" and the order to payment_status='paid'.
-    // A fresh nonce per attempt makes the backstop's transaction id
-    // unique, so a later balance payment records as its own row instead
-    // of being deduped against the deposit. (Live mode is unaffected -
-    // the signed ITN carries the real amount.)
-    const paySessionNonce =
-      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `${invoice.id}-${grossAmount}-${Math.round(Math.random() * 1e9)}`;
-    try {
-      const prevData =
-        (invoice as any).invoice_data && typeof (invoice as any).invoice_data === "object"
-          ? (invoice as any).invoice_data
-          : {};
-      await admin
-        .from("invoices")
-        .update({
-          invoice_data: { ...prevData, pendingGatewayAmount: amount, paySessionNonce },
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", invoice.id);
-    } catch (e) {
-      console.warn("[create-session] pending-amount persist failed (non-blocking):", e);
-    }
+    const baseUrl = publicAppOrigin({
+      environment: process.env.NODE_ENV,
+      configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+      vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+      vercelUrl: process.env.VERCEL_URL,
+      requestOrigin: req.headers.origin as string | undefined,
+      requestHost: req.headers.host,
+      forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
+    });
 
-    const baseUrl =
-      (req.headers["origin"] as string) ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      "https://cateringms.com";
-
-    const orderIdForSession = orderRow?.id || invoice.order_id || invoice.id;
+    const orderIdForSession = orderRow?.id || invoice.id;
     const baseDescription = orderRow?.order_number
       ? `Order ${orderRow.order_number} - ${isDeposit ? "Deposit" : "Balance"} payment`
       : `Invoice ${invoice.invoice_number}`;
@@ -305,34 +335,55 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ? `${baseDescription} (after R${creditApplied.toFixed(2)} credit)`
       : baseDescription;
     const paymentAttemptId = randomUUID();
-    const { data: activeGateway } = await admin
-      .from("payment_gateways")
-      .select("provider")
-      .eq("company_id", invoice.company_id)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .maybeSingle();
+    const activeGateway = await resolveActivePaymentGateway(invoice.company_id);
+    if (!activeGateway) {
+      return res.status(400).json({
+        error: "This company has no active payment gateway. Configure its own provider in onboarding or Admin → Payment Gateways.",
+        code: "payment_not_configured",
+      });
+    }
+    const checkoutCurrency = String(orderRow?.currency || invoice.currency || "ZAR").toUpperCase();
+    if (["payfast", "yoco"].includes(activeGateway.gateway.provider) && checkoutCurrency !== "ZAR") {
+      return res.status(400).json({
+        error: `${activeGateway.gateway.provider === "payfast" ? "PayFast" : "Yoco"} can only collect ZAR for this invoice. Choose Stripe or update the invoice currency.`,
+        code: "payment_currency_not_supported",
+      });
+    }
 
     // Create the correlation row before calling the provider. This closes
     // the small but real race where a hosted checkout completes and its
     // webhook arrives before the provider session response is persisted.
-    if (activeGateway?.provider) {
+    if (activeGateway.gateway.provider) {
       try {
         await createPaymentAttempt({
+          id: paymentAttemptId,
           companyId: invoice.company_id,
           clientId: invoice.client_id,
-          orderId: orderIdForSession,
+          // order_id is a foreign key; standalone invoice IDs belong in
+          // invoice_id and must not be written into orders.
+          orderId: orderRow?.id || invoice.order_id || null,
           invoiceId: invoice.id,
-          provider: activeGateway.provider,
+          provider: activeGateway.gateway.provider as "payfast" | "yoco" | "stripe",
           providerSessionId: paymentAttemptId,
           paymentType: orderRow ? (isDeposit ? "deposit" : "balance") : "invoice",
           amount,
-          currency: orderRow?.currency || "ZAR",
-          metadata: { invoiceId: invoice.id, invoiceNumber: invoice.invoice_number, paymentAttemptId },
+          currency: checkoutCurrency,
+          metadata: {
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoice_number,
+            paymentAttemptId,
+            gatewayId: activeGateway.gateway.id,
+            merchantId: activeGateway.credentials.merchantId || "",
+            gatewayIsTest: String(activeGateway.gateway.is_test),
+          },
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         });
       } catch (attemptError) {
         console.error("[payments/create-session] pre-checkout attempt insert failed:", attemptError);
+        return res.status(503).json({
+          error: "Could not prepare payment tracking. Please try again.",
+          code: "payment_tracking_unavailable",
+        });
       }
     }
 
@@ -341,7 +392,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       orderId: orderIdForSession,
       type: orderRow ? (isDeposit ? "deposit" : "balance") : "invoice",
       amount,
-      currency: orderRow?.currency || "ZAR",
+      currency: checkoutCurrency,
       description,
       // FIX (2026-06-12): token-bearer payers (the email pay link) are
       // NOT logged in - bouncing them to /client-portal after payment
@@ -349,11 +400,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // invoice pages instead; only authenticated portal sessions
       // return to the portal.
       successUrl: viaPublicToken
-        ? `${baseUrl}/pay/i/${(invoice as any).public_token}/success`
-        : `${baseUrl}/client-portal/billing?paid=1&invoice=${invoice.invoice_number}`,
+        ? `${baseUrl}/pay/i/${(invoice as any).public_token}/success?payment_attempt_id=${encodeURIComponent(paymentAttemptId)}`
+        : `${baseUrl}/client-portal/billing?payment_attempt_id=${encodeURIComponent(paymentAttemptId)}&invoice=${encodeURIComponent(invoice.invoice_number)}&invoice_id=${encodeURIComponent(invoice.id)}`,
       cancelUrl: viaPublicToken
-        ? `${baseUrl}/pay/i/${(invoice as any).public_token}?cancelled=1`
-        : `${baseUrl}/client-portal/billing?cancelled=1&invoice=${invoice.invoice_number}`,
+        ? `${baseUrl}/pay/i/${(invoice as any).public_token}?cancelled=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}`
+        : `${baseUrl}/client-portal/billing?cancelled=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}&invoice=${encodeURIComponent(invoice.invoice_number)}&invoice_id=${encodeURIComponent(invoice.id)}`,
       notifyUrl: notifyUrlFor(baseUrl, invoice.company_id),
       customer: {
         email: ownership.email || orderRow?.client_email || "",
@@ -365,13 +416,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         invoiceNumber: invoice.invoice_number,
         paymentAttemptId,
       },
-    });
+    }, activeGateway);
 
     if (!result.ok) {
-      if (activeGateway?.provider) {
+      if (activeGateway.gateway.provider) {
         try {
           const transitioned = await transitionPaymentAttempt({
-            provider: activeGateway.provider,
+            provider: activeGateway.gateway.provider,
             attemptId: paymentAttemptId,
             status: "failed",
             providerStatus: "checkout_creation_failed",
@@ -388,10 +439,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           console.warn("[payments/create-session] failed-attempt transition failed:", attemptError);
         }
       }
-      const paymentNotConfigured = /no active payment gateway/i.test(String(result.error || ""));
       return res.status(400).json({
         error: result.error,
-        ...(paymentNotConfigured ? { code: "payment_not_configured" } : {}),
       });
     }
 
@@ -399,6 +448,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       await attachPaymentAttemptSession(paymentAttemptId, result.provider === "payfast" ? paymentAttemptId : result.sessionId!);
     } catch (attemptError) {
       console.error("[payments/create-session] provider session attach failed:", attemptError);
+      try {
+        await transitionPaymentAttempt({
+          provider: activeGateway.gateway.provider as "payfast" | "yoco" | "stripe",
+          attemptId: paymentAttemptId,
+          status: "failed",
+          providerStatus: "session_tracking_failed",
+          failureReason: "The checkout session could not be linked to its payment attempt.",
+        });
+      } catch (transitionError) {
+        console.error("[payments/create-session] untracked session attempt could not be closed:", transitionError);
+      }
+      return res.status(503).json({
+        error: "Could not safely prepare this checkout. Please try again.",
+        code: "payment_tracking_unavailable",
+      });
     }
 
     return res.status(200).json({
@@ -420,19 +484,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 }
 
 /**
- * Webhook URL the gateway should call back. We do NOT pull this from
- * the tenant's saved notify_url (that's for vanity / display) - the
- * canonical endpoints live under /api/webhooks/{provider}-confirmation
- * and the dispatch logic in there reads metadata.companyId off the
- * event to find the right tenant.
+ * Webhook URL the gateway should call back. We do not use the tenant's
+ * saved notify_url as an execution target. PayFast sends tenant-scoped
+ * custom fields to the shared ITN endpoint, which verifies the saved
+ * checkout attempt before writing.
  */
 function notifyUrlFor(baseUrl: string, _companyId: string): string {
-  // PayFast doesn't currently dispatch on metadata.companyId - it
-  // routes to the legacy /api/webhooks/payment-confirmation handler
-  // which Agent boundaries say we cannot touch. Keep that endpoint as
-  // the IPN target for PayFast (dispatcher already passes it through
-  // params). Other providers go through their own webhook routes via
-  // dashboard configuration on the provider side.
+  // PayFast sends its IPN to this shared route. The handler verifies the
+  // tenant ID, merchant ID, invoice/order and saved attempt from the signed
+  // callback before applying any payment.
   return `${baseUrl}/api/webhooks/payment-confirmation`;
 }
 

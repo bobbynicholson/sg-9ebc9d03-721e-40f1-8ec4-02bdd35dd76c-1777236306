@@ -7,11 +7,9 @@
  * credentials via service-role Supabase, and hands off to the right
  * provider lib.
  *
- * The PayFast SaaS-subscription path (used to bill tenants for the
- * platform itself) is a SEPARATE concern and lives in
- * paymentProcessingService.generatePaymentLink + lib/payfastService.
- * Don't confuse the two: this file is exclusively about tenants taking
- * money FROM their event clients.
+ * The SaaS subscription path is separate and lives in
+ * /api/subscription/create-session. This file handles tenants taking
+ * money from their event clients using each tenant's own gateway.
  *
  * Each provider returns the canonical { paymentUrl, sessionId } shape so
  * the call site never branches on provider.
@@ -64,6 +62,17 @@ export interface PaymentSessionResult {
   error?: string;
 }
 
+export type ResolvedPaymentGateway = NonNullable<
+  Awaited<ReturnType<typeof paymentGatewayService.getActiveWithCredentials>>
+>;
+
+export async function resolveActivePaymentGateway(
+  companyId: string,
+): Promise<ResolvedPaymentGateway | null> {
+  const sb = getServiceSupabase();
+  return paymentGatewayService.getActiveWithCredentials(companyId, sb);
+}
+
 /**
  * Resolve and dispatch to the company's active payment provider. A tenant
  * must configure its own gateway; platform credentials are never used for
@@ -71,13 +80,12 @@ export interface PaymentSessionResult {
  */
 export async function createPaymentSession(
   input: PaymentSessionInput,
+  resolvedGateway?: ResolvedPaymentGateway | null,
 ): Promise<PaymentSessionResult> {
   try {
-    const sb = getServiceSupabase();
-    const active = await paymentGatewayService.getActiveWithCredentials(
-      input.companyId,
-      sb,
-    );
+    const active = resolvedGateway === undefined
+      ? await resolveActivePaymentGateway(input.companyId)
+      : resolvedGateway;
 
     if (!active) {
       return {
@@ -138,49 +146,6 @@ async function dispatchPayFast(
     // Forward the invoice id so the IPN can reconcile the invoice row
     // (deposit/balance payments hit record_order_payment, which only
     // updates the order; the webhook uses this to flip the invoice too).
-    customStr4: input.extraMetadata?.invoiceId,
-    customStr5: input.extraMetadata?.paymentAttemptId,
-  });
-  return {
-    ok: true,
-    provider: "payfast",
-    paymentUrl: html,
-    sessionId: input.orderId,
-    isHtmlForm: true,
-  };
-}
-
-async function dispatchLegacyPayFast(
-  input: PaymentSessionInput,
-): Promise<PaymentSessionResult> {
-  const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
-  const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
-  const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE || "";
-  const testMode = process.env.NODE_ENV !== "production";
-  if (!merchantId || !merchantKey) {
-    return {
-      ok: false,
-      error:
-        "No payment gateway configured for this company. Ask the operator to set one up in Admin -> Payment Gateways.",
-    };
-  }
-  const html = generatePayFastPaymentForm({
-    merchantId,
-    merchantKey,
-    passphrase,
-    testMode,
-    amount: input.amount,
-    itemName: input.description,
-    returnUrl: input.successUrl,
-    cancelUrl: input.cancelUrl,
-    notifyUrl: input.notifyUrl,
-    nameFirst: input.customer.firstName || "Customer",
-    nameLast: input.customer.lastName || "",
-    emailAddress: input.customer.email,
-    customStr1: input.orderId,
-    customStr2: input.type,
-    customStr3: input.companyId,
-    // See dispatchPayFast: forward invoice id for IPN reconciliation.
     customStr4: input.extraMetadata?.invoiceId,
     customStr5: input.extraMetadata?.paymentAttemptId,
   });

@@ -12,36 +12,52 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, FileText } from "lucide-react";
+import { CheckCircle2, CircleAlert, FileText, Loader2 } from "lucide-react";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
 import { PublicActionShell } from "@/components/PublicActionShell";
 
 export default function InvoicePaymentSuccessPage() {
   const router = useRouter();
   const token = typeof router.query.token === "string" ? router.query.token : null;
+  const paymentAttemptId = typeof router.query.payment_attempt_id === "string"
+    ? router.query.payment_attempt_id
+    : null;
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [paymentState, setPaymentState] = useState<"checking" | "pending" | "succeeded" | "failed" | "expired">("checking");
 
-  // Backstop for missed PayFast sandbox ITNs: confirm + record the
-  // payment now that the buyer has returned from a completed checkout.
-  // Server gates this to test mode (live relies on the signed ITN).
+  // A return URL is not proof of payment. Poll the server-side attempt
+  // status, which only the signed provider webhook can mark successful.
   useEffect(() => {
-    if (!token) return;
+    if (!router.isReady || !token) return;
+    if (!paymentAttemptId) {
+      setPaymentState("pending");
+      return;
+    }
     let cancelled = false;
     (async () => {
-      try {
-        await fetch("/api/payments/confirm-return", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ public_token: token }),
-        });
-      } catch {
-        // Non-blocking: the daily reconcile cron + ITN retries still
-        // catch it. This is just the fast path.
+      for (let check = 0; check < 12 && !cancelled; check += 1) {
+        try {
+          const response = await fetch("/api/payments/confirm-return", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ public_token: token, payment_attempt_id: paymentAttemptId }),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (cancelled) return;
+          if (["succeeded", "failed", "expired"].includes(result?.status)) {
+            setPaymentState(result.status);
+            return;
+          }
+          setPaymentState("pending");
+        } catch {
+          if (!cancelled) setPaymentState("pending");
+        }
+        if (check < 11) await new Promise((resolve) => setTimeout(resolve, 2500));
       }
-      if (cancelled) return;
     })();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [router.isReady, token, paymentAttemptId]);
 
   // Pull just enough invoice/company info for the brand colour + name.
   // Failures here are silent - this is a confirmation page, not a
@@ -77,7 +93,7 @@ export default function InvoicePaymentSuccessPage() {
   return (
     <>
       <Head>
-        <title>Payment received</title>
+        <title>{paymentState === "succeeded" ? "Payment received" : "Payment status"}</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
@@ -85,15 +101,30 @@ export default function InvoicePaymentSuccessPage() {
         <Card className="max-w-md w-full border-0 shadow-sm">
           <CardContent className="py-10 px-6 text-center space-y-5">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-primary shadow-lg">
-              <CheckCircle2 className="w-7 h-7 text-white" />
+              {paymentState === "succeeded"
+                ? <CheckCircle2 className="w-7 h-7 text-white" />
+                : paymentState === "failed" || paymentState === "expired"
+                  ? <CircleAlert className="w-7 h-7 text-white" />
+                  : <Loader2 className="w-7 h-7 text-white animate-spin" />}
             </div>
             <div>
               <h1 className="text-2xl font-serif font-bold text-stone-900">
-                Payment received
+                {paymentState === "succeeded"
+                  ? "Payment received"
+                  : paymentState === "failed"
+                    ? "Payment was not completed"
+                    : paymentState === "expired"
+                      ? "Checkout expired"
+                      : "Payment is processing"}
               </h1>
               <p className="text-sm text-stone-600 mt-2 max-w-xs mx-auto">
-                Thanks{companyName ? ` - ${companyName} has been notified` : ""}.
-                A confirmation email is on its way.
+                {paymentState === "succeeded"
+                  ? `Thanks${companyName ? ` - ${companyName} has been notified` : ""}. A confirmation email is on its way.`
+                  : paymentState === "failed"
+                    ? "The payment provider reported a failed or cancelled payment. You can return to the invoice and try again."
+                    : paymentState === "expired"
+                      ? "This checkout expired before payment was confirmed. Return to the invoice to start a new checkout."
+                      : "We are waiting for the payment provider to confirm the transaction. This page will update automatically."}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 justify-center">

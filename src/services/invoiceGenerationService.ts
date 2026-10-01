@@ -1,6 +1,5 @@
 import { supabase as defaultSupabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { PayFastService } from "@/lib/payfastService";
 import { calculateInvoiceDueDate } from "@/lib/invoiceDateRules";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { notificationService } from "@/services/notificationService";
@@ -1374,13 +1373,8 @@ export async function generateInvoicePaymentLink(
       return { success: false, error: "Invoice already paid" };
     }
 
-    // 2. Check if PayFast is configured
-    const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
-    const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
-    const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE;
-    const testMode = process.env.NODE_ENV !== "production";
-
-    // If PayFast not configured, return simple payment page URL
+    // Checkout happens on this tenant-scoped page so the active company
+    // gateway, rather than a platform env-var account, handles payment.
     const baseUrl = typeof window !== "undefined"
       ? window.location.origin
       : process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com";
@@ -1389,12 +1383,6 @@ export async function generateInvoicePaymentLink(
       ? `${baseUrl}/pay/i/${invoiceData.public_token}`
       : `${baseUrl}/pay/invoice/${invoiceId}`;
 
-    if (!merchantId || !merchantKey) {
-      console.warn("PayFast credentials not configured - returning payment page URL");
-      return { success: true, paymentUrl: paymentPageUrl };
-    }
-
-    // 3. PayFast is configured - return payment page that will redirect to PayFast
     return { success: true, paymentUrl: paymentPageUrl };
 
   } catch (error) {

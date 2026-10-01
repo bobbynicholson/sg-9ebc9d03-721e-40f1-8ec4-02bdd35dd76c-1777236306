@@ -276,7 +276,7 @@ function PaymentGatewaysPage() {
   // Test-connection state - which gateway is being pinged right now,
   // plus the most recent result we got back per gateway.
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message?: string }>>({});
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; verified: boolean; message?: string }>>({});
 
   const handleTest = async (gatewayId: string, providerName: string) => {
     setTestingId(gatewayId);
@@ -286,7 +286,7 @@ function PaymentGatewaysPage() {
       if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
       setTestResults((prev) => ({
         ...prev,
-        [gatewayId]: { ok: !!j.ok, message: j.message },
+        [gatewayId]: { ok: !!j.ok, verified: !!j.verified_at, message: j.message },
       }));
       if (j.ok) {
         // Only claim "verified" when the provider was actually contacted
@@ -299,7 +299,7 @@ function PaymentGatewaysPage() {
     } catch (e: any) {
       setTestResults((prev) => ({
         ...prev,
-        [gatewayId]: { ok: false, message: e?.message || "Test failed" },
+        [gatewayId]: { ok: false, verified: false, message: e?.message || "Test failed" },
       }));
     } finally {
       setTestingId(null);
@@ -622,7 +622,9 @@ function PaymentGatewaysPage() {
                     {config && testResults[config.id] && (
                       <p className={`text-xs ${testResults[config.id].ok ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                         {testResults[config.id].ok
-                          ? "Credentials verified."
+                          ? testResults[config.id].verified
+                            ? "Credentials verified."
+                            : testResults[config.id].message || "Local checks passed; complete a sandbox payment to verify the account."
                           : `Test failed: ${testResults[config.id].message || "see logs"}`}
                       </p>
                     )}

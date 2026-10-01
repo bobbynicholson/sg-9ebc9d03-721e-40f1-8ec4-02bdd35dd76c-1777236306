@@ -101,6 +101,7 @@ function ClientBillingPageInner() {
   // hand-off can target the same instance.
   const [receiptInvoiceId, setReceiptInvoiceId] = useState<string | null>(null);
   const appliedDeepLinkRef = useRef<string | null>(null);
+  const checkedPaymentReturnRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (user && !clientIdsLoading) {
@@ -178,13 +179,13 @@ function ClientBillingPageInner() {
 
     if (paid) {
       toast({
-        title: "Payment received",
-        description: target ? `Invoice ${target.invoice_number} is updated below.` : "Your billing page is updated below.",
+        title: "Checking payment status",
+        description: "The provider must confirm the payment before it is marked as received.",
       });
     } else if (cancelled) {
       toast({
-        title: "Payment cancelled",
-        description: target ? `Invoice ${target.invoice_number} is still open.` : "No payment was recorded.",
+        title: "Checkout closed",
+        description: "No confirmed payment is showing yet. If you completed payment, wait for the provider update before trying again.",
       });
     }
   }, [router.isReady, router.query, loading, invoices, toast]);
@@ -359,6 +360,56 @@ function ClientBillingPageInner() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!router.isReady || !user?.id) return;
+    const attemptId = typeof router.query.payment_attempt_id === "string"
+      ? router.query.payment_attempt_id
+      : "";
+    const invoiceId = typeof router.query.invoice_id === "string"
+      ? router.query.invoice_id
+      : "";
+    if (!attemptId || !invoiceId) return;
+    const returnKey = `${attemptId}:${invoiceId}`;
+    if (checkedPaymentReturnRef.current === returnKey) return;
+    checkedPaymentReturnRef.current = returnKey;
+
+    let cancelled = false;
+    (async () => {
+      let finalStatus = "pending";
+      for (let check = 0; check < 12 && !cancelled; check += 1) {
+        try {
+          const response = await fetch("/api/payments/confirm-return", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ invoice_id: invoiceId, payment_attempt_id: attemptId }),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result?.error || "Payment status unavailable");
+          finalStatus = String(result?.status || "pending");
+          if (["succeeded", "failed", "expired"].includes(finalStatus)) break;
+        } catch {
+          finalStatus = "pending";
+        }
+        if (check < 11) await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+      if (cancelled) return;
+      await loadInvoices();
+      if (finalStatus === "succeeded") {
+        toast({ title: "Payment received", description: "The provider confirmed your payment and your invoice has been updated." });
+      } else if (finalStatus === "failed") {
+        toast({ title: "Payment was not completed", description: "The provider reported a failed or cancelled payment. You can try again from the invoice.", variant: "destructive" });
+      } else if (finalStatus === "expired") {
+        toast({ title: "Checkout expired", description: "The provider did not confirm payment before the checkout expired. Start a new checkout from the invoice.", variant: "destructive" });
+      } else {
+        toast({ title: "Payment is still processing", description: "The provider has not confirmed this payment yet. Check the invoice again before starting another payment." });
+      }
+    })();
+    return () => { cancelled = true; };
+    // The request is keyed by attempt + invoice and intentionally runs once per return.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.payment_attempt_id, router.query.invoice_id, user?.id]);
 
   // (filterAndSortInvoices replaced by the useMemo + useFuzzyItems above.)
 

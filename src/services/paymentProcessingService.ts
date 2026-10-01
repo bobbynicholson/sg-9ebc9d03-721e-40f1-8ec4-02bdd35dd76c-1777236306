@@ -8,7 +8,6 @@ import {
   getOrderModificationStatus
 } from "@/lib/payfastService";
 import { notificationService } from "./notificationService";
-import { PayFastService } from "@/lib/payfastService";
 import { sendEmailViaAPI } from "@/lib/emailClient";
 import { updateOrderStatus } from "./order/orderWorkflow";
 import { buildPayInvoiceUrlServer, mintOrderCustomerLink } from "@/lib/customerLinksServer";
@@ -822,99 +821,24 @@ Your Catering Company`;
     paymentType: "deposit" | "balance"
   ): Promise<string | null> {
     try {
-      const schedule = await this.getPaymentSchedule(orderId);
-      if (!schedule) {
-        console.error("Payment schedule not found for order:", orderId);
-        return null;
-      }
+      // Route customers through the public invoice page so the company's
+      // active gateway credentials handle checkout. Never build a tenant
+      // payment form with the platform's PayFast environment credentials.
+      const invoicePayLink = await resolveOpenInvoicePayLink(orderId);
+      if (invoicePayLink) return invoicePayLink;
 
-      const amount = paymentType === "deposit" 
-        ? schedule.depositAmount 
-        : schedule.balanceAmount;
-
-      // Get order details. Pull the company slug along with the
-      // owner profile so the PayFast return/cancel URLs land on the
-      // catering company's slug-prefixed subscription pages.
-      const { data: order, error: orderError } = await supabase
+      const { data: order, error } = await supabase
         .from("orders")
-        .select("*, profiles!user_id!inner(*, companies:company_id(slug))")
+        .select("id, company_id")
         .eq("id", orderId)
-        .single();
-
-      if (orderError || !order) {
-        console.error("Error fetching order for payment link:", orderError);
+        .maybeSingle();
+      if (error || !order) {
+        console.error("Error fetching order for payment link:", error);
         return null;
       }
 
-      // Check if PayFast is configured
-      const merchantId = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_ID;
-      const merchantKey = process.env.NEXT_PUBLIC_PAYFAST_MERCHANT_KEY;
-      const passphrase = process.env.NEXT_PUBLIC_PAYFAST_PASSPHRASE;
-      const testMode = process.env.NODE_ENV !== "production";
-
-      if (!merchantId || !merchantKey) {
-        console.warn("PayFast credentials not configured - returning public invoice/order URL");
-        return (
-          await resolveOpenInvoicePayLink(orderId) ||
-          await resolveOrderCustomerFallback(order, `payment-link-${paymentType}`) ||
-          `/c/order/${orderId}`
-        );
-      }
-
-      // Initialize PayFast service
-      const payFastService = new PayFastService({
-        merchantId,
-        merchantKey,
-        passphrase: passphrase || "",
-        testMode
-      });
-
-      // Get user details from profile
-      const profile = order.profiles as any;
-      const [firstName, ...lastNameParts] = (profile.full_name || "").split(" ");
-      const lastName = lastNameParts.join(" ") || "Customer";
-
-      // Resolve the catering company's slug for slug-prefixed return URLs.
-      const companySlug = (profile?.companies?.slug as string | undefined)
-        || (Array.isArray(profile?.companies) ? profile.companies?.[0]?.slug : undefined)
-        || "";
-      const slugPrefix = companySlug ? `/${companySlug}` : "";
-      const baseUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com");
-
-      // Generate PayFast payment form. Webhook URL is global (/api/...)
-      // and intentionally not slug-prefixed.
-      const paymentParams = {
-        merchant_id: merchantId,
-        merchant_key: merchantKey,
-        return_url: `${baseUrl}${slugPrefix}/subscription/success?orderId=${orderId}&type=${paymentType}`,
-        cancel_url: `${baseUrl}${slugPrefix}/subscription/cancelled?orderId=${orderId}&type=${paymentType}`,
-        notify_url: `${baseUrl}/api/webhooks/payment-confirmation`,
-        name_first: firstName || "Customer",
-        name_last: lastName,
-        email_address: profile.email,
-        amount: amount.toFixed(2),
-        item_name: `Order ${order.order_number} - ${paymentType === "deposit" ? "Deposit" : "Balance"} Payment`,
-        item_description: `Payment for catering order on ${new Date(order.event_date).toLocaleDateString()}`,
-        custom_str1: orderId, // Order ID for webhook processing
-        custom_str2: paymentType, // Payment type (deposit/balance)
-        custom_str3: order.user_id, // Company user ID
-        email_confirmation: "1",
-        confirmation_address: profile.email,
-      };
-
-      // Generate signature
-      const signature = payFastService.generateSignature(paymentParams);
-      
-      // Return PayFast payment form HTML
-      const paymentFormHtml = payFastService.generatePaymentForm({
-        ...paymentParams,
-        signature
-      } as any);
-
-      console.log(`✅ PayFast payment link generated for Order ${orderId} - ${paymentType} payment (${schedule.currency} ${amount})`);
-      
-      return paymentFormHtml;
-
+      return await resolveOrderCustomerFallback(order, `payment-link-${paymentType}`)
+        || `/c/order/${orderId}`;
     } catch (error) {
       console.error("Error generating payment link:", error);
       return null;

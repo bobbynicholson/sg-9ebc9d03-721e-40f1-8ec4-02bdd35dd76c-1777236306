@@ -220,6 +220,9 @@ export const paymentGatewayService = {
           success_url: input.success_url ?? null,
           cancel_url: input.cancel_url ?? null,
           notify_url: input.notify_url ?? null,
+          // Credential and mode changes invalidate the previous provider
+          // check; do not display an old success as current verification.
+          last_verified_at: null,
           updated_by_user_id: actorUserId,
         })
         .eq("id", existing.id)
@@ -387,7 +390,7 @@ export const paymentGatewayService = {
         fields: [
           { key: "merchantId", label: "Merchant ID", type: "text", required: true },
           { key: "merchantKey", label: "Merchant Key", type: "password", required: true },
-          { key: "passphrase", label: "Passphrase", type: "password", required: true },
+          { key: "passphrase", label: "Passphrase", type: "password", required: false },
         ],
       },
       {
@@ -465,16 +468,17 @@ export const paymentGatewayService = {
   async getByIdWithCredentials(
     gatewayId: string,
     serviceClient: SbAny,
+    includeDeleted = false,
   ): Promise<{
     gateway: PaymentGatewayMetadata;
     credentials: Record<string, string>;
   } | null> {
-    const { data: gateway, error } = await serviceClient
+    let gatewayQuery = serviceClient
       .from(TABLE)
       .select("*")
-      .eq("id", gatewayId)
-      .is("deleted_at", null)
-      .maybeSingle();
+      .eq("id", gatewayId);
+    if (!includeDeleted) gatewayQuery = gatewayQuery.is("deleted_at", null);
+    const { data: gateway, error } = await gatewayQuery.maybeSingle();
     if (error || !gateway) return null;
 
     const { data: cred, error: credErr } = await serviceClient
@@ -488,6 +492,61 @@ export const paymentGatewayService = {
       gateway: gateway as PaymentGatewayMetadata,
       credentials: ((cred as any)?.credentials as Record<string, string>) || {},
     };
+  },
+
+  /**
+   * Read every saved config for a tenant/provider pair, including
+   * soft-deleted rows when requested. PayFast notifications may arrive
+   * after a company switches gateways or removes an old one, so webhook
+   * verification must be able to use the account that created the checkout.
+   */
+  async listCompanyProviderWithCredentials(
+    companyId: string,
+    provider: PaymentGatewayProvider,
+    serviceClient: SbAny,
+    includeDeleted = false,
+  ): Promise<Array<{
+    gateway: PaymentGatewayMetadata;
+    credentials: Record<string, string>;
+  }>> {
+    let gatewayQuery = serviceClient
+      .from(TABLE)
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("provider", provider)
+      .order("is_active", { ascending: false })
+      .order("updated_at", { ascending: false });
+    if (!includeDeleted) gatewayQuery = gatewayQuery.is("deleted_at", null);
+
+    const { data: gateways, error } = await gatewayQuery;
+    if (error) {
+      console.error("[paymentGatewayService.listCompanyProviderWithCredentials] gateways:", error);
+      return [];
+    }
+    const rows = (gateways || []) as PaymentGatewayMetadata[];
+    if (rows.length === 0) return [];
+
+    const { data: creds, error: credErr } = await serviceClient
+      .from(CREDS_TABLE)
+      .select("gateway_id, credentials")
+      .in("gateway_id", rows.map((row) => row.id));
+    if (credErr) {
+      console.error("[paymentGatewayService.listCompanyProviderWithCredentials] credentials:", credErr);
+      return [];
+    }
+
+    const credentialsByGateway = new Map<string, Record<string, string>>();
+    for (const row of (creds || []) as Array<{
+      gateway_id: string;
+      credentials: Record<string, string> | null;
+    }>) {
+      credentialsByGateway.set(row.gateway_id, row.credentials || {});
+    }
+
+    return rows.map((gateway) => ({
+      gateway,
+      credentials: credentialsByGateway.get(gateway.id) || {},
+    }));
   },
 
   /**

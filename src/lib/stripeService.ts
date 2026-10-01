@@ -70,6 +70,10 @@ export async function createStripeCheckout(
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
     metadata: input.metadata,
+    // Copy the same correlation data onto the PaymentIntent. Card failures
+    // and successes can arrive as PaymentIntent events before Checkout
+    // session events, and need to map back to the same tenant attempt.
+    payment_intent_data: { metadata: input.metadata },
     customer_email: input.customerEmail,
   });
 

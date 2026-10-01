@@ -28,12 +28,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyYocoSignature } from "@/lib/yocoService";
 import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { orderService } from "@/services/orderService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
 import { withApiLogging } from "@/lib/withApiLogging";
-import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
-import { reconcileInvoiceForOrderPayment } from "@/lib/invoiceReconcile";
-import { transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { settleTenantGatewayPayment, TenantGatewaySettlementError } from "@/lib/tenantGatewaySettlement";
+import { getPaymentAttemptByReference, markPaymentAttemptSucceeded, touchPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
 import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 
 
@@ -85,14 +83,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Resolve tenant credentials so we can verify the signature with
-    // their webhookSecret. Service-role read; the credentials table is
-    // RLS-locked.
+    // the account that created this checkout, even if the owner changed
+    // the active provider while the customer was in the hosted checkout.
     const sb = getServiceSupabase();
-    const active = await paymentGatewayService.getActiveWithCredentials(
-      companyId,
-      sb,
-    );
-    if (!active || active.gateway.provider !== "yoco") {
+    const paymentAttempt = attemptId
+      ? await getPaymentAttemptByReference("yoco", attemptId)
+      : null;
+    if (attemptId && (!paymentAttempt || paymentAttempt.company_id !== companyId)) {
+      return res.status(400).json({ error: "Yoco payment attempt does not match this tenant" });
+    }
+    const savedGatewayId = String(paymentAttempt?.metadata?.gatewayId || "");
+    const active = savedGatewayId
+      ? await paymentGatewayService.getByIdWithCredentials(savedGatewayId, sb, true)
+      : await paymentGatewayService.getActiveWithCredentials(companyId, sb);
+    if (
+      !active ||
+      active.gateway.company_id !== companyId ||
+      active.gateway.provider !== "yoco"
+    ) {
       return res.status(400).json({ error: "Yoco not active for this company" });
     }
     const webhookSecret = active.credentials.webhookSecret || "";
@@ -120,19 +128,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} - accepting unsigned (non-prod)`);
     }
 
-    // We only act on succeeded payments. Anything else is a 200 noop so
-    // Yoco doesn't retry forever.
+    // Do not turn intermediate provider events into failures. A later
+    // signed success event must remain able to complete this attempt.
     const eventType = (event.type || "").toLowerCase();
     const status = (payload.status || "").toLowerCase();
     const succeeded =
       eventType.includes("succeeded") || status === "succeeded" || status === "successful";
     if (!succeeded) {
-      try {
+      const terminalFailure =
+        eventType.includes("failed") || eventType.includes("cancel") || eventType.includes("expired") ||
+        ["failed", "cancelled", "canceled", "expired"].includes(status);
+      if (terminalFailure) {
+        const terminalStatus = eventType.includes("expired") || status === "expired" ? "expired" : "failed";
         const transitioned = await transitionPaymentAttempt({
           provider: "yoco",
-          attemptId,
+          attemptId: paymentAttempt?.id || attemptId,
           providerSessionId: yocoTxId,
-          status: "failed",
+          status: terminalStatus,
           providerStatus: payload.status || event.type || "unknown",
           failureReason: `Yoco event/status: ${event.type || payload.status || "unknown"}`,
         });
@@ -140,11 +152,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           await notifyPaymentAttemptFailed({
             admin: sb,
             attempt: transitioned.attempt,
-            reason: `Yoco returned ${event.type || payload.status || "a non-success status"}.`,
+            reason: `Yoco returned ${event.type || payload.status || "a failed status"}.`,
           });
         }
-      } catch (attemptError) {
-        console.warn("[yoco-webhook] failed-attempt transition failed:", attemptError);
+      } else if (paymentAttempt?.id) {
+        await touchPaymentAttempt(paymentAttempt.id, payload.status || event.type || "pending");
       }
       return res.status(200).json({ message: "Ignored non-success event" });
     }
@@ -154,86 +166,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // tri-state - duplicate (200), unique (proceed), or check failed
     // (500 so Yoco retries instead of double-processing on a transient
     // DB blip).
-    const dupCheck = await isDuplicateYocoPayment(sb, yocoTxId);
-    if (dupCheck === "duplicate") {
-      return res.status(200).json({ message: "Already processed", orderId });
-    }
-    if (dupCheck === "error") {
-      console.error("[yoco-webhook] dedup check failed for txId", yocoTxId);
-      return res.status(500).json({ error: "Dedup check failed, retry the event" });
-    }
-
-    const amountInRands =
-      typeof payload.amount === "number" ? payload.amount / 100 : 0;
-
-    const orderResult = await orderService.getOrderById(orderId);
-    if (!orderResult.success || !orderResult.data) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-    const order: any = orderResult.data;
-
-    const isDeposit = paymentType
-      ? paymentType === "deposit"
-      : !order.deposit_paid;
-
-    const recordResult = await orderService.recordPayment(
-      order.id,
-      amountInRands,
-      "yoco",
-      yocoTxId,
-      {
-        userId: order.user_id,
-        companyId: order.company_id || order.user_id,
-        clientId: order.client_id || undefined,
-        currency: order.currency,
-        paymentType: isDeposit ? "deposit" : "balance",
-        gatewayProvider: "yoco",
-      },
-    );
-    if (!recordResult.success) {
-      return res.status(500).json({ error: "Failed to record payment" });
-    }
-
-    if (isDeposit) {
-      await paymentProcessingService.processDepositPayment(
-        order.id,
-        yocoTxId,
-        "yoco",
-        order.user_id,
-      );
-    } else {
-      await paymentProcessingService.processBalancePayment(
-        order.id,
-        yocoTxId,
-        "yoco",
-        order.user_id,
-      );
-    }
-
-    // Reconcile the linked invoice. recordPayment above only settles the
-    // ORDER; without this the invoice behind the pay link stays 'sent'
-    // with the full balance_due and the client can be charged twice.
-    // Mirrors the PayFast IPN handler. Best-effort + non-blocking.
-    await reconcileInvoiceForOrderPayment(sb, {
-      orderId: order.id,
+    const amountInRands = typeof payload.amount === "number" ? payload.amount / 100 : 0;
+    const settlement = await settleTenantGatewayPayment({
+      admin: sb,
+      provider: "yoco",
+      transactionId: yocoTxId,
+      companyId,
+      orderId,
+      paymentType,
       invoiceId: metadata.invoiceId,
+      paymentAttempt,
       amount: amountInRands,
-      gatewayTransactionId: yocoTxId,
+      currency: payload.currency || "ZAR",
+    });
+    await markPaymentAttemptSucceeded({
+      provider: "yoco",
+      attemptId: paymentAttempt?.id || attemptId,
+      providerSessionId: yocoTxId,
+      providerStatus: payload.status || event.type || "succeeded",
     });
 
-    try {
-      await transitionPaymentAttempt({
-        provider: "yoco",
-        attemptId,
-        providerSessionId: yocoTxId,
-        status: "succeeded",
-        providerStatus: payload.status || event.type || "succeeded",
-      });
-    } catch (attemptError) {
-      console.warn("[yoco-webhook] successful-attempt transition failed:", attemptError);
+    // Keep the existing best-effort reminders / receipt workflow for a
+    // newly settled order. The ledger, order flags, and invoice were already
+    // written with the service-role client above.
+    if (settlement.order && !settlement.duplicate) {
+      if (paymentType === "deposit") {
+        await paymentProcessingService.processDepositPayment(orderId, yocoTxId, "yoco", settlement.order.user_id);
+      } else if (paymentType === "balance") {
+        await paymentProcessingService.processBalancePayment(orderId, yocoTxId, "yoco", settlement.order.user_id);
+      }
     }
-
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, duplicate: settlement.duplicate });
   } catch (e: any) {
     // Phase 6 follow-up: same rationale as PayFast webhook capture.
     const { captureException } = await import("@/lib/observability");
@@ -242,21 +205,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       level: "error",
       extra: { raw_preview: raw.slice(0, 200) },
     });
-    return res.status(500).json({ error: e?.message || "Yoco webhook failed" });
+    const statusCode = e instanceof TenantGatewaySettlementError ? e.statusCode : 500;
+    return res.status(statusCode).json({ error: e?.message || "Yoco webhook failed" });
   }
-}
-
-// Wave 24: returns tri-state instead of boolean. The previous boolean
-// variant logged the error then processed anyway - a flaky RLS /
-// network blip would silently double-process the payment. Returning
-// "error" lets the caller fail closed; Yoco retries on 5xx.
-async function isDuplicateYocoPayment(sb: any, yocoTxId: string): Promise<"duplicate" | "unique" | "error"> {
-  const { exists, error } = await paymentExistsByGatewayId(sb, yocoTxId);
-  if (error) {
-    console.warn("[yoco-webhook] dedup check failed");
-    return "error";
-  }
-  return exists ? "duplicate" : "unique";
 }
 
 export default withApiLogging(handler);

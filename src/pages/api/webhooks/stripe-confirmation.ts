@@ -16,13 +16,11 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { constructStripeEvent } from "@/lib/stripeService";
 import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { orderService } from "@/services/orderService";
 import { paymentProcessingService } from "@/services/paymentProcessingService";
 import type Stripe from "stripe";
 import { withApiLogging } from "@/lib/withApiLogging";
-import { paymentExistsByGatewayId } from "@/lib/paymentDedup";
-import { reconcileInvoiceForOrderPayment } from "@/lib/invoiceReconcile";
-import { transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { settleTenantGatewayPayment, TenantGatewaySettlementError } from "@/lib/tenantGatewaySettlement";
+import { getPaymentAttemptByReference, markPaymentAttemptSucceeded, touchPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
 import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 
 
@@ -58,19 +56,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     } catch {
       return res.status(400).json({ error: "Invalid JSON body" });
     }
-    const companyId =
-      parsedPreview?.data?.object?.metadata?.companyId ||
-      parsedPreview?.data?.object?.metadata?.company_id;
+    const eventMetadata = parsedPreview?.data?.object?.metadata || {};
+    const companyId = eventMetadata.companyId || eventMetadata.company_id;
+    const attemptIdPreview = eventMetadata.paymentAttemptId || null;
     if (!companyId) {
       return res.status(400).json({ error: "metadata.companyId missing on Stripe event" });
     }
 
     const sb = getServiceSupabase();
-    const active = await paymentGatewayService.getActiveWithCredentials(
-      companyId,
-      sb,
-    );
-    if (!active || active.gateway.provider !== "stripe") {
+    const paymentAttempt = attemptIdPreview
+      ? await getPaymentAttemptByReference("stripe", attemptIdPreview)
+      : null;
+    if (attemptIdPreview && (!paymentAttempt || paymentAttempt.company_id !== companyId)) {
+      return res.status(400).json({ error: "Stripe payment attempt does not match this tenant" });
+    }
+    const savedGatewayId = String(paymentAttempt?.metadata?.gatewayId || "");
+    const active = savedGatewayId
+      ? await paymentGatewayService.getByIdWithCredentials(savedGatewayId, sb, true)
+      : await paymentGatewayService.getActiveWithCredentials(companyId, sb);
+    if (
+      !active ||
+      active.gateway.company_id !== companyId ||
+      active.gateway.provider !== "stripe"
+    ) {
       return res.status(400).json({ error: "Stripe not active for this company" });
     }
     const signingSecret = active.credentials.webhookSigningSecret || "";
@@ -84,27 +92,64 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ error: "Invalid Stripe signature" });
     }
 
-    const session = event.data.object as Stripe.Checkout.Session;
-    const metadata = session.metadata || {};
-    const attemptId = metadata.paymentAttemptId || null;
+    const eventObject: any = event.data.object;
+    const metadata = eventObject.metadata || {};
+    const attemptId = paymentAttempt?.id || metadata.paymentAttemptId || null;
 
-    if (event.type === "checkout.session.async_payment_failed") {
+    // A card decline is retryable inside the same Stripe Checkout page.
+    // Record that provider state for support, but leave the attempt pending
+    // so a later PaymentIntent success can settle it.
+    if (event.type === "payment_intent.payment_failed") {
+      if (paymentAttempt?.id) await touchPaymentAttempt(paymentAttempt.id, "payment_failed_retryable");
+      return res.status(200).json({ message: "Retryable card failure recorded" });
+    }
+
+    if (event.type === "payment_intent.succeeded") {
+      const paymentIntent = eventObject as Stripe.PaymentIntent;
+      const transactionId = paymentIntent.id;
+      if (!metadata.orderId || !transactionId) {
+        return res.status(400).json({ error: "Stripe PaymentIntent is missing payment metadata" });
+      }
+      const amountInRands = Number(paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
+      const duplicate = await completeStripeSettlement({
+        admin: sb,
+        companyId,
+        paymentAttempt,
+        attemptId,
+        metadata,
+        transactionId,
+        amount: amountInRands,
+        currency: paymentIntent.currency || "ZAR",
+        providerSessionId: paymentAttempt?.provider_session_id || null,
+        providerStatus: paymentIntent.status || event.type,
+      });
+      return res.status(200).json({ ok: true, duplicate });
+    }
+
+    const session = eventObject as Stripe.Checkout.Session;
+
+    if (event.type === "checkout.session.async_payment_failed" || event.type === "checkout.session.expired") {
+      const terminalStatus = event.type === "checkout.session.expired" ? "expired" : "failed";
       const transitioned = await transitionPaymentAttempt({
         provider: "stripe",
         attemptId,
         providerSessionId: session.id,
-        status: "failed",
-        providerStatus: session.payment_status || "async_payment_failed",
-        failureReason: "Stripe reported that the asynchronous payment failed.",
+        status: terminalStatus,
+        providerStatus: session.payment_status || event.type,
+        failureReason: event.type === "checkout.session.expired"
+          ? "Stripe checkout expired before payment was confirmed."
+          : "Stripe reported that the asynchronous payment failed.",
       });
       if (transitioned.changed && transitioned.attempt) {
         await notifyPaymentAttemptFailed({
           admin: sb,
           attempt: transitioned.attempt,
-          reason: "Stripe reported that the payment failed.",
+          reason: event.type === "checkout.session.expired"
+            ? "Stripe checkout expired before payment was confirmed."
+            : "Stripe reported that the payment failed.",
         });
       }
-      return res.status(200).json({ message: "Payment failure recorded" });
+      return res.status(200).json({ message: terminalStatus === "expired" ? "Checkout expiration recorded" : "Payment failure recorded" });
     }
 
     if (event.type !== "checkout.session.completed" && event.type !== "checkout.session.async_payment_succeeded") {
@@ -112,6 +157,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     if (session.payment_status !== "paid") {
+      if (paymentAttempt?.id) await touchPaymentAttempt(paymentAttempt.id, session.payment_status || session.status || "pending");
       return res.status(200).json({ message: "Session not paid yet" });
     }
 
@@ -126,89 +172,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "Stripe session missing orderId/payment_intent" });
     }
 
-    // Idempotency. Wave 24: tri-state - duplicate (200), unique
-    // (proceed), or check failed (500 so Stripe retries instead of
-    // double-processing on a transient DB blip).
-    const dupCheck = await isDuplicateStripePayment(sb, stripeTxId);
-    if (dupCheck === "duplicate") {
-      return res.status(200).json({ message: "Already processed", orderId });
-    }
-    if (dupCheck === "error") {
-      console.error("[stripe-webhook] dedup check failed for txId", stripeTxId);
-      return res.status(500).json({ error: "Dedup check failed, retry the event" });
-    }
-
-    const amountInRands =
-      typeof session.amount_total === "number" ? session.amount_total / 100 : 0;
-
-    const orderResult = await orderService.getOrderById(orderId);
-    if (!orderResult.success || !orderResult.data) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-    const order: any = orderResult.data;
-
-    const isDeposit = paymentType
-      ? paymentType === "deposit"
-      : !order.deposit_paid;
-
-    const recordResult = await orderService.recordPayment(
-      order.id,
-      amountInRands,
-      "stripe",
-      stripeTxId,
-      {
-        userId: order.user_id,
-        companyId: order.company_id || order.user_id,
-        clientId: order.client_id || undefined,
-        currency: order.currency,
-        paymentType: isDeposit ? "deposit" : "balance",
-        gatewayProvider: "stripe",
-      },
-    );
-    if (!recordResult.success) {
-      return res.status(500).json({ error: "Failed to record payment" });
-    }
-
-    if (isDeposit) {
-      await paymentProcessingService.processDepositPayment(
-        order.id,
-        stripeTxId,
-        "stripe",
-        order.user_id,
-      );
-    } else {
-      await paymentProcessingService.processBalancePayment(
-        order.id,
-        stripeTxId,
-        "stripe",
-        order.user_id,
-      );
-    }
-
-    // Reconcile the linked invoice. recordPayment above only settles the
-    // ORDER; without this the invoice behind the pay link stays 'sent'
-    // with the full balance_due and the client can be charged twice.
-    // Mirrors the PayFast IPN handler. Best-effort + non-blocking.
-    await reconcileInvoiceForOrderPayment(sb, {
-      orderId: order.id,
-      invoiceId: metadata.invoiceId,
+    const amountInRands = typeof session.amount_total === "number" ? session.amount_total / 100 : 0;
+    const duplicate = await completeStripeSettlement({
+      admin: sb,
+      companyId,
+      paymentAttempt,
+      attemptId,
+      metadata,
+      transactionId: stripeTxId,
       amount: amountInRands,
-      gatewayTransactionId: stripeTxId,
+      currency: session.currency || "ZAR",
+      providerSessionId: session.id,
+      providerStatus: session.payment_status || event.type,
     });
-
-    try {
-      await transitionPaymentAttempt({
-        provider: "stripe",
-        attemptId,
-        providerSessionId: session.id,
-        status: "succeeded",
-        providerStatus: session.payment_status || event.type,
-      });
-    } catch (attemptError) {
-      console.warn("[stripe-webhook] successful-attempt transition failed:", attemptError);
-    }
-
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, duplicate });
   } catch (e: any) {
     // Phase 6 follow-up: same rationale as PayFast webhook capture.
     const { captureException } = await import("@/lib/observability");
@@ -216,20 +193,52 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       tags: { route: "/api/webhooks/stripe-confirmation", provider: "stripe" },
       level: "error",
     });
-    return res.status(500).json({ error: e?.message || "Stripe webhook failed" });
+    const statusCode = e instanceof TenantGatewaySettlementError ? e.statusCode : 500;
+    return res.status(statusCode).json({ error: e?.message || "Stripe webhook failed" });
   }
 }
 
-// Wave 24: returns tri-state instead of boolean. The previous
-// boolean variant treated DB errors as "not duplicate", which means a
-// flaky RLS / network blip would silently double-process the payment
-// (the client gets charged once, our system records the deposit
-// twice, the operator chases a phantom credit). Returning "error"
-// lets the caller fail closed - Stripe + Yoco both retry on 5xx.
-async function isDuplicateStripePayment(sb: any, stripeTxId: string): Promise<"duplicate" | "unique" | "error"> {
-  const { exists, error } = await paymentExistsByGatewayId(sb, stripeTxId);
-  if (error) return "error";
-  return exists ? "duplicate" : "unique";
-}
-
 export default withApiLogging(handler);
+
+async function completeStripeSettlement(input: {
+  admin: any;
+  companyId: string;
+  paymentAttempt: any;
+  attemptId: string | null;
+  metadata: Record<string, any>;
+  transactionId: string;
+  amount: number;
+  currency: string;
+  providerSessionId: string | null;
+  providerStatus: string;
+}): Promise<boolean> {
+  const orderId = String(input.metadata.orderId || "");
+  const paymentType = String(input.metadata.paymentType || "").toLowerCase();
+  if (!orderId) throw new TenantGatewaySettlementError("Stripe payment metadata is missing an order or invoice reference");
+  const settlement = await settleTenantGatewayPayment({
+    admin: input.admin,
+    provider: "stripe",
+    transactionId: input.transactionId,
+    companyId: input.companyId,
+    orderId,
+    paymentType,
+    invoiceId: input.metadata.invoiceId,
+    paymentAttempt: input.paymentAttempt,
+    amount: input.amount,
+    currency: input.currency,
+  });
+  await markPaymentAttemptSucceeded({
+    provider: "stripe",
+    attemptId: input.paymentAttempt?.id || input.attemptId,
+    providerSessionId: input.providerSessionId,
+    providerStatus: input.providerStatus,
+  });
+  if (settlement.order && !settlement.duplicate) {
+    if (paymentType === "deposit") {
+      await paymentProcessingService.processDepositPayment(orderId, input.transactionId, "stripe", settlement.order.user_id);
+    } else if (paymentType === "balance") {
+      await paymentProcessingService.processBalancePayment(orderId, input.transactionId, "stripe", settlement.order.user_id);
+    }
+  }
+  return settlement.duplicate;
+}

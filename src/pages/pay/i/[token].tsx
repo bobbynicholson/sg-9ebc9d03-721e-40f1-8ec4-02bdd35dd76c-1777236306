@@ -10,11 +10,9 @@
  * /q/[token] so a quote and the matching invoice feel like one
  * document family from the client's side.
  *
- * PayFast remains the only payment surface. We resolve the invoice by
- * token but pass invoice.id as custom_str1 so the IPN webhook
- * (api/webhooks/payment-confirmation) keeps resolving via id without
- * any change. return_url and cancel_url are token-form so the user
- * never lands on a UUID URL.
+ * The company chooses PayFast, Yoco or Stripe in Payment Gateways. The
+ * invoice is resolved by public token; checkout and callback references
+ * use the saved invoice/order IDs while browser returns stay token-based.
  */
 
 import { useState, useEffect } from "react";
@@ -29,7 +27,6 @@ import {
   Loader2, CreditCard, CheckCircle2, AlertCircle, FileText,
   Calendar, Printer, Wallet, Landmark,
 } from "lucide-react";
-import { PayFastService } from "@/lib/payfastService";
 import { formatZAR } from "@/lib/formatters";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
@@ -255,6 +252,7 @@ export default function InvoicePaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentNotConfigured, setPaymentNotConfigured] = useState(false);
+  const [returnPaymentStatus, setReturnPaymentStatus] = useState<"idle" | "checking" | "pending" | "succeeded" | "failed" | "expired">("idle");
   const [eftClaimedPublic, setEftClaimedPublic] = useState(false);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -327,6 +325,55 @@ export default function InvoicePaymentPage() {
     }, 500);
     return () => clearTimeout(t);
   }, [autoPrint, invoice, loading]);
+
+  // PayFast/Yoco/Stripe cancel URLs return to this invoice. A browser
+  // redirect is not evidence that a payment failed: the provider callback
+  // may still be arriving. Check the saved attempt and prevent an immediate
+  // second charge while its result is unresolved.
+  useEffect(() => {
+    if (!router.isReady || !token || router.query.cancelled !== "1") return;
+    const attemptId = typeof router.query.payment_attempt_id === "string"
+      ? router.query.payment_attempt_id
+      : "";
+    if (!attemptId) return;
+
+    let cancelled = false;
+    setReturnPaymentStatus("checking");
+    (async () => {
+      let status: "pending" | "succeeded" | "failed" | "expired" = "pending";
+      for (let check = 0; check < 12 && !cancelled; check += 1) {
+        try {
+          const response = await fetch("/api/payments/confirm-return", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ public_token: token, payment_attempt_id: attemptId }),
+          });
+          const result = await response.json().catch(() => ({}));
+          status = ["succeeded", "failed", "expired"].includes(result?.status)
+            ? result.status
+            : "pending";
+          setReturnPaymentStatus(status);
+          if (status !== "pending") break;
+        } catch {
+          status = "pending";
+        }
+        if (check < 11) await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+      if (cancelled) return;
+      setReturnPaymentStatus(status);
+      if (status === "succeeded") {
+        try {
+          const response = await fetch(`/api/public/invoices/${encodeURIComponent(token)}/get`, { cache: "no-store" });
+          const result = await response.json().catch(() => ({}));
+          if (!cancelled && result?.invoice) setInvoice(result.invoice as InvoiceView);
+        } catch {
+          // The verified attempt status is still enough to keep this page safe.
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [router.isReady, router.query.cancelled, router.query.payment_attempt_id, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -1009,6 +1056,26 @@ export default function InvoicePaymentPage() {
                     </p>
                   </div>
 
+                  {returnPaymentStatus !== "idle" && (
+                    <Alert className={returnPaymentStatus === "succeeded"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                      : returnPaymentStatus === "failed" || returnPaymentStatus === "expired"
+                        ? "border-rose-200 bg-rose-50 text-rose-900"
+                        : "border-amber-200 bg-amber-50 text-amber-900"}>
+                      <AlertDescription>
+                        {returnPaymentStatus === "succeeded"
+                          ? "The provider confirmed your payment. This invoice has been refreshed."
+                          : returnPaymentStatus === "failed"
+                            ? "The provider confirmed this checkout did not complete. You can try again."
+                            : returnPaymentStatus === "expired"
+                              ? "This checkout expired before payment was confirmed. You can start a new checkout."
+                              : returnPaymentStatus === "checking"
+                                ? "Checking the provider's payment status..."
+                                : "The provider has not confirmed this checkout yet. Wait or reload this invoice before starting another payment."}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Editable amount-to-pay. Clients commonly pay a
                       deposit that isn't exactly the suggested %, so let
                       them set the figure; the remaining balance updates
@@ -1108,7 +1175,7 @@ export default function InvoicePaymentPage() {
                   ) : (
                     <Button
                       onClick={initiatePayment}
-                      disabled={processing || payNow <= 0}
+                      disabled={processing || payNow <= 0 || ["checking", "pending", "succeeded"].includes(returnPaymentStatus)}
                       size="lg"
                       className="w-full bg-brand-primary hover:opacity-90 gap-2"
                     >

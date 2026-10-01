@@ -45,39 +45,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let webhookMissing = 0;
   for (const attempt of eligibleAttempts) {
     checked += 1;
-    if (attempt.expires_at && new Date(attempt.expires_at).getTime() <= Date.now()) {
-      const transitioned = await transitionPaymentAttempt({
-        provider: attempt.provider,
-        attemptId: attempt.id,
-        status: "expired",
-        providerStatus: attempt.provider_status || "expired",
-        failureReason: "Checkout session expired before a payment confirmation webhook arrived.",
-      });
-      if (transitioned.changed && transitioned.attempt) {
-        expired += 1;
-        await notifyPaymentAttemptFailed({
-          admin: sb,
-          attempt: transitioned.attempt,
-          reason: "The checkout expired before the payment could be confirmed.",
-        });
-      }
-      continue;
-    }
+    // A provider has already confirmed the charge. Keep waiting for its
+    // signed webhook, even if the hosted checkout's original TTL elapsed.
+    if (attempt.provider_status === "paid_waiting_webhook") continue;
 
     let providerStatus: string | null = null;
     let providerPaid = false;
     try {
-      const { data: gateway } = await sb
-        .from("payment_gateways")
-        .select("id")
-        .eq("company_id", attempt.company_id)
-        .eq("provider", attempt.provider)
-        .is("deleted_at", null)
-        .order("is_active", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (gateway?.id) {
-        const configured = await paymentGatewayService.getByIdWithCredentials(gateway.id, sb);
+      const gatewayId = String(attempt.metadata?.gatewayId || "");
+      let configured = gatewayId
+        ? await paymentGatewayService.getByIdWithCredentials(gatewayId, sb, true)
+        : null;
+      if (!configured) {
+        const { data: gateway } = await sb
+          .from("payment_gateways")
+          .select("id")
+          .eq("company_id", attempt.company_id)
+          .eq("provider", attempt.provider)
+          .is("deleted_at", null)
+          .order("is_active", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (gateway?.id) configured = await paymentGatewayService.getByIdWithCredentials(gateway.id, sb);
+      }
+      if (configured?.gateway.company_id === attempt.company_id && configured.gateway.provider === attempt.provider) {
         const creds = configured?.credentials || {};
         if (attempt.provider === "stripe" && creds.secretKey) {
           const stripe = new Stripe(creds.secretKey, { apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion });
@@ -102,7 +93,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     await touchPaymentAttempt(attempt.id, providerStatus);
-    if (providerPaid && attempt.provider_status !== "paid_waiting_webhook") {
+    if (providerPaid) {
       webhookMissing += 1;
       await sb.from("payment_attempts").update({ provider_status: "paid_waiting_webhook", updated_at: new Date().toISOString() }).eq("id", attempt.id).eq("status", "pending");
       await notifyPaymentAttemptFailed({
@@ -111,6 +102,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         mode: "webhook_missing",
         reason: `${attempt.provider} reports the payment as paid, but its webhook has not reached CateringMS yet. The attempt remains pending to prevent an unsafe double ledger entry.`,
       });
+      continue;
+    }
+
+    if (attempt.expires_at && new Date(attempt.expires_at).getTime() <= Date.now()) {
+      const transitioned = await transitionPaymentAttempt({
+        provider: attempt.provider,
+        attemptId: attempt.id,
+        status: "expired",
+        providerStatus: providerStatus || attempt.provider_status || "expired",
+        failureReason: "Checkout session expired before a payment confirmation webhook arrived.",
+      });
+      if (transitioned.changed && transitioned.attempt) {
+        expired += 1;
+        await notifyPaymentAttemptFailed({
+          admin: sb,
+          attempt: transitioned.attempt,
+          reason: "The checkout expired before the payment could be confirmed.",
+        });
+      }
     }
   }
 
