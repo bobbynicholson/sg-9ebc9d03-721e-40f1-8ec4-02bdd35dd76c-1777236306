@@ -157,7 +157,10 @@ it("returns PayFast to the tenant-scoped success and cancellation routes", () =>
     undefined,
     "raj267748-payfast-test",
   );
-  expect(params.return_url).toBe("https://example.com/raj267748-payfast-test/subscription/success");
+  const returnUrl = new URL(params.return_url);
+  expect(returnUrl.origin + returnUrl.pathname).toBe("https://example.com/raj267748-payfast-test/subscription/success");
+  expect(returnUrl.searchParams.get("m_payment_id")).toBe(params.m_payment_id);
+  expect(returnUrl.searchParams.get("m_payment_id")).toMatch(/^[0-9a-f-]{36}$/i);
   expect(params.cancel_url).toBe("https://example.com/raj267748-payfast-test/admin/subscription?cancelled=1");
   expect(params.notify_url).toBe("https://example.com/api/webhooks/subscriptions/payfast");
 });
@@ -171,7 +174,9 @@ it("creates a signed one-time test payment with no recurring billing fields", ()
     "raj267748-payfast-test",
   );
   expect(params.amount).toBe("5.00");
-  expect(params.return_url).toBe("https://example.com/raj267748-payfast-test/subscription/success");
+  const returnUrl = new URL(params.return_url);
+  expect(returnUrl.origin + returnUrl.pathname).toBe("https://example.com/raj267748-payfast-test/subscription/success");
+  expect(returnUrl.searchParams.get("m_payment_id")).toBe(params.m_payment_id);
   expect(params.custom_str2).toBe("payfast-test");
   expect(params.subscription_type).toBeUndefined();
   expect(params.recurring_amount).toBeUndefined();

@@ -66,7 +66,10 @@ it("uses the normalized site origin and tenant-scoped return route", async () =>
   process.env.NEXT_PUBLIC_SITE_URL = "https://example.com/deployment-path/";
   const result = await checkout("https://preview.example.com");
   expect(result.statusCode).toBe(200);
-  expect(result.body.html).toContain('name="return_url" value="https://example.com/test-company/subscription/success"');
+  const regularReturn = result.body.html.match(/name="return_url" value="([^"]+)"/);
+  const regularPaymentId = result.body.html.match(/name="m_payment_id" value="([^"]+)"/);
+  expect(regularReturn?.[1]).toMatch(/^https:\/\/example\.com\/test-company\/subscription\/success\?m_payment_id=[0-9a-f-]{36}$/i);
+  expect(new URL(regularReturn![1]).searchParams.get("m_payment_id")).toBe(regularPaymentId?.[1]);
   expect(result.body.html).toContain('name="cancel_url" value="https://example.com/test-company/admin/subscription?cancelled=1"');
   expect(result.body.html).toContain('name="notify_url" value="https://example.com/api/webhooks/subscriptions/payfast"');
 });
@@ -75,7 +78,10 @@ it("builds a one-time R5 flow-test payment only for the dedicated tenant", async
   const result = await checkout("https://example.com", { planId: "payfast-test" });
   expect(result.statusCode).toBe(200);
   expect(result.body.html).toContain('name="amount" value="5.00"');
-  expect(result.body.html).toContain('name="return_url" value="https://example.com/raj267748-payfast-test/subscription/success"');
+  const testReturn = result.body.html.match(/name="return_url" value="([^"]+)"/);
+  const testPaymentId = result.body.html.match(/name="m_payment_id" value="([^"]+)"/);
+  expect(testReturn?.[1]).toMatch(/^https:\/\/example\.com\/raj267748-payfast-test\/subscription\/success\?m_payment_id=[0-9a-f-]{36}$/i);
+  expect(new URL(testReturn![1]).searchParams.get("m_payment_id")).toBe(testPaymentId?.[1]);
   expect(result.body.html).toContain('name="custom_str2" value="payfast-test"');
   expect(result.body.html).not.toContain('name="subscription_type"');
   expect(result.body.html).not.toContain('name="recurring_amount"');

@@ -15,21 +15,52 @@ export default function SubscriptionSuccessPage() {
   const [isLoading, setIsLoading] = useState(true);
   const { profile, company } = useAuth() as any;
   const [confirmed, setConfirmed] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(true);
   const companyId = company?.id || profile?.company_id;
+  const merchantPaymentId = typeof router.query.m_payment_id === "string"
+    ? router.query.m_payment_id
+    : "";
   useEffect(() => {
-    if (!companyId) return;
+    if (!router.isReady || !companyId) return;
     let cancelled = false;
+    let attempts = 0;
+    let checks = 0;
     const check = async () => {
+      checks += 1;
+      if (merchantPaymentId && attempts < 7) {
+        attempts += 1;
+        try {
+          const response = await fetch("/api/subscription/reconcile-return", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ m_payment_id: merchantPaymentId }),
+          });
+          const result = await response.json().catch(() => null);
+          if (!cancelled && result?.confirmed === true) {
+            setConfirmed(true);
+            setCheckingPayment(false);
+            clearInterval(timer);
+            return;
+          }
+        } catch (error) {
+          console.warn("Could not verify the PayFast return yet:", error);
+        }
+      }
+
       const { data } = await supabase.from("companies").select("subscription_status").eq("id", companyId).maybeSingle();
       if (!cancelled && ["active", "trial"].includes(String(data?.subscription_status || "").toLowerCase())) {
         setConfirmed(true);
+        setCheckingPayment(false);
+        clearInterval(timer);
+      } else if (!cancelled && (attempts >= 7 || checks >= 24)) {
+        setCheckingPayment(false);
         clearInterval(timer);
       }
     };
-    const timer = setInterval(() => { void check(); }, 3000);
+    const timer = setInterval(() => { void check(); }, 5000);
     void check();
     return () => { cancelled = true; if (timer) clearInterval(timer); };
-  }, [companyId]);
+  }, [router.isReady, companyId, merchantPaymentId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -72,7 +103,11 @@ export default function SubscriptionSuccessPage() {
             </Badge>
             <CardTitle className="text-3xl font-bold">{confirmed ? "Your subscription is confirmed" : "Your subscription is being confirmed"}</CardTitle>
             <CardDescription className="text-lg">
-              {confirmed ? "PayFast confirmation has been received. You can continue to your company dashboard." : "Your payment provider is processing the request. Access changes only after CateringMS receives and verifies the provider webhook."}
+              {confirmed
+                ? "PayFast confirmed your payment. Your company workspace is ready."
+                : checkingPayment
+                  ? "CateringMS is checking PayFast for your payment and restoring access once it is verified."
+                  : "We have not received PayFast confirmation yet. You can check again shortly or return to billing."}
             </CardDescription>
           </div>
         </CardHeader>
@@ -113,7 +148,7 @@ export default function SubscriptionSuccessPage() {
                 <div>
                   <h4 className="font-medium mb-1">Access after payment confirmation</h4>
                   <p className="text-sm text-slate-600">
-                    Your account stays suspended until the verified PayFast notification reaches CateringMS. This page checks for confirmation automatically.
+                    This page checks PayFast directly if its notification is delayed, then restores access after the payment is verified.
                   </p>
                 </div>
               </div>
@@ -156,7 +191,7 @@ export default function SubscriptionSuccessPage() {
               </Link>
             ) : (
               <>
-                <Button variant="outline" className="flex-1 h-12" onClick={() => router.reload()}>
+                <Button variant="outline" className="flex-1 h-12" onClick={() => { setCheckingPayment(true); void router.reload(); }}>
                   Check payment status
                 </Button>
                 <Link
