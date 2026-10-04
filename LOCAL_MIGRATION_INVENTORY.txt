@@ -13,7 +13,7 @@ Local execution status:
 - Ten-file payment bundle applied to disposable schema fixtures: yes
 - Isolated local PostgreSQL 16: 41 scenarios passed, including multiple concurrent sessions
 - Isolated PGlite: 40 scenarios passed; PostgreSQL-only lock test skipped
-- Latest payment bundle: LOCAL_PAYMENT_MIGRATIONS.sql (10 migrations; existing migrated database only)
+- Latest payment bundle: LOCAL_PAYMENT_MIGRATIONS.sql (2 payment prerequisites + 10 latest payment migrations; existing base schema required)
 - Run instructions: docs/payment-migrations-how-to-run.md
 
 Migration filenames in version order:

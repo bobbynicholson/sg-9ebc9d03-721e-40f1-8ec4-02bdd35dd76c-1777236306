@@ -329,8 +329,8 @@ test('client direct database access cannot confirm EFT or forge paid invoices an
     INSERT INTO payments(id,company_id,client_id,invoice_id,amount,payment_method,payment_reference)
     VALUES('${uuid(80)}','${company}','${client}','${invoice}',100,'eft','own'),
           ('${uuid(82)}','${company}','${uuid(81)}',NULL,100,'eft','other');
-    INSERT INTO payment_attempts(id,company_id,client_id,provider,amount)
-    VALUES('${uuid(83)}','${company}','${uuid(81)}','payfast',100);`);
+    INSERT INTO payment_attempts(id,company_id,client_id,provider,provider_session_id,amount)
+    VALUES('${uuid(83)}','${company}','${uuid(81)}','payfast','fixture-session-${uuid(83)}',100);`);
   await asUser(uuid(7), async () => {
     assert.deepEqual((await db.query('SELECT id FROM payments')).rows.map(r=>r.id),[uuid(80)]);
     assert.deepEqual((await db.query('SELECT id FROM payment_attempts')).rows.map(r=>r.id),[attempt]);

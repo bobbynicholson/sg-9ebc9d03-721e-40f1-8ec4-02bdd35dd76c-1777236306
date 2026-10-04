@@ -1,6 +1,106 @@
--- Latest company quote/payment migrations for an existing, migrated database.
--- Run this bundle OR the individual files, never both. See docs/payments-payfast-eft-audit.md.
+-- Payment-attempt/webhook prerequisites plus the latest company quote/payment migrations.
+-- Run this bundle OR the individual files, never both. See docs/payment-migrations-how-to-run.md.
 BEGIN;
+
+-- Source: 20260925150000_payment_attempts_and_gateway_requirements.sql
+-- Unified external payment attempts. A checkout can exist before a gateway
+-- webhook arrives, so it must not be represented only by a completed ledger
+-- row. This table is the reconciliation source for pending provider sessions.
+CREATE TABLE IF NOT EXISTS public.payment_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
+  order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL,
+  invoice_id UUID REFERENCES public.invoices(id) ON DELETE SET NULL,
+  provider TEXT NOT NULL CHECK (provider IN ('payfast', 'yoco', 'stripe')),
+  provider_session_id TEXT NOT NULL,
+  payment_type TEXT NOT NULL DEFAULT 'invoice',
+  amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+  currency TEXT NOT NULL DEFAULT 'ZAR',
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'succeeded', 'failed', 'expired')),
+  failure_reason TEXT,
+  provider_status TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  last_checked_at TIMESTAMPTZ,
+  succeeded_at TIMESTAMPTZ,
+  failed_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (provider, provider_session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_attempts_pending
+  ON public.payment_attempts(provider, status, created_at)
+  WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_payment_attempts_invoice
+  ON public.payment_attempts(invoice_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_attempts_order
+  ON public.payment_attempts(order_id, created_at DESC);
+
+ALTER TABLE public.payment_attempts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS payment_attempts_company_read ON public.payment_attempts;
+CREATE POLICY payment_attempts_company_read ON public.payment_attempts
+  FOR SELECT USING (
+    company_id IN (
+      SELECT company_id
+      FROM public.profiles
+      WHERE id = auth.uid()
+    )
+  );
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'payment_failed';
+
+-- Only server-side service-role code inserts and transitions attempts. The
+-- provider secrets are never exposed to tenant browser sessions.
+
+
+-- Source: 20261001000000_payment_webhook_idempotency_guard.sql
+-- Prevent concurrent provider webhook retries from inserting the same
+-- gateway transaction twice. The application checks for an existing row
+-- before calling the payment RPC, but two requests can pass that check at
+-- the same time. New provider-backed rows are guarded by unique indexes;
+-- historical rows stay outside the indexes so this migration does not
+-- depend on cleaning old ledger data during deployment.
+
+ALTER TABLE public.payments
+  ADD COLUMN IF NOT EXISTS payment_dedupe_guard boolean;
+
+CREATE OR REPLACE FUNCTION public.set_payment_dedupe_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $function$
+BEGIN
+  IF NEW.gateway_provider IS NOT NULL
+     AND (NEW.gateway_transaction_id IS NOT NULL OR NEW.transaction_id IS NOT NULL) THEN
+    NEW.payment_dedupe_guard := true;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS payments_set_dedupe_guard ON public.payments;
+CREATE TRIGGER payments_set_dedupe_guard
+  BEFORE INSERT ON public.payments
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_payment_dedupe_guard();
+
+CREATE UNIQUE INDEX IF NOT EXISTS payments_gateway_tx_guard_unique
+  ON public.payments (gateway_provider, gateway_transaction_id)
+  WHERE payment_dedupe_guard IS TRUE
+    AND gateway_provider IS NOT NULL
+    AND gateway_transaction_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS payments_provider_tx_guard_unique
+  ON public.payments (gateway_provider, transaction_id)
+  WHERE payment_dedupe_guard IS TRUE
+    AND gateway_provider IS NOT NULL
+    AND transaction_id IS NOT NULL;
+
+COMMENT ON COLUMN public.payments.payment_dedupe_guard IS
+  'True for provider-backed rows inserted after webhook idempotency enforcement was added.';
+
 
 -- Source: 20261003110000_add_quote_initial_payment_amount.sql
 -- Preserve the first payment amount agreed on a quote so the same value

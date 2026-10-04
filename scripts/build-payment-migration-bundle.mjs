@@ -1,5 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 const files = [
+  '20260925150000_payment_attempts_and_gateway_requirements.sql',
+  '20261001000000_payment_webhook_idempotency_guard.sql',
   '20261003110000_add_quote_initial_payment_amount.sql',
   '20261003120000_update_payment_request_email_summary.sql',
   '20261003130000_sync_order_financials_from_invoice.sql',
@@ -11,8 +13,8 @@ const files = [
   '20261004090000_idempotent_store_credit_checkout.sql',
   '20261004100000_refund_reconciliation_and_receipts.sql',
 ];
-let sql = '-- Latest company quote/payment migrations for an existing, migrated database.\n' +
-  '-- Run this bundle OR the individual files, never both. See docs/payments-payfast-eft-audit.md.\nBEGIN;\n';
+let sql = '-- Payment-attempt/webhook prerequisites plus the latest company quote/payment migrations.\n' +
+  '-- Run this bundle OR the individual files, never both. See docs/payment-migrations-how-to-run.md.\nBEGIN;\n';
 for (const name of files) {
   const source = await readFile(new URL(`../supabase/migrations/${name}`, import.meta.url),'utf8');
   sql += `\n-- Source: ${name}\n${source.replace(/\r\n/g,'\n').trimEnd()}\n\n`;

@@ -18,6 +18,7 @@ export async function initializePaymentFixture(db) {
     CREATE TYPE invoice_status AS ENUM ('draft','sent','paid','partially_paid','overdue','written_off','cancelled');
     CREATE TYPE order_status AS ENUM ('pending','confirmed','delivered','completed','cancelled');
     CREATE TYPE payment_method AS ENUM ('eft','other','cash','card','credit_account');
+    CREATE TYPE notification_type AS ENUM ('payment_received','payment_claimed','payment_rejected');
     CREATE TABLE companies(id uuid PRIMARY KEY, deposit_percent numeric, owner_id uuid, company_name text, email text);
     CREATE TABLE quotes(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid REFERENCES companies);
     CREATE TABLE email_templates(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),company_id uuid REFERENCES companies,template_type text,body text);
@@ -42,10 +43,6 @@ export async function initializePaymentFixture(db) {
       payment_date timestamptz DEFAULT now(), processed_at timestamptz, completed_at timestamptz, failed_at timestamptz,
       notes text, created_at timestamptz DEFAULT now(), payment_proof_path text, payment_proof_uploaded_at timestamptz,
       reason text, created_by_user_id uuid);
-    CREATE TABLE payment_attempts(id uuid PRIMARY KEY, company_id uuid, client_id uuid, order_id uuid, invoice_id uuid,
-      provider text, provider_session_id text, payment_type text, amount numeric, currency text,
-      status text DEFAULT 'pending', metadata jsonb DEFAULT '{}', succeeded_at timestamptz,
-      failure_reason text, provider_status text, last_checked_at timestamptz, updated_at timestamptz);
     CREATE TABLE payment_gateways(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid REFERENCES companies, provider text,
       is_test boolean, is_active boolean DEFAULT false, deleted_at timestamptz, created_at timestamptz DEFAULT now(),
       success_url text, cancel_url text, notify_url text, last_verified_at timestamptz, created_by_user_id uuid, updated_by_user_id uuid);
@@ -53,9 +50,8 @@ export async function initializePaymentFixture(db) {
     CREATE TABLE payment_gateway_credentials(gateway_id uuid UNIQUE REFERENCES payment_gateways, credentials jsonb);
     ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
     ALTER TABLE payment_gateways ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE payment_attempts ENABLE ROW LEVEL SECURITY;
     GRANT SELECT ON profiles, clients TO authenticated;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON payments, invoices, payment_gateways, payment_attempts TO authenticated;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON payments, invoices, payment_gateways TO authenticated;
     CREATE POLICY company_access_payments ON payments FOR ALL TO authenticated USING (true) WITH CHECK (true);
     CREATE POLICY company_access_invoices ON invoices FOR ALL TO authenticated USING (true) WITH CHECK (true);
     CREATE POLICY company_access_payment_gateways ON payment_gateways FOR ALL TO authenticated USING (true) WITH CHECK (true);
@@ -74,7 +70,9 @@ export async function initializePaymentFixture(db) {
     '20260507140000_invoice_balance_recalc_triggers.sql',
     '20260901120000_reconcile_order_payment_status.sql',
     '20260901130000_fix_reconcile_order_payment_record.sql',
+    '20260925150000_payment_attempts_and_gateway_requirements.sql',
     '20261001000000_payment_webhook_idempotency_guard.sql',
   ]) await db.exec(await readFile(new URL(`../../supabase/migrations/${file}`, import.meta.url), 'utf8'));
   await db.exec(await readFile(new URL('../../LOCAL_PAYMENT_MIGRATIONS.sql', import.meta.url),'utf8'));
+  await db.exec('GRANT SELECT ON public.payment_attempts TO authenticated');
 }

@@ -2,7 +2,7 @@
 
 The identified company payment fixes are implemented locally. The new migrations have **not** been applied to a deployed database, and no live payment or provider-account configuration was changed. Offline verification passed **41 real PostgreSQL database scenarios**, plus the production build, TypeScript, targeted ESLint (no errors; existing warnings remain), migration RLS, status-filter and realtime-channel checks. Real provider callbacks, merchant history and the full target database migration chain still require deployment verification.
 
-The full repository test run now passes: **602 tests across 72 suites**, including the previously failing audit-log destination and kitchen catalog/section checks. The payment command passes **241 tests across 21 suites**. All **five browser payment checks** pass with simulated API/provider responses and blocked external browser requests. Local database fixtures apply the ten-file payment bundle, not the complete historical migration chain.
+The full repository test run now passes: **602 tests across 72 suites**, including the previously failing audit-log destination and kitchen catalog/section checks. The payment command passes **241 tests across 21 suites**. All **five browser payment checks** pass with simulated API/provider responses and blocked external browser requests. Local database fixtures apply the 12-file payment bundle, not the complete historical migration chain.
 
 ## Correct customer flow
 
@@ -50,7 +50,7 @@ For an **existing database with the repository's previous migrations applied**, 
 | `20261004090000_idempotent_store_credit_checkout.sql` | Private replay record for partial credit payments; a lost response cannot repeat the same wallet debit |
 | `20261004100000_refund_reconciliation_and_receipts.sql` | Evidence-based refund reconciliation with an atomic audit trail and durable refund receipts |
 
-`LOCAL_PAYMENT_MIGRATIONS.sql` combines these ten files in **one transaction** for review/run in the SQL editor or with `psql`. Do not run both the individual files and the bundle. The bundle is an operational SQL script; it does not add migration-history rows automatically. If your deployment uses the migration runner, use the individual migration files so its history stays accurate.
+`LOCAL_PAYMENT_MIGRATIONS.sql` combines the two payment prerequisites listed below plus these ten new files in **one transaction** for review/run in the SQL editor or with `psql`. Do not run both the individual files and the bundle. The bundle is an operational SQL script; it does not add migration-history rows automatically. If your deployment uses the migration runner, use the individual migration files so its history stays accurate.
 
 First inspect migration history:
 
@@ -58,7 +58,7 @@ First inspect migration history:
 select version from supabase_migrations.schema_migrations order by version desc;
 ```
 
-In particular the historical payment-attempt/gateway migration (`20260925150000_payment_attempts_and_gateway_requirements.sql`), webhook uniqueness guard (`20261001000000_payment_webhook_idempotency_guard.sql`), payment/invoice fields, enums and triggers must exist. These ten files are not a fresh-database bootstrap. Some long-lived duplicate payment data may require review; the new routines do not erase real payments or automatically refund excess money.
+The bundle includes the historical payment-attempt/gateway migration (`20260925150000_payment_attempts_and_gateway_requirements.sql`) and webhook uniqueness guard (`20261001000000_payment_webhook_idempotency_guard.sql`). Existing base payment/invoice fields, enums, gateway schema and triggers must exist. These twelve files are not a fresh-database bootstrap. Some long-lived duplicate payment data may require review; the new routines do not erase real payments or automatically refund excess money.
 
 The local inventory contains **410** migration files. Seven historical version prefixes are duplicated; do not rename/replay them blindly without comparing applied history. `LOCAL_MIGRATION_INVENTORY.txt` lists every file and duplicate group. A full local Supabase migration reset was not run: Supabase CLI/config and a running Docker engine are absent. The isolated payment SQL tests are available immediately. Step-by-step instructions are in [payment-migrations-how-to-run.md](payment-migrations-how-to-run.md).
 
@@ -182,7 +182,7 @@ $env:NEXT_DIST_DIR='.next-payment-verify'
 npm run build
 ```
 
-The default ledger test uses pinned PGlite with an isolated schema and actual historical financial triggers, then applies the combined ten-file SQL script. It passes 40 scenarios and skips one PostgreSQL-only lock test. `npm run test:payment-postgres`, with a local `PAYMENT_TEST_DATABASE_URL` pointing to `payment_fixture`, runs the same fixture on actual PostgreSQL with separate connections: all 41 scenarios pass. The test runner creates a disposable database and refuses remote URLs. This still does not substitute for checking the full historical migration chain on the target Supabase test instance.
+The default ledger test uses pinned PGlite with an isolated schema and actual historical financial triggers, then applies the combined 12-file SQL script. It passes 40 scenarios and skips one PostgreSQL-only lock test. `npm run test:payment-postgres`, with a local `PAYMENT_TEST_DATABASE_URL` pointing to `payment_fixture`, runs the same fixture on actual PostgreSQL with separate connections: all 41 scenarios pass. The test runner creates a disposable database and refuses remote URLs. This still does not substitute for checking the full historical migration chain on the target Supabase test instance.
 
 Browser checks use the actual Next invoice payment page with simulated API responses: EFT remains awaiting verification, credit-covered partial payment retains its balance, an unresolved return blocks another checkout, a retry retains its credit UUID, and committed credit remains visible after a gateway failure. They use dummy app credentials and block external browser requests; no charge, refund or email is sent.
 
