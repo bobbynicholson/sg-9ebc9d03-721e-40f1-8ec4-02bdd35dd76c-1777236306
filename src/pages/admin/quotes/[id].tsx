@@ -41,6 +41,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currencyUtils";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
@@ -146,7 +147,26 @@ function AdminQuoteDetailInner() {
   // US tenants and on non-VAT-registered ZA tenants every time a draft
   // saved from here was reopened.
   const tenantCurrency = useTenantCurrency(companyId);
-  const fmtMoney = tenantCurrency.format;
+  const quoteCurrencyCode = (() => {
+    const saved = String((quote as any)?.currency || "").toUpperCase();
+    return Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, saved)
+      ? saved as CurrencyCode
+      : tenantCurrency.code;
+  })();
+  const quoteCurrencySymbol = CURRENCY_CONFIG[quoteCurrencyCode].symbol;
+  const fmtMoney = useMemo(() => {
+    const locale = quoteCurrencyCode === "USD" ? "en-US"
+      : quoteCurrencyCode === "AUD" ? "en-AU"
+      : quoteCurrencyCode === "ZAR" ? "en-ZA"
+      : "en-GB";
+    const formatter = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: quoteCurrencyCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return (amount: number) => formatter.format(Number(amount) || 0);
+  }, [quoteCurrencyCode]);
   const [taxRate, setTaxRate] = useState(0.15);
   const [vatRegistered, setVatRegistered] = useState(true);
   useEffect(() => {
@@ -1015,7 +1035,7 @@ function AdminQuoteDetailInner() {
                                         hard-coded R (mirrors the
                                         delivery fee input below). */}
                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">
-                                      {tenantCurrency.symbol}
+                                      {quoteCurrencySymbol}
                                     </span>
                                     <Input
                                       type="number"
@@ -1100,7 +1120,7 @@ function AdminQuoteDetailInner() {
                       <div>
                         <label className="text-xs text-slate-600 block mb-1">Delivery fee</label>
                         <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{tenantCurrency.symbol}</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{quoteCurrencySymbol}</span>
                           <Input
                             type="number"
                             min={0}
@@ -1114,7 +1134,7 @@ function AdminQuoteDetailInner() {
                         <div>
                           <label className="text-xs text-slate-600 block mb-1">Collection fee</label>
                         <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{tenantCurrency.symbol}</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{quoteCurrencySymbol}</span>
                           <Input
                             type="number"
                             min={0}
@@ -1128,7 +1148,7 @@ function AdminQuoteDetailInner() {
                       <div>
                         <label className="text-xs text-slate-600 block mb-1">Discount (subtracted before VAT)</label>
                         <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{tenantCurrency.symbol}</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500">{quoteCurrencySymbol}</span>
                           <Input
                             type="number"
                             min={0}
@@ -1154,10 +1174,10 @@ function AdminQuoteDetailInner() {
                         <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 pl-6">
                           <Input aria-label="Waiters" type="number" min={1} max={50} value={waiterCount} onChange={(e) => setWaiterCount(Math.max(1, Math.min(50, safeNum(e.target.value) || 1)))} placeholder="Waiters" />
                           <Input aria-label="Hours each" type="number" min={0.5} step={0.5} value={waiterDurationHours || ""} onChange={(e) => setWaiterDurationHours(Math.max(0, safeNum(e.target.value)))} placeholder="Hours each" />
-                          <Input aria-label="Rate per hour" type="number" min={0} step={0.01} value={waiterHourlyRate || ""} onChange={(e) => setWaiterHourlyRate(Math.max(0, safeNum(e.target.value)))} placeholder={`Rate / hour (${tenantCurrency.symbol})`} />
+                          <Input aria-label="Rate per hour" type="number" min={0} step={0.01} value={waiterHourlyRate || ""} onChange={(e) => setWaiterHourlyRate(Math.max(0, safeNum(e.target.value)))} placeholder={`Rate / hour (${quoteCurrencySymbol})`} />
                         </div>
                       )}
-                      {waiterServiceRequired && <p className="mt-2 pl-6 text-[11px] font-medium text-amber-900">Waiter service fee: {tenantCurrency.symbol}{waiterTotalFee.toFixed(2)}</p>}
+                      {waiterServiceRequired && <p className="mt-2 pl-6 text-[11px] font-medium text-amber-900">Waiter service fee: {quoteCurrencySymbol}{waiterTotalFee.toFixed(2)}</p>}
                     </div>
                   )}
                   {/* Wave 12 audit: align the running-total panel with

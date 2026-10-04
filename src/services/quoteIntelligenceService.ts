@@ -53,6 +53,8 @@ export interface ClientSnapshot {
   full_name: string;
   email: string | null;
   phone: string | null;
+  /** Null inherits the company's default currency. */
+  preferred_currency: string | null;
 
   last_venue_address: string | null;
   last_venue_lat: number | null;
@@ -395,6 +397,7 @@ export const quoteIntelligenceService = {
         ?? "",
       email: client?.email ?? lead?.email ?? lastQuote?.client_email ?? email,
       phone: client?.phone ?? lead?.phone ?? lastOrder?.client_phone ?? null,
+      preferred_currency: client?.preferred_currency ?? null,
       last_venue_address:
         lastOrder?.venue_address
         ?? lastQuote?.venue_address

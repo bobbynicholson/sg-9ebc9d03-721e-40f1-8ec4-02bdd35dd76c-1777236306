@@ -69,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
       region_id,
       venue_address, menu_items, equipment_items, notes, terms_and_conditions,
-      subtotal, tax_amount, discount_amount, total, total_amount, status,
+      subtotal, tax_amount, discount_amount, total, total_amount, currency, status,
       deposit_percentage, initial_payment_amount,
       delivery_fee, delivery_distance_km, delivery_rate_per_km,
       collection_fee, collection_distance_km, collection_rate_per_km,
@@ -164,8 +164,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   (data as any).deposit_percentage = effectivePct;
 
   const company = (data as any)?.company;
+  const quoteCurrency = String((data as any)?.currency || company?.currency || "ZAR").toUpperCase();
   const paymentAvailability = company?.id
-    ? await getPublicPaymentAvailability(company.id, company.currency)
+    ? await getPublicPaymentAvailability(company.id, quoteCurrency)
     : { provider: null, online_available: false, unavailable_reason: "not_configured" as const };
   const eftAvailable = isManualEftAvailable(
     paymentAvailability.online_available,

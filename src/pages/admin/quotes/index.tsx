@@ -70,6 +70,7 @@ import { QuoteSendDialog, type QuoteSendDialogQuote } from "@/components/billing
 import { DashboardDateRange, resolvePreset, type DateRange } from "@/components/dashboard/DashboardDateRange";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currencyUtils";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
@@ -234,10 +235,28 @@ function parseQuoteBucket(value: unknown): QuoteBucket | null {
     : null;
 }
 
+function quoteCurrencyCode(value: unknown, fallback: string = "ZAR"): CurrencyCode {
+  const candidate = String(value || fallback).toUpperCase();
+  if (Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, candidate)) return candidate as CurrencyCode;
+  return Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, fallback)
+    ? fallback as CurrencyCode
+    : "ZAR";
+}
+
+function formatQuoteMoney(amount: number, currency: unknown, fallback: string = "ZAR"): string {
+  const code = quoteCurrencyCode(currency, fallback);
+  const locale = code === "USD" ? "en-US" : code === "AUD" ? "en-AU" : code === "ZAR" ? "en-ZA" : "en-GB";
+  const formatted = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .formatToParts(Number(amount) || 0)
+    .map((part) => part.type === "group" ? " " : part.type === "decimal" ? "." : part.value)
+    .join("");
+  return `${CURRENCY_CONFIG[code].symbol}${formatted}`;
+}
+
 function PipelineBoard({
   rows,
   onOpen,
-  currencySymbol = "R",
+  currencyCode = "ZAR",
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rows: any[];
@@ -245,7 +264,7 @@ function PipelineBoard({
   /** Phase 9 #1: tenant currency symbol for the per-card totals
    *  + per-column rollup. Defaults to R so existing ZAR tenants
    *  see no behaviour change. */
-  currencySymbol?: string;
+  currencyCode?: string;
 }) {
   // Pre-bucket once so each column doesn't re-filter the whole list.
   const grouped = (() => {
@@ -265,7 +284,11 @@ function PipelineBoard({
       <div className="flex flex-col gap-4 sm:flex-row sm:min-w-max px-1">
         {PIPELINE_COLUMNS.map((col) => {
           const list = grouped[col.bucket] || [];
-          const total = list.reduce((acc: number, r: any) => acc + Number(r.quote?.total || 0), 0);
+          const totalsByCurrency = new Map<string, number>();
+          for (const r of list) {
+            const code = quoteCurrencyCode(r.quote?.currency, currencyCode);
+            totalsByCurrency.set(code, (totalsByCurrency.get(code) || 0) + Number(r.quote?.total || 0));
+          }
           const Icon = col.Icon;
           return (
             <div key={col.bucket} className={`w-full sm:w-72 sm:shrink-0 rounded-xl border-2 ${col.tone}`}>
@@ -276,7 +299,12 @@ function PipelineBoard({
                   <span className="text-xs text-slate-500 tabular-nums">{list.length}</span>
                 </div>
                 <span className="text-[11px] text-slate-500 tabular-nums">
-                  {currencySymbol}{Math.round(total / 1000)}k
+                  {[...totalsByCurrency.entries()].map(([code, total]) => {
+                    const label = Math.abs(total) >= 1000
+                      ? `${CURRENCY_CONFIG[code as CurrencyCode].symbol}${Math.round(total / 1000)}k`
+                      : formatQuoteMoney(total, code, currencyCode);
+                    return <span key={code} className="ml-1 first:ml-0">{label}</span>;
+                  })}
                 </span>
               </div>
               {/* Mobile: no inner scroll cap - the column grows and the
@@ -300,7 +328,7 @@ function PipelineBoard({
                           <span className="text-sm font-medium text-slate-900 truncate">{q.client_name || "Unknown"}</span>
                           <span className="text-xs font-semibold text-slate-700 tabular-nums shrink-0">
                             {/* Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding. */}
-                            {currencySymbol}{new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(Number(q.total || 0)).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}
+                            {formatQuoteMoney(Number(q.total || 0), q.currency, currencyCode)}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
@@ -2078,7 +2106,7 @@ function AdminQuotesInner() {
           {viewMode === "pipeline" && quotes.length > 0 && filteredRows.length > 0 && (
             <PipelineBoard
               rows={filteredRows}
-              currencySymbol={C}
+              currencyCode={tenantCurrency.code}
               onOpen={(quoteId) => {
                 setFocusedQuoteId(quoteId);
                 setBucket("all");
@@ -2396,7 +2424,7 @@ function AdminQuotesInner() {
                             <div className="flex items-center gap-2 text-slate-600">
                               <Banknote className="w-4 h-4" />
                               <span className="text-sm font-semibold text-brand-primary">
-                                {C}{Number(displayTotal).toFixed(2)}
+                                {formatQuoteMoney(Number(displayTotal), quote.currency, tenantCurrency.code)}
                               </span>
                             </div>
                           </div>
@@ -2503,16 +2531,16 @@ function AdminQuotesInner() {
                                   hard-coded "(15%)" lied on non-15%
                                   tenants. */}
                               <span className="text-slate-600">Subtotal</span>
-                              <span className="font-medium">{C}{(quote.subtotal ?? 0).toFixed(2)}</span>
+                              <span className="font-medium">{formatQuoteMoney(quote.subtotal ?? 0, quote.currency, tenantCurrency.code)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                               <span className="text-slate-600">VAT</span>
-                              <span className="font-medium">{C}{(quote.tax ?? 0).toFixed(2)}</span>
+                              <span className="font-medium">{formatQuoteMoney(quote.tax ?? 0, quote.currency, tenantCurrency.code)}</span>
                             </div>
                             <div className="h-px bg-slate-200" />
                             <div className="flex justify-between font-bold">
                               <span>Total</span>
-                              <span className="text-brand-primary">{C}{(quote.total ?? 0).toFixed(2)}</span>
+                              <span className="text-brand-primary">{formatQuoteMoney(quote.total ?? 0, quote.currency, tenantCurrency.code)}</span>
                             </div>
                             {/* Money-consistency guard: the headline
                                 figure above uses the linked order's
@@ -2524,7 +2552,7 @@ function AdminQuotesInner() {
                             {resolved?.totalAmount != null
                               && Math.abs(Number(resolved.totalAmount) - Number(quote.total ?? 0)) > 0.009 && (
                               <p className="text-[11px] text-slate-500">
-                                Linked order total is now {C}{Number(resolved.totalAmount).toFixed(2)} (quote shows its original figures).
+                                Linked order total is now {formatQuoteMoney(Number(resolved.totalAmount), quote.currency, tenantCurrency.code)} (quote shows its original figures).
                               </p>
                             )}
                           </div>
@@ -2916,7 +2944,7 @@ function AdminQuotesInner() {
             fromName={profile?.full_name || companyName}
             companyName={companyName}
             companyId={profile?.company_id ?? null}
-            currencyCode={tenantCurrency.code}
+            currencyCode={(composeQuote as any).currency || tenantCurrency.code}
             mode={composeMode}
             diary={computeDiarySignal(composeQuote.event_date, diaryIndex, composeQuote.id)}
             onSweetenerApplied={async (offer) => {

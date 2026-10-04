@@ -115,6 +115,20 @@ interface InvoiceData {
   currencyCode?: string;
 }
 
+/** Mint a UUID for the public invoice URL using a cryptographic source. */
+function createInvoicePublicToken(): string {
+  if (typeof crypto === "undefined" || typeof crypto.getRandomValues !== "function") {
+    throw new Error("Secure invoice link generation is unavailable in this environment");
+  }
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+}
+
 interface GenerateInvoiceOptions {
   orderId: string;
   companyId: string;
@@ -226,7 +240,8 @@ export async function generateInvoiceData(
           billing_address_line2,
           billing_city,
           billing_postal_code,
-          payment_terms
+          payment_terms,
+          preferred_currency
         )
       `)
       .eq("id", orderId)
@@ -273,10 +288,11 @@ export async function generateInvoiceData(
     const orderItems = (orderItemsRows || []) as any[];
     let quoteMenuRows: any[] = [];
     let quoteEquipmentRows: any[] = [];
+    let quoteCurrency: string | null = null;
     if (orderData.quote_id) {
       const { data: quoteSnapshot, error: quoteSnapshotError } = await (supabase as any)
         .from("quotes")
-        .select("menu_items, equipment_items")
+        .select("menu_items, equipment_items, currency")
         .eq("id", orderData.quote_id)
         .maybeSingle();
       if (quoteSnapshotError) {
@@ -284,6 +300,7 @@ export async function generateInvoiceData(
       }
       quoteMenuRows = asArray((quoteSnapshot as any)?.menu_items);
       quoteEquipmentRows = asArray((quoteSnapshot as any)?.equipment_items);
+      quoteCurrency = (quoteSnapshot as any)?.currency || null;
     }
     let items: Array<{
       description: string;
@@ -626,8 +643,12 @@ export async function generateInvoiceData(
       
       notes: orderData.special_instructions,
       footer: `Thank you for your business! For any queries, contact us at ${companyData.email || ""} or ${companyData.phone_number || companyData.phone || ""}`,
-      // TIGHTEN I.96: tenant currency for the PDF body.
-      currencyCode: (companyData.currency as string) || "ZAR",
+      // The accepted quote/order records the currency agreed with this
+      // client. Fall back through the client preference to the company
+      // default only for legacy orders that pre-date currency snapshots.
+      currencyCode: String(
+        orderData.currency || quoteCurrency || client.preferred_currency || companyData.currency || "ZAR",
+      ).toUpperCase(),
     };
 
     return { success: true, data: invoiceData };
@@ -680,11 +701,13 @@ export async function createInvoiceRecord(
       order_id: orderId,
       client_id: order?.client_id,
       invoice_number: invoiceData.invoiceNumber,
+      public_token: createInvoicePublicToken(),
       invoice_date: invoiceData.invoiceDate,
       due_date: invoiceData.dueDate,
       subtotal: invoiceData.subtotal,
       tax_amount: invoiceData.taxAmount,
       total_amount: invoiceData.total,
+      currency: String(invoiceData.currencyCode || "ZAR").toUpperCase(),
       amount_paid: invoiceData.depositPaid,
       balance_due: invoiceData.balanceDue,
       status: invoiceData.balanceDue > 0 ? "sent" : "paid",
@@ -694,11 +717,14 @@ export async function createInvoiceRecord(
     const { data: invoice, error } = await supabase
       .from("invoices")
       .insert(insertPayload)
-      .select("id")
+      .select("id, public_token")
       .single();
 
     if (error) {
       return { success: false, error: error.message };
+    }
+    if (!invoice?.public_token) {
+      return { success: false, error: "Invoice was created without a public payment link" };
     }
 
     return { success: true, invoiceId: invoice.id };
@@ -1049,7 +1075,9 @@ async function notifyClientOfInvoiceIssued(
     const totalNum = Number(invoiceData.total || 0);
     const paidNum = Number(invoiceData.depositPaid || 0);
     const remainingNum = Math.max(0, Number(invoiceData.balanceDue || 0));
-    const currencyCode = ((company as any)?.currency as string) || "ZAR";
+    const currencyCode = String(
+      invoiceData.currencyCode || (order as any)?.currency || (company as any)?.currency || "ZAR",
+    ).toUpperCase();
     const isBalance = paidNum > 0;
     const fullAmountDue = isInvoiceFullPaymentDue(invoiceData.eventDate);
     const firstPaymentAmount = Math.max(0, Number(invoiceData.initialPaymentAmount || (order as any)?.deposit_amount || 0));

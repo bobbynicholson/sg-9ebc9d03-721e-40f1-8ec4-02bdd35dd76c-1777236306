@@ -1293,6 +1293,7 @@ export type Database = {
           notes: string | null
           outstanding_balance: number | null
           payment_terms: number | null
+          preferred_currency: string | null
           phone: string
           region_id: string
           tags: string[] | null
@@ -1329,6 +1330,7 @@ export type Database = {
           notes?: string | null
           outstanding_balance?: number | null
           payment_terms?: number | null
+          preferred_currency?: string | null
           phone: string
           region_id: string
           tags?: string[] | null
@@ -1365,6 +1367,7 @@ export type Database = {
           notes?: string | null
           outstanding_balance?: number | null
           payment_terms?: number | null
+          preferred_currency?: string | null
           phone?: string
           region_id?: string
           tags?: string[] | null
@@ -4909,6 +4912,7 @@ export type Database = {
           balance_due: number
           client_id: string
           company_id: string
+          currency: string | null
           created_at: string | null
           deleted_at: string | null
           due_date: string
@@ -4940,6 +4944,7 @@ export type Database = {
           balance_due: number
           client_id: string
           company_id: string
+          currency?: string | null
           created_at?: string | null
           deleted_at?: string | null
           due_date: string
@@ -4971,6 +4976,7 @@ export type Database = {
           balance_due?: number
           client_id?: string
           company_id?: string
+          currency?: string | null
           created_at?: string | null
           deleted_at?: string | null
           due_date?: string
@@ -8522,6 +8528,7 @@ export type Database = {
           client_phone: string | null
           comms_paused_until: string | null
           company_id: string
+          currency: string | null
           contact_name: string | null
           converted_to_order_id: string | null
           created_at: string | null
@@ -8581,6 +8588,7 @@ export type Database = {
           client_phone?: string | null
           comms_paused_until?: string | null
           company_id: string
+          currency?: string | null
           contact_name?: string | null
           converted_to_order_id?: string | null
           created_at?: string | null
@@ -8640,6 +8648,7 @@ export type Database = {
           client_phone?: string | null
           comms_paused_until?: string | null
           company_id?: string
+          currency?: string | null
           contact_name?: string | null
           converted_to_order_id?: string | null
           created_at?: string | null

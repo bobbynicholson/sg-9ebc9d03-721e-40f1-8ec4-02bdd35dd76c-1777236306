@@ -86,6 +86,7 @@ import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
 import { MenuItemTypeahead, MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { AllergenReviewBadge } from "@/components/admin/AllergenReviewBadge";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currencyUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -231,6 +232,12 @@ function setQuoteBuilderCurrency(code: string | null | undefined): void {
   _currentFmt = makeFmtMoney(code);
 }
 
+function asCurrencyCode(value: unknown): CurrencyCode | null {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, value)
+    ? value as CurrencyCode
+    : null;
+}
+
 const safeNum = (n: any) => {
   const v = typeof n === "string" ? parseFloat(n) : Number(n);
   return Number.isFinite(v) ? v : 0;
@@ -248,6 +255,7 @@ function quoteContentSignatureFromPayload(payload: any): string {
   const money = (v: any) => Math.round(safeNum(v) * 100) / 100;
   const text = (v: any) => String(v ?? "").trim();
   return JSON.stringify({
+    currency: text(payload.currency).toUpperCase(),
     quote_name: text(payload.quote_name),
     event_date: text(payload.event_date).slice(0, 10),
     event_time: text(payload.event_time).slice(0, 5),
@@ -336,9 +344,12 @@ function NewQuotePage() {
   // call site renders in the tenant's currency without diffing 37
   // individual call sites.
   const tenantCurrency = useTenantCurrency(companyId);
+  const [quoteCurrencyOverride, setQuoteCurrencyOverride] = useState<CurrencyCode | null>(null);
+  const quoteCurrencyCode = quoteCurrencyOverride || tenantCurrency.code;
+  const quoteCurrencySymbol = CURRENCY_CONFIG[quoteCurrencyCode].symbol;
   useEffect(() => {
-    setQuoteBuilderCurrency(tenantCurrency.code);
-  }, [tenantCurrency.code]);
+    setQuoteBuilderCurrency(quoteCurrencyCode);
+  }, [quoteCurrencyCode]);
 
   // ── Form state ─────────────────────────────────────────────────────
   const [clientId, setClientId] = useState<string | null>(null);
@@ -962,6 +973,9 @@ function NewQuotePage() {
 
   function hydrateFromQuote(q: any) {
     setClientId(q.client_id || null);
+    // Saved quote currency is part of the agreed price. Legacy quotes
+    // without it continue to inherit the company default.
+    setQuoteCurrencyOverride(asCurrencyCode(q.currency));
     setClientName(q.client_name || "");
     setEmail(q.client_email || "");
     if (q.client_phone) setPhone(q.client_phone);
@@ -1308,6 +1322,7 @@ function NewQuotePage() {
       if (!snap) return;
       setClientSnapshot(snap);
       setClientId(snap.client_id);
+      setQuoteCurrencyOverride(asCurrencyCode(snap.preferred_currency));
       setClientName((v) => v || snap.full_name || "");
       setEmail((v) => v || snap.email || "");
       setPhone((v) => v || snap.phone || "");
@@ -1343,6 +1358,7 @@ function NewQuotePage() {
       if (linked && v.trim().toLowerCase() !== linked) {
         setClientId(null);
         setClientSnapshot(null);
+        setQuoteCurrencyOverride(null);
       }
     }
   }, [clientId, clientSnapshot]);
@@ -1621,6 +1637,7 @@ function NewQuotePage() {
         : null;
     return {
       company_id: companyId,
+      currency: quoteCurrencyCode,
       region_id: resolvedRegionId,
       lead_id: typeof leadId === "string" ? leadId : null,
       client_id: clientId,
@@ -1684,6 +1701,7 @@ function NewQuotePage() {
     collectionDistance, collectionCostPerKm, collectionFee, collectionNextDay,
     waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, waiterTotalFee,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
+    quoteCurrencyCode,
     validUntil, internalNotes,
     // The equipment split reads the live availability snapshot; without
     // this dep a stale closure could persist yesterday's from-stock /
@@ -2277,7 +2295,7 @@ function NewQuotePage() {
           client_email: email,
           total: computed.total,
           total_amount: computed.total,
-          currency: tenantCurrency.code,
+          currency: quoteCurrencyCode,
           event_name: eventName || null,
           quote_name: eventName || "Untitled",
           user_id: user?.id || null,
@@ -2347,7 +2365,7 @@ function NewQuotePage() {
           label={
             deliveryFeeOverridden || deliveryDistance === 0
               ? "Delivery"
-              : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ ${tenantCurrency.symbol}${deliveryCostPerKm}/km)`
+              : `Delivery (${deliveryDistance.toFixed(1)}km × 2 @ ${quoteCurrencySymbol}${deliveryCostPerKm}/km)`
           }
           value={fmtR(deliveryFee)}
           muted
@@ -2357,7 +2375,7 @@ function NewQuotePage() {
             label={
               collectionFeeOverridden || collectionDistance === 0
                 ? "Collection"
-                : `Collection (${collectionDistance.toFixed(1)}km × 2 @ ${tenantCurrency.symbol}${collectionCostPerKm}/km)`
+              : `Collection (${collectionDistance.toFixed(1)}km × 2 @ ${quoteCurrencySymbol}${collectionCostPerKm}/km)`
             }
             value={fmtR(computed.collectionFee)}
             muted
@@ -2439,7 +2457,7 @@ function NewQuotePage() {
                     <span className="hidden sm:block">client pays now</span>
                   </span>
                   <span className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">{tenantCurrency.symbol}</span>
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">{quoteCurrencySymbol}</span>
                     <Input
                       type="number"
                       min={computed.total > 0 ? 0.01 : 0}
@@ -2724,8 +2742,8 @@ function NewQuotePage() {
                 {quoteId && persistedTotalAtLoad !== null && Math.abs((computed.total || 0) - persistedTotalAtLoad) > 0.01 && (
                   <div className="p-2.5 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900 max-w-xl">
                     <strong className="font-semibold">Totals out of sync.</strong>{" "}
-                    The live total is <span className="font-mono">{tenantCurrency.symbol}{computed.total.toFixed(2)}</span>,
-                    but the customer-facing quote still shows the saved <span className="font-mono">{tenantCurrency.symbol}{persistedTotalAtLoad.toFixed(2)}</span>.
+                    The live total is <span className="font-mono">{quoteCurrencySymbol}{computed.total.toFixed(2)}</span>,
+                    but the customer-facing quote still shows the saved <span className="font-mono">{quoteCurrencySymbol}{persistedTotalAtLoad.toFixed(2)}</span>.
                     {/* Wave 15 audit: when revising a non-draft quote,
                         Save draft alone leaves accepted_at intact and
                         the customer would see "accepted" with new
@@ -2767,6 +2785,24 @@ function NewQuotePage() {
                       onPick={handleClientPick}
                       placeholder="Search clients, or type a new name"
                     />
+                  </div>
+                  <div className="max-w-sm">
+                    <Label className="text-xs">Currency for this quote</Label>
+                    <select
+                      value={quoteCurrencyOverride || ""}
+                      onChange={(e) => setQuoteCurrencyOverride(asCurrencyCode(e.target.value))}
+                      className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Company default ({tenantCurrency.code})</option>
+                      {Object.entries(CURRENCY_CONFIG).map(([code, config]) => (
+                        <option key={code} value={code}>{code} - {config.name}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      {clientSnapshot?.preferred_currency
+                        ? `Client preference: ${clientSnapshot.preferred_currency}. This quote keeps its saved currency after acceptance.`
+                        : "Uses the company default unless you choose a currency for this quote."}
+                    </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -2974,7 +3010,7 @@ function NewQuotePage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-brand-primary">{tenantCurrency.symbol} per km</Label>
+                          <Label className="text-[11px] text-brand-primary">{quoteCurrencySymbol} per km</Label>
                           <Input
                             type="number"
                             min={0}
@@ -2989,7 +3025,7 @@ function NewQuotePage() {
                         </div>
                         <div>
                           <Label className="text-[11px] text-brand-primary flex items-center gap-1">
-                            Fee ({tenantCurrency.symbol})
+                            Fee ({quoteCurrencySymbol})
                             {deliveryFeeOverridden && (
                               <span className="text-[10px] text-rose-700 font-normal">(flat fee)</span>
                             )}
@@ -3013,7 +3049,7 @@ function NewQuotePage() {
                         {deliveryFeeOverridden
                           ? `Flat fee active. Fee = ${fmtR(deliveryFee)}. Clear the box and re-enter distance to switch back to auto.`
                           : deliveryDistance > 0
-                            ? `Auto: ${deliveryDistance.toFixed(1)}km × 2 (round-trip) × ${tenantCurrency.symbol}${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor ${tenantCurrency.symbol}${minDeliveryFee}` : ""} = ${fmtR(deliveryFee)}`
+                            ? `Auto: ${deliveryDistance.toFixed(1)}km × 2 (round-trip) × ${quoteCurrencySymbol}${deliveryCostPerKm}/km${minDeliveryFee > 0 ? `, floor ${quoteCurrencySymbol}${minDeliveryFee}` : ""} = ${fmtR(deliveryFee)}`
                             : `Pick a venue or type a distance to auto-calculate; or type a flat fee directly into the Fee box.`}
                       </p>
                     </div>
@@ -3049,7 +3085,7 @@ function NewQuotePage() {
                           />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-brand-primary">{tenantCurrency.symbol} per km</Label>
+                          <Label className="text-[11px] text-brand-primary">{quoteCurrencySymbol} per km</Label>
                           <Input
                             type="number"
                             min={0}
@@ -3065,7 +3101,7 @@ function NewQuotePage() {
                         </div>
                         <div>
                           <Label className="text-[11px] text-brand-primary flex items-center gap-1">
-                            Fee ({tenantCurrency.symbol})
+                            Fee ({quoteCurrencySymbol})
                             {collectionFeeOverridden && (
                               <span className="text-[10px] text-rose-700 font-normal">(flat fee)</span>
                             )}
@@ -3087,7 +3123,7 @@ function NewQuotePage() {
                         {collectionFeeOverridden
                           ? `Flat fee active. Fee = ${fmtR(collectionFee)}. Clear the box and re-enter distance to switch back to auto.`
                           : collectionDistance > 0
-                            ? `Auto: ${collectionDistance.toFixed(1)}km × 2 (round-trip) × ${tenantCurrency.symbol}${collectionCostPerKm}/km = ${fmtR(collectionFee)}`
+                            ? `Auto: ${collectionDistance.toFixed(1)}km × 2 (round-trip) × ${quoteCurrencySymbol}${collectionCostPerKm}/km = ${fmtR(collectionFee)}`
                             : `Type a distance to auto-calculate, or type a flat fee directly into the Fee box.`}
                       </p>
                       {/* Next-day collection. When on, the collection trip
@@ -3134,7 +3170,7 @@ function NewQuotePage() {
                           <Input type="number" min={0.5} step={0.5} value={waiterDurationHours || ""} onChange={(e) => setWaiterDurationHours(Math.max(0, safeNum(e.target.value)))} className="bg-white" />
                         </div>
                         <div>
-                          <Label className="text-[11px] text-amber-900">Rate / hour ({tenantCurrency.symbol})</Label>
+                          <Label className="text-[11px] text-amber-900">Rate / hour ({quoteCurrencySymbol})</Label>
                           <Input type="number" min={0} step={0.01} value={waiterHourlyRate || ""} onChange={(e) => setWaiterHourlyRate(Math.max(0, safeNum(e.target.value)))} className="bg-white" />
                         </div>
                       </div>
@@ -3255,7 +3291,7 @@ function NewQuotePage() {
                               </select>
                             </div>
                             <div className="sm:col-span-2">
-                              <Label className="text-xs">Unit price ({tenantCurrency.symbol})</Label>
+                              <Label className="text-xs">Unit price ({quoteCurrencySymbol})</Label>
                               <Input
                                 type="number"
                                 min={0}
@@ -3431,7 +3467,7 @@ function NewQuotePage() {
                               />
                             </div>
                             <div className="sm:col-span-4">
-                              <Label className="text-xs">Unit price client pays ({tenantCurrency.symbol})</Label>
+                              <Label className="text-xs">Unit price client pays ({quoteCurrencySymbol})</Label>
                               <Input
                                 type="number"
                                 min={0}
@@ -3569,7 +3605,7 @@ function NewQuotePage() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Discount ({tenantCurrency.symbol})</Label>
+                    <Label className="text-xs">Discount ({quoteCurrencySymbol})</Label>
                     <Input
                       type="number"
                       min={0}

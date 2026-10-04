@@ -54,6 +54,7 @@ import { AdminControlGroup, AdminFilterChip, AdminSavedViewChips, AdminSearchFie
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { CURRENCY_CONFIG } from "@/lib/currencyUtils";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
@@ -2384,6 +2385,8 @@ function ClientFormDialog({
     // else stays on the company's catering-default (typically 7).
     // "" = use the company default; positive integer = Net X days.
     payment_terms: "",
+    // Blank means inherit companies.currency for new quotes and orders.
+    preferred_currency: "",
   });
 
   // Seed the form when the dialog opens. Two layers: first we seed from
@@ -2397,7 +2400,7 @@ function ClientFormDialog({
         client_name: "", email: "", phone: "", client_type: "individual",
         tax_number: "", billing_address_line1: "", billing_address_line2: "",
         billing_city: "", billing_postal_code: "", notes: "", tags: "",
-        payment_terms: "",
+        payment_terms: "", preferred_currency: "",
       });
       setShowMore(false);
       return;
@@ -2411,14 +2414,14 @@ function ClientFormDialog({
       client_type: "individual",
       tax_number: "", billing_address_line1: "", billing_address_line2: "",
       billing_city: "", billing_postal_code: "", notes: "", tags: "",
-      payment_terms: "",
+      payment_terms: "", preferred_currency: "",
     });
     setShowMore(false);
     // Layer 2: enrich from the row (billing, tax, notes, tags).
     (async () => {
       const { data } = await supabase
         .from("clients")
-        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags, payment_terms")
+        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags, payment_terms, preferred_currency")
         .eq("id", editing.clientId)
         .maybeSingle();
       // Wave 67.6 - POPIA access log. Fire-and-forget; the read
@@ -2448,8 +2451,9 @@ function ClientFormDialog({
         notes:       data.notes || "",
         tags:        dataTags.join(", "),
         payment_terms: (data as any).payment_terms != null ? String((data as any).payment_terms) : "",
+        preferred_currency: (data as any).preferred_currency || "",
       });
-      const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes || dataTags.length);
+      const hasOptional = !!(data.billing_address_line1 || data.tax_number || data.notes || dataTags.length || (data as any).preferred_currency || (data as any).payment_terms);
       setShowMore(hasOptional);
     })();
   }, [open, editing]);
@@ -2491,6 +2495,10 @@ function ClientFormDialog({
         const n = parseInt(form.payment_terms.trim(), 10);
         return Number.isFinite(n) && n > 0 ? n : null;
       })(),
+      // Per-client currency is a default for new quotes. A saved quote
+      // snapshots the chosen currency, so later preference changes do
+      // not alter documents the client has already accepted.
+      preferred_currency: form.preferred_currency || null,
     };
     let error: any = null;
     if (editing?.clientId) {
@@ -2577,7 +2585,7 @@ function ClientFormDialog({
 
           {!showMore ? (
             <Button variant="ghost" size="sm" onClick={() => setShowMore(true)} className="text-slate-600">
-              + More details (billing, tax, notes)
+              + More details (billing, payment terms, currency, notes)
             </Button>
           ) : (
             <div className="space-y-3 pt-2 border-t border-slate-100">
@@ -2604,6 +2612,23 @@ function ClientFormDialog({
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   Net X days for this client&apos;s invoices. Useful for corporate accounts who need 30 or 60 days. Blank = use the company-wide default (typically 7 for catering).
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Preferred currency</label>
+                <select
+                  value={form.preferred_currency}
+                  onChange={(e) => setForm((f) => ({ ...f, preferred_currency: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Use company default</option>
+                  {Object.entries(CURRENCY_CONFIG).map(([code, config]) => (
+                    <option key={code} value={code}>{code} - {config.name}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  New quotes for this client use this currency. Leave blank to use the company default.
                 </p>
               </div>
 

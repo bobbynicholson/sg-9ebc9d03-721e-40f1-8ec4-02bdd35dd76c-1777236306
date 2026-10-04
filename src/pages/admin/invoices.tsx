@@ -48,6 +48,7 @@ import { InvoiceActivityDrawer } from "@/components/billing/InvoiceActivityDrawe
 import { ManualInvoiceDialog } from "@/components/billing/ManualInvoiceDialog";
 import { MarkPaidDialog, type MarkPaidDialogInvoice } from "@/components/billing/MarkPaidDialog";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { CURRENCY_CONFIG } from "@/lib/currencyUtils";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { FileText, Send, RefreshCw, AlertCircle, Eye, X, Download, Clock, Copy, ExternalLink, CloudUpload, Phone, MessageCircle, CheckCircle2, Calendar as CalendarIcon } from "lucide-react";
@@ -63,6 +64,13 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
 import { isAutomatedTestInvoice } from "@/lib/testDataDetection";
+
+function formatInvoiceRowMoney(amount: number, currencyCode: string | null | undefined): string {
+  const code = currencyCode && Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, currencyCode.toUpperCase())
+    ? currencyCode.toUpperCase() as keyof typeof CURRENCY_CONFIG
+    : "ZAR";
+  return `${CURRENCY_CONFIG[code].symbol} ${Number(amount || 0).toFixed(2)}`;
+}
 
 // An invoice is "effectively overdue" when the cron has already flipped
 // it to 'overdue' OR it's still sent / partially_paid with a balance and
@@ -2456,10 +2464,10 @@ function InvoicesPageInner() {
                         )}
                       </div>
                       <div>
-                        <div className="font-medium">{tenantMoney.format(invoice.total_amount || 0)}</div>
+                        <div className="font-medium">{formatInvoiceRowMoney(invoice.total_amount || 0, invoice.currency || tenantMoney.code)}</div>
                         {invoice.balance_due > 0 && (
                           <div className={`text-sm ${isOverdue ? "text-rose-700 font-semibold" : "text-yellow-700"}`}>
-                            Balance: {tenantMoney.format(invoice.balance_due)}
+                            Balance: {formatInvoiceRowMoney(invoice.balance_due, invoice.currency || tenantMoney.code)}
                           </div>
                         )}
                       </div>
@@ -2620,7 +2628,7 @@ function InvoicesPageInner() {
               {/* TIGHTEN I.82: pass tenant currency so the customer-
                   facing document shows the right symbol on non-ZAR
                   tenants. */}
-              <InvoicePreview {...selectedInvoice} currencyCode={tenantMoney.code} />
+              <InvoicePreview {...selectedInvoice} currencyCode={(selectedInvoice as any).currency || tenantMoney.code} />
               <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
                 <Button variant="outline" onClick={() => setPreviewOpen(false)}>
                   Close

@@ -155,6 +155,12 @@ export function buildQuotePdfDataFromRow(row: any): QuotePdfData {
     notes: row?.notes ?? null,
     status: row?.status ?? null,
     accepted_at: row?.accepted_at ?? null,
-    company: row?.company || {},
+    // The quote's stored currency takes precedence over the current
+    // company setting so a later tenant change cannot rewrite an
+    // already-priced document.
+    company: {
+      ...(row?.company || {}),
+      currency: row?.currency || row?.company?.currency || null,
+    },
   };
 }

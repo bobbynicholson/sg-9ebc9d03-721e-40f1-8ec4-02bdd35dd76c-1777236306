@@ -1,4 +1,5 @@
 import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
+import { getServiceSupabase } from "@/lib/supabase/service";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /pay/i/[token] - public invoice + payment view.
@@ -17,6 +18,7 @@ import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
  */
 
 import { useState, useEffect, useRef } from "react";
+import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { format } from "date-fns";
@@ -1403,3 +1405,43 @@ export default function InvoicePaymentPage() {
     </>
   );
 }
+
+/**
+ * Some older messages used /pay/i/{invoice-id} instead of the public
+ * token. Keep those links useful, but redirect them to the persisted
+ * capability URL before rendering or exposing invoice data.
+ */
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const token = typeof ctx.params?.token === "string" ? ctx.params.token : "";
+  if (!token) return { props: {} };
+
+  try {
+    const service = getServiceSupabase();
+    const { data: byToken, error: tokenError } = await (service as any)
+      .from("invoices")
+      .select("id")
+      .eq("public_token", token)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (tokenError || byToken) return { props: {} };
+
+    const { data: byId } = await (service as any)
+      .from("invoices")
+      .select("public_token")
+      .eq("id", token)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!byId?.public_token) return { props: {} };
+
+    const resolved = String(ctx.resolvedUrl || `/pay/i/${token}`);
+    const queryAt = resolved.indexOf("?");
+    const pathname = queryAt >= 0 ? resolved.slice(0, queryAt) : resolved;
+    const query = queryAt >= 0 ? resolved.slice(queryAt) : "";
+    const slashAt = pathname.lastIndexOf("/");
+    const destination = `${pathname.slice(0, slashAt + 1)}${encodeURIComponent(byId.public_token)}${query}`;
+    return { redirect: { destination, permanent: true } };
+  } catch (error) {
+    console.warn("[pay/i] legacy invoice link lookup failed:", error);
+    return { props: {} };
+  }
+};

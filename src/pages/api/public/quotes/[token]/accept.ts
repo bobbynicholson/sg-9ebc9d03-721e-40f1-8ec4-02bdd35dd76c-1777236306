@@ -253,7 +253,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // selecting it from quotes returns "column quotes.currency does not
     // exist" and 500s the accept flow. Pull currency from companies
     // below where we already fetch tenant context for the email.
-    .select("id, company_id, user_id, client_id, client_name, client_email, total, event_date, guest_count, quote_name, quote_number, public_token")
+    .select("id, company_id, user_id, client_id, client_name, client_email, total, currency, event_date, guest_count, quote_name, quote_number, public_token")
     .maybeSingle();
 
   // Wave 17 audit: don't leak raw Postgres errors to the public client.
@@ -410,8 +410,8 @@ async function notifyClientOfAcceptance(supabase: any, quote: any) {
 }
 
 async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: string) {
-  // Currency lives on companies, not quotes. Resolve from the
-  // tenant's company row with a ZAR fallback for legacy rows.
+  // The accepted quote snapshots the customer's price currency. Older
+  // quotes fall back to the tenant's current default.
   let currencyCode = "ZAR";
   try {
     const { data: companyRow, error: companyRowErr } = await supabase
@@ -422,7 +422,7 @@ async function notifyAdminOfAcceptance(supabase: any, quote: any, acceptorName: 
     if (companyRowErr) {
       console.error("[public/quotes/[token]/accept] companies fetch failed:", companyRowErr);
     }
-    if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
+    currencyCode = String((quote as any)?.currency || (companyRow as any)?.currency || "ZAR").toUpperCase();
   } catch { /* fall back to ZAR */ }
   const totalLabel = `${currencyCode} ${Number(quote.total || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
   const eventLabel = quote.event_date

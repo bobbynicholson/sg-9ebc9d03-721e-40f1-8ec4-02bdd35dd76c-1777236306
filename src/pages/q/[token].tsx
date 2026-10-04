@@ -478,9 +478,10 @@ export default function PublicQuotePage() {
     ? "This event date has already passed. Please request a new date before accepting."
     : quote.event_capacity?.message ||
       `This date or event size is no longer available. Please request a new date, adjust the guest count, or contact ${companyName} before accepting.`;
-  // Phase 5 #10: tenant currency. Lives on company.currency now;
-  // ZAR fallback for legacy rows where it's NULL.
-  const fmtMoney = fmtMoneyFor((company as any)?.currency || "ZAR");
+  // Currency is snapshotted on the quote. Older quotes fall back to the
+  // company's default currency.
+  const quoteCurrency = String(quote.currency || (company as any)?.currency || "ZAR").toUpperCase();
+  const fmtMoney = fmtMoneyFor(quoteCurrency);
   const quotePaymentOptions = quote.payment_options;
   const quotePaymentProviderName = quotePaymentOptions?.provider === "payfast"
     ? "PayFast"
@@ -502,7 +503,7 @@ export default function PublicQuotePage() {
     quotePaymentOptions?.eft_available === true && Boolean(quoteEftDetails.bank && quoteEftDetails.account),
   );
   const quoteOnlineUnavailableMessage = quotePaymentOptions?.unavailable_reason === "currency_not_supported"
-    ? `${quotePaymentProviderName || "The online provider"} cannot collect ${String(company?.currency || "ZAR").toUpperCase()} for this quote. ${quoteHasEftDetails ? "Use EFT below, or" : "Please"} contact ${companyName} to discuss another payment route.`
+    ? `${quotePaymentProviderName || "The online provider"} cannot collect ${quoteCurrency} for this quote. ${quoteHasEftDetails ? "Use EFT below, or" : "Please"} contact ${companyName} to discuss another payment route.`
     : quotePaymentOptions?.unavailable_reason === "configuration_incomplete"
       ? `Online payment setup is incomplete. ${quoteHasEftDetails ? "EFT details are shown below." : `Contact ${companyName} for payment instructions.`}`
       : quotePaymentOptions?.unavailable_reason === "not_configured"

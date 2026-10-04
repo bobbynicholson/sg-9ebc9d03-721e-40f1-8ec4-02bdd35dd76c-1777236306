@@ -171,10 +171,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Resolve quote.
   const { data: quote, error: quoteErr } = await (supabase as any)
     .from("quotes")
-    // Wave 12 follow-up: currency lives on companies, not quotes.
-    // Selecting it here used to throw "column quotes.currency does
-    // not exist" and 500 every public change-request submission.
-    .select("id, company_id, user_id, lead_id, client_name, quote_number, total, event_date, deleted_at")
+    .select("id, company_id, user_id, lead_id, client_name, quote_number, total, currency, event_date, deleted_at")
     .eq("public_token", token)
     .maybeSingle();
   if (quoteErr) {
@@ -436,8 +433,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // the client's 200.
   await (async () => {
     try {
-      // Resolve currency + contact email from the company.
-      let currencyCode = "ZAR";
+      // Use the currency the client saw on this quote, with the company
+      // default as a fallback for historical records.
+      let currencyCode = String((quote as any)?.currency || "ZAR").toUpperCase();
       let companyEmail: string | null = null;
       let companyName: string | null = null;
       let companySlug: string | null = null;
@@ -450,7 +448,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (companyRowErr) {
           console.error("[public/quotes/[token]/change-request] companies fetch failed:", companyRowErr);
         }
-        if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
+        currencyCode = String((quote as any)?.currency || (companyRow as any)?.currency || "ZAR").toUpperCase();
         if ((companyRow as any)?.email) companyEmail = (companyRow as any).email;
         if ((companyRow as any)?.company_name) companyName = (companyRow as any).company_name;
         if ((companyRow as any)?.slug) companySlug = String((companyRow as any).slug);

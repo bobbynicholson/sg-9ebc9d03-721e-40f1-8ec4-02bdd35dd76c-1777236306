@@ -141,6 +141,7 @@ const LIGHT_QUOTE_SELECT = [
   "status", "source", "tags", "lost_reason",
   "lead_id", "client_id", "parent_quote_id", "prepared_by",
   "subtotal", "tax_amount", "discount_amount", "total_amount",
+  "currency",
   "deposit_percentage", "initial_payment_amount", "delivery_fee",
   "valid_until", "created_at", "updated_at", "sent_at",
   "accepted_at", "viewed_at", "rejected_at",
@@ -552,7 +553,8 @@ export const quoteService = {
     }
     const companyName =
       profile?.company_name || profile?.full_name || "Your Catering Company";
-    // Currency + slug live on companies. Fetch both in one query.
+    // The quote snapshots the customer-facing currency. Fetch the
+    // company default + slug as a fallback and for the public link.
     let currencyCode = "ZAR";
     let companySlug: string | null = null;
     if ((quote as any).company_id) {
@@ -571,6 +573,7 @@ export const quoteService = {
     }
 
     const q = quote as any;
+    currencyCode = String(q.currency || currencyCode || "ZAR").toUpperCase();
     const eventName: string = q.event_name ?? q.quote_name ?? "";
     const quoteNumber: string = q.quote_number ?? quoteId;
     const clientFullName: string = q.client_name ?? "";
@@ -872,23 +875,38 @@ export const quoteService = {
     // the columns explicitly here = no surprises when quotes gains a
     // new column the orders table doesn't have.
     const q = quote as any;
-    // Wave 12 follow-up: currency lives on companies, not quotes.
-    // The previous `q.currency ?? "ZAR"` always wrote ZAR for non-ZA
-    // tenants because q.currency is undefined. Resolve from the
-    // company row up front so orders.currency reflects the tenant's
-    // actual setting.
-    let resolvedCurrency = "ZAR";
-    try {
-      const { data: companyRow, error: companyRowErr2 } = await db
-        .from("companies")
-        .select("currency")
-        .eq("id", q.company_id)
-        .maybeSingle();
-      if (companyRowErr2) {
-        console.error("[quoteService] companies fetch failed:", companyRowErr2);
-      }
-      if ((companyRow as any)?.currency) resolvedCurrency = (companyRow as any).currency;
-    } catch { /* fall back to ZAR */ }
+    // The quote is the immutable currency snapshot for the customer's
+    // agreed price. Old quotes without a snapshot inherit the client's
+    // preference, then the company default, then ZAR.
+    let resolvedCurrency = String(q.currency || "").trim().toUpperCase();
+    if (!resolvedCurrency && resolvedClientId) {
+      try {
+        const { data: clientRow, error: clientCurrencyErr } = await db
+          .from("clients")
+          .select("preferred_currency")
+          .eq("id", resolvedClientId)
+          .eq("company_id", q.company_id)
+          .maybeSingle();
+        if (clientCurrencyErr) {
+          console.error("[quoteService] client currency lookup failed:", clientCurrencyErr);
+        }
+        resolvedCurrency = String((clientRow as any)?.preferred_currency || "").trim().toUpperCase();
+      } catch { /* fall back to company currency */ }
+    }
+    if (!resolvedCurrency) {
+      try {
+        const { data: companyRow, error: companyRowErr2 } = await db
+          .from("companies")
+          .select("currency")
+          .eq("id", q.company_id)
+          .maybeSingle();
+        if (companyRowErr2) {
+          console.error("[quoteService] companies fetch failed:", companyRowErr2);
+        }
+        resolvedCurrency = String((companyRow as any)?.currency || "").trim().toUpperCase();
+      } catch { /* fall back to ZAR */ }
+    }
+    if (!resolvedCurrency) resolvedCurrency = "ZAR";
     const orderData: any = {
       // Identity / scoping
       quote_id: quote.id,

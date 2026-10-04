@@ -41,6 +41,8 @@ export interface PublicQuoteView {
   subtotal: number;
   tax_amount: number | null;
   discount_amount: number | null;
+  /** Currency snapshotted when this quote was priced. */
+  currency?: string | null;
   total: number;
   total_amount: number;
   waiter_service_required?: boolean;
