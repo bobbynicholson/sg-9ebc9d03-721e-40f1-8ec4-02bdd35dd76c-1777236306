@@ -38,6 +38,19 @@ interface PendingClaim {
   notes: string | null;
   created_at: string;
   payment_proof_path?: string | null;
+  payment_proof_ai_assessment?: {
+    status: "consistent" | "needs_review" | "not_analyzed";
+    model: string | null;
+    reasons: string[];
+    extracted: {
+      amount: number | null;
+      currency: string | null;
+      reference: string | null;
+      transaction_date: string | null;
+      transfer_status: string;
+      recipient: string | null;
+    } | null;
+  } | null;
   invoices: {
     id: string;
     invoice_number: string;
@@ -72,6 +85,8 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
   const [claims, setClaims] = useState<PendingClaim[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [confirmingClaim, setConfirmingClaim] = useState<PendingClaim | null>(null);
+  const [bankStatementVerified, setBankStatementVerified] = useState(false);
   const [rejectingClaim, setRejectingClaim] = useState<PendingClaim | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -100,7 +115,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
     const { data, error } = await supabase
       .from("payments")
       .select(
-        "id, amount, payment_reference, payment_date, notes, created_at, payment_proof_path, " +
+        "id, amount, payment_reference, payment_date, notes, created_at, payment_proof_path, payment_proof_ai_assessment, " +
         "invoices:invoice_id ( id, invoice_number, total_amount, balance_due ), " +
         "clients:client_id ( client_name, email )"
       )
@@ -120,7 +135,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
-  const act = async (claim: PendingClaim, action: "confirm" | "reject", reason?: string) => {
+  const act = async (claim: PendingClaim, action: "confirm" | "reject", reason?: string, bankChecked = false) => {
     setActingId(claim.id);
     try {
       const res = await fetch("/api/payments/verify-claim", {
@@ -130,6 +145,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
           payment_id: claim.id,
           action,
           reason: reason || undefined,
+          bank_statement_verified: action === "confirm" ? bankChecked : undefined,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -143,6 +159,8 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
       });
       setRejectingClaim(null);
       setRejectReason("");
+      setConfirmingClaim(null);
+      setBankStatementVerified(false);
       await load();
       onAfterAction?.();
     } catch (e: any) {
@@ -173,6 +191,9 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
             Each claim shows the reference your client used. Match it on your bank statement, then
             confirm here. Rejecting prompts the client to fix the reference and try again.
           </p>
+          <p className="text-xs font-medium text-blue-900">
+            The automated proof screen checks the uploaded file for mismatches. It cannot verify that funds arrived; confirm only after checking your bank statement.
+          </p>
 
           <div className="space-y-2">
             {claims.map((c) => {
@@ -182,7 +203,7 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
                   key={c.id}
                   claim={c}
                   acting={actingId === c.id}
-                  onConfirm={() => act(c, "confirm")}
+                  onConfirm={() => { setConfirmingClaim(c); setBankStatementVerified(false); }}
                   onReject={() => setRejectingClaim(c)}
                   highlight={isTarget}
                   rowRef={isTarget ? targetRowRef : undefined}
@@ -193,6 +214,40 @@ export function PendingClaimsBanner({ onAfterAction }: PendingClaimsBannerProps)
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!confirmingClaim} onOpenChange={(open) => {
+        if (!open) { setConfirmingClaim(null); setBankStatementVerified(false); }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Banknote className="w-5 h-5 text-blue-700" />
+              Confirm EFT received
+            </DialogTitle>
+            <DialogDescription>
+              The AI screen only checks whether the file looks consistent. It cannot confirm a bank transfer.
+            </DialogDescription>
+          </DialogHeader>
+          {confirmingClaim && (
+            <div className="space-y-4 text-sm text-slate-700">
+              <p>Invoice <strong>{confirmingClaim.invoices?.invoice_number || "unknown"}</strong>, claim {fmt.format(confirmingClaim.amount)}.</p>
+              <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+                <input type="checkbox" checked={bankStatementVerified} onChange={(event) => setBankStatementVerified(event.target.checked)} className="mt-0.5" />
+                <span>I checked our bank statement and verified that this payment reached our account.</span>
+              </label>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setConfirmingClaim(null); setBankStatementVerified(false); }} disabled={actingId !== null}>
+                  Cancel
+                </Button>
+                <Button className="flex-1 bg-brand-primary hover:bg-brand-primary/90" onClick={() => act(confirmingClaim, "confirm", undefined, true)} disabled={!bankStatementVerified || actingId !== null}>
+                  {actingId ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+                  Confirm received
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!rejectingClaim} onOpenChange={(o) => !o && setRejectingClaim(null)}>
         <DialogContent className="max-w-md">
@@ -318,6 +373,20 @@ function ClaimRow({
               &ldquo;{claim.notes}&rdquo;
             </div>
           )}
+          {claim.payment_proof_ai_assessment && (
+            <div className={`mt-2 rounded-md border p-2 ${claim.payment_proof_ai_assessment.status === "consistent" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+              <p className="font-semibold">
+                Automated proof screen: {claim.payment_proof_ai_assessment.status === "consistent" ? "details look consistent" : claim.payment_proof_ai_assessment.status === "needs_review" ? "manual review needed" : "not analyzed"}
+              </p>
+              {claim.payment_proof_ai_assessment.extracted && (
+                <p className="mt-0.5">Visible transfer: {claim.payment_proof_ai_assessment.extracted.transfer_status}; amount {claim.payment_proof_ai_assessment.extracted.amount ?? "unreadable"} {claim.payment_proof_ai_assessment.extracted.currency || ""}; reference {claim.payment_proof_ai_assessment.extracted.reference || "unreadable"}.</p>
+              )}
+              {claim.payment_proof_ai_assessment.reasons?.map((reason, index) => <p key={index} className="mt-0.5">{reason}</p>)}
+            </div>
+          )}
+          {!claim.payment_proof_path && (
+            <p className="mt-2 font-semibold text-amber-700">Payment proof is required before this claim can be confirmed.</p>
+          )}
           {claim.payment_proof_path && (
             <button
               type="button"
@@ -338,7 +407,7 @@ function ClaimRow({
           size="sm"
           className="bg-brand-primary hover:bg-brand-primary/90"
           onClick={onConfirm}
-          disabled={acting}
+          disabled={acting || !claim.payment_proof_path}
         >
           {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
           Confirm received

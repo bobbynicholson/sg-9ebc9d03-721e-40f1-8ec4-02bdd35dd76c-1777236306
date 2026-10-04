@@ -29,6 +29,7 @@ import {
 import { withApiLogging } from "@/lib/withApiLogging";
 import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
 import { getPublicPaymentAvailability } from "@/lib/paymentService";
+import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 
 
 export const config = {
@@ -166,9 +167,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const paymentAvailability = company?.id
     ? await getPublicPaymentAvailability(company.id, company.currency)
     : { provider: null, online_available: false, unavailable_reason: "not_configured" as const };
+  const eftAvailable = isManualEftAvailable(
+    paymentAvailability.online_available,
+    Boolean(company?.bank_name && company?.bank_account_number),
+  );
+  if (!eftAvailable && company) {
+    (data as any).company = {
+      ...company,
+      bank_name: null,
+      bank_account_holder: null,
+      bank_account_number: null,
+      bank_branch_code: null,
+      bank_account_type: null,
+      eft_instructions: null,
+    };
+  }
   (data as any).payment_options = {
     ...paymentAvailability,
-    eft_available: Boolean(company?.bank_name && company?.bank_account_number),
+    eft_available: eftAvailable,
   };
 
   return res.status(200).json({ ok: true, quote: data });

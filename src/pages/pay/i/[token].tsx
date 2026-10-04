@@ -29,6 +29,7 @@ import {
   Calendar, Printer, Wallet, Landmark,
 } from "lucide-react";
 import { formatZAR } from "@/lib/formatters";
+import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
@@ -632,25 +633,19 @@ export default function InvoicePaymentPage() {
 
   async function claimPublicEft() {
     if (!invoice || !token || eftClaimedPublic) return;
+    if (!proofFile) {
+      setError("Upload your bank payment confirmation to submit an EFT claim.");
+      return;
+    }
     try {
       setProcessing(true);
-      const body = proofFile ? (() => {
-        const form = new FormData();
-        form.append("invoice_id", invoice.id);
-        form.append("public_token", token);
-        form.append("claimed_amount", String(payNow || invoice.balance_due));
-        form.append("proof", proofFile);
-        return form;
-      })() : JSON.stringify({
-        invoice_id: invoice.id,
-        public_token: token,
-        claimed_amount: payNow || invoice.balance_due,
-        claimed_paid_at: new Date().toISOString(),
-        notes: "Client submitted payment confirmation from the public invoice link.",
-      });
-      const response = await fetch(proofFile ? "/api/payments/claim-eft-proof" : "/api/payments/claim-eft", {
+      const body = new FormData();
+      body.append("invoice_id", invoice.id);
+      body.append("public_token", token);
+      body.append("claimed_amount", String(payNow || invoice.balance_due));
+      body.append("proof", proofFile);
+      const response = await fetch("/api/payments/claim-eft-proof", {
         method: "POST",
-        ...(proofFile ? {} : { headers: { "Content-Type": "application/json" } }),
         body,
       });
       const payload = await response.json().catch(() => ({}));
@@ -708,7 +703,10 @@ export default function InvoicePaymentPage() {
         : `Online payment could not be started. Use EFT below or contact ${companyName} for help.`;
   const snapshotBank = invoice.invoice_data?.bankDetails || {};
   const bankDetails = resolveCompanyEftDetails(company, snapshotBank);
-  const hasBankDetails = bankDetails.available;
+  const hasBankDetails = isManualEftAvailable(
+    invoice.payment_options?.online_available === true,
+    invoice.payment_options?.eft_available === true && bankDetails.available,
+  );
   const paymentSummary = getOrderPaymentSummary({
     totalAmount: invoice.total_amount,
     amountPaid: invoice.amount_paid,
@@ -1139,11 +1137,11 @@ export default function InvoicePaymentPage() {
                         <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
                           <p className="text-sm text-stone-700">After making the transfer, confirm it here so the team can match it to this invoice.</p>
                           <label className="mt-3 block text-xs font-medium text-stone-600">
-                            Optional proof (PDF, JPG, PNG or WEBP; max 8 MB)
-                            <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" />
+                            Payment confirmation (PDF, JPG, PNG or WEBP; max 8 MB) - required
+                            <input type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" />
                           </label>
-                          <Button type="button" size="sm" className="mt-3 bg-brand-primary hover:opacity-90" onClick={claimPublicEft} disabled={processing || eftClaimedPublic}>
-                            {eftClaimedPublic ? "Confirmation sent for review" : proofFile ? "Send payment proof for review" : "I’ve made this EFT payment"}
+                          <Button type="button" size="sm" className="mt-3 bg-brand-primary hover:opacity-90" onClick={claimPublicEft} disabled={processing || eftClaimedPublic || !proofFile}>
+                            {eftClaimedPublic ? "Confirmation sent for review" : "Send payment proof for review"}
                           </Button>
                         </div>
                       )}
@@ -1159,7 +1157,7 @@ export default function InvoicePaymentPage() {
                     <p className="text-sm font-semibold text-stone-900">Pay this invoice</p>
                     <p className="text-xs text-stone-600 mt-0.5">
                       {invoice.payment_options?.online_available && !paymentNotConfigured
-                        ? `Pay online with ${onlineProviderName || "the company's provider"}, or pay by EFT when bank details are listed.`
+                        ? `Pay online with ${onlineProviderName || "the company's provider"}.`
                         : "Online checkout is unavailable for this invoice. EFT instructions and payment confirmation are available above when bank details are listed."}
                     </p>
                   </div>
@@ -1357,11 +1355,11 @@ export default function InvoicePaymentPage() {
                       <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
                         <p className="text-sm text-stone-700">After transferring, send your confirmation so the team can match and verify the payment.</p>
                         <label className="mt-3 block text-xs font-medium text-stone-600">
-                          Optional proof (PDF, JPG, PNG or WEBP; max 8 MB)
-                          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" />
+                          Payment confirmation (PDF, JPG, PNG or WEBP; max 8 MB) - required
+                          <input type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" />
                         </label>
-                        <Button type="button" size="sm" className="mt-3 bg-brand-primary hover:opacity-90" onClick={claimPublicEft} disabled={processing || eftClaimedPublic}>
-                          {eftClaimedPublic ? "Confirmation sent for review" : proofFile ? "Send payment proof for review" : "I’ve made this EFT payment"}
+                        <Button type="button" size="sm" className="mt-3 bg-brand-primary hover:opacity-90" onClick={claimPublicEft} disabled={processing || eftClaimedPublic || !proofFile}>
+                          {eftClaimedPublic ? "Confirmation sent for review" : "Send payment proof for review"}
                         </Button>
                       </div>
                     </div>

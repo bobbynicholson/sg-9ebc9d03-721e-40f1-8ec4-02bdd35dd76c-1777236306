@@ -919,6 +919,10 @@ export const quoteService = {
       tax: q.tax ?? q.tax_amount ?? null,
       total_amount: q.total ?? q.total_amount ?? null,
       currency: resolvedCurrency,
+      // Quote conversion uses jsonb_populate_record, which supplies NULL
+      // for omitted columns instead of letting a database DEFAULT apply.
+      // Keep the new payment-ledger opening balance explicit for this order.
+      payment_opening_paid: 0,
       deposit_percentage: q.deposit_percentage ?? null,
       // The quote's agreed first-payment amount takes precedence over
       // recalculating a percentage at payment time. Older quotes without

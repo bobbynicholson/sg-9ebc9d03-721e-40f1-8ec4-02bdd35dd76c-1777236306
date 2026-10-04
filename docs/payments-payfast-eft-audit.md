@@ -58,7 +58,7 @@ First inspect migration history:
 select version from supabase_migrations.schema_migrations order by version desc;
 ```
 
-The bundle includes the historical payment-attempt/gateway migration (`20260925150000_payment_attempts_and_gateway_requirements.sql`) and webhook uniqueness guard (`20261001000000_payment_webhook_idempotency_guard.sql`). Existing base payment/invoice fields, enums, gateway schema and triggers must exist. These twelve files are not a fresh-database bootstrap. Some long-lived duplicate payment data may require review; the new routines do not erase real payments or automatically refund excess money.
+The bundle includes the historical payment-attempt/gateway migration (`20260925150000_payment_attempts_and_gateway_requirements.sql`) and webhook uniqueness guard (`20261001000000_payment_webhook_idempotency_guard.sql`). Existing base payment/invoice fields, enums, gateway schema and triggers must exist. The fourteen bundled migration files are not a fresh-database bootstrap. Some long-lived duplicate payment data may require review; the new routines do not erase real payments or automatically refund excess money.
 
 The local inventory contains **410** migration files. Seven historical version prefixes are duplicated; do not rename/replay them blindly without comparing applied history. `LOCAL_MIGRATION_INVENTORY.txt` lists every file and duplicate group. A full local Supabase migration reset was not run: Supabase CLI/config and a running Docker engine are absent. The isolated payment SQL tests are available immediately. Step-by-step instructions are in [payment-migrations-how-to-run.md](payment-migrations-how-to-run.md).
 
@@ -85,7 +85,8 @@ Gateway configuration, refund actions, cancellation/amendment reviews and proof 
 | Invalid signature/tenant/reference/amount/currency | No financial settlement. API rejects the callback. |
 | Customer cancels browser navigation after completing payment | Browser cancellation cannot undo a verified success. Late COMPLETE can recover a failed/expired attempt. |
 | Client completes two distinct paid checkouts | Record both real charges, balance stays zero and excess is exposed/alerted. No automatic refund is performed. |
-| EFT claim submitted repeatedly or concurrently | Reuse the outstanding pending claim; no financial credit before verification. |
+| EFT proof submitted repeatedly or concurrently | Reuse the outstanding pending claim; proof is required, and there is no financial credit before an authorized admin verifies the bank statement. |
+| EFT screenshot passes the automated screen | Show extracted details to the admin; the model does not settle money. Confirmation still requires proof, an explicit bank-statement acknowledgment and the admin role/company check. |
 | EFT confirm races reject | One action wins. Repeating the same action is idempotent; a conflicting terminal action is rejected. |
 | Full payment for a future event | Money is paid; event is not marked completed before delivery. |
 | Receipt/notification process crashes | Receipt job survives; lease expires and worker retries. In-app delivery is transactional and deduplicated. Resend uses a stable key per destination; SMTP or retries beyond provider key retention can deliver a duplicate email, never duplicate money. |
@@ -116,13 +117,13 @@ Reconciliation, its evidence, audit entry, invoice/order projection and refund r
 ## Deployment smoke check
 
 1. Apply migrations to a backed-up test database and deploy the matching code. Set the public origin and private cron secret.
-2. Use two test companies with different merchants/bank details. Verify each quote/invoice shows its own account and no provider secrets in API responses.
+2. Use test companies with different merchants/bank details. With a working active provider, confirm only that provider is shown and bank details are omitted. With online checkout unavailable or unsupported for the currency, confirm manual EFT is the only listed route when bank details exist.
 3. Use a separate test company/invoice for sandbox payments: sandbox callbacks update that test data, but no real money is collected. PayFast's format-check button is not an end-to-end credential test.
 4. Complete one sandbox checkout. Inspect its ITN log and confirm callback HTTP 200, one completed payment, correct invoice paid/balance, correct order threshold flags, and succeeded attempt. Confirm the same `payment_attempt_id` survives merchant history via `m_payment_id`/`custom_str5`.
 5. Replay that verified callback. Confirm one ledger row and unchanged paid total. Change the provider/mode after checkout creation and verify the old checkout still uses its saved version.
 6. Stop the **test** app before paying, restart it, then invoke recovery with the configured cron bearer. Confirm the missed payment is recovered. Run the merchant history API check separately; a working ITN does not prove API access.
 7. Simulate a test database failure during invoice update. Confirm HTTP 503 and no partially committed ledger/attempt. Restore it and confirm receipt replay settles correctly.
-8. Submit an EFT proof twice. Confirm one pending claim and unchanged paid balance. Confirm/reject from the same-company owner; check cross-company access is denied.
+8. Submit an EFT proof twice. Confirm one pending claim and unchanged paid balance. Check that the Anthropic screen extracts the amount/reference when configured and only flags the proof for review. Confirm cannot be submitted without proof and an explicit bank-statement acknowledgment; confirm/reject from the same-company owner and check cross-company access is denied.
 9. Check pending verified events, history errors and receipt errors. Confirm cron heartbeats continue after restart. Do not infer a worker is enabled merely because its endpoint exists.
    Also retry the same partial-credit request UUID after dropping its HTTP response: check one wallet debit and the correct remaining gateway amount. Test partial credit without an active gateway and verify the recorded payment remains visible. Use a fake refund transport to exercise rejection/timeout and ensure processing blocks a second payout; verify live refund eligibility separately without submitting a payout.
 10. Only after these checks, the owner can make an approved small live transaction (PayFast live minimum is R5) and verify the merchant account received it. No live charge was performed during this audit.

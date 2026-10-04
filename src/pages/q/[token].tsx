@@ -52,6 +52,7 @@ import { QuoteItemsEditor, type MenuLine, type EquipLine } from "@/components/qu
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { toLocalISO } from "@/lib/localDate";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
+import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -496,9 +497,12 @@ export default function PublicQuotePage() {
     type: company?.bank_account_type || "",
     instructions: company?.eft_instructions || "",
   };
-  const quoteHasEftDetails = Boolean(quoteEftDetails.bank && quoteEftDetails.account);
+  const quoteHasEftDetails = isManualEftAvailable(
+    quotePaymentOptions?.online_available === true,
+    quotePaymentOptions?.eft_available === true && Boolean(quoteEftDetails.bank && quoteEftDetails.account),
+  );
   const quoteOnlineUnavailableMessage = quotePaymentOptions?.unavailable_reason === "currency_not_supported"
-    ? `${quotePaymentProviderName || "The online provider"} cannot collect ${String(company?.currency || "ZAR").toUpperCase()} for this quote. EFT is available below, or contact ${companyName} to discuss another payment route.`
+    ? `${quotePaymentProviderName || "The online provider"} cannot collect ${String(company?.currency || "ZAR").toUpperCase()} for this quote. ${quoteHasEftDetails ? "Use EFT below, or" : "Please"} contact ${companyName} to discuss another payment route.`
     : quotePaymentOptions?.unavailable_reason === "configuration_incomplete"
       ? `Online payment setup is incomplete. ${quoteHasEftDetails ? "EFT details are shown below." : `Contact ${companyName} for payment instructions.`}`
       : quotePaymentOptions?.unavailable_reason === "not_configured"

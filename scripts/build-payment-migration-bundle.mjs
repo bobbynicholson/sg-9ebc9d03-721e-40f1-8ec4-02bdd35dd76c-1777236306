@@ -12,6 +12,8 @@ const files = [
   '20261003180000_financial_write_permissions.sql',
   '20261004090000_idempotent_store_credit_checkout.sql',
   '20261004100000_refund_reconciliation_and_receipts.sql',
+  '20261004120000_fix_quote_order_opening_paid.sql',
+  '20261004130000_eft_proof_screening_and_guard.sql',
 ];
 let sql = '-- Payment-attempt/webhook prerequisites plus the latest company quote/payment migrations.\n' +
   '-- Run this bundle OR the individual files, never both. See docs/payment-migrations-how-to-run.md.\nBEGIN;\n';

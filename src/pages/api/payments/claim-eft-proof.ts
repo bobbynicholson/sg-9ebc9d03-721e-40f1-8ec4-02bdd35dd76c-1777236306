@@ -5,6 +5,9 @@ import fs from "fs/promises";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { randomUUID } from "crypto";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getInvoicePublicAvailability } from "@/lib/invoicePublicPayment";
+import { analyzeEftProof } from "@/lib/eftProofVision";
+import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
 
 export const config = { api: { bodyParser: false } };
 
@@ -27,11 +30,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "Invoice, amount and a valid proof file are required" });
     }
     const sb = getServiceSupabase();
-    const { data: invoice } = await sb.from("invoices").select("id, company_id").eq("id", invoiceId).eq("public_token", publicToken).is("deleted_at", null).maybeSingle();
+    const { data: invoice } = await sb.from("invoices")
+      .select("id, company_id, order_id, currency, invoice_number, balance_due, invoice_data")
+      .eq("id", invoiceId).eq("public_token", publicToken).is("deleted_at", null).maybeSingle();
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+    if (claimedAmount - Number(invoice.balance_due || 0) > 0.01) {
+      return res.status(400).json({ error: "Claimed amount cannot exceed the invoice balance" });
+    }
+    const publicPayment = await getInvoicePublicAvailability(sb, invoice);
+    if (publicPayment.availability.online_available) {
+      return res.status(409).json({ error: "EFT confirmation is unavailable while online payment is enabled" });
+    }
+    const { data: company } = await sb.from("companies")
+      .select("company_name, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions")
+      .eq("id", invoice.company_id)
+      .maybeSingle();
+    const bankDetails = resolveCompanyEftDetails(company || {}, invoice.invoice_data?.bankDetails || {});
+    if (!bankDetails.available) {
+      return res.status(409).json({ error: "EFT payment is not configured for this invoice" });
+    }
+    const proofBytes = await fs.readFile(file.filepath);
     const safeName = file.originalFilename?.replace(/[^a-zA-Z0-9._-]/g, "_") || "proof";
     const path = `${invoice.company_id}/${invoice.id}/${randomUUID()}-${safeName}`;
-    const upload = await sb.storage.from("payment-proofs").upload(path, await fs.readFile(file.filepath), { contentType: file.mimetype || "application/octet-stream", upsert: false });
+    const upload = await sb.storage.from("payment-proofs").upload(path, proofBytes, { contentType: file.mimetype || "application/octet-stream", upsert: false });
     if (upload.error) return res.status(500).json({ error: "Could not save payment proof" });
     const { data: claim, error: claimError } = await (sb as any).rpc("create_eft_payment_claim", {
       p_invoice_id: invoice.id, p_company_id: invoice.company_id, p_amount: claimedAmount,
@@ -43,6 +64,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (claimError?.code === "22023") await sb.storage.from("payment-proofs").remove([path]);
       return res.status(claimError?.code === "22023" ? 409 : 503).json({ error: "Could not attach proof to EFT claim. Please retry." });
     }
+    const assessment = await analyzeEftProof({
+      imageBase64: proofBytes.toString("base64"),
+      imageMime: file.mimetype || "application/octet-stream",
+      invoiceNumber: invoice.invoice_number,
+      amount: claimedAmount,
+      currency: publicPayment.currency,
+      recipient: bankDetails.holder || company?.company_name || undefined,
+    });
+    const { error: assessmentError } = await sb.from("payments")
+      .update({ payment_proof_ai_assessment: assessment, payment_proof_ai_analyzed_at: assessment.status === "not_analyzed" ? null : new Date().toISOString() })
+      .eq("id", claim.payment_id)
+      .eq("company_id", invoice.company_id);
+    if (assessmentError) console.error("[claim-eft-proof] could not store proof screening:", assessmentError);
     return res.status(claim.deduped ? 200 : 201).json({ ok: true, ...claim });
 
   } catch (error: any) {

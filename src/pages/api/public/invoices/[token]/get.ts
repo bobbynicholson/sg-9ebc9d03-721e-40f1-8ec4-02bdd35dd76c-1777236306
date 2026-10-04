@@ -31,6 +31,7 @@ import {
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { getPublicPaymentAvailability } from "@/lib/paymentService";
+import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
@@ -242,12 +243,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const paymentAvailability = company.id
     ? await getPublicPaymentAvailability(company.id, paymentCurrency)
     : { provider: null, online_available: false, unavailable_reason: "not_configured" as const };
+  const eftAvailable = isManualEftAvailable(
+    paymentAvailability.online_available,
+    resolveCompanyEftDetails(company, snapshotBank).available,
+  );
+  if (!eftAvailable) {
+    delete invoiceData.bankDetails;
+    invoiceForResponse = {
+      ...invoiceForResponse,
+      invoice_data: invoiceData,
+      companies: {
+        ...company,
+        bank_name: null,
+        bank_account_holder: null,
+        bank_account_number: null,
+        bank_branch_code: null,
+        bank_account_type: null,
+        eft_instructions: null,
+      },
+    };
+  }
   invoiceForResponse = {
     ...invoiceForResponse,
     payment_currency: paymentCurrency,
     payment_options: {
       ...paymentAvailability,
-      eft_available: resolveCompanyEftDetails(company, snapshotBank).available,
+      eft_available: eftAvailable,
     },
   };
 

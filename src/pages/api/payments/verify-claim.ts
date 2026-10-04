@@ -16,10 +16,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: profile, error: profileError } = await admin.from("profiles").select("role, company_id").eq("id", user.id).maybeSingle();
     if (profileError) return res.status(503).json({ error: "Could not verify permission" });
     if (!profile || !ADMIN_ROLES.has(profile.role)) return res.status(403).json({ error: "Admin only" });
-    const { data: payment, error: paymentError } = await admin.from("payments").select("company_id").eq("id", payment_id).maybeSingle();
+    const { data: payment, error: paymentError } = await admin.from("payments").select("company_id, payment_proof_path").eq("id", payment_id).maybeSingle();
     if (paymentError) return res.status(503).json({ error: "Could not load payment" });
     if (!payment) return res.status(404).json({ error: "Payment not found" });
     if (profile.role !== "super_admin" && profile.company_id !== payment.company_id) return res.status(403).json({ error: "Wrong company" });
+    if (action === "confirm" && !payment.payment_proof_path) {
+      return res.status(409).json({ error: "Payment proof is required before confirming an EFT claim" });
+    }
+    if (action === "confirm" && req.body?.bank_statement_verified !== true) {
+      return res.status(400).json({ error: "Confirm that you verified the payment on the bank statement" });
+    }
     const { data, error } = await admin.rpc("verify_eft_payment_claim", {
       p_payment_id: payment_id, p_company_id: payment.company_id, p_action: action,
       p_reason: typeof reason === "string" ? reason.trim().slice(0, 500) : null,

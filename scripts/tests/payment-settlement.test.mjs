@@ -153,9 +153,9 @@ test('standalone invoice payment settles atomically without an order foreign key
   await settle({reference:invoice,type:'invoice'}); const current = await state();
   assert.equal(current.payments[0].order_id,null); assert.equal(Number(current.invoice.amount_paid),100);
 });
-async function claim(amount = 100) {
-  return (await db.query('SELECT create_eft_payment_claim($1,$2,$3,now(),$4,NULL) result',
-    [invoice,company,amount,'test claim'])).rows[0].result;
+async function claim(amount = 100, withProof = true) {
+  return (await db.query('SELECT create_eft_payment_claim($1,$2,$3,now(),$4,$5) result',
+    [invoice,company,amount,'test claim', withProof ? `${company}/${invoice}/test-proof.png` : null])).rows[0].result;
 }
 async function verify(id, action, companyId = company) {
   return (await db.query('SELECT verify_eft_payment_claim($1,$2,$3,$4) result',[id,companyId,action,'Not matched'])).rows[0].result;
@@ -164,6 +164,17 @@ test('concurrent/repeated EFT submissions share one pending claim and never cred
   await reset(); const claims = await Promise.all([claim(),claim(),claim()]);
   assert.equal(new Set(claims.map(c=>c.payment_id)).size,1); const current = await state();
   assert.equal(current.payments.length,1); assert.equal(Number(current.invoice.amount_paid),0); assert.equal(current.jobs.length,1);
+});
+test('EFT claims without uploaded proof cannot be confirmed or credit an invoice', async () => {
+  await reset(); const c = await claim(100, false);
+  await assert.rejects(verify(c.payment_id,'confirm'), /Payment proof is required/);
+  assert.equal((await state()).payments[0].payment_status,'pending');
+  assert.equal(Number((await state()).invoice.amount_paid),0);
+});
+test('quote order conversion can safely supply NULL for the opening payment value', async () => {
+  await reset();
+  await db.exec('UPDATE orders SET payment_opening_paid=NULL');
+  assert.equal(Number((await db.query('SELECT payment_opening_paid FROM orders WHERE id=$1',[order])).rows[0].payment_opening_paid),0);
 });
 test('EFT confirm crash rolls back payment and totals; retry and repeated confirm are safe', async () => {
   await reset(); const c = await claim(); await db.exec('UPDATE fault_injection SET enabled=true');
