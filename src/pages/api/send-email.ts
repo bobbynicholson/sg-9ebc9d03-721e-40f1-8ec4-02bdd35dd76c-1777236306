@@ -4,6 +4,7 @@ import { emailService } from "@/services/emailService";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 
 
 /**
@@ -379,14 +380,14 @@ async function handler(
                 billing_city, billing_postal_code
               ),
               order:order_id (
-                id, order_number, event_name, event_date, discount_amount, deposit_amount, updated_at
+                id, order_number, event_name, event_date, discount_amount, deposit_amount, deposit_percentage, updated_at
               ),
               company:company_id (
                 id, slug, company_name, legal_name, logo_url, email, phone,
                 address_line1, address_line2, city, state_province,
                 postal_code, country, primary_color,
                 vat_registered, vat_number, vat_rate,
-                registration_number, tax_number,
+                registration_number, tax_number, deposit_percent,
                 currency,
                 updated_at
               )
@@ -404,9 +405,15 @@ async function handler(
             const order = invAny.order || {};
             const company = invAny.company || {};
             const stashed = invAny.invoice_data || {};
-            const orderDeposit = Number(order.deposit_amount) || 0;
-            const snapshotFirstPayment = Number(stashed.initialPaymentAmount) || 0;
-            const firstPaymentAmount = orderDeposit > 0 ? orderDeposit : snapshotFirstPayment;
+            const hasOrder = !!order.id;
+            const firstPaymentAmount = resolveInvoiceFirstPaymentAmount({
+              totalAmount: invAny.total_amount,
+              orderDepositAmount: order.deposit_amount,
+              snapshotFirstPaymentAmount: stashed.initialPaymentAmount,
+              orderDepositPercent: order.deposit_percentage,
+              companyDepositPercent: hasOrder ? company.deposit_percent : null,
+              defaultDepositPercent: hasOrder ? 50 : null,
+            });
 
             // InvoiceDocument expects a single client.address string.
             // Flatten the billing_* columns here so the document layer

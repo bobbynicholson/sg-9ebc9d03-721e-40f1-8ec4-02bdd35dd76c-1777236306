@@ -50,7 +50,7 @@ export interface ResolvedBranchSettings {
 const HARD_DEFAULTS = {
   vatRate: 0.15,
   vatRegistered: false,
-  depositPercent: 30,
+  depositPercent: 50,
   deliveryCostPerKm: 8.5,
   minDeliveryFee: 0,
   currency: "ZAR",

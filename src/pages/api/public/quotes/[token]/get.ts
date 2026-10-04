@@ -160,7 +160,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       ? companyPct
       : Number.isFinite(quotePct) && quotePct > 0
         ? quotePct
-        : null;
+        : 50;
   (data as any).deposit_percentage = effectivePct;
 
   const company = (data as any)?.company;

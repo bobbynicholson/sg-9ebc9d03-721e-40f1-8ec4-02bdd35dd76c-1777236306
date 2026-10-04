@@ -25,7 +25,7 @@ import {
   Link,
 } from "@react-pdf/renderer";
 import { buildCompanyTermsUrl } from "@/lib/companyLegal";
-import { isInvoiceFullPaymentDue } from "@/lib/invoiceClientView";
+import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
 
 // --- Types -----------------------------------------------------------------
 
@@ -465,11 +465,14 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
   const balanceDue = data.balance_due != null
     ? Number(data.balance_due)
     : Math.max(0, total - amountPaid);
+  const fullBalanceDueNow = isInvoiceFullPaymentDueByDate({
+    eventDate: data.event_date,
+    dueDate: data.due_date,
+  });
   const showPaymentSchedule =
     firstPaymentAmount > 0 &&
     firstPaymentAmount < total - 0.01 &&
-    !isInvoiceFullPaymentDue(data.event_date);
-  const fullBalanceDueNow = isInvoiceFullPaymentDue(data.due_date || data.event_date);
+    !fullBalanceDueNow;
   const firstPaymentStillDue = Math.max(
     0,
     Math.round((firstPaymentAmount - amountPaid) * 100) / 100,

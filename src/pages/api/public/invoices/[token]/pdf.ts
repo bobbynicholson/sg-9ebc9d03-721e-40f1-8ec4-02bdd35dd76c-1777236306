@@ -24,6 +24,7 @@ import {
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 
 export const config = { api: { responseLimit: false } };
 
@@ -50,8 +51,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         subtotal, tax_amount, total_amount, amount_paid, balance_due,
         notes, invoice_data, updated_at,
         client:client_id ( client_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code ),
-        order:order_id ( order_number, event_name, event_date, deposit_amount, updated_at ),
-        company:company_id ( id, slug, company_name, legal_name, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, registration_number, tax_number, currency, updated_at )
+        order:order_id ( id, order_number, event_name, event_date, deposit_amount, deposit_percentage, updated_at ),
+        company:company_id ( id, slug, company_name, legal_name, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, registration_number, tax_number, currency, updated_at )
       `)
       .eq("public_token", token)
       .is("deleted_at", null)
@@ -85,9 +86,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // only the food showed, so lines didn't sum to the total). Fall back
     // to a flat line_items/items array for older invoices.
     const idata = (inv as any).invoice_data || {};
-    const orderDeposit = Number(order.deposit_amount) || 0;
-    const snapshotFirstPayment = Number(idata.initialPaymentAmount) || 0;
-    const firstPaymentAmount = orderDeposit > 0 ? orderDeposit : snapshotFirstPayment;
+    const hasOrder = !!order.id;
+    const firstPaymentAmount = resolveInvoiceFirstPaymentAmount({
+      totalAmount: (inv as any).total_amount,
+      orderDepositAmount: order.deposit_amount,
+      snapshotFirstPaymentAmount: idata.initialPaymentAmount,
+      orderDepositPercent: order.deposit_percentage,
+      companyDepositPercent: hasOrder ? company.deposit_percent : null,
+      defaultDepositPercent: hasOrder ? 50 : null,
+    });
     const mapItem = (it: any) => ({
       name: it.description || it.name || it.item_name || "Item",
       description: it.detail || null,

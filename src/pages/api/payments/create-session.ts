@@ -33,6 +33,10 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { createPaymentSession, resolveActivePaymentGateway } from "@/lib/paymentService";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import {
+  isInvoiceFullPaymentDueByDate,
+  resolveInvoiceFirstPaymentAmount,
+} from "@/lib/invoiceClientView";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { attachPaymentAttemptSession, createPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
 import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
@@ -90,7 +94,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // verify it matches when used as the auth gate.
     const { data: invoice, error: invErr } = await admin
       .from("invoices")
-      .select("id, company_id, client_id, order_id, invoice_number, balance_due, total_amount, amount_paid, currency, deleted_at, status, public_token")
+      .select("id, company_id, client_id, order_id, invoice_number, due_date, balance_due, total_amount, amount_paid, invoice_data, currency, deleted_at, status, public_token")
       .eq("id", invoice_id)
       .maybeSingle();
     if (invErr || !invoice || invoice.deleted_at) {
@@ -180,7 +184,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (invoice.order_id) {
       const { data: order, error: orderErr } = await admin
         .from("orders")
-        .select("id, deposit_paid, deposit_amount, balance_amount, total_amount, currency, order_number, client_email, client_name")
+        .select("id, deposit_paid, deposit_amount, deposit_percentage, event_date, balance_due_date, balance_amount, total_amount, currency, order_number, client_email, client_name")
         .eq("id", invoice.order_id)
         .eq("company_id", invoice.company_id)
         .is("deleted_at", null)
@@ -195,10 +199,23 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       orderRow = order;
     }
 
-    const isDeposit = orderRow ? !orderRow.deposit_paid : false;
+    const fullPaymentDueNow = orderRow
+      ? isInvoiceFullPaymentDueByDate({
+          eventDate: orderRow.event_date,
+          dueDate: invoice.due_date || orderRow.balance_due_date,
+        })
+      : true;
+    const agreedFirstPayment = resolveInvoiceFirstPaymentAmount({
+      totalAmount: invoice.total_amount,
+      orderDepositAmount: orderRow?.deposit_amount,
+      snapshotFirstPaymentAmount: invoice.invoice_data?.initialPaymentAmount,
+      orderDepositPercent: orderRow?.deposit_percentage,
+      defaultDepositPercent: orderRow ? 50 : null,
+    });
+    const isDeposit = orderRow ? !orderRow.deposit_paid && !fullPaymentDueNow : false;
     const invoiceBalanceDue = Math.max(0, Number(invoice.balance_due ?? (Number(invoice.total_amount || 0) - Number(invoice.amount_paid || 0))) || 0);
     const suggestedGross = orderRow && isDeposit
-      ? Math.max(0, (Number(orderRow.deposit_amount) || Number(invoice.total_amount) / 2) - Number(invoice.amount_paid || 0))
+      ? Math.max(0, agreedFirstPayment - Number(invoice.amount_paid || 0))
       : invoiceBalanceDue;
     const defaultGross = Math.round(Math.min(Math.max(0, suggestedGross), invoiceBalanceDue) * 100) / 100;
     // The payer can choose how much to pay now (a deposit that may not

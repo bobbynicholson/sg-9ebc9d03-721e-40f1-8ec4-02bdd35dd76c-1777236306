@@ -120,6 +120,8 @@ async function createPrivateDraftQuote(
 
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 30);
+  const rawDepositPercent = region?.deposit_percent ?? company.deposit_percent;
+  const configuredDepositPercent = rawDepositPercent == null ? 50 : Number(rawDepositPercent);
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .insert([{
@@ -149,8 +151,9 @@ async function createPrivateDraftQuote(
       total,
       discount_amount: 0,
       delivery_fee: 0,
-      deposit_percentage:
-        Number(region?.deposit_percent ?? company.deposit_percent) || 30,
+      deposit_percentage: Number.isFinite(configuredDepositPercent)
+        ? configuredDepositPercent
+        : 50,
       status: "draft",
       valid_until: validUntil.toISOString().slice(0, 10),
       source: "embed",

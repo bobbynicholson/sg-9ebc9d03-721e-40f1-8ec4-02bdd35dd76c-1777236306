@@ -32,6 +32,7 @@ import {
 import { withApiLogging } from "@/lib/withApiLogging";
 import { getPublicPaymentAvailability } from "@/lib/paymentService";
 import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
+import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
@@ -154,7 +155,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (invoiceForResponse.order_id) {
     const { data: orderMeta } = await supabase
       .from("orders")
-      .select("id, quote_id, package_id, event_date, deposit_amount, currency")
+      .select("id, quote_id, package_id, event_date, deposit_amount, deposit_percentage, currency")
       .eq("id", invoiceForResponse.order_id)
       .maybeSingle();
 
@@ -168,8 +169,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!invoiceData.eventDate && !invoiceData.event_date && (orderMeta as any)?.event_date) {
       invoiceData.eventDate = (orderMeta as any).event_date;
     }
-    if ((orderMeta as any)?.deposit_amount != null) {
-      invoiceData.initialPaymentAmount = Number((orderMeta as any).deposit_amount);
+    if (orderMeta) {
+      const firstPaymentAmount = resolveInvoiceFirstPaymentAmount({
+        totalAmount: invoiceForResponse.total_amount,
+        orderDepositAmount: (orderMeta as any).deposit_amount,
+        snapshotFirstPaymentAmount: invoiceData.initialPaymentAmount,
+        orderDepositPercent: (orderMeta as any).deposit_percentage,
+        companyDepositPercent: invoiceForResponse.companies?.deposit_percent,
+        defaultDepositPercent: 50,
+      });
+      if (firstPaymentAmount > 0) {
+        invoiceData.initialPaymentAmount = firstPaymentAmount;
+      }
     }
 
     let quoteMenuItems: any[] = [];

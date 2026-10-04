@@ -778,7 +778,7 @@ export interface DepositPaymentConfig {
 }
 
 export const DEFAULT_DEPOSIT_CONFIG: DepositPaymentConfig = {
-  defaultDepositPercentage: 30,
+  defaultDepositPercentage: 50,
   defaultBalanceDueDays: 7,
   defaultFinalOrderChangeDays: 7,
   minDepositPercentage: 10,

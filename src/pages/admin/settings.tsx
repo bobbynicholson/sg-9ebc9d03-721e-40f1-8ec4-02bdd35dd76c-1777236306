@@ -78,7 +78,7 @@ const DEFAULT_SETTINGS: AdminSettings = {
   financial: {
     currency: "ZAR",
     taxRate: 15,
-    depositPercent: 30,
+    depositPercent: 50,
     balanceDueDays: 7,
     finalOrderChangeDays: 7,
     cancellationFeePercent: 25,
@@ -320,7 +320,7 @@ function SettingsPage() {
         .update({
           currency: settings.financial.currency || "ZAR",
           vat_rate: numberOr(settings.financial.taxRate, 0),
-          deposit_percent: numberOr(settings.financial.depositPercent, 30),
+          deposit_percent: numberOr(settings.financial.depositPercent, 50),
           balance_due_days: numberOr(settings.financial.balanceDueDays, 7),
           amendment_cutoff_days: numberOr(settings.financial.finalOrderChangeDays, 7),
           cancellation_fee_percent: numberOr(settings.financial.cancellationFeePercent, 25),

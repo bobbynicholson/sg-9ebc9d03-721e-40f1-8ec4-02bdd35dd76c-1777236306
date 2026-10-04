@@ -1465,7 +1465,7 @@ function AdminQuotesInner() {
   }, [user?.company_id]);
 
   // Resolve the percentage to display + prefill against. Priority is
-  // company default first, quote stamp as fallback, literal 30 last.
+  // company default first, quote stamp as fallback, then the 50% default.
   // Why company default first: older quotes were created with the
   // builder's hardcoded 30 stamp regardless of company setting, so
   // those stamps don't represent an explicit operator decision - the
@@ -1476,7 +1476,7 @@ function AdminQuotesInner() {
     if (companyDepositPct != null) return companyDepositPct;
     const fromQuote = Number((q as any)?.deposit_percentage);
     if (Number.isFinite(fromQuote) && fromQuote > 0) return fromQuote;
-    return 30;
+    return 50;
   };
 
   // When the pre-flight opens, prefill the deposit amount with the
@@ -3187,7 +3187,7 @@ function AdminQuotesInner() {
                       );
                       if (!total) return "";
                       // Same fallback chain as the prefill: quote ->
-                      // company default -> 30. Older quotes have
+                      // company default -> 50. Older quotes have
                       // deposit_percentage = 30 stamped from when the
                       // builder defaulted to 30; in that case the
                       // company default takes precedence so the label

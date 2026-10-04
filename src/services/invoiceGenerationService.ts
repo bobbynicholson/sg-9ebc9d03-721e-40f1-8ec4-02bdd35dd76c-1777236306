@@ -7,7 +7,10 @@ import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 import { ensureRequiredOrderLink } from "@/lib/email/requiredCustomerLinks";
-import { isInvoiceFullPaymentDue } from "@/lib/invoiceClientView";
+import {
+  isInvoiceFullPaymentDueByDate,
+  resolveInvoiceFirstPaymentAmount,
+} from "@/lib/invoiceClientView";
 
 // Server-safe client injection. Browser callers pass nothing and get
 // the global anon-key client (RLS-gated). Server callers (the
@@ -632,9 +635,16 @@ export async function generateInvoiceData(
       taxRate,
       taxAmount,
       total,
-      initialPaymentAmount: Number(orderData.deposit_amount) > 0
-        ? Number(orderData.deposit_amount)
-        : null,
+      // Snapshot the same agreed first-payment amount that the public pay
+      // page will request. Prefer order/quote overrides, then the company
+      // policy, and finally the platform's standard 50% order deposit.
+      initialPaymentAmount: resolveInvoiceFirstPaymentAmount({
+        totalAmount: total,
+        orderDepositAmount: orderData.deposit_amount,
+        orderDepositPercent: orderData.deposit_percentage,
+        companyDepositPercent: companyData.deposit_percent,
+        defaultDepositPercent: 50,
+      }) || null,
       depositPaid,
       balanceDue,
       
@@ -1079,7 +1089,10 @@ async function notifyClientOfInvoiceIssued(
       invoiceData.currencyCode || (order as any)?.currency || (company as any)?.currency || "ZAR",
     ).toUpperCase();
     const isBalance = paidNum > 0;
-    const fullAmountDue = isInvoiceFullPaymentDue(invoiceData.eventDate);
+    const fullAmountDue = isInvoiceFullPaymentDueByDate({
+      eventDate: invoiceData.eventDate,
+      dueDate: invoiceData.dueDate,
+    });
     const firstPaymentAmount = Math.max(0, Number(invoiceData.initialPaymentAmount || (order as any)?.deposit_amount || 0));
     const requestAmount = isBalance
       ? remainingNum
@@ -1325,14 +1338,14 @@ async function renderInvoicePdfAttachment(
         billing_city, billing_postal_code
       ),
       order:order_id (
-        id, order_number, event_name, event_date, deposit_amount, updated_at
+        id, order_number, event_name, event_date, deposit_amount, deposit_percentage, updated_at
       ),
       company:company_id (
         id, slug, company_name, legal_name, logo_url, email, phone,
         address_line1, address_line2, city, state_province,
         postal_code, country, primary_color,
         vat_registered, vat_number, vat_rate,
-        registration_number, tax_number,
+        registration_number, tax_number, deposit_percent,
         updated_at
       )
     `)
@@ -1353,9 +1366,16 @@ async function renderInvoicePdfAttachment(
   const client = invAny.client || {};
   const order = invAny.order || {};
   const company = invAny.company || {};
-  const orderDeposit = Number(order.deposit_amount) || 0;
-  const snapshotFirstPayment = Number(invAny.invoice_data?.initialPaymentAmount) || 0;
-  const firstPaymentAmount = orderDeposit > 0 ? orderDeposit : snapshotFirstPayment;
+  const hasOrder = !!order.id;
+  const firstPaymentAmount = resolveInvoiceFirstPaymentAmount({
+    totalAmount: invAny.total_amount,
+    orderDepositAmount: order.deposit_amount,
+    snapshotFirstPaymentAmount:
+      invAny.invoice_data?.initialPaymentAmount ?? fallbackData.initialPaymentAmount,
+    orderDepositPercent: order.deposit_percentage,
+    companyDepositPercent: hasOrder ? company.deposit_percent : null,
+    defaultDepositPercent: hasOrder ? 50 : null,
+  });
 
   const clientAddress =
     [
@@ -1847,7 +1867,10 @@ export async function sendInvoiceEmail(
     // TIGHTEN I.88: tenant-currency amount on the customer-facing
     // invoice email. Was hardcoded "R" prefix.
     const firstPaymentAmount = Math.max(0, Number(invoiceData.initialPaymentAmount || 0));
-    const fullAmountDue = isInvoiceFullPaymentDue(invoiceData.eventDate);
+    const fullAmountDue = isInvoiceFullPaymentDueByDate({
+      eventDate: invoiceData.eventDate,
+      dueDate: invoiceData.dueDate,
+    });
     const amountValue = isBalance
       ? (liveBalanceDue || Number(invoiceData.balanceDue || 0))
       : fullAmountDue

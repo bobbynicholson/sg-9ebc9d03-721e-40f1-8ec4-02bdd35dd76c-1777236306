@@ -4,7 +4,9 @@ import {
   getInvoiceDueState,
   getInvoiceHeaderIdentifiers,
   isInvoiceFullPaymentDue,
+  isInvoiceFullPaymentDueByDate,
   parseInvoiceCalendarDate,
+  resolveInvoiceFirstPaymentAmount,
   resolveInvoiceEventDate,
 } from "@/lib/invoiceClientView";
 
@@ -65,6 +67,34 @@ describe("same-day invoice payment presentation", () => {
     })).toBe(2_916.93);
   });
 
+  it("makes the full balance due on the invoice deadline before the event", () => {
+    const deadline = new Date(2026, 9, 30, 9);
+    expect(isInvoiceFullPaymentDueByDate({
+      eventDate: "2026-10-31",
+      dueDate: "2026-10-30",
+      now: deadline,
+    })).toBe(true);
+    expect(getInitialInvoicePaymentAmount({
+      totalAmount: 2_835.94,
+      balanceDue: 2_830.94,
+      amountPaid: 5,
+      depositPercent: 50,
+      firstPaymentAmount: 5,
+      eventDate: "2026-10-31",
+      dueDate: "2026-10-30",
+      now: deadline,
+    })).toBe(2_830.94);
+    expect(getInvoiceBalanceAfterFirstPayment({
+      totalAmount: 2_835.94,
+      balanceDue: 2_835.94,
+      amountPaid: 0,
+      firstPaymentAmount: 5,
+      eventDate: "2026-10-31",
+      dueDate: "2026-10-30",
+      now: deadline,
+    })).toBe(2_835.94);
+  });
+
   it("requests only the unpaid part of the agreed first payment", () => {
     expect(getInitialInvoicePaymentAmount({
       totalAmount: 2_835.94,
@@ -102,6 +132,63 @@ describe("same-day invoice payment presentation", () => {
     expect(resolveInvoiceEventDate({ eventDate: "2026-07-07" })).toBe("2026-07-07");
     expect(resolveInvoiceEventDate({ event_date: "2026-07-07" })).toBe("2026-07-07");
     expect(resolveInvoiceEventDate({}, "2026-07-07")).toBe("2026-07-07");
+  });
+});
+
+describe("invoice first-payment schedule", () => {
+  it("uses the agreed order amount ahead of invoice snapshot and percentages", () => {
+    expect(resolveInvoiceFirstPaymentAmount({
+      totalAmount: 2_835.94,
+      orderDepositAmount: 5,
+      snapshotFirstPaymentAmount: 100,
+      orderDepositPercent: 25,
+      companyDepositPercent: 50,
+      defaultDepositPercent: 50,
+    })).toBe(5);
+  });
+
+  it("uses the saved invoice amount before percentage fallbacks", () => {
+    expect(resolveInvoiceFirstPaymentAmount({
+      totalAmount: 1_000,
+      snapshotFirstPaymentAmount: 75,
+      orderDepositPercent: 25,
+      companyDepositPercent: 50,
+    })).toBe(75);
+  });
+
+  it("uses order then company percentage policy when no amount was saved", () => {
+    expect(resolveInvoiceFirstPaymentAmount({
+      totalAmount: 1_000,
+      orderDepositPercent: 25,
+      companyDepositPercent: 40,
+      defaultDepositPercent: 50,
+    })).toBe(250);
+    expect(resolveInvoiceFirstPaymentAmount({
+      totalAmount: 1_000,
+      companyDepositPercent: 40,
+      defaultDepositPercent: 50,
+    })).toBe(400);
+  });
+
+  it("uses the standard 50% order default and rounds to cents", () => {
+    expect(resolveInvoiceFirstPaymentAmount({
+      totalAmount: 2_835.94,
+      defaultDepositPercent: 50,
+    })).toBe(1_417.97);
+    expect(resolveInvoiceFirstPaymentAmount({ totalAmount: 10.01 })).toBe(0);
+  });
+
+  it("clamps fixed amounts to the invoice total and ignores invalid percentages", () => {
+    expect(resolveInvoiceFirstPaymentAmount({
+      totalAmount: 100,
+      orderDepositAmount: 125,
+    })).toBe(100);
+    expect(resolveInvoiceFirstPaymentAmount({
+      totalAmount: 100,
+      orderDepositPercent: 100,
+      companyDepositPercent: 0,
+      defaultDepositPercent: 25,
+    })).toBe(25);
   });
 });
 

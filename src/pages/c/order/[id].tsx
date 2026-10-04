@@ -46,7 +46,8 @@ import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import {
   getInitialInvoicePaymentAmount,
   getInvoiceBalanceAfterFirstPayment,
-  isInvoiceFullPaymentDue,
+  isInvoiceFullPaymentDueByDate,
+  resolveInvoiceFirstPaymentAmount,
 } from "@/lib/invoiceClientView";
 
 type OrderView = {
@@ -268,15 +269,18 @@ export default function ClientOrderPage() {
   const depositAmount = Number(order.deposit_amount || 0);
   const invoiceTotal = Number((invoice as any)?.total_amount ?? order.total_amount) || 0;
   const configuredDepositPercent = Number((company as any)?.deposit_percent);
-  const fallbackFirstPayment = Math.round(
-    invoiceTotal * (
-      Number.isFinite(configuredDepositPercent) && configuredDepositPercent > 0 && configuredDepositPercent < 100
-        ? configuredDepositPercent
-        : 50
-    ) / 100 * 100,
-  ) / 100;
-  const firstPaymentAmount = depositAmount > 0 ? depositAmount : fallbackFirstPayment;
-  const fullPaymentDue = isInvoiceFullPaymentDue(order.event_date);
+  const firstPaymentAmount = resolveInvoiceFirstPaymentAmount({
+    totalAmount: invoiceTotal,
+    orderDepositAmount: depositAmount,
+    orderDepositPercent: order.deposit_percentage,
+    companyDepositPercent: configuredDepositPercent,
+    defaultDepositPercent: 50,
+  });
+  const invoiceDueDate = (invoice as any)?.due_date || order.balance_due_date;
+  const fullPaymentDue = isInvoiceFullPaymentDueByDate({
+    eventDate: order.event_date,
+    dueDate: invoiceDueDate,
+  });
   const amountDueNow = invoice
     ? getInitialInvoicePaymentAmount({
         totalAmount: invoiceTotal,
@@ -285,6 +289,7 @@ export default function ClientOrderPage() {
         depositPercent: configuredDepositPercent,
         firstPaymentAmount: firstPaymentAmount > 0 ? firstPaymentAmount : undefined,
         eventDate: order.event_date,
+        dueDate: invoiceDueDate,
       })
     : 0;
   const scheduledBalanceDue = invoice
@@ -294,6 +299,7 @@ export default function ClientOrderPage() {
         amountPaid: paidToDate,
         firstPaymentAmount,
         eventDate: order.event_date,
+        dueDate: invoiceDueDate,
       })
     : paymentSummary.balanceDue;
   const depositReceived = firstPaymentAmount > 0

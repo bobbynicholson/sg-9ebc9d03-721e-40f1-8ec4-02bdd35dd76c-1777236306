@@ -39,7 +39,7 @@ import {
   getInitialInvoicePaymentAmount,
   getInvoiceDueState,
   getInvoiceHeaderIdentifiers,
-  isInvoiceFullPaymentDue,
+  isInvoiceFullPaymentDueByDate,
   parseInvoiceCalendarDate,
   resolveInvoiceEventDate,
 } from "@/lib/invoiceClientView";
@@ -497,6 +497,7 @@ export default function InvoicePaymentPage() {
       depositPercent: invoice.companies?.deposit_percent,
       firstPaymentAmount: invoice.invoice_data?.initialPaymentAmount,
       eventDate: resolveInvoiceEventDate(invoice.invoice_data),
+      dueDate: invoice.due_date,
     });
     setPayAmount(String(initialAmount));
   }, [invoice]);
@@ -683,7 +684,9 @@ export default function InvoicePaymentPage() {
         const refreshedPayload = await refreshed.json().catch(() => ({}));
         if (refreshed.ok && refreshedPayload?.invoice) {
           setInvoice(refreshedPayload.invoice as InvoiceView);
-          setEftClaimedPublic((refreshedPayload.invoice.eft_claims || []).some((claim: any) => claim.payment_status === "pending"));
+          // Keep the successful upload acknowledgement if this immediate
+          // refresh has not caught up with the accepted claim yet. A later
+          // page load reads the authoritative pending/resolved claim state.
         }
       } catch {
         // The claim is already accepted; the next page load will refresh its status.
@@ -793,14 +796,14 @@ export default function InvoicePaymentPage() {
     : Math.round((invoice.total_amount || 0) * (depositPct / 100) * 100) / 100;
   const balanceAmount = Math.round(((invoice.total_amount || 0) - depositAmount) * 100) / 100;
 
-  // Once the event is today or in the past there's no runway for a
-  // staged deposit-then-balance plan - the whole amount is due now. In
-  // that case suppress the deposit/balance advisory split and the "pay
-  // deposit" shortcut (owner Callum 2026-07-08: a same-day function's
-  // invoice must not still advertise a 50% deposit while asking for the
-  // full amount). Derived from the event date on the invoice snapshot.
+  // Once the invoice deadline or event day is reached, the full remaining
+  // balance is due. Keep the deposit shortcut and PDF schedule in sync.
   const eventDate = resolveInvoiceEventDate(invoice.invoice_data);
-  const fullPaymentDue = isInvoiceFullPaymentDue(eventDate, nowForInvoice);
+  const fullPaymentDue = isInvoiceFullPaymentDueByDate({
+    eventDate,
+    dueDate: invoice.due_date,
+    now: nowForInvoice,
+  });
   const requiredPaymentThreshold = fullPaymentDue ? Number(invoice.total_amount) : depositAmount;
   const amountNeededForThreshold = Math.max(
     0,

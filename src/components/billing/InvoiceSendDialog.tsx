@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { isInvoiceFullPaymentDue } from "@/lib/invoiceClientView";
+import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
 
 export interface InvoiceSendDialogInvoice {
   id: string;
@@ -61,7 +61,10 @@ export function InvoiceSendDialog({
   // invoice for ORD-003841" reads broken. Use a generic phrase.
   const eventLabel = invoiceData.eventName || "your event";
   const initialPaymentAmount = Number(invoiceData.initialPaymentAmount) || 0;
-  const fullPaymentDue = isInvoiceFullPaymentDue(invoiceData.eventDate);
+  const fullPaymentDue = isInvoiceFullPaymentDueByDate({
+    eventDate: invoiceData.eventDate,
+    dueDate: invoiceData.dueDate,
+  });
   const totalAmount = isBalance
     ? liveBalanceDue
     : fullPaymentDue

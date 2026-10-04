@@ -427,7 +427,7 @@ function NewQuotePage() {
   /** Effective deposit percentage. Stamped onto the quote at save so
    *  downstream order + invoice generation honour the branch override
    *  without re-resolving. */
-  const [depositPercent, setDepositPercent] = useState(30);
+  const [depositPercent, setDepositPercent] = useState(50);
   const [initialPaymentAmountOverride, setInitialPaymentAmountOverride] = useState<number | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
   /** True once the operator has manually overridden the auto-fee.
@@ -667,7 +667,7 @@ function NewQuotePage() {
   }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterTotalFee, taxRate, pricingIncludesVat]);
 
   const suggestedFirstPaymentAmount = Math.round(
-    Math.max(0, computed.total) * Math.max(0, Math.min(100, depositPercent > 0 ? depositPercent : 30)) / 100 * 100,
+    Math.max(0, computed.total) * Math.max(0, Math.min(100, depositPercent > 0 ? depositPercent : 50)) / 100 * 100,
   ) / 100;
   const firstPaymentAmount = Math.max(
     computed.total > 0 ? 0.01 : 0,
@@ -1680,10 +1680,9 @@ function NewQuotePage() {
       discount_amount: computed.pctDiscount + computed.flatDiscount,
       tax_amount: computed.tax,
       tax: computed.tax,
-      // Stamp the branch-resolved deposit % so quote -> order -> invoice
-      // inherits it. Without this the downstream paymentProcessingService
-      // falls back to the hard-coded 30% even when CPT has overridden
-      // it to 50% on the regions page.
+      // Persist both the branch percentage and the admin's final fixed
+      // first-payment amount. Conversion and every later invoice use the
+      // fixed amount when present, with 50% as the default policy.
       deposit_percentage: depositPercent,
       initial_payment_amount: firstPaymentAmount,
       total_amount: computed.total,

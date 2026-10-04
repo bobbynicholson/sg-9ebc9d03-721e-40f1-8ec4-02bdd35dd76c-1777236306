@@ -107,7 +107,7 @@ class PaymentProcessingService {
     totalAmount: number,
     currency: string,
     eventDate: string,
-    depositPercentage: number = 30,
+    depositPercentage: number = 50,
     balanceDueDays: number = 7,
     finalOrderChangeDays: number = 7
   ): Promise<PaymentSchedule | null> {

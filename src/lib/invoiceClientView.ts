@@ -35,6 +35,57 @@ export function isInvoiceFullPaymentDue(
   return eventDay != null && today != null && eventDay <= today;
 }
 
+export function isInvoiceFullPaymentDueByDate(args: {
+  eventDate?: unknown;
+  dueDate?: unknown;
+  now?: Date;
+}): boolean {
+  return isInvoiceFullPaymentDue(args.dueDate, args.now)
+    || isInvoiceFullPaymentDue(args.eventDate, args.now);
+}
+
+/**
+ * Resolve the agreed first-payment amount for an invoice. Explicit order
+ * amounts and invoice snapshots win; percentage policy is only a fallback
+ * for order invoices created before a fixed amount was saved.
+ */
+export function resolveInvoiceFirstPaymentAmount(args: {
+  totalAmount: unknown;
+  orderDepositAmount?: unknown;
+  snapshotFirstPaymentAmount?: unknown;
+  orderDepositPercent?: unknown;
+  companyDepositPercent?: unknown;
+  defaultDepositPercent?: unknown;
+}): number {
+  const total = Math.max(0, Number(args.totalAmount) || 0);
+  if (total <= 0) return 0;
+
+  const resolveExplicitAmount = (value: unknown): number => {
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount > 0
+      ? Math.round(Math.min(total, amount) * 100) / 100
+      : 0;
+  };
+  const orderAmount = resolveExplicitAmount(args.orderDepositAmount);
+  if (orderAmount > 0) return orderAmount;
+
+  const snapshotAmount = resolveExplicitAmount(args.snapshotFirstPaymentAmount);
+  if (snapshotAmount > 0) return snapshotAmount;
+
+  const validPercent = (value: unknown): number | null => {
+    const percent = Number(value);
+    return Number.isFinite(percent) && percent > 0 && percent < 100
+      ? percent
+      : null;
+  };
+  const percent = validPercent(args.orderDepositPercent)
+    ?? validPercent(args.companyDepositPercent)
+    ?? validPercent(args.defaultDepositPercent);
+  if (percent == null) return 0;
+
+  return Math.round(total * (percent / 100) * 100) / 100;
+}
+
 export type InvoiceDueState = {
   daysToDue: number | null;
   isOverdue: boolean;
@@ -71,10 +122,15 @@ export function getInitialInvoicePaymentAmount(args: {
   depositPercent: unknown;
   firstPaymentAmount?: unknown;
   eventDate: unknown;
+  dueDate?: unknown;
   now?: Date;
 }): number {
   const balance = Math.max(0, Number(args.balanceDue) || 0);
-  if (isInvoiceFullPaymentDue(args.eventDate, args.now)) return balance;
+  if (isInvoiceFullPaymentDueByDate({
+    eventDate: args.eventDate,
+    dueDate: args.dueDate,
+    now: args.now,
+  })) return balance;
   const paid = Math.max(0, Number(args.amountPaid) || 0);
 
   const savedFirstPayment = Number(args.firstPaymentAmount);
@@ -107,10 +163,15 @@ export function getInvoiceBalanceAfterFirstPayment(args: {
   amountPaid: unknown;
   firstPaymentAmount: unknown;
   eventDate: unknown;
+  dueDate?: unknown;
   now?: Date;
 }): number {
   const outstanding = Math.max(0, Number(args.balanceDue) || 0);
-  if (isInvoiceFullPaymentDue(args.eventDate, args.now)) return outstanding;
+  if (isInvoiceFullPaymentDueByDate({
+    eventDate: args.eventDate,
+    dueDate: args.dueDate,
+    now: args.now,
+  })) return outstanding;
 
   const total = Math.max(0, Number(args.totalAmount) || 0);
   const amountPaid = Math.max(0, Number(args.amountPaid) || 0);
