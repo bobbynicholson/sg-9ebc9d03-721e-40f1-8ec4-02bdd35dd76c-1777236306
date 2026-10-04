@@ -2,7 +2,7 @@
 /**
  * MarkPaidDialog - Wave 66.5.
  *
- * Per-row "$ Mark paid" action on /admin/invoices. The companion to
+ * Per-row "Record payment" action on /admin/invoices. The companion to
  * the bulk-toolbar mark-paid: that flow is a one-click "settle these
  * 5 invoices at balance" toggle; this flow surfaces the payment
  * metadata (amount, method, reference, date, note) the bookkeeper
@@ -252,7 +252,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-brand-primary" />
-            Mark {invoiceNumber || "invoice"} paid
+            Record payment for {invoiceNumber || "invoice"}
           </DialogTitle>
           <DialogDescription>
             {clientName} &middot; outstanding {formatMoney(defaultAmount)}
@@ -469,7 +469,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={saving || !amountValid} className="bg-brand-primary hover:bg-brand-primary/90">
-            {saving ? "Recording..." : partialPayment ? "Record partial payment" : "Mark paid"}
+            {saving ? "Recording..." : partialPayment ? "Record partial payment" : "Record payment"}
           </Button>
         </DialogFooter>
       </DialogContent>

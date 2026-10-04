@@ -2465,6 +2465,11 @@ function InvoicesPageInner() {
                       </div>
                       <div>
                         <div className="font-medium">{formatInvoiceRowMoney(invoice.total_amount || 0, invoice.currency || tenantMoney.code)}</div>
+                        {Number(invoice.amount_paid || 0) > 0 && (
+                          <div className="text-sm text-emerald-700">
+                            Paid to date: {formatInvoiceRowMoney(invoice.amount_paid, invoice.currency || tenantMoney.code)}
+                          </div>
+                        )}
                         {invoice.balance_due > 0 && (
                           <div className={`text-sm ${isOverdue ? "text-rose-700 font-semibold" : "text-yellow-700"}`}>
                             Balance: {formatInvoiceRowMoney(invoice.balance_due, invoice.currency || tenantMoney.code)}
@@ -2520,12 +2525,12 @@ function InvoicesPageInner() {
                           variant="outline"
                           size="sm"
                           onClick={() => setMarkPaidInvoice(invoice as MarkPaidDialogInvoice)}
-                          title="Record a payment for this invoice and optionally send a confirmation to the client"
-                          aria-label="Mark this invoice paid"
+                          title="Record a partial or full payment for this invoice"
+                          aria-label="Record payment for this invoice"
                           className="text-brand-primary border-brand-primary/20 hover:bg-brand-primary/10 hover:text-brand-primary gap-1.5"
                         >
                           <CheckCircle2 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Mark paid</span>
+                          <span className="hidden sm:inline">Record payment</span>
                         </Button>
                       )}
                       <Button

@@ -36,6 +36,16 @@ const TONE_CLASS: Record<ActivityEntry["tone"], string> = {
   amber: "bg-amber-50 border-amber-200 text-amber-900",
 };
 
+function formatActivityAmount(amount: unknown, currencyCode: unknown): string {
+  const currency = String(currencyCode || "ZAR").toUpperCase();
+  const value = Number(amount) || 0;
+  try {
+    return new Intl.NumberFormat("en-ZA", { style: "currency", currency }).format(value);
+  } catch {
+    return `${currency} ${value.toFixed(2)}`;
+  }
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -115,28 +125,70 @@ export function InvoiceActivityDrawer({ open, onOpenChange, invoice }: Props) {
         console.warn("[InvoiceActivityDrawer] emails fetch failed:", e);
       }
 
-      // 3. Payments
+      // 3. Settled or claimed payment ledger entries. Invoice payments
+      // are keyed by invoice_id; older order-level payments may have no
+      // invoice_id, so include those only when they belong to this order.
       try {
-        const { data: payments } = await (supabase as any)
+        let paymentQuery = (supabase as any)
           .from("payments")
-          // payments has payment_status, not status; alias so p.status holds it.
-          .select("payment_type, status:payment_status, processed_at, amount, payment_method")
-          .eq("order_id", invoice.order_id)
-          .order("processed_at", { ascending: false });
+          .select("id, payment_type, status:payment_status, processed_at, created_at, amount, currency, payment_method, gateway_provider, payment_reference, gateway_transaction_id")
+          .eq("company_id", invoice.company_id);
+        paymentQuery = invoice.order_id
+          ? paymentQuery.or(`invoice_id.eq.${invoice.id},and(invoice_id.is.null,order_id.eq.${invoice.order_id})`)
+          : paymentQuery.eq("invoice_id", invoice.id);
+        const { data: payments, error: paymentError } = await paymentQuery
+          .order("created_at", { ascending: false });
+        if (paymentError) throw paymentError;
         for (const p of (payments || []) as any[]) {
+          const status = String(p.status || "unknown").toLowerCase();
+          const reference = p.payment_reference || p.gateway_transaction_id;
           out.push({
-            ts: p.processed_at || p.created_at,
+            ts: p.processed_at || p.created_at || new Date().toISOString(),
             icon: CreditCard,
-            label: `${p.payment_type ? p.payment_type.charAt(0).toUpperCase() + p.payment_type.slice(1) : "Payment"} - ${p.status}`,
-            detail: `${p.amount} via ${p.payment_method || "manual"}`,
-            tone: p.status === "completed" ? "green" : "amber",
+            label: `${p.payment_type ? p.payment_type.charAt(0).toUpperCase() + p.payment_type.slice(1) : "Payment"} payment · ${status}`,
+            detail: `${formatActivityAmount(p.amount, p.currency || invoice.currency)} via ${p.payment_method || p.gateway_provider || "manual"}${reference ? ` · ref ${reference}` : ""}`,
+            tone: ["completed", "paid", "succeeded"].includes(status)
+              ? "green"
+              : ["failed", "rejected"].includes(status)
+                ? "rose"
+                : "amber",
           });
         }
       } catch (e) {
         console.warn("[InvoiceActivityDrawer] payments fetch failed:", e);
       }
 
-      // 4. Sort newest first
+      // 4. Hosted checkout attempts are separate from confirmed money.
+      // Showing pending/failed attempts explains why an attempted payment
+      // may not yet appear in the invoice's paid-to-date total.
+      try {
+        const { data: attempts, error: attemptError } = await (supabase as any)
+          .from("payment_attempts")
+          .select("provider, payment_type, amount, currency, status, provider_status, failure_reason, created_at, succeeded_at, failed_at")
+          .eq("company_id", invoice.company_id)
+          .eq("invoice_id", invoice.id)
+          .order("created_at", { ascending: false });
+        if (attemptError) throw attemptError;
+        for (const attempt of (attempts || []) as any[]) {
+          const status = String(attempt.status || "unknown").toLowerCase();
+          const provider = String(attempt.provider || "online").toUpperCase();
+          out.push({
+            ts: attempt.succeeded_at || attempt.failed_at || attempt.created_at || new Date().toISOString(),
+            icon: CreditCard,
+            label: `Checkout attempt · ${provider} · ${status}`,
+            detail: `${formatActivityAmount(attempt.amount, attempt.currency || invoice.currency)}${attempt.provider_status ? ` · ${attempt.provider_status}` : ""}${attempt.failure_reason ? ` · ${attempt.failure_reason}` : ""}`,
+            tone: status === "succeeded"
+              ? "green"
+              : ["failed", "expired"].includes(status)
+                ? "rose"
+                : "amber",
+          });
+        }
+      } catch (e) {
+        console.warn("[InvoiceActivityDrawer] checkout attempts fetch failed:", e);
+      }
+
+      // 5. Sort newest first
       out.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
       if (!cancelled) {
         setEntries(out);
