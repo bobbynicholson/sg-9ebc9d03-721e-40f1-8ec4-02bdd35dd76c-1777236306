@@ -1,5 +1,6 @@
 import {
   getInitialInvoicePaymentAmount,
+  getInvoiceBalanceAfterFirstPayment,
   getInvoiceDueState,
   getInvoiceHeaderIdentifiers,
   isInvoiceFullPaymentDue,
@@ -62,6 +63,39 @@ describe("same-day invoice payment presentation", () => {
       eventDate: "2026-07-08",
       now: eventDay,
     })).toBe(2_916.93);
+  });
+
+  it("requests only the unpaid part of the agreed first payment", () => {
+    expect(getInitialInvoicePaymentAmount({
+      totalAmount: 2_835.94,
+      balanceDue: 2_833.94,
+      amountPaid: 2,
+      depositPercent: 50,
+      firstPaymentAmount: 5,
+      eventDate: "2026-10-31",
+      now: new Date(2026, 9, 4),
+    })).toBe(3);
+
+    expect(getInitialInvoicePaymentAmount({
+      totalAmount: 2_835.94,
+      balanceDue: 2_830.94,
+      amountPaid: 5,
+      depositPercent: 50,
+      firstPaymentAmount: 5,
+      eventDate: "2026-10-31",
+      now: new Date(2026, 9, 4),
+    })).toBe(2_830.94);
+  });
+
+  it("shows the future balance after the R5 first payment on the order page", () => {
+    expect(getInvoiceBalanceAfterFirstPayment({
+      totalAmount: 2_835.94,
+      balanceDue: 2_835.94,
+      amountPaid: 0,
+      firstPaymentAmount: 5,
+      eventDate: "2026-10-31",
+      now: new Date(2026, 9, 4),
+    })).toBe(2_830.94);
   });
 
   it("supports both current and legacy event-date snapshot keys", () => {

@@ -493,6 +493,7 @@ export default function InvoicePaymentPage() {
     const initialAmount = getInitialInvoicePaymentAmount({
       totalAmount: invoice.total_amount,
       balanceDue: invoice.balance_due,
+      amountPaid: invoice.amount_paid,
       depositPercent: invoice.companies?.deposit_percent,
       firstPaymentAmount: invoice.invoice_data?.initialPaymentAmount,
       eventDate: resolveInvoiceEventDate(invoice.invoice_data),
@@ -818,7 +819,9 @@ export default function InvoicePaymentPage() {
   const remainingAfter = Math.max(0, Math.round((invoice.balance_due - payNow) * 100) / 100);
   const suggestedPaymentAmount = Math.min(
     invoice.balance_due,
-    fullPaymentDue ? invoice.balance_due : depositAmount,
+    fullPaymentDue || requiredPaymentThresholdMet
+      ? invoice.balance_due
+      : amountNeededForThreshold,
   );
 
   const invoiceBreakdown = buildInvoiceBreakdown(invoice);
@@ -1275,17 +1278,16 @@ export default function InvoicePaymentPage() {
                       </p>
                     )}
                     <div className="flex flex-wrap gap-2 pt-2">
-                      {/* Only offer the deposit shortcut when it's actually
-                          smaller than what's still owing - once the deposit
-                          is paid it equals the full balance, so showing both
-                          (same amount) just confuses. */}
-                      {!fullPaymentDue && depositAmount < invoice.balance_due - 0.01 && (
+                      {/* Only offer a first-payment shortcut while some of
+                          its agreed amount is still due, and when it is less
+                          than the full outstanding invoice balance. */}
+                      {!fullPaymentDue && !requiredPaymentThresholdMet && amountNeededForThreshold > 0 && amountNeededForThreshold < invoice.balance_due - 0.01 && (
                         <button
                           type="button"
-                          onClick={() => setPayAmount(String(Math.min(depositAmount, invoice.balance_due)))}
+                          onClick={() => setPayAmount(String(Math.min(amountNeededForThreshold, invoice.balance_due)))}
                           className="text-sm font-semibold rounded-full border border-stone-300 px-4 py-2 text-stone-700 hover:bg-white"
                         >
-                          {hasSavedFirstPaymentAmount ? "Pay first payment" : `Pay deposit (${depositPct}%)`}: {fmtMoney.format(Math.min(depositAmount, invoice.balance_due))}
+                          {hasSavedFirstPaymentAmount ? "Complete first payment" : `Complete deposit (${depositPct}%)`}: {fmtMoney.format(Math.min(amountNeededForThreshold, invoice.balance_due))}
                         </button>
                       )}
                       <button

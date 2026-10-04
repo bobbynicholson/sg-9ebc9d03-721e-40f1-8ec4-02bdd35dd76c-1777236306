@@ -43,6 +43,11 @@ import { CancellationWizard } from "@/components/cancellation/CancellationWizard
 import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 import { orderDisplayName } from "@/lib/orderDisplayName";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import {
+  getInitialInvoicePaymentAmount,
+  getInvoiceBalanceAfterFirstPayment,
+  isInvoiceFullPaymentDue,
+} from "@/lib/invoiceClientView";
 
 type OrderView = {
   ok: true;
@@ -261,11 +266,41 @@ export default function ClientOrderPage() {
     paymentStatus: order.payment_status,
   });
   const depositAmount = Number(order.deposit_amount || 0);
-  const depositReceived = depositAmount > 0
-    ? paymentSummary.amountPaid + 0.01 >= depositAmount
+  const invoiceTotal = Number((invoice as any)?.total_amount ?? order.total_amount) || 0;
+  const configuredDepositPercent = Number((company as any)?.deposit_percent);
+  const fallbackFirstPayment = Math.round(
+    invoiceTotal * (
+      Number.isFinite(configuredDepositPercent) && configuredDepositPercent > 0 && configuredDepositPercent < 100
+        ? configuredDepositPercent
+        : 50
+    ) / 100 * 100,
+  ) / 100;
+  const firstPaymentAmount = depositAmount > 0 ? depositAmount : fallbackFirstPayment;
+  const fullPaymentDue = isInvoiceFullPaymentDue(order.event_date);
+  const amountDueNow = invoice
+    ? getInitialInvoicePaymentAmount({
+        totalAmount: invoiceTotal,
+        balanceDue: (invoice as any).balance_due,
+        amountPaid: paidToDate,
+        depositPercent: configuredDepositPercent,
+        firstPaymentAmount: firstPaymentAmount > 0 ? firstPaymentAmount : undefined,
+        eventDate: order.event_date,
+      })
+    : 0;
+  const scheduledBalanceDue = invoice
+    ? getInvoiceBalanceAfterFirstPayment({
+        totalAmount: invoiceTotal,
+        balanceDue: (invoice as any).balance_due,
+        amountPaid: paidToDate,
+        firstPaymentAmount,
+        eventDate: order.event_date,
+      })
+    : paymentSummary.balanceDue;
+  const depositReceived = firstPaymentAmount > 0
+    ? paymentSummary.amountPaid + 0.01 >= firstPaymentAmount
     : paymentSummary.amountPaid > 0;
-  const balanceSettled = paymentSummary.balanceDue <= 0.01;
-  const hasBalanceLine = Number(order.balance_amount || 0) > 0 || paymentSummary.balanceDue > 0;
+  const balanceSettled = scheduledBalanceDue <= 0.01;
+  const hasBalanceLine = Number(order.balance_amount || 0) > 0 || scheduledBalanceDue > 0;
   const paymentLabel = paymentSummary.label;
   const eventDate = new Date(order.event_date);
   const daysOut = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -636,7 +671,7 @@ export default function ClientOrderPage() {
                   <Row label={`Deposit ${depositReceived ? "(paid)" : "(due)"}`} value={fmtMoney.format(depositAmount)} paid={depositReceived} />
                 )}
                 {hasBalanceLine && (
-                  <Row label={`Balance ${balanceSettled ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(balanceSettled ? 0 : paymentSummary.balanceDue)} paid={balanceSettled} />
+                  <Row label={`${depositReceived || fullPaymentDue ? "Balance" : "Balance after first payment"} ${balanceSettled ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(balanceSettled ? 0 : scheduledBalanceDue)} paid={balanceSettled} />
                 )}
                 {/* Itemised payment history - what landed and when. Each
                     line is one settled payment (deposit / balance), pulled
@@ -670,7 +705,7 @@ export default function ClientOrderPage() {
                     style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
                   >
                     <Receipt className="w-4 h-4" />
-                    Pay {fmtMoney.format(Number(invoice.balance_due))} now
+                    Pay {fmtMoney.format(amountDueNow)} now
                   </a>
                 )}
                 {/* TIGHTEN I.113: Download invoice PDF button. Available

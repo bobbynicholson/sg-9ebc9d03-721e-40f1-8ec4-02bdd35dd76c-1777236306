@@ -18,6 +18,7 @@ describe("PayFast payment-form signature", () => {
       nameFirst: "Cal",
       nameLast: "O'Neil",
       emailAddress: "cal@example.com",
+      merchantPaymentId: "attempt-1",
       customStr1: "order-1",
       customStr2: "deposit",
     });
@@ -31,6 +32,7 @@ describe("PayFast payment-form signature", () => {
       "name_first=Cal",
       "name_last=O%27Neil",
       "email_address=cal%40example.com",
+      "m_payment_id=attempt-1",
       "amount=1250.00",
       "item_name=Cal%27s+birthday+%2850+guests%29",
       "custom_str1=order-1",
@@ -41,5 +43,6 @@ describe("PayFast payment-form signature", () => {
 
     expect(html).toContain('action="https://sandbox.payfast.co.za/eng/process"');
     expect(html).toContain(`name="signature" value="${expected}"`);
+    expect(html.indexOf('name="m_payment_id"')).toBeLessThan(html.indexOf('name="amount"'));
   });
 });

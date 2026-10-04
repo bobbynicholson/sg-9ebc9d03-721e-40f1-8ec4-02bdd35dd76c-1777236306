@@ -11,6 +11,67 @@ export interface PayFastConfig {
   testMode: boolean;
 }
 
+// PayFast's custom /eng/process integration signs fields in the order used
+// by its custom integration field specification. This is intentionally
+// distinct from the alphabetic order used by PayFast's REST API signatures.
+const PAYFAST_PAYMENT_FIELD_ORDER = [
+  "merchant_id",
+  "merchant_key",
+  "return_url",
+  "cancel_url",
+  "notify_url",
+  "notify_method",
+  "name_first",
+  "name_last",
+  "email_address",
+  "cell_number",
+  "m_payment_id",
+  "amount",
+  "item_name",
+  "item_description",
+  "custom_int1",
+  "custom_int2",
+  "custom_int3",
+  "custom_int4",
+  "custom_int5",
+  "custom_str1",
+  "custom_str2",
+  "custom_str3",
+  "custom_str4",
+  "custom_str5",
+  "email_confirmation",
+  "confirmation_address",
+  "currency",
+  "payment_method",
+  "subscription_type",
+  "billing_date",
+  "recurring_amount",
+  "frequency",
+  "cycles",
+  "subscription_notify_email",
+  "subscription_notify_webhook",
+  "subscription_notify_buyer",
+] as const;
+
+const PAYFAST_PAYMENT_FIELD_RANK = new Map(
+  PAYFAST_PAYMENT_FIELD_ORDER.map((field, index) => [field, index]),
+);
+
+function orderPayFastPaymentEntries(data: Record<string, unknown>) {
+  return Object.entries(data).sort(([left], [right]) => {
+    if (left === "signature") return right === "signature" ? 0 : 1;
+    if (right === "signature") return -1;
+
+    const leftRank = PAYFAST_PAYMENT_FIELD_RANK.get(left as typeof PAYFAST_PAYMENT_FIELD_ORDER[number]);
+    const rightRank = PAYFAST_PAYMENT_FIELD_RANK.get(right as typeof PAYFAST_PAYMENT_FIELD_ORDER[number]);
+    if (leftRank != null && rightRank != null) return leftRank - rightRank;
+    if (leftRank != null) return -1;
+    if (rightRank != null) return 1;
+    // Keep unknown integration fields in their original relative order.
+    return 0;
+  });
+}
+
 export interface PayFastSubscriptionParams {
   merchantId: string;
   merchantKey: string;
@@ -61,22 +122,18 @@ export class PayFastService {
   }
 
   generateSignature(data: Record<string, string>): string {
-    // FIX (2026-06-12): PayFast's /eng/process signature is MD5 over
-    // name=urlencode(value) pairs in the ORDER the fields appear in
-    // the form - NOT alphabetically sorted (that ordering belongs to
-    // PayFast's REST API signatures). Values are PHP-urlencoded
-    // (spaces as '+'), blanks are skipped, and the passphrase (when
-    // set) is appended last. The previous alphabetical sort +
-    // %20-space encoding produced signatures PayFast rejected, so
-    // every checkout redirect died on the PayFast error page.
-    const paramString = Object.keys(data)
+    // /eng/process uses PayFast's documented custom-integration field order,
+    // not the caller's object insertion order and not the alphabetic order
+    // used for their REST API. Values use PHP urlencode (spaces as '+'); blank
+    // fields are omitted and the passphrase is appended last.
+    const paramString = orderPayFastPaymentEntries(data)
       .filter(
-        (key) =>
+        ([key, value]) =>
           key !== "signature" &&
-          data[key] != null &&
-          String(data[key]).trim() !== "",
+          value != null &&
+          String(value).trim() !== "",
       )
-      .map((key) => `${key}=${pfUrlEncode(String(data[key]))}`)
+      .map(([key, value]) => `${key}=${pfUrlEncode(String(value))}`)
       .join("&");
 
     const signatureString = this.config.passphrase
@@ -220,7 +277,7 @@ export class PayFastService {
         .replace(/&/g, "&amp;")
         .replace(/"/g, "&quot;")
         .replace(/</g, "&lt;");
-    const formFields = Object.entries(params)
+    const formFields = orderPayFastPaymentEntries(params as Record<string, unknown>)
       .map(
         ([key, value]) =>
           `<input type="hidden" name="${key}" value="${escAttr(value)}" />`

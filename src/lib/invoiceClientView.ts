@@ -67,6 +67,7 @@ export function getInvoiceDueState(
 export function getInitialInvoicePaymentAmount(args: {
   totalAmount: unknown;
   balanceDue: unknown;
+  amountPaid?: unknown;
   depositPercent: unknown;
   firstPaymentAmount?: unknown;
   eventDate: unknown;
@@ -74,10 +75,12 @@ export function getInitialInvoicePaymentAmount(args: {
 }): number {
   const balance = Math.max(0, Number(args.balanceDue) || 0);
   if (isInvoiceFullPaymentDue(args.eventDate, args.now)) return balance;
+  const paid = Math.max(0, Number(args.amountPaid) || 0);
 
   const savedFirstPayment = Number(args.firstPaymentAmount);
   if (args.firstPaymentAmount != null && Number.isFinite(savedFirstPayment) && savedFirstPayment > 0) {
-    return Math.min(Math.round(savedFirstPayment * 100) / 100, balance);
+    const stillNeededForFirstPayment = Math.max(0, Math.round((savedFirstPayment - paid) * 100) / 100);
+    return Math.min(stillNeededForFirstPayment || (paid >= savedFirstPayment ? balance : 0), balance);
   }
 
   const rawPercent = Number(args.depositPercent);
@@ -88,7 +91,34 @@ export function getInitialInvoicePaymentAmount(args: {
     : 50;
   const total = Math.max(0, Number(args.totalAmount) || 0);
   const suggested = Math.round(total * (depositPercent / 100) * 100) / 100;
-  return Math.min(suggested || balance, balance);
+  const stillNeededForDeposit = Math.max(0, Math.round((suggested - paid) * 100) / 100);
+  return Math.min(stillNeededForDeposit || (paid >= suggested ? balance : 0), balance);
+}
+
+/**
+ * The invoice ledger keeps the full unpaid balance until money arrives, but
+ * the client order page also shows the later balance after the agreed first
+ * payment. This keeps the staged payment schedule clear without changing the
+ * invoice's actual outstanding-balance figure.
+ */
+export function getInvoiceBalanceAfterFirstPayment(args: {
+  totalAmount: unknown;
+  balanceDue: unknown;
+  amountPaid: unknown;
+  firstPaymentAmount: unknown;
+  eventDate: unknown;
+  now?: Date;
+}): number {
+  const outstanding = Math.max(0, Number(args.balanceDue) || 0);
+  if (isInvoiceFullPaymentDue(args.eventDate, args.now)) return outstanding;
+
+  const total = Math.max(0, Number(args.totalAmount) || 0);
+  const amountPaid = Math.max(0, Number(args.amountPaid) || 0);
+  const firstPayment = Math.max(0, Number(args.firstPaymentAmount) || 0);
+  if (firstPayment <= 0) return outstanding;
+
+  const balanceAfterFirstPayment = Math.max(0, total - Math.max(firstPayment, amountPaid));
+  return Math.min(outstanding, Math.round(balanceAfterFirstPayment * 100) / 100);
 }
 
 export function getInvoiceHeaderIdentifiers(company: {

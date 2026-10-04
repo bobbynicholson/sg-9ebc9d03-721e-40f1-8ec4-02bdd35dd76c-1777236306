@@ -728,7 +728,7 @@ function PaymentGatewaysPage() {
                 <h4 className="font-semibold text-sm">API credentials</h4>
                 <p className="text-xs text-muted-foreground rounded-md bg-slate-50 dark:bg-slate-900/40 p-3">
                   {editProvider.provider === "payfast"
-                    ? "PayFast uses the passphrase to sign its ITN webhook. Paste the fixed webhook endpoint into PayFast under the merchant account settings."
+                    ? "The passphrase signs checkout requests and verifies PayFast notifications. It must match the Security Pass Phrase in the same PayFast account. Paste the fixed webhook endpoint into the merchant account settings."
                     : editProvider.provider === "yoco"
                       ? "Yoco requires the Secret Key, Public Key, and Webhook Signing Secret. Create the webhook in Yoco, copy its signing secret here, and use the fixed endpoint shown below."
                       : "Stripe requires the Secret Key, Publishable Key, and Webhook Signing Secret. Create a Stripe webhook endpoint for the fixed URL below and paste its whsec_ secret here."}
