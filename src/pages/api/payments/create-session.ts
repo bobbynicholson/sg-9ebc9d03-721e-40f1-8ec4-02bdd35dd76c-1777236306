@@ -151,6 +151,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(409).json({ error: "This invoice cannot accept another checkout" });
     }
 
+    // A client may already have submitted an EFT proof that the company
+    // has not reviewed. Do not let a second checkout create a duplicate
+    // payment while that claim is unresolved.
+    const { data: pendingEftClaim, error: pendingEftError } = await admin
+      .from("payments")
+      .select("id")
+      .eq("company_id", invoice.company_id)
+      .eq("invoice_id", invoice.id)
+      .eq("payment_method", "eft")
+      .eq("payment_status", "pending")
+      .limit(1)
+      .maybeSingle();
+    if (pendingEftError) {
+      console.error("[payments/create-session] pending EFT lookup failed:", pendingEftError);
+      return res.status(503).json({ error: "Could not check for a pending EFT confirmation. Please retry." });
+    }
+    if (pendingEftClaim) {
+      return res.status(409).json({
+        code: "eft_claim_pending",
+        error: "An EFT payment proof is awaiting review. Please wait for the company to verify it before starting another payment.",
+      });
+    }
+
     // Pull order details (deposit_paid flag, event date) so we can
     // route deposit vs balance correctly.
     let orderRow: any = null;
@@ -302,7 +325,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     if (activeGateway.gateway.provider === "payfast" && !activeGateway.gateway.is_test && amount < 5) {
-      return checkoutError(400, { code: "payment_amount_below_minimum", error: "PayFast requires at least R5.00 for a live payment. Use EFT for this amount." });
+      return checkoutError(400, { code: "payment_amount_below_minimum", error: "PayFast live checkout requires a payment of at least R5.00. Increase the amount or contact the company for another payment option." });
     }
     const { data: gatewayVersionId, error: versionError } = await (admin as any).rpc("capture_checkout_gateway_credentials", {
       p_gateway_id: activeGateway.gateway.id, p_credentials: activeGateway.credentials, p_is_test: activeGateway.gateway.is_test,

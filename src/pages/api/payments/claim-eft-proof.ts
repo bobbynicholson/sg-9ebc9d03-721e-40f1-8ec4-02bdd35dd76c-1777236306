@@ -24,10 +24,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const invoiceId = String(fields.invoice_id?.[0] || "").trim();
     const publicToken = String(fields.public_token?.[0] || "").trim();
     const claimedAmount = Number(fields.claimed_amount?.[0] || 0);
+    const paidDate = String(fields.claimed_paid_at?.[0] || "").trim();
+    const clientNote = String(fields.notes?.[0] || "").trim().slice(0, 500);
     const file = files.proof?.[0];
     temporaryFile = file?.filepath || null;
     if (!/^[0-9a-f-]{36}$/i.test(invoiceId) || !/^[0-9a-f-]{36}$/i.test(publicToken) || !file || !Number.isFinite(claimedAmount) || claimedAmount <= 0 || Math.abs(claimedAmount * 100 - Math.round(claimedAmount * 100)) > 0.000001) {
       return res.status(400).json({ error: "Invoice, amount and a valid proof file are required" });
+    }
+    let paidAt = new Date();
+    if (paidDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) return res.status(400).json({ error: "Invalid transfer date" });
+      paidAt = new Date(`${paidDate}T12:00:00.000Z`);
+      if (!Number.isFinite(paidAt.getTime()) || paidAt.toISOString().slice(0, 10) !== paidDate || paidAt.getTime() > Date.now() + 5 * 60 * 1000) {
+        return res.status(400).json({ error: "Transfer date cannot be in the future" });
+      }
     }
     const sb = getServiceSupabase();
     const { data: invoice } = await sb.from("invoices")
@@ -56,7 +66,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (upload.error) return res.status(500).json({ error: "Could not save payment proof" });
     const { data: claim, error: claimError } = await (sb as any).rpc("create_eft_payment_claim", {
       p_invoice_id: invoice.id, p_company_id: invoice.company_id, p_amount: claimedAmount,
-      p_paid_at: new Date().toISOString(), p_notes: "Payment proof uploaded with this EFT claim.", p_proof_path: path,
+      p_paid_at: paidAt.toISOString(),
+      p_notes: clientNote || "Payment proof uploaded with this EFT claim.",
+      p_proof_path: path,
     });
     if (claimError || !claim?.payment_id) {
       // An explicit validation rejection is known to have rolled back. On a

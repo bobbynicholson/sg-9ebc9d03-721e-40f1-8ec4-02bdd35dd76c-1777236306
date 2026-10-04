@@ -20,15 +20,16 @@ function response() {
   res.status.mockReturnValue(res); return res;
 }
 function query(data: unknown) {
-  const chain = { select: jest.fn(), eq: jest.fn(), is: jest.fn(), maybeSingle: jest.fn().mockResolvedValue({ data, error: null }), single: jest.fn().mockResolvedValue({ data, error: null }) };
-  chain.select.mockReturnValue(chain); chain.eq.mockReturnValue(chain); chain.is.mockReturnValue(chain); return chain;
+  const chain = { select: jest.fn(), eq: jest.fn(), is: jest.fn(), limit: jest.fn(), maybeSingle: jest.fn().mockResolvedValue({ data, error: null }), single: jest.fn().mockResolvedValue({ data, error: null }) };
+  chain.select.mockReturnValue(chain); chain.eq.mockReturnValue(chain); chain.is.mockReturnValue(chain); chain.limit.mockReturnValue(chain); return chain;
 }
-function setup(credit = 0, order: Record<string, unknown> | null = null, replayed = false) {
+function setup(credit = 0, order: Record<string, unknown> | null = null, replayed = false, pendingEft = false) {
   const invoice = { id: invoiceId, company_id: "company-1", client_id: "client-1", order_id: order?.id || null,
     invoice_number: "INV-1", public_token: token, amount_paid: 0, balance_due: 1000, total_amount: 1000, status: "sent", currency: "ZAR" };
   const admin = {
     from: jest.fn((table: string) => query(table === "clients" ? { id: "client-1", client_name: "Buyer", email: "buyer@example.test" }
-      : table === "orders" ? order : { ...invoice, amount_paid: credit, balance_due: 1000 - credit, status: credit >= 1000 ? "paid" : "partial" })),
+      : table === "orders" ? order : table === "payments" ? (pendingEft ? { id: "eft-claim" } : null)
+        : { ...invoice, amount_paid: credit, balance_due: 1000 - credit, status: credit >= 1000 ? "paid" : "partial" })),
     rpc: jest.fn(async (name: string) => ({ data: name === "redeem_client_credit_once" ? { redeemed_amount: credit, payment_id: "credit-payment", replayed }
       : name === "capture_checkout_gateway_credentials" ? "version-1" : { amount_paid: replayed ? credit : 0, balance_due: replayed ? 1000-credit : 1000, invoice_status: "sent" }, error: null })),
   };
@@ -84,6 +85,13 @@ test("full credit settlement needs no configured gateway", async () => {
 test("request above balance is capped and preserves exact cents", async () => {
   setup(); const res = response(); await handler(request({ pay_amount: 1200 }), res as never);
   expect(createPaymentSession).toHaveBeenCalledWith(expect.objectContaining({ amount: 1000 }), expect.anything());
+});
+test("checkout is blocked while an EFT claim is awaiting company review", async () => {
+  setup(0, null, false, true); const res = response();
+  await handler(request({ pay_amount: 100 }), res as never);
+  expect(res.status).toHaveBeenCalledWith(409);
+  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "eft_claim_pending" }));
+  expect(createPaymentSession).not.toHaveBeenCalled();
 });
 test("invalid public token cannot refresh balances, redeem credit or create checkout", async () => {
   const admin = setup(); const res = response();

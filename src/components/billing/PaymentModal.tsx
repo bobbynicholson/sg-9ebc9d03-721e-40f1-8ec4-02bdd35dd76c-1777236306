@@ -9,15 +9,10 @@
  *     redirect URL or self-posting form snippet. We deliberately don't
  *     label the button with the provider name - the tenant's choice
  *     should be invisible to their clients.
- *   - EFT: the smart flow Bobby asked for. Shows the catering
- *     company's bank details, hammers home the reference (the
- *     invoice number) with a copy button, then offers an "I've made
- *     the EFT payment" CTA that:
- *       - records a payments row with status=pending, method=eft,
- *         payment_reference = invoice.invoice_number,
- *       - notifies the company's admins so they reconcile against
- *         the bank statement,
- *       - shows the client a "we're checking" confirmation.
+ *   - EFT: only offered when public invoice settings enable manual
+ *     transfer. The client sees the company's bank details and invoice
+ *     reference, then uploads proof. The proof creates a pending
+ *     payments row for company review; it never marks the invoice paid.
  *
  * Wrong references are the #1 reconciliation problem in catering
  * EFTs. The whole point of this modal is to make using the right one
@@ -34,9 +29,9 @@ import {
   Copy, ClipboardCheck, AlertCircle, Landmark, Calendar, Wallet,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import { toLocalISO } from "@/lib/localDate";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
 
 interface Invoice {
   id: string;
@@ -46,6 +41,7 @@ interface Invoice {
   amount: number;
   currency: string;
   status: string;
+  public_token?: string | null;
 }
 
 interface PaymentModalProps {
@@ -70,24 +66,14 @@ type Method = "online" | "eft";
 
 export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowReceipt, publicToken }: PaymentModalProps) {
   const { toast } = useToast();
-  const { company } = useAuth() as any;
-
-  // Pull bank fields off the resolved tenant. If the company hasn't
-  // populated any of them, the EFT option won't be offered at all --
-  // showing a half-empty card just confuses clients.
-  const bank = {
-    name: (company?.bank_name as string) || "",
-    holder: (company?.bank_account_holder as string) || "",
-    account: (company?.bank_account_number as string) || "",
-    branch: (company?.bank_branch_code as string) || "",
-    accountType: (company?.bank_account_type as string) || "",
-    instructions: (company?.eft_instructions as string) || "",
-  };
-  const eftAvailable = Boolean(bank.name && bank.account);
-
-  const [paymentMethod, setPaymentMethod] = useState<Method>(
-    eftAvailable ? "eft" : "online",
-  );
+  const invoiceToken = publicToken || invoice.public_token || "";
+  const [bank, setBank] = useState({
+    name: "", holder: "", account: "", branch: "", accountType: "", instructions: "",
+  });
+  const [eftAvailable, setEftAvailable] = useState(false);
+  const [eftConfigLoading, setEftConfigLoading] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<Method>("online");
   const [processing, setProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [eftClaimed, setEftClaimed] = useState(false);
@@ -110,6 +96,52 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
   const [applyCredit, setApplyCredit] = useState<boolean>(false);
   const checkoutRequest = useRef<{ selection: string; id: string } | null>(null);
 
+  // Match the public invoice page's payment rules. The company profile
+  // may have bank details, but EFT is offered only when the invoice API
+  // says manual EFT is enabled for this invoice/provider configuration.
+  useEffect(() => {
+    if (!open || !invoice?.id) return;
+    let cancelled = false;
+    setBank({ name: "", holder: "", account: "", branch: "", accountType: "", instructions: "" });
+    setEftAvailable(false);
+    setProofFile(null);
+    setPaymentMethod("online");
+    if (!invoiceToken) {
+      setEftConfigLoading(false);
+      return;
+    }
+    setEftConfigLoading(true);
+    (async () => {
+      try {
+        const response = await fetch(`/api/public/invoices/${encodeURIComponent(invoiceToken)}/get`, { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        const publicInvoice = payload?.invoice;
+        if (cancelled || !response.ok || !publicInvoice) return;
+        const resolved = resolveCompanyEftDetails(
+          publicInvoice.companies || {},
+          publicInvoice.invoice_data?.bankDetails || {},
+        );
+        const available = publicInvoice.payment_options?.eft_available === true && resolved.available;
+        if (!available) return;
+        setBank({
+          name: resolved.name,
+          holder: resolved.holder,
+          account: resolved.account,
+          branch: resolved.branch,
+          accountType: resolved.type,
+          instructions: resolved.instructions,
+        });
+        setEftAvailable(true);
+        setPaymentMethod("eft");
+      } catch {
+        // Online checkout remains available if the optional EFT lookup fails.
+      } finally {
+        if (!cancelled) setEftConfigLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, invoice?.id, invoiceToken]);
+
   useEffect(() => {
     if (!open || !invoice?.id) { checkoutRequest.current = null; return; }
     setCreditAvailable(0);
@@ -125,7 +157,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             invoice_id: invoice.id,
-            public_token: publicToken || undefined,
+            public_token: invoiceToken || undefined,
           }),
         });
         const j = await r.json().catch(() => ({}));
@@ -144,7 +176,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     return () => {
       cancelled = true;
     };
-  }, [open, invoice?.id, invoice?.amount, publicToken]);
+  }, [open, invoice?.id, invoice?.amount, invoiceToken]);
 
   // Show exact cents: the client is about to be charged this figure, so a
   // rounded "R1,235" for a R1,234.56 balance is a money-display mismatch.
@@ -171,7 +203,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
       body: JSON.stringify({
         invoice_id: invoice.id,
         checkout_request_id: checkoutRequest.current.id,
-        public_token: publicToken || undefined,
+        public_token: invoiceToken || undefined,
         pay_amount: invoice.amount,
         apply_credit: applyCredit,
         apply_credit_amount: applyCredit ? Math.min(creditMaxApplicable, invoice.amount) : undefined,
@@ -179,6 +211,14 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j?.ok) {
+      if (j?.code === "eft_claim_pending") {
+        toast({
+          title: "EFT proof is awaiting review",
+          description: "The company must review your submitted proof before another payment can be started.",
+        });
+        onPaymentSuccess();
+        return;
+      }
       if (j.creditApplied > 0) {
         toast({ title: "Store credit payment recorded", description:
           `Applied ${fmtCurrency(j.creditApplied)}. Online checkout could not start: ${j.error || "Please try again after reviewing the balance."}` });
@@ -251,16 +291,19 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
 
   const submitEftClaim = async () => {
     try {
+      if (!invoiceToken) throw new Error("Open this invoice from its payment link so we can attach your proof to the right invoice.");
+      if (!proofFile) throw new Error("Upload your bank payment confirmation before sending this claim.");
       setProcessing(true);
-      const res = await fetch("/api/payments/claim-eft", {
+      const form = new FormData();
+      form.append("invoice_id", invoice.id);
+      form.append("public_token", invoiceToken);
+      form.append("claimed_amount", String(invoice.amount));
+      form.append("claimed_paid_at", eftPaidAt);
+      form.append("notes", eftNotes.trim());
+      form.append("proof", proofFile);
+      const res = await fetch("/api/payments/claim-eft-proof", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoice_id: invoice.id,
-          claimed_amount: invoice.amount,
-          claimed_paid_at: eftPaidAt,
-          notes: eftNotes.trim() || undefined,
-        }),
+        body: form,
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -378,7 +421,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
           </DialogHeader>
           <div className="py-2 space-y-3 text-sm text-slate-700">
             <p>
-              <strong>What happens next:</strong> we log your claim, the catering team gets a
+              <strong>What happens next:</strong> your payment proof is attached to the claim, the catering team gets a
               notification, and they'll match it against the bank statement using the
               reference <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono">{invoice.invoice_number}</code>.
             </p>
@@ -497,6 +540,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
           {/* Method picker */}
           <div>
             <Label className="text-base font-semibold mb-3 block">Payment method</Label>
+            {eftConfigLoading && <p className="mb-2 text-xs text-slate-500">Checking available payment methods…</p>}
             <RadioGroup value={paymentMethod} onValueChange={(val) => setPaymentMethod(val as Method)}>
               <div className="space-y-3">
                 <MethodCard
@@ -514,7 +558,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
                     onSelect={() => setPaymentMethod("eft")}
                     icon={<Landmark className="w-5 h-5 text-brand-primary" />}
                     title="Manual EFT / bank transfer"
-                    subtitle="Pay from your banking app, then tell them"
+                    subtitle="Transfer from your bank, then upload the confirmation"
                   />
                 ) : null}
               </div>
@@ -529,6 +573,8 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
               setEftPaidAt={setEftPaidAt}
               eftNotes={eftNotes}
               setEftNotes={setEftNotes}
+              proofFile={proofFile}
+              setProofFile={setProofFile}
               onCopy={copy}
             />
           ) : (
@@ -548,10 +594,10 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
               <Button
                 onClick={() => setConfirmingClaim(true)}
                 className="flex-1 bg-brand-primary hover:bg-brand-primary/90"
-                disabled={processing}
+                disabled={processing || !proofFile}
               >
                 <ClipboardCheck className="w-4 h-4 mr-2" />
-                I've made the EFT payment
+                I've paid and attached proof
               </Button>
             ) : (
               <Button
@@ -592,6 +638,8 @@ function EftPanel({
   setEftPaidAt,
   eftNotes,
   setEftNotes,
+  proofFile,
+  setProofFile,
   onCopy,
 }: {
   invoice: Invoice;
@@ -603,6 +651,8 @@ function EftPanel({
   setEftPaidAt: (v: string) => void;
   eftNotes: string;
   setEftNotes: (v: string) => void;
+  proofFile: File | null;
+  setProofFile: (file: File | null) => void;
   onCopy: (label: string, value: string) => void;
 }) {
   return (
@@ -686,10 +736,18 @@ function EftPanel({
             />
           </label>
         </div>
+        <label className="block text-xs font-semibold text-slate-700">
+          Payment confirmation (PDF, JPG, PNG or WEBP; max 8 MB) - required
+          <input
+            type="file"
+            required
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={(event) => setProofFile(event.target.files?.[0] || null)}
+            className="mt-1 block w-full text-xs"
+          />
+        </label>
         <p className="text-[11px] text-slate-500">
-          Tap &quot;I&apos;ve made the EFT payment&quot; once the transfer is sent. The team will
-          reconcile against the bank account and mark the invoice paid - usually within 1-2
-          business days.
+          Upload your bank confirmation. The team will check it against the bank statement before updating the invoice.
         </p>
       </div>
     </div>

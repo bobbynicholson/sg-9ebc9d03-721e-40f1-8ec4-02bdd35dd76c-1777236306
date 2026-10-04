@@ -94,6 +94,13 @@ interface InvoiceView {
     payment_method?: string | null;
     gateway_provider?: string | null;
   }[];
+  /** Sanitized EFT claim state; never includes private storage paths. */
+  eft_claims?: {
+    amount: number;
+    payment_status: "pending" | "failed";
+    payment_date: string | null;
+    created_at: string;
+  }[];
   companies: {
     id: string;
     /** Feeds the public /terms/[company] link (id is the fallback). */
@@ -405,6 +412,7 @@ export default function InvoicePaymentPage() {
           if (!cancelled && result?.invoice) {
             setInvoice(result.invoice as InvoiceView);
             setPaymentNotConfigured(result.invoice.payment_options?.online_available !== true);
+            setEftClaimedPublic((result.invoice.eft_claims || []).some((claim: any) => claim.payment_status === "pending"));
           }
         } catch {
           // The verified attempt status is still enough to keep this page safe.
@@ -449,6 +457,7 @@ export default function InvoicePaymentPage() {
       }
       setInvoice(data as InvoiceView);
       setPaymentNotConfigured(data.payment_options?.online_available !== true);
+      setEftClaimedPublic((data.eft_claims || []).some((claim: any) => claim.payment_status === "pending"));
       setLoading(false);
 
       // Wave 29.2: probe store-credit balance for this client.
@@ -493,6 +502,10 @@ export default function InvoicePaymentPage() {
 
   async function initiatePayment() {
     if (!invoice) return;
+    if (pendingEftClaim) {
+      setError("Your EFT proof is awaiting company review. Please wait for confirmation before making another payment.");
+      return;
+    }
     // What the client chose to pay now, clamped to the balance.
     const payNowAmt = Math.max(0, Math.min(Number(payAmount) || 0, invoice.balance_due));
     if (payNowAmt <= 0) {
@@ -558,6 +571,14 @@ export default function InvoicePaymentPage() {
         return;
       }
       if (!resp.ok || !json?.ok) {
+        if (json?.code === "eft_claim_pending") {
+          setEftClaimedPublic(true);
+          try {
+            const refreshed = await fetch(`/api/public/invoices/${encodeURIComponent(token)}/get`, { cache: "no-store" });
+            const refreshedPayload = await refreshed.json().catch(() => ({}));
+            if (refreshed.ok && refreshedPayload?.invoice) setInvoice(refreshedPayload.invoice as InvoiceView);
+          } catch { /* Keep the locally guarded state; the next reload will refresh it. */ }
+        }
         if (json.creditApplied > 0) {
           setCreditPaymentAmount(Number(json.creditApplied));
           setApplyCredit(false);
@@ -583,14 +604,16 @@ export default function InvoicePaymentPage() {
         const tenantEmail = company.email || company.contact_email || null;
         const invNumber = (invoice as any)?.invoice_number || "your invoice";
         const subject = encodeURIComponent(`Payment help - ${invNumber}`);
+        const isBelowMinimum = json?.code === "payment_amount_below_minimum";
         const body = encodeURIComponent(
           `Hi ${company.company_name || "there"},\n\n` +
-          `I tried to pay ${invNumber} but the online payment gateway isn't set up.\n` +
-          `Please send me alternative payment instructions (EFT, etc.).\n\nThanks.`
+          (isBelowMinimum
+            ? `PayFast could not accept my selected payment for ${invNumber} because live payments must be at least R5.00. Please advise how I should proceed.\n\nThanks.`
+            : `I tried to pay ${invNumber} but the online payment gateway isn't set up.\nPlease send me alternative payment instructions.\n\nThanks.`)
         );
         const link = tenantEmail ? `mailto:${tenantEmail}?subject=${subject}&body=${body}` : null;
         const serverMsg = `${json.creditApplied > 0 ? `Store credit of ${fmtMoney.format(json.creditApplied)} was recorded. ` : ""}${json?.error || `Could not start payment (${resp.status})`}`;
-        const notConfigured = json?.code === "payment_not_configured" || json?.code === "payment_amount_below_minimum"
+        const notConfigured = json?.code === "payment_not_configured"
           || /no active payment gateway|online payment gateway isn.t set up/i.test(String(serverMsg));
         setPaymentNotConfigured(notConfigured);
         setError(
@@ -653,6 +676,17 @@ export default function InvoicePaymentPage() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || "Could not record the EFT confirmation");
       setEftClaimedPublic(true);
+      setProofFile(null);
+      try {
+        const refreshed = await fetch(`/api/public/invoices/${encodeURIComponent(token)}/get`, { cache: "no-store" });
+        const refreshedPayload = await refreshed.json().catch(() => ({}));
+        if (refreshed.ok && refreshedPayload?.invoice) {
+          setInvoice(refreshedPayload.invoice as InvoiceView);
+          setEftClaimedPublic((refreshedPayload.invoice.eft_claims || []).some((claim: any) => claim.payment_status === "pending"));
+        }
+      } catch {
+        // The claim is already accepted; the next page load will refresh its status.
+      }
     } catch (claimError: any) {
       setError(claimError?.message || "Could not record the EFT confirmation");
     } finally {
@@ -715,6 +749,8 @@ export default function InvoicePaymentPage() {
     balanceAmount: invoice.balance_due,
   });
   const isPaid = paymentSummary.state === "paid";
+  const pendingEftClaim = invoice.eft_claims?.find((claim) => claim.payment_status === "pending") || null;
+  const latestRejectedEftClaim = invoice.eft_claims?.[0]?.payment_status === "failed" ? invoice.eft_claims[0] : null;
   // Some payment has landed but the invoice isn't settled yet. Keep the
   // invoice label distinct from whether the deposit threshold is met.
   const isPartiallyPaid = paymentSummary.state === "partial";
@@ -1083,6 +1119,20 @@ export default function InvoicePaymentPage() {
             ) : (
               <Card className="border border-stone-200 shadow-sm">
                 <CardContent className="py-6 px-5 space-y-4">
+                  {pendingEftClaim && (
+                    <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                      <AlertDescription>
+                        EFT proof for {fmtMoney.format(Number(pendingEftClaim.amount) || 0)} was received on {new Date(pendingEftClaim.created_at).toLocaleDateString("en-ZA")} and is awaiting company review. The invoice is not marked paid until the funds are verified.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {!pendingEftClaim && latestRejectedEftClaim && (
+                    <Alert className="border-rose-200 bg-rose-50 text-rose-900">
+                      <AlertDescription>
+                        The company declined the previous EFT claim for {fmtMoney.format(Number(latestRejectedEftClaim.amount) || 0)}. Check the transfer details with the company, then submit new proof if needed.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   {error && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
@@ -1160,7 +1210,9 @@ export default function InvoicePaymentPage() {
                     <p className="text-xs text-stone-600 mt-0.5">
                       {invoice.payment_options?.online_available && !paymentNotConfigured
                         ? `Pay online with ${onlineProviderName || "the company's provider"}.`
-                        : "Online checkout is unavailable for this invoice. EFT instructions and payment confirmation are available above when bank details are listed."}
+                        : hasBankDetails
+                          ? "Online checkout is unavailable. Pay by EFT above and upload your transfer confirmation for review."
+                          : "Online checkout and EFT are unavailable for this invoice. Contact the company for payment instructions."}
                     </p>
                   </div>
 
@@ -1297,7 +1349,7 @@ export default function InvoicePaymentPage() {
                   ) : (
                     <Button
                       onClick={initiatePayment}
-                      disabled={processing || (paymentNotConfigured && !(applyCredit && creditMaxApplicable >= payNow)) || payNow <= 0 || ["checking", "pending", "succeeded"].includes(returnPaymentStatus)}
+                      disabled={processing || !!pendingEftClaim || (paymentNotConfigured && !(applyCredit && creditMaxApplicable >= payNow)) || payNow <= 0 || ["checking", "pending", "succeeded"].includes(returnPaymentStatus)}
                       size="lg"
                       className="w-full bg-brand-primary hover:opacity-90 gap-2"
                     >

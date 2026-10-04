@@ -238,6 +238,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .eq("payment_status", "completed")
     .order("processed_at", { ascending: true });
 
+  // A pending/rejected EFT claim is not a completed payment, but the
+  // invoice holder needs to see that their proof reached the company and
+  // whether they need to try again. Never expose the private storage path.
+  const { data: eftClaims } = await supabase
+    .from("payments")
+    .select("amount, payment_status, payment_date, created_at")
+    .eq("invoice_id", (data as any).id)
+    .eq("payment_method", "eft")
+    .in("payment_status", ["pending", "failed"])
+    .order("created_at", { ascending: false })
+    .limit(5);
+
   const company = invoiceForResponse.companies || {};
   const snapshotBank = invoiceData.bankDetails || {};
   const paymentAvailability = company.id
@@ -272,7 +284,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     },
   };
 
-  return res.status(200).json({ ok: true, invoice: { ...invoiceForResponse, payments: payments || [] } });
+  return res.status(200).json({
+    ok: true,
+    invoice: {
+      ...invoiceForResponse,
+      payments: payments || [],
+      eft_claims: eftClaims || [],
+    },
+  });
 }
 
 export default withApiLogging(handler);

@@ -46,6 +46,12 @@ interface Invoice {
    *  of whether the balance is fully cleared. Drives the row-level
    *  "Download receipt" affordance. */
   has_completed_payment: boolean;
+  /** Most recent EFT claim that still needs review or was declined. */
+  eft_claim?: {
+    status: "pending" | "rejected";
+    amount: number;
+    created_at: string;
+  } | null;
   /** Line-item breakdown (catering lines + any damage charge), the full
    *  total, and the public token so the detail modal can itemise what the
    *  amount is for and link to the public pay page. */
@@ -278,14 +284,25 @@ function ClientBillingPageInner() {
       // concern, so a dedicated lookup keeps the truth crisp.
       const invoiceIds = ((rows as any[]) || []).map((r) => r.id);
       const paidInvoiceIds = new Set<string>();
+      const eftClaimsByInvoice = new Map<string, Invoice["eft_claim"]>();
       if (invoiceIds.length > 0) {
         const { data: payRows } = await supabase
           .from("payments")
-          .select("invoice_id")
+          .select("invoice_id, amount, payment_status, payment_method, created_at")
           .in("invoice_id", invoiceIds)
-          .eq("payment_status", "completed");
+          .in("payment_status", ["completed", "pending", "failed"])
+          .order("created_at", { ascending: false });
         for (const p of (payRows as any[]) || []) {
-          if (p?.invoice_id) paidInvoiceIds.add(p.invoice_id as string);
+          if (!p?.invoice_id) continue;
+          if (p?.invoice_id && p.payment_status === "completed") paidInvoiceIds.add(p.invoice_id as string);
+          if (p?.payment_method !== "eft" || !["pending", "failed"].includes(String(p.payment_status))) continue;
+          if (!eftClaimsByInvoice.has(p.invoice_id)) {
+            eftClaimsByInvoice.set(p.invoice_id, {
+              status: p.payment_status === "pending" ? "pending" : "rejected",
+              amount: Number(p.amount || 0),
+              created_at: String(p.created_at || ""),
+            });
+          }
         }
       }
 
@@ -340,6 +357,7 @@ function ClientBillingPageInner() {
             orderEmbed.venue_name || orderEmbed.venue_address || "",
           has_completed_payment:
             paidInvoiceIds.has(r.id) || Number(r.amount_paid || 0) > 0,
+          eft_claim: eftClaimsByInvoice.get(r.id) || null,
           items: Array.isArray(r.invoice_data?.items) ? r.invoice_data.items : undefined,
           total: totalAmount,
           subtotal: Number(r.invoice_data?.subtotal ?? totalAmount),
@@ -621,6 +639,13 @@ function ClientBillingPageInner() {
                               </h3>
                               {getStatusBadge(invoice.status)}
                             </div>
+                            {invoice.eft_claim && (
+                              <p className={`mb-2 text-xs font-medium ${invoice.eft_claim.status === "pending" ? "text-amber-700 dark:text-amber-300" : "text-rose-700 dark:text-rose-300"}`}>
+                                {invoice.eft_claim.status === "pending"
+                                  ? `EFT proof received for ${invoice.currency}${invoice.eft_claim.amount.toFixed(2)} — awaiting company verification.`
+                                  : "The last EFT claim was declined. Contact the company or submit a new transfer confirmation."}
+                              </p>
+                            )}
                             <div className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
                               <div className="flex items-center gap-2">
                                 <Receipt className="w-4 h-4" />
@@ -673,7 +698,9 @@ function ClientBillingPageInner() {
                                   Receipt
                                 </Button>
                               )}
-                              {(invoice.status === "pending" || invoice.status === "partial" || invoice.status === "overdue") && (
+                              {invoice.eft_claim?.status === "pending" ? (
+                                <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">EFT under review</span>
+                              ) : (invoice.status === "pending" || invoice.status === "partial" || invoice.status === "overdue") && (
                                 <Button
                                   size="sm"
                                   onClick={() => handlePayInvoice(invoice)}
@@ -709,6 +736,7 @@ function ClientBillingPageInner() {
           />
           <PaymentModal
             invoice={selectedInvoice}
+            publicToken={selectedInvoice.public_token || undefined}
             open={showPaymentModal}
             onClose={() => {
               setShowPaymentModal(false);
