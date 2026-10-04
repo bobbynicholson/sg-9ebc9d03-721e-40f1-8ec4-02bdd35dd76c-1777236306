@@ -615,6 +615,13 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
     return getPlatformNavigation(role, "platform.tech-costs", limit);
   }
   if (isPlatformAuditQuestion(query, role)) {
+    // A company-page lookup without a platform workspace follows the
+    // same scope as "Open audit logs". Explicit platform/filter questions
+    // and an actual platform page retain their global destination.
+    if (!platformScoped && /^where\b/i.test(normalized) && /\baudit logs?\b/i.test(normalized)
+      && !/\b(?:platform|subscription|pricing|permission|failed|failure|company|user|action|date)\b/i.test(normalized)) {
+      return getPlatformNavigation(role, "admin.audit-logs", limit);
+    }
     if (/\b(?:subscription)\b/i.test(normalized)) return getPlatformNavigation(role, "platform.audit-logs.filters.subscription", limit);
     if (/\b(?:pricing|price)\b/i.test(normalized)) return getPlatformNavigation(role, "platform.audit-logs.filters.pricing", limit);
     if (/\b(?:permission|role)\b/i.test(normalized)) return getPlatformNavigation(role, "platform.audit-logs.filters.permissions", limit);

@@ -68,11 +68,17 @@ export function getInitialInvoicePaymentAmount(args: {
   totalAmount: unknown;
   balanceDue: unknown;
   depositPercent: unknown;
+  firstPaymentAmount?: unknown;
   eventDate: unknown;
   now?: Date;
 }): number {
   const balance = Math.max(0, Number(args.balanceDue) || 0);
   if (isInvoiceFullPaymentDue(args.eventDate, args.now)) return balance;
+
+  const savedFirstPayment = Number(args.firstPaymentAmount);
+  if (args.firstPaymentAmount != null && Number.isFinite(savedFirstPayment) && savedFirstPayment > 0) {
+    return Math.min(Math.round(savedFirstPayment * 100) / 100, balance);
+  }
 
   const rawPercent = Number(args.depositPercent);
   const depositPercent = Number.isFinite(rawPercent)

@@ -37,6 +37,8 @@ const SRC = join(ROOT, "src");
 // Pulled from the live DB's information_schema + pg_enum as of
 // 2026-05-18. Keep in sync with the actual CHECK / enum.
 const STATUS_VOCAB = {
+  // 20260925150000: external checkout attempts are separate from the ledger.
+  payment_attempts: ["pending", "succeeded", "failed", "expired"],
   cleaning_event_handovers: ["expected", "in_progress", "complete", "cancelled"],
   outgoing_email_queue: ["queued", "in_progress", "paused", "sent", "failed", "cancelled"],
   driver_assignments: [
@@ -192,6 +194,15 @@ function findTableBefore(src, pos, lookback = 800) {
 // runtime, and the bug stays invisible until a real human
 // notices the affected surface always reads zero.
 const KNOWN_TABLES = new Set([
+  // Tables introduced by the dashboard/payment migrations after the live
+  // snapshot below. These entries reflect SQL definitions, not exemptions.
+  "dashboard_setup_tasks", // 20260924000000
+  "payment_attempts", // 20260925150000
+  "payment_gateway_events", "payment_receipt_outbox", // 20261003140000
+  "payfast_recovery_cursors", // 20261003150000
+  "payment_gateway_credential_versions", // 20261003160000
+  "payment_credit_redemptions", // 20261004090000
+  "refund_reconciliation_events", // 20261004100000
   "account_deletion_requests","accounting_integrations","admin_notifications","ai_brain_access_policies","ai_brain_documents","ai_brain_sources","ai_brain_tool_policies","ai_dynamic_tools","allergens",
   "api_key_rate_limits","api_keys","app_config","audit_logs","backup_generators",
   "billing_history","blocked_contacts","blog_posts","booking_packages",

@@ -13,7 +13,21 @@ on:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    services:
+      payment-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: payment_fixture
+          POSTGRES_PASSWORD: fixture_only
+          POSTGRES_DB: payment_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U payment_fixture -d payment_fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,6 +46,27 @@ jobs:
 
       - name: Run TypeScript check
         run: npx tsc --noEmit
+
+      - name: Check payment APIs and provider flows
+        run: npm run test:payments
+
+      - name: Check payment ledger transactions and retries
+        # Isolated PGlite fixture; needs no database keys or live merchant.
+        run: npm run test:payment-ledger
+
+      - name: Check combined payment migration script
+        run: node scripts/build-payment-migration-bundle.mjs --check
+
+      - name: Check real PostgreSQL races and receipt locks
+        env:
+          PAYMENT_TEST_DATABASE_URL: postgresql://payment_fixture:fixture_only@127.0.0.1:5432/payment_fixture
+        run: npm run test:payment-postgres
+
+      - name: Install browser for payment UI checks
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+
+      - name: Check customer payment pages with simulated providers
+        run: npm run test:payment-ui
 
       - name: Check Supabase status filters
         # A.17 #1 - guards against the literal-string status-filter

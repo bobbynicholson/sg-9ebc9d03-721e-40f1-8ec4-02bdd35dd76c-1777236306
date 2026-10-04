@@ -7,6 +7,7 @@ import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 import { ensureRequiredOrderLink } from "@/lib/email/requiredCustomerLinks";
+import { isInvoiceFullPaymentDue } from "@/lib/invoiceClientView";
 
 // Server-safe client injection. Browser callers pass nothing and get
 // the global anon-key client (RLS-gated). Server callers (the
@@ -90,6 +91,7 @@ interface InvoiceData {
   total: number;
   
   // Payment Details
+  initialPaymentAmount?: number | null;
   depositPaid: number;
   balanceDue: number;
   paymentTerms: string;
@@ -98,6 +100,8 @@ interface InvoiceData {
     accountName: string;
     accountNumber: string;
     branchCode: string;
+    accountType?: string;
+    instructions?: string;
   };
   
   // Additional
@@ -116,6 +120,27 @@ interface GenerateInvoiceOptions {
   companyId: string;
   sendEmail?: boolean;
   emailRecipient?: string;
+}
+
+function formatInvoiceMoney(amount: number, currencyCode: string): string {
+  try {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number.isFinite(amount) ? amount : 0);
+  } catch {
+    return `${currencyCode} ${(Number.isFinite(amount) ? amount : 0).toFixed(2)}`;
+  }
+}
+
+function appendInvoicePaymentSummary(
+  body: string,
+  summary: { total: string; paid: string; remaining: string },
+): string {
+  if (/paid to date/i.test(body) && /remaining balance/i.test(body)) return body;
+  return `${body}\n\nInvoice total: ${summary.total}\nPaid to date: ${summary.paid}\nRemaining balance: ${summary.remaining}`;
 }
 
 function asArray(value: any): any[] {
@@ -524,6 +549,26 @@ export async function generateInvoiceData(
       eventDate: eventDateRaw,
     });
 
+    // Resolve both legacy JSON bank details and the current company EFT
+    // fields. The public pay page and the downloadable invoice should
+    // present the same fallback when no online provider is connected.
+    let bankSnapshot: any = companyData.bank_details || {};
+    if (typeof bankSnapshot === "string") {
+      try { bankSnapshot = JSON.parse(bankSnapshot); } catch { bankSnapshot = {}; }
+    }
+    const bankName = bankSnapshot.bankName || bankSnapshot.bank_name || companyData.bank_name || "";
+    const bankAccount = bankSnapshot.accountNumber || bankSnapshot.account_number || companyData.bank_account_number || "";
+    const bankDetails = bankName && bankAccount
+      ? {
+          bankName,
+          accountName: bankSnapshot.accountName || bankSnapshot.account_holder || companyData.bank_account_holder || "",
+          accountNumber: bankAccount,
+          branchCode: bankSnapshot.branchCode || bankSnapshot.branch_code || companyData.bank_branch_code || "",
+          accountType: bankSnapshot.accountType || bankSnapshot.account_type || companyData.bank_account_type || "",
+          instructions: bankSnapshot.instructions || companyData.eft_instructions || "",
+        }
+      : undefined;
+
     // 6. Build invoice data
     const invoiceData: InvoiceData = {
       invoiceNumber,
@@ -570,11 +615,14 @@ export async function generateInvoiceData(
       taxRate,
       taxAmount,
       total,
+      initialPaymentAmount: Number(orderData.deposit_amount) > 0
+        ? Number(orderData.deposit_amount)
+        : null,
       depositPaid,
       balanceDue,
       
       paymentTerms: companyData.payment_terms || "Payment due within 30 days",
-      bankDetails: companyData.bank_details ? (typeof companyData.bank_details === 'string' ? JSON.parse(companyData.bank_details) : companyData.bank_details) : undefined,
+      bankDetails,
       
       notes: orderData.special_instructions,
       footer: `Thank you for your business! For any queries, contact us at ${companyData.email || ""} or ${companyData.phone_number || companyData.phone || ""}`,
@@ -973,7 +1021,7 @@ async function notifyClientOfInvoiceIssued(
     // Pull order + tenant once for the message body.
     const { data: order, error: orderErr2 } = await supabase
       .from("orders")
-      .select("id, client_id, client_email, event_name")
+      .select("id, client_id, client_email, event_name, event_date, total_amount, amount_paid, deposit_amount")
       .eq("id", orderId)
       .maybeSingle();
     if (orderErr2) {
@@ -999,22 +1047,27 @@ async function notifyClientOfInvoiceIssued(
     // TIGHTEN I.88: tenant currency on the amount label. Fall back to
     // ZAR formatting when company.currency isn't set.
     const totalNum = Number(invoiceData.total || 0);
+    const paidNum = Number(invoiceData.depositPaid || 0);
+    const remainingNum = Math.max(0, Number(invoiceData.balanceDue || 0));
     const currencyCode = ((company as any)?.currency as string) || "ZAR";
-    let amountLabel: string;
-    try {
-      amountLabel = new Intl.NumberFormat("en-ZA", {
-        style: "currency",
-        currency: currencyCode,
-        minimumFractionDigits: 2,
-      }).format(totalNum);
-    } catch {
-      amountLabel = `${currencyCode} ${totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
-    }
+    const isBalance = paidNum > 0;
+    const fullAmountDue = isInvoiceFullPaymentDue(invoiceData.eventDate);
+    const firstPaymentAmount = Math.max(0, Number(invoiceData.initialPaymentAmount || (order as any)?.deposit_amount || 0));
+    const requestAmount = isBalance
+      ? remainingNum
+      : fullAmountDue || firstPaymentAmount <= 0
+        ? remainingNum
+        : Math.min(firstPaymentAmount, remainingNum || totalNum);
+    const amountLabel = formatInvoiceMoney(requestAmount, currencyCode);
+    const totalAmountLabel = formatInvoiceMoney(totalNum, currencyCode);
+    const paidAmountLabel = formatInvoiceMoney(paidNum, currencyCode);
+    const remainingAmountLabel = formatInvoiceMoney(remainingNum, currencyCode);
+    const firstPaymentLabel = formatInvoiceMoney(firstPaymentAmount || requestAmount, currencyCode);
     // Bare numeric legacy form ("752,50") for tenant overrides that
     // still hardcode their own currency prefix. Global defaults use
     // the fully formatted {{amount}} field.
-    const amountBare = totalNum.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const summary = `${tenantName} issued invoice ${invoiceData.invoiceNumber} for ${eventName}. Total: ${amountLabel}. Pay via the link or EFT.`;
+    const amountBare = requestAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const summary = `${tenantName} issued invoice ${invoiceData.invoiceNumber} for ${eventName}. Invoice total: ${totalAmountLabel}. Paid to date: ${paidAmountLabel}. Remaining balance: ${remainingAmountLabel}.`;
     const portalLink = `/client-portal/billing?invoiceId=${invoiceId}`;
 
     // 1. In-app notification. resolveClientUserId returns null for
@@ -1125,17 +1178,24 @@ async function notifyClientOfInvoiceIssued(
 
         const fallbackBody = isBalance
           ? `Hi {{first_name}},\n\n` +
-            `{{tenant_name}} issued the balance invoice {{invoice_number}} for {{event_name}}. Balance due: {{amount}}.\n\n` +
+            `{{tenant_name}} issued a payment request for {{event_name}}. Amount due now: {{amount}}.\n\n` +
+            `Invoice total: {{total_amount}}. Paid to date: {{paid_to_date}}. Remaining balance: {{remaining_balance}}.\n\n` +
             `Open the invoice: {{invoice_link}}\n\n` +
             `Thanks,\n{{tenant_name}}`
           : `Hi {{first_name}},\n\n` +
             `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
-            `Your deposit invoice {{invoice_number}} is ready. Deposit due: {{amount}}.\n\n` +
+            `Your first payment request on invoice {{invoice_number}} is {{amount}}.\n\n` +
+            `Invoice total: {{total_amount}}. Paid to date: {{paid_to_date}}. Remaining balance: {{remaining_balance}}.\n\n` +
             `Pay or download it here: {{invoice_link}}\n\n` +
             `View your order: {{order_url}}\n\n` +
             `Once the payment clears, your event date is locked in.\n\n` +
             `Thanks,\n{{tenant_name}}`;
 
+        const paymentSummary = {
+          total: totalAmountLabel,
+          paid: paidAmountLabel,
+          remaining: remainingAmountLabel,
+        };
         const emailVariables = {
           first_name: firstName,
           client_name: invoiceData.clientName,
@@ -1145,6 +1205,10 @@ async function notifyClientOfInvoiceIssued(
           amount: amountLabel,
           deposit_amount: isBalance ? "" : amountBare,
           balance_amount: isBalance ? amountBare : "",
+          total_amount: totalAmountLabel,
+          paid_to_date: paidAmountLabel,
+          remaining_balance: remainingAmountLabel,
+          first_payment_amount: firstPaymentLabel,
           invoice_link: payLink,
           order_url: orderLink,
           clientName: invoiceData.clientName,
@@ -1161,9 +1225,10 @@ async function notifyClientOfInvoiceIssued(
           },
           client: supabase,
         });
+        const bodyWithPaymentSummary = appendInvoicePaymentSummary(resolved.bodyHtml, paymentSummary);
         const bodyWithRequiredOrderLink = !isBalance
-          ? ensureRequiredOrderLink(resolved.bodyHtml, orderLink)
-          : resolved.bodyHtml;
+          ? ensureRequiredOrderLink(bodyWithPaymentSummary, orderLink)
+          : bodyWithPaymentSummary;
 
         const sent = await emailService.sendEmail({
           companyId,
@@ -1621,16 +1686,22 @@ export function generateInvoiceHTML(data: InvoiceData): string {
         <td>TOTAL</td>
         <td class="text-right">${fmtMoney(data.total)}</td>
       </tr>
-      ${data.depositPaid > 0 ? `
+      ${data.initialPaymentAmount && data.depositPaid <= 0.01 ? `
         <tr>
-          <td>${data.balanceDue <= 0.01 ? "Paid in Full" : "Deposit Paid"}</td>
-          <td class="text-right">${fmtMoney(data.depositPaid)}</td>
-        </tr>
-        <tr style="background: #fff3cd; font-weight: bold;">
-          <td>BALANCE DUE</td>
-          <td class="text-right">${fmtMoney(data.balanceDue)}</td>
+          <td>First payment requested</td>
+          <td class="text-right">${fmtMoney(data.initialPaymentAmount)}</td>
         </tr>
       ` : ""}
+      ${data.depositPaid > 0.01 ? `
+        <tr>
+          <td>${data.balanceDue <= 0.01 ? "Paid in Full" : "Paid to Date"}</td>
+          <td class="text-right">${fmtMoney(data.depositPaid)}</td>
+        </tr>
+      ` : ""}
+      <tr style="background: #fff3cd; font-weight: bold;">
+        <td>OUTSTANDING BALANCE</td>
+        <td class="text-right">${fmtMoney(data.balanceDue)}</td>
+      </tr>
     </table>
   </div>
 
@@ -1654,7 +1725,9 @@ export function generateInvoiceHTML(data: InvoiceData): string {
           <div class="label">Branch Code</div>
           <div class="value">${data.bankDetails.branchCode}</div>
         </div>
+        ${data.bankDetails.accountType ? `<div><div class="label">Account Type</div><div class="value">${data.bankDetails.accountType}</div></div>` : ""}
       </div>
+      ${data.bankDetails.instructions ? `<div style="margin-top: 10px;">${data.bankDetails.instructions}</div>` : ""}
       <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
         <div class="label">Payment Terms</div>
         <div>${data.paymentTerms}</div>
@@ -1741,7 +1814,15 @@ export async function sendInvoiceEmail(
     const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
     // TIGHTEN I.88: tenant-currency amount on the customer-facing
     // invoice email. Was hardcoded "R" prefix.
-    const amountValue = isBalance ? (liveBalanceDue || Number(invoiceData.balanceDue || 0)) : (liveBalanceDue || liveTotal || Number(invoiceData.total || 0));
+    const firstPaymentAmount = Math.max(0, Number(invoiceData.initialPaymentAmount || 0));
+    const fullAmountDue = isInvoiceFullPaymentDue(invoiceData.eventDate);
+    const amountValue = isBalance
+      ? (liveBalanceDue || Number(invoiceData.balanceDue || 0))
+      : fullAmountDue
+        ? (liveBalanceDue || liveTotal || Number(invoiceData.total || 0))
+        : firstPaymentAmount > 0
+          ? Math.min(firstPaymentAmount, liveBalanceDue || firstPaymentAmount)
+          : (liveBalanceDue || liveTotal || Number(invoiceData.total || 0));
     const { data: companyCurrencyRow } = await supabase
       .from("companies")
       .select("currency")
@@ -1762,6 +1843,9 @@ export async function sendInvoiceEmail(
     // their own currency prefix. Global defaults use {{amount}}.
     const amountBare = amountValue.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const eventLabel = (invoiceData as any).eventName || invoiceData.orderNumber || "your event";
+    const totalAmountLabel = formatInvoiceMoney(liveTotal || Number(invoiceData.total || 0), amountCurrency);
+    const paidToDateLabel = formatInvoiceMoney(liveAmountPaid, amountCurrency);
+    const remainingBalanceLabel = formatInvoiceMoney(liveBalanceDue, amountCurrency);
 
     // TIGHTEN I.114: resolve the invoice's public_token + build the
     // /pay/i/{token} link so the fallback body's {{invoice_link}}
@@ -1792,7 +1876,8 @@ export async function sendInvoiceEmail(
     const fallbackBody =
       options.body ||
       `Hi {{first_name}},\n\n` +
-      `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
+      `{{tenant_name}} sent a payment request for {{event_name}}. Amount due now: {{amount}}.\n\n` +
+      `Invoice total: {{total_amount}}. Paid to date: {{paid_to_date}}. Remaining balance: {{remaining_balance}}.\n\n` +
       `Pay or download a copy here: {{invoice_link}}\n\n` +
       `Thanks,\n{{tenant_name}}`;
 
@@ -1820,6 +1905,10 @@ export async function sendInvoiceEmail(
           amount: amountLabel,
           deposit_amount: isBalance ? "" : amountBare,
           balance_amount: isBalance ? amountBare : "",
+          total_amount: totalAmountLabel,
+          paid_to_date: paidToDateLabel,
+          remaining_balance: remainingBalanceLabel,
+          first_payment_amount: formatInvoiceMoney(firstPaymentAmount || amountValue, amountCurrency),
           // TIGHTEN I.114: always-current /pay/i/{token} URL.
           invoice_link: invoiceLink,
           order_url: orderLink,

@@ -1,3 +1,4 @@
+import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FIX (2026-06-12): GET /api/public/invoices/[token]/get
@@ -29,6 +30,7 @@ import {
   isUuid,
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getPublicPaymentAvailability } from "@/lib/paymentService";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
@@ -113,10 +115,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { data, error } = await supabase
     .from("invoices")
     .select(`
-      id, public_token, invoice_number, invoice_date, due_date, order_id,
+      id, public_token, invoice_number, invoice_date, due_date, order_id, currency,
       total_amount, amount_paid, balance_due, status, invoice_data,
       companies:company_id (
-        id, slug, company_name, logo_url, email, phone_number:phone,
+        id, slug, company_name, logo_url, email, phone_number:phone, currency,
         vat_registered, vat_number, vat_rate, deposit_percent, registration_number,
         bank_name, bank_account_holder, bank_account_number, bank_branch_code,
         bank_account_type, eft_instructions,
@@ -144,19 +146,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const snapshotItems = asArray(invoiceData.items);
   const hasMenuSnapshot = asArray(invoiceData.menuItems).length > 0 || asArray(invoiceData.menu_items).length > 0;
   const hasEquipmentSnapshot = asArray(invoiceData.equipmentItems).length > 0 || asArray(invoiceData.equipment_items).length > 0;
+  // Keep the currency decision identical to /api/payments/create-session:
+  // order currency first, then invoice currency, then ZAR.
+  let paymentCurrency = String(invoiceForResponse.currency || "ZAR").toUpperCase();
 
   if (invoiceForResponse.order_id) {
     const { data: orderMeta } = await supabase
       .from("orders")
-      .select("id, quote_id, package_id, event_date")
+      .select("id, quote_id, package_id, event_date, deposit_amount, currency")
       .eq("id", invoiceForResponse.order_id)
       .maybeSingle();
+
+    if ((orderMeta as any)?.currency) {
+      paymentCurrency = String((orderMeta as any).currency).toUpperCase();
+    }
 
     // Older invoice snapshots did not consistently carry eventDate.
     // The client view needs it to suppress the deposit offer once the
     // event is today/past, so hydrate it from the canonical order row.
     if (!invoiceData.eventDate && !invoiceData.event_date && (orderMeta as any)?.event_date) {
       invoiceData.eventDate = (orderMeta as any).event_date;
+    }
+    if ((orderMeta as any)?.deposit_amount != null) {
+      invoiceData.initialPaymentAmount = Number((orderMeta as any).deposit_amount);
     }
 
     let quoteMenuItems: any[] = [];
@@ -220,10 +232,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // running total. Ordered oldest-first so the deposit reads first.
   const { data: payments } = await supabase
     .from("payments")
-    .select("amount, processed_at, payment_status, payment_type, gateway_provider")
+    .select("amount, processed_at, payment_status, payment_type, payment_method, gateway_provider")
     .eq("invoice_id", (data as any).id)
     .eq("payment_status", "completed")
     .order("processed_at", { ascending: true });
+
+  const company = invoiceForResponse.companies || {};
+  const snapshotBank = invoiceData.bankDetails || {};
+  const paymentAvailability = company.id
+    ? await getPublicPaymentAvailability(company.id, paymentCurrency)
+    : { provider: null, online_available: false, unavailable_reason: "not_configured" as const };
+  invoiceForResponse = {
+    ...invoiceForResponse,
+    payment_currency: paymentCurrency,
+    payment_options: {
+      ...paymentAvailability,
+      eft_available: resolveCompanyEftDetails(company, snapshotBank).available,
+    },
+  };
 
   return res.status(200).json({ ok: true, invoice: { ...invoiceForResponse, payments: payments || [] } });
 }

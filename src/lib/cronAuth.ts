@@ -32,24 +32,12 @@ export interface CronAuthFail {
   ok: false;
 }
 
-// Fallback cron secret. A MISSING CRON_SECRET env used to silently 401
-// every cron fire - which is exactly how the email queue got stuck for
-// weeks (the worker never ran, so queued emails never sent). The env var
-// STILL wins in production; this default only kicks in when the env is
-// absent, so a forgotten/cleared env never disables the whole cron layer.
-//
-// IMPORTANT for the scheduled Vercel cron: Vercel only attaches the
-// `Authorization: Bearer <CRON_SECRET>` header when the CRON_SECRET env is
-// set. So for the *scheduled* worker to authenticate, set CRON_SECRET in
-// Vercel to THIS value (or any value). The default keeps manual + external
-// triggers (curl / cron-job.org with the known value) working regardless.
-const DEFAULT_CRON_SECRET = "8faf9fa241e2fbf0848ef76a18723e7a4230e6eec50869519b8547588658ce95";
-
+// Scheduled callers must use a private CRON_SECRET configured in the deployment.
 export async function requireCronAuth(
   req: NextApiRequest,
   res: NextApiResponse,
 ): Promise<CronAuthOk | CronAuthFail> {
-  const expected = process.env.CRON_SECRET || DEFAULT_CRON_SECRET;
+  const expected = process.env.CRON_SECRET?.trim() || "";
   const auth = req.headers.authorization || "";
   if (expected && auth === `Bearer ${expected}`) {
     return { ok: true, source: "cron" };
@@ -61,10 +49,10 @@ export async function requireCronAuth(
     if (user) {
       const { data: profile } = await ssr
         .from("profiles")
-        .select("role, active_role")
+        .select("role")
         .eq("id", user.id)
         .maybeSingle();
-      const role = ((profile as any)?.active_role || (profile as any)?.role || "") as string;
+      const role = (profile?.role || "") as string;
       if (role === "super_admin") {
         return { ok: true, source: "super_admin" };
       }

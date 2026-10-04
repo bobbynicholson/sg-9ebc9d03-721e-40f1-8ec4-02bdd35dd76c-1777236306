@@ -38,7 +38,7 @@ export interface PayFastSubscriptionParams {
 /** PHP-urlencode equivalent that PayFast signs against. The one
  *  difference from encodeURIComponent that matters: spaces must be
  *  '+', not '%20'. */
-function pfUrlEncode(value: string): string {
+export function pfUrlEncode(value: string): string {
   // PayFast follows PHP's urlencode (RFC 1738), which differs from
   // encodeURIComponent for spaces and the punctuation characters ! ' ( ) *.
   // The latter are left unescaped by JavaScript but must be percent-encoded
@@ -46,7 +46,7 @@ function pfUrlEncode(value: string): string {
   // produces the gateway's "signature does not match" error.
   return encodeURIComponent(value.trim())
     .replace(/%20/g, "+")
-    .replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+    .replace(/[!'()*~]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
 export class PayFastService {
@@ -348,51 +348,53 @@ export class PayFastService {
    * and `version` headers participate in the signature alongside the
    * body params.
    *
-   * TODO: PayFast's public refund API spec is not exhaustively documented
-   * at https://developers.payfast.co.za/api - the field names below
-   * (`amount`, `reason`) match common community implementations but should
-   * be re-verified against PayFast's onboarded merchant documentation.
-   * The amount unit is sent as cents (integer); confirm before going live.
+   * Uses the documented REST signature, cents amount and buyer notification.
+   * The caller queries refund eligibility before claiming/sending a refund.
+   * Reference: https://developers.payfast.co.za/api (Refunds).
    */
+  async queryRefundAvailability(pfPaymentId: string): Promise<{ ok: boolean; status: number; body: any; error?: string }> {
+    if (this.config.testMode) return { ok: false, status: 400, body: null, error: "PayFast refunds are not supported in sandbox mode" };
+    if (!pfPaymentId || !this.config.passphrase) return { ok: false, status: 400, body: null, error: "Refund transaction ID and merchant API passphrase are required" };
+    try {
+      const response = await fetch(`https://api.payfast.co.za/refunds/query/${encodeURIComponent(pfPaymentId)}`, {
+        headers: this.subscriptionHeaders(), signal: AbortSignal.timeout(10000),
+      });
+      const parsed = await response.json();
+      if (!response.ok) return { ok: false, status: response.status, body: parsed, error: `PayFast refund query HTTP ${response.status}` };
+      const availability = parsed?.data?.response || parsed;
+      if (!availability || !["REFUNDABLE", "COMPLETED", "NOT_AVAILABLE"].includes(availability.status)) {
+        return { ok: false, status: 0, body: parsed, error: "PayFast returned an unrecognized refund query response" };
+      }
+      return { ok: true, status: response.status, body: availability };
+    } catch (error: any) {
+      return { ok: false, status: 0, body: null, error: error?.message || "PayFast refund query failed" };
+    }
+  }
+
   async refundTransaction(
     pfPaymentId: string,
     amountCents: number,
     reason: string,
   ): Promise<{ ok: boolean; status: number; body: any; error?: string }> {
+    if (this.config.testMode) return { ok: false, status: 400, body: null, error: "PayFast refunds are not supported in sandbox mode" };
+    if (!pfPaymentId || !Number.isSafeInteger(amountCents) || amountCents <= 0 || !this.config.passphrase) {
+      return { ok: false, status: 400, body: null, error: "Invalid refund transaction, amount or API passphrase" };
+    }
     try {
-      const baseHost = this.config.testMode
-        ? "https://sandbox.payfast.co.za"
-        : "https://api.payfast.co.za";
-      const url = `${baseHost}/refunds/${encodeURIComponent(pfPaymentId)}`;
-      const timestamp = new Date().toISOString();
-
-      // Body params PayFast expects in the refund call. PayFast docs are
-      // thin on this endpoint - if your account requires additional
-      // fields (e.g. `merchant_reference`, `currency`) extend this map.
+      const url = `https://api.payfast.co.za/refunds/${encodeURIComponent(pfPaymentId)}`;
       const bodyParams: Record<string, string> = {
-        amount: String(Math.max(0, Math.round(amountCents))),
-        reason: (reason || "").slice(0, 255),
+        amount: String(amountCents),
+        reason: String(reason || "Refund").trim().length >= 3 ? String(reason || "Refund").trim().slice(0, 255) : "Refund",
+        notify_buyer: "1",
       };
-
-      // Signature params include the auth headers PayFast verifies.
-      const signParams: Record<string, string> = {
-        ...bodyParams,
-        "merchant-id": this.config.merchantId,
-        version: "v1",
-        timestamp,
-      };
-      const signature = this.generateSignature(signParams);
-
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          "merchant-id": this.config.merchantId,
-          version: "v1",
-          timestamp,
-          signature,
+          ...this.subscriptionHeaders(bodyParams),
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams(bodyParams).toString(),
+        signal: AbortSignal.timeout(15000),
       });
 
       let parsed: any = null;
@@ -415,7 +417,14 @@ export class PayFastService {
         };
       }
 
-      return { ok: true, status: response.status, body: parsed };
+      // HTTP 200 alone is insufficient. Only the provider's explicit
+      // affirmative response permits the ledger to record a paid refund.
+      if (parsed?.status === "success" && parsed?.data?.response === true) {
+        return { ok: true, status: response.status, body: parsed };
+      }
+      const rejected = parsed?.data?.response === false || parsed?.status === "failed";
+      return { ok: false, status: rejected ? 400 : 0, body: parsed,
+        error: rejected ? String(parsed?.data?.message || "PayFast rejected the refund") : "PayFast refund response did not confirm its outcome" };
     } catch (error: any) {
       console.error("PayFast refund error:", error);
       return {
@@ -617,6 +626,7 @@ export interface PayFastFormInput {
   customStr3?: string;
   customStr4?: string;
   customStr5?: string;
+  merchantPaymentId?: string;
 }
 
 export function generatePayFastPaymentForm(input: PayFastFormInput): string {
@@ -639,6 +649,7 @@ export function generatePayFastPaymentForm(input: PayFastFormInput): string {
     amount: input.amount.toFixed(2),
     item_name: input.itemName,
   };
+  if (input.merchantPaymentId) params.m_payment_id = input.merchantPaymentId;
   if (input.customStr1) params.custom_str1 = input.customStr1;
   if (input.customStr2) params.custom_str2 = input.customStr2;
   if (input.customStr3) params.custom_str3 = input.customStr3;
@@ -791,115 +802,65 @@ export function getOrderModificationStatus(
   };
 }
 
-/**
- * Fetch successful PayFast transactions for a merchant in the
- * trailing N days. Used by the reconcile-payfast cron (P1-40) to
- * recover any payments where the IPN was lost.
- *
- * STUB: PayFast's Query / Transaction History API surface is
- * documented but per-merchant-tier and changes between sandbox /
- * live. Wiring needs the real-tier credentials + a PayFast spec
- * sample. Until that lands, this returns an empty array; the cron
- * still runs through its full pipeline (auth, gateway lookup,
- * dedup, replay-via-RPC, audit log) so the moment the upstream
- * fetch returns real data, recovery starts working with no other
- * code change.
- */
-export async function fetchRecentPayFastTransactions(
-  credentials: {
-    merchantId: string;
-    passphrase?: string;
-    isTest?: boolean;
-  },
-  lookbackDays: number,
-): Promise<Array<{
+export interface PayFastHistoryTransaction {
   pf_payment_id: string;
   m_payment_id: string;
   amount_gross: string | number;
+  currency: string;
   payment_status: string;
-  custom_str1?: string;
-  custom_str2?: string;
-  custom_str3?: string;
-  custom_str4?: string;
-}>> {
-  // PayFast's history endpoint returns CSV inside a JSON response. The
-  // API signature covers the alphabetized headers AND query parameters;
-  // signing only `from` and `to` causes a 401 and silently disables every
-  // missed-payment reconciliation attempt.
-  try {
-    if (!credentials?.merchantId) {
-      console.warn("[payfastService] history call skipped - no merchantId");
-      return [];
-    }
-    const now = new Date();
-    const from = new Date(now.getTime() - lookbackDays * 86400 * 1000);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const timestamp = now.toISOString().replace(/\.\d+Z$/, "+00:00");
-    const queryParams: Record<string, string> = {
-      from: fmt(from),
-      to: fmt(now),
-    };
-    const headersToSign = {
-      "merchant-id": credentials.merchantId,
-      version: "v1",
-      timestamp,
-    };
-    const signature = generatePayFastApiSignature(
-      { ...headersToSign, ...queryParams },
-      credentials.passphrase,
-    );
-    const url = new URL("https://api.payfast.co.za/transactions/history");
-    for (const [key, value] of Object.entries(queryParams)) url.searchParams.set(key, value);
-    // The API requires this query flag for sandbox accounts, but explicitly
-    // excludes it from the signature input.
-    if (credentials.isTest) url.searchParams.set("testing", "true");
-
-    const resp = await fetch(url, {
-      method: "GET",
-      headers: {
-        ...headersToSign,
-        signature,
-      },
-      signal: AbortSignal.timeout(15000),
-    });
-
-    if (!resp.ok) {
-      console.warn(
-        "[payfastService] history call returned",
-        resp.status,
-      );
-      return [];
-    }
-    const body: any = await resp.json().catch(() => null);
-    const payload = body?.data?.response ?? body?.response ?? body?.data ?? body;
-    const list: any[] = Array.isArray(payload)
-      ? payload
-      : typeof payload === "string"
-        ? parsePayFastCsv(payload)
-        : [];
-
-    return list.map((raw) => {
-      const row = normalizePayFastHistoryRow(raw);
-      const transactionType = String(row.type || "").toUpperCase();
-      const sign = String(row.sign || "").toUpperCase();
-      const status = String(row.payment_status || row.status || "").toUpperCase();
-      const successful = ["COMPLETE", "SUCCESSFUL"].includes(status)
-        || (transactionType === "FUNDS_RECEIVED" && sign !== "DEBIT");
-      return {
-        pf_payment_id: String(row.pf_payment_id || row.pf_payment_id_ || row.id || ""),
-        m_payment_id: String(row.m_payment_id || row.merchant_reference || ""),
-        amount_gross: row.amount_gross ?? row.gross ?? row.amount ?? 0,
-        payment_status: successful ? "COMPLETE" : status || transactionType,
-        custom_str1: row.custom_str1,
-        custom_str2: row.custom_str2,
-        custom_str3: row.custom_str3,
-        custom_str4: row.custom_str4,
-      };
-    }).filter((row) => row.pf_payment_id && row.payment_status === "COMPLETE");
-  } catch (e) {
-    console.warn("[payfastService] history fetch crashed:", e);
-    return [];
+  custom_str1?: string; custom_str2?: string; custom_str3?: string;
+  custom_str4?: string; custom_str5?: string;
+}
+export interface PayFastHistoryCredentials { merchantId: string; passphrase?: string; isTest?: boolean }
+/** Authenticated merchant history. An upstream error must never look like an empty successful scan. */
+export async function fetchPayFastHistoryPage(
+  credentials: PayFastHistoryCredentials,
+  range: { from: string; to: string; offset: number; limit: number },
+): Promise<{ transactions: PayFastHistoryTransaction[]; rawCount: number }> {
+  if (!credentials.merchantId) throw new Error("PayFast merchant ID missing");
+  const headersToSign = { "merchant-id": credentials.merchantId, version: "v1",
+    timestamp: new Date().toISOString().replace(/\.\d+Z$/, "+00:00") };
+  const query = { from: range.from, to: range.to, offset: String(range.offset), limit: String(range.limit) };
+  const url = new URL("https://api.payfast.co.za/transactions/history");
+  Object.entries(query).forEach(([key, value]) => url.searchParams.set(key, value));
+  if (credentials.isTest) url.searchParams.set("testing", "true");
+  const response = await fetch(url, { headers: { ...headersToSign,
+    signature: generatePayFastApiSignature({ ...headersToSign, ...query }, credentials.passphrase) },
+    signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`PayFast history HTTP ${response.status}`);
+  const body = await response.json();
+  if (body?.status === "failed" || Number(body?.code || 200) >= 400) throw new Error("PayFast history rejected request");
+  const payload = body?.data?.response ?? body?.response ?? body?.data ?? body;
+  if (!Array.isArray(payload) && typeof payload !== "string") throw new Error("Unexpected PayFast history response");
+  const list = Array.isArray(payload) ? payload : parsePayFastCsv(payload);
+  const transactions = list.map((raw): PayFastHistoryTransaction => {
+    const row = normalizePayFastHistoryRow(raw);
+    const type = String(row.type || "").toUpperCase();
+    const sign = String(row.sign || "").toUpperCase();
+    const status = String(row.payment_status || row.status || "").toUpperCase();
+    const amount = row.amount_gross ?? row.gross ?? row.amount;
+    const complete = sign !== "DEBIT" && Number(amount) > 0 &&
+      (["COMPLETE", "SUCCESSFUL"].includes(status) || type === "FUNDS_RECEIVED");
+    return { pf_payment_id: String(row.pf_payment_id || row.id || ""),
+      m_payment_id: String(row.m_payment_id || row.merchant_reference || ""),
+      amount_gross: amount, currency: String(row.currency || "ZAR").toUpperCase(),
+      payment_status: complete ? "COMPLETE" : status || type,
+      custom_str1: row.custom_str1, custom_str2: row.custom_str2, custom_str3: row.custom_str3,
+      custom_str4: row.custom_str4, custom_str5: row.custom_str5 };
+  }).filter((row) => row.pf_payment_id && row.payment_status === "COMPLETE");
+  return { transactions, rawCount: list.length };
+}
+/** Bounded convenience scan. Recovery workers persist their date/page cursor separately. */
+export async function fetchRecentPayFastTransactions(credentials: PayFastHistoryCredentials, lookbackDays: number) {
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - lookbackDays * 86400000).toISOString().slice(0, 10);
+  const transactions: PayFastHistoryTransaction[] = [];
+  for (let offset = 0; offset < 10000; offset += 1000) {
+    const page = await fetchPayFastHistoryPage(credentials, { from, to, offset, limit: 1000 });
+    transactions.push(...page.transactions);
+    if (page.rawCount < 1000) return transactions;
   }
+  throw new Error("PayFast history exceeds convenience scan; use the paginated recovery worker");
 }
 
 /** Query PayFast's source of truth for one payment found in transaction history. */
@@ -985,7 +946,12 @@ function parsePayFastCsv(csv: string): Array<Record<string, string>> {
     }
   }
   if (value !== "" || row.length) { row.push(value); rows.push(row); }
-  if (rows.length < 2) return [];
+  if (quoted) throw new Error("Malformed PayFast history CSV");
+  if (rows.length === 0) return [];
   const headers = rows[0].map((header) => header.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""));
+  if (!headers.some((header) => ["pf_payment_id", "id"].includes(header)) ||
+      !headers.some((header) => ["gross", "amount_gross", "amount"].includes(header))) {
+    throw new Error("Unexpected PayFast history CSV headers");
+  }
   return rows.slice(1).map((cells) => Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""])));
 }

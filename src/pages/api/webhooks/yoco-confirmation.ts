@@ -3,7 +3,8 @@
  *
  * Tenants who pick Yoco in /admin/payment-gateways have their
  * webhookSecret stored in payment_gateway_credentials. Yoco signs
- * webhooks with HMAC-SHA256 over the raw body using that secret.
+ * webhooks with HMAC-SHA256 over id.timestamp.rawBody using the
+ * base64-decoded secret.
  * Idempotency on the Yoco transaction id mirrors the PayFast IPN
  * pattern in payment-confirmation.ts - DO NOT modify that file from
  * here, the PayFast path is owned separately.
@@ -18,7 +19,7 @@
  *       amount: 12500,            // cents
  *       currency: "ZAR",
  *       metadata: {
- *         orderId, paymentType, companyId
+ *         checkoutId // Other metadata is optional; saved attempt owns routing.
  *       }
  *     }
  *   }
@@ -26,12 +27,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyYocoSignature } from "@/lib/yocoService";
-import { paymentGatewayService } from "@/services/paymentGatewayService";
+import { getCheckoutGatewayCredentials } from "@/lib/checkoutGatewayCredentials";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { paymentProcessingService } from "@/services/paymentProcessingService";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { settleTenantGatewayPayment, TenantGatewaySettlementError } from "@/lib/tenantGatewaySettlement";
-import { getPaymentAttemptByReference, markPaymentAttemptSucceeded, touchPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { getPaymentAttemptByReference, touchPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
 import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 
 
@@ -41,7 +41,13 @@ export const config = { api: { bodyParser: false } };
 async function readRawBody(req: NextApiRequest): Promise<string> {
   return await new Promise<string>((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+    let size = 0;
+    req.on("data", (c) => {
+      const chunk = Buffer.isBuffer(c) ? c : Buffer.from(c);
+      size += chunk.length;
+      if (size > 1024 * 1024) return reject(new TenantGatewaySettlementError("Yoco event body is too large", 413));
+      chunks.push(chunk);
+    });
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
     req.on("error", reject);
   });
@@ -56,84 +62,67 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let raw = "";
   try {
     raw = await readRawBody(req);
-    const event = JSON.parse(raw) as {
-      type?: string;
-      payload?: {
-        id?: string;
-        status?: string;
-        amount?: number;
-        currency?: string;
-        metadata?: Record<string, string>;
-      };
-    };
-
-    const payload = event.payload || {};
+    let event: any;
+    try { event = JSON.parse(raw); }
+    catch { return res.status(400).json({ error: "Invalid JSON body" }); }
+    if (!event || typeof event !== "object" || !event.payload || typeof event.payload !== "object") {
+      return res.status(400).json({ error: "Invalid Yoco event" });
+    }
+    const payload = event.payload;
     const metadata = payload.metadata || {};
-    const orderId = metadata.orderId;
-    const companyId = metadata.companyId;
-    const paymentType = (metadata.paymentType || "").toLowerCase();
-    const yocoTxId = payload.id;
-    const attemptId = metadata.paymentAttemptId || null;
-
-    if (!orderId || !companyId) {
-      return res.status(400).json({ error: "Missing orderId/companyId metadata" });
-    }
-    if (!yocoTxId) {
-      return res.status(400).json({ error: "Missing Yoco payload id" });
-    }
-
-    // Resolve tenant credentials so we can verify the signature with
-    // the account that created this checkout, even if the owner changed
-    // the active provider while the customer was in the hosted checkout.
+    const eventType = String(event.type || "").toLowerCase();
+    const checkoutId = typeof metadata.checkoutId === "string" ? metadata.checkoutId : "";
+    const providedAttemptId = typeof metadata.paymentAttemptId === "string" ? metadata.paymentAttemptId : "";
+    if (!providedAttemptId && !checkoutId) return res.status(eventType.startsWith("payment.") ? 400 : 200)
+      .json({ message: "Event has no tracked checkout reference" });
     const sb = getServiceSupabase();
-    const paymentAttempt = attemptId
-      ? await getPaymentAttemptByReference("yoco", attemptId)
-      : null;
-    if (attemptId && (!paymentAttempt || paymentAttempt.company_id !== companyId)) {
-      return res.status(400).json({ error: "Yoco payment attempt does not match this tenant" });
+    const paymentAttempt = await getPaymentAttemptByReference("yoco", providedAttemptId || checkoutId);
+    if (!paymentAttempt) {
+      // A callback may beat the session attach. Ask Yoco to retry it rather
+      // than acknowledging a payment that cannot yet be tracked.
+      if (eventType.startsWith("payment.")) return res.status(503).json({ error: "Yoco checkout tracking is not available yet" });
+      return res.status(200).json({ message: "Ignored unrelated event" });
     }
-    const savedGatewayId = String(paymentAttempt?.metadata?.gatewayId || "");
-    const active = savedGatewayId
-      ? await paymentGatewayService.getByIdWithCredentials(savedGatewayId, sb, true)
-      : await paymentGatewayService.getActiveWithCredentials(companyId, sb);
-    if (
-      !active ||
-      active.gateway.company_id !== companyId ||
-      active.gateway.provider !== "yoco"
-    ) {
-      return res.status(400).json({ error: "Yoco not active for this company" });
+    const companyId = paymentAttempt.company_id;
+    const paymentType = paymentAttempt.payment_type;
+    const orderId = paymentType === "invoice" ? paymentAttempt.invoice_id : paymentAttempt.order_id;
+    const attemptId = paymentAttempt.id;
+    const yocoTxId = typeof payload.id === "string" ? payload.id : "";
+    const savedGatewayId = String(paymentAttempt.metadata?.gatewayId || "");
+    const active = await getCheckoutGatewayCredentials(sb, paymentAttempt, savedGatewayId);
+    if (!active || active.gateway.company_id !== companyId || active.gateway.provider !== "yoco") {
+      return res.status(503).json({ error: "Could not load the original Yoco checkout account" });
     }
-    const webhookSecret = active.credentials.webhookSecret || "";
-
-    // Signature gate. Audit (May 2026, Wave 6): the previous code
-    // accepted unsigned bodies when no secret was configured, with
-    // only a console.warn. Any attacker who knew the public webhook
-    // URL could mark orders paid by POSTing fabricated metadata.
-    // Now: fail closed in production. Sandbox / dev (NODE_ENV !==
-    // 'production') still tolerates missing secrets so test events
-    // can flow, but production refuses unsigned requests outright.
-    if (webhookSecret) {
-      const sigHeader =
-        (req.headers["webhook-signature"] as string | undefined) ||
-        (req.headers["yoco-signature"] as string | undefined);
-      if (!verifyYocoSignature(raw, sigHeader, webhookSecret)) {
-        return res.status(401).json({ error: "Invalid Yoco signature" });
-      }
-    } else if (process.env.NODE_ENV === "production") {
-      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} - REJECTING (production)`);
-      return res.status(401).json({
-        error: "Yoco webhook secret is not configured for this tenant. Set it in Settings -> Payment Gateways before going live.",
-      });
-    } else {
-      console.warn(`[yoco-webhook] no webhookSecret for company ${companyId} - accepting unsigned (non-prod)`);
+    const header = (name: string) => typeof req.headers[name] === "string" ? req.headers[name] as string : undefined;
+    if (!verifyYocoSignature(raw, header("webhook-signature"), active.credentials.webhookSecret || "",
+      header("webhook-id"), header("webhook-timestamp"))) {
+      return res.status(401).json({ error: "Invalid Yoco signature or timestamp" });
+    }
+    if (metadata.companyId && metadata.companyId !== companyId || metadata.orderId && metadata.orderId !== orderId ||
+      metadata.paymentType && metadata.paymentType !== paymentType || metadata.invoiceId && metadata.invoiceId !== paymentAttempt.invoice_id) {
+      return res.status(400).json({ error: "Yoco metadata does not match the saved checkout" });
+    }
+    if (checkoutId && checkoutId !== paymentAttempt.provider_session_id) {
+      return res.status(paymentAttempt.provider_session_id === attemptId ? 503 : 400).json({ error: "Yoco checkout ID does not match the saved session" });
+    }
+    if (payload.mode && payload.mode !== (active.gateway.is_test ? "test" : "live")) {
+      return res.status(400).json({ error: "Yoco payment mode does not match the checkout account" });
+    }
+    // Refund success must never be added as new incoming money. Unknown
+    // event families cannot change a checkout's financial state either.
+    if (!["payment.succeeded", "payment.failed", "payment.cancelled", "payment.expired", "payment.pending", "payment.processing"].includes(eventType)) {
+      return res.status(200).json({ message: "Ignored event type" });
+    }
+    if (!checkoutId || !yocoTxId || !orderId) return res.status(400).json({ error: "Missing Yoco checkout/payment reference" });
+    if (payload.type && payload.type !== "payment" || eventType === "payment.succeeded" && payload.status !== "succeeded") {
+      return res.status(400).json({ error: "Yoco event contains inconsistent payment status/type" });
     }
 
     // Do not turn intermediate provider events into failures. A later
     // signed success event must remain able to complete this attempt.
-    const eventType = (event.type || "").toLowerCase();
     const status = (payload.status || "").toLowerCase();
     const succeeded =
-      eventType.includes("succeeded") || status === "succeeded" || status === "successful";
+      eventType === "payment.succeeded" && status === "succeeded";
     if (!succeeded) {
       const terminalFailure =
         eventType.includes("failed") || eventType.includes("cancel") || eventType.includes("expired") ||
@@ -143,7 +132,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const transitioned = await transitionPaymentAttempt({
           provider: "yoco",
           attemptId: paymentAttempt?.id || attemptId,
-          providerSessionId: yocoTxId,
+          providerSessionId: checkoutId,
           status: terminalStatus,
           providerStatus: payload.status || event.type || "unknown",
           failureReason: `Yoco event/status: ${event.type || payload.status || "unknown"}`,
@@ -174,28 +163,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       companyId,
       orderId,
       paymentType,
-      invoiceId: metadata.invoiceId,
+      invoiceId: paymentAttempt.invoice_id,
       paymentAttempt,
       amount: amountInRands,
       currency: payload.currency || "ZAR",
     });
-    await markPaymentAttemptSucceeded({
-      provider: "yoco",
-      attemptId: paymentAttempt?.id || attemptId,
-      providerSessionId: yocoTxId,
-      providerStatus: payload.status || event.type || "succeeded",
-    });
+
 
     // Keep the existing best-effort reminders / receipt workflow for a
     // newly settled order. The ledger, order flags, and invoice were already
     // written with the service-role client above.
-    if (settlement.order && !settlement.duplicate) {
-      if (paymentType === "deposit") {
-        await paymentProcessingService.processDepositPayment(orderId, yocoTxId, "yoco", settlement.order.user_id);
-      } else if (paymentType === "balance") {
-        await paymentProcessingService.processBalancePayment(orderId, yocoTxId, "yoco", settlement.order.user_id);
-      }
-    }
     return res.status(200).json({ ok: true, duplicate: settlement.duplicate });
   } catch (e: any) {
     // Phase 6 follow-up: same rationale as PayFast webhook capture.
@@ -203,7 +180,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     captureException(e, {
       tags: { route: "/api/webhooks/yoco-confirmation", provider: "yoco" },
       level: "error",
-      extra: { raw_preview: raw.slice(0, 200) },
     });
     const statusCode = e instanceof TenantGatewaySettlementError ? e.statusCode : 500;
     return res.status(statusCode).json({ error: e?.message || "Yoco webhook failed" });

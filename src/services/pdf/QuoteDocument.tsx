@@ -74,6 +74,7 @@ export interface QuotePdfData {
   discount_amount?: number | null;
   tax_amount?: number | null;
   total: number;
+  initial_payment_amount?: number | null;
 
   valid_until?: string | null;
   terms_and_conditions?: string | null;
@@ -738,6 +739,18 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                   </Text>
                   <Text style={styles.grandTotalValue}>{fmtZAR(total)}</Text>
                 </View>
+                {Number(data.initial_payment_amount) > 0 ? (
+                  <>
+                    <View style={styles.totalsRow}>
+                      <Text style={styles.totalsLabel}>First payment requested</Text>
+                      <Text style={styles.totalsValue}>{fmtZAR(Number(data.initial_payment_amount))}</Text>
+                    </View>
+                    <View style={styles.totalsRow}>
+                      <Text style={styles.totalsLabel}>Remaining after first payment</Text>
+                      <Text style={styles.totalsValue}>{fmtZAR(Math.max(0, total - Number(data.initial_payment_amount)))}</Text>
+                    </View>
+                  </>
+                ) : null}
                 {incVat && tax > 0 ? (
                   <Text style={{ fontSize: 8, color: "#78716c", textAlign: "right", marginTop: 4 }}>
                     Includes VAT{company.vat_rate ? ` (${Number(company.vat_rate).toFixed(0)}%)` : ""} of {fmtZAR(tax)}

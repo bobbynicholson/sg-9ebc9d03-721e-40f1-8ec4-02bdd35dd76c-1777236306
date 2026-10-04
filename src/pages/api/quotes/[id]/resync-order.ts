@@ -186,6 +186,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       delivery_distance_km: (quote as any).delivery_distance_km ?? null,
       delivery_rate_per_km: (quote as any).delivery_rate_per_km ?? null,
       deposit_percentage:   (quote as any).deposit_percentage ?? null,
+      deposit_amount: (quote as any).initial_payment_amount != null
+        ? Math.max(0, Math.min(
+            Number((quote as any).total ?? (quote as any).total_amount) || 0,
+            Number((quote as any).initial_payment_amount) || 0,
+          ))
+        : undefined,
       region_id:       (quote as any).region_id ?? null,
     };
     const { error: updErr } = await sb

@@ -57,7 +57,7 @@
     },
     {
       "path": "/api/cron/reconcile-payfast",
-      "schedule": "0 4 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/reconcile-payment-attempts",
@@ -190,6 +190,10 @@
     {
       "path": "/api/cron/daily-operations",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-payment-events",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

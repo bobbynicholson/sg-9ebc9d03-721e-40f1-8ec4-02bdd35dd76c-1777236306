@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { isInvoiceFullPaymentDue } from "@/lib/invoiceClientView";
 
 export interface InvoiceSendDialogInvoice {
   id: string;
@@ -59,7 +60,15 @@ export function InvoiceSendDialog({
   // Don't fall back to the order number for {{event_name}} - "deposit
   // invoice for ORD-003841" reads broken. Use a generic phrase.
   const eventLabel = invoiceData.eventName || "your event";
-  const totalAmount = isBalance ? liveBalanceDue : (liveBalanceDue || liveTotal);
+  const initialPaymentAmount = Number(invoiceData.initialPaymentAmount) || 0;
+  const fullPaymentDue = isInvoiceFullPaymentDue(invoiceData.eventDate);
+  const totalAmount = isBalance
+    ? liveBalanceDue
+    : fullPaymentDue
+      ? (liveBalanceDue || liveTotal)
+      : initialPaymentAmount > 0
+      ? Math.min(initialPaymentAmount, liveBalanceDue || initialPaymentAmount)
+      : (liveBalanceDue || liveTotal);
   // Wave 66 - multi-currency parameterisation. Pre-Wave-66 the
   // amount label was hardcoded `R${totalAmount}` so any tenant in
   // the UK (£) / US ($) / Botswana (P) saw an "R" prefix in their
@@ -68,6 +77,9 @@ export function InvoiceSendDialog({
   const { user } = useAuth() as any;
   const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   const amountLabel = tenantCurrency.format(totalAmount);
+  const invoiceTotalLabel = tenantCurrency.format(liveTotal);
+  const paidToDateLabel = tenantCurrency.format(liveAmountPaid);
+  const remainingBalanceLabel = tenantCurrency.format(liveBalanceDue);
   // Bare numeric legacy form for tenant overrides that still hardcode
   // their own currency prefix. Global defaults use {{amount}}.
   const amountBare = totalAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -127,6 +139,10 @@ export function InvoiceSendDialog({
             amount: amountLabel,
             deposit_amount: isBalance ? "" : amountBare,
             balance_amount: isBalance ? amountBare : "",
+            total_amount: invoiceTotalLabel,
+            paid_to_date: paidToDateLabel,
+            remaining_balance: remainingBalanceLabel,
+            first_payment_amount: tenantCurrency.format(initialPaymentAmount || totalAmount),
             invoice_link: payLink,
             invoice_url: payLink,
           },
@@ -134,20 +150,24 @@ export function InvoiceSendDialog({
             subject: `Invoice ${invoiceNumber} ready - ${eventLabel}`,
             bodyHtml:
               `Hi {{first_name}},\n\n` +
-              `{{tenant_name}} issued invoice {{invoice_number}} for {{event_name}}. Total: {{amount}}.\n\n` +
+              `{{tenant_name}} issued a payment request for {{event_name}}. Amount due now: {{amount}}.\n\n` +
+              `Invoice total: {{total_amount}}. Paid to date: {{paid_to_date}}. Remaining balance: {{remaining_balance}}.\n\n` +
               `Pay or download here: {{invoice_link}}\n\n` +
               `Thanks,\n{{tenant_name}}`,
           },
         });
         if (!cancelled) {
-          setResolved({ subject: result.subject, body: result.bodyHtml });
+          const body = /paid to date/i.test(result.bodyHtml) && /remaining balance/i.test(result.bodyHtml)
+            ? result.bodyHtml
+            : `${result.bodyHtml}\n\nInvoice total: ${invoiceTotalLabel}\nPaid to date: ${paidToDateLabel}\nRemaining balance: ${remainingBalanceLabel}`;
+          setResolved({ subject: result.subject, body });
         }
       } catch (e) {
         console.warn("[InvoiceSendDialog] template resolve failed:", e);
         if (!cancelled) {
           setResolved({
             subject: `Invoice ${invoiceNumber} ready`,
-            body: `Hi ${firstName},\n\nPlease find your invoice attached.\n\nThanks.`,
+            body: `Hi ${firstName},\n\nPayment request for ${eventLabel}.\n\nInvoice total: ${invoiceTotalLabel}\nPaid to date: ${paidToDateLabel}\nRemaining balance: ${remainingBalanceLabel}\n\nThanks.`,
           });
         }
       } finally {
@@ -158,7 +178,7 @@ export function InvoiceSendDialog({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, invoice?.id, companyId, templateType, payLink]);
+  }, [open, invoice?.id, companyId, templateType, payLink, liveAmountPaid, liveBalanceDue, liveTotal, totalAmount, amountLabel, invoiceTotalLabel, paidToDateLabel, remainingBalanceLabel, initialPaymentAmount, eventLabel]);
 
   if (!invoice) return null;
 

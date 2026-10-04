@@ -198,97 +198,13 @@ export const paymentGatewayService = {
       return { ok: false, error: `Unsupported provider: ${input.provider}` };
     }
 
-    // Look up an existing non-deleted row for (company, provider).
-    const { data: existing, error: readErr } = await serviceClient
-      .from(TABLE)
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("provider", input.provider)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (readErr) {
-      return { ok: false, error: readErr.message };
-    }
-
-    let gatewayRow: PaymentGatewayMetadata | null = null;
-
-    if (existing?.id) {
-      const { data, error } = await serviceClient
-        .from(TABLE)
-        .update({
-          is_test: input.is_test,
-          success_url: input.success_url ?? null,
-          cancel_url: input.cancel_url ?? null,
-          notify_url: input.notify_url ?? null,
-          // Credential and mode changes invalidate the previous provider
-          // check; do not display an old success as current verification.
-          last_verified_at: null,
-          updated_by_user_id: actorUserId,
-        })
-        .eq("id", existing.id)
-        .select()
-        .single();
-      if (error) return { ok: false, error: error.message };
-      gatewayRow = data;
-    } else {
-      const { data, error } = await serviceClient
-        .from(TABLE)
-        .insert({
-          company_id: companyId,
-          provider: input.provider,
-          is_active: false,
-          is_test: input.is_test,
-          success_url: input.success_url ?? null,
-          cancel_url: input.cancel_url ?? null,
-          notify_url: input.notify_url ?? null,
-          created_by_user_id: actorUserId,
-          updated_by_user_id: actorUserId,
-        })
-        .select()
-        .single();
-      if (error) return { ok: false, error: error.message };
-      gatewayRow = data;
-    }
-
-    if (!gatewayRow) {
-      return { ok: false, error: "Upsert returned no row" };
-    }
-
-    // Credentials - one row per gateway_id (UNIQUE constraint).
-    const { data: existingCreds, error: credReadErr } = await serviceClient
-      .from(CREDS_TABLE)
-      .select("id, credentials")
-      .eq("gateway_id", gatewayRow.id)
-      .maybeSingle();
-    if (credReadErr) return { ok: false, error: credReadErr.message };
-
-    if (existingCreds?.id) {
-      // MERGE over the existing blob instead of replacing it. The edit
-      // dialog blanks every field and the API strips empties, so a
-      // replace silently dropped any secret the operator didn't re-type
-      // - most dangerously the Yoco webhookSecret (optional in the form),
-      // after which the webhook handler rejects every payment
-      // confirmation in live. Leaving a field blank now means "keep the
-      // stored value".
-      const merged = {
-        ...(existingCreds.credentials && typeof existingCreds.credentials === "object"
-          ? (existingCreds.credentials as Record<string, string>)
-          : {}),
-        ...input.credentials,
-      };
-      const { error: credErr } = await serviceClient
-        .from(CREDS_TABLE)
-        .update({ credentials: merged })
-        .eq("id", existingCreds.id);
-      if (credErr) return { ok: false, error: credErr.message };
-    } else {
-      const { error: credErr } = await serviceClient
-        .from(CREDS_TABLE)
-        .insert({ gateway_id: gatewayRow.id, credentials: input.credentials });
-      if (credErr) return { ok: false, error: credErr.message };
-    }
-
-    return { ok: true, gateway: toDTO(gatewayRow) };
+    const { data, error } = await serviceClient.rpc("configure_company_payment_gateway", {
+      p_company_id: companyId, p_actor_id: actorUserId, p_provider: input.provider,
+      p_is_test: input.is_test, p_credentials: input.credentials,
+      p_success_url: input.success_url || null, p_cancel_url: input.cancel_url || null, p_notify_url: input.notify_url || null,
+    });
+    if (error || !data) return { ok: false, error: error?.message || "Gateway save did not commit" };
+    return { ok: true, gateway: toDTO(data as PaymentGatewayMetadata) };
   },
 
   /**
@@ -303,37 +219,11 @@ export const paymentGatewayService = {
     actorUserId: string | null,
     serviceClient: SbAny,
   ): Promise<{ ok: boolean; gateway?: PaymentGatewayConfigDTO; error?: string }> {
-    // 1) Belt-and-braces: confirm this gateway belongs to the company.
-    const { data: row, error: lookupErr } = await serviceClient
-      .from(TABLE)
-      .select("id, company_id, deleted_at")
-      .eq("id", gatewayId)
-      .maybeSingle();
-    if (lookupErr) return { ok: false, error: lookupErr.message };
-    if (!row || row.company_id !== companyId || row.deleted_at) {
-      return { ok: false, error: "Gateway not found for this company" };
-    }
-
-    // 2) Deactivate everything else first to clear the partial unique
-    //    index, otherwise the activation update could fail.
-    const { error: deactErr } = await serviceClient
-      .from(TABLE)
-      .update({ is_active: false, updated_by_user_id: actorUserId })
-      .eq("company_id", companyId)
-      .neq("id", gatewayId)
-      .eq("is_active", true);
-    if (deactErr) return { ok: false, error: deactErr.message };
-
-    // 3) Activate the chosen one.
-    const { data, error } = await serviceClient
-      .from(TABLE)
-      .update({ is_active: true, updated_by_user_id: actorUserId })
-      .eq("id", gatewayId)
-      .select()
-      .single();
-    if (error) return { ok: false, error: error.message };
-
-    return { ok: true, gateway: toDTO(data) };
+    const { data, error } = await serviceClient.rpc("activate_company_payment_gateway", {
+      p_company_id: companyId, p_gateway_id: gatewayId, p_actor_id: actorUserId,
+    });
+    if (error || !data) return { ok: false, error: error?.message || "Gateway activation did not commit" };
+    return { ok: true, gateway: toDTO(data as PaymentGatewayMetadata) };
   },
 
   /**
@@ -430,32 +320,11 @@ export const paymentGatewayService = {
     gateway: PaymentGatewayMetadata;
     credentials: Record<string, string>;
   } | null> {
-    const { data: gateway, error } = await serviceClient
-      .from(TABLE)
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("is_active", true)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (error) {
-      console.error("[paymentGatewayService.getActiveWithCredentials] gw:", error);
-      return null;
-    }
-    if (!gateway) return null;
-
-    const { data: cred, error: credErr } = await serviceClient
-      .from(CREDS_TABLE)
-      .select("credentials")
-      .eq("gateway_id", (gateway as PaymentGatewayMetadata).id)
-      .maybeSingle();
-    if (credErr) {
-      console.error("[paymentGatewayService.getActiveWithCredentials] creds:", credErr);
-      return null;
-    }
-    return {
-      gateway: gateway as PaymentGatewayMetadata,
-      credentials: ((cred as any)?.credentials as Record<string, string>) || {},
-    };
+    const { data, error } = await serviceClient.rpc("read_payment_gateway_configuration", {
+      p_company_id: companyId, p_gateway_id: null, p_include_deleted: false,
+    });
+    if (error) throw new Error("Could not load company payment configuration");
+    return data || null;
   },
 
   /**
@@ -473,25 +342,11 @@ export const paymentGatewayService = {
     gateway: PaymentGatewayMetadata;
     credentials: Record<string, string>;
   } | null> {
-    let gatewayQuery = serviceClient
-      .from(TABLE)
-      .select("*")
-      .eq("id", gatewayId);
-    if (!includeDeleted) gatewayQuery = gatewayQuery.is("deleted_at", null);
-    const { data: gateway, error } = await gatewayQuery.maybeSingle();
-    if (error || !gateway) return null;
-
-    const { data: cred, error: credErr } = await serviceClient
-      .from(CREDS_TABLE)
-      .select("credentials")
-      .eq("gateway_id", gatewayId)
-      .maybeSingle();
-    if (credErr) console.error("[paymentGatewayService] gateway credentials lookup failed:", credErr);
-
-    return {
-      gateway: gateway as PaymentGatewayMetadata,
-      credentials: ((cred as any)?.credentials as Record<string, string>) || {},
-    };
+    const { data, error } = await serviceClient.rpc("read_payment_gateway_configuration", {
+      p_company_id: null, p_gateway_id: gatewayId, p_include_deleted: includeDeleted,
+    });
+    if (error) throw new Error("Could not load saved payment configuration");
+    return data || null;
   },
 
   /**

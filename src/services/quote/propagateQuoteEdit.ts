@@ -44,6 +44,7 @@ const QUOTE_TO_ORDER_MAP: Array<{ quoteKey: string; orderKey: string }> = [
   { quoteKey: "tax", orderKey: "tax" },
   { quoteKey: "total", orderKey: "total_amount" },
   { quoteKey: "deposit_percentage", orderKey: "deposit_percentage" },
+  { quoteKey: "initial_payment_amount", orderKey: "deposit_amount" },
   { quoteKey: "delivery_fee", orderKey: "delivery_fee" },
   { quoteKey: "delivery_distance_km", orderKey: "delivery_distance_km" },
   { quoteKey: "delivery_rate_per_km", orderKey: "delivery_rate_per_km" },

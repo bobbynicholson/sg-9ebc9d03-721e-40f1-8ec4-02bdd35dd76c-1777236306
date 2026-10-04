@@ -67,7 +67,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .select(`
         id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
         venue_address, menu_items, equipment_items, notes, terms_and_conditions,
-        subtotal, tax_amount, discount_amount, total, total_amount, status,
+        subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, status,
         delivery_fee, delivery_distance_km, delivery_rate_per_km,
         collection_fee, collection_distance_km, collection_rate_per_km,
         valid_until, accepted_at, updated_at,

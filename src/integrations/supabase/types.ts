@@ -7611,6 +7611,9 @@ export type Database = {
           processed_at: string | null
           reason: string | null
           refunded_at: string | null
+          refund_requested_at: string | null
+          refund_original_payment_id: string | null
+          refund_provider_reference: string | null
           transaction_id: string | null
           updated_at: string | null
           user_id: string | null
@@ -7640,6 +7643,9 @@ export type Database = {
           processed_at?: string | null
           reason?: string | null
           refunded_at?: string | null
+          refund_requested_at?: string | null
+          refund_original_payment_id?: string | null
+          refund_provider_reference?: string | null
           transaction_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -7669,6 +7675,9 @@ export type Database = {
           processed_at?: string | null
           reason?: string | null
           refunded_at?: string | null
+          refund_requested_at?: string | null
+          refund_original_payment_id?: string | null
+          refund_provider_reference?: string | null
           transaction_id?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -8529,6 +8538,7 @@ export type Database = {
           external_source: string | null
           guest_count: number | null
           id: string
+          initial_payment_amount: number | null
           import_job_id: string | null
           imported_at: string | null
           lead_id: string | null
@@ -8587,6 +8597,7 @@ export type Database = {
           external_source?: string | null
           guest_count?: number | null
           id?: string
+          initial_payment_amount?: number | null
           import_job_id?: string | null
           imported_at?: string | null
           lead_id?: string | null
@@ -8645,6 +8656,7 @@ export type Database = {
           external_source?: string | null
           guest_count?: number | null
           id?: string
+          initial_payment_amount?: number | null
           import_job_id?: string | null
           imported_at?: string | null
           lead_id?: string | null
@@ -11663,6 +11675,11 @@ export type Database = {
           p_order_id: string
           p_requested_amount: number
         }
+        Returns: Json
+      }
+      reconcile_company_refund: {
+        Args: { p_payment_id: string; p_company_id: string; p_actor_user_id: string;
+          p_outcome: string; p_provider_reference: string; p_evidence: string; p_paid_at?: string }
         Returns: Json
       }
       rotate_company_embed_token: {

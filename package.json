@@ -11,7 +11,11 @@
     "check:migration-rls": "node scripts/check-migration-rls.mjs",
     "check:realtime-channels": "node scripts/check-realtime-channels.mjs",
     "test": "jest --watch",
-    "test:ci": "jest --ci --coverage --passWithNoTests"
+    "test:payments": "jest --runInBand --testPathPatterns=\"(payment|Payment|refund|Refund|invoice|Invoice|payfast|PayFast|Eft|eft|yoco|Yoco)\"",
+    "test:payment-ledger": "node --test scripts/tests/payment-settlement.test.mjs",
+    "test:ci": "jest --ci --coverage --passWithNoTests",
+    "test:payment-postgres": "node scripts/tests/run-payment-postgres.mjs",
+    "test:payment-ui": "node node_modules/@playwright/test/cli.js test --config scripts/tests/payment-ui.config.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.1",
@@ -92,6 +96,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

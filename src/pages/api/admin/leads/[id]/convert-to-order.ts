@@ -285,6 +285,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       total_amount: q.total ?? q.total_amount ?? null,
       currency: q.currency ?? "ZAR",
       deposit_percentage: q.deposit_percentage ?? null,
+      deposit_amount: q.initial_payment_amount != null
+        ? Math.max(0, Math.min(
+            Number(q.total ?? q.total_amount) || 0,
+            Number(q.initial_payment_amount) || 0,
+          ))
+        : q.deposit_percentage != null && Number(q.deposit_percentage) > 0
+          ? Number((((Number(q.total ?? q.total_amount) || 0) * Number(q.deposit_percentage)) / 100).toFixed(2))
+          : null,
       delivery_fee: q.delivery_fee ?? null,
       delivery_distance_km: q.delivery_distance_km ?? null,
       delivery_rate_per_km: q.delivery_rate_per_km ?? null,

@@ -141,7 +141,7 @@ const LIGHT_QUOTE_SELECT = [
   "status", "source", "tags", "lost_reason",
   "lead_id", "client_id", "parent_quote_id", "prepared_by",
   "subtotal", "tax_amount", "discount_amount", "total_amount",
-  "deposit_percentage", "delivery_fee",
+  "deposit_percentage", "initial_payment_amount", "delivery_fee",
   "valid_until", "created_at", "updated_at", "sent_at",
   "accepted_at", "viewed_at", "rejected_at",
   "converted_to_order_id",
@@ -920,6 +920,17 @@ export const quoteService = {
       total_amount: q.total ?? q.total_amount ?? null,
       currency: resolvedCurrency,
       deposit_percentage: q.deposit_percentage ?? null,
+      // The quote's agreed first-payment amount takes precedence over
+      // recalculating a percentage at payment time. Older quotes without
+      // this value retain the percentage-based deposit behaviour.
+      deposit_amount: q.initial_payment_amount != null
+        ? Math.max(0, Math.min(
+            Number(q.total ?? q.total_amount) || 0,
+            Number(q.initial_payment_amount) || 0,
+          ))
+        : q.deposit_percentage != null && Number(q.deposit_percentage) > 0
+          ? Number((((Number(q.total ?? q.total_amount) || 0) * Number(q.deposit_percentage)) / 100).toFixed(2))
+          : null,
       // Delivery - carried forward so the agreed breakdown survives
       delivery_fee: q.delivery_fee ?? null,
       delivery_distance_km: q.delivery_distance_km ?? null,
@@ -1017,10 +1028,17 @@ export const quoteService = {
     if (options?.depositPaid && options.depositPaid.amount > 0) {
       const totalAmt = Number(orderData.total_amount) || 0;
       const paid = Number(options.depositPaid.amount);
+      const agreedDeposit = Number(orderData.deposit_amount) > 0
+        ? Number(orderData.deposit_amount)
+        : q.deposit_percentage != null && Number(q.deposit_percentage) > 0
+          ? Number((totalAmt * Number(q.deposit_percentage) / 100).toFixed(2))
+          : totalAmt;
+      const depositSatisfied = Math.round(paid * 100) >= Math.round(agreedDeposit * 100);
+      const paidAt = new Date().toISOString();
       orderData.amount_paid = paid;
-      orderData.deposit_paid = true;
-      orderData.deposit_paid_at = new Date().toISOString();
-      orderData.deposit_amount = paid;
+      orderData.deposit_paid = depositSatisfied;
+      orderData.deposit_paid_at = depositSatisfied ? paidAt : null;
+      orderData.deposit_amount = agreedDeposit;
       orderData.payment_reference = options.depositPaid.reference || null;
       orderData.balance_amount = Math.max(0, totalAmt - paid);
       depositEnumStamp = {

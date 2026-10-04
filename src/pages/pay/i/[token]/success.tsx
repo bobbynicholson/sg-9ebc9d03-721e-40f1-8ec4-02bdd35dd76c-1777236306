@@ -35,7 +35,7 @@ export default function InvoicePaymentSuccessPage() {
     }
     let cancelled = false;
     (async () => {
-      for (let check = 0; check < 12 && !cancelled; check += 1) {
+      for (let check = 0; check < 120 && !cancelled; check += 1) {
         try {
           const response = await fetch("/api/payments/confirm-return", {
             method: "POST",
@@ -53,7 +53,7 @@ export default function InvoicePaymentSuccessPage() {
         } catch {
           if (!cancelled) setPaymentState("pending");
         }
-        if (check < 11) await new Promise((resolve) => setTimeout(resolve, 2500));
+        if (check < 119) await new Promise((resolve) => setTimeout(resolve, check < 12 ? 2500 : 10000));
       }
     })();
     return () => { cancelled = true; };

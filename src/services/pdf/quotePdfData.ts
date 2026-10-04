@@ -149,6 +149,7 @@ export function buildQuotePdfDataFromRow(row: any): QuotePdfData {
     discount_amount: firstNumber(row?.discount_amount),
     tax_amount: firstNumber(row?.tax_amount),
     total: firstNumber(row?.total, row?.total_amount) ?? 0,
+    initial_payment_amount: firstNumber(row?.initial_payment_amount),
     valid_until: row?.valid_until ?? null,
     terms_and_conditions: row?.terms_and_conditions ?? null,
     notes: row?.notes ?? null,

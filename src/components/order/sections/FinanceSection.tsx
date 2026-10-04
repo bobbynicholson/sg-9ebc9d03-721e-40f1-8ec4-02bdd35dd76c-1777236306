@@ -11,9 +11,13 @@ import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import { Wallet, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Wallet, Loader2, CheckCircle2, AlertCircle, Send } from "lucide-react";
 import { SectionSkeleton } from "./SectionSkeleton";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { Button } from "@/components/ui/button";
+import { InvoiceSendDialog, type InvoiceSendDialogInvoice } from "@/components/billing/InvoiceSendDialog";
+import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   orderId: string;
@@ -33,14 +37,18 @@ interface OrderMoney {
   balance_amount: number | null;
   balance_paid: boolean | null;
   deposit_paid: boolean | null;
+  client_email?: string | null;
 }
 
 interface Payment {
   id: string;
   amount: number | null;
   payment_method: string | null;
+  gateway_provider?: string | null;
   payment_status: string | null;
   payment_date: string | null;
+  processed_at?: string | null;
+  created_at?: string | null;
   payment_reference: string | null;
   payment_type: string | null;
 }
@@ -50,7 +58,11 @@ const fmtZAR = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZA
 export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, highlight }: Props) {
   const [money, setMoney] = useState<OrderMoney | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [invoice, setInvoice] = useState<InvoiceSendDialogInvoice | null>(null);
+  const [sendRequestOpen, setSendRequestOpen] = useState(false);
+  const [creatingRequest, setCreatingRequest] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -59,17 +71,47 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       try {
         const { data: oData } = await (supabase as any)
           .from("orders")
-          .select("subtotal, tax_amount, total_amount, deposit_amount, amount_paid, payment_status, balance_amount, balance_paid, deposit_paid")
+          .select("subtotal, tax_amount, total_amount, deposit_amount, amount_paid, payment_status, balance_amount, balance_paid, deposit_paid, client_email")
           .eq("id", orderId)
           .maybeSingle();
         if (!cancelled) setMoney(oData as OrderMoney);
 
         const { data: pData } = await (supabase as any)
           .from("payments")
-          .select("id, amount, payment_method, payment_status, payment_date, payment_reference, payment_type")
+          .select("id, amount, payment_method, gateway_provider, payment_status, payment_date, processed_at, created_at, payment_reference, payment_type")
           .eq("order_id", orderId)
           .order("payment_date", { ascending: false });
-        if (!cancelled) setPayments((pData || []) as Payment[]);
+
+        const { data: invoiceData } = await (supabase as any)
+          .from("invoices")
+          .select("id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status")
+          .eq("order_id", orderId)
+          .is("deleted_at", null)
+          .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const { data: invoicePayments } = invoiceData?.id
+          ? await (supabase as any)
+              .from("payments")
+              .select("id, amount, payment_method, gateway_provider, payment_status, payment_date, processed_at, created_at, payment_reference, payment_type")
+              .eq("invoice_id", invoiceData.id)
+              .order("processed_at", { ascending: false })
+          : { data: [] };
+        const combinedPayments = Array.from(new Map(
+          [...(pData || []), ...(invoicePayments || [])].map((p: any) => [p.id, p]),
+        ).values()) as Payment[];
+        if (!cancelled) setPayments(combinedPayments);
+        if (!cancelled && invoiceData) {
+          setInvoice({
+            ...invoiceData,
+            invoice_data: {
+              ...(invoiceData.invoice_data || {}),
+              clientEmail: invoiceData.invoice_data?.clientEmail || oData?.client_email || "",
+              initialPaymentAmount: oData?.deposit_amount ?? invoiceData.invoice_data?.initialPaymentAmount ?? null,
+            },
+          } as InvoiceSendDialogInvoice);
+        }
       } catch (e: any) {
         captureException(e, { tags: { route: "/order/[id]", step: "loadFinanceSection", orderId, companyId } });
       } finally {
@@ -90,17 +132,46 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       const [{ data: oData }, { data: pData }] = await Promise.all([
         (supabase as any)
           .from("orders")
-          .select("subtotal, tax_amount, total_amount, deposit_amount, amount_paid, payment_status, balance_amount, balance_paid, deposit_paid")
+          .select("subtotal, tax_amount, total_amount, deposit_amount, amount_paid, payment_status, balance_amount, balance_paid, deposit_paid, client_email")
           .eq("id", orderId)
           .maybeSingle(),
         (supabase as any)
           .from("payments")
-          .select("id, amount, payment_method, payment_status, payment_date, payment_reference, payment_type")
+          .select("id, amount, payment_method, gateway_provider, payment_status, payment_date, processed_at, created_at, payment_reference, payment_type")
           .eq("order_id", orderId)
           .order("payment_date", { ascending: false }),
       ]);
       if (oData) setMoney(oData as OrderMoney);
-      setPayments((pData || []) as Payment[]);
+      const { data: invoiceData } = await (supabase as any)
+        .from("invoices")
+        .select("id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status")
+        .eq("order_id", orderId)
+        .is("deleted_at", null)
+        .in("status", ["draft", "sent", "overdue", "partially_paid", "paid"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const { data: invoicePayments } = invoiceData?.id
+        ? await (supabase as any)
+            .from("payments")
+            .select("id, amount, payment_method, gateway_provider, payment_status, payment_date, processed_at, created_at, payment_reference, payment_type")
+            .eq("invoice_id", invoiceData.id)
+            .order("processed_at", { ascending: false })
+        : { data: [] };
+      const combinedPayments = Array.from(new Map(
+        [...(pData || []), ...(invoicePayments || [])].map((p: any) => [p.id, p]),
+      ).values()) as Payment[];
+      setPayments(combinedPayments);
+      if (invoiceData) {
+        setInvoice({
+          ...invoiceData,
+          invoice_data: {
+            ...(invoiceData.invoice_data || {}),
+            clientEmail: invoiceData.invoice_data?.clientEmail || oData?.client_email || "",
+            initialPaymentAmount: oData?.deposit_amount ?? invoiceData.invoice_data?.initialPaymentAmount ?? null,
+          },
+        } as InvoiceSendDialogInvoice);
+      }
     };
     const ch = supabase
       .channel(`order-doc-finance:${orderId}`)
@@ -110,6 +181,10 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
       )
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` },
+        () => { void refetch(); },
+      )
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "invoices", filter: `order_id=eq.${orderId}` },
         () => { void refetch(); },
       )
       .subscribe();
@@ -132,7 +207,53 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
     ? "Loading..."
     : `${fmtZAR.format(total)} total · ${fmtZAR.format(paid)} paid · ${paymentStatus}`;
 
+  const openPaymentRequest = async () => {
+    if (outstanding <= 0) return;
+    if (invoice) {
+      setSendRequestOpen(true);
+      return;
+    }
+    setCreatingRequest(true);
+    try {
+      const result = await ensureInvoiceForOrder(
+        orderId,
+        companyId,
+        supabase as any,
+        { origin: typeof window !== "undefined" ? window.location.origin : undefined },
+      );
+      if (!result.success || !result.invoiceId) {
+        throw new Error(result.error || "Could not create the payment request.");
+      }
+      const { data: createdInvoice, error } = await (supabase as any)
+        .from("invoices")
+        .select("id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at")
+        .eq("id", result.invoiceId)
+        .maybeSingle();
+      if (error || !createdInvoice) throw new Error(error?.message || "Invoice was created but could not be loaded.");
+      const nextInvoice = {
+        ...createdInvoice,
+        invoice_data: {
+          ...(createdInvoice.invoice_data || {}),
+          clientEmail: createdInvoice.invoice_data?.clientEmail || money?.client_email || "",
+          initialPaymentAmount: money?.deposit_amount ?? createdInvoice.invoice_data?.initialPaymentAmount ?? null,
+        },
+      } as InvoiceSendDialogInvoice;
+      setInvoice(nextInvoice);
+      if (createdInvoice.sent_at) {
+        toast({ title: "Payment request sent", description: "The client received the current invoice and payment link." });
+      } else {
+        setSendRequestOpen(true);
+        toast({ title: "Payment request ready", description: "Review the email and send it to the client." });
+      }
+    } catch (error: any) {
+      toast({ title: "Payment request failed", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setCreatingRequest(false);
+    }
+  };
+
   return (
+    <>
     <CollapsibleSection
       id="section-admin"
       title="Finance"
@@ -194,8 +315,8 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
                         )}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {p.payment_method || "-"}
-                        {p.payment_date && <span> · {new Date(p.payment_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>}
+                        {p.payment_method || p.gateway_provider || "-"}
+                        {(p.payment_date || p.processed_at || p.created_at) && <span> · {new Date(p.payment_date || p.processed_at || p.created_at!).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>}
                         {p.payment_reference && <span> · ref {p.payment_reference}</span>}
                       </p>
                     </div>
@@ -207,8 +328,33 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
               </ul>
             </div>
           )}
+
+          {outstanding > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Request the remaining payment</p>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  The client will see what they have paid, the remaining balance, and the current payment link.
+                </p>
+              </div>
+              <Button type="button" size="sm" onClick={openPaymentRequest} disabled={creatingRequest} className="bg-brand-primary hover:opacity-90">
+                {creatingRequest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                {creatingRequest ? "Preparing…" : invoice ? "Send payment request" : "Create payment request"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </CollapsibleSection>
+      <InvoiceSendDialog
+        open={sendRequestOpen}
+        onOpenChange={setSendRequestOpen}
+        companyId={companyId}
+        invoice={invoice}
+        onSent={() => {
+          toast({ title: "Payment request sent", description: "The client received the latest paid and remaining amounts." });
+        }}
+      />
+    </>
   );
 }

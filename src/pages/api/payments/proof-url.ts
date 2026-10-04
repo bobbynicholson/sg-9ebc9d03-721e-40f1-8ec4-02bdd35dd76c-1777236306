@@ -10,8 +10,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const ssr = createPagesServerClient({ req, res });
   const { data: { user } } = await ssr.auth.getUser();
   if (!user) return res.status(401).json({ error: "Sign in first" });
-  const { data: profile } = await ssr.from("profiles").select("role, active_role, company_id").eq("id", user.id).maybeSingle();
-  const role = (profile as any)?.active_role || (profile as any)?.role;
+  const { data: profile, error: profileError } = await ssr.from("profiles").select("role, company_id").eq("id", user.id).maybeSingle();
+  if (profileError) return res.status(503).json({ error: "Could not verify payment proof permission" });
+  const role = String(profile?.role || "");
   if (!ADMIN.has(role)) return res.status(403).json({ error: "Admin only" });
   const sb = getServiceSupabase();
   const { data: payment } = await sb.from("payments").select("company_id, payment_proof_path").eq("id", String(req.query.payment_id || "")).maybeSingle();

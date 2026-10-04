@@ -55,6 +55,7 @@ export interface PublicQuoteView {
    * deposit size before tapping Accept.
    */
   deposit_percentage: number | null;
+  initial_payment_amount?: number | null;
   status: string | null;
   valid_until: string | null;
   sent_at: string | null;
@@ -81,6 +82,12 @@ export interface PublicQuoteView {
     accepting_blocked: boolean;
     message: string | null;
   } | null;
+  payment_options?: {
+    provider: "payfast" | "yoco" | "stripe" | null;
+    online_available: boolean;
+    unavailable_reason: "not_configured" | "configuration_incomplete" | "currency_not_supported" | null;
+    eft_available: boolean;
+  };
   company: {
     id: string;
     /** Feeds the public /terms/[company] link (id is the fallback). */
@@ -104,6 +111,12 @@ export interface PublicQuoteView {
     /** Phase 5 #10: ISO 4217 code. Drives the currency symbol +
      *  formatting on the public quote view. NULL falls back to ZAR. */
     currency: string | null;
+    bank_name?: string | null;
+    bank_account_holder?: string | null;
+    bank_account_number?: string | null;
+    bank_branch_code?: string | null;
+    bank_account_type?: string | null;
+    eft_instructions?: string | null;
   } | null;
 }
 

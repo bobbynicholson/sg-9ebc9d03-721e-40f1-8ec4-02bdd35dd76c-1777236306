@@ -100,7 +100,7 @@ function ToneBadge({ label, tone }: { label: string; tone: "muted" | "info" | "s
 
 function PaymentGatewaysPage() {
   const { profile } = useAuth() as any;
-  const role: string = profile?.active_role || profile?.role || "";
+  const role: string = profile?.role || "";
   const isSuperAdmin = role === "super_admin";
   const profileCompanyId: string | null = profile?.company_id ?? null;
 

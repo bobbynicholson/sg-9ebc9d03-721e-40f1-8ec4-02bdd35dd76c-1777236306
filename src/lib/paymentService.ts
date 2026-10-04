@@ -73,6 +73,54 @@ export async function resolveActivePaymentGateway(
   return paymentGatewayService.getActiveWithCredentials(companyId, sb);
 }
 
+export type PublicPaymentAvailability = {
+  provider: PaymentGatewayProvider | null;
+  online_available: boolean;
+  unavailable_reason: "not_configured" | "configuration_incomplete" | "currency_not_supported" | null;
+};
+
+/**
+ * Return only safe payment-routing information for token-gated public
+ * quote and invoice pages. The provider's credentials stay on the server.
+ */
+export async function getPublicPaymentAvailability(
+  companyId: string,
+  currency: string | null | undefined,
+): Promise<PublicPaymentAvailability> {
+  let active: ResolvedPaymentGateway | null;
+  try {
+    active = await resolveActivePaymentGateway(companyId);
+  } catch (error) {
+    console.error("[getPublicPaymentAvailability] gateway lookup failed:", error);
+    return { provider: null, online_available: false, unavailable_reason: "configuration_incomplete" };
+  }
+
+  if (!active) {
+    return { provider: null, online_available: false, unavailable_reason: "not_configured" };
+  }
+
+  const provider = active.gateway.provider as PaymentGatewayProvider;
+  const credentials = active.credentials || {};
+  const hasRequiredCredentials = provider === "payfast"
+    ? Boolean(credentials.merchantId && credentials.merchantKey)
+    : provider === "yoco"
+      ? Boolean(credentials.secretKey && credentials.publicKey && credentials.webhookSecret)
+      : provider === "stripe"
+        ? Boolean(credentials.secretKey && credentials.publishableKey && credentials.webhookSigningSecret)
+        : false;
+
+  if (!hasRequiredCredentials) {
+    return { provider: null, online_available: false, unavailable_reason: "configuration_incomplete" };
+  }
+
+  const code = String(currency || "ZAR").toUpperCase();
+  if ((provider === "payfast" || provider === "yoco") && code !== "ZAR") {
+    return { provider, online_available: false, unavailable_reason: "currency_not_supported" };
+  }
+
+  return { provider, online_available: true, unavailable_reason: null };
+}
+
 /**
  * Resolve and dispatch to the company's active payment provider. A tenant
  * must configure its own gateway; platform credentials are never used for
@@ -94,7 +142,12 @@ export async function createPaymentSession(
       };
     }
 
+    if (active.gateway.company_id !== input.companyId) return { ok: false, error: "Checkout gateway does not belong to this company" };
+    if (!Number.isFinite(input.amount) || input.amount <= 0) return { ok: false, error: "Invalid checkout amount" };
     const provider = active.gateway.provider as PaymentGatewayProvider;
+    if (["payfast", "yoco"].includes(provider) && String(input.currency || "ZAR").toUpperCase() !== "ZAR") {
+      return { ok: false, error: "This provider only accepts ZAR" };
+    }
     const credentials = active.credentials;
 
     if (provider === "payfast") {
@@ -140,6 +193,7 @@ async function dispatchPayFast(
     nameFirst: input.customer.firstName || "Customer",
     nameLast: input.customer.lastName || "",
     emailAddress: input.customer.email,
+    merchantPaymentId: input.extraMetadata?.paymentAttemptId || input.orderId,
     customStr1: input.orderId,
     customStr2: input.type,
     customStr3: input.companyId,
@@ -153,7 +207,7 @@ async function dispatchPayFast(
     ok: true,
     provider: "payfast",
     paymentUrl: html,
-    sessionId: input.orderId,
+    sessionId: input.extraMetadata?.paymentAttemptId || input.orderId,
     isHtmlForm: true,
   };
 }

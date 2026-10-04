@@ -10,17 +10,22 @@
  *   WHERE id=? AND payment_status='pending'
  *   RETURNING id
  * runs BEFORE the PayFast call. Whoever flips the row first wins; the
- * loser sees 0 rows back and bails with already_completed.
+ * loser sees 0 rows back and requires reconciliation without another payout.
  */
 
 import { processRefund } from "@/services/refundService";
+import { getCheckoutGatewayCredentials } from "@/lib/checkoutGatewayCredentials";
+jest.mock("@/lib/checkoutGatewayCredentials", () => ({ getCheckoutGatewayCredentials: jest.fn() }));
+jest.mock("@/services/email/cancellationEmails", () => ({ sendRefundPaidEmail: jest.fn() }));
 
 // ── Mocks ─────────────────────────────────────────────────────────
 
 const mockPfRefund = jest.fn();
+const mockPfQueryRefund = jest.fn();
 jest.mock("@/lib/payfastService", () => ({
   PayFastService: jest.fn().mockImplementation(() => ({
     refundTransaction: mockPfRefund,
+    queryRefundAvailability: mockPfQueryRefund,
   })),
 }));
 
@@ -96,6 +101,9 @@ interface RouteOptions {
   /** What the atomic-claim UPDATE returns. data=[{id}] means winner;
    *  data=[] means loser; error set means a DB failure. */
   claimResult: { data: any[] | null; error: any };
+  credentialsMissing?: boolean;
+  savedAttempt?: Record<string, unknown>;
+  completionResult?: { data: { id: string } | null; error: { message: string } | null };
 }
 
 /**
@@ -104,6 +112,9 @@ interface RouteOptions {
  * select-refund + select-parents reads, so we count payments calls.
  */
 function routeQueries(opts: RouteOptions) {
+  (getCheckoutGatewayCredentials as jest.Mock).mockResolvedValue(opts.credentialsMissing ? null : {
+    gateway: { id: "pgw-1", company_id: "co-1", provider: "payfast", is_test: false }, credentials: DEFAULTS.creds.credentials,
+  });
   let paymentsCallCount = 0;
   mockAdminFrom.mockImplementation((table: string) => {
     switch (table) {
@@ -123,11 +134,15 @@ function routeQueries(opts: RouteOptions) {
           return buildQuery(opts.claimResult);
         }
         // Subsequent calls: success-flip / revert UPDATEs.
-        return buildQuery({ data: null, error: null });
+        return buildQuery(opts.completionResult ?? { data: { id: REFUND_ID }, error: null });
       case "payment_gateways":
         return buildQuery({ data: DEFAULTS.gateway, error: null });
       case "payment_gateway_credentials":
-        return buildQuery({ data: DEFAULTS.creds, error: null });
+        return buildQuery({ data: opts.credentialsMissing ? null : DEFAULTS.creds, error: null });
+      case "payment_gateway_events":
+        return buildQuery({ data: opts.savedAttempt ? { payload: { attemptId: "attempt-1" } } : null, error: null });
+      case "payment_attempts":
+        return buildQuery({ data: opts.savedAttempt || null, error: null });
       case "audit_logs":
         return buildQuery({ data: null, error: null });
       default:
@@ -140,6 +155,9 @@ describe("processRefund atomic claim (TIGHTEN I.103)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPfRefund.mockReset();
+    mockPfQueryRefund.mockReset();
+    mockPfQueryRefund.mockResolvedValue({ ok: true, status: 200, body: { status: "REFUNDABLE", amount_original: 10000,
+      amount_available_for_refund: 10000, refund_full: { method: "PAYMENT_SOURCE" }, refund_partial: { method: "PAYMENT_SOURCE" } } });
   });
 
   it("succeeds when the claim flips pending -> processing (winner)", async () => {
@@ -152,24 +170,24 @@ describe("processRefund atomic claim (TIGHTEN I.103)", () => {
     expect(mockPfRefund).toHaveBeenCalledTimes(1);
   });
 
-  it("returns already_completed when the claim returns zero rows (loser)", async () => {
+  it("reports reconciliation needed when another operation claimed the refund", async () => {
     routeQueries({ claimResult: { data: [], error: null } });
 
     const result = await processRefund(REFUND_ID, "actor-1");
 
-    expect(result.status).toBe("already_completed");
+    expect(result.status).toBe("pending_reconciliation");
     expect(result.refund_payment_id).toBe(REFUND_ID);
     // The crucial assertion: PayFast was NOT called when we lost the
     // claim. This is the bit that prevents the double-charge.
     expect(mockPfRefund).not.toHaveBeenCalled();
   });
 
-  it("returns already_completed when the claim returns null data (loser)", async () => {
+  it("does not mistake a missing claim result for a completed refund", async () => {
     routeQueries({ claimResult: { data: null, error: null } });
 
     const result = await processRefund(REFUND_ID, "actor-1");
 
-    expect(result.status).toBe("already_completed");
+    expect(result.status).toBe("pending_reconciliation");
     expect(mockPfRefund).not.toHaveBeenCalled();
   });
 
@@ -197,7 +215,7 @@ describe("processRefund atomic claim (TIGHTEN I.103)", () => {
     expect(mockPfRefund).not.toHaveBeenCalled();
   });
 
-  it("reverts processing -> pending when PayFast HTTP fails", async () => {
+  it("retains processing when a PayFast server error leaves the payout outcome unknown", async () => {
     routeQueries({ claimResult: { data: [{ id: REFUND_ID }], error: null } });
     mockPfRefund.mockResolvedValue({
       ok: false,
@@ -208,15 +226,82 @@ describe("processRefund atomic claim (TIGHTEN I.103)", () => {
 
     const result = await processRefund(REFUND_ID, "actor-1");
 
-    expect(result.status).toBe("auto_failed");
-    // The revert UPDATE happened as one of the later .from("payments")
-    // calls. Smoke-check by counting how many were made: 1 refund
-    // select + 1 parents select + 1 claim + 1 revert + (maybe 1
-    // success no-op for the gated completion). We at minimum expect
-    // >=4 payments-table accesses.
+    expect(result.status).toBe("pending_reconciliation");
     const paymentsCalls = mockAdminFrom.mock.calls.filter(
       (call: any[]) => call[0] === "payments",
     );
-    expect(paymentsCalls.length).toBeGreaterThanOrEqual(4);
+    expect(paymentsCalls).toHaveLength(3);
+  });
+
+  it("retains processing after a lost network response instead of making a second refund retryable", async () => {
+    routeQueries({ claimResult: { data: [{ id: REFUND_ID }], error: null } });
+    mockPfRefund.mockResolvedValue({ ok: false, status: 0, body: null, error: "timeout" });
+    expect((await processRefund(REFUND_ID)).status).toBe("pending_reconciliation");
+    expect(mockAdminFrom.mock.calls.filter(([table]) => table === "payments")).toHaveLength(3);
+  });
+
+  it("a definite rejected provider request can return to pending", async () => {
+    routeQueries({ claimResult: { data: [{ id: REFUND_ID }], error: null } });
+    mockPfRefund.mockResolvedValue({ ok: false, status: 400, body: { error: "invalid" } });
+    expect((await processRefund(REFUND_ID)).status).toBe("auto_failed");
+    expect(mockAdminFrom.mock.calls.filter(([table]) => table === "payments")).toHaveLength(4);
+  });
+
+  it("missing credentials never claim a refund that has not been sent", async () => {
+    routeQueries({ claimResult: { data: [{ id: REFUND_ID }], error: null }, credentialsMissing: true });
+    expect((await processRefund(REFUND_ID)).status).toBe("auto_failed");
+    expect(mockAdminFrom.mock.calls.filter(([table]) => table === "payments")).toHaveLength(2);
+    expect(mockPfRefund).not.toHaveBeenCalled();
+  });
+
+  it("an already processing refund cannot be reissued", async () => {
+    routeQueries({ refundRow: { ...DEFAULTS.refundRow, payment_status: "processing" }, claimResult: { data: [], error: null } });
+    expect((await processRefund(REFUND_ID)).status).toBe("pending_reconciliation");
+    expect(mockPfRefund).not.toHaveBeenCalled();
+  });
+
+  it("refund larger than one capture goes to manual reconciliation without hitting the provider", async () => {
+    routeQueries({ refundRow: { ...DEFAULTS.refundRow, amount: 200 }, claimResult: { data: [], error: null } });
+    expect((await processRefund(REFUND_ID)).status).toBe("pending_manual");
+    expect(mockPfRefund).not.toHaveBeenCalled();
+  });
+
+  it("uses the original checkout credential resolver for a saved attempt after merchant edits", async () => {
+    const attempt = { id: "attempt-1", company_id: "co-1", provider: "payfast", metadata: { gatewayVersionId: "old-version" } };
+    routeQueries({ savedAttempt: attempt, claimResult: { data: [{ id: REFUND_ID }], error: null } });
+    (getCheckoutGatewayCredentials as jest.Mock).mockResolvedValue({ gateway: { company_id: "co-1", provider: "payfast", is_test: true },
+      credentials: { merchantId: "original-id", merchantKey: "original-key" } });
+    mockPfRefund.mockResolvedValue({ ok: true, status: 200, body: {} });
+    expect((await processRefund(REFUND_ID)).status).toBe("auto_processed");
+    expect(getCheckoutGatewayCredentials).toHaveBeenCalledWith(expect.anything(), attempt);
+  });
+
+  it("previous partial refunds reduce the refundable amount before any new claim", async () => {
+    routeQueries({ claimResult: { data: [], error: null } });
+    mockPfQueryRefund.mockResolvedValue({ ok: true, body: { status: "REFUNDABLE", amount_original: 10000,
+      amount_available_for_refund: 5000, refund_full: { method: "PAYMENT_SOURCE" } } });
+    expect((await processRefund(REFUND_ID)).status).toBe("pending_manual");
+    expect(mockPfRefund).not.toHaveBeenCalled();
+    expect(mockAdminFrom.mock.calls.filter(([table]) => table === "payments")).toHaveLength(2);
+  });
+
+  it("bank payout requirements go to finance rather than guessing a recipient account", async () => {
+    routeQueries({ claimResult: { data: [], error: null } });
+    mockPfQueryRefund.mockResolvedValue({ ok: true, body: { status: "REFUNDABLE", amount_original: 10000,
+      amount_available_for_refund: 10000, refund_full: { method: "BANK_PAYOUT" } } });
+    expect((await processRefund(REFUND_ID)).status).toBe("pending_manual");
+    expect(mockPfRefund).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { data: null, error: null },
+    { data: null, error: { message: "Connection lost after payout" } },
+  ])("confirmed provider payout with unconfirmed ledger completion requires reconciliation: %p", async (completionResult) => {
+    routeQueries({ claimResult: { data: [{ id: REFUND_ID }], error: null }, completionResult });
+    mockPfRefund.mockResolvedValue({ ok: true, status: 200, body: { status: "success" } });
+    const result = await processRefund(REFUND_ID);
+    expect(result.status).toBe("pending_reconciliation");
+    expect(result.message).toMatch(/PayFast confirmed the refund/);
+    expect(mockPfRefund).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,20 +1,5 @@
-# Fallback scheduler for the /api/cron/* layer.
-#
-# Vercel only attaches "Authorization: Bearer $CRON_SECRET" to its
-# scheduled cron invocations when the CRON_SECRET env var is set on the
-# project. It is NOT set in production (adding it needs owner
-# permissions on the Vercel team), so every scheduled cron has been
-# 401ing and the whole background layer (email queue, reminders,
-# sweepers, reconciliation) was silently dead.
-#
-# This workflow drives the same endpoints from GitHub Actions using the
-# repo's known fallback secret (src/lib/cronAuth.ts DEFAULT_CRON_SECRET,
-# which requireCronAuth accepts whenever the env var is absent). Once
-# CRON_SECRET is set in Vercel to that same value, Vercel's own
-# scheduler takes over and this workflow is redundant - delete it then.
-#
-# GitHub cron is UTC and best-effort (runs can lag a few minutes).
-
+# Fallback payment/background scheduler. Set the same private CRON_SECRET
+# in GitHub Actions secrets and the deployment environment.
 name: cron-fallback
 on:
   schedule:
@@ -33,18 +18,19 @@ jobs:
       - name: Trigger cron endpoints
         env:
           BASE: https://cateringms.com/api/cron
-          SECRET: 8faf9fa241e2fbf0848ef76a18723e7a4230e6eec50869519b8547588658ce95
+          SECRET: ${{ secrets.CRON_SECRET }}
           EVENT_SCHEDULE: ${{ github.event.schedule }}
         run: |
+          if [ -z "$SECRET" ]; then echo "Repository CRON_SECRET is not configured"; exit 1; fi
           hit() {
             for ep in "$@"; do
               code=$(curl -s -o /tmp/out -w "%{http_code}" -m 120 -H "Authorization: Bearer $SECRET" "$BASE/$ep" || echo "000")
               echo "$ep -> $code $(head -c 200 /tmp/out)"
             done
           }
-          FREQ="process-email-queue whatsapp-drain check-en-route late-event-check missed-clock-in-check driver-missed-clock-in-check cleaning-missed-clock-in-check process-pending-reviews order-stage-notify order-sla-monitor event-approaching-reminder waiter-service-reminder"
+          FREQ="reconcile-payment-events reconcile-payment-attempts reconcile-payfast process-email-queue whatsapp-drain check-en-route late-event-check missed-clock-in-check driver-missed-clock-in-check cleaning-missed-clock-in-check process-pending-reviews order-stage-notify order-sla-monitor event-approaching-reminder waiter-service-reminder"
           HOURLY="auto-complete-delivered deposit-paid-sweeper verify-pending-domains outsource-pre-event-reminder"
-          DAILY_MAINT="money-reconciliation-check currency-check reconcile-payfast equipment-service-due update-overdue-invoices expire-stale-quotes prune-api-key-rate-limits advance-fixed-cost-next-due recurring-invoices cleaning-overdue-check late-equipment-return-alert"
+          DAILY_MAINT="money-reconciliation-check currency-check equipment-service-due update-overdue-invoices expire-stale-quotes prune-api-key-rate-limits advance-fixed-cost-next-due recurring-invoices cleaning-overdue-check late-equipment-return-alert"
           DAILY_MORNING="deposit-reminder balance-reminder quote-followup-send stale-shopping-list-alert expire-trials batch-expiry-alert equipment-collection-reminder outsource-post-event-thanks stale-lead-digest"
           WEEKLY="archive-old-gps-logs archive-old-notifications archive-old-email-rows"
           case "$EVENT_SCHEDULE" in

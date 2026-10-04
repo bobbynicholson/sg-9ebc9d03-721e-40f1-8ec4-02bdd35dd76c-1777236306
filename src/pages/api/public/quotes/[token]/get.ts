@@ -28,6 +28,7 @@ import {
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
+import { getPublicPaymentAvailability } from "@/lib/paymentService";
 
 
 export const config = {
@@ -68,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       region_id,
       venue_address, menu_items, equipment_items, notes, terms_and_conditions,
       subtotal, tax_amount, discount_amount, total, total_amount, status,
-      deposit_percentage,
+      deposit_percentage, initial_payment_amount,
       delivery_fee, delivery_distance_km, delivery_rate_per_km,
       collection_fee, collection_distance_km, collection_rate_per_km,
       waiter_service_required, waiter_count, waiter_duration_hours, waiter_hourly_rate, waiter_total_fee,
@@ -77,6 +78,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       company:company_id (
         id, slug, company_name, logo_url, email, phone, website,
         address_line1, address_line2, city,
+        bank_name, bank_account_holder, bank_account_number, bank_branch_code,
+        bank_account_type, eft_instructions,
         vat_registered, vat_number, vat_rate, pricing_includes_vat,
         registration_number, tax_number,
         primary_color, secondary_color, accent_color,
@@ -158,6 +161,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         ? quotePct
         : null;
   (data as any).deposit_percentage = effectivePct;
+
+  const company = (data as any)?.company;
+  const paymentAvailability = company?.id
+    ? await getPublicPaymentAvailability(company.id, company.currency)
+    : { provider: null, online_available: false, unavailable_reason: "not_configured" as const };
+  (data as any).payment_options = {
+    ...paymentAvailability,
+    eft_available: Boolean(company?.bank_name && company?.bank_account_number),
+  };
 
   return res.status(200).json({ ok: true, quote: data });
 }

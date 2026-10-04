@@ -144,6 +144,8 @@ export const PAGE_NAVIGATION_REFS: ChatNavigationRef[] = [
 
   // Team portals
   page("kitchen.dashboard", "Kitchen dashboard", "/team-portal/kitchen/dashboard", "Kitchen workload, readiness, and production overview", ["kitchen dashboard", "kitchen overview"], KITCHEN),
+  page("kitchen.calendar", "Kitchen calendar", "/team-portal/kitchen/calendar", "Kitchen event dates and preparation schedule", ["kitchen calendar", "kitchen event schedule"], KITCHEN),
+  page("kitchen.production", "Kitchen production", "/team-portal/kitchen/production", "Production batches, recipes, readiness, and handoffs", ["kitchen production", "production planning"], KITCHEN),
   page("kitchen.duty", "Kitchen duty", "/team-portal/kitchen/duty", "Kitchen duty assignments and completion", ["kitchen duty", "my kitchen duty"], KITCHEN),
   page("kitchen.handovers", "Kitchen handovers", "/team-portal/kitchen/handovers", "Kitchen handover notes between shifts", ["kitchen handover", "handover kitchen"], KITCHEN),
   page("kitchen.menu", "Kitchen menu", "/team-portal/kitchen/menu", "Kitchen menu and production reference", ["kitchen menu", "menu kitchen"], KITCHEN),
@@ -252,6 +254,7 @@ export const SECTION_NAVIGATION_REFS: ChatNavigationRef[] = [
   section("admin.email-templates.automation", "Email automation", "/admin/email-templates?tab=automation#email-automation", "Review automated email triggers and rules", ["email automation", "automated emails", "email triggers"], ADMIN),
   section("admin.email-templates.settings", "Email template settings", "/admin/email-templates?tab=settings#email-settings", "Configure email template behavior and defaults", ["email template settings"], ADMIN),
   section("kitchen.prep.demand", "Prep demand", "/team-portal/kitchen/prep-list#prep-demand", "Compare upcoming ingredient demand with stock on hand", ["prep demand", "ingredient demand", "prep shortages"], KITCHEN),
+  section("kitchen.production.board", "Production board", "/team-portal/kitchen/production#production-board", "Track production tasks and batch readiness", ["production board", "kitchen production board"], KITCHEN),
   section("shopping.buy-list.items", "Items to buy", "/team-portal/shopping/buy-list#shopping-buy-items", "Review the current purchasing list and its priority filters", ["items to buy", "shopping items", "buy list items"], SHOPPING),
   section("shopping.inventory.stock", "Procurement stock", "/team-portal/shopping/inventory#shopping-stock", "Review inventory quantities, out-of-stock items, and stock value", ["procurement stock", "out of stock", "shopping stock"], SHOPPING),
   section("driver.deliveries.history", "Delivery history", "/team-portal/driver/deliveries#delivery-history", "Review all, upcoming, or completed assigned deliveries", ["delivery history", "my deliveries", "delivery list"], DRIVER),

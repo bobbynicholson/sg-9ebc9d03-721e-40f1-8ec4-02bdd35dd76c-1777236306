@@ -46,14 +46,18 @@ export async function createPaymentAttempt(input: CreatePaymentAttemptInput) {
 /** Look up a current or legacy attempt by its stable ID or provider ID. */
 export async function getPaymentAttemptByReference(provider: string, reference: string) {
   const sb = getServiceSupabase();
-  const { data: byId, error: idError } = await sb
-    .from("payment_attempts")
-    .select("*")
-    .eq("provider", provider)
-    .eq("id", reference)
-    .maybeSingle();
-  if (idError) throw idError;
-  if (byId) return byId;
+  // A provider session ID is not a UUID. PostgreSQL rejects comparing it
+  // with the UUID id column, so skip that lookup instead of losing recovery.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reference)) {
+    const { data: byId, error: idError } = await sb
+      .from("payment_attempts")
+      .select("*")
+      .eq("provider", provider)
+      .eq("id", reference)
+      .maybeSingle();
+    if (idError) throw idError;
+    if (byId) return byId;
+  }
 
   const { data: bySession, error: sessionError } = await sb
     .from("payment_attempts")
@@ -92,7 +96,7 @@ export async function transitionPaymentAttempt(input: {
     : baseQuery().eq("status", "pending");
 
   let current: any = null;
-  if (input.attemptId) {
+  if (input.attemptId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.attemptId)) {
     const { data, error } = await lookupQuery().eq("id", input.attemptId).maybeSingle();
     if (error) throw error;
     current = data;
@@ -159,14 +163,7 @@ export async function markPaymentAttemptSucceeded(input: {
 
   // Idempotent delivery after an earlier successful transition is normal.
   // Confirm that saved state instead of treating it as a failed write.
-  const sb = getServiceSupabase();
-  const { data: current, error } = await sb
-    .from("payment_attempts")
-    .select("status")
-    .eq("id", input.attemptId)
-    .eq("provider", input.provider)
-    .maybeSingle();
-  if (error) throw error;
+  const current = await getPaymentAttemptByReference(input.provider, input.attemptId);
   if (current?.status !== "succeeded") {
     throw new Error("The confirmed payment attempt could not be marked successful");
   }
@@ -177,12 +174,12 @@ export async function attachPaymentAttemptSession(
   providerSessionId: string,
 ) {
   const sb = getServiceSupabase();
-  const { error } = await sb
-    .from("payment_attempts")
+  if (!providerSessionId) throw new Error("Provider session ID missing");
+  const { data, error } = await sb.from("payment_attempts")
     .update({ provider_session_id: providerSessionId, updated_at: new Date().toISOString() })
-    .eq("id", attemptId)
-    .eq("status", "pending");
+    .eq("id", attemptId).select("id").single();
   if (error) throw error;
+  if (!data) throw new Error("Checkout tracking row disappeared");
 }
 
 export async function touchPaymentAttempt(id: string, providerStatus: string | null) {

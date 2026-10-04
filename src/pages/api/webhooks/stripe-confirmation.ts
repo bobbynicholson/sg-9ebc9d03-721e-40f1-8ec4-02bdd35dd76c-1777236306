@@ -7,20 +7,20 @@
  * body BEFORE parsing it, otherwise Stripe's library rejects the
  * signature. This route therefore reads the body as a stream.
  *
- * Only `checkout.session.completed` is handled today - the dispatch
- * cascade mirrors the PayFast IPN handler for deposits and balance
- * payments. Idempotency is on the Stripe payment_intent id.
+ * Checkout and PaymentIntent success/failure events are handled.
+ * Verified successful payments use atomic tenant settlement;
+ * idempotency is on the Stripe payment_intent id.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { constructStripeEvent } from "@/lib/stripeService";
+import { getCheckoutGatewayCredentials } from "@/lib/checkoutGatewayCredentials";
 import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { paymentProcessingService } from "@/services/paymentProcessingService";
 import type Stripe from "stripe";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { settleTenantGatewayPayment, TenantGatewaySettlementError } from "@/lib/tenantGatewaySettlement";
-import { getPaymentAttemptByReference, markPaymentAttemptSucceeded, touchPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
+import { getPaymentAttemptByReference, touchPaymentAttempt, transitionPaymentAttempt } from "@/services/paymentAttemptService";
 import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 
 
@@ -72,7 +72,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const savedGatewayId = String(paymentAttempt?.metadata?.gatewayId || "");
     const active = savedGatewayId
-      ? await paymentGatewayService.getByIdWithCredentials(savedGatewayId, sb, true)
+      ? await getCheckoutGatewayCredentials(sb, paymentAttempt, savedGatewayId)
       : await paymentGatewayService.getActiveWithCredentials(companyId, sb);
     if (
       !active ||
@@ -162,7 +162,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const orderId = metadata.orderId;
-    const paymentType = (metadata.paymentType || "").toLowerCase();
     const stripeTxId =
       (typeof session.payment_intent === "string"
         ? session.payment_intent
@@ -227,18 +226,5 @@ async function completeStripeSettlement(input: {
     amount: input.amount,
     currency: input.currency,
   });
-  await markPaymentAttemptSucceeded({
-    provider: "stripe",
-    attemptId: input.paymentAttempt?.id || input.attemptId,
-    providerSessionId: input.providerSessionId,
-    providerStatus: input.providerStatus,
-  });
-  if (settlement.order && !settlement.duplicate) {
-    if (paymentType === "deposit") {
-      await paymentProcessingService.processDepositPayment(orderId, input.transactionId, "stripe", settlement.order.user_id);
-    } else if (paymentType === "balance") {
-      await paymentProcessingService.processBalancePayment(orderId, input.transactionId, "stripe", settlement.order.user_id);
-    }
-  }
   return settlement.duplicate;
 }

@@ -23,7 +23,7 @@
  * EFTs. The whole point of this modal is to make using the right one
  * easier than not.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -108,9 +108,15 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
   const [creditAvailable, setCreditAvailable] = useState<number>(0);
   const [creditMaxApplicable, setCreditMaxApplicable] = useState<number>(0);
   const [applyCredit, setApplyCredit] = useState<boolean>(false);
+  const checkoutRequest = useRef<{ selection: string; id: string } | null>(null);
 
   useEffect(() => {
-    if (!open || !invoice?.id) return;
+    if (!open || !invoice?.id) { checkoutRequest.current = null; return; }
+    setCreditAvailable(0);
+    setCreditMaxApplicable(0);
+    setApplyCredit(false);
+    setPaymentComplete(false);
+    setEftClaimed(false);
     let cancelled = false;
     (async () => {
       try {
@@ -125,7 +131,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
         const j = await r.json().catch(() => ({}));
         if (cancelled || !r.ok || !j?.ok) return;
         setCreditAvailable(Number(j.available) || 0);
-        setCreditMaxApplicable(Number(j.maxApplicable) || 0);
+        setCreditMaxApplicable(Math.min(Number(j.maxApplicable) || 0, invoice.amount));
         // Default the toggle on when there's any credit - catering
         // cashflow win, and the client can untick if they prefer to
         // keep the credit for later.
@@ -138,7 +144,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     return () => {
       cancelled = true;
     };
-  }, [open, invoice?.id, publicToken]);
+  }, [open, invoice?.id, invoice?.amount, publicToken]);
 
   // Show exact cents: the client is about to be charged this figure, so a
   // rounded "R1,235" for a R1,234.56 balance is a money-display mismatch.
@@ -149,6 +155,11 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     : invoice.amount;
 
   const startOnlinePayment = async () => {
+    const selection = JSON.stringify([invoice.id, invoice.amount, applyCredit,
+      applyCredit ? Math.min(creditMaxApplicable, invoice.amount) : 0]);
+    if (checkoutRequest.current?.selection !== selection) {
+      checkoutRequest.current = { selection, id: crypto.randomUUID() };
+    }
     // Wave 29.2: pass the apply-credit toggle through. The endpoint
     // calls the redeem_client_credit RPC under a per-wallet advisory
     // lock so a mash-click can't double-spend. When credit covers
@@ -159,23 +170,34 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         invoice_id: invoice.id,
+        checkout_request_id: checkoutRequest.current.id,
         public_token: publicToken || undefined,
+        pay_amount: invoice.amount,
         apply_credit: applyCredit,
-        apply_credit_amount: applyCredit ? creditMaxApplicable : undefined,
+        apply_credit_amount: applyCredit ? Math.min(creditMaxApplicable, invoice.amount) : undefined,
       }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j?.ok) {
+      if (j.creditApplied > 0) {
+        toast({ title: "Store credit payment recorded", description:
+          `Applied ${fmtCurrency(j.creditApplied)}. Online checkout could not start: ${j.error || "Please try again after reviewing the balance."}` });
+        onPaymentSuccess();
+        return;
+      }
       throw new Error(j?.error || "Could not start the payment");
     }
 
-    if (j.settled === true) {
-      // Credit covered the whole invoice - no gateway needed.
+    if (j.provider === "store_credit") {
+      checkoutRequest.current = null;
+      // A selected payment can be covered by credit while a balance remains.
       toast({
-        title: "Paid with store credit",
-        description: `Applied ${fmtCurrency(j.creditApplied || creditMaxApplicable)}; nothing left to charge.`,
+        title: j.settled ? "Paid with store credit" : "Store credit payment recorded",
+        description: j.settled
+          ? `Applied ${fmtCurrency(j.creditApplied)}; nothing left to charge.`
+          : `Applied ${fmtCurrency(j.creditApplied)}. Remaining invoice balance: ${fmtCurrency(j.balanceDue)}.`,
       });
-      setPaymentComplete(true);
+      if (j.settled) setPaymentComplete(true);
       onPaymentSuccess();
       return;
     }
@@ -183,7 +205,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
     if (j.creditApplied > 0) {
       toast({
         title: "Credit applied",
-        description: `Applied ${fmtCurrency(j.creditApplied)} - redirecting you to pay the remaining ${fmtCurrency(netAmount)}.`,
+        description: `Applied ${fmtCurrency(j.creditApplied)} - redirecting you to pay the remaining ${fmtCurrency(Number(j.chargedAmount ?? Math.max(0, invoice.amount - Number(j.creditApplied))))}.`,
       });
     }
 

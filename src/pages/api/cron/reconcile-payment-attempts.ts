@@ -1,16 +1,15 @@
-/*
- * Reconcile checkout attempts that never received a webhook.
- *
- * Webhooks remain the settlement authority. This worker does not invent a
- * successful payment from a browser redirect; it records provider status,
- * expires abandoned sessions, and alerts the company when a provider says a
- * payment is paid but our webhook has not arrived yet.
+/* Recheck unresolved sessions fairly. Only authenticated provider evidence
+ * can settle/expire an attempt; a missing webhook or elapsed time is unknown.
+ * PayFast history and the verified-event inbox have dedicated workers.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { getCheckoutGatewayCredentials } from "@/lib/checkoutGatewayCredentials";
 import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { transitionPaymentAttempt, touchPaymentAttempt } from "@/services/paymentAttemptService";
+import { settleTenantGatewayPayment } from "@/lib/tenantGatewaySettlement";
+import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
 import Stripe from "stripe";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -32,7 +31,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .select("*")
     .eq("status", "pending")
     .lt("created_at", initialGraceCutoff)
-    .order("created_at", { ascending: true })
+    .or(`last_checked_at.is.null,last_checked_at.lt.${recheckCutoff}`)
+    .order("last_checked_at", { ascending: true, nullsFirst: true })
     .limit(100);
   if (error) return res.status(500).json({ error: error.message });
 
@@ -43,18 +43,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let checked = 0;
   let expired = 0;
   let webhookMissing = 0;
+  let recovered = 0;
+  let failures = 0;
   for (const attempt of eligibleAttempts) {
     checked += 1;
     // A provider has already confirmed the charge. Keep waiting for its
     // signed webhook, even if the hosted checkout's original TTL elapsed.
-    if (attempt.provider_status === "paid_waiting_webhook") continue;
+    // Re-check provider-confirmed candidates until they actually settle.
 
     let providerStatus: string | null = null;
     let providerPaid = false;
+    let providerTerminalUnpaid = false;
+    let settled = false;
     try {
       const gatewayId = String(attempt.metadata?.gatewayId || "");
       let configured = gatewayId
-        ? await paymentGatewayService.getByIdWithCredentials(gatewayId, sb, true)
+        ? await getCheckoutGatewayCredentials(sb, attempt, gatewayId)
         : null;
       if (!configured) {
         const { data: gateway } = await sb
@@ -71,32 +75,48 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (configured?.gateway.company_id === attempt.company_id && configured.gateway.provider === attempt.provider) {
         const creds = configured?.credentials || {};
         if (attempt.provider === "stripe" && creds.secretKey) {
-          const stripe = new Stripe(creds.secretKey, { apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion });
+          const stripe = new Stripe(creds.secretKey, { timeout: 10000, maxNetworkRetries: 0, apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion });
           const session = await stripe.checkout.sessions.retrieve(attempt.provider_session_id);
           providerStatus = `${session.status || "unknown"}:${session.payment_status || "unknown"}`;
           providerPaid = session.payment_status === "paid";
-        } else if (attempt.provider === "yoco" && creds.secretKey) {
-          const response = await fetch(`https://payments.yoco.com/api/checkouts/${encodeURIComponent(attempt.provider_session_id)}`, {
-            headers: { Authorization: `Bearer ${creds.secretKey}` },
-          });
-          if (response.ok) {
-            const checkout = await response.json();
-            providerStatus = String(checkout.status || "unknown");
-            providerPaid = ["succeeded", "successful", "paid", "completed"].includes(providerStatus.toLowerCase());
+          providerTerminalUnpaid = session.status === "expired" && session.payment_status === "unpaid";
+          if (providerPaid) {
+            const intentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+            if (!intentId || session.id !== attempt.provider_session_id ||
+                session.metadata?.paymentAttemptId !== String(attempt.metadata?.paymentAttemptId || attempt.id) ||
+                session.metadata?.companyId !== attempt.company_id ||
+                Number(session.amount_total) !== Math.round(Number(attempt.amount) * 100)) {
+              throw new Error("Stripe session does not match saved checkout");
+            }
+            const intent = await stripe.paymentIntents.retrieve(intentId);
+            if (intent.status !== "succeeded") throw new Error("Stripe paid session has no successful payment intent");
+            await settleTenantGatewayPayment({ admin: sb, provider: "stripe", transactionId: intent.id,
+              companyId: attempt.company_id, orderId: attempt.payment_type === "invoice" ? attempt.invoice_id : attempt.order_id,
+              paymentType: attempt.payment_type, invoiceId: attempt.invoice_id, paymentAttempt: attempt,
+              amount: intent.amount_received / 100, currency: intent.currency });
+            settled = true; recovered += 1;
           }
+        } else if (attempt.provider === "yoco" && creds.secretKey) {
+          // Checkout keys cannot query the separate Yoco business Payments
+          // API. No GET checkout endpoint is documented for this API. Keep
+          // the attempt unresolved until a signed webhook is received/replayed.
+          providerStatus = "awaiting_signed_yoco_webhook";
         } else {
           providerStatus = "awaiting_webhook";
         }
       }
     } catch (providerError: any) {
+      failures += 1;
       providerStatus = `status_check_failed:${providerError?.message || "provider error"}`;
     }
 
+    if (settled) continue;
     await touchPaymentAttempt(attempt.id, providerStatus);
     if (providerPaid) {
       webhookMissing += 1;
-      await sb.from("payment_attempts").update({ provider_status: "paid_waiting_webhook", updated_at: new Date().toISOString() }).eq("id", attempt.id).eq("status", "pending");
-      await notifyPaymentAttemptFailed({
+      const marked = await sb.from("payment_attempts").update({ provider_status: "paid_waiting_webhook", updated_at: new Date().toISOString() }).eq("id", attempt.id).eq("status", "pending");
+      if (marked.error) throw marked.error;
+      if (attempt.provider_status !== "paid_waiting_webhook") await notifyPaymentAttemptFailed({
         admin: sb,
         attempt,
         mode: "webhook_missing",
@@ -105,13 +125,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       continue;
     }
 
-    if (attempt.expires_at && new Date(attempt.expires_at).getTime() <= Date.now()) {
+    // Time elapsed or an unreachable provider is not evidence of non-payment.
+    if (providerTerminalUnpaid) {
       const transitioned = await transitionPaymentAttempt({
         provider: attempt.provider,
         attemptId: attempt.id,
         status: "expired",
         providerStatus: providerStatus || attempt.provider_status || "expired",
-        failureReason: "Checkout session expired before a payment confirmation webhook arrived.",
+        failureReason: "Provider confirmed this session expired or was cancelled without payment.",
       });
       if (transitioned.changed && transitioned.attempt) {
         expired += 1;
@@ -124,7 +145,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
-  return res.status(200).json({ ok: true, checked, expired, webhook_missing: webhookMissing });
+  await recordCronHeartbeat(sb, "reconcile-payment-attempts", failures ? "error" : "ok", { source: auth.source, checked, expired, recovered, errors_count: failures });
+  return res.status(failures ? 503 : 200).json({ ok: failures === 0, checked, expired, recovered, webhook_missing: webhookMissing });
 }
 
 export default withApiLogging(handler);

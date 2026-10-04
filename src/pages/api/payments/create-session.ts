@@ -19,7 +19,9 @@
  *
  * Wave 29.1 add: optional store-credit redemption before the gateway
  * call. Body field `apply_credit: true` (or `apply_credit_amount: number`)
- * triggers an atomic redeem via the redeem_client_credit RPC --
+ * triggers an atomic redeem via the redeem_client_credit_once RPC.
+ * `checkout_request_id` is a stable client UUID for the same selection;
+ * retries replay its credit debit instead of spending the wallet again.
  * credit is netted off the invoice balance and the gateway is
  * charged for the remainder. When credit covers the full amount,
  * the invoice is marked paid in-place and a settled response is
@@ -43,6 +45,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  let committedCredit: Record<string, unknown> = {};
+  const checkoutError = (status: number, details: Record<string, unknown>) =>
+    res.status(status).json({ ...details, ...committedCredit });
   try {
     // Wave 17 audit: the email-delivered pay link points at
     // /pay/i/{public_token}, where the client is unauthenticated.
@@ -57,6 +62,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: { user } } = await ssr.auth.getUser();
 
     const body = (req.body || {}) as any;
+    if (body.checkout_request_id !== undefined && (typeof body.checkout_request_id !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.checkout_request_id))) {
+      return res.status(400).json({ error: "Invalid checkout request ID" });
+    }
+    const checkoutRequestId = body.checkout_request_id || randomUUID();
+    const requestedPay = body.pay_amount === undefined ? undefined : parseMoney(body.pay_amount);
+    const requestedCredit = body.apply_credit_amount === undefined ? undefined : parseMoney(body.apply_credit_amount);
+    if (requestedPay === null || (requestedPay !== undefined && requestedPay <= 0)) {
+      return res.status(400).json({ error: "Payment amount must be a positive amount with at most two decimal places" });
+    }
+    if (requestedCredit === null || (requestedCredit !== undefined && requestedCredit < 0)) {
+      return res.status(400).json({ error: "Store credit amount must be a non-negative amount with at most two decimal places" });
+    }
     const invoice_id = body.invoice_id as string | undefined;
     const public_token = typeof body.public_token === "string" ? body.public_token.trim() : "";
     if (typeof invoice_id !== "string" || !/^[0-9a-f-]{36}$/i.test(invoice_id)) {
@@ -77,9 +95,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
     if (invErr || !invoice || invoice.deleted_at) {
       return res.status(404).json({ error: "Invoice not found" });
-    }
-    if (invoice.status === "paid") {
-      return res.status(409).json({ error: "Invoice is already paid" });
     }
 
     // Authorise. Either the public token matches the invoice OR the
@@ -125,55 +140,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(403).json({ error: "Not your invoice" });
     }
 
-    // The store-credit RPC writes a completed payments row first and this
-    // route then refreshes the invoice aggregates. If a prior request was
-    // interrupted between those writes, rebuild the payable balance from
-    // the ledger before creating another checkout. This avoids charging the
-    // customer for credit already redeemed on a previous attempt.
-    const { data: invoicePayments, error: invoicePaymentsError } = await admin
-      .from("payments")
-      .select("amount, payment_status")
-      .eq("invoice_id", invoice.id);
-    if (invoicePaymentsError) {
-      console.error("[payments/create-session] invoice payment ledger lookup failed:", invoicePaymentsError);
-      return res.status(503).json({ error: "Could not refresh the invoice balance. Please try again." });
-    }
-    const ledgerPaid = ((invoicePayments || []) as any[]).reduce((sum, payment) => {
-      return ["completed", "paid", "succeeded"].includes(String(payment.payment_status || "").toLowerCase())
-        ? sum + (Number(payment.amount) || 0)
-        : sum;
-    }, 0);
-    const reconciledAmountPaid = Math.round(Math.max(Number(invoice.amount_paid) || 0, ledgerPaid) * 100) / 100;
-    const reconciledBalanceDue = Math.max(0, Math.round(((Number(invoice.total_amount) || 0) - reconciledAmountPaid) * 100) / 100);
-    const reconciledStatus = reconciledBalanceDue < 0.01
-      ? "paid"
-      : reconciledAmountPaid > 0
-        ? "partially_paid"
-        : invoice.status;
-    if (
-      Math.abs(Number(invoice.amount_paid || 0) - reconciledAmountPaid) > 0.01 ||
-      Math.abs(Number(invoice.balance_due ?? reconciledBalanceDue) - reconciledBalanceDue) > 0.01 ||
-      invoice.status !== reconciledStatus
-    ) {
-      const { data: reconciledInvoice, error: reconcileError } = await admin
-        .from("invoices")
-        .update({
-          amount_paid: reconciledAmountPaid,
-          balance_due: reconciledBalanceDue,
-          status: reconciledStatus,
-          ...(reconciledStatus === "paid" ? { paid_at: new Date().toISOString() } : {}),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", invoice.id)
-        .select("id")
-        .maybeSingle();
-      if (reconcileError || !reconciledInvoice) {
-        console.error("[payments/create-session] invoice balance repair failed:", reconcileError);
-        return res.status(503).json({ error: "Could not refresh the invoice balance. Please try again." });
-      }
-      invoice.amount_paid = reconciledAmountPaid;
-      invoice.balance_due = reconciledBalanceDue;
-      invoice.status = reconciledStatus;
+    const { data: repaired, error: repairError } = await (admin as any).rpc("refresh_invoice_payment_totals", {
+      p_invoice_id: invoice.id, p_minimum_paid: 0,
+    });
+    if (repairError || !repaired) return res.status(503).json({ error: "Could not refresh invoice balance. Please retry." });
+    invoice.amount_paid = repaired.amount_paid;
+    invoice.balance_due = repaired.balance_due;
+    invoice.status = repaired.invoice_status;
+    if (["paid", "written_off", "void", "cancelled"].includes(String(invoice.status))) {
+      return res.status(409).json({ error: "This invoice cannot accept another checkout" });
     }
 
     // Pull order details (deposit_paid flag, event date) so we can
@@ -184,6 +159,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("orders")
         .select("id, deposit_paid, deposit_amount, balance_amount, total_amount, currency, order_number, client_email, client_name")
         .eq("id", invoice.order_id)
+        .eq("company_id", invoice.company_id)
+        .is("deleted_at", null)
         .maybeSingle();
       if (orderErr) {
         console.error("[payments/create-session] orders fetch failed:", orderErr);
@@ -198,18 +175,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const isDeposit = orderRow ? !orderRow.deposit_paid : false;
     const invoiceBalanceDue = Math.max(0, Number(invoice.balance_due ?? (Number(invoice.total_amount || 0) - Number(invoice.amount_paid || 0))) || 0);
     const suggestedGross = orderRow && isDeposit
-      ? Number(orderRow.deposit_amount) || invoiceBalanceDue
+      ? Math.max(0, (Number(orderRow.deposit_amount) || Number(invoice.total_amount) / 2) - Number(invoice.amount_paid || 0))
       : invoiceBalanceDue;
-    const defaultGross = Math.min(Math.max(0, suggestedGross), invoiceBalanceDue);
+    const defaultGross = Math.round(Math.min(Math.max(0, suggestedGross), invoiceBalanceDue) * 100) / 100;
     // The payer can choose how much to pay now (a deposit that may not
     // be exactly the configured %). Honour `pay_amount` when supplied,
     // but ALWAYS cap to the outstanding balance so a client can never
     // overpay the invoice. Falls back to the deposit/balance default.
     const maxPayable = invoiceBalanceDue;
-    const requestedPay = Number(body.pay_amount);
     const grossAmount =
-      Number.isFinite(requestedPay) && requestedPay > 0
-        ? Math.min(Math.round(requestedPay * 100) / 100, maxPayable)
+      requestedPay !== undefined
+        ? Math.min(requestedPay, maxPayable)
         : defaultGross;
     if (!grossAmount || grossAmount <= 0) {
       return res.status(400).json({ error: "Nothing to pay" });
@@ -221,16 +197,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // We call the SECURITY DEFINER RPC - it serialises concurrent
     // redeems for the same wallet behind a per-(company, client)
     // advisory lock so a mash-click can't double-spend.
-    const wantsApplyCredit = body.apply_credit === true || body.apply_credit_amount;
+    const wantsApplyCredit = body.apply_credit === true || (requestedCredit !== undefined && requestedCredit > 0);
     let creditApplied = 0;
     let creditPaymentId: string | null = null;
-    if (wantsApplyCredit && invoice.client_id) {
-      const requested = body.apply_credit_amount
-        ? Math.max(0, Number(body.apply_credit_amount))
-        : grossAmount; // RPC caps at min(available, balance, requested)
+    let creditReplayed = false;
+    if (wantsApplyCredit && invoice.client_id && requestedCredit !== 0) {
+      // Credit is part of the selected payment, not permission to spend the
+      // rest of the wallet. The RPC also caps by its locked invoice balance.
+      // Use the payer's original selection as the replay fingerprint. The
+      // database caps a new debit by the live balance. A retry must not change
+      // its request merely because its own previous debit reduced that balance.
+      const selectedAmount = requestedPay ?? grossAmount;
+      const requested = Math.min(requestedCredit ?? selectedAmount, selectedAmount);
       try {
         const { data: redeemResult, error: redeemErr } = await (admin as any).rpc(
-          "redeem_client_credit",
+          "redeem_client_credit_once",
           {
             p_company_id: invoice.company_id,
             p_client_id: invoice.client_id,
@@ -238,79 +219,49 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             p_order_id: invoice.order_id,
             p_requested_amount: requested,
             p_created_by_user_id: user?.id || null,
+            p_request_id: checkoutRequestId,
           },
         );
         if (redeemErr) {
           console.warn("[create-session] redeem RPC failed:", redeemErr);
+          return res.status(503).json({ error: "Could not confirm store credit redemption. Please retry before paying." });
         } else if (redeemResult && (redeemResult as any).redeemed_amount > 0) {
           creditApplied = Number((redeemResult as any).redeemed_amount) || 0;
           creditPaymentId = (redeemResult as any).payment_id || null;
+          creditReplayed = (redeemResult as any).replayed === true;
+          committedCredit = { creditApplied, creditPaymentId, refreshRequired: true };
         }
       } catch (e) {
-        console.warn("[create-session] redeem crashed (non-blocking):", e);
+        console.warn("[create-session] redeem crashed:", e);
+        return res.status(503).json({ error: "Could not confirm store credit redemption. Please retry before paying." });
       }
     }
 
-    const amount = Math.max(0, Math.round((grossAmount - creditApplied) * 100) / 100);
+    const grossBeforeCredit = creditReplayed
+      ? Math.min(requestedPay ?? (grossAmount + creditApplied), invoiceBalanceDue + creditApplied)
+      : grossAmount;
+    const amount = Math.max(0, Math.round((grossBeforeCredit - creditApplied) * 100) / 100);
 
-    // Update the invoice with the credit payment so the invoice
-    // balance reflects what credit just paid down. We do this even
-    // when credit doesn't cover everything - the gateway flow
-    // will record its own payment row + the invoice gets stamped
-    // again on webhook confirmation. Status flips to 'paid' only
-    // when balance hits 0 (otherwise stays at draft/sent/etc.).
+    // Credit debit and invoice totals now commit in redeem_client_credit.
     if (creditApplied > 0) {
-      const newBalance = Math.max(
-        0,
-        Math.round((Number(invoice.balance_due || 0) - creditApplied) * 100) / 100,
-      );
-      const newAmountPaid =
-        Math.round(
-          ((Number(invoice.total_amount || 0) - newBalance)) * 100,
-        ) / 100;
-      const updates: any = {
-        balance_due: newBalance,
-        amount_paid: newAmountPaid,
-        updated_at: new Date().toISOString(),
-      };
-      if (newBalance < 0.01) updates.status = "paid";
-      else if (newAmountPaid > 0) updates.status = "partially_paid";
-      const { error: invoiceUpdateError } = await admin.from("invoices").update(updates).eq("id", invoice.id);
-      if (invoiceUpdateError) {
-        console.error("[create-session] invoice balance update failed:", invoiceUpdateError);
-        return res.status(503).json({ error: "Store credit was applied, but the invoice balance could not be refreshed. Please retry before paying." });
-      }
-      try {
-        await (admin as any).from("audit_logs").insert({
-          company_id: invoice.company_id,
-          user_id: user?.id || null,
-          action: "credit_redeemed",
-          entity_type: "invoices",
-          entity_id: invoice.id,
-          details: {
-            order_id: invoice.order_id,
-            credit_applied: creditApplied,
-            invoice_number: invoice.invoice_number,
-            new_balance: newBalance,
-            credit_payment_id: creditPaymentId,
-            requested_via: user ? "auth_portal" : "magic_link",
-          },
-        });
-      } catch (e) {
-        console.warn("[create-session] credit_redeemed audit failed:", e);
-      }
+      const { data: fresh, error: freshError } = await admin.from("invoices")
+        .select("amount_paid, balance_due, status").eq("id", invoice.id).single();
+      if (freshError || !fresh) return checkoutError(503, { error: "Could not refresh the redeemed invoice. Review your payment balance before retrying." });
+      invoice.amount_paid = fresh.amount_paid; invoice.balance_due = fresh.balance_due; invoice.status = fresh.status;
     }
 
-    // Credit covered the whole bill - short-circuit. No gateway
-    // call needed; the invoice is paid.
+    // Credit covered the selected amount; the invoice may still have a balance.
     if (amount <= 0) {
       return res.status(200).json({
         ok: true,
         provider: "store_credit",
-        settled: true,
+        settled: Number(invoice.balance_due || 0) <= 0,
         creditApplied,
         creditPaymentId,
-        message: "Invoice settled with store credit - no card payment needed.",
+        amountPaid: Number(invoice.amount_paid || 0),
+        balanceDue: Number(invoice.balance_due || 0),
+        invoiceStatus: invoice.status,
+        message: Number(invoice.balance_due || 0) <= 0 ? "Invoice settled with store credit." : "Selected payment covered by store credit; a balance remains.",
       });
     }
 
@@ -337,19 +288,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const paymentAttemptId = randomUUID();
     const activeGateway = await resolveActivePaymentGateway(invoice.company_id);
     if (!activeGateway) {
-      return res.status(400).json({
+      return checkoutError(400, {
         error: "This company has no active payment gateway. Configure its own provider in onboarding or Admin → Payment Gateways.",
         code: "payment_not_configured",
       });
     }
     const checkoutCurrency = String(orderRow?.currency || invoice.currency || "ZAR").toUpperCase();
     if (["payfast", "yoco"].includes(activeGateway.gateway.provider) && checkoutCurrency !== "ZAR") {
-      return res.status(400).json({
+      return checkoutError(400, {
         error: `${activeGateway.gateway.provider === "payfast" ? "PayFast" : "Yoco"} can only collect ZAR for this invoice. Choose Stripe or update the invoice currency.`,
         code: "payment_currency_not_supported",
       });
     }
 
+    if (activeGateway.gateway.provider === "payfast" && !activeGateway.gateway.is_test && amount < 5) {
+      return checkoutError(400, { code: "payment_amount_below_minimum", error: "PayFast requires at least R5.00 for a live payment. Use EFT for this amount." });
+    }
+    const { data: gatewayVersionId, error: versionError } = await (admin as any).rpc("capture_checkout_gateway_credentials", {
+      p_gateway_id: activeGateway.gateway.id, p_credentials: activeGateway.credentials, p_is_test: activeGateway.gateway.is_test,
+    });
+    if (versionError || !gatewayVersionId) return checkoutError(503, { error: "Could not save checkout merchant configuration. Please retry." });
     // Create the correlation row before calling the provider. This closes
     // the small but real race where a hosted checkout completes and its
     // webhook arrives before the provider session response is persisted.
@@ -373,6 +331,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             invoiceNumber: invoice.invoice_number,
             paymentAttemptId,
             gatewayId: activeGateway.gateway.id,
+            gatewayVersionId: String(gatewayVersionId),
+            merchantPaymentId: paymentAttemptId,
             merchantId: activeGateway.credentials.merchantId || "",
             gatewayIsTest: String(activeGateway.gateway.is_test),
           },
@@ -380,7 +340,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         });
       } catch (attemptError) {
         console.error("[payments/create-session] pre-checkout attempt insert failed:", attemptError);
-        return res.status(503).json({
+        return checkoutError(503, {
           error: "Could not prepare payment tracking. Please try again.",
           code: "payment_tracking_unavailable",
         });
@@ -405,7 +365,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       cancelUrl: viaPublicToken
         ? `${baseUrl}/pay/i/${(invoice as any).public_token}?cancelled=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}`
         : `${baseUrl}/client-portal/billing?cancelled=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}&invoice=${encodeURIComponent(invoice.invoice_number)}&invoice_id=${encodeURIComponent(invoice.id)}`,
-      notifyUrl: notifyUrlFor(baseUrl, invoice.company_id),
+      notifyUrl: notifyUrlFor(baseUrl),
       customer: {
         email: ownership.email || orderRow?.client_email || "",
         firstName: (ownership.client_name || orderRow?.client_name || "").split(" ")[0] || "Customer",
@@ -439,13 +399,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           console.warn("[payments/create-session] failed-attempt transition failed:", attemptError);
         }
       }
-      return res.status(400).json({
+      return checkoutError(400, {
         error: result.error,
       });
     }
 
     try {
-      await attachPaymentAttemptSession(paymentAttemptId, result.provider === "payfast" ? paymentAttemptId : result.sessionId!);
+      await attachPaymentAttemptSession(paymentAttemptId, result.provider === "payfast" ? paymentAttemptId : (result.sessionId || ""));
     } catch (attemptError) {
       console.error("[payments/create-session] provider session attach failed:", attemptError);
       try {
@@ -459,7 +419,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (transitionError) {
         console.error("[payments/create-session] untracked session attempt could not be closed:", transitionError);
       }
-      return res.status(503).json({
+      return checkoutError(503, {
         error: "Could not safely prepare this checkout. Please try again.",
         code: "payment_tracking_unavailable",
       });
@@ -471,6 +431,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       paymentUrl: result.paymentUrl,
       isHtmlForm: !!result.isHtmlForm,
       sessionId: result.sessionId,
+      chargedAmount: amount,
       // Wave 29.1: echo any credit that was applied so the client
       // UI can render "We applied R485 of your store credit; you're
       // being redirected to pay R515 for the remainder."
@@ -479,7 +440,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/payments/create-session crashed:", e);
-    return res.status(500).json({ error: dbErrorMessage(e) || "Could not start payment" });
+    return checkoutError(500, { error: dbErrorMessage(e) || "Could not start payment" });
   }
 }
 
@@ -489,11 +450,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
  * custom fields to the shared ITN endpoint, which verifies the saved
  * checkout attempt before writing.
  */
-function notifyUrlFor(baseUrl: string, _companyId: string): string {
+function notifyUrlFor(baseUrl: string): string {
   // PayFast sends its IPN to this shared route. The handler verifies the
   // tenant ID, merchant ID, invoice/order and saved attempt from the signed
   // callback before applying any payment.
   return `${baseUrl}/api/webhooks/payment-confirmation`;
+}
+
+/** Explicit monetary inputs must never turn invalid values into a default payment. */
+function parseMoney(value: unknown): number | null {
+  if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
+  const amount = Number(value);
+  const cents = Math.round(amount * 100);
+  if (!Number.isFinite(amount) || !Number.isSafeInteger(cents) || Math.abs(amount * 100 - cents) > 0.000001) return null;
+  return cents / 100;
 }
 
 export default withApiLogging(handler);

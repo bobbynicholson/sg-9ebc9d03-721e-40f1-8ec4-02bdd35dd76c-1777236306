@@ -290,6 +290,7 @@ function quoteContentSignatureFromPayload(payload: any): string {
     discount_amount: money(payload.discount_amount),
     tax_amount: money(payload.tax_amount ?? payload.tax),
     deposit_percentage: money(payload.deposit_percentage),
+    initial_payment_amount: money(payload.initial_payment_amount),
     total_amount: money(payload.total_amount ?? payload.total),
     valid_until: text(payload.valid_until).slice(0, 10),
   });
@@ -416,6 +417,7 @@ function NewQuotePage() {
    *  downstream order + invoice generation honour the branch override
    *  without re-resolving. */
   const [depositPercent, setDepositPercent] = useState(30);
+  const [initialPaymentAmountOverride, setInitialPaymentAmountOverride] = useState<number | null>(null);
   const [deliveryFee, setDeliveryFee] = useState(0);
   /** True once the operator has manually overridden the auto-fee.
    *  Stops subsequent auto-recalcs from clobbering their override. */
@@ -653,6 +655,17 @@ function NewQuotePage() {
     };
   }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterTotalFee, taxRate, pricingIncludesVat]);
 
+  const suggestedFirstPaymentAmount = Math.round(
+    Math.max(0, computed.total) * Math.max(0, Math.min(100, depositPercent > 0 ? depositPercent : 30)) / 100 * 100,
+  ) / 100;
+  const firstPaymentAmount = Math.max(
+    computed.total > 0 ? 0.01 : 0,
+    Math.min(
+      Math.max(0, computed.total),
+      initialPaymentAmountOverride == null ? suggestedFirstPaymentAmount : initialPaymentAmountOverride,
+    ),
+  );
+
   // ── Pre-fill: load company default delivery buffer ─────────────────
   // Wave 11 #7: this used to also pull deliveryCostPerKm from a global
   // localStorage key 'admin_settings'. That key was unscoped, so a
@@ -871,6 +884,12 @@ function NewQuotePage() {
             : 0,
       );
       setContentSignatureAtLoad(quoteContentSignatureFromPayload(data));
+      setInitialPaymentAmountOverride(
+        (data as any).initial_payment_amount != null
+          && Number.isFinite(Number((data as any).initial_payment_amount))
+          ? Number((data as any).initial_payment_amount)
+          : null,
+      );
 
       // 2) Overlay the client's requested changes (same tick, so these win).
       if (cr) {
@@ -1649,6 +1668,7 @@ function NewQuotePage() {
       // falls back to the hard-coded 30% even when CPT has overridden
       // it to 50% on the regions page.
       deposit_percentage: depositPercent,
+      initial_payment_amount: firstPaymentAmount,
       total_amount: computed.total,
       total: computed.total,
       valid_until: validUntil || null,
@@ -1660,6 +1680,7 @@ function NewQuotePage() {
     selectedKitchen, eventName, eventDate, eventTime, setupTime, suggestedSetupTime,
     venueAddress, venueLat, venueLng,
     deliveryDistance, deliveryCostPerKm, deliveryFee, depositPercent,
+    firstPaymentAmount,
     collectionDistance, collectionCostPerKm, collectionFee, collectionNextDay,
     waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, waiterTotalFee,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
@@ -2393,7 +2414,7 @@ function NewQuotePage() {
               (shared renderTotalsBreakdown). */}
           <div className="fixed left-0 right-0 top-14 lg:top-0 z-30 lg:pl-72 xl:pl-80 px-4 pt-2">
             <div className="relative">
-              <div className="rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-lg px-4 py-2.5 flex items-center justify-between gap-3">
+              <div className="rounded-xl border border-slate-200 bg-white/95 backdrop-blur shadow-lg px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setBreakdownOpen((v) => !v)}
@@ -2412,6 +2433,38 @@ function NewQuotePage() {
                     </span>
                   </span>
                 </button>
+                <label className="flex items-center gap-2 flex-shrink-0 rounded-lg bg-brand-primary/5 px-2.5 py-1.5 border border-brand-primary/15">
+                  <span className="text-[11px] leading-tight text-slate-600 whitespace-nowrap">
+                    <span className="block font-semibold text-slate-800">First payment</span>
+                    <span className="hidden sm:block">client pays now</span>
+                  </span>
+                  <span className="relative">
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">{tenantCurrency.symbol}</span>
+                    <Input
+                      type="number"
+                      min={computed.total > 0 ? 0.01 : 0}
+                      max={computed.total}
+                      step="0.01"
+                      value={firstPaymentAmount}
+                      onChange={(e) => {
+                        const value = e.currentTarget.value;
+                        if (value === "") {
+                          setInitialPaymentAmountOverride(null);
+                          return;
+                        }
+                        const parsed = Number(value);
+                        if (Number.isFinite(parsed)) setInitialPaymentAmountOverride(parsed);
+                      }}
+                      onBlur={() => {
+                        if (initialPaymentAmountOverride != null) {
+                          setInitialPaymentAmountOverride(firstPaymentAmount);
+                        }
+                      }}
+                      aria-label="First payment amount requested from the client"
+                      className="h-9 w-24 sm:w-32 pl-6 text-sm font-semibold tabular-nums"
+                    />
+                  </span>
+                </label>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
                     variant="outline"

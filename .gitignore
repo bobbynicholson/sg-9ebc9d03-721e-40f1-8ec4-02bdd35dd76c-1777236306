@@ -73,6 +73,17 @@ dev-server.log
 .next-verify/
 .next-local-notification-check/
 .next-production-check/
+.next-payment-verify/
 
 # One-off scratch scripts (keep real tooling un-prefixed)
 scripts/_tmp_*
+
+# Isolated local payment database and validation output
+tmp/payment-postgres/
+tmp/payment-audit/
+tmp/payment-build.log
+tmp/payment-full-tests.log
+tmp/refund-receipt-delivery.sql
+.next-payment-ui/
+tmp/payment-ui-results/
+tmp/payment-targeted-tests.log

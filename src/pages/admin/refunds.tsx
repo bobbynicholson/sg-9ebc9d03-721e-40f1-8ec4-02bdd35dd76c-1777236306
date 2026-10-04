@@ -52,6 +52,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { isOpenRefundStatus } from "@/lib/refundStatus";
 import { formatZAR } from "@/lib/formatters";
+import { RefundReconciliationDialog } from "@/components/billing/RefundReconciliationDialog";
 
 interface RefundRow {
   id: string;
@@ -170,6 +171,7 @@ function RefundsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [reconcilingId, setReconcilingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   // Phase 27 #3: ?paymentId scrolls to + highlights the matching
   // refund row. Used by PendingRefundsWidget deep-link from the
@@ -251,7 +253,7 @@ function RefundsPage() {
       const { data: refundRows, error } = await supabase
         .from("payments")
         .select(
-          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, invoice_id, payment_type, gateway_transaction_id, payment_reference, order:orders!payments_order_id_fkey(order_number, client_name, client_id, event_date)" as any,
+          "id, amount, payment_status, reason, created_at, processed_at, order_id, cancellation_request_id, gateway, gateway_provider, invoice_id, payment_type, gateway_transaction_id, payment_reference, refund_provider_reference, order:orders!payments_order_id_fkey(order_number, client_name, client_id, event_date)" as any,
         )
         .eq("company_id", companyId)
         .in("payment_type", ["refund", "credit_issue", "credit_redeem"])
@@ -315,7 +317,7 @@ function RefundsPage() {
           order_id: r.order_id,
           cancellation_request_id: r.cancellation_request_id,
           refund_gateway: r.gateway || r.gateway_provider || null,
-          reference: r.gateway_transaction_id || r.payment_reference || null,
+          reference: r.refund_provider_reference || r.gateway_transaction_id || r.payment_reference || null,
           order_number: r.order?.order_number || null,
           client_name: r.order?.client_name || null,
           client_id: r.order?.client_id || null,
@@ -472,12 +474,13 @@ function RefundsPage() {
       const json = await res.json().catch(() => ({} as any));
       if (!res.ok) {
         toast({
-          title: "Retry failed",
+          title: json.status === "pending_reconciliation" ? "Check refund outcome" : "Retry failed",
           description:
-            json.error ||
-            "PayFast did not accept the retry. The original payment may not have synced through yet. Give it a minute, or fall back to manual EFT.",
+            json.error || json.message ||
+            "Check the original payment and refund records before attempting another payout.",
           variant: "destructive",
         });
+        await load();
       } else if (json.status === "auto_processed") {
         toast({
           title: `Refund of ${fmtAmount(r.amount)} auto-processed`,
@@ -645,8 +648,9 @@ function RefundsPage() {
     const isRefund = r.kind === "refund";
     const isCreditIssue = r.kind === "credit_issue";
     const isCreditRedeem = r.kind === "credit_redeem";
-    const showMarkPaid = isRefund && isOpen && !parentIsPayFast;
-    const showRetry = isRefund && isOpen && parentIsPayFast;
+    const canAct = ["pending", "failed"].includes(r.status);
+    const showMarkPaid = isRefund && canAct;
+    const showRetry = isRefund && canAct && parentIsPayFast;
 
     // Icon + tone vary by kind so the row is identifiable at a glance.
     let iconBg: string;
@@ -742,7 +746,7 @@ function RefundsPage() {
             )}
             {isProcessing && (
               <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-800 bg-blue-50">
-                PayFast retry in flight
+                Check provider outcome before another payout
               </Badge>
             )}
             {/* REF-A: pending-aging chip. Surfaces refunds we've
@@ -792,6 +796,8 @@ function RefundsPage() {
             ) : null}
           </div>
         </div>
+        {r.kind === "refund" && isProcessing && <Button size="sm" variant="outline"
+          onClick={() => setReconcilingId(r.id)} disabled={busy === r.id}>Reconcile outcome</Button>}
         {showMarkPaid ? (
           <Button
             size="sm"
@@ -800,7 +806,7 @@ function RefundsPage() {
             onClick={() => markPaid(r)}
             disabled={busy === r.id}
           >
-            {busy === r.id ? "Marking..." : "Mark refund paid"}
+            {busy === r.id ? "Marking..." : parentIsPayFast ? "Record manual refund" : "Mark refund paid"}
           </Button>
         ) : null}
         {showRetry ? (
@@ -850,6 +856,8 @@ function RefundsPage() {
         <title>Refunds & Credits - CateringMS</title>
       </Head>
       <NoIndexMeta />
+      {reconcilingId && <RefundReconciliationDialog key={reconcilingId} refundId={reconcilingId}
+        onClose={() => setReconcilingId(null)} onSaved={load} />}
       <AdminNav />
       <div className="admin-page-shell">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">

@@ -69,6 +69,8 @@ export interface EmailAttachment {
 }
 
 export interface SendEmailPayload {
+  /** Server-side durable receipt/outbox correlation. */
+  idempotencyKey?: string;
   companyId: string;
   to: string;
   subject: string;
@@ -925,6 +927,7 @@ export const emailService = {
           headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
         }
         providerResult = await this.sendViaResend({
+          idempotencyKey: payload.idempotencyKey,
           from,
           to: payload.to,
           subject: finalSubject,
@@ -1160,6 +1163,7 @@ export const emailService = {
    * unverified vs other).
    */
   async sendViaResend(emailData: {
+    idempotencyKey?: string;
     from: string;
     to: string;
     subject: string;
@@ -1223,8 +1227,10 @@ export const emailService = {
         headers: {
           'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
           'Content-Type': 'application/json',
+          ...(emailData.idempotencyKey ? { 'Idempotency-Key': emailData.idempotencyKey } : {}),
         },
         body: JSON.stringify(resendBody),
+        signal: AbortSignal.timeout(15000),
       });
 
       if (!response.ok) {

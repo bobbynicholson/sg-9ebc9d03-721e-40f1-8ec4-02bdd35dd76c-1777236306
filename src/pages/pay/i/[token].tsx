@@ -1,3 +1,4 @@
+import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * /pay/i/[token] - public invoice + payment view.
@@ -15,7 +16,7 @@
  * use the saved invoice/order IDs while browser returns stay token-based.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { format } from "date-fns";
@@ -44,7 +45,24 @@ import {
 // decimal, single "R") instead of raw Intl, which renders a COMMA
 // decimal on full-ICU en-ZA and reads inconsistent with every other
 // money surface in the app. `.format` shim keeps the call sites tidy.
-const fmtMoney = { format: (n: number) => formatZAR(n) };
+function formatInvoiceMoney(amount: number, currency: string): string {
+  const supported = ["ZAR", "USD", "EUR", "GBP", "AUD"];
+  const code = supported.includes(String(currency || "").toUpperCase())
+    ? String(currency).toUpperCase()
+    : "ZAR";
+  if (code === "ZAR") return formatZAR(amount);
+  const locale = code === "USD" ? "en-US" : code === "AUD" ? "en-AU" : code === "GBP" ? "en-GB" : "en-GB";
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(amount) || 0);
+  } catch {
+    return `${code} ${(Number(amount) || 0).toFixed(2)}`;
+  }
+}
 
 interface InvoiceView {
   id: string;
@@ -57,9 +75,22 @@ interface InvoiceView {
   balance_due: number;
   status: string;
   invoice_data: any;
+  payment_currency?: string | null;
+  payment_options?: {
+    provider: "payfast" | "yoco" | "stripe" | null;
+    online_available: boolean;
+    unavailable_reason: "not_configured" | "configuration_incomplete" | "currency_not_supported" | null;
+    eft_available: boolean;
+  };
   // Completed payments against this invoice (oldest first) so we can show
   // when the deposit / each payment actually landed.
-  payments?: { amount: number; processed_at: string; payment_status: string }[];
+  payments?: {
+    amount: number;
+    processed_at: string;
+    payment_status: string;
+    payment_method?: string | null;
+    gateway_provider?: string | null;
+  }[];
   companies: {
     id: string;
     /** Feeds the public /terms/[company] link (id is the fallback). */
@@ -290,6 +321,8 @@ export default function InvoicePaymentPage() {
   const [creditMaxApplicable, setCreditMaxApplicable] = useState<number>(0);
   const [applyCredit, setApplyCredit] = useState<boolean>(false);
   const [settledByCredit, setSettledByCredit] = useState<boolean>(false);
+  const [creditPaymentAmount, setCreditPaymentAmount] = useState(0);
+  const checkoutRequest = useRef<{ selection: string; id: string } | null>(null);
   // Client-chosen amount to pay now. Prefilled with the suggested
   // deposit (companies.deposit_percent of the total, default 50%) but
   // fully editable - clients often pay a deposit that isn't exactly
@@ -366,7 +399,10 @@ export default function InvoicePaymentPage() {
         try {
           const response = await fetch(`/api/public/invoices/${encodeURIComponent(token)}/get`, { cache: "no-store" });
           const result = await response.json().catch(() => ({}));
-          if (!cancelled && result?.invoice) setInvoice(result.invoice as InvoiceView);
+          if (!cancelled && result?.invoice) {
+            setInvoice(result.invoice as InvoiceView);
+            setPaymentNotConfigured(result.invoice.payment_options?.online_available !== true);
+          }
         } catch {
           // The verified attempt status is still enough to keep this page safe.
         }
@@ -409,6 +445,7 @@ export default function InvoicePaymentPage() {
         return;
       }
       setInvoice(data as InvoiceView);
+      setPaymentNotConfigured(data.payment_options?.online_available !== true);
       setLoading(false);
 
       // Wave 29.2: probe store-credit balance for this client.
@@ -445,6 +482,7 @@ export default function InvoicePaymentPage() {
       totalAmount: invoice.total_amount,
       balanceDue: invoice.balance_due,
       depositPercent: invoice.companies?.deposit_percent,
+      firstPaymentAmount: invoice.invoice_data?.initialPaymentAmount,
       eventDate: resolveInvoiceEventDate(invoice.invoice_data),
     });
     setPayAmount(String(initialAmount));
@@ -462,6 +500,12 @@ export default function InvoicePaymentPage() {
       setProcessing(true);
       setError(null);
 
+      const selection = JSON.stringify([invoice.id, payNowAmt, applyCredit,
+        applyCredit ? Math.min(creditMaxApplicable, payNowAmt) : 0]);
+      if (checkoutRequest.current?.selection !== selection) {
+        checkoutRequest.current = { selection, id: crypto.randomUUID() };
+      }
+
       // Wave 20 audit: this used to inline-build a PayFast HTML form
       // from NEXT_PUBLIC_PAYFAST_* env vars, hardcoded to PayFast,
       // ignoring whichever gateway the tenant actually configured in
@@ -477,6 +521,7 @@ export default function InvoicePaymentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           invoice_id: invoice.id,
+          checkout_request_id: checkoutRequest.current.id,
           public_token: invoice.public_token,
           // The amount the client chose to pay now (server caps it to
           // the outstanding balance). Lets them part-pay a deposit that
@@ -495,12 +540,38 @@ export default function InvoicePaymentPage() {
 
       // Wave 29.2: full credit cover - no gateway hop. Render a
       // settled state in place rather than sending the client off.
-      if (json?.settled === true) {
-        setSettledByCredit(true);
+      if (resp.ok && json?.ok && json.provider === "store_credit") {
+        checkoutRequest.current = null;
+        setCreditPaymentAmount(Number(json.creditApplied) || 0);
+        setSettledByCredit(json.settled === true);
+        setApplyCredit(false);
+        const remainingCredit = Math.max(0, creditAvailable - Number(json.creditApplied || 0));
+        setCreditAvailable(remainingCredit);
+        setCreditMaxApplicable(Math.min(remainingCredit, Number(json.balanceDue || 0)));
+        setInvoice((current) => current ? { ...current,
+          amount_paid: Number(json.amountPaid), balance_due: Number(json.balanceDue), status: json.invoiceStatus,
+        } : current);
         setProcessing(false);
         return;
       }
       if (!resp.ok || !json?.ok) {
+        if (json.creditApplied > 0) {
+          setCreditPaymentAmount(Number(json.creditApplied));
+          setApplyCredit(false);
+          try {
+            const refreshed = await fetch(`/api/public/invoices/${encodeURIComponent(token)}/get`, { cache: "no-store" });
+            const result = await refreshed.json();
+            if (refreshed.ok && result.invoice) setInvoice(result.invoice);
+            const balanceResponse = await fetch("/api/payments/credit-balance", { method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ invoice_id: invoice.id, public_token: invoice.public_token }) });
+            const balance = await balanceResponse.json();
+            if (balanceResponse.ok && balance.ok) {
+              setCreditAvailable(Number(balance.available) || 0);
+              setCreditMaxApplicable(Number(balance.maxApplicable) || 0);
+            }
+          } catch { /* Recorded credit remains visible even if refresh needs a retry. */ }
+        }
         // Surface a fix-path the client can act on. Previously the
         // operator's invoice link landed on a dead-end "contact the
         // company" message; now it's a mailto: with the operator's
@@ -515,8 +586,8 @@ export default function InvoicePaymentPage() {
           `Please send me alternative payment instructions (EFT, etc.).\n\nThanks.`
         );
         const link = tenantEmail ? `mailto:${tenantEmail}?subject=${subject}&body=${body}` : null;
-        const serverMsg = json?.error || `Could not start payment (${resp.status})`;
-        const notConfigured = json?.code === "payment_not_configured"
+        const serverMsg = `${json.creditApplied > 0 ? `Store credit of ${fmtMoney.format(json.creditApplied)} was recorded. ` : ""}${json?.error || `Could not start payment (${resp.status})`}`;
+        const notConfigured = json?.code === "payment_not_configured" || json?.code === "payment_amount_below_minimum"
           || /no active payment gateway|online payment gateway isn.t set up/i.test(String(serverMsg));
         setPaymentNotConfigured(notConfigured);
         setError(
@@ -619,25 +690,33 @@ export default function InvoicePaymentPage() {
 
   const company = invoice.companies;
   const companyName = company.company_name || "Your caterer";
+  const paymentCurrency = String(invoice.payment_currency || "ZAR").toUpperCase();
+  const fmtMoney = { format: (n: number) => formatInvoiceMoney(n, paymentCurrency) };
+  const onlineProviderName = invoice.payment_options?.provider === "payfast"
+    ? "PayFast"
+    : invoice.payment_options?.provider === "yoco"
+      ? "Yoco"
+      : invoice.payment_options?.provider === "stripe"
+        ? "Stripe"
+        : null;
+  const paymentUnavailableMessage = invoice.payment_options?.unavailable_reason === "currency_not_supported"
+    ? `${onlineProviderName || "The online provider"} cannot collect ${paymentCurrency} for this invoice. Use EFT below, or contact ${companyName} to discuss another payment route.`
+    : invoice.payment_options?.unavailable_reason === "configuration_incomplete"
+      ? `Online payment setup is incomplete. Use EFT below or contact ${companyName} for help.`
+      : invoice.payment_options?.unavailable_reason === "not_configured"
+        ? `${companyName} has not connected an online payment provider. Use EFT below or contact the company for payment instructions.`
+        : `Online payment could not be started. Use EFT below or contact ${companyName} for help.`;
   const snapshotBank = invoice.invoice_data?.bankDetails || {};
-  const bankDetails = {
-    name: company.bank_name || snapshotBank.bankName || "",
-    holder: company.bank_account_holder || snapshotBank.accountName || "",
-    account: company.bank_account_number || snapshotBank.accountNumber || "",
-    branch: company.bank_branch_code || snapshotBank.branchCode || "",
-    type: company.bank_account_type || snapshotBank.accountType || "",
-    instructions: company.eft_instructions || snapshotBank.instructions || "",
-  };
-  const hasBankDetails = Boolean(bankDetails.name && bankDetails.account);
+  const bankDetails = resolveCompanyEftDetails(company, snapshotBank);
+  const hasBankDetails = bankDetails.available;
   const paymentSummary = getOrderPaymentSummary({
     totalAmount: invoice.total_amount,
     amountPaid: invoice.amount_paid,
     balanceAmount: invoice.balance_due,
   });
   const isPaid = paymentSummary.state === "paid";
-  // A deposit (or any part payment) has landed but the invoice isn't
-  // settled yet. The client should see "Deposit paid" + how much of the
-  // total is still outstanding, not a bare "Awaiting payment".
+  // Some payment has landed but the invoice isn't settled yet. Keep the
+  // invoice label distinct from whether the deposit threshold is met.
   const isPartiallyPaid = paymentSummary.state === "partial";
   const nowForInvoice = new Date();
   const dueState = getInvoiceDueState(invoice.due_date, nowForInvoice);
@@ -648,6 +727,7 @@ export default function InvoicePaymentPage() {
     Number(invoice.total_amount) > 0
       ? Math.round((Number(invoice.balance_due) / Number(invoice.total_amount)) * 100)
       : 0;
+  const amountPaidToDate = paymentSummary.amountPaid;
   const vatRegistered = !!company.vat_registered;
   const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
   const today = format(nowForInvoice, "d MMMM yyyy");
@@ -669,7 +749,11 @@ export default function InvoicePaymentPage() {
     return Number.isFinite(p) && p > 0 && p < 100 ? p : 50;
   })();
   const balancePct = 100 - depositPct;
-  const depositAmount = Math.round((invoice.total_amount || 0) * (depositPct / 100) * 100) / 100;
+  const savedFirstPaymentAmount = Number(invoice.invoice_data?.initialPaymentAmount);
+  const hasSavedFirstPaymentAmount = Number.isFinite(savedFirstPaymentAmount) && savedFirstPaymentAmount > 0;
+  const depositAmount = hasSavedFirstPaymentAmount
+    ? Math.min(savedFirstPaymentAmount, Number(invoice.total_amount) || 0)
+    : Math.round((invoice.total_amount || 0) * (depositPct / 100) * 100) / 100;
   const balanceAmount = Math.round(((invoice.total_amount || 0) - depositAmount) * 100) / 100;
 
   // Once the event is today or in the past there's no runway for a
@@ -680,6 +764,13 @@ export default function InvoicePaymentPage() {
   // full amount). Derived from the event date on the invoice snapshot.
   const eventDate = resolveInvoiceEventDate(invoice.invoice_data);
   const fullPaymentDue = isInvoiceFullPaymentDue(eventDate, nowForInvoice);
+  const requiredPaymentThreshold = fullPaymentDue ? Number(invoice.total_amount) : depositAmount;
+  const amountNeededForThreshold = Math.max(
+    0,
+    Math.round((requiredPaymentThreshold - amountPaidToDate) * 100) / 100,
+  );
+  const requiredPaymentThresholdMet = Math.round(amountPaidToDate * 100) >= Math.round(requiredPaymentThreshold * 100);
+  const invoiceStatusLabel = isPaid ? "Paid in Full" : isPartiallyPaid ? "Partially Paid" : "Awaiting Payment";
   const invoiceDateForDisplay = parseInvoiceCalendarDate(invoice.invoice_date);
   const dueDateForDisplay = parseInvoiceCalendarDate(invoice.due_date);
   const eventDateForDisplay = parseInvoiceCalendarDate(eventDate);
@@ -689,6 +780,10 @@ export default function InvoicePaymentPage() {
   // field: what they're paying and the balance that will remain after.
   const payNow = Math.max(0, Math.min(Number(payAmount) || 0, invoice.balance_due));
   const remainingAfter = Math.max(0, Math.round((invoice.balance_due - payNow) * 100) / 100);
+  const suggestedPaymentAmount = Math.min(
+    invoice.balance_due,
+    fullPaymentDue ? invoice.balance_due : depositAmount,
+  );
 
   const invoiceBreakdown = buildInvoiceBreakdown(invoice);
   const breakdownSections = invoiceBreakdown.sections;
@@ -794,12 +889,12 @@ export default function InvoicePaymentPage() {
               {isPaid ? (
                 <Badge className="bg-brand-primary text-white border-0 gap-1 px-3 py-1.5 text-sm">
                   <CheckCircle2 className="w-4 h-4" />
-                  {paymentSummary.label}
+                  {invoiceStatusLabel}
                 </Badge>
               ) : isPartiallyPaid ? (
                 <Badge className="bg-brand-primary text-white border-0 gap-1 px-3 py-1.5 text-sm">
                   <CheckCircle2 className="w-4 h-4" />
-                  {paymentSummary.label}
+                  {invoiceStatusLabel}
                 </Badge>
               ) : isOverdue ? (
                 <Badge className="bg-rose-600 text-white border-0 px-3 py-1.5 text-sm">
@@ -832,6 +927,7 @@ export default function InvoicePaymentPage() {
                       {invoice.payments.map((p, i) => (
                         <p key={i} className="text-[11px] text-stone-500">
                           {fmtMoney.format(Number(p.amount) || 0)} paid on {format(new Date(p.processed_at), "d MMM yyyy")}
+                          {(p.payment_method || p.gateway_provider) && ` via ${p.payment_method || p.gateway_provider}`}
                         </p>
                       ))}
                     </div>
@@ -843,14 +939,14 @@ export default function InvoicePaymentPage() {
                 <div className="grid grid-cols-2 gap-4 rounded-lg bg-stone-50 p-4">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
-                      Deposit payment ({depositPct}%)
+                      {hasSavedFirstPaymentAmount ? "First payment" : `Deposit payment (${depositPct}%)`}
                     </p>
                     <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(depositAmount)}</p>
                     <p className="text-[11px] text-stone-500 mt-0.5">Payable to confirm your booking</p>
                   </div>
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">
-                      Balance payment ({balancePct}%)
+                      {hasSavedFirstPaymentAmount ? "Remaining balance" : `Balance payment (${balancePct}%)`}
                     </p>
                     <p className="text-lg font-bold text-stone-900 tabular-nums">{fmtMoney.format(balanceAmount)}</p>
                     <p className="text-[11px] text-stone-500 mt-0.5">Payable before the event</p>
@@ -880,7 +976,11 @@ export default function InvoicePaymentPage() {
                   </p>
                   {isPartiallyPaid && (
                     <p className="text-sm font-semibold text-brand-primary mt-1">
-                      Deposit received - thank you. The remaining {remainingPct}% is still to pay.
+                      {requiredPaymentThresholdMet
+                        ? `${hasSavedFirstPaymentAmount ? "First payment" : "Deposit"} received. ${fmtMoney.format(invoice.balance_due)} remains to pay.`
+                        : fullPaymentDue
+                          ? `Partial payment received. ${fmtMoney.format(amountNeededForThreshold)} remains before the full invoice amount is paid.`
+                          : `Partial payment received. ${fmtMoney.format(amountNeededForThreshold)} remains before the required deposit is met.`}
                     </p>
                   )}
                   {!isPaid && (
@@ -1007,9 +1107,15 @@ export default function InvoicePaymentPage() {
                       <div className="flex items-start gap-3">
                         <div className="rounded-full bg-amber-100 p-2 text-amber-700"><Landmark className="h-5 w-5" /></div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-stone-900">Online payment is not available yet</p>
+                          <p className="font-bold text-stone-900">
+                            {invoice.payment_options?.unavailable_reason === "currency_not_supported"
+                              ? "Online payment does not support this invoice currency"
+                              : invoice.payment_options?.unavailable_reason === "configuration_incomplete"
+                                ? "Online payment setup is incomplete"
+                                : "Online payment is not available yet"}
+                          </p>
                           <p className="mt-1 text-sm text-stone-600">
-                            {companyName} has not connected an online payment provider. You can pay by EFT using the instructions below, then tell the company so they can verify it.
+                            {paymentUnavailableMessage}
                           </p>
                         </div>
                       </div>
@@ -1052,7 +1158,9 @@ export default function InvoicePaymentPage() {
                   <div>
                     <p className="text-sm font-semibold text-stone-900">Pay this invoice</p>
                     <p className="text-xs text-stone-600 mt-0.5">
-                      Secure card / EFT payment. The provider depends on what {invoice.companies.company_name || "the caterer"} has set up.
+                      {invoice.payment_options?.online_available && !paymentNotConfigured
+                        ? `Pay online with ${onlineProviderName || "the company's provider"}, or pay by EFT when bank details are listed.`
+                        : "Online checkout is unavailable for this invoice. EFT instructions and payment confirmation are available above when bank details are listed."}
                     </p>
                   </div>
 
@@ -1082,7 +1190,7 @@ export default function InvoicePaymentPage() {
                       live and the gateway is charged for exactly this. */}
                   <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 space-y-2">
                     <label htmlFor="pay-amount" className="text-sm font-semibold text-stone-800">
-                      Amount to pay now (R)
+                      Amount to pay now ({paymentCurrency})
                     </label>
                     <input
                       id="pay-amount"
@@ -1109,6 +1217,11 @@ export default function InvoicePaymentPage() {
                       <span className="text-stone-600">Balance remaining after this payment</span>
                       <span className="font-bold text-stone-900 text-lg tabular-nums">{fmtMoney.format(remainingAfter)}</span>
                     </div>
+                    {payNow > 0 && payNow < suggestedPaymentAmount - 0.01 && (
+                      <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        Paying less than the suggested amount records a partial payment. The invoice will show the amount received and the remaining balance. {fullPaymentDue ? "The full outstanding amount is due now." : "Booking confirmation follows the required deposit amount."}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-2 pt-2">
                       {/* Only offer the deposit shortcut when it's actually
                           smaller than what's still owing - once the deposit
@@ -1120,7 +1233,7 @@ export default function InvoicePaymentPage() {
                           onClick={() => setPayAmount(String(Math.min(depositAmount, invoice.balance_due)))}
                           className="text-sm font-semibold rounded-full border border-stone-300 px-4 py-2 text-stone-700 hover:bg-white"
                         >
-                          Pay deposit ({depositPct}%): {fmtMoney.format(Math.min(depositAmount, invoice.balance_due))}
+                          {hasSavedFirstPaymentAmount ? "Pay first payment" : `Pay deposit (${depositPct}%)`}: {fmtMoney.format(Math.min(depositAmount, invoice.balance_due))}
                         </button>
                       )}
                       <button
@@ -1155,27 +1268,36 @@ export default function InvoicePaymentPage() {
                           </div>
                           <p className="text-sm text-brand-primary mt-1">
                             You have <strong>{fmtMoney.format(creditAvailable)}</strong> in credit on file with {invoice.companies.company_name || "the caterer"}.
-                            {creditMaxApplicable >= invoice.balance_due
-                              ? " That covers this whole invoice - nothing left to charge."
-                              : ` We'll apply ${fmtMoney.format(creditMaxApplicable)} and you'll only pay ${fmtMoney.format(invoice.balance_due - creditMaxApplicable)} for the rest.`}
+                            {creditMaxApplicable >= payNow
+                              ? ` Credit covers your selected payment of ${fmtMoney.format(payNow)}. Remaining invoice balance after payment: ${fmtMoney.format(remainingAfter)}.`
+                              : ` We'll apply ${fmtMoney.format(Math.min(creditMaxApplicable, payNow))} toward your selected payment; you'll pay ${fmtMoney.format(Math.max(0, payNow - creditMaxApplicable))} online.`}
                           </p>
                         </div>
                       </label>
                     </div>
                   )}
 
+                  {creditPaymentAmount > 0 && !settledByCredit && (
+                    <Alert className="border-brand-primary/30 bg-brand-primary/10">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription>
+                        Store credit payment recorded: {fmtMoney.format(creditPaymentAmount)}.
+                        Remaining invoice balance: {fmtMoney.format(invoice.balance_due)}.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   {settledByCredit ? (
                     <div className="rounded-xl border-2 border-brand-primary/30 bg-brand-primary/10 p-5 text-center">
                       <CheckCircle2 className="w-10 h-10 text-brand-primary mx-auto mb-2" />
                       <p className="font-bold text-brand-primary text-lg">Invoice settled</p>
                       <p className="text-sm text-brand-primary mt-1">
-                        We applied {fmtMoney.format(creditMaxApplicable)} of your store credit - nothing further to pay.
+                        We applied {fmtMoney.format(creditPaymentAmount)} of your store credit - nothing further to pay.
                       </p>
                     </div>
                   ) : (
                     <Button
                       onClick={initiatePayment}
-                      disabled={processing || payNow <= 0 || ["checking", "pending", "succeeded"].includes(returnPaymentStatus)}
+                      disabled={processing || (paymentNotConfigured && !(applyCredit && creditMaxApplicable >= payNow)) || payNow <= 0 || ["checking", "pending", "succeeded"].includes(returnPaymentStatus)}
                       size="lg"
                       className="w-full bg-brand-primary hover:opacity-90 gap-2"
                     >
@@ -1203,30 +1325,45 @@ export default function InvoicePaymentPage() {
                   )}
 
                   {/* Bank transfer alternative */}
-                  {invoice.invoice_data?.bankDetails && (
+                  {hasBankDetails && !paymentNotConfigured && (
                     <div className="mt-2 p-4 rounded-lg border border-stone-200 bg-stone-50">
-                      <p className="text-sm font-semibold text-stone-900 mb-2">Prefer EFT?</p>
+                      <p className="text-sm font-semibold text-stone-900 mb-2">Pay by EFT</p>
                       <div className="space-y-1 text-sm">
                         <div className="grid grid-cols-2 gap-2">
                           <span className="text-stone-500">Bank:</span>
-                          <span className="font-medium text-stone-900">{invoice.invoice_data.bankDetails.bankName}</span>
+                          <span className="font-medium text-stone-900">{bankDetails.name}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        {bankDetails.holder && <div className="grid grid-cols-2 gap-2">
                           <span className="text-stone-500">Account name:</span>
-                          <span className="font-medium text-stone-900">{invoice.invoice_data.bankDetails.accountName}</span>
-                        </div>
+                          <span className="font-medium text-stone-900">{bankDetails.holder}</span>
+                        </div>}
                         <div className="grid grid-cols-2 gap-2">
                           <span className="text-stone-500">Account #:</span>
-                          <span className="font-medium text-stone-900 tabular-nums">{invoice.invoice_data.bankDetails.accountNumber}</span>
+                          <span className="font-medium text-stone-900 tabular-nums">{bankDetails.account}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        {bankDetails.branch && <div className="grid grid-cols-2 gap-2">
                           <span className="text-stone-500">Branch code:</span>
-                          <span className="font-medium text-stone-900 tabular-nums">{invoice.invoice_data.bankDetails.branchCode}</span>
-                        </div>
+                          <span className="font-medium text-stone-900 tabular-nums">{bankDetails.branch}</span>
+                        </div>}
+                        {bankDetails.type && <div className="grid grid-cols-2 gap-2">
+                          <span className="text-stone-500">Account type:</span>
+                          <span className="font-medium text-stone-900 capitalize">{bankDetails.type}</span>
+                        </div>}
                       </div>
                       <p className="text-xs text-stone-500 mt-3">
                         Use invoice number <strong className="text-stone-700">{invoice.invoice_number}</strong> as reference.
                       </p>
+                      {bankDetails.instructions && <p className="text-xs text-stone-600 mt-2">{bankDetails.instructions}</p>}
+                      <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
+                        <p className="text-sm text-stone-700">After transferring, send your confirmation so the team can match and verify the payment.</p>
+                        <label className="mt-3 block text-xs font-medium text-stone-600">
+                          Optional proof (PDF, JPG, PNG or WEBP; max 8 MB)
+                          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" />
+                        </label>
+                        <Button type="button" size="sm" className="mt-3 bg-brand-primary hover:opacity-90" onClick={claimPublicEft} disabled={processing || eftClaimedPublic}>
+                          {eftClaimedPublic ? "Confirmation sent for review" : proofFile ? "Send payment proof for review" : "I’ve made this EFT payment"}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>

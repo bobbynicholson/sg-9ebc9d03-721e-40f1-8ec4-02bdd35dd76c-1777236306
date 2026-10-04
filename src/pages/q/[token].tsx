@@ -480,6 +480,30 @@ export default function PublicQuotePage() {
   // Phase 5 #10: tenant currency. Lives on company.currency now;
   // ZAR fallback for legacy rows where it's NULL.
   const fmtMoney = fmtMoneyFor((company as any)?.currency || "ZAR");
+  const quotePaymentOptions = quote.payment_options;
+  const quotePaymentProviderName = quotePaymentOptions?.provider === "payfast"
+    ? "PayFast"
+    : quotePaymentOptions?.provider === "yoco"
+      ? "Yoco"
+      : quotePaymentOptions?.provider === "stripe"
+        ? "Stripe"
+        : null;
+  const quoteEftDetails = {
+    bank: company?.bank_name || "",
+    holder: company?.bank_account_holder || "",
+    account: company?.bank_account_number || "",
+    branch: company?.bank_branch_code || "",
+    type: company?.bank_account_type || "",
+    instructions: company?.eft_instructions || "",
+  };
+  const quoteHasEftDetails = Boolean(quoteEftDetails.bank && quoteEftDetails.account);
+  const quoteOnlineUnavailableMessage = quotePaymentOptions?.unavailable_reason === "currency_not_supported"
+    ? `${quotePaymentProviderName || "The online provider"} cannot collect ${String(company?.currency || "ZAR").toUpperCase()} for this quote. EFT is available below, or contact ${companyName} to discuss another payment route.`
+    : quotePaymentOptions?.unavailable_reason === "configuration_incomplete"
+      ? `Online payment setup is incomplete. ${quoteHasEftDetails ? "EFT details are shown below." : `Contact ${companyName} for payment instructions.`}`
+      : quotePaymentOptions?.unavailable_reason === "not_configured"
+        ? `Online payment is not configured. ${quoteHasEftDetails ? "EFT details are shown below." : `Contact ${companyName} for payment instructions.`}`
+        : `Contact ${companyName} to confirm the available payment methods.`;
 
   // When the client has an outstanding change request the quote is "with
   // the caterer for a fresh version" - hide Accept / Decline until the
@@ -498,11 +522,21 @@ export default function PublicQuotePage() {
   const depositPct = quote.deposit_percentage != null && quote.deposit_percentage > 0
     ? Number(quote.deposit_percentage)
     : null;
-  const depositAmount = depositPct != null
-    ? Math.round((Number(quote.total_amount) || 0) * (depositPct / 100) * 100) / 100
+  const savedFirstPaymentAmount = quote.initial_payment_amount != null
+    ? Number(quote.initial_payment_amount)
     : null;
+  const hasSavedFirstPaymentAmount = savedFirstPaymentAmount != null
+    && Number.isFinite(savedFirstPaymentAmount)
+    && savedFirstPaymentAmount > 0;
+  const depositAmount = hasSavedFirstPaymentAmount
+    ? savedFirstPaymentAmount
+    : depositPct != null
+      ? Math.round((Number(quote.total_amount) || 0) * (depositPct / 100) * 100) / 100
+      : null;
   const depositLabel = depositAmount != null && depositAmount > 0
-    ? `${fmtMoney(depositAmount)} (${depositPct}%) deposit`
+    ? hasSavedFirstPaymentAmount
+      ? `${fmtMoney(depositAmount)} first payment`
+      : `${fmtMoney(depositAmount)} (${depositPct}%) deposit`
     : null;
   const companyAddress = [company?.address_line1, company?.address_line2, company?.city]
     .filter(Boolean).join(", ") || null;
@@ -1019,13 +1053,44 @@ export default function PublicQuotePage() {
 
                   {depositLabel && !accepted && (
                     <p className="text-[11px] text-stone-500 text-right">
-                      Secure your date with a {fmtMoney(depositAmount as number)} ({depositPct}%) deposit - balance closer to the event.
+                      {hasSavedFirstPaymentAmount
+                        ? `First payment: ${fmtMoney(depositAmount as number)} - the remaining balance is due later.`
+                        : `Secure your date with a ${fmtMoney(depositAmount as number)} (${depositPct}%) deposit - balance closer to the event.`}
                     </p>
                   )}
                 </CardContent>
               </Card>
             );
           })()}
+
+          <Card className="mb-4 border border-stone-200 shadow-sm print:hidden">
+            <CardContent className="py-4 px-5 space-y-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold">Payment options</p>
+                {quotePaymentOptions?.online_available ? (
+                  <p className="mt-1 text-sm text-stone-700">
+                    After you accept, {companyName} will send an invoice with a payment link. You can pay online with {quotePaymentProviderName}.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-stone-700">{quoteOnlineUnavailableMessage}</p>
+                )}
+              </div>
+              {quoteHasEftDetails && (
+                <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm">
+                  <p className="font-semibold text-stone-900">Pay by EFT</p>
+                  <p className="mt-1 text-xs text-stone-600">Use the invoice number as the reference after the invoice arrives.</p>
+                  <div className="mt-2 grid grid-cols-[120px_1fr] gap-y-1">
+                    <span className="text-stone-500">Bank</span><span className="font-medium text-stone-900">{quoteEftDetails.bank}</span>
+                    {quoteEftDetails.holder && <><span className="text-stone-500">Account name</span><span className="font-medium text-stone-900">{quoteEftDetails.holder}</span></>}
+                    <span className="text-stone-500">Account number</span><span className="font-mono font-medium text-stone-900">{quoteEftDetails.account}</span>
+                    {quoteEftDetails.branch && <><span className="text-stone-500">Branch code</span><span className="font-mono font-medium text-stone-900">{quoteEftDetails.branch}</span></>}
+                    {quoteEftDetails.type && <><span className="text-stone-500">Account type</span><span className="font-medium capitalize text-stone-900">{quoteEftDetails.type}</span></>}
+                  </div>
+                  {quoteEftDetails.instructions && <p className="mt-2 text-xs text-stone-600">{quoteEftDetails.instructions}</p>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* TERMS + valid-until - kept above the accept block so the
               client reads the legal context before signing. The free-form
@@ -1083,11 +1148,13 @@ export default function PublicQuotePage() {
                       <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">2</span>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-stone-900">
-                          {depositLabel ? `Deposit invoice - ${depositLabel}` : "Deposit invoice"}
+                          {depositLabel ? `${hasSavedFirstPaymentAmount ? "First payment" : "Deposit"} invoice - ${depositLabel}` : "Deposit invoice"}
                         </p>
                         <p className="text-xs text-stone-600">
                           {depositLabel
-                            ? `${companyName} will send the ${fmtMoney(depositAmount as number)} deposit invoice to lock in your event date.`
+                            ? hasSavedFirstPaymentAmount
+                              ? `${companyName} will request ${fmtMoney(depositAmount as number)} as the first payment to lock in your event date.`
+                              : `${companyName} will send the ${fmtMoney(depositAmount as number)} deposit invoice to lock in your event date.`
                             : `${companyName} will send the deposit invoice to lock in your event date.`}
                         </p>
                       </div>
@@ -1163,7 +1230,11 @@ export default function PublicQuotePage() {
                         {acceptanceBlocked
                           ? `Request a new date and ${companyName} will send an updated quote.`
                           : <>Type your name to lock this in. {companyName} will follow up with
-                            {depositLabel ? ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)})` : " the deposit invoice"}.</>}
+                            {depositLabel
+                              ? hasSavedFirstPaymentAmount
+                                ? ` a first payment request for ${fmtMoney(depositAmount as number)}`
+                                : ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)})`
+                              : " the deposit invoice"}.</>}
                       </p>
                       <Input
                         value={acceptName}
@@ -1221,7 +1292,9 @@ export default function PublicQuotePage() {
                       <p className="text-sm text-stone-700 max-w-md mx-auto">
                         Happy with the quote? Hit accept and {companyName} will send
                         {depositLabel
-                          ? ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)}).`
+                          ? hasSavedFirstPaymentAmount
+                            ? ` a first payment request for ${fmtMoney(depositAmount as number)}.`
+                            : ` a ${fmtMoney(depositAmount as number)} deposit invoice (${depositPct}% of ${fmtMoney(quote.total_amount)}).`
                           : " the deposit invoice."}
                       </p>
                       <div className="flex flex-col min-[420px]:flex-row items-stretch min-[420px]:items-center justify-center gap-2 min-[420px]:gap-3">

@@ -1286,7 +1286,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultBody:
       `Hi {{first_name}},\n\n` +
       `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
-      `Your deposit invoice {{invoice_number}} is ready. Deposit due: {{amount}}.\n\n` +
+      `Your first payment request on invoice {{invoice_number}} is {{amount}}.\n\n` +
+      `Invoice total: {{total_amount}}. Paid to date: {{paid_to_date}}. Remaining balance: {{remaining_balance}}.\n\n` +
       `Pay or download it here: {{invoice_link}}\n\n` +
       `View your order: {{order_url}}\n\n` +
       `Once the payment clears, your event date is locked in.\n\n` +
@@ -1299,6 +1300,10 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       { name: "invoice_number", description: "Invoice number",               example: "INV-2026-0421" },
       { name: "amount",         description: "Amount on this invoice",       example: "R 4 500" },
       { name: "deposit_amount", description: "Deposit amount",               example: "R 4 500" },
+      { name: "first_payment_amount", description: "First payment agreed on the quote", example: "R 4 500" },
+      { name: "total_amount",   description: "Full invoice total",             example: "R 9 000" },
+      { name: "paid_to_date",   description: "Amount already paid",            example: "R 0" },
+      { name: "remaining_balance", description: "Current unpaid invoice balance", example: "R 9 000" },
       { name: "invoice_link",   description: "Direct link to the invoice",   example: "https://app.example.com/c/invoice/..." },
       { name: "order_url",      description: "Secure link to the accepted order", example: "https://cateringms.com/spit-braai-delivery/c/order/..." },
     ],
@@ -1313,7 +1318,8 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Balance invoice {{invoice_number}} - {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `{{tenant_name}} issued the balance invoice {{invoice_number}} for {{event_name}}. Balance due: {{amount}}.\n\n` +
+      `{{tenant_name}} sent a payment request for {{event_name}}. Amount due now: {{amount}}.\n\n` +
+      `Invoice total: {{total_amount}}. Paid to date: {{paid_to_date}}. Remaining balance: {{remaining_balance}}.\n\n` +
       `Open the invoice: {{invoice_link}}\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: [
@@ -1324,6 +1330,9 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       { name: "invoice_number", description: "Invoice number",               example: "INV-2026-0421B" },
       { name: "amount",         description: "Amount on this invoice",       example: "R 6 500" },
       { name: "balance_amount", description: "Balance amount",               example: "R 6 500" },
+      { name: "total_amount",   description: "Full invoice total",             example: "R 9 000" },
+      { name: "paid_to_date",   description: "Amount already paid",            example: "R 2 500" },
+      { name: "remaining_balance", description: "Current unpaid invoice balance", example: "R 6 500" },
       { name: "invoice_link",   description: "Direct link to the invoice",   example: "https://app.example.com/c/invoice/..." },
     ],
   },
