@@ -120,6 +120,17 @@ export default function CompanySignupPage() {
     return () => { cancelled = true; };
   }, [router]);
 
+  // A freshly registered owner is signed into the tenant created by this
+  // flow. Skip automatic navigation when email verification is required,
+  // because protected onboarding cannot be opened until they verify.
+  useEffect(() => {
+    if (!success || emailVerificationRequired || !formData.customSlug) return;
+    const timer = window.setTimeout(() => {
+      void router.replace(`/${formData.customSlug}/admin/onboarding`);
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [success, emailVerificationRequired, formData.customSlug, router]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -596,6 +607,12 @@ export default function CompanySignupPage() {
                 </>
               )}
             </div>
+
+            {!emailVerificationRequired && (
+              <p className="mt-4 text-center text-sm text-slate-500" role="status">
+                Opening your company onboarding shortly…
+              </p>
+            )}
 
             <div className="mt-6 text-center">
               <p className="text-sm text-slate-500">

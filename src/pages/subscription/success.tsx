@@ -9,14 +9,21 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { UserRole } from "@/types/app";
 
 export default function SubscriptionSuccessPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const { profile, company } = useAuth() as any;
+  const { profile, company } = useAuth();
   const [confirmed, setConfirmed] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(true);
   const companyId = company?.id || profile?.company_id;
+  const isPlatformOwner = String(profile?.role || "").toLowerCase() === UserRole.SUPER_ADMIN;
+  const dashboardUrl = isPlatformOwner
+    ? "/admin/platform/dashboard"
+    : company?.slug
+      ? `/${company.slug}/admin/dashboard`
+      : "/admin/dashboard";
   const merchantPaymentId = typeof router.query.m_payment_id === "string"
     ? router.query.m_payment_id
     : "";
@@ -69,6 +76,16 @@ export default function SubscriptionSuccessPage() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Only leave this page after the server confirms the subscription. Keep
+  // pending returns here so an unverified browser redirect cannot grant access.
+  useEffect(() => {
+    if (!router.isReady || !confirmed) return;
+    const timer = window.setTimeout(() => {
+      void router.replace(dashboardUrl);
+    }, 4500);
+    return () => window.clearTimeout(timer);
+  }, [router, router.isReady, confirmed, dashboardUrl]);
 
   if (isLoading) {
     return (
@@ -183,7 +200,7 @@ export default function SubscriptionSuccessPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             {confirmed ? (
-              <Link href={company?.slug ? `/${company.slug}/admin/dashboard` : "/admin/dashboard"} className="flex-1">
+              <Link href={dashboardUrl} className="flex-1">
                 <Button className="w-full h-12 bg-gradient-to-r from-slate-500 to-rose-500 hover:opacity-90">
                   Go to Dashboard
                   <ArrowRight className="w-4 h-4 ml-2" />
@@ -210,6 +227,12 @@ export default function SubscriptionSuccessPage() {
               </Button>
             </Link>
           </div>
+
+          {confirmed && (
+            <p className="text-center text-sm text-slate-500" role="status">
+              Returning to your {isPlatformOwner ? "platform" : "company"} dashboard shortly…
+            </p>
+          )}
 
           <div className="text-center text-sm text-slate-600 border-t pt-6">
             Need help? Contact our support team at{" "}

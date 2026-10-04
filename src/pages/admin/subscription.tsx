@@ -212,7 +212,7 @@ function SubscriptionPlanPicker({ expiredAccess }: { expiredAccess: boolean }) {
 }
 
 function SubscriptionPage() {
-  const { user, company } = useAuth();
+  const { user, profile, company } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const { withSlug } = useTenantHref();
@@ -227,6 +227,13 @@ function SubscriptionPage() {
     trialEndsAt: string | null;
   } | null>(null);
   const companyId = company?.id || user?.company_id || null;
+  const isPlatformOwner = String(profile?.role || user?.role || "").toLowerCase() === UserRole.SUPER_ADMIN;
+  const checkoutWasCancelled = router.query.cancelled === "1";
+  const postCheckoutDashboard = isPlatformOwner
+    ? "/admin/platform/dashboard"
+    : routeTenantSlug
+      ? `/${routeTenantSlug}/admin/dashboard`
+      : withSlug("/admin/dashboard");
   const companyStatus = verifiedCompanyStatus?.status ?? company?.subscription_status ?? null;
   const companyTrialEndsAt = verifiedCompanyStatus?.trialEndsAt ?? company?.trial_ends_at ?? null;
   const paymentReturnHint = router.query.expired === "1" || router.query.payment === "pending";
@@ -251,6 +258,16 @@ function SubscriptionPage() {
   const [cancelFeedback, setCancelFeedback] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
   const [exportData, setExportData] = useState(false);
+
+  // PayFast returns an abandoned or declined checkout here. Show the result
+  // briefly, then return the user to the correct tenant or platform dashboard.
+  useEffect(() => {
+    if (!router.isReady || !user || !checkoutWasCancelled) return;
+    const timer = window.setTimeout(() => {
+      void router.replace(postCheckoutDashboard);
+    }, 4500);
+    return () => window.clearTimeout(timer);
+  }, [router, router.isReady, user, checkoutWasCancelled, postCheckoutDashboard]);
 
   // A PayFast return can arrive before its server notification. Recheck the
   // company row while the expired hint is present; once the verified webhook
@@ -646,6 +663,13 @@ function SubscriptionPage() {
             />
             <PageWorkbench />
 
+            {checkoutWasCancelled && (
+              <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-950">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>Checkout was not completed. Returning to your dashboard shortly.</AlertDescription>
+              </Alert>
+            )}
+
             {expiredAccess && (
               <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-950">
                 <AlertTriangle className="h-4 w-4" />
@@ -738,6 +762,13 @@ function SubscriptionPage() {
             }
           />
           <PageWorkbench />
+
+          {checkoutWasCancelled && (
+            <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-950">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>Checkout was not completed. Returning to your dashboard shortly.</AlertDescription>
+            </Alert>
+          )}
 
           {expiredAccess && (
             <>

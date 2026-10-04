@@ -369,12 +369,12 @@ export default function InvoicePaymentPage() {
     return () => clearTimeout(t);
   }, [autoPrint, invoice, loading]);
 
-  // PayFast/Yoco/Stripe cancel URLs return to this invoice. A browser
-  // redirect is not evidence that a payment failed: the provider callback
-  // may still be arriving. Check the saved attempt and prevent an immediate
-  // second charge while its result is unresolved.
+  // Provider cancel URLs and the success page's automatic return both
+  // land here. A browser redirect is not evidence of payment; check the
+  // saved attempt and prevent another checkout while its result is pending.
   useEffect(() => {
-    if (!router.isReady || !token || router.query.cancelled !== "1") return;
+    const returnedFromCheckout = router.query.cancelled === "1" || router.query.payment_return === "1";
+    if (!router.isReady || !token || !returnedFromCheckout) return;
     const attemptId = typeof router.query.payment_attempt_id === "string"
       ? router.query.payment_attempt_id
       : "";
@@ -420,7 +420,7 @@ export default function InvoicePaymentPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [router.isReady, router.query.cancelled, router.query.payment_attempt_id, token]);
+  }, [router.isReady, router.query.cancelled, router.query.payment_return, router.query.payment_attempt_id, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -1354,7 +1354,7 @@ export default function InvoicePaymentPage() {
                   ) : (
                     <Button
                       onClick={initiatePayment}
-                      disabled={processing || !!pendingEftClaim || (paymentNotConfigured && !(applyCredit && creditMaxApplicable >= payNow)) || payNow <= 0 || ["checking", "pending", "succeeded"].includes(returnPaymentStatus)}
+                      disabled={processing || !!pendingEftClaim || (paymentNotConfigured && !(applyCredit && creditMaxApplicable >= payNow)) || payNow <= 0 || ["checking", "pending"].includes(returnPaymentStatus)}
                       size="lg"
                       className="w-full bg-brand-primary hover:opacity-90 gap-2"
                     >

@@ -24,6 +24,12 @@ export default function InvoicePaymentSuccessPage() {
     : null;
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [paymentState, setPaymentState] = useState<"checking" | "pending" | "succeeded" | "failed" | "expired">("checking");
+  const hasFinalPaymentState = ["succeeded", "failed", "expired"].includes(paymentState);
+  const invoiceDashboardUrl = token
+    ? `/pay/i/${encodeURIComponent(token)}${paymentAttemptId
+      ? `?payment_return=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}`
+      : ""}`
+    : null;
 
   // A return URL is not proof of payment. Poll the server-side attempt
   // status, which only the signed provider webhook can mark successful.
@@ -58,6 +64,18 @@ export default function InvoicePaymentSuccessPage() {
     })();
     return () => { cancelled = true; };
   }, [router.isReady, token, paymentAttemptId]);
+
+  // Give the payer a moment to read the verified result, then return to
+  // the public invoice dashboard where the refreshed paid-to-date and
+  // remaining balance are shown. The attempt ID lets that page recheck
+  // the result and render its matching success/failure message.
+  useEffect(() => {
+    if (!router.isReady || !invoiceDashboardUrl || !paymentAttemptId || !hasFinalPaymentState) return;
+    const timer = window.setTimeout(() => {
+      void router.replace(invoiceDashboardUrl);
+    }, 4500);
+    return () => window.clearTimeout(timer);
+  }, [router.isReady, router, invoiceDashboardUrl, paymentAttemptId, hasFinalPaymentState]);
 
   // Pull just enough invoice/company info for the brand colour + name.
   // Failures here are silent - this is a confirmation page, not a
@@ -130,15 +148,20 @@ export default function InvoicePaymentSuccessPage() {
             <div className="flex flex-col sm:flex-row gap-2 justify-center">
               {token && (
                 <Button
-                  onClick={() => router.push(`/pay/i/${token}`)}
+                  onClick={() => router.push(invoiceDashboardUrl || `/pay/i/${token}`)}
                   variant="outline"
                   className="gap-1.5"
                 >
                   <FileText className="w-4 h-4" />
-                  View invoice
+                  View invoice now
                 </Button>
               )}
             </div>
+            {hasFinalPaymentState && (
+              <p className="text-xs text-stone-500" role="status">
+                Returning to your invoice dashboard shortly…
+              </p>
+            )}
           </CardContent>
         </Card>
       </PublicActionShell>
