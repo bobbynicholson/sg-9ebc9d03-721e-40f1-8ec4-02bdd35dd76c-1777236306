@@ -1325,7 +1325,7 @@ async function renderInvoicePdfAttachment(
         billing_city, billing_postal_code
       ),
       order:order_id (
-        id, order_number, event_name, event_date, updated_at
+        id, order_number, event_name, event_date, deposit_amount, updated_at
       ),
       company:company_id (
         id, slug, company_name, legal_name, logo_url, email, phone,
@@ -1353,6 +1353,9 @@ async function renderInvoicePdfAttachment(
   const client = invAny.client || {};
   const order = invAny.order || {};
   const company = invAny.company || {};
+  const orderDeposit = Number(order.deposit_amount) || 0;
+  const snapshotFirstPayment = Number(invAny.invoice_data?.initialPaymentAmount) || 0;
+  const firstPaymentAmount = orderDeposit > 0 ? orderDeposit : snapshotFirstPayment;
 
   const clientAddress =
     [
@@ -1396,6 +1399,7 @@ async function renderInvoicePdfAttachment(
       total_amount: Number(invAny.total_amount ?? fallbackData.total ?? 0),
       amount_paid: invAny.amount_paid ?? fallbackData.depositPaid,
       balance_due: invAny.balance_due ?? fallbackData.balanceDue,
+      first_payment_amount: firstPaymentAmount > 0 ? firstPaymentAmount : null,
       notes: invAny.notes || fallbackData.notes || null,
       payment_terms: company.payment_terms || fallbackData.paymentTerms || null,
       company: {

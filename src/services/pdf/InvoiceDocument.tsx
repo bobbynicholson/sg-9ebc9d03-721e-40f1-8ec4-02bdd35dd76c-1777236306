@@ -25,6 +25,7 @@ import {
   Link,
 } from "@react-pdf/renderer";
 import { buildCompanyTermsUrl } from "@/lib/companyLegal";
+import { isInvoiceFullPaymentDue } from "@/lib/invoiceClientView";
 
 // --- Types -----------------------------------------------------------------
 
@@ -64,6 +65,7 @@ export interface InvoicePdfData {
   total_amount: number;
   amount_paid?: number | null;
   balance_due?: number | null;
+  first_payment_amount?: number | null;
   currency?: string | null;
 
   notes?: string | null;
@@ -455,6 +457,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
   const discount = Number(data.discount_amount || 0);
   const total = Number(data.total_amount || 0);
   const amountPaid = Number(data.amount_paid || 0);
+  const firstPaymentAmount = Number(data.first_payment_amount || 0);
   // Phase 9 #2: tenant currency. Closure binds the row's currency
   // (e.g. 'USD', 'GBP') so every money render below uses the
   // right symbol + locale. Defaults to ZAR / R when unset.
@@ -462,6 +465,24 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
   const balanceDue = data.balance_due != null
     ? Number(data.balance_due)
     : Math.max(0, total - amountPaid);
+  const showPaymentSchedule =
+    firstPaymentAmount > 0 &&
+    firstPaymentAmount < total - 0.01 &&
+    !isInvoiceFullPaymentDue(data.event_date);
+  const fullBalanceDueNow = isInvoiceFullPaymentDue(data.due_date || data.event_date);
+  const firstPaymentStillDue = Math.max(
+    0,
+    Math.round((firstPaymentAmount - amountPaid) * 100) / 100,
+  );
+  const amountDueNow = showPaymentSchedule
+    ? fullBalanceDueNow
+      ? Math.max(0, balanceDue)
+      : Math.min(balanceDue, firstPaymentStillDue)
+    : Math.max(0, balanceDue);
+  const balanceAfterFirstPayment = Math.max(
+    0,
+    Math.round((total - Math.max(firstPaymentAmount, amountPaid)) * 100) / 100,
+  );
 
   const billFromAddress = buildAddress(company);
   const footerLine = joinFooterParts([
@@ -654,15 +675,41 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             </Text>
             <Text style={styles.grandTotalValue}>{fmt(total)}</Text>
           </View>
-          {amountPaid > 0 ? (
-            <View style={[styles.totalsRow, { marginTop: 6 }]}>
-              <Text style={styles.totalsLabel}>Paid</Text>
-              <Text style={styles.paid}>-{fmt(amountPaid)}</Text>
+          {showPaymentSchedule ? (
+            <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#e7e5e4" }}>
+              <Text style={styles.sectionLabel}>Payment schedule</Text>
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabel}>Amount payable now</Text>
+                <Text style={styles.balanceDue}>{fmt(amountDueNow)}</Text>
+              </View>
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabel}>
+                  {firstPaymentStillDue > 0 ? "First payment due to confirm booking" : "First payment received"}
+                </Text>
+                <Text style={styles.totalsValue}>
+                  {fmt(firstPaymentStillDue > 0 ? firstPaymentStillDue : firstPaymentAmount)}
+                </Text>
+              </View>
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabel}>Remaining balance after first payment</Text>
+                <Text style={styles.totalsValue}>{fmt(balanceAfterFirstPayment)}</Text>
+              </View>
+              <Text style={[styles.notes, { marginTop: 3 }]}>The first payment is included in the invoice total.</Text>
             </View>
           ) : null}
+          <View style={[styles.totalsRow, { marginTop: 6 }]}>
+            <Text style={styles.totalsLabel}>Paid to date</Text>
+            <Text style={amountPaid > 0 ? styles.paid : styles.totalsValue}>
+              {amountPaid > 0 ? `-${fmt(amountPaid)}` : fmt(0)}
+            </Text>
+          </View>
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>
-              {balanceDue <= 0 ? "Balance" : "Balance due"}
+              {showPaymentSchedule
+                ? "Outstanding invoice balance"
+                : balanceDue <= 0
+                  ? "Balance"
+                  : "Balance due"}
             </Text>
             <Text style={balanceDue <= 0 ? styles.paid : styles.balanceDue}>
               {fmt(Math.max(0, balanceDue))}

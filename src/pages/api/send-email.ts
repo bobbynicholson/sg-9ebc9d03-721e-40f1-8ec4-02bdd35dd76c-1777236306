@@ -379,7 +379,7 @@ async function handler(
                 billing_city, billing_postal_code
               ),
               order:order_id (
-                id, order_number, event_name, event_date, discount_amount, updated_at
+                id, order_number, event_name, event_date, discount_amount, deposit_amount, updated_at
               ),
               company:company_id (
                 id, slug, company_name, legal_name, logo_url, email, phone,
@@ -404,6 +404,9 @@ async function handler(
             const order = invAny.order || {};
             const company = invAny.company || {};
             const stashed = invAny.invoice_data || {};
+            const orderDeposit = Number(order.deposit_amount) || 0;
+            const snapshotFirstPayment = Number(stashed.initialPaymentAmount) || 0;
+            const firstPaymentAmount = orderDeposit > 0 ? orderDeposit : snapshotFirstPayment;
 
             // InvoiceDocument expects a single client.address string.
             // Flatten the billing_* columns here so the document layer
@@ -452,6 +455,7 @@ async function handler(
                 total_amount: Number(invAny.total_amount ?? 0),
                 amount_paid: invAny.amount_paid,
                 balance_due: invAny.balance_due,
+                first_payment_amount: firstPaymentAmount > 0 ? firstPaymentAmount : null,
                 // Phase 9 #2: tenant currency feeds the InvoiceDocument
                 // money formatter. Falls back to ZAR when company.currency
                 // is null so existing tenants render unchanged.

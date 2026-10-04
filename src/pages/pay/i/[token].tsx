@@ -306,7 +306,7 @@ export default function InvoicePaymentPage() {
     if (!token || downloadingPdf) return;
     setDownloadingPdf(true);
     try {
-      const resp = await fetch(`/api/public/invoices/${token}/pdf`);
+      const resp = await fetch(`/api/public/invoices/${token}/pdf`, { cache: "no-store" });
       if (!resp.ok) throw new Error(`Invoice PDF failed (${resp.status})`);
       const blob = await resp.blob();
       const url = URL.createObjectURL(blob);
