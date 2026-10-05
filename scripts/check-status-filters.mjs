@@ -39,6 +39,8 @@ const SRC = join(ROOT, "src");
 const STATUS_VOCAB = {
   // 20260925150000: external checkout attempts are separate from the ledger.
   payment_attempts: ["pending", "succeeded", "failed", "expired"],
+  // 20261004150000: Stripe/Yoco platform plan checkout outcomes.
+  platform_subscription_checkouts: ["pending", "succeeded", "failed", "expired"],
   cleaning_event_handovers: ["expected", "in_progress", "complete", "cancelled"],
   outgoing_email_queue: ["queued", "in_progress", "paused", "sent", "failed", "cancelled"],
   driver_assignments: [
@@ -203,6 +205,7 @@ const KNOWN_TABLES = new Set([
   "payment_gateway_credential_versions", // 20261003160000
   "payment_credit_redemptions", // 20261004090000
   "refund_reconciliation_events", // 20261004100000
+  "platform_subscription_checkouts", // 20261004150000
   "account_deletion_requests","accounting_integrations","admin_notifications","ai_brain_access_policies","ai_brain_documents","ai_brain_sources","ai_brain_tool_policies","ai_dynamic_tools","allergens",
   "api_key_rate_limits","api_keys","app_config","audit_logs","backup_generators",
   "billing_history","blocked_contacts","blog_posts","booking_packages",
