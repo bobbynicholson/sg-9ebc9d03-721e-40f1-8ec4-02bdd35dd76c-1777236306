@@ -47,26 +47,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const supabase: any = getServiceSupabase();
   const nowIso = new Date().toISOString();
 
-  // Per-tenant gate. Default policy is "operator drives every send"
-  // - companies.auto_followups_enabled is FALSE on every row until
-  // the operator explicitly opts in. Pull the allow-list once and
-  // filter the queue read so we never auto-send for a tenant that
-  // hasn't asked for it. Keeps the queue infrastructure in place for
-  // the day they flip the flag.
-  const { data: optedIn } = await supabase
+  // Transactional mail must not depend on the marketing follow-up setting.
+  const { data: companies, error: companiesError } = await supabase
     .from("companies")
-    .select("id")
-    .eq("auto_followups_enabled", true);
-  const allowList = ((optedIn || []) as any[]).map((c) => c.id);
+    .select("id, auto_followups_enabled");
+  if (companiesError) return res.status(500).json({ error: companiesError.message });
+  const allowList = ((companies || []) as any[]).map((c) => c.id);
+  const marketingAllowList = ((companies || []) as any[]).filter((c) => c.auto_followups_enabled).map((c) => c.id);
   if (allowList.length === 0) {
     await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
       source: auth.source, sent: 0, failed: 0, skipped: 0,
-      note: "no_opted_in_tenants",
+      note: "no_companies",
     });
     return res.status(200).json({
       ok: true,
       sent: 0, failed: 0, skipped: 0,
-      note: "No tenants have auto_followups_enabled. Nothing to send.",
+      note: "No companies found. Nothing to send.",
     });
   }
 
@@ -77,10 +73,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   let result;
   try {
-    result = await drainEmailQueue(supabase, allowList, {
+    const transactional = await drainEmailQueue(supabase, allowList, {
+      batchSize: BATCH_SIZE, maxAttempts: MAX_ATTEMPTS, transactionalOnly: true,
+    });
+    const followups = await drainEmailQueue(supabase, marketingAllowList, {
       batchSize: BATCH_SIZE,
       maxAttempts: MAX_ATTEMPTS,
     });
+    result = {
+      processed: transactional.processed + followups.processed,
+      sent: transactional.sent + followups.sent,
+      failed: transactional.failed + followups.failed,
+    };
   } catch (e: any) {
     console.error("[cron/process-email-queue] drain failed:", e);
     await recordCronHeartbeat(supabase, CRON_NAME, "error", {
@@ -89,7 +93,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(500).json({ error: e?.message || "drain failed" });
   }
 
-  await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
+  await recordCronHeartbeat(supabase, CRON_NAME, result.failed > 0 ? "error" : "ok", {
     source: auth.source,
     processed: result.processed,
     sent: result.sent, failed: result.failed, skipped: 0,

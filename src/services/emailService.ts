@@ -516,9 +516,11 @@ export const emailService = {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             companyId: payload.companyId,
+            idempotencyKey: payload.idempotencyKey,
             to: payload.to,
             subject: payload.subject,
             template: payload.template,
+            templateType: payload.templateType,
             body: payload.body,
             variables: payload.variables,
             orderId: payload.orderId,

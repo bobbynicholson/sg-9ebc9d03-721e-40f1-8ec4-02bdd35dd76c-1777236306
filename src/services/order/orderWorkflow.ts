@@ -2308,7 +2308,7 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
         body: resolvedBody,
         trigger_event: "aftersales",
         trigger_ref_id: order.id,
-        status: "pending",
+        status: "queued",
         scheduled_for: sendAt.toISOString(),
         template_type: templateType,
         variables,
@@ -2316,7 +2316,8 @@ async function ensureScheduledAfterSales(order: any): Promise<void> {
     }
 
     if (rows.length > 0) {
-      await (supabase as any).from("outgoing_email_queue").insert(rows);
+      const { error } = await (supabase as any).from("outgoing_email_queue").insert(rows);
+      if (error) throw error;
     }
   } catch (e) {
     console.warn("[orderWorkflow] ensureScheduledAfterSales internal failure:", e);
@@ -2458,7 +2459,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
       body: resolvedBody,
       trigger_event: "pre_event",
       trigger_ref_id: order.id,
-      status: "pending",
+      status: "queued",
       scheduled_for: sendAt.toISOString(),
       template_type: r.templateType,
       variables: reminderVariables,
@@ -2466,7 +2467,8 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
   }
 
   if (rows.length > 0) {
-    await (supabase as any).from("outgoing_email_queue").insert(rows);
+    const { error } = await (supabase as any).from("outgoing_email_queue").insert(rows);
+    if (error) throw error;
   }
 }
 

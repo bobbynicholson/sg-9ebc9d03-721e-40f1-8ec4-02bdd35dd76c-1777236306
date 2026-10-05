@@ -193,7 +193,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
         : "noreply@send.cateringms.com",
       replyTo: usingTenantDomain ? null : (state.fromEmail || null),
     };
-  }, [state.verifiedAt, state.domain, state.fromEmail, state.forcePlatformSender]);
+  }, [state.status, state.domain, state.fromEmail, state.forcePlatformSender]);
 
   useEffect(() => {
     void reload();

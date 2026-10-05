@@ -79,7 +79,7 @@ async function handler(
     const { data: row } = await admin
       .from("email_provider_settings")
       .select(
-        "id, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, from_email, from_name",
+        "id, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, from_email, from_name",
       )
       .eq("company_id", companyId)
       .eq("provider", "resend")
@@ -114,6 +114,14 @@ async function handler(
     // verified domain looking pending when the verification endpoint is
     // eventually consistent.
     let fresh: any = listedVerifiedDomain || null;
+    if (listedVerifiedDomain) {
+      // The list response omits DNS records. Load the full object without
+      // restarting verification or erasing the operator's saved records.
+      const detail = await getResendDomain(effectiveDomainId);
+      if (!isResendError(detail)) {
+        fresh = { ...detail, status: "verified" };
+      }
+    }
     if (!fresh) {
       // Trigger Resend to re-check now. Without this the domain status can
       // sit on 'not_started' indefinitely even when DNS is live.
@@ -151,7 +159,9 @@ async function handler(
     }
 
     const newStatus = (fresh as any).status || "pending";
-    const newRecords = (fresh as any).records || [];
+    const newRecords = (fresh as any).records?.length
+      ? (fresh as any).records
+      : (row as any).resend_dns_records || [];
     const now = new Date().toISOString();
     const wasVerified = !!(row as any).resend_domain_verified_at;
     const verifiedAt =
@@ -180,6 +190,9 @@ async function handler(
         resend_domain_verified_at: verifiedAt,
         is_verified: newStatus === "verified",
         from_email: effectiveFromEmail,
+        // Verifying an own domain explicitly activates it, including when
+        // onboarding previously selected the shared platform sender.
+        ...(newStatus === "verified" ? { force_platform_sender: false } : {}),
         resend_last_checked_at: now,
         updated_at: now,
       })

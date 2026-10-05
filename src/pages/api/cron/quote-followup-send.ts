@@ -120,16 +120,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             },
           });
 
-          await emailService.sendEmail({
+          const delivery = await emailService.sendEmailDetailed({
             companyId: tenant.id,
             to: quote.client_email,
             subject: resolved.subject,
             body: resolved.bodyHtml,
+            idempotencyKey: `quote-followup/${quote.id}/${state.nextPosition}`,
             // Service-role client: cron runs unauthenticated, so without
             // it the provider lookup is RLS-blocked and the send silently
             // no-ops (logged "sent" but never delivered).
             _client: sb,
           } as any);
+          if (!delivery.success) throw new Error(delivery.error || "Follow-up email was not sent");
 
           await recordFollowupSent({
             companyId: tenant.id,
