@@ -1,0 +1,536 @@
+   [1m[38;2;173;127;168m▲ Next.js 15.2.8[39m[22m
+   - Local:        http://localhost:3001
+   - Network:      http://192.168.56.1:3001
+   - Environments: .env.local
+
+ [32m[1m✓[22m[39m Starting...
+ [32m[1m✓[22m[39m Ready in 2.3s
+ [32m[1m✓[22m[39m Compiled /middleware in 159ms
+ [32m[1m✓[22m[39m Compiled (156 modules)
+[middleware] [INFO] request /
+ [37m[1m○[22m[39m Compiling / ...
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /
+[middleware] [INFO] request /
+[middleware] [INFO] request /
+[middleware] [INFO] request /
+ [32m[1m✓[22m[39m Compiled /admin/dashboard in 29.3s (3483 modules)
+ GET / [32m200[39m in 2069ms
+ GET /spit-braai-delivery/admin/dashboard [32m200[39m in 18831ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json [32m200[39m in 256ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ GET /spit-braai-delivery/admin/dashboard [32m200[39m in 264ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ GET /spit-braai-delivery/admin/dashboard [32m200[39m in 241ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json [32m200[39m in 235ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json [32m200[39m in 246ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+ [37m[1m○[22m[39m Compiling /team-portal/kitchen/dashboard ...
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ [32m[1m✓[22m[39m Compiled /team-portal/kitchen/dashboard in 3.9s (3603 modules)
+ GET /spit-braai-delivery/team-portal/kitchen/dashboard [32m200[39m in 5484ms
+ GET /spit-braai-delivery/admin/dashboard [32m200[39m in 4889ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json [32m200[39m in 259ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json [32m200[39m in 266ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ [37m[1m○[22m[39m Compiling /team-portal/kitchen/management ...
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+ [32m[1m✓[22m[39m Compiled /team-portal/kitchen/management in 1794ms (3622 modules)
+ GET /spit-braai-delivery/team-portal/kitchen/management [32m200[39m in 2801ms
+ GET /spit-braai-delivery/team-portal/kitchen/dashboard [32m200[39m in 1881ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json [32m200[39m in 236ms
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json [32m200[39m in 252ms
+[middleware] [INFO] request /api/admin/team-management
+ [37m[1m○[22m[39m Compiling /api/admin/team-management ...
+ [32m[1m✓[22m[39m Compiled /api/admin/team-management in 525ms (864 modules)
+
+[logger] Run #1022 - logs → logs\run-1022-2026-10-05_14-52-25
+
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ GET /spit-braai-delivery/team-portal/kitchen/management [32m200[39m in 987ms
+ [37m[1m○[22m[39m Compiling /team-portal/waiter/dashboard ...
+ GET /api/admin/team-management?department=kitchen [32m200[39m in 3605ms
+[middleware] [INFO] request /api/admin/team-management
+ [32m[1m✓[22m[39m Compiled /team-portal/waiter/dashboard in 3.9s (3683 modules)
+
+[logger] Run #1023 - logs → logs\run-1023-2026-10-05_14-52-30
+
+ GET /spit-braai-delivery/team-portal/waiter/dashboard [32m200[39m in 4773ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json [32m200[39m in 288ms
+[middleware] [INFO] request /api/admin/team-management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json [32m200[39m in 238ms
+ GET /api/admin/team-management?department=kitchen [32m200[39m in 4717ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ GET /spit-braai-delivery/team-portal/waiter/dashboard [32m200[39m in 239ms
+ GET /api/admin/team-management?department=kitchen [32m200[39m in 2119ms
+[middleware] [INFO] request /api/admin/team-management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+ [37m[1m○[22m[39m Compiling /team-portal/driver/dashboard ...
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+ GET /api/admin/team-management?department=kitchen [32m200[39m in 2941ms
+ [32m[1m✓[22m[39m Compiled /team-portal/driver/dashboard in 4.6s (3797 modules)
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json [32m200[39m in 5050ms
+ GET /spit-braai-delivery/team-portal/driver/dashboard [32m200[39m in 5638ms
+ GET /spit-braai-delivery/team-portal/driver/dashboard [32m200[39m in 2757ms
+[middleware] [INFO] request /sw.js
+[middleware] [INFO] request /sw.js
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+[middleware] [INFO] request /team-portal/driver/dashboard
+[middleware] [INFO] request /team-portal/driver/deliveries
+[middleware] [INFO] request /team-portal/driver/dashboard
+[middleware] [INFO] request /team-portal/driver/deliveries
+[middleware] [INFO] request /team-portal/driver/routes
+[middleware] [INFO] request /team-portal/driver/routes
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json [32m200[39m in 258ms
+ [37m[1m○[22m[39m Compiling /team-portal/driver/deliveries ...
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/dashboard in 9.8s (4252 modules)
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json [32m200[39m in 10842ms
+ GET /team-portal/driver/dashboard [32m200[39m in 11501ms
+ GET /team-portal/driver/dashboard [32m200[39m in 11502ms
+ GET /team-portal/driver/deliveries [32m200[39m in 11502ms
+ GET /team-portal/driver/deliveries [32m200[39m in 11503ms
+ GET /spit-braai-delivery/team-portal/shopping/dashboard [32m200[39m in 8417ms
+ GET /team-portal/driver/routes [32m200[39m in 11504ms
+ GET /team-portal/driver/routes [32m200[39m in 11505ms
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard [32m200[39m in 8419ms
+[middleware] [INFO] request /sw.js
+[middleware] [INFO] request /sw.js
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json [32m200[39m in 253ms
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json [32m200[39m in 246ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard [32m200[39m in 292ms
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/management ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/management in 1779ms (4258 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/management [32m200[39m in 2725ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json [32m200[39m in 449ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json [32m200[39m in 247ms
+[middleware] [INFO] request /api/admin/team-management
+
+[logger] Run #1024 - logs → logs\run-1024-2026-10-05_14-53-01
+
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ GET /spit-braai-delivery/team-portal/cleaning/management [32m200[39m in 292ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ [37m[1m○[22m[39m Compiling /client-portal/dashboard ...
+ GET /api/admin/team-management?department=cleaning [32m200[39m in 2556ms
+[middleware] [INFO] request /api/admin/team-management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+[middleware] [INFO] request /api/admin/team-management
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ [32m[1m✓[22m[39m Compiled /client-portal/dashboard in 8.3s (3877 modules)
+
+[logger] Run #1025 - logs → logs\run-1025-2026-10-05_14-53-10
+
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json [32m200[39m in 6768ms
+ GET /spit-braai-delivery/client-portal/dashboard [32m200[39m in 2905ms
+ GET /spit-braai-delivery/client-portal/dashboard [32m200[39m in 9400ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ GET /api/admin/team-management?department=cleaning [32m200[39m in 6319ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning [32m200[39m in 9146ms
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json [32m200[39m in 234ms
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json [32m200[39m in 250ms
+ GET /api/admin/team-management?department=cleaning [32m200[39m in 1413ms
+[middleware] [INFO] request /admin/platform/dashboard
+ [37m[1m○[22m[39m Compiling /admin/platform/dashboard ...
+ [32m[1m✓[22m[39m Compiled /admin/platform/dashboard in 1374ms (3907 modules)
+ GET /admin/platform/dashboard [32m200[39m in 2261ms
+[middleware] [INFO] request /api/auth/roles
+ [37m[1m○[22m[39m Compiling /api/auth/roles ...
+ [32m[1m✓[22m[39m Compiled /api/auth/roles in 730ms (1031 modules)
+
+[logger] Run #1026 - logs → logs\run-1026-2026-10-05_14-53-21
+
+ GET /api/auth/roles [32m200[39m in 1463ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles [32m200[39m in 677ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ [37m[1m○[22m[39m Compiling /api/platform/subscriptions ...
+ GET /api/auth/roles [32m200[39m in 711ms
+ [32m[1m✓[22m[39m Compiled /api/platform/subscriptions in 598ms (1127 modules)
+
+[logger] Run #1027 - logs → logs\run-1027-2026-10-05_14-53-23
+
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions [32m200[39m in 1984ms
+ GET /api/platform/subscriptions [32m200[39m in 2019ms
+ GET /api/platform/subscriptions [32m200[39m in 992ms
+ GET /api/platform/subscriptions [32m200[39m in 991ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ GET /spit-braai-delivery/team-portal/shopping/dashboard [32m200[39m in 889ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json [32m200[39m in 235ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard [32m200[39m in 350ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles [32m200[39m in 699ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles [32m200[39m in 709ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions [32m200[39m in 1108ms
+ GET /api/platform/subscriptions [32m200[39m in 908ms
+ GET /api/platform/subscriptions [32m200[39m in 984ms
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/tasks ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/tasks in 6.8s (3821 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/tasks.json?company_slug=spit-braai-delivery [32m200[39m in 8090ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/equipment ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/equipment in 1563ms (3827 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json?company_slug=spit-braai-delivery [32m200[39m in 2426ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/supplies ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/supplies in 984ms (3835 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/supplies.json?company_slug=spit-braai-delivery [32m200[39m in 1759ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/workflows ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/workflows in 1182ms (3841 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/workflows.json?company_slug=spit-braai-delivery [32m200[39m in 1956ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/workflows.json?company_slug=spit-braai-delivery [32m200[39m in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/damage ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/damage in 923ms (3851 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/damage.json?company_slug=spit-braai-delivery [32m200[39m in 1709ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/schedules ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/schedules in 1200ms (3857 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/schedules.json?company_slug=spit-braai-delivery [32m200[39m in 2009ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/schedules.json?company_slug=spit-braai-delivery [32m200[39m in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/notifications ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/notifications in 907ms (3865 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/notifications.json?company_slug=spit-braai-delivery [32m200[39m in 1716ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ [37m[1m○[22m[39m Compiling /team-portal/cleaning/settings ...
+ [32m[1m✓[22m[39m Compiled /team-portal/cleaning/settings in 1058ms (3881 modules)
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/settings.json?company_slug=spit-braai-delivery [32m200[39m in 1874ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json?company_slug=spit-braai-delivery [32m200[39m in 293ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /admin/platform/user-management
+ [37m[1m○[22m[39m Compiling /admin/platform/user-management ...
+[middleware] [INFO] request /admin/platform/company-database
+ [32m[1m✓[22m[39m Compiled /admin/platform/company-database in 11.7s (3909 modules)
+ GET /_next/data/development/admin/platform/user-management.json [32m200[39m in 12844ms
+ GET /_next/data/development/admin/platform/company-database.json [32m200[39m in 7189ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard [32m200[39m in 375ms
+[middleware] [INFO] request /api/auth/roles
+ [37m[1m○[22m[39m Compiling /api/auth/roles ...
+ [32m[1m✓[22m[39m Compiled /api/auth/roles in 3.2s (1004 modules)
+
+[logger] Run #1028 - logs → logs\run-1028-2026-10-05_14-58-45
+
+ GET /api/auth/roles [32m200[39m in 3354ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard [32m200[39m in 832ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles [32m200[39m in 698ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles [34m304[39m in 649ms
+ [37m[1m○[22m[39m Compiling /api/platform/subscriptions ...
+[middleware] [INFO] request /api/platform/subscriptions
+ [32m[1m✓[22m[39m Compiled /api/platform/subscriptions in 542ms (1111 modules)
+
+[logger] Run #1029 - logs → logs\run-1029-2026-10-05_14-58-57
+
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions [32m200[39m in 666ms
+ GET /api/platform/subscriptions [32m200[39m in 680ms
+ GET /api/platform/subscriptions [32m200[39m in 1634ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+ [32m[1m✓[22m[39m Compiled in 7.2s (3984 modules)
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard [32m200[39m in 875ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1030 - logs → logs\run-1030-2026-10-05_15-00-35
+
+ GET /api/auth/roles [32m200[39m in 599ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles [34m304[39m in 556ms
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions [32m200[39m in 723ms
+ GET /api/platform/subscriptions [32m200[39m in 606ms
+ GET /api/platform/subscriptions [32m200[39m in 1246ms
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+ [32m[1m✓[22m[39m Compiled in 5.6s (3855 modules)
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+ [32m[1m✓[22m[39m Compiled in 4s (3855 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+[middleware] [INFO] request /admin/platform/company-database
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /_next/data/development/admin/platform/company-database.json [32m200[39m in 3239ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery [32m200[39m in 3241ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery [32m200[39m in 3241ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3242ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3242ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3243ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3244ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3252ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3335ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3359ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3420ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3469ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3470ms
+ GET /_next/data/development/spit-braai-delivery/client-portal/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3476ms
+ GET /_next/data/development/spit-braai-delivery/client-portal/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3484ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3485ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3485ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3499ms
+ GET /_next/data/development/admin/platform/dashboard.json [32m200[39m in 3487ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json?company_slug=spit-braai-delivery [32m200[39m in 3583ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json?company_slug=spit-braai-delivery [32m200[39m in 3625ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json?company_slug=spit-braai-delivery [32m200[39m in 3674ms
+[middleware] [INFO] request /login
+ [37m[1m○[22m[39m Compiling /404 ...
+ [32m[1m✓[22m[39m Compiled /404 in 5s (3859 modules)
+ GET /login [33m404[39m in 5805ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /api/admin/email-health
+ [37m[1m○[22m[39m Compiling /api/admin/email-health ...
+ [32m[1m✓[22m[39m Compiled /api/admin/email-health in 5.7s (1014 modules)
+
+[logger] Run #1031 - logs → logs\run-1031-2026-10-05_15-20-53
+
+ GET /api/admin/email-health [32m200[39m in 7394ms
+[middleware] [INFO] request /api/admin/email-health
+ GET /api/admin/email-health [32m200[39m in 1433ms
+ [32m[1m✓[22m[39m Compiled in 1124ms (2872 modules)
+ [32m[1m✓[22m[39m Compiled in 7.3s (3855 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /admin/platform/company-database
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /_next/data/development/admin/platform/company-database.json [32m200[39m in 2791ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json?company_slug=spit-braai-delivery [32m200[39m in 2792ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery [32m200[39m in 2794ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery [32m200[39m in 2794ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2794ms
+ GET /_next/data/development/admin/platform/dashboard.json [32m200[39m in 2801ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2795ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json?company_slug=spit-braai-delivery [32m200[39m in 2796ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2796ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json?company_slug=spit-braai-delivery [32m200[39m in 2797ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2797ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2797ms
+ GET /_next/data/development/spit-braai-delivery/client-portal/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2796ms
+ GET /_next/data/development/spit-braai-delivery/client-portal/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2853ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2989ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2996ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 2997ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3013ms
+ [32m[1m✓[22m[39m Compiled in 3.5s (3857 modules)
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /admin/platform/company-database
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /_next/data/development/admin/platform/company-database.json [32m200[39m in 3116ms
+ GET /_next/data/development/spit-braai-delivery/client-portal/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3118ms
+ GET /_next/data/development/spit-braai-delivery/client-portal/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3119ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json?company_slug=spit-braai-delivery [32m200[39m in 3119ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json?company_slug=spit-braai-delivery [32m200[39m in 3120ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json?company_slug=spit-braai-delivery [32m200[39m in 3120ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery [32m200[39m in 3120ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery [32m200[39m in 3120ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3120ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3120ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3163ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3207ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3212ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3218ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3229ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3239ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3268ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3267ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3268ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3268ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3269ms
+ GET /_next/data/development/admin/platform/dashboard.json [32m200[39m in 3284ms
+ [32m[1m✓[22m[39m Compiled in 1168ms (2873 modules)
+ [32m[1m✓[22m[39m Compiled in 1130ms (2873 modules)
+ [32m[1m✓[22m[39m Compiled in 770ms (2873 modules)
+ [32m[1m✓[22m[39m Compiled in 686ms (2873 modules)
+ [32m[1m✓[22m[39m Compiled in 731ms (2873 modules)
+ [32m[1m✓[22m[39m Compiled in 682ms (2873 modules)
+ [32m[1m✓[22m[39m Compiled in 640ms (2873 modules)
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+ [32m[1m✓[22m[39m Compiled in 956ms (2873 modules)
+ [32m[1m✓[22m[39m Compiled in 785ms (2873 modules)
+[middleware] [INFO] request /api/public/invoices/c391e213-a3d4-49a1-8632-a587ef26671f/get
+ [37m[1m○[22m[39m Compiling /api/public/invoices/[token]/get ...
+ [32m[1m✓[22m[39m Compiled /api/public/invoices/[token]/get in 3.8s (1018 modules)
+
+[logger] Run #1032 - logs → logs\run-1032-2026-10-05_15-42-55
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/invoices/c391e213-a3d4-49a1-8632-a587ef26671f/get [32m200[39m in 6906ms
+[middleware] [INFO] request /api/public/invoices/c391e213-a3d4-49a1-8632-a587ef26671f/get
+ GET /api/public/invoices/c391e213-a3d4-49a1-8632-a587ef26671f/get [32m200[39m in 1892ms
+[middleware] [INFO] request /api/public/invoices/c391e213-a3d4-49a1-8632-a587ef26671f/get
+ GET /api/public/invoices/c391e213-a3d4-49a1-8632-a587ef26671f/get [32m200[39m in 1626ms
+ [32m[1m✓[22m[39m Compiled in 1440ms (3857 modules)
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /api/public/invoices/b76c3217-b34e-4c93-ac78-ab1fda035b6f/get
+ [37m[1m○[22m[39m Compiling /api/public/invoices/[token]/get ...
+ [32m[1m✓[22m[39m Compiled /api/public/invoices/[token]/get in 1018ms (999 modules)
+
+[logger] Run #1033 - logs → logs\run-1033-2026-10-05_16-08-16
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/invoices/b76c3217-b34e-4c93-ac78-ab1fda035b6f/get [32m200[39m in 2777ms
+[middleware] [INFO] request /api/public/invoices/c391e213-a3d4-49a1-8632-a587ef26671f/get
+ GET /api/public/invoices/c391e213-a3d4-49a1-8632-a587ef26671f/get [32m200[39m in 1453ms
+[middleware] [INFO] request /api/version
+ [37m[1m○[22m[39m Compiling /api/version ...
+ [32m[1m✓[22m[39m Compiled /api/version in 1066ms (1001 modules)
+
+[logger] Run #1034 - logs → logs\run-1034-2026-10-05_16-08-26
+
+ GET /api/version [32m200[39m in 1114ms
+[middleware] [INFO] request /api/public/quotes/582c0e72-5edf-432d-bf30-407f84d099e8/accept
+ [37m[1m○[22m[39m Compiling /api/public/quotes/[token]/accept ...
+ [32m[1m✓[22m[39m Compiled /api/public/quotes/[token]/accept in 9.7s (1081 modules)
+
+[logger] Run #1035 - logs → logs\run-1035-2026-10-05_16-11-23
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ POST /api/public/quotes/582c0e72-5edf-432d-bf30-407f84d099e8/accept [32m200[39m in 46908ms
+ [32m[1m✓[22m[39m Compiled in 7.3s (3819 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/kitchen/management
+[middleware] [INFO] request /spit-braai-delivery/team-portal/driver/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+[middleware] [INFO] request /admin/platform/dashboard
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ GET /_next/data/development/admin/platform/dashboard.json [32m200[39m in 3522ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3526ms
+ GET /_next/data/development/spit-braai-delivery/client-portal/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3525ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3526ms
+ GET /_next/data/development/spit-braai-delivery/admin/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3526ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3526ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3526ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/driver/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3528ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json?company_slug=spit-braai-delivery [32m200[39m in 3528ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json?company_slug=spit-braai-delivery [32m200[39m in 3525ms
+ GET /_next/data/development/spit-braai-delivery/team-portal/kitchen/management.json?company_slug=spit-braai-delivery [32m200[39m in 3529ms

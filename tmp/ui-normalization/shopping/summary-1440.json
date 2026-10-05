@@ -1,0 +1,20 @@
+[
+  {
+    "route": "/spit-braai-delivery/team-portal/shopping/notifications",
+    "errors": [],
+    "height": 3196,
+    "overflow": false,
+    "h1": "Shopping Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/team-portal/shopping/inventory",
+    "errors": [],
+    "height": 1195,
+    "overflow": false,
+    "h1": "Shopping Portal",
+    "sections": [],
+    "bigOpenCards": []
+  }
+]

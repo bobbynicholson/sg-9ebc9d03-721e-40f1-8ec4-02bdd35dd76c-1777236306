@@ -1,0 +1,12 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { createClient } from '@supabase/supabase-js';
+const env=Object.fromEntries(readFileSync('.env.local','utf8').split(/\r?\n/).filter(l=>l&&!l.startsWith('#')&&l.includes('=')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,'')];}));
+const sb=createClient(env.NEXT_PUBLIC_SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
+const company='0e139a19-6526-4e1f-9bf7-87d6adbee5f8';
+const {data:before,error}=await sb.from('email_provider_settings').select('id,company_id,provider,from_email,from_name,resend_domain_status,resend_sending_domain,force_platform_sender,updated_at').eq('company_id',company).eq('provider','resend').single();
+if(error)throw error;
+if(before.resend_domain_status!=='verified'||!before.from_email.toLowerCase().endsWith('@'+before.resend_sending_domain.toLowerCase()))throw Error('Company sender is not verified and matching');
+writeFileSync('tmp/spit-sender-before.json',JSON.stringify(before,null,2));
+const {data:after,error:updateError}=await sb.from('email_provider_settings').update({force_platform_sender:false,updated_at:new Date().toISOString()}).eq('id',before.id).eq('company_id',company).eq('force_platform_sender',true).select('from_email,from_name,resend_domain_status,force_platform_sender');
+if(updateError)throw updateError;
+console.log(JSON.stringify({updated:after.length,after}));

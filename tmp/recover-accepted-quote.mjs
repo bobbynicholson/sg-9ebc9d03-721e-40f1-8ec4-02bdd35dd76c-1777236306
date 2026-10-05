@@ -1,0 +1,10 @@
+import {readFileSync} from 'node:fs';
+import {createClient} from '@supabase/supabase-js';
+const env=Object.fromEntries(readFileSync('.env.local','utf8').split(/\r?\n/).filter(l=>l&&!l.startsWith('#')&&l.includes('=')).map(l=>{const i=l.indexOf('=');return[l.slice(0,i).trim(),l.slice(i+1).trim().replace(/^["']|["']$/g,'')]}));
+const sb=createClient(env.NEXT_PUBLIC_SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
+const {data:q,error}=await sb.from('quotes').select('public_token,status,client_name').eq('id','b2040aae-fbe5-4c88-bae6-a114f4213bbe').single();
+if(error)throw error;
+if(q.status!=='accepted')throw new Error('Refusing to accept a quote not already accepted by user');
+const base=process.argv.includes('--local')?'http://localhost:3001':'https://cateringms.com';
+const r=await fetch(base+'/api/public/quotes/'+q.public_token+'/accept',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({acceptedByName:q.client_name}),signal:AbortSignal.timeout(55000)});
+console.log(JSON.stringify({base,status:r.status,result:await r.json()}));

@@ -1,0 +1,65 @@
+[
+  {
+    "route": "/spit-braai-delivery/client-portal/dashboard",
+    "errors": [],
+    "height": 974,
+    "overflow": false,
+    "h1": "Client Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/client-portal/my-orders",
+    "errors": [],
+    "height": 974,
+    "overflow": false,
+    "h1": "Client Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/client-portal/quotes",
+    "errors": [],
+    "height": 974,
+    "overflow": false,
+    "h1": "Client Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/client-portal/billing",
+    "errors": [],
+    "height": 974,
+    "overflow": false,
+    "h1": "Client Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/client-portal/tracking",
+    "errors": [],
+    "height": 974,
+    "overflow": false,
+    "h1": "Client Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/client-portal/notifications",
+    "errors": [],
+    "height": 974,
+    "overflow": false,
+    "h1": "Client Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/client-portal/profile",
+    "errors": [],
+    "height": 1211,
+    "overflow": false,
+    "h1": "Client Portal",
+    "sections": [],
+    "bigOpenCards": []
+  }
+]
