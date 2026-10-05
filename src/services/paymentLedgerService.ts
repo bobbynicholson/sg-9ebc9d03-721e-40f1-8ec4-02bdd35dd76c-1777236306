@@ -173,7 +173,14 @@ export const paymentLedgerService = {
         break;
     }
 
-    const payments = await this.getAllPayments(startDate, now);
+    // total_amount / total_hours / payment_method are live columns on
+    // staff_payment_ledger that the generated types don't describe.
+    const payments = (await this.getAllPayments(startDate, now)) as unknown as Array<{
+      total_amount: number | null;
+      total_hours: number | null;
+      payment_method: string | null;
+      staff_id: string | null;
+    }>;
 
     const totalAmount = payments.reduce((sum, payment) => {
       return sum + Number(payment.total_amount || 0);
@@ -184,7 +191,7 @@ export const paymentLedgerService = {
     }, 0);
 
     const paymentsByMethod = payments.reduce((acc, payment) => {
-      const method = payment.payment_method;
+      const method = payment.payment_method || "unknown";
       acc[method] = (acc[method] || 0) + Number(payment.total_amount || 0);
       return acc;
     }, {} as Record<string, number>);

@@ -304,11 +304,6 @@ export const shoppingService = {
       throw error;
     }
 
-    // NOTIFICATION: Shopping item purchased → Real-time update to admin
-    if (data && updates.purchased === true) {
-      await this.sendItemPurchasedNotification(data);
-    }
-
     return data;
   },
 
@@ -330,19 +325,16 @@ export const shoppingService = {
       throw error;
     }
 
-    // NOTIFICATION: Shopping receipt uploaded → Notification to admin for approval
-    if (data) {
-      await this.sendReceiptUploadedNotification(data);
-    }
-
     return data;
   },
 
-  async checkBudgetExceeded(listId: string, estimatedBudget: number, actualCost: number): Promise<void> {
-    if (actualCost > estimatedBudget) {
-      // NOTIFICATION: Shopping budget exceeded → Alert to admin
-      await this.sendBudgetExceededNotification(listId, estimatedBudget, actualCost);
-    }
+  /**
+   * True when the actual spend is over budget. The admin alert this was
+   * meant to send was never implemented (the helper didn't exist and the
+   * call threw after a successful save), so it now just reports the check.
+   */
+  async checkBudgetExceeded(_listId: string, estimatedBudget: number, actualCost: number): Promise<boolean> {
+    return actualCost > estimatedBudget;
   },
 
   async getPurchaseHistory(companyId: string): Promise<PurchaseHistory[]> {

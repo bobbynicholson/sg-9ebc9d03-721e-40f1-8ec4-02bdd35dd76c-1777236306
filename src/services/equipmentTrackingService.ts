@@ -513,7 +513,20 @@ ${companyName}`;
 
     const itemMap = new Map<string, { cost: number; count: number }>();
 
-    damages.forEach((damage) => {
+    // total_cost / damage_stage / quantity_damaged exist on the live
+    // equipment_damages table but not in the generated types yet.
+    type DamageRow = (typeof damages)[number] & {
+      total_cost: number | null;
+      damage_stage: HandoverStage;
+      quantity_damaged: number | null;
+    };
+    (damages as DamageRow[]).forEach((row) => {
+      const damage = {
+        ...row,
+        damage_type: row.damage_type as DamageType,
+        total_cost: Number(row.total_cost) || 0,
+        quantity_damaged: Number(row.quantity_damaged) || 0,
+      };
       breakdown.totalCost += damage.total_cost;
 
       breakdown.byType[damage.damage_type] = (breakdown.byType[damage.damage_type] || 0) + damage.total_cost;

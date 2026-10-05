@@ -184,7 +184,7 @@ export const roleService = {
     const activeRole = await this.getActiveRole(userId);
     if (activeRole === department) {
       const roles = await this.getUserRoles(userId);
-      const newActiveRole = roles.find((r) => r.isPrimary) || roles[0];
+      const newActiveRole = roles.find((r) => r.is_primary) || roles[0];
       if (newActiveRole) {
         await this.switchRole(userId, newActiveRole.department);
       }
