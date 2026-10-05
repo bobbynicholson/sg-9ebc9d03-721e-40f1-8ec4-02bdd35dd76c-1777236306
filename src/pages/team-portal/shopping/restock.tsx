@@ -50,6 +50,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatZAR } from "@/lib/formatters";
 import { supabase } from "@/integrations/supabase/client";
 import { inventoryService } from "@/services/inventoryService";
 import {
@@ -63,7 +64,12 @@ function ShoppingRestockPageInner() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
-  const tenantCurrency = useTenantCurrency(companyId ?? null);
+  const tenantCurrencyBase = useTenantCurrency(companyId ?? null);
+  // Grouped amounts ("R 24 493") via the shared formatter.
+  const tenantCurrency = {
+    ...tenantCurrencyBase,
+    format: (n: number, decimals = 2) => formatZAR(n, { currency: tenantCurrencyBase.code, decimals }),
+  };
 
   const [rows, setRows] = useState<RestockSuggestion[]>([]);
   const [loading, setLoading] = useState(true);

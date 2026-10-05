@@ -2,14 +2,16 @@ import { useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Receipt, Search, FileText, ExternalLink, Wallet, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Receipt, Search, FileText, ExternalLink, Wallet, RefreshCw, CheckCircle2, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ShoppingFilterBar } from "@/components/shopping/ShoppingFilterBar";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalCard, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatDate, formatZAR } from "@/lib/formatters";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -38,7 +40,12 @@ const statusTone: Record<string, string> = {
 
 function ShoppingInvoicesPageInner() {
   const { user } = useAuth();
-  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
+  const tenantCurrencyBase = useTenantCurrency(user?.company_id ?? null);
+  // Grouped amounts ("R 24 493") via the shared formatter.
+  const tenantCurrency = {
+    ...tenantCurrencyBase,
+    format: (n: number, decimals = 2) => formatZAR(n, { currency: tenantCurrencyBase.code, decimals }),
+  };
 
   const [items, setItems] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,23 +196,31 @@ function ShoppingInvoicesPageInner() {
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <StatTile
           label={<span className="flex items-center gap-1">Completed runs <InfoTooltip content="Shopping lists where the buyer has finished the run." /></span>}
+          icon={CheckCircle2}
+          hint="Finished shopping runs"
           value={chipsReady ? stats.completedCount : "--"}
         />
         <StatTile
           label={<span className="flex items-center gap-1">Total spend <InfoTooltip content="Total actual spend across every completed shopping run." /></span>}
+          icon={Wallet}
+          hint="Actual spend, all runs"
           value={chipsReady ? tenantCurrency.format(stats.totalSpend, 0) : "--"}
         />
         <StatTile
           label={<span className="flex items-center gap-1">Receipts on file <InfoTooltip content="Runs that have a receipt uploaded against them.\n\nIf the receipt rule is on in settings, you can't close a run without one." /></span>}
+          icon={Receipt}
+          hint="Runs with a slip attached"
           value={chipsReady ? stats.withReceipt : "--"}
         />
         {/* Variance semantics carried by a subtle tint on the figure:
             over budget = rose, under / on budget = brand accent. */}
         <StatTile
           label={<span className="flex items-center gap-1">Estimate variance <InfoTooltip content="What you actually spent against what you estimated, across every run.\n\nA positive number means you went over budget." /></span>}
+          icon={TrendingUp}
+          hint="Actual against estimate"
           value={
             chipsReady ? (
               stats.varianceBasis > 0 ? (
@@ -220,7 +235,12 @@ function ShoppingInvoicesPageInner() {
         />
       </div>
 
-      <PortalCard className="mb-6 flex flex-col gap-3 sm:flex-row">
+      <ShoppingFilterBar
+        title="Spend filters"
+        idleHint="Search past runs by date or notes when you need to."
+        activeCount={[Boolean(search.trim()), hasReceiptOnly].filter(Boolean).length}
+        shownLabel={`${filtered.length} run${filtered.length === 1 ? "" : "s"} shown`}
+      >
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
           <Input className="pl-9" placeholder="Search by date or notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -237,7 +257,7 @@ function ShoppingInvoicesPageInner() {
         >
           <FileText className="h-4 w-4" />Receipt attached only
         </Button>
-      </PortalCard>
+      </ShoppingFilterBar>
 
       <PortalCard padded={false}>
         {showSkeleton ? (
@@ -292,7 +312,7 @@ function ShoppingInvoicesPageInner() {
                 <li key={l.id} className="flex items-center gap-3 p-5 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <div className="min-w-0 flex-1">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="font-medium tabular-nums text-slate-900 dark:text-white">{l.list_date ?? "Undated"}</span>
+                      <span className="font-medium tabular-nums text-slate-900 dark:text-white">{l.list_date ? formatDate(l.list_date, { year: true }) : "Undated"}</span>
                       {l.status && (
                         <Badge variant="outline" className={`${statusTone[l.status] ?? statusTone.draft} text-xs capitalize`}>
                           {l.status.replace("_", " ")}

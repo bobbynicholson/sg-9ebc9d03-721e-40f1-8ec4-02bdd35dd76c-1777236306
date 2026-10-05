@@ -151,7 +151,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
               ? { text: `${counts.shortItems} to buy`, tone: "critical", pulse: true }
               : null,
             liveDescription: () => counts.shortItems === 0 && !counts.loading
-              ? "No buy-list rows"
+              ? "Nothing to buy"
               : null,
           },
           {

@@ -47,6 +47,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatZAR } from "@/lib/formatters";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
@@ -82,7 +83,12 @@ function ShoppingBuyListPageInner() {
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
-  const tenantCurrency = useTenantCurrency(companyId ?? null);
+  const tenantCurrencyBase = useTenantCurrency(companyId ?? null);
+  // Grouped amounts ("R 24 493") via the shared formatter.
+  const tenantCurrency = {
+    ...tenantCurrencyBase,
+    format: (n: number, decimals = 2) => formatZAR(n, { currency: tenantCurrencyBase.code, decimals }),
+  };
 
   const [rows, setRows] = useState<OutlookRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -400,11 +406,11 @@ function ShoppingBuyListPageInner() {
           )}
 
           {/* Status summary */}
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile label="To buy" value={statusCounts.toBuy} hint="not OK" icon={ListChecks} />
-            <StatTile label="Shortfall" value={statusCounts.shortfall} hint="next 7 days" icon={AlertTriangle} />
-            <StatTile label="Below par" value={statusCounts.belowPar} icon={AlertCircle} />
-            <StatTile label="Low" value={statusCounts.low} icon={AlertCircle} />
+          <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+            <StatTile label="To buy" value={statusCounts.toBuy} hint="Everything not OK" icon={ListChecks} />
+            <StatTile label="Shortfall" value={statusCounts.shortfall} hint="Short for the next 7 days" icon={AlertTriangle} />
+            <StatTile label="Below par" value={statusCounts.belowPar} hint="Under their minimum" icon={AlertCircle} />
+            <StatTile label="Low" value={statusCounts.low} hint="Short for the next 14 days" icon={AlertCircle} />
           </div>
 
           {/* Active list status */}

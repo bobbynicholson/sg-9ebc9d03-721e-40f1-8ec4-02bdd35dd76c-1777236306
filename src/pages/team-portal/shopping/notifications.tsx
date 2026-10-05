@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
+import { humaniseEnum } from "@/lib/formatters";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Bell, Check, CheckCircle2, Archive, Inbox, RefreshCw } from "lucide-react";
+import { Bell, Check, CheckCircle2, Archive, Inbox, RefreshCw, AlertCircle } from "lucide-react";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PortalCard } from "@/components/portal/ui";
+import { PortalCard, PortalOverview } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -164,6 +166,14 @@ function ShoppingNotificationsPageInner() {
     [notifs],
   );
   const unread = useMemo(() => visible.filter((n) => !n.is_read).length, [visible]);
+  const urgentUnread = useMemo(
+    () => visible.filter((n) => {
+      if (n.is_read) return false;
+      const p = effectivePriority(n.priority, n.created_at);
+      return p === "urgent" || p === "high";
+    }).length,
+    [visible],
+  );
 
   // Wave 24: stale notification cleanup - mirrors the driver,
   // kitchen and cleaning portals.
@@ -252,6 +262,34 @@ function ShoppingNotificationsPageInner() {
             )}
           </>
         ) : undefined
+      }
+      // Same inbox summary band as the kitchen notifications page.
+      overview={
+        loadError && !loaded ? undefined : (
+          <PortalOverview
+            eyebrow="Shopping inbox"
+            title={
+              showSkeleton
+                ? "Loading your alerts"
+                : unread > 0
+                  ? "Start with the unread alerts, newest first"
+                  : "Inbox clear, nothing needs a look"
+            }
+            description="Shortfalls from new orders, kitchen requests and order changes for the shopping team land here."
+            items={[
+              { label: "Unread", value: showSkeleton ? "--" : unread, helper: unread > 0 ? "Needs a look" : "All clear", icon: Bell, tone: unread > 0 ? "danger" : "success" },
+              { label: "Urgent", value: showSkeleton ? "--" : urgentUnread, helper: "High-priority unread", icon: AlertCircle, tone: urgentUnread > 0 ? "warning" : "neutral" },
+              { label: "In inbox", value: showSkeleton ? "--" : visible.length, helper: "Loaded alerts", icon: Inbox, tone: "neutral" },
+              { label: "Stale", value: showSkeleton ? "--" : staleCount, helper: `Older than ${STALE_NOTIFICATION_DAYS} days`, icon: Archive, tone: "neutral" },
+            ]}
+            actions={
+              <Button asChild size="sm" variant="outline">
+                <Link href={withSlug("/team-portal/shopping/dashboard")}>Shopping today</Link>
+              </Button>
+            }
+            splitCards
+          />
+        )
       }
     >
       {/* Recovery card: the load failed. Keep any last-good list below,
@@ -394,7 +432,7 @@ function ShoppingNotificationsPageInner() {
                     {n.message && <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{n.message}</p>}
                     <div className="flex items-center gap-3 mt-2">
                       {(n.type || n.notification_type) && (
-                        <span className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">{n.type ?? n.notification_type}</span>
+                        <span className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">{humaniseEnum(n.type ?? n.notification_type)}</span>
                       )}
                       {!n.is_read && (
                         <button

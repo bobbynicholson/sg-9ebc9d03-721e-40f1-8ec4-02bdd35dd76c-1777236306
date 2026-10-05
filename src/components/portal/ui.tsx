@@ -252,9 +252,19 @@ const ADMIN_SEGMENT_LABELS: Record<string, string> = {
   "settings": "System",
 };
 
-function humanizeSegment(segment: string, admin = false) {
+/** Shopping portal routes whose file name differs from the sidebar label. */
+const SHOPPING_SEGMENT_LABELS: Record<string, string> = {
+  dashboard: "Today",
+  orders: "Active shop",
+  invoices: "Spend",
+  "buy-list": "Buy list",
+  "kitchen-demand": "Kitchen demand",
+};
+
+function humanizeSegment(segment: string, admin = false, labels?: Record<string, string>) {
   if (!segment || segment.startsWith("[") || segment === "index") return "";
   if (admin && ADMIN_SEGMENT_LABELS[segment]) return ADMIN_SEGMENT_LABELS[segment];
+  if (labels?.[segment]) return labels[segment];
   return segment
     .replace(/\?.*$/, "")
     .replace(/-/g, " ")
@@ -321,8 +331,10 @@ export function PageWorkbench({
   const surface = routeSurface(pathname);
   const segments = visibleRouteSegments(pathname);
   const tenantAdmin = surface.scope === "Admin";
-  const page = humanizeSegment(segments[segments.length - 1] || "dashboard", tenantAdmin) || "Dashboard";
-  const parentCandidate = humanizeSegment(segments[segments.length - 2] || "", tenantAdmin);
+  // Breadcrumb names match the sidebar, not the route file name.
+  const labels = surface.scope === "Shopping" ? SHOPPING_SEGMENT_LABELS : undefined;
+  const page = humanizeSegment(segments[segments.length - 1] || "dashboard", tenantAdmin, labels) || "Dashboard";
+  const parentCandidate = humanizeSegment(segments[segments.length - 2] || "", tenantAdmin, labels);
   const parent = parentCandidate === surface.scope ? "" : parentCandidate;
 
   return (

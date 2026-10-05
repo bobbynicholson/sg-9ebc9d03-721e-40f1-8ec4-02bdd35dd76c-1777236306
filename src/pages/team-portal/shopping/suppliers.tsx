@@ -8,12 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Users, Search, Plus, Loader2, Phone, Mail, MapPin, Star, Pencil, RefreshCw } from "lucide-react";
+import { Users, Search, Plus, Loader2, Phone, Mail, MapPin, Star, Pencil, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ShoppingFilterBar } from "@/components/shopping/ShoppingFilterBar";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalCard, StatTile } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -259,26 +260,35 @@ function ShoppingSuppliersPageInner() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3 sm:gap-4">
           <StatTile
             label={<span className="flex items-center gap-1">Total suppliers <InfoTooltip content="Every supplier saved against your company, whether they're active right now or not." /></span>}
+            icon={Users}
+            hint="Saved for your company"
             value={stats.total}
           />
-          {/* Active is a positive status, so a subtle emerald value is semantic, not decoration. */}
+          {/* Neutral value: the brand colour can be red, which read as a problem. */}
           <StatTile
             label={<span className="flex items-center gap-1">Active <InfoTooltip content="Suppliers you're currently using.\n\nThese are the ones that show up when you're picking who to buy from." /></span>}
-            value={<span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>}
+            icon={CheckCircle2}
+            hint="Shown when you buy"
+            value={stats.active}
           />
           {/* Star is the rating glyph: amber is reserved for action + this semantic mark. */}
           <StatTile
             label={<span className="flex items-center gap-1">Avg rating <InfoTooltip content="Average rating across every supplier that has a score from 1 to 5." /></span>}
+            icon={Star}
+            hint="Across rated suppliers"
             value={<span className="flex items-center gap-1.5">{stats.avgRating.toFixed(1)}<Star className="h-5 w-5 text-amber-500 fill-amber-500" /></span>}
           />
         </div>
 
-        <PortalCard className="mb-6">
-          <PortalCardHeader title="Find a supplier" />
-          <div className="flex flex-col sm:flex-row gap-3">
+        <ShoppingFilterBar
+          title="Supplier filters"
+          idleHint="Search by name, contact or city when you need to."
+          activeCount={[Boolean(search.trim()), showInactive].filter(Boolean).length}
+          shownLabel={`${filtered.length} supplier${filtered.length === 1 ? "" : "s"} shown`}
+        >
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
               <Input className="pl-9" placeholder="Search by name, contact, city..." value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -298,8 +308,7 @@ function ShoppingSuppliersPageInner() {
             >
               {showInactive ? "Showing inactive" : "Active only"}
             </Button>
-          </div>
-        </PortalCard>
+        </ShoppingFilterBar>
 
         {showSkeleton ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4" aria-busy="true">
@@ -372,7 +381,8 @@ function ShoppingSuppliersPageInner() {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold text-slate-900 dark:text-white truncate">{s.supplier_name}</div>
-                    {s.contact_person && <div className="text-xs text-slate-600 dark:text-slate-400 truncate">{s.contact_person}</div>}
+                    {/* "Unknown" is a placeholder some imports wrote, not a person. */}
+                    {s.contact_person && s.contact_person.trim().toLowerCase() !== "unknown" && <div className="text-xs text-slate-600 dark:text-slate-400 truncate">{s.contact_person}</div>}
                   </div>
                   {/* Edit affordance stays quiet until the card is hovered/focused. */}
                   <Button
@@ -397,7 +407,7 @@ function ShoppingSuppliersPageInner() {
                     </Badge>
                   )}
                   {s.payment_terms != null && (
-                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs tabular-nums">Net {s.payment_terms}</Badge>
+                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs tabular-nums" title="Payment terms">Pay in {s.payment_terms} day{s.payment_terms === 1 ? "" : "s"}</Badge>
                   )}
                   {!s.is_active && (
                     <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 text-xs">Inactive</Badge>

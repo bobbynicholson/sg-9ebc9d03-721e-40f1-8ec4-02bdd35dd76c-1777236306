@@ -18,6 +18,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrderRefreshSignal } from "@/hooks/useOrderRefreshSignal";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatDate, formatZAR } from "@/lib/formatters";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -91,7 +92,12 @@ function ShoppingOrdersPageInner() {
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
-  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
+  const tenantCurrencyBase = useTenantCurrency(user?.company_id ?? null);
+  // Grouped amounts ("R 24 493") via the shared formatter.
+  const tenantCurrency = {
+    ...tenantCurrencyBase,
+    format: (n: number, decimals = 2) => formatZAR(n, { currency: tenantCurrencyBase.code, decimals }),
+  };
   // TIGHTEN I.119 (2026-06-02): refetch when an order edit lands in any tab.
   const refreshSignal = useOrderRefreshSignal(user?.company_id ?? null);
 
@@ -434,19 +440,22 @@ function ShoppingOrdersPageInner() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+          <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3 sm:gap-4">
             <StatTile
               label={<span className="flex items-center gap-1">Open lists <InfoTooltip content="Shopping lists that haven't been finished off or cancelled yet." /></span>}
+              hint="Not finished yet"
               value={stats.open}
               icon={ListChecks}
             />
             <StatTile
               label={<span className="flex items-center gap-1">Total lists <InfoTooltip content="Every shopping list, no matter the status.\n\nWe show the most recent 50." /></span>}
+              hint="Your latest 50 lists"
               value={stats.totalLists}
               icon={Receipt}
             />
             <StatTile
               label={<span className="flex items-center gap-1">Upcoming events <InfoTooltip content="Confirmed orders (including preparing or ready) happening today or later that may need procurement." /></span>}
+              hint="Confirmed, today or later"
               value={stats.upcoming}
               icon={Calendar}
             />
@@ -540,7 +549,7 @@ function ShoppingOrdersPageInner() {
                     <li key={l.id} className="p-5 flex flex-col sm:flex-row sm:items-center gap-3 transition-colors duration-150 hover:bg-slate-50 dark:hover:bg-slate-800/50 first:rounded-t-2xl last:rounded-b-2xl">
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{l.list_date ?? "Undated list"}</span>
+                          <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{l.list_date ? formatDate(l.list_date, { year: true }) : "Undated list"}</span>
                           {l.status && (
                             <Badge variant="outline" className={`${listStatusTone[l.status] ?? NEUTRAL_TONE} text-xs capitalize`}>
                               {l.status.replace("_", " ")}

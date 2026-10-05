@@ -20,16 +20,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download, Package, PackageX, RefreshCw } from "lucide-react";
+import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download, Package, PackageX, RefreshCw, ChevronDown, Wallet } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ShoppingFilterBar } from "@/components/shopping/ShoppingFilterBar";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatZAR } from "@/lib/formatters";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
 import { supabase } from "@/integrations/supabase/client";
-import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalCard, StatTile } from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { UserRole } from "@/types/app";
 import { cn } from "@/lib/utils";
@@ -41,7 +43,12 @@ function ShoppingInventoryPageInner() {
   // Phase 11 #9: tenant currency for the stock-value stat card +
   // every cost / cost-per-unit render below. Drops the hardcoded
   // R prefix so a UK / US tenant sees the right symbol.
-  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
+  const tenantCurrencyBase = useTenantCurrency((user as any)?.company_id ?? null);
+  // Grouped amounts ("R 24 493") via the shared formatter.
+  const tenantCurrency = {
+    ...tenantCurrencyBase,
+    format: (n: number, decimals = 2) => formatZAR(n, { currency: tenantCurrencyBase.code, decimals }),
+  };
 
   const [items, setItems] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,6 +178,7 @@ function ShoppingInventoryPageInner() {
     ],
     { limit: 0 },
   );
+  const activeFilterCount = [Boolean(search.trim()), category !== "all", belowParOnly].filter(Boolean).length;
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -385,31 +393,44 @@ function ShoppingInventoryPageInner() {
             slate glyph, soft shadow + hairline + rounded-2xl. The
             semantic stock-level colour lives where it's per-row
             actionable (the table status badges), not on the counts. */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
           <StatTile
             label={<span className="flex items-center gap-1">Total items <InfoTooltip content="Number of active inventory lines on the books for your company." /></span>}
+            hint="Active stock lines"
             value={stats.total}
             icon={Package}
           />
           <StatTile
             label={<span className="flex items-center gap-1">Below par <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
+            hint="Put on the next run"
             value={stats.below}
             icon={AlertTriangle}
           />
           <StatTile
             label={<span className="flex items-center gap-1">Out of stock <InfoTooltip content="Items that have run out completely.\n\nYou cannot fulfil orders that need these until they're restocked." /></span>}
+            hint="Restock before orders need them"
             value={stats.out}
             icon={PackageX}
           />
           <StatTile
             label={<span className="flex items-center gap-1">Stock value <InfoTooltip content="Total value of every item currently sitting in stock, based on the last known cost per unit." /></span>}
+            icon={Wallet}
+            hint="At last cost price"
             value={tenantCurrency.format(stats.valueR, 0)}
           />
         </div>
 
-        <PortalCard id="shopping-stock" data-chat-section="shopping.inventory.stock" data-chat-section-label="Procurement stock" padded={false} className="mb-6 p-4 sm:p-5">
-          <PortalCardHeader title="Filter" />
-          <div className="flex flex-col sm:flex-row gap-3">
+        {/* Same on-demand filter bar as kitchen Stock: the table stays the
+            focus, and an active filter is always summarised while closed. */}
+        <ShoppingFilterBar
+          id="shopping-stock"
+          chatSection="shopping.inventory.stock"
+          chatSectionLabel="Procurement stock"
+          title="Stock filters"
+          idleHint="Search and narrow the stock list when you need to."
+          activeCount={activeFilterCount}
+          shownLabel={`${filtered.length} items shown`}
+        >
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
               <Input
@@ -438,8 +459,7 @@ function ShoppingInventoryPageInner() {
               <AlertTriangle className="h-4 w-4 mr-2" />
               Below par only
             </Button>
-          </div>
-        </PortalCard>
+        </ShoppingFilterBar>
 
         <PortalCard padded={false} className="overflow-hidden">
             {showSkeleton ? (

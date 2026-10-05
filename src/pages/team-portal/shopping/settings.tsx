@@ -35,7 +35,7 @@ const EDITOR_ROLES = new Set<string>([
  *  they never masquerade as live controls. Wired progressively as the
  *  background jobs (auto-create cron, supplier ranking, low-stock
  *  notifier) land. */
-const COMING_SOON_NOTE = "Persisted for your team. This becomes active once its background job ships - it does nothing yet, so it is disabled to avoid a control that looks live but isn't.";
+const COMING_SOON_NOTE = "Not active yet. This setting is saved and will start working once the feature is switched on.";
 
 function relativeTime(iso: string | null): string | null {
   if (!iso) return null;
@@ -281,7 +281,7 @@ function ShoppingSettingsPageInner() {
               title={
                 <span className="flex items-center gap-2">
                   Suppliers + alerts
-                  <InfoTooltip content="Supplier ranking preference and the low-stock alert. These consume background jobs that are still being built." />
+                  <InfoTooltip content="Supplier ranking and the low-stock alert are still being built. Your choices are saved for when they go live." />
                 </span>
               }
             />
@@ -308,7 +308,7 @@ function ShoppingSettingsPageInner() {
           </PortalCard>
 
           <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 px-1">
-            Settings are stored per company and shared with everyone on your shopping team. Controls marked <span className="font-semibold">Live</span> take effect immediately; controls marked <span className="font-semibold">Coming soon</span> are saved but not yet consumed by any automation.
+            These settings apply to your whole shopping team. <span className="font-semibold">Live</span> settings work straight away; <span className="font-semibold">Coming soon</span> settings are saved for later.
           </p>
         </div>
       )}

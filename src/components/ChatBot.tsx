@@ -369,6 +369,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const router = useRouter();
+  const compactLauncher = router.pathname.startsWith("/team-portal/shopping");
 
   // Theme-driven: every role's chat chrome (FAB, header, bubbles, avatar,
   // send button) uses the tenant brand gradient instead of the old
@@ -606,7 +607,9 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
             )}
           >
             <MessageSquare className="h-5 w-5 text-white transition-transform duration-200 group-hover:scale-105" />
-            <span className="hidden sm:inline">Ask assistant</span>
+            {/* Icon-only on dense list portals: the wide pill sat on top of
+                right-aligned row actions (Buy for stock, Adjust). */}
+            <span className={compactLauncher ? "sr-only" : "hidden sm:inline"}>Ask assistant</span>
             <span className="absolute -right-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" aria-hidden="true" />
           </Button>
         )}
