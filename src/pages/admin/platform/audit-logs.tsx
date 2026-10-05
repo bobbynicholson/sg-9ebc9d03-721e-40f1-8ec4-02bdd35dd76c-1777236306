@@ -64,7 +64,7 @@ interface ProfileOption {
   email: string | null;
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 const AUDIT_CATEGORIES = [
   { value: "all", label: "All activity" },

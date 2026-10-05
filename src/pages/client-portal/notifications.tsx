@@ -196,8 +196,6 @@ function ClientNotificationsPageInner() {
             items={[
               { label: "Unread", value: unreadCount, helper: "Needs attention", icon: Bell, tone: unreadCount > 0 ? "warning" : "success" },
               { label: "Visible", value: visible.length, helper: tab === "unread" ? "Unread tab" : "All notifications", icon: CheckCircle2, tone: "neutral" },
-              { label: "Filter", value: tab === "unread" ? "Unread" : "All", helper: "Current view", icon: AlertCircle, tone: "neutral" },
-              { label: "Clean up", value: "Delete", helper: "Row-level action", icon: Trash2, tone: "neutral" },
             ]}
           />
 
@@ -265,7 +263,18 @@ function ClientNotificationsPageInner() {
               </PortalCard>
             ) : (
               <ul className="space-y-2">
-                {visible.map((n) => {
+                {(() => {
+                  const groups = new Map<string, typeof visible>();
+                  for (const item of visible) {
+                    const key = `${item.title ?? ""}|${item.message ?? ""}`;
+                    const list = groups.get(key);
+                    if (list) list.push(item); else groups.set(key, [item]);
+                  }
+                  return Array.from(groups.values());
+                })().map((group) => {
+                  const n = group[0];
+                  const unreadInGroup = group.filter((g) => !g.is_read);
+                  const busy = group.some((g) => actingId === g.id);
                   const created = n.created_at ? new Date(n.created_at) : null;
                   const ago = created ? formatDistanceToNow(created, { addSuffix: true }) : "";
                   const tone = PRIORITY_TONE[(n.priority as string) || "normal"] || PRIORITY_TONE.normal;
@@ -276,10 +285,10 @@ function ClientNotificationsPageInner() {
                     <li key={n.id}>
                       <PortalCard
                         padded={false}
-                        className={n.is_read ? "" : "border-amber-200 dark:border-amber-900/60"}
+                        className={unreadInGroup.length === 0 ? "" : "border-amber-200 dark:border-amber-900/60"}
                       >
                         <div className="flex items-start gap-3 p-4">
-                          {!n.is_read && (
+                          {unreadInGroup.length > 0 && (
                             <div className="w-2 h-2 mt-2 rounded-full bg-amber-500 flex-shrink-0" aria-label="Unread" />
                           )}
                           <div
@@ -295,23 +304,28 @@ function ClientNotificationsPageInner() {
                               }`}>
                                 {n.title}
                               </h3>
-                              <Badge variant="outline" className={`text-[10px] capitalize ${tone}`}>
-                                {n.priority || "normal"}
-                              </Badge>
+                              {isUrgent && (
+                                <Badge variant="outline" className={`text-[10px] capitalize ${tone}`}>
+                                  {n.priority}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
                               {n.message}
                             </p>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">{ago}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+                              {ago}
+                              {group.length > 1 && <span> · sent {group.length} times</span>}
+                            </p>
                           </div>
                           <div className="flex flex-col gap-1 flex-shrink-0">
-                            {!n.is_read && (
+                            {unreadInGroup.length > 0 && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={(e) => { e.stopPropagation(); onMarkRead(n.id); }}
-                                disabled={actingId === n.id}
-                                title="Mark as read"
+                                onClick={async (e) => { e.stopPropagation(); for (const g of unreadInGroup) await onMarkRead(g.id); }}
+                                disabled={busy}
+                                title={unreadInGroup.length > 1 ? `Mark all ${unreadInGroup.length} as read` : "Mark as read"}
                                 className="h-7 w-7 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                               >
                                 <CheckCircle2 className="w-4 h-4" />
@@ -320,9 +334,9 @@ function ClientNotificationsPageInner() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={(e) => { e.stopPropagation(); onDelete(n.id); }}
-                              disabled={actingId === n.id}
-                              title="Delete"
+                              onClick={async (e) => { e.stopPropagation(); for (const g of group) await onDelete(g.id); }}
+                              disabled={busy}
+                              title={group.length > 1 ? `Delete all ${group.length}` : "Delete"}
                               className="h-7 w-7 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400"
                             >
                               <Trash2 className="w-4 h-4" />

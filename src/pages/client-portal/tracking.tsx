@@ -497,12 +497,9 @@ function ClientTrackingInner() {
             <PortalOverview
               eyebrow="Live tracking"
               title={requestedOrderMissing ? "That booking is not live right now" : "No driver is on the road right now"}
-              description="Tracking is intentionally live-only. Upcoming, completed, cancelled, or not-yet-dispatched bookings stay under Bookings."
+              description="Tracking shows a booking only while a driver is on the road. Everything else is under Bookings."
               items={[
                 { label: "Live trips", value: 0, helper: "No active driver", icon: Navigation, tone: "success" },
-                { label: "Requested", value: requestedOrderMissing ? "Not live" : "None", helper: "Order filter", icon: Package, tone: requestedOrderMissing ? "warning" : "neutral" },
-                { label: "Driver pin", value: "Hidden", helper: "No active GPS", icon: MapPin, tone: "neutral" },
-                { label: "Next step", value: "Bookings", helper: "Open full status", icon: Clock, tone: "brand" },
               ]}
             />
             <PortalCard padded={false}>

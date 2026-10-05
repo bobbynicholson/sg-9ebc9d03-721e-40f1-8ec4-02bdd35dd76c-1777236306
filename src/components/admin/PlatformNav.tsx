@@ -47,6 +47,7 @@ import {
   Mail,
   Brain,
   ShieldCheck,
+  Percent,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { CommandPaletteHint } from "@/components/CommandPaletteHint";
@@ -116,80 +117,64 @@ export function PlatformNav(_: PlatformNavProps = {}) {
       { href: "/admin/platform/subscription-management", label: "Subscriptions", sub: "Plans + billing", icon: CreditCard,  accent: BRAND_ACCENT },
     ],
     renderTopSlot: () => <PlatformTopSlot />,
+    // Grouped the way a platform owner works: what's happening, who the
+    // customers are, money, content, then settings. Short descriptions so
+    // every item reads on one line; quieter groups start folded.
     sections: [
       {
         id: "command",
-        title: "Command",
+        title: "Overview",
         defaultOpen: true,
         items: [
-          { title: "Platform Dashboard", href: "/admin/platform/dashboard", icon: LayoutDashboard, description: "Revenue, new companies, and cancellations" },
-        ],
-      },
-      {
-        id: "ai",
-        title: "AI assistant",
-        defaultOpen: true,
-        items: [
-          { title: "AI Brain", href: "/admin/ai-brain", icon: Brain, description: "Manage approved assistant knowledge and sources" },
-          { title: "AI Access", href: "/admin/ai-brain/access", icon: ShieldCheck, description: "Manage which roles can access current information" },
+          { title: "Dashboard",     href: "/admin/platform/dashboard",     icon: LayoutDashboard, description: "Revenue and growth" },
+          { title: "Company health", href: "/admin/platform/tenant-health", icon: Activity,        description: "Stuck or quiet companies" },
+          { title: "Payment issues", href: "/admin/platform/payment-issues", icon: AlertTriangle,  description: "Billing setup problems" },
+          { title: "Activity log",  href: "/admin/platform/audit-logs",    icon: ScrollText,      description: "Who did what" },
         ],
       },
       {
         id: "tenants",
-        title: "Companies",
+        title: "Customers",
         defaultOpen: true,
         items: [
-          { title: "Companies",      href: "/admin/platform/company-database",       icon: Building2,  description: "Every registered catering business" },
-          { title: "Users",          href: "/admin/platform/user-management",        icon: Users,      description: "All users across all companies" },
-          {
-            title: "Subscriptions",
-            href: "/admin/platform/subscription-management",
-            icon: CreditCard,
-            description: "Active plans, upgrades, cancellations",
-            badge: () => ({ text: "Live", tone: "info" }),
-          },
-          { title: "Trials",         href: "/admin/platform/trial-management",       icon: Calendar,   description: "Extend trials, convert to paid" },
-          { title: "Company Health", href: "/admin/platform/tenant-health",          icon: Activity,   description: "Stuck setup, quiet companies, payment issues" },
-          { title: "Payment Issues", href: "/admin/platform/payment-issues",         icon: AlertTriangle, description: "Companies whose payment setup needs attention" },
-          { title: "Activity log",  href: "/admin/platform/audit-logs",             icon: ScrollText, description: "History of activity across all companies" },
+          { title: "Companies",     href: "/admin/platform/company-database",        icon: Building2,  description: "All catering businesses" },
+          { title: "Users",         href: "/admin/platform/user-management",         icon: Users,      description: "Every account" },
+          { title: "Subscriptions", href: "/admin/platform/subscription-management", icon: CreditCard, description: "Plans and cancellations" },
+          { title: "Trials",        href: "/admin/platform/trial-management",        icon: Calendar,   description: "Extend or convert" },
         ],
       },
       {
         id: "revenue",
-        title: "Revenue",
-        defaultOpen: true,
+        title: "Money",
+        defaultOpen: false,
         items: [
-          { title: "Financial Dashboard", href: "/admin/platform/financial-dashboard", icon: BarChart3,     description: "Revenue, recurring income, and trends" },
-          { title: "Pricing",             href: "/admin/platform/pricing-management",  icon: Tag,           description: "Plans, prices, and included features" },
-          { title: "Currency Monitor",    href: "/admin/platform/currency-monitoring", icon: ArrowLeftRight, description: "Exchange rates and alerts" },
-          { title: "Tech-stack Costs",    href: "/admin/platform/tech-costs",          icon: Calculator,    description: "Technology costs, margin, and cost at scale" },
+          { title: "Revenue",          href: "/admin/platform/financial-dashboard", icon: BarChart3,      description: "MRR and trends" },
+          { title: "Pricing",          href: "/admin/platform/pricing-management",  icon: Tag,            description: "Plans and prices" },
+          { title: "Tech costs",       href: "/admin/platform/tech-costs",          icon: Calculator,     description: "Costs and margin" },
+          { title: "Currency",         href: "/admin/platform/currency-monitoring", icon: ArrowLeftRight, description: "Exchange rates" },
+          { title: "Tax rules",        href: "/admin/platform/tax-rules",           icon: Percent,        description: "Slip deductibility" },
+          { title: "Payment gateways", href: "/admin/payment-gateways",             icon: Landmark,       description: "Stripe, PayFast, Yoco" },
         ],
       },
       {
         id: "marketing",
-        title: "Marketing",
+        title: "Website",
         defaultOpen: false,
         items: [
-          { title: "CMS Pages",       href: "/admin/platform/cms-pages",           icon: Globe,    description: "Landing pages, features, pricing copy" },
-          { title: "Blog",           href: "/admin/platform/cms-blog",            icon: Newspaper, description: "Articles, SEO, thought leadership" },
-          { title: "Platform emails", href: "/admin/platform/messaging-templates", icon: Mail,     description: "Receipts, trial reminders, and welcome messages" },
+          { title: "Pages",           href: "/admin/platform/cms-pages",           icon: Globe,     description: "Landing and pricing copy" },
+          { title: "Blog",            href: "/admin/platform/cms-blog",            icon: Newspaper, description: "Articles and SEO" },
+          { title: "Platform emails", href: "/admin/platform/messaging-templates", icon: Mail,      description: "Receipts and reminders" },
         ],
       },
       {
         id: "system",
-        title: "System",
+        title: "Settings",
         defaultOpen: false,
         items: [
-          { title: "Platform Settings", href: "/admin/platform/settings",  icon: Settings, description: "Import row cap, public origin" },
-          { title: "Payment Gateways",  href: "/admin/payment-gateways",   icon: Landmark, description: "Stripe, PayFast, gateway config" },
-        ],
-      },
-      {
-        id: "engineering",
-        title: "Engineering",
-        defaultOpen: false,
-        items: [
-          { title: "Running Todo", href: "/admin/platform/running-todo", icon: ListChecks, description: "Audit-derived backlog, 13 sprint groups" },
+          { title: "Platform settings", href: "/admin/platform/settings",     icon: Settings,    description: "Import limits, origin" },
+          { title: "AI brain",          href: "/admin/ai-brain",              icon: Brain,       description: "Assistant knowledge" },
+          { title: "AI access",         href: "/admin/ai-brain/access",       icon: ShieldCheck, description: "Live-data access by role" },
+          { title: "Running to-do",     href: "/admin/platform/running-todo", icon: ListChecks,  description: "Engineering backlog" },
         ],
       },
       {
@@ -202,7 +187,7 @@ export function PlatformNav(_: PlatformNavProps = {}) {
           // entering a tenant workspace. Sending this through withSlug()
           // would silently open whichever stale/dev slug happens to be in
           // auth context, which is both confusing and unsafe.
-          { title: "Switch to company view", href: "/admin/platform/company-database#company-records", icon: MonitorCheck, description: "Choose a company to browse" },
+          { title: "Open a company", href: "/admin/platform/company-database#company-records", icon: MonitorCheck, description: "View as that company" },
         ],
       },
     ],

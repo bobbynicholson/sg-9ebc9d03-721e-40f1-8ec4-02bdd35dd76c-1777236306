@@ -305,14 +305,40 @@ function ShoppingInventoryPageInner() {
     const min = Number(item.minimum_stock || 0);
     if (stock <= 0) return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900";
     if (stock <= min) return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900";
-    return "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
+    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-900";
   };
+
+  // Category groups for the table. A search or "below only" filter opens
+  // every group; otherwise groups start folded and the header shows
+  // how many items need restocking.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const needsAttention = (item: Inventory) => {
+    const stock = Number(item.current_stock || 0);
+    const min = Number(item.minimum_stock || 0);
+    return stock <= 0 || (min > 0 && stock <= min);
+  };
+  const groupedItems = useMemo(() => {
+    const map = new Map<string, Inventory[]>();
+    for (const item of filtered) {
+      const key = item.category || "Uncategorised";
+      const list = map.get(key);
+      if (list) list.push(item); else map.set(key, [item]);
+    }
+    return Array.from(map.entries())
+      .map(([category, items]) => ({ category, items, attention: items.filter(needsAttention).length }))
+      .sort((a, b) => (b.attention > 0 ? 1 : 0) - (a.attention > 0 ? 1 : 0) || a.category.localeCompare(b.category));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered]);
+  const isGroupOpen = (category: string, attention: number) =>
+    openGroups[category] ?? (Boolean(search.trim()) || belowParOnly || groupedItems.length <= 2);
+  const toggleGroup = (category: string, attention: number) =>
+    setOpenGroups((prev) => ({ ...prev, [category]: !isGroupOpen(category, attention) }));
 
   const stockLabel = (item: Inventory) => {
     const stock = Number(item.current_stock || 0);
     const min = Number(item.minimum_stock || 0);
     if (stock <= 0) return "Out of stock";
-    if (stock <= min) return "Below par";
+    if (stock <= min) return "At minimum";
     return "In stock";
   };
 
@@ -327,8 +353,8 @@ function ShoppingInventoryPageInner() {
         subheading={
           chipsReady
             ? stats.below > 0
-              ? `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, ${stats.below} at or below par.`
-              : `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, everything above par.`
+              ? `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, ${stats.below} at or below their minimum.`
+              : `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, everything above its minimum.`
             : "Live stock levels. Click any row to adjust stock with an audit entry."
         }
         icon={Warehouse}
@@ -355,7 +381,7 @@ function ShoppingInventoryPageInner() {
             <>
               <span className={SHOPPING_HERO_CHIP}>
                 <span className={cn("h-1.5 w-1.5 rounded-full", stats.below > 0 ? "bg-amber-400" : "bg-emerald-400")} />
-                {stats.below > 0 ? `${stats.below} below par` : "All above par"}
+                {stats.below > 0 ? `${stats.below} at minimum` : "All above minimum"}
               </span>
               {stats.out > 0 && (
                 <span className={SHOPPING_HERO_CHIP}>
@@ -401,7 +427,7 @@ function ShoppingInventoryPageInner() {
             icon={Package}
           />
           <StatTile
-            label={<span className="flex items-center gap-1">Below par <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
+            label={<span className="flex items-center gap-1">At minimum <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
             hint="Put on the next run"
             value={stats.below}
             icon={AlertTriangle}
@@ -457,7 +483,7 @@ function ShoppingInventoryPageInner() {
               className={belowParOnly ? "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg" : "rounded-lg"}
             >
               <AlertTriangle className="h-4 w-4 mr-2" />
-              Below par only
+              At minimum only
             </Button>
         </ShoppingFilterBar>
 
@@ -505,7 +531,7 @@ function ShoppingInventoryPageInner() {
                     <Search className="h-6 w-6 text-slate-500 dark:text-slate-400" />
                   </div>
                   <p className="font-semibold text-slate-900 dark:text-white">No items match the current filter</p>
-                  <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">Try clearing the search or switching the category{belowParOnly ? ", or turn off “Below par only”" : ""}.</p>
+                  <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">Try clearing the search or switching the category{belowParOnly ? ", or turn off “At minimum only”" : ""}.</p>
                 </div>
               )
             ) : (
@@ -516,16 +542,35 @@ function ShoppingInventoryPageInner() {
                     <thead className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                       <tr>
                         <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Item <InfoTooltip content="The item's name and SKU code." /></span></th>
-                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Category <InfoTooltip content="Category used to group similar items together." /></span></th>
                         <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Stock <InfoTooltip content="How much of this item is sitting in stock right now." /></span></th>
                         <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Min <InfoTooltip content="The minimum level for this item.\n\nOnce stock dips below this, it's time to reorder." /></span></th>
-                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Quick read on the item: out of stock, below par, or in stock." /></span></th>
+                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Quick read on the item: out of stock, at its minimum, or in stock." /></span></th>
                         <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Cost / unit <InfoTooltip content="The last price you paid per unit.\n\nUsed to work out the total value of stock on hand." /></span></th>
                         <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {filtered.map((i) => (
+                    {groupedItems.map(({ category, items, attention }) => {
+                      const open = isGroupOpen(category, attention);
+                      return (
+                    <tbody key={category} className="divide-y divide-slate-100 border-t border-slate-200 dark:divide-slate-800 dark:border-slate-700">
+                      <tr className="bg-slate-50/80 dark:bg-slate-800/40">
+                        <td colSpan={6} className="p-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(category, attention)}
+                            aria-expanded={open}
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800"
+                          >
+                            <ChevronDown aria-hidden="true" className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">{category}</span>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">{items.length}</span>
+                            {attention > 0 && (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">{attention} to restock</span>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                      {open && items.map((i) => (
                         <tr
                           key={i.id}
                           onClick={() => openEdit(i)}
@@ -535,7 +580,6 @@ function ShoppingInventoryPageInner() {
                             <div className="font-medium text-slate-900 dark:text-white">{i.item_name}</div>
                             {i.sku && <div className="text-xs text-slate-500 dark:text-slate-400">SKU {i.sku}</div>}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{i.category ?? "--"}</td>
                           <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900 dark:text-white">
                             {Number(i.current_stock ?? 0)} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{i.unit_of_measure}</span>
                           </td>
@@ -559,6 +603,8 @@ function ShoppingInventoryPageInner() {
                         </tr>
                       ))}
                     </tbody>
+                      );
+                    })}
                   </table>
                 </div>
 

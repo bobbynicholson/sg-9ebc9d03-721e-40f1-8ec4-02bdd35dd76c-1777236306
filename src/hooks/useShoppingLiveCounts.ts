@@ -21,6 +21,7 @@
  * Network cost: 5 lightweight queries per minute per active tab.
  * Same pattern proven on kitchen + cleaning.
  */
+import { effectiveOutlookStatus } from "@/lib/inventory/stockStatus";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -67,11 +68,12 @@ export function useShoppingLiveCounts(): ShoppingLiveCounts {
       const sb = supabase as any;
       const [shortRes, activeListsRes, unfiledRes, spendRes, notifRes] = await Promise.all([
         // Buy-list rows: every non-OK status the Buy list shows.
+        // Same rule as the Buy list: items AT their minimum count too,
+        // so the few columns needed are fetched and counted here.
         sb
           .from("inventory_demand_outlook")
-          .select("inventory_item_id", { count: "exact", head: true })
-          .eq("company_id", companyId)
-          .in("status", ["shortfall", "below_minimum", "low"]),
+          .select("inventory_item_id, status, current_stock, minimum_stock")
+          .eq("company_id", companyId),
         // Active shopping_list rows. Prefer lists assigned to the
         // current shopper - "your list" beats "team list" for the
         // one-shopper-per-tenant dominant case (Wave 70.30). Fall
@@ -117,7 +119,10 @@ export function useShoppingLiveCounts(): ShoppingLiveCounts {
           : Promise.resolve({ count: 0 }),
       ]);
 
-      setShortItems(shortRes?.count || 0);
+      setShortItems(
+        ((shortRes?.data || []) as Array<{ status: string | null; current_stock: number | null; minimum_stock: number | null }>)
+          .filter((r) => effectiveOutlookStatus(r) !== "ok").length,
+      );
 
       // activeListItems = number of active lists (one per row).
       // Per-item granular count would need a join into

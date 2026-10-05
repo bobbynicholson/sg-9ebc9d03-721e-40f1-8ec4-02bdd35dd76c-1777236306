@@ -23,6 +23,7 @@
  *      as they buy.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { effectiveOutlookStatus } from "@/lib/inventory/stockStatus";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -40,8 +41,7 @@ import {
   Plus,
   ArrowRight,
   CheckCircle2,
-  RefreshCw,
-} from "lucide-react";
+  RefreshCw, ChevronDown } from "lucide-react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -71,9 +71,9 @@ interface OutlookRow {
 
 const STATUS_META: Record<string, { label: string; tone: string; icon: typeof AlertTriangle; sort: number }> = {
   shortfall:     { label: "Shortfall",  tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",          icon: AlertTriangle, sort: 0 },
-  below_minimum: { label: "Below par",  tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",     icon: AlertCircle,   sort: 1 },
+  below_minimum: { label: "At or below minimum",  tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",     icon: AlertCircle,   sort: 1 },
   low:           { label: "Low",        tone: "bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-900", icon: AlertCircle,   sort: 2 },
-  ok:            { label: "OK",         tone: "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30", icon: Package,    sort: 3 },
+  ok:            { label: "OK",         tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900", icon: Package,    sort: 3 },
 };
 
 type FilterKey = "all" | "shortfall" | "below_par" | "low";
@@ -137,6 +137,8 @@ function ShoppingBuyListPageInner() {
       }
       const enriched = ((outlookRes.data || []) as OutlookRow[]).map(r => ({
         ...r,
+        // Items AT their minimum need buying too (reorder point).
+        status: effectiveOutlookStatus(r),
         cost_per_unit: costMap.get(r.inventory_item_id) ?? 0,
       }));
       setRows(enriched);
@@ -245,8 +247,11 @@ function ShoppingBuyListPageInner() {
     if (short > 0) return Math.ceil(short * 100) / 100;
     const reorder = Number(r.reorder_quantity || 0);
     if (reorder > 0) return reorder;
-    const gap = Math.max(0, Number(r.minimum_stock || 0) - Number(r.current_stock || 0));
-    return gap;
+    const min = Number(r.minimum_stock || 0);
+    const gap = Math.max(0, min - Number(r.current_stock || 0));
+    // At the minimum exactly, the gap is 0: suggest one minimum's worth
+    // so stock ends up above the reorder point.
+    return gap > 0 ? gap : min;
   };
 
   // Selection totals for the sticky footer.
@@ -359,7 +364,7 @@ function ShoppingBuyListPageInner() {
       <ShoppingPageShell
         pageTitle="Buy list - CateringMS"
         heading="Buy list"
-        subheading="What needs buying right now, pulled live from confirmed orders and par levels, ranked by urgency. Tick to add to your list."
+        subheading="What needs buying now, from confirmed orders and minimum stock levels, most urgent first. Tick items to add them to your list."
         icon={ListChecks}
         meta={
           chipsReady ? (
@@ -409,7 +414,7 @@ function ShoppingBuyListPageInner() {
           <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
             <StatTile label="To buy" value={statusCounts.toBuy} hint="Everything not OK" icon={ListChecks} />
             <StatTile label="Shortfall" value={statusCounts.shortfall} hint="Short for the next 7 days" icon={AlertTriangle} />
-            <StatTile label="Below par" value={statusCounts.belowPar} hint="Under their minimum" icon={AlertCircle} />
+            <StatTile label="At minimum" value={statusCounts.belowPar} hint="At or below their minimum" icon={AlertCircle} />
             <StatTile label="Low" value={statusCounts.low} hint="Short for the next 14 days" icon={AlertCircle} />
           </div>
 
@@ -453,7 +458,7 @@ function ShoppingBuyListPageInner() {
               {([
                 ["all",        "All (not OK)"],
                 ["shortfall",  "Shortfall"],
-                ["below_par",  "Below par"],
+                ["below_par",  "At minimum"],
                 ["low",        "Low"],
               ] as Array<[FilterKey, string]>).map(([k, label]) => (
                 <Button
@@ -521,8 +526,49 @@ function ShoppingBuyListPageInner() {
                   )}
                 </div>
               ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {/* Grouped by category so a run can be planned aisle by aisle.
+                      Groups start open (it's a shopping list) and fold on click. */}
+                  {(() => {
+                    const groups = new Map<string, OutlookRow[]>();
+                    for (const r of visible) {
+                      const key = r.category || "Uncategorised";
+                      const list = groups.get(key);
+                      if (list) list.push(r); else groups.set(key, [r]);
+                    }
+                    return Array.from(groups.entries());
+                  })().map(([category, groupRows]) => {
+                    const groupCost = groupRows.reduce((sum, r) => sum + buyQtyFor(r) * Number(r.cost_per_unit || 0), 0);
+                    const selectable = groupRows.filter((r) => !activeList.items.some((i) => i.item_id === r.inventory_item_id && !i.purchased));
+                    const allSelected = selectable.length > 0 && selectable.every((r) => selected.has(r.inventory_item_id));
+                    return (
+                      <details key={category} open className="group/cat">
+                        <summary className="flex cursor-pointer list-none items-center gap-3 bg-slate-50/80 px-4 py-2.5 hover:bg-slate-100 sm:px-5 dark:bg-slate-800/40 dark:hover:bg-slate-800 [&::-webkit-details-marker]:hidden">
+                          {selectable.length > 0 && (
+                            <span onClick={(e) => e.stopPropagation()} className="flex">
+                              <Checkbox
+                                checked={allSelected}
+                                onCheckedChange={() => {
+                                  for (const r of selectable) {
+                                    const isOn = selected.has(r.inventory_item_id);
+                                    if (allSelected ? isOn : !isOn) toggleSelect(r.inventory_item_id);
+                                  }
+                                }}
+                                aria-label={`Select all ${category}`}
+                              />
+                            </span>
+                          )}
+                          <span className="text-sm font-semibold text-slate-900 dark:text-white">{category}</span>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">
+                            {groupRows.length}
+                          </span>
+                          {groupCost > 0 && (
+                            <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">~{tenantCurrency.format(groupCost, 0)}</span>
+                          )}
+                          <ChevronDown aria-hidden="true" className="ml-auto h-4 w-4 text-slate-400 transition-transform group-open/cat:rotate-180" />
+                        </summary>
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {visible.map(r => {
+                  {groupRows.map(r => {
                     const meta = STATUS_META[r.status] || STATUS_META.ok;
                     const Icon = meta.icon;
                     const qty = buyQtyFor(r);
@@ -533,7 +579,7 @@ function ShoppingBuyListPageInner() {
                     return (
                       <li
                         key={r.inventory_item_id}
-                        className={`flex items-center gap-3 p-4 transition-colors duration-150 sm:p-5 ${
+                        className={`flex items-center gap-3 px-4 py-3 transition-colors duration-150 sm:px-5 ${
                           isSelected
                             ? "bg-amber-50 dark:bg-amber-950/30"
                             : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
@@ -560,22 +606,21 @@ function ShoppingBuyListPageInner() {
                             )}
                           </div>
                           <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-600 dark:text-slate-400">
-                            <span>{r.category || "Uncategorised"}</span>
                             <span className="tabular-nums">have {Number(r.current_stock).toLocaleString()} {r.unit_of_measure}</span>
-                            <span className="tabular-nums">par {Number(r.minimum_stock).toLocaleString()}</span>
+                            <span className="tabular-nums">min {Number(r.minimum_stock).toLocaleString()}</span>
                             {r.upcoming_order_count > 0 && (
                               <span>{r.upcoming_order_count} order{r.upcoming_order_count === 1 ? "" : "s"} pulling</span>
                             )}
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
-                          <div className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">Buy</div>
-                          <div className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">
-                            {qty.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          <div className="whitespace-nowrap text-sm tabular-nums text-slate-900 dark:text-white">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">Buy </span>
+                            <span className="font-semibold">{qty.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400"> {r.unit_of_measure}</span>
                           </div>
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400">{r.unit_of_measure}</div>
                           {cost > 0 && (
-                            <div className="mt-0.5 text-[11px] tabular-nums text-slate-600 dark:text-slate-400">
+                            <div className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
                               ~{tenantCurrency.format(cost, 0)}
                             </div>
                           )}
@@ -608,13 +653,17 @@ function ShoppingBuyListPageInner() {
                     );
                   })}
                 </ul>
+                      </details>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </PortalCard>
 
           {/* Helper line */}
           <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
-            Buy quantity = shortfall over the next 7 days. For OK items, it's the reorder quantity or the gap to par.
+            Suggested quantity covers what upcoming orders need over the next 7 days, otherwise the reorder quantity or enough to get back above the minimum.
           </p>
 
           {/* Clearance for the fixed bulk-add bar so it never sits over

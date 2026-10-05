@@ -13,7 +13,7 @@ import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, Cr
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview, StatTile,
+import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -581,25 +581,6 @@ function ClientBillingPageInner() {
             </div>
           ) : (
             <>
-              {/* Stats */}
-              <div className="mb-6 md:mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StatTile
-                  label="Total paid"
-                  value={`${currencySymbolFor((company as any)?.currency || "ZAR")}${totalPaid.toLocaleString()}`}
-                  icon={CheckCircle}
-                />
-                <StatTile
-                  label="Outstanding"
-                  value={`${currencySymbolFor((company as any)?.currency || "ZAR")}${totalOutstanding.toLocaleString()}`}
-                  icon={Wallet}
-                />
-                <StatTile
-                  label="Overdue"
-                  value={`${overdueCount} ${overdueCount === 1 ? "invoice" : "invoices"}`}
-                  icon={AlertCircle}
-                />
-              </div>
-
               {/* Filters and Search */}
               <PortalCard id="invoice-list" data-chat-section="client.billing.invoices" data-chat-section-label="Client invoice list" className="mb-6 scroll-mt-20">
                 <PortalCardHeader

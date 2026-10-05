@@ -1616,7 +1616,10 @@ function accentClasses(accent: string): { bar: string; tile: string; icon: strin
 const HEADER_BADGE = "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs";
 
 function CardAccordion({ card }: { card: SprintCard }) {
-  const [open, setOpen] = useState(card.defaultOpen ?? false);
+  // Every card starts folded; the header shows its progress.
+  const [open, setOpen] = useState(
+    false,
+  );
   const Icon = card.icon;
   const total = card.items.length;
   const done = card.items.filter((i) => i.status === "shipped").length;
