@@ -390,6 +390,28 @@ export default function PublicQuotePage() {
     }
   };
 
+  // Acceptance may save before a transient failure interrupts conversion.
+  // The accepted-state API is idempotent; retry it without another client click.
+  useEffect(() => {
+    if (!token || autoPrint || quote?.status !== "accepted" || quote.converted_to_order_id) return;
+    let cancelled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const recover = async () => {
+      attempts += 1;
+      const result = await recordAccept({ token, acceptedByName: quote.client_name || "Client" });
+      if (cancelled) return;
+      if (result.ok && result.orderId) {
+        setQuote(current => current ? { ...current, converted_to_order_id: result.orderId } : current);
+        setJustAccepted(true);
+      } else if (attempts < 3) {
+        timer = setTimeout(() => { void recover(); }, 15000);
+      }
+    };
+    timer = setTimeout(() => { void recover(); }, 5000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [token, autoPrint, quote?.id, quote?.status, quote?.converted_to_order_id, quote?.client_name]);
+
   const [acceptedOrderUrl, setAcceptedOrderUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!token || !justAccepted || !quote?.converted_to_order_id) return;
@@ -1171,7 +1193,7 @@ export default function PublicQuotePage() {
                         : "Quote accepted"}
                     </h2>
                     <p className="text-sm text-brand-primary mt-1.5 max-w-md mx-auto">
-                      {justAccepted && !quote.converted_to_order_id
+                      {!quote.converted_to_order_id
                         ? `Your acceptance is saved. ${companyName} is preparing your booking and payment details. Refresh shortly to check again.`
                         : `${companyName} has been notified. Your booking still needs the agreed payment to be confirmed.`}
                     </p>

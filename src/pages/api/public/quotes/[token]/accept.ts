@@ -30,6 +30,9 @@ import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapac
 
 const MAX_NAME = 200;
 
+// Conversion includes invoice generation, PDF rendering and provider delivery.
+export const maxDuration = 60;
+
 function requestOrigin(req: NextApiRequest): string {
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
     .split(",")[0]

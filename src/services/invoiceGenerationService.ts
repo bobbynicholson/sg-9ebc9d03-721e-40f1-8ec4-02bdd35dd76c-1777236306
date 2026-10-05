@@ -227,6 +227,7 @@ export async function generateInvoiceData(
   orderId: string,
   companyId: string,
   client?: SupabaseLike,
+  opts?: { invoiceNumber?: string },
 ): Promise<{ success: boolean; data?: InvoiceData; error?: string }> {
   const supabase = resolveClient(client);
   try {
@@ -266,7 +267,7 @@ export async function generateInvoiceData(
     }
 
     // 3. Get or create invoice number
-    const invoiceNumber = await getNextInvoiceNumber(companyId, supabase);
+    const invoiceNumber = opts?.invoiceNumber || await getNextInvoiceNumber(companyId, supabase);
 
     // 4. Calculate financial details
     const orderData = order as any;
@@ -768,7 +769,7 @@ export async function ensureInvoiceForOrder(
     // place: keep the newest, void the rest, recalc the survivor.
     const { data: existingRows, error: existingRowsErr } = await (supabase as any)
       .from("invoices")
-      .select("id, status, created_at, total_amount, sent_at")
+      .select("id, status, created_at, total_amount, sent_at, invoice_number")
       .eq("order_id", orderId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
@@ -832,7 +833,7 @@ export async function ensureInvoiceForOrder(
       // cannot duplicate a successfully delivered email.
       if (survivor.status === "sent" && !survivor.sent_at) {
         try {
-          const retryBuilt = await generateInvoiceData(orderId, companyId, supabase);
+          const retryBuilt = await generateInvoiceData(orderId, companyId, supabase, { invoiceNumber: survivor.invoice_number });
           if (retryBuilt.success && retryBuilt.data) {
             await notifyClientOfInvoiceIssued(
               orderId,
@@ -977,7 +978,7 @@ export async function recalcInvoiceForOrder(
     if (!existing?.id) {
       return { success: true, updated: false, reason: "no_invoice" };
     }
-    const built = await generateInvoiceData(orderId, companyId, supabase);
+    const built = await generateInvoiceData(orderId, companyId, supabase, { invoiceNumber: existing.invoice_number });
     if (!built.success || !built.data) {
       return { success: false, error: built.error || "Could not rebuild invoice data" };
     }
