@@ -8,7 +8,7 @@
  * through verbatim. Stamps quotes.sent_at + flips the status to 'sent'
  * after a confirmed successful delivery.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SendEmailDialog } from "./SendEmailDialog";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { TEMPLATE_REGISTRY } from "@/lib/messageTemplates/registry";
@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/observability";
 import { buildQuoteSentLifecyclePatch } from "@/lib/quotes/revisionLifecycle";
+import { completeQueuedQuoteEmail } from "@/lib/email/completeQueuedQuoteEmail";
 
 export interface QuoteSendDialogQuote {
   id: string;
@@ -159,6 +160,7 @@ export function QuoteSendDialog({
   const [resolved, setResolved] = useState<{ subject: string; body: string } | null>(null);
   const [resolving, setResolving] = useState(false);
   const [secondQuote, setSecondQuote] = useState<QuoteSendDialogQuote | null>(null);
+  const sendAttempt = useRef<{ fingerprint: string; key: string } | null>(null);
   // TIGHTEN I.111: dialog self-fetches the tenant name when the
   // parent didn't pass one. /admin/quotes/new historically passed
   // tenantName={null} which made every quote-send email read "Your
@@ -502,17 +504,21 @@ export function QuoteSendDialog({
           : "Quote.pdf"
       }
       sendLabel="Send quote"
-      testRecipient="rajm267744@gmail.com"
       extraTopContent={<>{templatePicker}{secondQuotePicker}</>}
       templateEditHref="/admin/email-templates?tab=templates"
       templateEditLabel={effectiveIsRevised ? '"Revised quote email" template' : '"New quote email" template'}
       onSend={async (payload) => {
         try {
+          const fingerprint = JSON.stringify({ companyId, quoteId: quote.id, secondQuoteId: secondQuote?.id, ...payload });
+          if (sendAttempt.current?.fingerprint !== fingerprint) {
+            sendAttempt.current = { fingerprint, key: `quote/${quote.id}/${crypto.randomUUID()}` };
+          }
           const response = await fetch("/api/send-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               companyId,
+              idempotencyKey: sendAttempt.current.key,
               to: payload.to,
               subject: payload.subject,
               body: payload.body,
@@ -531,7 +537,7 @@ export function QuoteSendDialog({
             }),
           });
           const data = await response.json().catch(() => ({}));
-          if (!response.ok || data?.success === false) {
+          if (!response.ok || data?.success !== true) {
             return {
               success: false as const,
               error: {
@@ -540,11 +546,19 @@ export function QuoteSendDialog({
               },
             };
           }
-          // Finalise the lifecycle only after the email provider confirms
-          // delivery. A changed, unconverted quote is reopened so the
+          // Finalise only the quotes sent to their actual customer. Sending
+          // a test/copy to another address must not mark the client sent.
+          const stampQuotes = ([quote, secondQuote].filter(Boolean) as QuoteSendDialogQuote[])
+            .filter((q) => String(q.client_email || "").trim().toLowerCase() === payload.to.trim().toLowerCase());
+          if (stampQuotes.length === 0) {
+            toast({ title: "Email copy sent", description: `Sent to ${payload.to}. The customer quote remains unchanged.` });
+            sendAttempt.current = null;
+            return { success: true } as const;
+          }
+          // Finalise the lifecycle only after the email provider accepts
+          // the message. A changed, unconverted quote is reopened so the
           // client sees Accept again; converted quotes remain accepted.
           const now = new Date().toISOString();
-          const stampQuotes = [quote, secondQuote].filter(Boolean) as QuoteSendDialogQuote[];
           const stampResults = await Promise.allSettled(
             stampQuotes.map((q) =>
               supabase
@@ -558,6 +572,9 @@ export function QuoteSendDialog({
             )
           );
           const quoteIds = stampQuotes.map((q) => q.id);
+          const queueResults = await Promise.allSettled(stampQuotes.map((q) =>
+            completeQueuedQuoteEmail(supabase, companyId, q.id, payload.to, now),
+          ));
           const { error: changeRequestError } = await (supabase as any)
             .from("quote_change_requests")
             .update({ status: "addressed", addressed_at: now })
@@ -569,11 +586,13 @@ export function QuoteSendDialog({
                 result.status === "rejected"
                 || (result.status === "fulfilled" && !!(result.value as any)?.error),
             )
-            || !!changeRequestError;
+            || !!changeRequestError
+            || queueResults.some((result) => result.status === "rejected");
           if (lifecycleFailed) {
             console.error("[QuoteSendDialog] email sent but lifecycle update failed", {
               stampResults,
               changeRequestError,
+              queueResults,
             });
           }
           toast(
@@ -591,6 +610,7 @@ export function QuoteSendDialog({
                 },
           );
           onSent?.(quote, secondQuote ?? undefined);
+          sendAttempt.current = null;
           return { success: true } as const;
         } catch (err: any) {
           // TIGHTEN I.98: route quote-send failures through Sentry.

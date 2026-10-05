@@ -4,7 +4,7 @@ jest.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 describe("application sender routing", () => {
   const config = {
-    provider: "resend", from_name: "Wilma's team", from_email: "office@example.com",
+    enabled: true, provider: "resend", from_name: "Wilma's team", from_email: "office@example.com",
     resend_sending_domain: "example.com", resend_domain_status: "verified",
   } as EmailSettings;
   it("uses a verified matching custom domain", () => {
@@ -38,6 +38,27 @@ describe("application sender routing", () => {
       q.maybeSingle = async () => ({ data: { company_name: "Team" }, error: null });
       return { from: () => q };
     }
+    it.each([
+      [false, "Wilma's team <office@example.com>"],
+      [true, "Wilma's team <noreply@send.cateringms.com>"],
+    ])("honors the platform override (%s) during delivery", async (forcePlatform, expectedFrom) => {
+      jest.spyOn(emailService, "getEmailConfig").mockResolvedValue({ ...config, force_platform_sender: forcePlatform as boolean });
+      jest.spyOn(emailService, "logEmailSent").mockResolvedValue(null);
+      const transport = jest.spyOn(emailService, "sendViaResend").mockResolvedValue({ ok: true });
+      const result = await emailService.sendEmailDetailed({ companyId: "company", to: "person@example.net", subject: "Hello", body: "<html>Hello</html>", bypassQuarantine: true, skipUnsubscribeFooter: true, _client: client() });
+      expect(result.success).toBe(true);
+      expect(transport).toHaveBeenCalledWith(expect.objectContaining({ from: expectedFrom }));
+    });
+    it("reports a missing local key without attempting delivery", async () => {
+      delete process.env.RESEND_API_KEY;
+      jest.spyOn(emailService, "getEmailConfig").mockResolvedValue(config);
+      const log = jest.spyOn(emailService, "logEmailSent").mockResolvedValue(null);
+      const transport = jest.spyOn(emailService, "sendViaResend");
+      const result = await emailService.sendEmailDetailed({ companyId: "company", to: "person@example.net", subject: "Hello", body: "<html>Hello</html>", bypassQuarantine: true, skipUnsubscribeFooter: true, _client: client() });
+      expect(result).toMatchObject({ success: false, error_code: "resend_auth" });
+      expect(transport).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith("company", "custom", "person@example.net", "N/A", "Hello", undefined, undefined, expect.anything(), "failed", "RESEND_API_KEY missing on the server");
+    });
     it.each([null, { ...config, from_email: "office@other.com" }])("delivers ordinary mail through shared when config is %j", async (settings) => {
       jest.spyOn(emailService, "getEmailConfig").mockResolvedValue(settings);
       jest.spyOn(emailService, "logEmailSent").mockResolvedValue(null);

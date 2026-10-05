@@ -21,7 +21,7 @@ async function handler(
 
   try {
     const {
-      companyId, to, subject, template, body, variables, orderId, quoteId,
+      companyId, to, subject, template, templateType, body, variables, orderId, quoteId, idempotencyKey,
       // Optional second quoteId for two-quote emails (e.g. on-site +
       // off-site options sent together). When set alongside
       // attachQuotePdf=true a second PDF is rendered and attached.
@@ -53,6 +53,9 @@ async function handler(
         error: "Missing required fields: companyId and to are required.",
         error_code: "missing_fields",
       });
+    }
+    if (idempotencyKey !== undefined && (typeof idempotencyKey !== "string" || !/^[\w/.-]{1,200}$/.test(idempotencyKey))) {
+      return res.status(400).json({ success: false, error: "Invalid email retry key", error_code: "missing_fields" });
     }
 
     // SECURITY: caller must be authenticated and belong to the company they're
@@ -218,6 +221,7 @@ async function handler(
       // Pass service-role here.
       result = await emailService.sendEmailDetailed({
         companyId,
+        idempotencyKey,
         to: (memberProfile as any).email || recipientEmail,
         subject: welcomeSubject,
         body: welcomeBody,
@@ -519,14 +523,17 @@ async function handler(
       // already validated the caller can act for this companyId.
       result = await emailService.sendEmailDetailed({
         companyId,
+        idempotencyKey,
         to,
         subject,
         template,
+        templateType,
         body,
         variables,
         orderId,
         quoteId,
         notificationPreference,
+        bypassQuarantine,
         ...(attachments.length > 0 ? { attachments } : {}),
         _client: getServiceSupabase(),
       } as any);

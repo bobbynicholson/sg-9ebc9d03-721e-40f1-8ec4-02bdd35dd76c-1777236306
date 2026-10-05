@@ -7,6 +7,7 @@ import { regionService } from "./regionService";
 import { lifecycleService } from "./lifecycleService";
 import { formatQuoteSubject } from "@/lib/email/subjectFormatters";
 import { notifyQuoteUpdated } from "./quote/quoteNotifications";
+import { completeQueuedQuoteEmail } from "@/lib/email/completeQueuedQuoteEmail";
 
 /**
  * Phase 15 #3: clone an existing quote. Mirrors duplicateOrder
@@ -464,12 +465,13 @@ export const quoteService = {
     }
 
     if (wasTransitioningToSent) {
-      // Fire-and-forget. We don't want a slow email send to block the
-      // UI's "quote saved" toast, and we don't want a failed send to
-      // make the user think the quote didn't save.
-      void this._fireQuoteSentEmail(quoteId).catch((e) =>
-        console.warn("[quoteService] post-update quote-sent email fire failed:", e),
-      );
+      // The quote save survives a transport failure, but callers receive
+      // the failure instead of silently claiming that the client was sent it.
+      try {
+        await this._fireQuoteSentEmail(quoteId);
+      } catch (emailError: any) {
+        (data as any)._emailError = emailError?.message || "Quote email could not be sent";
+      }
     }
 
     // Wave 51 - propagate the edit to the linked order + cascade
@@ -498,20 +500,16 @@ export const quoteService = {
   /**
    * Internal: send the "your quote is ready" email to the client.
    * Pulled out of sendQuoteToClient so updateQuote can fire it on the
-   * draft->sent transition without duplicating the call. Idempotent
-   * to a degree (Resend deduplicates on idempotency keys we don't
-   * currently send, so multiple calls = multiple emails - but the
-   * transition guard in updateQuote prevents that in normal use).
+   * draft->sent transition without duplicating the call. Retries use the
+   * same provider key; sent_at is a successful-send receipt, never a lock.
    */
   async _fireQuoteSentEmail(quoteId: string): Promise<void> {
     const quote = await this.getQuote(quoteId);
     if (!quote) {
-      console.warn(`[quoteService] _fireQuoteSentEmail: quote ${quoteId} not found`);
-      return;
+      throw new Error("Quote not found; no email was sent.");
     }
     if (!quote.client_email) {
-      console.warn(`[quoteService] _fireQuoteSentEmail: quote ${quoteId} has no client_email`);
-      return;
+      throw new Error("Add the client's email address before sending this quote.");
     }
     // A quote that has already been accepted (or converted into an order)
     // must never receive the initial "quote is ready" message again. The
@@ -522,27 +520,12 @@ export const quoteService = {
       return;
     }
 
-    // Idempotency guard. Stamp sent_at the FIRST time we fire the
-    // email; if it's already populated, the email already went out and
-    // a second call (rapid double-click, retry, refresh-during-save)
-    // should NOT spam the client. Setting sent_at before the network
-    // call protects against in-flight races - worst case the email
-    // fails and we still have sent_at, which is recoverable by an
-    // admin "Resend" action that nukes sent_at first.
+    // Only successful delivery attempts populate sent_at. A rejected
+    // attempt remains retryable without manually clearing a false receipt.
     if ((quote as any).sent_at) {
       console.log(`[quoteService] _fireQuoteSentEmail: ${quoteId} already sent at ${(quote as any).sent_at}, skipping`);
       return;
     }
-    try {
-      await supabase
-        .from("quotes")
-        .update({ sent_at: new Date().toISOString() })
-        .eq("id", quoteId)
-        .is("sent_at", null);
-    } catch (e) {
-      console.warn(`[quoteService] _fireQuoteSentEmail: failed to stamp sent_at, proceeding anyway:`, e);
-    }
-
     const { data: profile, error: profileErr2 } = await supabase
       .from("profiles")
       .select("full_name, company_name")
@@ -551,7 +534,7 @@ export const quoteService = {
     if (profileErr2) {
       console.error("[quoteService] profiles fetch failed:", profileErr2);
     }
-    const companyName =
+    let companyName =
       profile?.company_name || profile?.full_name || "Your Catering Company";
     // The quote snapshots the customer-facing currency. Fetch the
     // company default + slug as a fallback and for the public link.
@@ -561,7 +544,7 @@ export const quoteService = {
       try {
         const { data: companyRow, error: companyRowErr } = await supabase
           .from("companies")
-          .select("currency, slug")
+          .select("currency, slug, company_name")
           .eq("id", (quote as any).company_id)
           .maybeSingle();
         if (companyRowErr) {
@@ -569,6 +552,7 @@ export const quoteService = {
         }
         if ((companyRow as any)?.currency) currencyCode = (companyRow as any).currency;
         companySlug = (companyRow as any)?.slug ?? null;
+        if ((companyRow as any)?.company_name) companyName = (companyRow as any).company_name;
       } catch { /* fall back to defaults */ }
     }
 
@@ -626,11 +610,15 @@ export const quoteService = {
       currencyCode,
     });
 
-    await fetch("/api/send-email", {
+    const companyId = q.company_id || q.user_id;
+    if (!companyId) throw new Error("Quote is missing its company; no email was sent.");
+    const retryVersion = String(q.updated_at || q.created_at || "initial").replace(/[^\w.-]/g, "");
+    const response = await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        companyId: quote.user_id,
+        companyId,
+        idempotencyKey: `quote-ready/${quoteId}/${retryVersion}`,
         to: quote.client_email,
         subject,
         template: "email_quote_sent",
@@ -666,6 +654,17 @@ export const quoteService = {
         },
       }),
     });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.success !== true) {
+      throw new Error(result.error || "Quote email could not be sent. Please retry.");
+    }
+    const sentAt = new Date().toISOString();
+    const { error: stampError } = await supabase.from("quotes")
+      .update({ sent_at: sentAt })
+      .eq("id", quoteId)
+      .eq("company_id", companyId);
+    if (stampError) throw new Error(`Email was sent, but the quote receipt could not be saved: ${stampError.message}`);
+    await completeQueuedQuoteEmail(supabase, companyId, quoteId, quote.client_email, sentAt);
   },
 
   /**
@@ -1314,11 +1313,17 @@ export const quoteService = {
    */
   async sendQuoteToClient(quoteId: string): Promise<boolean> {
     try {
+      // Send first. An existing unsent quote must remain retryable even
+      // when its status was already changed by an earlier failed attempt.
+      await this._fireQuoteSentEmail(quoteId);
       const result = await this.updateQuote(quoteId, {
         status: "sent",
-        sent_at: new Date().toISOString(),
       });
-      return !!result;
+      if (result) {
+        const q = result as any;
+        await completeQueuedQuoteEmail(supabase, q.company_id || q.user_id, quoteId, q.client_email, q.sent_at || new Date().toISOString());
+      }
+      return !!result && !(result as any)._emailError;
     } catch (error) {
       console.error("Failed to send custom quote email:", error);
       return false;

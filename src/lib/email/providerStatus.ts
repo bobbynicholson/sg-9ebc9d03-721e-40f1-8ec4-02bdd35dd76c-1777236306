@@ -81,9 +81,13 @@ export async function getEmailProviderStatus(
   const { data, error } = await (supabase as any)
     .from("email_provider_settings")
     .select(
-      "provider, from_email, smtp_host, smtp_user, mailchimp_api_key_encrypted, resend_domain_status, is_verified",
+      "provider, from_email, smtp_host, smtp_user, resend_domain_status, resend_sending_domain, force_platform_sender, is_verified",
     )
     .eq("company_id", companyId)
+    .neq("provider", "mailchimp")
+    .order("is_verified", { ascending: false })
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(1)
     .maybeSingle();
 
   // RLS / row-missing -> fall through to platform default. emailService
@@ -114,7 +118,11 @@ export async function getEmailProviderStatus(
     // Resend's provider status is authoritative. Do not let a stale legacy
     // is_verified=true bit keep routing mail through a domain that Resend
     // currently reports as pending or failed.
-    const verified = data.resend_domain_status === "verified";
+    const domain = String(data.resend_sending_domain || "").trim().toLowerCase();
+    const verified = data.resend_domain_status === "verified"
+      && !data.force_platform_sender
+      && !!domain
+      && String(fromEmail || "").trim().toLowerCase().endsWith(`@${domain}`);
     return {
       state: verified ? "verified" : "platform_default",
       configured: true,

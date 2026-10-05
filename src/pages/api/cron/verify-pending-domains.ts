@@ -60,7 +60,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // fixes a typo.
   const { data: pending, error: selErr } = await sb
     .from("email_provider_settings")
-    .select("id, company_id, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, is_verified")
+    .select("id, company_id, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, from_email, is_verified")
     .eq("provider", "resend")
     .not("resend_domain_id", "is", null)
     .neq("resend_domain_status", "verified")
@@ -103,7 +103,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
 
       const newStatus = (fresh as any).status || "pending";
-      const newRecords = (fresh as any).records || [];
+      const newRecords = (fresh as any).records?.length ? (fresh as any).records : row.resend_dns_records || [];
       const now = new Date().toISOString();
       const wasVerified = !!row.resend_domain_verified_at || row.resend_domain_status === "verified";
       const verifiedAt = newStatus === "verified" ? (row.resend_domain_verified_at || now) : null;
@@ -119,7 +119,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           // Don't unset it on a failed re-check - the operator may have
           // already trusted this domain and a transient Resend hiccup
           // shouldn't yank their sender identity.
-          ...(newStatus === "verified" ? { is_verified: true } : {}),
+          ...(newStatus === "verified" ? {
+            is_verified: true,
+            force_platform_sender: false,
+            from_email: String(row.from_email || "").trim().toLowerCase().endsWith(`@${row.resend_sending_domain}`)
+              ? String(row.from_email).trim().toLowerCase()
+              : `hello@${row.resend_sending_domain}`,
+          } : {}),
           updated_at: now,
         })
         .eq("id", row.id);
