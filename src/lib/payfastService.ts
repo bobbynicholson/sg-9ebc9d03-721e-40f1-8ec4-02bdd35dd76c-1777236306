@@ -677,7 +677,7 @@ export interface PayFastFormInput {
   notifyUrl: string;
   nameFirst: string;
   nameLast: string;
-  emailAddress: string;
+  emailAddress?: string;
   customStr1?: string;
   customStr2?: string;
   customStr3?: string;
@@ -702,10 +702,10 @@ export function generatePayFastPaymentForm(input: PayFastFormInput): string {
     notify_url: input.notifyUrl,
     name_first: input.nameFirst,
     name_last: input.nameLast,
-    email_address: input.emailAddress,
     amount: input.amount.toFixed(2),
     item_name: input.itemName,
   };
+  if (input.emailAddress?.trim()) params.email_address = input.emailAddress.trim();
   if (input.merchantPaymentId) params.m_payment_id = input.merchantPaymentId;
   if (input.customStr1) params.custom_str1 = input.customStr1;
   if (input.customStr2) params.custom_str2 = input.customStr2;
