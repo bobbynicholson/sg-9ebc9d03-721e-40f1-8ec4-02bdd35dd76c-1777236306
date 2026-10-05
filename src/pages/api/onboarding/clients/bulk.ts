@@ -25,12 +25,18 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { normaliseEmail, normalisePhoneZA, normaliseFieldValue } from "@/lib/importNormalise";
 import { withApiLogging } from "@/lib/withApiLogging";
 
+// Thousands of rows per request (dedupe scan + chunked inserts) need more
+// than the default function timeout.
+export const maxDuration = 300;
+
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 interface RowInput {
   name?: string;
   surname?: string;
+  /** Business name (accounting exports keep it in its own column). */
+  company_name?: string;
   email?: string;
   phone?: string;
   mobile_number?: string;
@@ -95,13 +101,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     // Pull existing emails for this company so we can dedupe in memory
     // rather than fighting unique constraints row by row.
-    const { data: existing } = await supabase
-      .from("clients")
-      .select("email")
-      .eq("company_id", companyId);
-    const existingEmails = new Set<string>(
-      (existing || []).map((r: any) => String(r.email || "").toLowerCase()).filter(Boolean),
-    );
+    // Paged: a single select is capped at 1000 rows, so with a bigger
+    // client book most existing emails were invisible here, the insert
+    // then hit the unique-email index and the whole import failed.
+    const existingEmails = new Set<string>();
+    for (let from = 0; ; from += 1000) {
+      const { data: page, error: pageError } = await supabase
+        .from("clients")
+        .select("email")
+        .eq("company_id", companyId)
+        .range(from, from + 999);
+      if (pageError) {
+        return res.status(503).json({ error: "Could not check existing clients. Please retry." });
+      }
+      for (const r of page || []) {
+        const email = String((r as any).email || "").trim().toLowerCase();
+        if (email) existingEmails.add(email);
+      }
+      if (!page || page.length < 1000) break;
+    }
 
     // clients.region_id is NOT NULL with no default - resolve the tenant's
     // default region (oldest active) once so every inserted row carries it.
@@ -119,6 +137,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const outcomes: RowOutcome[] = [];
     const toInsert: any[] = [];
     const seenInBatch = new Set<string>();
+    // toInsert[n] came from rows[rowIndexOfInsert[n]].
+    const rowIndexOfInsert: number[] = [];
 
     rows.forEach((row, i) => {
       const emailRaw = (row.email || "").trim();
@@ -143,7 +163,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // schema uses today. Keep both available in notes if useful.
       const name = String(row.name || "").trim();
       const surname = String(row.surname || "").trim();
-      const fullName = [name, surname].filter(Boolean).join(" ").trim();
+      const person = [name, surname].filter(Boolean).join(" ").trim();
+      const company = String(row.company_name || "").trim();
+      // Company wins as the client name; the person becomes the contact.
+      const fullName = company || person;
+      const contactNote = company && person && company.toLowerCase() !== person.toLowerCase()
+        ? `Contact: ${person}` : "";
       if (!fullName) {
         outcomes.push({
           index: i,
@@ -180,7 +205,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         phone: phoneRes.value || "",
         mobile_number: mobileRes.value || null,
         landline_number: landlineRes.value || null,
-        client_type: value("client_type") || "individual",
+        client_type: value("client_type") || (company ? "company" : "individual"),
         tax_number: value("tax_number"),
         billing_address_line1: value("billing_address_line1"),
         billing_address_line2: value("billing_address_line2"),
@@ -189,7 +214,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         payment_terms: value("payment_terms"),
         credit_limit: value("credit_limit"),
         tags: value("tags"),
-        notes: row.notes ? String(row.notes).trim() : null,
+        notes: [row.notes ? String(row.notes).trim() : "", contactNote].filter(Boolean).join("\n") || null,
         historical_total_events: value("historical_total_events"),
         historical_lifetime_spend: value("historical_lifetime_spend"),
         historical_last_event_date: value("historical_last_event_date"),
@@ -197,6 +222,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         historical_notes: value("historical_notes"),
         is_active: true,
       });
+      rowIndexOfInsert.push(i);
       outcomes.push({ index: i, email, ok: true, status: "imported" });
     });
 
@@ -238,19 +264,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
+    // Insert in chunks. A chunk that fails (one bad row, or an email
+    // added by someone else meanwhile) is retried row by row so the
+    // good rows still land and each bad row gets its own reason.
     let insertedCount = 0;
-    if (toInsert.length > 0) {
-      const { data: inserted, error: insertErr } = await supabase
-        .from("clients")
-        .insert(toInsert)
-        .select("id");
-      if (insertErr) {
-        return res.status(500).json({
-          error: dbErrorMessage(insertErr) || "Could not insert clients",
-          outcomes,
-        });
+    const markRow = (insertIndex: number, status: RowOutcome["status"], reason: string) => {
+      const outcome = outcomes.find((o) => o.index === rowIndexOfInsert[insertIndex]);
+      if (outcome) { outcome.status = status; outcome.ok = status !== "rejected"; outcome.reason = reason; }
+    };
+    for (let start = 0; start < toInsert.length; start += 500) {
+      const chunk = toInsert.slice(start, start + 500);
+      const { error: chunkError } = await supabase.from("clients").insert(chunk);
+      if (!chunkError) { insertedCount += chunk.length; continue; }
+      for (let k = 0; k < chunk.length; k += 1) {
+        const { error: rowError } = await supabase.from("clients").insert(chunk[k]);
+        if (!rowError) insertedCount += 1;
+        else if (rowError.code === "23505") markRow(start + k, "skipped", "Already on file, skipped");
+        else markRow(start + k, "rejected", dbErrorMessage(rowError) || "Could not save this client");
       }
-      insertedCount = (inserted || []).length;
     }
 
     return res.status(200).json({

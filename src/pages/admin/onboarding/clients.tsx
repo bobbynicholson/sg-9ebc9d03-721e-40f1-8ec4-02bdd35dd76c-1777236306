@@ -36,7 +36,7 @@ import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type RawRow = {
-  name?: string; surname?: string; email?: string; phone?: string; mobile_number?: string; landline_number?: string; notes?: string;
+  name?: string; surname?: string; company_name?: string; email?: string; phone?: string; mobile_number?: string; landline_number?: string; notes?: string;
   client_type?: string; tax_number?: string;
   billing_address_line1?: string; billing_address_line2?: string;
   billing_city?: string; billing_postal_code?: string;
@@ -51,6 +51,7 @@ type FieldKey = keyof RawRow;
 const FIELDS: Array<{ key: FieldKey; label: string; group: "Main" | "Billing" | "History" }> = [
   { key: "name", label: "Name", group: "Main" },
   { key: "surname", label: "Surname", group: "Main" },
+  { key: "company_name", label: "Company", group: "Main" },
   { key: "email", label: "Email", group: "Main" },
   { key: "phone", label: "Phone", group: "Main" },
   { key: "mobile_number", label: "Mobile", group: "Main" },
@@ -99,7 +100,9 @@ type ColumnChoice = {
 /** A loaded file waiting for its columns to be matched. */
 /** Largest file read in the browser, and the bulk endpoint's per-upload cap. */
 const MAX_FILE_MB = 10;
-const MAX_IMPORT_ROWS = 5000;
+const MAX_IMPORT_ROWS = 20000;
+/** Rows sent per request; large files go in several parts. */
+const IMPORT_CHUNK_ROWS = 1000;
 
 interface SheetTable { name: string; headers: string[]; rows: string[][] }
 
@@ -144,7 +147,8 @@ function withIssues<T extends RawRow & { issues: Issue[] }>(list: T[]): T[] {
 function rowIssues(r: RawRow): Issue[] {
   const out: Issue[] = [];
   const fullName = [(r.name || "").trim(), (r.surname || "").trim()].filter(Boolean).join(" ").trim();
-  if (!fullName) out.push({ field: "name", message: "Name is missing" });
+  // A company name alone is a valid client name (accounting exports).
+  if (!fullName && !(r.company_name || "").trim()) out.push({ field: "name", message: "Name is missing" });
   if (!r.email || !r.email.trim()) out.push({ field: "email", message: "Email is missing" });
   else if (!looksLikeEmail(r.email)) out.push({ field: "email", message: "Email looks invalid" });
   if (r.phone && !looksLikePhone(r.phone)) out.push({ field: "phone", message: "Phone is too short" });
@@ -156,7 +160,7 @@ function rowIssues(r: RawRow): Issue[] {
  * Forgiving on common header spellings.
  */
 function pickHeaderMap(headers: string[]): {
-  name: number; surname: number; email: number; phone: number; mobile_number: number; landline_number: number; notes: number;
+  name: number; surname: number; company_name: number; email: number; phone: number; mobile_number: number; landline_number: number; notes: number;
   client_type: number; tax_number: number; billing_address_line1: number;
   billing_address_line2: number; billing_city: number; billing_postal_code: number;
   payment_terms: number; credit_limit: number; tags: number;
@@ -171,19 +175,22 @@ function pickHeaderMap(headers: string[]): {
     return -1;
   };
   return {
-    name:    idx(["name", "client name", "client_name", "first name", "firstname", "first_name", "given name", "full name", "fullname", "full_name", "client", "customer", "customer name", "account name", "contact", "contact name", "company", "company name"]),
+    name:    idx(["name", "client name", "client_name", "first name", "firstname", "first_name", "given name", "full name", "fullname", "full_name", "client", "customer", "customer name", "account name", "contact", "contact name"]),
+    // Accounting exports (Wave, Xero, QuickBooks) keep the business in
+    // its own column; it must not be glued onto the person's surname.
+    company_name: idx(["company", "company name", "company_name", "companyname", "business", "business name", "organisation", "organization", "display name", "displayname"]),
     surname: idx(["surname", "last name", "lastname", "last_name", "family name", "family_name"]),
     email:   idx(["email", "e-mail", "e_mail", "mail", "email address", "email_address", "e-mail address", "emailaddress", "email id"]),
     phone:   idx(["phone", "tel", "telephone", "phone number", "tel number", "phone no", "contact number", "number"]),
-    mobile_number: idx(["mobile", "mobile_number", "cell", "cellphone", "cell number", "mobile number", "cell phone", "whatsapp"]),
+    mobile_number: idx(["mobile", "mobile_number", "mobile phone", "mobilephone", "cell", "cellphone", "cell number", "mobile number", "cell phone", "whatsapp"]),
     landline_number: idx(["landline", "landline_number", "office", "office phone", "home phone"]),
     notes:   idx(["notes", "note", "comments", "comment", "memo", "remarks", "remark"]),
     client_type: idx(["client type", "client_type", "type"]),
-    tax_number: idx(["tax / vat number", "tax_number", "vat", "vat number", "tax id"]),
-    billing_address_line1: idx(["billing address (line 1)", "billing_address_line1", "address", "address 1", "street"]),
-    billing_address_line2: idx(["billing address (line 2)", "billing_address_line2", "address 2", "suburb"]),
-    billing_city: idx(["city", "billing city", "billing_city", "town"]),
-    billing_postal_code: idx(["postal code", "billing postal code", "billing_postal_code", "postcode", "zip"]),
+    tax_number: idx(["tax / vat number", "tax_number", "vat", "vat number", "vat no", "tax id"]),
+    billing_address_line1: idx(["billing address (line 1)", "billing_address_line1", "billingaddress1", "address", "address 1", "address1", "address line 1", "street", "street address"]),
+    billing_address_line2: idx(["billing address (line 2)", "billing_address_line2", "billingaddress2", "address 2", "address2", "address line 2", "suburb"]),
+    billing_city: idx(["city", "billing city", "billing_city", "billingcity", "town"]),
+    billing_postal_code: idx(["postal code", "billing postal code", "billing_postal_code", "billingpostalcode", "postcode", "zip"]),
     payment_terms: idx(["payment terms (days)", "payment_terms", "terms", "net days", "due days"]),
     credit_limit: idx(["credit limit (r)", "credit_limit", "credit"]),
     tags: idx(["tags (comma-separated)", "tags", "labels", "categories"]),
@@ -317,7 +324,7 @@ const AUTO_ACCEPT_CONFIDENCE = 0.75;
 /** True when a batch can go straight to the review list. */
 function canAutoAccept(columns: ColumnChoice[]): boolean {
   const has = (k: FieldKey) => columns.some((c) => c.target === k);
-  return (has("name") || has("surname")) && has("email")
+  return (has("name") || has("surname") || has("company_name")) && has("email")
     && columns.every((c) => c.via !== "ai" || (c.confidence ?? 0) >= AUTO_ACCEPT_CONFIDENCE);
 }
 
@@ -361,6 +368,8 @@ function ClientImportPage() {
   const [aiNote, setAiNote] = useState<string | null>(null);
   const [pasted, setPasted] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  /** Progress through a multi-part import of a large list. */
+  const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null);
   const [onlyProblems, setOnlyProblems] = useState(false);
   const [flashKey, setFlashKey] = useState<string | null>(null);
   // Persistent failure banner. The destructive toast auto-dismisses,
@@ -722,53 +731,90 @@ function ClientImportPage() {
     setResult(null);
     setImportError(null);
     try {
-      const r = await fetch("/api/onboarding/clients/bulk", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          // The API stores `filename` as the import job's source name;
-          // without it every batch shows "(unnamed file)" in history.
-          filename: sourceName,
-          rows: valid.map((v) => ({
-            name: v.name, surname: v.surname, email: v.email, phone: v.phone,
-            mobile_number: v.mobile_number, landline_number: v.landline_number, notes: v.notes,
-            client_type: v.client_type, tax_number: v.tax_number,
-            billing_address_line1: v.billing_address_line1,
-            billing_address_line2: v.billing_address_line2,
-            billing_city: v.billing_city, billing_postal_code: v.billing_postal_code,
-            payment_terms: v.payment_terms, credit_limit: v.credit_limit, tags: v.tags,
-            historical_total_events: v.historical_total_events,
-            historical_lifetime_spend: v.historical_lifetime_spend,
-            historical_last_event_date: v.historical_last_event_date,
-            historical_last_event_type: v.historical_last_event_type,
-            historical_notes: v.historical_notes,
-          })),
-        }),
+      const payloadOf = (v: PreviewRow) => ({
+        name: v.name, surname: v.surname, company_name: v.company_name, email: v.email, phone: v.phone,
+        mobile_number: v.mobile_number, landline_number: v.landline_number, notes: v.notes,
+        client_type: v.client_type, tax_number: v.tax_number,
+        billing_address_line1: v.billing_address_line1,
+        billing_address_line2: v.billing_address_line2,
+        billing_city: v.billing_city, billing_postal_code: v.billing_postal_code,
+        payment_terms: v.payment_terms, credit_limit: v.credit_limit, tags: v.tags,
+        historical_total_events: v.historical_total_events,
+        historical_lifetime_spend: v.historical_lifetime_spend,
+        historical_last_event_date: v.historical_last_event_date,
+        historical_last_event_type: v.historical_last_event_type,
+        historical_notes: v.historical_notes,
       });
-      const j = await r.json().catch(() => ({} as any));
-      if (!r.ok) {
-        throw new Error(
-          r.status === 401 ? "Your session has expired. Sign in again; your rows are still here."
-            : j?.error || `The server could not import the rows (error ${r.status}). Your rows are still staged below.`,
-        );
+      // Large lists go in parts so each request stays well inside the
+      // server's time and size limits. A failed part keeps its rows (and
+      // every later part) staged; earlier parts are already saved.
+      const totals = { imported: 0, skipped: 0, rejected: 0, total: 0, commsPausedDays: 0 };
+      const doneKeys = new Set<string>();
+      const rejectedByKey = new Map<string, string>();
+      let partError: string | null = null;
+      for (let start = 0; start < valid.length; start += IMPORT_CHUNK_ROWS) {
+        const part = valid.slice(start, start + IMPORT_CHUNK_ROWS);
+        if (valid.length > IMPORT_CHUNK_ROWS) setImportProgress({ done: start, total: valid.length });
+        let r: Response;
+        try {
+          r = await fetch("/api/onboarding/clients/bulk", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            // The API stores `filename` as the import job's source name;
+            // without it every batch shows "(unnamed file)" in history.
+            body: JSON.stringify({ filename: sourceName, rows: part.map(payloadOf) }),
+          });
+        } catch (networkError) {
+          if (start === 0) throw networkError;
+          partError = "Lost connection part-way through. The rows still listed below were not imported - press Import again to continue.";
+          break;
+        }
+        const j = await r.json().catch(() => ({} as any));
+        if (!r.ok) {
+          const message = r.status === 401 ? "Your session has expired. Sign in again; your rows are still here."
+            : j?.error || `The server could not import the rows (error ${r.status}). Your rows are still staged below.`;
+          if (start === 0) throw new Error(message);
+          partError = `${message} Rows already imported have been removed from the list.`;
+          break;
+        }
+        totals.imported += Number(j.imported) || 0;
+        totals.skipped += Number(j.skipped) || 0;
+        totals.rejected += Number(j.rejected) || 0;
+        totals.total += Number(j.total) || 0;
+        totals.commsPausedDays = Math.max(totals.commsPausedDays, Number(j.comms_paused_for_days) || 0);
+        part.forEach((row) => doneKeys.add(row._key));
+        for (const outcome of (Array.isArray(j.outcomes) ? j.outcomes : [])) {
+          const row = part[outcome?.index];
+          if (row && outcome.status === "rejected") rejectedByKey.set(row._key, outcome.reason || "Rejected by the server");
+        }
       }
-      setResult({
-        imported: j.imported, skipped: j.skipped, rejected: j.rejected, total: j.total,
-        commsPausedDays: Number(j.comms_paused_for_days) || 0,
-      });
+      setImportProgress(null);
+      setResult(totals);
       toast({
-        title: `${j.imported} client${j.imported === 1 ? "" : "s"} imported`,
-        description: j.skipped
-          ? `${j.skipped} already on file, skipped.`
-          : "All clean, straight in.",
+        title: `${totals.imported} client${totals.imported === 1 ? "" : "s"} imported`,
+        description: partError
+          ? partError
+          : totals.rejected
+            ? `${totals.rejected} need a fix (listed below)${totals.skipped ? `, ${totals.skipped} already on file` : ""}.`
+            : totals.skipped
+              ? `${totals.skipped} already on file, skipped.`
+              : "All clean, straight in.",
+        ...(partError ? { variant: "destructive" as const } : {}),
       });
-      // Rows with problems stay staged so they can still be fixed and imported.
-      setRows((prev) => prev.filter((p) => p.issues.length > 0));
-      setSourceName((prev) => (counts.bad > 0 ? prev : null));
+      if (partError) setImportError(partError);
+      // Keep rows with problems, rows the server rejected (with its reason,
+      // so they can be fixed in place), and rows from parts not sent.
+      setRows((prev) => prev
+        .filter((p) => p.issues.length > 0 || !doneKeys.has(p._key) || rejectedByKey.has(p._key))
+        .map((p) => (rejectedByKey.has(p._key)
+          ? { ...p, issues: [...p.issues, { field: "email" as FieldKey, message: rejectedByKey.get(p._key) as string }] }
+          : p)));
+      setSourceName((prev) => (counts.bad > 0 || partError || rejectedByKey.size ? prev : null));
     } catch (e: any) {
       const msg = e instanceof TypeError
         ? "Couldn't reach the server. Check your connection; your rows are still staged below."
         : e?.message || "The import did not go through. Your rows are still staged below.";
+      setImportProgress(null);
       setImportError(msg);
       toast({ title: "Import failed", description: msg, variant: "destructive" });
     } finally {
@@ -780,7 +826,7 @@ function ClientImportPage() {
     ? (pending.firstRowIsData ? [pending.headers, ...pending.rows] : pending.rows).filter((r) => r.some((c) => c.trim() !== ""))
     : [];
   const mappedCount = pending ? pending.columns.filter((c) => c.target !== "skip").length : 0;
-  const pendingHasName = !!pending?.columns.some((c) => c.target === "name" || c.target === "surname");
+  const pendingHasName = !!pending?.columns.some((c) => c.target === "name" || c.target === "surname" || c.target === "company_name");
   const pendingHasEmail = !!pending?.columns.some((c) => c.target === "email");
 
   return (
@@ -1149,7 +1195,7 @@ function ClientImportPage() {
                       className="bg-brand-primary hover:opacity-90"
                     >
                       {submitting
-                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Importing...</>
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {importProgress ? `Importing ${importProgress.done.toLocaleString()} of ${importProgress.total.toLocaleString()}...` : "Importing..."}</>
                         : <><Upload className="w-4 h-4 mr-2" /> Import {counts.ok} client{counts.ok === 1 ? "" : "s"}</>
                       }
                     </Button>

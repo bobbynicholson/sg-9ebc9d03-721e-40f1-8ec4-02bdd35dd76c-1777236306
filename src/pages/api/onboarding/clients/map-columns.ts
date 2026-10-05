@@ -24,8 +24,9 @@ const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]
 // Fields the importer understands. Keys must match the importer's row
 // shape and /api/onboarding/clients/bulk's RowInput.
 export const CLIENT_IMPORT_FIELDS: Array<{ key: string; description: string }> = [
-  { key: "name", description: "Client first name, or the full client / company name when there is no surname column" },
-  { key: "surname", description: "Client last name / family name" },
+  { key: "name", description: "Contact person's first name, or their full name when there is no surname column" },
+  { key: "surname", description: "Contact person's last name / family name" },
+  { key: "company_name", description: "Business / company / organisation name (becomes the client name; the person is kept as the contact)" },
   { key: "email", description: "Client email address" },
   { key: "phone", description: "Main phone number (any type)" },
   { key: "mobile_number", description: "Mobile / cell phone number" },
@@ -116,7 +117,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Attach the column index, drop unknown targets, and keep only the
     // most confident column per target so two columns never fill the
     // same field.
-    const norm = (v: string) => v.toLowerCase().replace(/s+/g, " ").trim();
+    const norm = (v: string) => v.toLowerCase().replace(/\s+/g, " ").trim();
     const decisions = headers.map((label, index) => {
       const m = mapping.find((x) => x.source_header === label)
         || mapping.find((x) => norm(x.source_header) === norm(label));

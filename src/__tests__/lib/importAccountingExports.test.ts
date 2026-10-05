@@ -39,3 +39,15 @@ test("our own template headers still map as before", () => {
   expect(mapping["Client name *"].target).toBe("client_name");
   expect(mapping["Email *"].target).toBe("email");
 });
+
+test("the AI mapper is only offered fields the import actually saves", async () => {
+  const { aiTargetFieldsFor } = await import("@/lib/importTemplates");
+  const clientKeys = aiTargetFieldsFor("clients").map((f) => f.key);
+  expect(clientKeys).toEqual(expect.arrayContaining(["client_name", "email", "mobile_number", "billing_address_line1", "first_name", "last_name", "delivery_instructions"]));
+  // The old list offered these, but nothing downstream consumed them.
+  expect(clientKeys).not.toEqual(expect.arrayContaining(["address"]));
+  const orderKeys = aiTargetFieldsFor("orders").map((f) => f.key);
+  expect(orderKeys).toEqual(expect.arrayContaining(["event_date", "deposit_amount", "order_number"]));
+  expect(orderKeys).not.toContain("deposit_paid");
+  expect(new Set(clientKeys).size).toBe(clientKeys.length);
+});
