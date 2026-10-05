@@ -461,7 +461,7 @@ function CompanyAuditLogsViewer() {
             variant="hero"
             title="Audit logs"
             icon={ScrollText}
-            subtitle="Append-only trail of meaningful actions across orders, quotes, payments, shifts and more. Read-only - mutations belong on the per-entity pages."
+            subtitle="Search recorded changes to orders, quotes, payments and staff activity."
             meta={
               <>
                 {!loading && !loadError && totalCount != null && (
@@ -559,7 +559,7 @@ function CompanyAuditLogsViewer() {
               </div>
             )}
 
-            <Card>
+            <Card collapsible defaultOpen={false} collapseLabel="Filters">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Filters</CardTitle>
                 <CardDescription className="text-xs">Combine to narrow the stream. Filters reset paging to page 1.</CardDescription>

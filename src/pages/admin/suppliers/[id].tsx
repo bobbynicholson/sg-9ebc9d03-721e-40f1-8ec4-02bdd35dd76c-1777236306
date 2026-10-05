@@ -191,7 +191,7 @@ function SupplierDetail() {
             variant="hero"
             title={supplier?.supplier_name || "Supplier"}
             icon={Building2}
-            subtitle="Contact details, purchase analytics, linked products and receipts for this supplier."
+            subtitle="Review this supplier’s contacts, purchases, products and receipts."
             meta={
               !loading && !loadError && supplier ? (
                 <>
@@ -299,7 +299,7 @@ function SupplierDetail() {
               </Card>
 
               {/* Date range + summary tiles */}
-              <Card className="mb-6">
+              <Card collapsible defaultOpen={true} collapseLabel="Purchase summary" className="mb-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-brand-primary" />
@@ -384,7 +384,7 @@ function SupplierDetail() {
                   query). Gives the admin the temporal context
                   for the spend on this page. Tap a row to open the
                   order. */}
-              <Card className="mb-6">
+              <Card collapsible defaultOpen={false} collapseLabel="Events during this period" className="mb-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-brand-primary" />
@@ -449,7 +449,7 @@ function SupplierDetail() {
               </Card>
 
               {/* Products supplied */}
-              <Card className="mb-6">
+              <Card collapsible defaultOpen={false} collapseLabel="Products supplied" className="mb-6">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Package className="w-4 h-4 text-slate-600" />
@@ -518,7 +518,7 @@ function SupplierDetail() {
               </Card>
 
               {/* Receipts list for this window */}
-              <Card className="mb-6">
+              <Card collapsible defaultOpen={false} collapseLabel="Receipts in this window" className="mb-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Receipt className="w-4 h-4 text-brand-primary" />

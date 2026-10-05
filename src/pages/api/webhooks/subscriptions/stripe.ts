@@ -2,53 +2,43 @@
  * Platform Stripe subscription webhook.
  *
  * Distinct from /api/webhooks/stripe-confirmation.ts (the per-tenant
- * ORDER webhook): this endpoint handles SaaS subscription events for
- * Skylight's platform Stripe account, i.e. tenants paying Skylight
- * for using CateringMS. Different secret, different signing key,
- * different event types.
+ * ORDER webhook): this endpoint handles plan billing on the PLATFORM
+ * Stripe account, i.e. companies paying for CateringMS.
  *
- * Env-driven no-op until configured:
- *   STRIPE_PLATFORM_SECRET_KEY           - the platform sk_live_... key
- *   STRIPE_SUBSCRIPTION_WEBHOOK_SECRET   - whsec_... for this endpoint
+ * Env: STRIPE_PLATFORM_SECRET_KEY + STRIPE_SUBSCRIPTION_WEBHOOK_SECRET.
+ * Without them the endpoint acknowledges and does nothing.
  *
- * When either is missing, the handler returns 200 OK with a
- * "scaffold-only" body so Vercel preview deploys + dev environments
- * can ship the endpoint without exploding.
+ * Enable these events on the Stripe endpoint:
+ *   checkout.session.completed, checkout.session.expired,
+ *   checkout.session.async_payment_succeeded, checkout.session.async_payment_failed,
+ *   customer.subscription.created / updated / deleted,
+ *   invoice.payment_succeeded, invoice.payment_failed
  *
- * Idempotency: every event is logged to subscription_webhook_events
- * with a UNIQUE (provider, event_id) constraint. Re-deliveries land
- * in the duplicate path and are acknowledged 200 OK without re-running
- * the handler body.
+ * Cases:
+ *   checkout completed / async succeeded -> confirm with Stripe, activate
+ *   checkout expired / async failed      -> checkout row failed/expired, access unchanged
+ *   subscription created/updated/deleted -> mirror status (active, trial, past_due, cancelled)
+ *   invoice paid                         -> billing_history, access restored
+ *   invoice failed                       -> billing_history, past_due + email
  *
- * Events handled today (the minimum set to keep subscriptions table
- * in sync with the live Stripe state):
- *   customer.subscription.created
- *   customer.subscription.updated
- *   customer.subscription.deleted
- *   invoice.payment_succeeded
- *   invoice.payment_failed
- *
- * Everything else is logged + acknowledged. The handler is forward-
- * compatible: adding a new event type is a switch-case extension, no
- * schema or infra changes needed.
- *
- * Tenant lookup: events carry the Stripe customer id; we resolve to
- * a company via companies.stripe_customer_id (column added in the
- * same migration that backs this file). When no match is found, we
- * log + acknowledge but do nothing - a Stripe-side customer that
- * doesn't exist in our DB is a Skylight-side data issue, not a
- * Stripe retry-worthy error.
+ * Idempotency: each event is logged with UNIQUE (provider, event_id) and
+ * marked "processing" until it finishes. A re-delivery of a finished event
+ * is acknowledged; a re-delivery of one that failed midway is re-run
+ * (every write below is an upsert keyed on Stripe ids, so re-running is safe).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextApiRequest, NextApiResponse } from "next";
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
-
+import {
+  confirmStripePlanCheckout,
+  platformStripe,
+  stableUuid,
+  syncStripeSubscription,
+} from "@/services/platformPlanBilling";
 
 export const config = { api: { bodyParser: false } };
-
-const STRIPE_API_VERSION = "2024-12-18.acacia" as Stripe.LatestApiVersion;
 
 async function readRawBody(req: NextApiRequest): Promise<Buffer> {
   return await new Promise<Buffer>((resolve, reject) => {
@@ -59,29 +49,17 @@ async function readRawBody(req: NextApiRequest): Promise<Buffer> {
   });
 }
 
-/**
- * Map a Stripe subscription.status to our companies.subscription_status
- * enum. Stripe has more granularity than we care about; we collapse to
- * the four we track.
- */
-function mapStripeStatusToCompanies(status: Stripe.Subscription.Status): string {
-  switch (status) {
-    case "active":
-    case "trialing":
-      // We use 'trial' (not 'trialing') per migration 20260518740000.
-      return status === "trialing" ? "trial" : "active";
-    case "past_due":
-    case "unpaid":
-      return "past_due";
-    case "canceled":
-      return "cancelled";
-    case "incomplete":
-    case "incomplete_expired":
-    case "paused":
-      return "suspended";
-    default:
-      return "suspended";
-  }
+async function ownerFor(sb: any, companyId: string): Promise<string | null> {
+  const { data } = await sb.from("companies").select("owner_id").eq("id", companyId).maybeSingle();
+  return data?.owner_id ?? null;
+}
+
+async function companyForCustomer(sb: any, customer: unknown, metadataCompanyId?: string | null) {
+  if (metadataCompanyId) return metadataCompanyId;
+  const customerId = typeof customer === "string" ? customer : (customer as any)?.id;
+  if (!customerId) return null;
+  const { data } = await sb.from("companies").select("id").eq("stripe_customer_id", customerId).maybeSingle();
+  return data?.id ?? null;
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -90,15 +68,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const secretKey = process.env.STRIPE_PLATFORM_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET;
-
-  if (!secretKey || !webhookSecret) {
-    // Scaffold-only mode. Acknowledge so Stripe doesn't retry, log so
-    // ops can see the endpoint is alive but unconfigured.
-    console.warn(
-      "[subscriptions/stripe] env vars missing - STRIPE_PLATFORM_SECRET_KEY or STRIPE_SUBSCRIPTION_WEBHOOK_SECRET. Returning 200 OK without processing.",
-    );
+  if (!process.env.STRIPE_PLATFORM_SECRET_KEY || !webhookSecret) {
+    console.warn("[subscriptions/stripe] STRIPE_PLATFORM_SECRET_KEY or STRIPE_SUBSCRIPTION_WEBHOOK_SECRET missing - acknowledging without processing.");
     return res.status(200).json({ ok: true, scaffold: true });
   }
 
@@ -108,15 +80,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   } catch (e: any) {
     return res.status(400).json({ error: `Could not read body: ${e?.message || "unknown"}` });
   }
-
   const sigHeader = req.headers["stripe-signature"] as string | undefined;
-  if (!sigHeader) {
-    return res.status(400).json({ error: "Missing stripe-signature header" });
-  }
+  if (!sigHeader) return res.status(400).json({ error: "Missing stripe-signature header" });
 
-  // Throwaway client - constructEvent doesn't need a real api key, the
-  // signature verification math is local.
-  const stripe = new Stripe(secretKey, { apiVersion: STRIPE_API_VERSION });
+  const stripe = platformStripe();
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(raw, sigHeader, webhookSecret);
@@ -125,218 +92,155 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(401).json({ error: "Invalid signature" });
   }
 
-  const sb = getServiceSupabase();
-
-  // Idempotency: log every event with UNIQUE (provider, event_id). A
-  // re-delivery hits the duplicate path on insert and we 200 OK.
-  const { error: logErr } = await sb
-    .from("subscription_webhook_events")
-    .insert({
-      provider: "stripe",
-      event_id: event.id,
-      event_type: event.type,
-      // eslint-disable-next-line no-restricted-syntax -- table added by 20260522080000_subscription_webhook_scaffold; types regen pending
-      raw: event as any,
-    });
+  const sb: any = getServiceSupabase();
+  const { error: logErr } = await sb.from("subscription_webhook_events").insert({
+    provider: "stripe", event_id: event.id, event_type: event.type,
+    // eslint-disable-next-line no-restricted-syntax -- raw is jsonb; the Stripe event object is stored verbatim
+    raw: event as any, rejection_reason: "processing",
+  });
   if (logErr) {
-    // Unique violation = already processed. Acknowledge so Stripe doesn't retry.
-    if ((logErr as any).code === "23505") {
-      return res.status(200).json({ ok: true, duplicate: true });
+    if (logErr.code !== "23505") {
+      // Without the log we cannot guarantee idempotency; let Stripe retry.
+      console.error("[subscriptions/stripe] event log insert failed:", logErr);
+      return res.status(500).json({ error: "Could not record event" });
     }
-    console.error("[subscriptions/stripe] event log insert failed:", logErr);
-    // Don't bail out - we still want to process the event. The log is
-    // for audit, not for correctness.
+    const { data: prior } = await sb.from("subscription_webhook_events")
+      .select("rejection_reason").eq("provider", "stripe").eq("event_id", event.id).maybeSingle();
+    const unfinished = prior?.rejection_reason === "processing" || String(prior?.rejection_reason || "").startsWith("failed:");
+    if (!unfinished) return res.status(200).json({ ok: true, duplicate: true });
   }
 
-  // Resolve the tenant by stripe_customer_id pulled from the event.
-  // Subscription events: customer is on data.object.customer.
-  // Invoice events: customer is on data.object.customer.
-  const obj = (event.data as any)?.object ?? {};
-  const stripeCustomerId: string | null = obj.customer ?? null;
-  let companyId: string | null = null;
-  if (stripeCustomerId) {
-    const { data: companyRow } = await sb
-      .from("companies")
-      .select("id")
-      .eq("stripe_customer_id", stripeCustomerId)
-      .maybeSingle();
-    companyId = (companyRow as any)?.id ?? null;
-  }
+  const finish = (reason: string | null, companyId?: string | null) => sb.from("subscription_webhook_events")
+    .update({ rejection_reason: reason, processed_at: new Date().toISOString(), ...(companyId ? { company_id: companyId } : {}) })
+    .eq("provider", "stripe").eq("event_id", event.id);
 
-  if (!companyId) {
-    // Unknown tenant - log + acknowledge. This commonly happens for
-    // events on customers we haven't linked yet (e.g. a manual stripe
-    // dashboard test). Don't fail the webhook or Stripe will retry.
-    await sb
-      .from("subscription_webhook_events")
-      .update({ rejection_reason: "no_company_for_customer" })
-      .eq("provider", "stripe")
-      .eq("event_id", event.id);
-    return res.status(200).json({ ok: true, skipped: "unknown_company" });
-  }
-
-  // Stamp the company on the audit row so the operator can filter
-  // events by tenant later.
-  await sb
-    .from("subscription_webhook_events")
-    .update({ company_id: companyId })
-    .eq("provider", "stripe")
-    .eq("event_id", event.id);
-
+  const obj: any = (event.data as any)?.object ?? {};
   try {
     switch (event.type) {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded":
+      case "checkout.session.async_payment_failed":
+      case "checkout.session.expired": {
+        const session = obj as Stripe.Checkout.Session;
+        const checkoutId = session.metadata?.platformCheckoutId;
+        if (session.mode !== "subscription" || !checkoutId) {
+          await finish("ignored:not_a_plan_checkout");
+          break;
+        }
+        const { data: checkout, error } = await sb.from("platform_subscription_checkouts")
+          .select("*").eq("id", checkoutId).maybeSingle();
+        if (error) throw error;
+        if (!checkout) { await finish("ignored:unknown_plan_checkout"); break; }
+        if (event.type === "checkout.session.async_payment_failed") {
+          const nowIso = new Date().toISOString();
+          await sb.from("platform_subscription_checkouts").update({
+            status: "failed", provider_status: "async_payment_failed", failure_reason: "Stripe could not collect the first payment.",
+            completed_at: nowIso, updated_at: nowIso,
+          }).eq("id", checkout.id).eq("status", "pending");
+        } else {
+          // Re-read from Stripe: it is authoritative and also handles expiry.
+          await confirmStripePlanCheckout(sb, checkout);
+        }
+        await finish(null, checkout.company_id);
+        break;
+      }
+
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const sub = obj as Stripe.Subscription;
-        const status = mapStripeStatusToCompanies(sub.status);
-        const trialEndsAt = sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null;
-        // Update both companies (for fast read on every page load) and
-        // subscriptions (for history). Companies is the source of
-        // truth for "is this tenant active right now"; subscriptions
-        // is the ledger of past plans.
-        await sb
-          .from("companies")
-          .update({
-            subscription_status: status,
-            stripe_customer_id: stripeCustomerId,
-            ...(trialEndsAt ? { trial_ends_at: trialEndsAt } : {}),
-          })
-          .eq("id", companyId);
-        // UPSERT subscription row by stripe_subscription_id so a
-        // sub.updated re-applies cleanly.
-        await sb
-          .from("subscriptions")
-          .upsert(
-            // eslint-disable-next-line no-restricted-syntax -- subscriptions row shape mixes legacy + stripe fields; types regen pending
-            {
-              company_id: companyId,
-              stripe_subscription_id: sub.id,
-              stripe_customer_id: stripeCustomerId,
-              status: status === "trial" ? "trial" : status,
-              plan_name: (sub.items?.data?.[0]?.price?.lookup_key ?? sub.items?.data?.[0]?.price?.id ?? "unknown") as string,
-              amount: ((sub.items?.data?.[0]?.price?.unit_amount ?? 0) / 100) as number,
-              currency: (sub.currency || "zar").toUpperCase(),
-              billing_cycle: (sub.items?.data?.[0]?.price?.recurring?.interval ?? "month") as string,
-              current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-              trial_ends_at: trialEndsAt,
-              cancelled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : null,
-            } as any,
-            { onConflict: "stripe_subscription_id" },
-          );
-        // Lifecycle emails using the platform-editable templates
-        // (subscription_started / subscription_cancelled). Trial-created
-        // subs stay silent until they convert. Best-effort.
-        const isStartedEvent = event.type === "customer.subscription.created" && status === "active";
-        const isCancelledEvent = event.type === "customer.subscription.deleted";
-        if (isStartedEvent || isCancelledEvent) {
+        const synced = await syncStripeSubscription(sb, sub);
+        if (!synced) { await finish("no_company_for_customer"); break; }
+        if (event.type === "customer.subscription.deleted") {
           try {
-            const { data: ownerRow } = await sb
-              .from("companies").select("owner_id").eq("id", companyId).maybeSingle();
-            const ownerId = (ownerRow as any)?.owner_id as string | undefined;
-            if (ownerId) {
-              const { billingEmailService } = await import("@/services/billingEmailService");
-              const planName = (sub.items?.data?.[0]?.price?.lookup_key ?? "your plan") as string;
-              if (isStartedEvent) {
-                await billingEmailService.notifySubscriptionStarted(ownerId, {
-                  plan_name: planName,
-                  amount: (sub.items?.data?.[0]?.price?.unit_amount ?? 0) / 100,
-                  currency: (sub.currency || "zar").toUpperCase(),
-                  billing_cycle: (sub.items?.data?.[0]?.price?.recurring?.interval === "year" ? "yearly" : "monthly"),
-                  next_billing_date: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
-                });
-              } else {
-                await billingEmailService.notifySubscriptionCancelled(ownerId, {
-                  plan_name: planName,
-                  cancelled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : new Date().toISOString(),
-                  current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : new Date().toISOString(),
-                }, "cancelled");
-              }
-            }
+            const { billingEmailService } = await import("@/services/billingEmailService");
+            await billingEmailService.notifySubscriptionCancelled(synced.ownerId, {
+              plan_name: synced.planName,
+              cancelled_at: sub.canceled_at ? new Date(sub.canceled_at * 1000).toISOString() : new Date().toISOString(),
+              current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+            }, "cancelled");
           } catch (emailErr) {
-            console.warn("[subscriptions/stripe] lifecycle email failed:", emailErr);
+            console.warn("[subscriptions/stripe] cancellation email failed:", emailErr);
           }
         }
+        await finish(null, synced.companyId);
         break;
       }
+
       case "invoice.payment_succeeded":
       case "invoice.payment_failed": {
         const inv = obj as Stripe.Invoice;
-        const billingStatus = event.type === "invoice.payment_succeeded" ? "completed" : "failed";
-        await sb
-          .from("billing_history")
-          // eslint-disable-next-line no-restricted-syntax -- billing_history.company_id not yet on the generated types regen
-          .insert({
-            company_id: companyId,
-            amount: (inv.amount_paid ?? inv.amount_due ?? 0) / 100,
-            currency: (inv.currency || "zar").toUpperCase(),
-            status: billingStatus,
-            invoice_url: inv.hosted_invoice_url ?? null,
-            payment_method: "stripe",
-          } as any);
-        // On a failed payment, flip the company to past_due so the
-        // dashboard surfaces the issue. A subsequent invoice.payment_
-        // succeeded (or sub.updated) walks it back to active.
-        if (event.type === "invoice.payment_failed") {
-          await sb
-            .from("companies")
-            .update({ subscription_status: "past_due" })
-            .eq("id", companyId);
+        const stripeSubId = typeof inv.subscription === "string" ? inv.subscription : inv.subscription?.id;
+        const companyId = await companyForCustomer(sb, inv.customer, (inv as any).subscription_details?.metadata?.companyId);
+        if (!companyId) { await finish("no_company_for_customer"); break; }
+        const ownerId = await ownerFor(sb, companyId);
+        if (!ownerId) throw new Error("Company owner missing for billing history");
+        const succeeded = event.type === "invoice.payment_succeeded";
+        const amount = (succeeded ? inv.amount_paid : inv.amount_due) / 100;
+        // A R0 trial-start invoice is not a payment worth recording.
+        if (succeeded && amount <= 0) { await finish("ignored:zero_amount_invoice", companyId); break; }
+
+        const subscriptionRowId = stripeSubId ? stableUuid(`stripe-subscription:${stripeSubId}`) : null;
+        const { data: subRow } = subscriptionRowId
+          ? await sb.from("subscriptions").select("id").eq("id", subscriptionRowId).maybeSingle()
+          : { data: null };
+        const { error: bhErr } = await sb.from("billing_history").upsert({
+          id: stableUuid(`stripe-invoice:${inv.id}:${succeeded ? "paid" : `failed:${inv.attempt_count}`}`),
+          subscription_id: subRow?.id || null,
+          user_id: ownerId,
+          company_id: companyId,
+          amount,
+          currency: String(inv.currency || "zar").toUpperCase(),
+          status: succeeded ? "completed" : "failed",
+          invoice_url: inv.hosted_invoice_url ?? null,
+          invoice_pdf_url: inv.invoice_pdf ?? null,
+          payment_method: "stripe",
+        });
+        if (bhErr) throw bhErr;
+
+        // Keep access in step with Stripe's view of the subscription.
+        if (stripeSubId) {
+          const sub = await stripe.subscriptions.retrieve(stripeSubId);
+          await syncStripeSubscription(sb, sub, companyId);
+        } else if (!succeeded) {
+          const { error } = await sb.from("companies").update({ subscription_status: "past_due" }).eq("id", companyId);
+          if (error) throw error;
         }
-        // Billing emails to the owner - the payment_succeeded /
-        // payment_failed templates on /admin/platform/messaging-templates
-        // had no live send path until now. Best-effort: never fails the
-        // webhook (a 500 here would make Stripe retry a processed event).
+
         try {
-          const { data: ownerRow } = await sb
-            .from("companies").select("owner_id").eq("id", companyId).maybeSingle();
-          const ownerId = (ownerRow as any)?.owner_id as string | undefined;
-          if (ownerId) {
-            const { billingEmailService } = await import("@/services/billingEmailService");
-            const amount = (inv.amount_paid ?? inv.amount_due ?? 0) / 100;
-            const currency = (inv.currency || "zar").toUpperCase();
-            const line = inv.lines?.data?.[0];
-            const periodStart = line?.period?.start ? new Date(line.period.start * 1000).toISOString() : new Date().toISOString();
-            const periodEnd = line?.period?.end ? new Date(line.period.end * 1000).toISOString() : new Date().toISOString();
-            if (event.type === "invoice.payment_succeeded") {
-              await billingEmailService.notifyPaymentSucceeded(ownerId, {
-                amount,
-                currency,
-                paid_at: new Date().toISOString(),
-                transaction_id: inv.id || null,
-                billing_period_start: periodStart,
-                billing_period_end: periodEnd,
-                next_billing_date: periodEnd,
-                invoice_pdf_url: inv.hosted_invoice_url || null,
-              });
-            } else {
-              await billingEmailService.notifyPaymentFailed(ownerId, {
-                amount,
-                currency,
-                created_at: new Date().toISOString(),
-                failed_reason: "Stripe could not collect the payment",
-              });
-            }
+          const { billingEmailService } = await import("@/services/billingEmailService");
+          const line = inv.lines?.data?.[0];
+          const periodStart = line?.period?.start ? new Date(line.period.start * 1000).toISOString() : new Date().toISOString();
+          const periodEnd = line?.period?.end ? new Date(line.period.end * 1000).toISOString() : new Date().toISOString();
+          if (succeeded) {
+            await billingEmailService.notifyPaymentSucceeded(ownerId, {
+              amount, currency: String(inv.currency || "zar").toUpperCase(), paid_at: new Date().toISOString(),
+              transaction_id: inv.id || null, billing_period_start: periodStart, billing_period_end: periodEnd,
+              next_billing_date: periodEnd, invoice_pdf_url: inv.invoice_pdf || inv.hosted_invoice_url || null,
+            });
+          } else {
+            await billingEmailService.notifyPaymentFailed(ownerId, {
+              amount, currency: String(inv.currency || "zar").toUpperCase(), created_at: new Date().toISOString(),
+              failed_reason: inv.next_payment_attempt
+                ? `Stripe could not charge your card. It will retry on ${new Date(inv.next_payment_attempt * 1000).toLocaleDateString("en-ZA")}; update your card to avoid losing access.`
+                : "Stripe could not charge your card. Update your payment method to keep access.",
+            });
           }
         } catch (emailErr) {
           console.warn("[subscriptions/stripe] billing email failed:", emailErr);
         }
+        await finish(null, companyId);
         break;
       }
+
       default:
-        // Forward-compatible: log + acknowledge. Adding handling later
-        // is a switch-case extension.
-        await sb
-          .from("subscription_webhook_events")
-          .update({ rejection_reason: `unhandled_event:${event.type}` })
-          .eq("provider", "stripe")
-          .eq("event_id", event.id);
+        await finish(`unhandled_event:${event.type}`);
         break;
     }
   } catch (e: any) {
     console.error("[subscriptions/stripe] handler failed:", e);
-    // 500 so Stripe retries - the event hasn't been fully processed.
+    await finish(`failed:${String(e?.message || "error").slice(0, 300)}`);
+    // 500 so Stripe retries; the "failed:" marker lets the retry re-run.
     return res.status(500).json({ error: e?.message || "handler failed" });
   }
 

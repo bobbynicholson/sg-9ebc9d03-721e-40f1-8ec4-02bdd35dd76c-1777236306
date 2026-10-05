@@ -12,6 +12,9 @@ import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { rollbackImportJob } from "@/services/importService";
 import { withApiLogging } from "@/lib/withApiLogging";
 
+// Large imports (thousands of rows) need more than the default timeout.
+export const maxDuration = 300;
+
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 

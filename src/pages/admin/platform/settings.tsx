@@ -238,7 +238,7 @@ function PlatformSettingsPage() {
             ))}
 
             {unknownRows.length > 0 && (
-              <PortalCard className="bg-slate-50 dark:bg-slate-900/60">
+              <PortalCard collapsible defaultOpen={false} collapseLabel="Other config keys" className="bg-slate-50 dark:bg-slate-900/60">
                 <PortalCardHeader title="Other config keys" />
                 <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
                   Rows in app_config that aren't yet documented in this UI. Edit with care. Some are read at boot.

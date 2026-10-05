@@ -223,7 +223,7 @@ export function AutomationDashboardPanel() {
           <CardContent className="py-3 px-4 flex items-start gap-3">
             <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
             <div className="text-xs text-rose-900 leading-relaxed">
-              <strong>{stats.failed} follow-up{stats.failed === 1 ? "" : "s"} failed</strong> in this window. Filter to <em>Failed</em> below to see which ones and why, then re-send from <code>/admin/quotes</code>.
+              <strong>{stats.failed} follow-up{stats.failed === 1 ? "" : "s"} failed</strong> in this window. Filter to <em>Failed</em> below to see which ones and why, then re-send from Quotes.
             </div>
           </CardContent>
         </Card>
@@ -355,7 +355,7 @@ export function AutomationDashboardPanel() {
               </p>
               {rows.length === 0 && (
                 <p className="text-xs">
-                  Send a follow-up from <Link href={withSlug("/admin/quotes")} className="underline hover:text-slate-700">/admin/quotes</Link> and it appears here.
+                  Send a follow-up from <Link href={withSlug("/admin/quotes")} className="underline hover:text-slate-700">Quotes</Link> and it appears here.
                 </p>
               )}
             </div>
@@ -423,7 +423,7 @@ export function AutomationDashboardPanel() {
 
       <p className="text-[11px] text-slate-500 text-center mt-6">
         Read-only. Send actions live on{" "}
-        <Link href={withSlug("/admin/quotes")} className="underline hover:text-slate-700">/admin/quotes</Link>.
+        <Link href={withSlug("/admin/quotes")} className="underline hover:text-slate-700">Quotes</Link>.
         Templates live on the Templates tab.
         {lastLoadedAt && (
           <> Last loaded {lastLoadedAt.toLocaleTimeString("en-ZA")}.</>

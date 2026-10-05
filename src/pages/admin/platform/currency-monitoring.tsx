@@ -472,7 +472,7 @@ function PlatformCurrencyMonitoringPage() {
         </>
         )}
 
-        <PortalCard className="space-y-3">
+        <PortalCard collapsible defaultOpen={false} collapseLabel="Currency Policy Reminder" className="space-y-3">
           <PortalCardHeader title="Currency Policy Reminder" />
             <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-4">
               <h4 className="font-semibold mb-2 text-slate-900 dark:text-white">Currency display</h4>

@@ -602,7 +602,7 @@ function VehiclesPage() {
               </span>
             }
             icon={Truck}
-            subtitle="Fleet roster. Refrigerated and warmer vehicles unlock cold and hot-chain orders for assignment."
+            subtitle="Manage your fleet and the vehicle capabilities used for dispatch."
             meta={
               !loading && !loadError ? (
                 <>

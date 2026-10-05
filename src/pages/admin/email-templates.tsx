@@ -170,7 +170,7 @@ function LifecycleEmailsPage() {
             variant="hero"
             title="Lifecycle emails"
             icon={Mail}
-            subtitle="Templates, sent log, and automation. All your post-sale email touchpoints in one place."
+            subtitle="Edit client email templates, review sent messages and manage automation."
             meta={
               stats ? (
                 <>

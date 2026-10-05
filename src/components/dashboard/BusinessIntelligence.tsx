@@ -11,10 +11,10 @@
  *   Tier 4-5: Lead intelligence + Operations
  *   Tier 6: Multi-branch (only when >1 active region)
  *
- * Collapsible. Default expanded; persists in localStorage per-tenant.
+ * Supporting charts start collapsed; explicit preferences persist per tenant.
  */
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, BarChart3 } from "lucide-react";
+import { ChevronDown, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import {
@@ -96,13 +96,13 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
 
   // Collapsed state - per tenant so a new tenant doesn't inherit
   // somebody else's preference.
-  const [collapsed, setCollapsed] = useState<boolean>(false);
+  const [collapsed, setCollapsed] = useState<boolean>(true);
   useEffect(() => {
     if (!companyId || typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY(companyId));
-      setCollapsed(raw === "1");
-    } catch { /* noop */ }
+      setCollapsed(raw !== "0");
+    } catch { setCollapsed(true); }
   }, [companyId]);
 
   const toggleCollapsed = () => {
@@ -347,34 +347,26 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
   );
 
   return (
-    <section className="mb-6" aria-labelledby="bi-section-heading">
-      <div className="flex items-center justify-between mb-3">
+    <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-card shadow-sm dark:border-slate-800" aria-labelledby="bi-section-heading">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-5 dark:border-slate-800">
+        <div className="min-w-0 flex-1">
+          <h2 id="bi-section-heading" className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white"><BarChart3 className="h-4 w-4 text-brand-primary" />Business intelligence</h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">Revenue trends, client retention and booking patterns for longer-term planning.</p>
+        </div>
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="flex items-center gap-2 text-left group"
+          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          aria-label={`${collapsed ? "Expand" : "Collapse"} Business intelligence`}
           aria-expanded={!collapsed}
           aria-controls="bi-section-content"
         >
-          <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-slate-500 flex items-center justify-center shadow">
-            <BarChart3 className="w-4 h-4 text-white" />
-          </span>
-          <span>
-            <h2 id="bi-section-heading" className="text-lg font-semibold text-slate-900 leading-tight">
-              Business intelligence
-            </h2>
-            <p className="text-xs text-slate-500">
-              Revenue trend, year-over-year shape, and the rest of the deep-dive charts.
-            </p>
-          </span>
-          <span className="ml-2 text-slate-400 group-hover:text-slate-600 transition-colors">
-            {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-          </span>
+          <span className="hidden sm:inline">{collapsed ? "Expand" : "Collapse"}</span>
+          <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform motion-reduce:transition-none ${collapsed ? "" : "rotate-180"}`} />
         </button>
       </div>
 
-      {!collapsed && (
-        <div id="bi-section-content" className="space-y-4">
+        <div id="bi-section-content" hidden={collapsed} className="space-y-4 p-5" style={collapsed ? { display: "none" } : undefined}>
           {overflow && (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
               You have more than {ROW_CAP.toLocaleString()} records in the last 24 months. The charts use the most recent
@@ -423,7 +415,6 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
             </div>
           )}
         </div>
-      )}
     </section>
   );
 }

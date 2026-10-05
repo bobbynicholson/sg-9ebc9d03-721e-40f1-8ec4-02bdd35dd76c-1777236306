@@ -57,7 +57,10 @@ const EDIT_FIELDS: Record<TemplateType, Array<{ key: string; label: string; type
     { key: "email",            label: "Email", type: "email" },
     { key: "mobile_number",    label: "Mobile", type: "tel" },
     { key: "landline_number",  label: "Landline", type: "tel" },
+    { key: "billing_address_line1", label: "Address" },
+    { key: "billing_address_line2", label: "Suburb / address line 2" },
     { key: "billing_city",     label: "City" },
+    { key: "billing_postal_code", label: "Postal code" },
   ],
   leads: [
     { key: "contact_name",     label: "Contact name" },
@@ -109,6 +112,10 @@ interface PreviewRow {
   dedup_match_table: string | null;
   dedup_decision: "skip" | "update" | "create_new" | null;
 }
+
+/** Rows the operator should look at: blocking errors or value warnings. */
+const needsAttention = (row: PreviewRow) =>
+  row.status === "error" || (row.preview_warnings?.length ?? 0) > 0;
 
 type RowCounts = { inserted: number; updated: number; skipped: number; errored: number };
 
@@ -198,6 +205,11 @@ export function ImportRecordsModal({
   // and the form values in flight. Keyed by row id so switching
   // between rows starts fresh each time.
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  // Large files (thousands of rows): show the rows that need a fix first
+  // and page the table, so the preview stays responsive.
+  const [rowView, setRowView] = useState<"attention" | "all">("attention");
+  const [previewPage, setPreviewPage] = useState(0);
+  const PREVIEW_PAGE_SIZE = 100;
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [editSaving, setEditSaving] = useState(false);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -238,7 +250,8 @@ export function ImportRecordsModal({
         method: "POST",
         body: fd,
       });
-      const j = await r.json();
+      const { json: j } = await readResponse(r);
+      if (!j) throw new Error(`The upload took too long or the server returned an unexpected response (${r.status}). Try again; for very large files split them into parts of a few thousand rows.`);
       if (!r.ok) throw new Error(j?.error || `Upload failed (${r.status})`);
       setJobId(j.jobId);
       if (typeof j.rowCap === "number") setRowCap(j.rowCap);
@@ -252,7 +265,8 @@ export function ImportRecordsModal({
       // preview so the operator sees per-row outcome.
       setStep("previewing");
       const p = await fetch(`/api/imports/${j.jobId}/preview`, { method: "POST" });
-      const pj = await p.json();
+      const { json: pj } = await readResponse(p);
+      if (!pj) throw new Error(`Checking the rows took too long (${p.status}). Your upload is saved - try again.`);
       if (!p.ok) throw new Error(pj?.error || "Preview failed");
       // Pull the row list from the job-detail endpoint (which
       // honours ?rows=1).
@@ -779,7 +793,39 @@ export function ImportRecordsModal({
               </Alert>
             )}
 
-            <div className="border border-slate-200 rounded-lg max-h-64 overflow-y-auto">
+            {(() => {
+              const attentionCount = previewRows.filter(needsAttention).length;
+              const view = attentionCount === 0 ? "all" : rowView;
+              const total = view === "attention" ? attentionCount : previewRows.length;
+              const pages = Math.max(1, Math.ceil(total / PREVIEW_PAGE_SIZE));
+              const pageIndex = Math.min(previewPage, pages - 1);
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant={view === "attention" ? "default" : "outline"} className="h-7 text-xs"
+                      disabled={attentionCount === 0}
+                      onClick={() => { setRowView("attention"); setPreviewPage(0); }}>
+                      Needs fixing ({attentionCount.toLocaleString("en-ZA")})
+                    </Button>
+                    <Button size="sm" variant={view === "all" ? "default" : "outline"} className="h-7 text-xs"
+                      onClick={() => { setRowView("all"); setPreviewPage(0); }}>
+                      All rows ({previewRows.length.toLocaleString("en-ZA")})
+                    </Button>
+                  </div>
+                  {pages > 1 && (
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="outline" className="h-7 text-xs" disabled={pageIndex === 0}
+                        onClick={() => setPreviewPage(pageIndex - 1)}>Previous</Button>
+                      <span className="tabular-nums">Page {pageIndex + 1} of {pages}</span>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" disabled={pageIndex >= pages - 1}
+                        onClick={() => setPreviewPage(pageIndex + 1)}>Next</Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="border border-slate-200 rounded-lg max-h-96 overflow-y-auto">
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 sticky top-0">
                   <tr className="text-left text-slate-500">
@@ -789,7 +835,13 @@ export function ImportRecordsModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {previewRows.map((r) => {
+                  {(() => {
+                    const attention = previewRows.filter(needsAttention);
+                    const source = attention.length === 0 || rowView === "all" ? previewRows : attention;
+                    const pages = Math.max(1, Math.ceil(source.length / PREVIEW_PAGE_SIZE));
+                    const start = Math.min(previewPage, pages - 1) * PREVIEW_PAGE_SIZE;
+                    return source.slice(start, start + PREVIEW_PAGE_SIZE);
+                  })().map((r) => {
                     const m = r.mapped_data || {};
                     const summary =
                       m.client_name ||

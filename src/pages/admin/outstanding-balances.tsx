@@ -307,7 +307,7 @@ function OutstandingBalancesPage() {
             variant="hero"
             title="Outstanding balances"
             icon={Wallet}
-            subtitle="Every invoice a client still owes money on, with paid plus balance always equal to the invoice total."
+            subtitle="Review unpaid invoice balances and follow up with the client."
             meta={
               !loading && !loadError ? (
                 <>

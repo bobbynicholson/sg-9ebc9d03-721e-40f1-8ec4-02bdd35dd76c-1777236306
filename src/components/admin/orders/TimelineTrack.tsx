@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * TimelineTrack - the 22-stage / 5-cluster order timeline UI.
  *
@@ -425,185 +424,188 @@ function StatusBadge({ stage }: { stage: OrderTimelineStage }) {
   );
 }
 
-function TimelineColourLegend({ compact = false }: { compact?: boolean }) {
-  const items = [
-    { label: "Done", cls: "bg-green-500", text: "text-green-700" },
-    { label: "Problem", cls: "bg-rose-500", text: "text-rose-700" },
-    { label: "Needs to be done", cls: "bg-orange-500", text: "text-orange-700" },
-    { label: "Not started", cls: "bg-slate-300", text: "text-slate-600" },
-  ];
+// --- Phase stepper ----------------------------------------------------------
+//
+// One circle per phase (Booking -> Closure) so anyone can read where an
+// order is at a glance: green tick = done, orange ring = in progress,
+// red = problem, grey = not started, dashed = not needed for this order.
+// Per-stage detail lives in the expandable checklist below it.
+
+type PhaseState = "done" | "current" | "started" | "blocked" | "upcoming" | "na";
+
+interface PhaseSummary {
+  group: StageGroup;
+  stages: OrderTimelineStage[];
+  done: number;
+  total: number;
+  state: PhaseState;
+  focus: OrderTimelineStage | null;
+}
+
+function summarisePhase(group: StageGroup, stages: OrderTimelineStage[], isActive: boolean): PhaseSummary {
+  const applicable = stages.filter((s) => s.status !== "not_applicable" && s.status !== "skipped");
+  const done = applicable.filter((s) => s.status === "completed").length;
+  const total = applicable.length;
+  const blocked = applicable.find((s) => s.status === "blocked") || null;
+  const current = applicable.find((s) => s.status === "current") || null;
+  const state: PhaseState =
+    total === 0 ? "na"
+      : blocked ? "blocked"
+        : done === total ? "done"
+          // Only the phase holding the order's current step is "current";
+          // phases with a few steps ticked off early read as "started".
+          : isActive || current ? "current"
+            : done > 0 ? "started"
+              : "upcoming";
+  const focus = blocked || current || (state === "current" ? applicable.find((s) => s.status === "upcoming") || null : null);
+  return { group, stages, done, total, state, focus };
+}
+
+const PHASE_CIRCLE: Record<PhaseState, string> = {
+  done: "bg-emerald-500 border-emerald-500 text-white",
+  current: "bg-white border-orange-500 text-orange-600 ring-4 ring-orange-100",
+  started: "bg-white border-emerald-300 text-emerald-700",
+  blocked: "bg-rose-500 border-rose-500 text-white ring-4 ring-rose-100",
+  upcoming: "bg-white border-slate-300 text-slate-400",
+  na: "bg-white border-dashed border-slate-200 text-slate-300",
+};
+
+const PHASE_CAPTION: Record<PhaseState, string> = {
+  done: "text-emerald-700",
+  current: "text-orange-700",
+  started: "text-emerald-700",
+  blocked: "text-rose-700",
+  upcoming: "text-slate-500",
+  na: "text-slate-400",
+};
+
+function PhaseStepper({ phases, small = false }: { phases: PhaseSummary[]; small?: boolean }) {
+  const size = small ? "h-7 w-7 text-[11px]" : "h-9 w-9 text-xs";
   return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${compact ? "text-[10px]" : "text-[11px]"}`}>
-      {items.map((item) => (
-        <span key={item.label} className={`inline-flex items-center gap-1.5 font-medium ${item.text}`}>
-          <span className={`w-2.5 h-2.5 rounded-full ${item.cls}`} aria-hidden="true" />
-          {item.label}
-        </span>
-      ))}
-    </div>
+    <ol className="flex w-full items-start" aria-label="Order progress by phase">
+      {phases.map((p, idx) => {
+        // Connector into this phase is green only when every phase before
+        // it is finished (or not needed) - never green across a gap.
+        const before = phases.slice(0, idx);
+        const allBeforeDone = before.length > 0
+          && before.every((b) => b.state === "done" || b.state === "na")
+          && before.some((b) => b.state === "done");
+        const lineTone = allBeforeDone ? "bg-emerald-500" : "bg-slate-200";
+        const caption =
+          p.state === "done" ? "Done"
+            : p.state === "na" ? "Not needed"
+              : `${p.done}/${p.total}`;
+        return (
+          <li key={p.group} className="relative flex min-w-0 flex-1 flex-col items-center text-center">
+            {idx > 0 && (
+              <span
+                aria-hidden="true"
+                className={`absolute h-[3px] rounded-full ${lineTone}`}
+                style={{
+                  top: small ? 13 : 17,
+                  left: `calc(-50% + ${small ? 16 : 20}px)`,
+                  right: `calc(50% + ${small ? 16 : 20}px)`,
+                }}
+              />
+            )}
+            <span
+              className={`relative z-10 flex shrink-0 items-center justify-center rounded-full border-2 font-semibold tabular-nums transition-colors ${size} ${PHASE_CIRCLE[p.state]}`}
+              aria-hidden="true"
+            >
+              {p.state === "done" ? (
+                <CheckCircle2 className={small ? "h-4 w-4" : "h-5 w-5"} />
+              ) : p.state === "blocked" ? (
+                <AlertCircle className={small ? "h-4 w-4" : "h-5 w-5"} />
+              ) : p.state === "na" ? (
+                "–"
+              ) : (
+                idx + 1
+              )}
+            </span>
+            <span className={`mt-1.5 truncate px-0.5 font-semibold ${small ? "text-[10px]" : "text-xs"} ${p.state === "na" || p.state === "upcoming" ? "text-slate-500" : "text-slate-900"}`}>
+              {STAGE_GROUP_LABELS[p.group]}
+            </span>
+            <span className={`text-[10px] font-medium tabular-nums ${PHASE_CAPTION[p.state]}`}>{caption}</span>
+            {!small && p.focus && (p.state === "current" || p.state === "blocked") && (
+              <span className={`mt-0.5 line-clamp-2 px-1 text-[10px] leading-tight ${PHASE_CAPTION[p.state]}`}>
+                {p.focus.label}
+              </span>
+            )}
+            <span className="sr-only">
+              {STAGE_GROUP_LABELS[p.group]}: {p.state === "na" ? "not needed" : `${p.done} of ${p.total} done${p.state === "blocked" ? ", has a problem" : ""}`}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-// --- Cluster band -----------------------------------------------------------
-
-function ClusterBand({
-  group,
-  stages,
+function StepChecklist({
+  phases,
   onStageClick,
   withSlug,
   hideOperatorGlossary,
   disableSourceLinks,
 }: {
-  group: StageGroup;
-  stages: OrderTimelineStage[];
+  phases: PhaseSummary[];
   onStageClick?: (stage: OrderTimelineStage) => void;
   withSlug: (href: string) => string;
   hideOperatorGlossary?: boolean;
   disableSourceLinks?: boolean;
 }) {
-  // Show the FULL pipeline in every order - render a dot for EVERY
-  // stage (incl not_applicable, shown faint) so the timeline is a
-  // consistent 22-stage length across all orders. Progress counts are
-  // based on the applicable (non-n/a) stages so the maths stays honest.
-  const applicable = stages.filter((s) => s.status !== "not_applicable");
-  const completed = applicable.filter((s) => s.status === "completed").length;
-  const total = applicable.length;
-  const allCompleted = total > 0 && completed === total;
-  const hasCurrent = applicable.some((s) => s.status === "current");
-  const hasBlocked = applicable.some((s) => s.status === "blocked");
-  const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-  // Wave 66.4 - inline cluster context. If the cluster has the
-  // current (or blocked) stage, surface its label + progress beneath
-  // the dot row so ops read "Logistics: Kitchen prep (5/8)" without
-  // hovering. If fully done, surface a small "all done" hint. If
-  // upcoming-only, surface the next pending stage's label so the
-  // operator sees what this cluster is waiting on.
-  const focusStage = hasBlocked
-    ? applicable.find((s) => s.status === "blocked")
-    : hasCurrent
-      ? applicable.find((s) => s.status === "current")
-      : !allCompleted
-        ? applicable.find((s) => s.status === "upcoming")
-        : null;
-
-  const headerColor =
-    allCompleted ? "text-green-700" :
-    hasBlocked ? "text-rose-600" :
-    hasCurrent ? "text-orange-600" :
-    "text-slate-500";
-
-  const progressBarColor =
-    hasBlocked ? "bg-rose-500" :
-    allCompleted ? "bg-green-500" :
-    hasCurrent ? "bg-orange-500" :
-    "bg-slate-300";
-
   return (
-    <div className="flex flex-col items-center gap-1.5 px-2 min-w-0 w-full">
-      {/* Header row: name + count + tick */}
-      <div className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${headerColor}`}>
-        <span>{STAGE_GROUP_LABELS[group]}</span>
-        <span className="tabular-nums text-[9px] opacity-80">
-          {total > 0 ? `${completed}/${total}` : "n/a"}
-        </span>
-        {allCompleted && <CheckCircle2 className="w-3 h-3" />}
-      </div>
-
-      {/* Dot row */}
-      <div className="flex items-center gap-1.5 flex-wrap justify-center">
-        {stages.map((s, idx) => {
-          const next = stages[idx + 1];
-          // Wave 66.4 - connector polish. 2px height (was 0.5),
-          // brighter gradient for in-progress legs, wider for
-          // breathing room.
-          const connectorClass = !next
-            ? ""
-            : s.status === "completed" && next.status === "completed"
-              ? "bg-green-500"
-              : s.status === "completed" && (next.status === "current" || next.status === "blocked")
-                ? "bg-gradient-to-r from-green-500 via-orange-400 to-orange-300"
-                : s.status === "current"
-                  ? "bg-gradient-to-r from-orange-400 to-slate-200"
-                  : s.status === "blocked"
-                    ? "bg-rose-300"
-                    : "bg-slate-200";
-          return (
-            <div key={s.key} className="flex items-center gap-1.5">
-              <StageDot
-                stage={s}
-                onStageClick={onStageClick}
-                withSlug={withSlug}
-                hideOperatorGlossary={hideOperatorGlossary}
-                disableSourceLinks={disableSourceLinks}
-              />
-              {next && (
-                <div className={`h-[3px] w-5 rounded-full ${connectorClass}`} />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Inline focus-stage label */}
-      {focusStage && (
-        <div className={`text-[10px] text-center leading-tight ${
-          hasBlocked ? "text-rose-700 font-semibold" :
-          hasCurrent ? "text-orange-700 font-semibold" :
-          "text-slate-500"
-        }`}>
-          {focusStage.label}
-          {focusStage.meta?.progress && (
-            <span className="ml-1 tabular-nums opacity-80">
-              {focusStage.meta.progress.done}/{focusStage.meta.progress.total}
-            </span>
-          )}
+    <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {phases.map((p) => (
+        <div key={p.group} className="min-w-0">
+          <p className={`mb-1.5 text-[11px] font-semibold uppercase tracking-wide ${PHASE_CAPTION[p.state]}`}>
+            {STAGE_GROUP_LABELS[p.group]}
+          </p>
+          <ul className="space-y-1.5">
+            {p.stages.map((s) => (
+              <li key={s.key} className="flex items-start gap-2 text-xs">
+                <span className="mt-0.5 flex w-4 shrink-0 justify-center">
+                  <StageDot
+                    stage={s}
+                    size="small"
+                    onStageClick={onStageClick}
+                    withSlug={withSlug}
+                    hideOperatorGlossary={hideOperatorGlossary}
+                    disableSourceLinks={disableSourceLinks}
+                  />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={
+                    s.status === "completed" ? "text-slate-700"
+                      : s.status === "current" ? "font-semibold text-orange-700"
+                        : s.status === "blocked" ? "font-semibold text-rose-700"
+                          : s.status === "not_applicable" || s.status === "skipped" ? "text-slate-400"
+                            : "text-slate-500"
+                  }>
+                    {s.label}
+                  </span>
+                  {s.status === "completed" && s.completedAt && (
+                    <span className="block text-[10px] tabular-nums text-emerald-700">
+                      Done {new Date(s.completedAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                    </span>
+                  )}
+                  {s.status === "blocked" && s.blockedReason && (
+                    <span className="block text-[10px] text-rose-700">{s.blockedReason}</span>
+                  )}
+                  {(s.status === "current" || s.status === "blocked") && s.meta?.progress && (
+                    <span className="block text-[10px] tabular-nums text-slate-500">
+                      {s.meta.progress.done} of {s.meta.progress.total}
+                    </span>
+                  )}
+                  {(s.status === "not_applicable" || s.status === "skipped") && (
+                    <span className="block text-[10px] text-slate-400">Not needed</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-      )}
-      {!focusStage && allCompleted && (
-        <div className="text-[10px] text-green-700 font-medium leading-tight text-center">
-          All done
-        </div>
-      )}
-
-      {/* Mini progress bar - visual fill 0-100% */}
-      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-        <div
-          className={`h-full transition-all duration-500 ${progressBarColor}`}
-          style={{ width: `${progressPct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// --- Cluster pill (compact / mobile) ---------------------------------------
-
-function ClusterPill({
-  group,
-  stages,
-}: {
-  group: StageGroup;
-  stages: OrderTimelineStage[];
-}) {
-  const applicable = stages.filter((s) => s.status !== "not_applicable");
-  const total = applicable.length;
-  const done = applicable.filter((s) => s.status === "completed").length;
-  const hasBlocked = applicable.some((s) => s.status === "blocked");
-  const hasCurrent = applicable.some((s) => s.status === "current");
-
-  const tone = (() => {
-    if (hasBlocked) return "bg-rose-100 text-rose-700 border-rose-300";
-    if (hasCurrent) return "bg-orange-100 text-orange-700 border-orange-300";
-    if (total > 0 && done === total) return "bg-green-50 text-green-700 border-green-200";
-    return "bg-slate-100 text-slate-500 border-slate-200";
-  })();
-
-  // Always render every cluster so the timeline reads the same on every
-  // order; clusters with no applicable stage for this order show "n/a".
-  return (
-    <div className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${tone}`}>
-      {STAGE_GROUP_LABELS[group]} {total > 0 ? `${done}/${total}` : "n/a"}
+      ))}
     </div>
   );
 }
@@ -631,7 +633,7 @@ function NowCard({
     <div className={`flex items-center justify-between gap-2 rounded-md border-l-4 border-y border-r px-3 py-2 ${tone}`}>
       <div className="min-w-0">
         <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">
-          {stage.status === "blocked" ? "Blocked" : "Next to do"}
+          {stage.status === "blocked" ? "Problem" : "Next to do"}
         </div>
         <div className="text-sm font-semibold truncate">{stage.label}</div>
         {stage.blockedReason && (
@@ -673,94 +675,108 @@ export function TimelineTrack({
   const [expanded, setExpanded] = useState(false);
   const { withSlug } = useTenantHref();
 
-  const stagesByCluster = useMemo(() => {
+  const phases = useMemo(() => {
     const map = new Map<StageGroup, OrderTimelineStage[]>();
     for (const g of CLUSTER_ORDER) map.set(g, []);
-    for (const s of timeline.stages) {
-      map.get(s.group)?.push(s);
-    }
-    return map;
-  }, [timeline.stages]);
+    for (const s of timeline.stages) map.get(s.group)?.push(s);
+    return CLUSTER_ORDER.map((g) => summarisePhase(g, map.get(g) || [], g === timeline.currentClusterKey));
+  }, [timeline.stages, timeline.currentClusterKey]);
 
   const currentStage = useMemo(
     () => timeline.stages.find((s) => s.key === timeline.currentStageKey) || null,
     [timeline.stages, timeline.currentStageKey],
   );
 
+  const pct = timeline.applicableCount > 0
+    ? Math.round((timeline.completedCount / timeline.applicableCount) * 100)
+    : 0;
+  const allDone = timeline.applicableCount > 0 && timeline.completedCount >= timeline.applicableCount;
+
+  // Summary line + overall progress bar, shared by every layout.
+  const summary = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <p className="min-w-0 flex-1 text-xs text-slate-600">
+        {allDone ? (
+          <span className="inline-flex items-center gap-1 font-semibold text-emerald-700">
+            <CheckCircle2 className="h-3.5 w-3.5" /> All steps complete
+          </span>
+        ) : currentStage ? (
+          <>
+            <span className={`font-semibold ${currentStage.status === "blocked" ? "text-rose-700" : "text-orange-700"}`}>
+              {currentStage.status === "blocked" ? "Problem:" : "Next:"}
+            </span>{" "}
+            <span className="font-medium text-slate-900">{currentStage.label}</span>
+          </>
+        ) : (
+          <span className="text-slate-500">Not started yet</span>
+        )}
+      </p>
+      <div className="flex items-center gap-2">
+        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-100 sm:w-32" aria-hidden="true">
+          <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-[11px] tabular-nums text-slate-500">
+          {timeline.completedCount} of {timeline.applicableCount} steps done
+        </span>
+      </div>
+    </div>
+  );
+
+  const toggle = (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setExpanded((v) => !v);
+      }}
+      className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900"
+      aria-expanded={expanded}
+    >
+      {expanded ? "Hide steps" : "Show all steps"}
+      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+    </button>
+  );
+
+  const checklist = expanded && (
+    <StepChecklist
+      phases={phases}
+      onStageClick={onStageClick}
+      withSlug={withSlug}
+      hideOperatorGlossary={hideOperatorGlossary}
+      disableSourceLinks={disableSourceLinks}
+    />
+  );
+
   // --- Compact / mobile view ---
   const compactView = (
-      <div className="space-y-2">
+    <div className="space-y-2.5">
+      {!hideOperatorBanner && (
         <NowCard stage={currentStage} withSlug={withSlug} disableSourceLinks={disableSourceLinks} />
-        <TimelineColourLegend compact />
-        <div className="flex flex-wrap items-center gap-1.5">
-          {CLUSTER_ORDER.map((g) => (
-            <ClusterPill key={g} group={g} stages={stagesByCluster.get(g) || []} />
-          ))}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded((v) => !v);
-            }}
-            className="ml-auto inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800"
-            aria-expanded={expanded}
-            aria-label="Toggle full timeline"
-          >
-            {expanded ? "Hide" : "Show all"}
-            <ChevronDown className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-        {expanded && (
-          <ul className="space-y-1.5 mt-2">
-            {timeline.stages
-              .map((s) => (
-                <li key={s.key} className="flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <StageDot
-                      stage={s}
-                      size="small"
-                      onStageClick={onStageClick}
-                      withSlug={withSlug}
-                      hideOperatorGlossary={hideOperatorGlossary}
-                      disableSourceLinks={disableSourceLinks}
-                    />
-                    <span className={
-                      s.status === "completed" ? "text-green-700 line-through opacity-70" :
-                      s.status === "current" ? "text-orange-700 font-semibold" :
-                      s.status === "blocked" ? "text-rose-700 font-semibold" :
-                      s.status === "not_applicable" ? "text-slate-400 italic" :
-                      "text-slate-500"
-                    }>{s.label}{s.status === "not_applicable" && <span className="ml-1 text-[9px] uppercase tracking-wide text-slate-300">n/a</span>}</span>
-                  </div>
-                  {s.completedAt && (
-                    <span className="text-[10px] text-slate-400 tabular-nums">
-                      {new Date(s.completedAt).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                    </span>
-                  )}
-                </li>
-              ))}
-          </ul>
-        )}
+      )}
+      <PhaseStepper phases={phases} small />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] tabular-nums text-slate-500">
+          {timeline.completedCount} of {timeline.applicableCount} steps done
+        </span>
+        {toggle}
       </div>
-    );
+      {checklist}
+    </div>
+  );
 
   // --- Full desktop view ---
   const fullView = (
-    <div className="space-y-2.5">
+    <div className="space-y-3">
       {!hideOperatorBanner && currentStage && (() => {
         const isBlocked = currentStage.status === "blocked";
-        const u = (timeline as any).urgency as string | undefined;
-        const tone = isBlocked
-          ? { card: "bg-rose-50 border-rose-200", dot: "bg-rose-500", label: "text-rose-700", btn: "bg-rose-600 hover:bg-rose-700", pulseClass: "animate-pulse" }
-          : u === "overdue" || u === "today"
-            ? { card: "bg-rose-50 border-rose-300 ring-2 ring-rose-200", dot: "bg-rose-500", label: "text-rose-700", btn: "bg-rose-600 hover:bg-rose-700", pulseClass: "animate-pulse" }
-            : u === "tomorrow"
-              ? { card: "bg-amber-50 border-amber-300", dot: "bg-amber-500", label: "text-amber-700", btn: "bg-amber-600 hover:bg-amber-700", pulseClass: "animate-pulse" }
-              : u === "soon"
-                ? { card: "bg-amber-50 border-amber-300", dot: "bg-amber-500", label: "text-amber-700", btn: "bg-amber-600 hover:bg-amber-700", pulseClass: "animate-pulse" }
-                : { card: "bg-orange-50 border-orange-200", dot: "bg-orange-500", label: "text-orange-700", btn: "bg-orange-600 hover:bg-orange-700", pulseClass: "animate-pulse" };
+        const u = timeline.urgency;
+        const tone = isBlocked || u === "overdue" || u === "today"
+          ? { card: "bg-rose-50 border-rose-200", dot: "bg-rose-500", label: "text-rose-700", btn: "bg-rose-600 hover:bg-rose-700" }
+          : u === "tomorrow" || u === "soon"
+            ? { card: "bg-amber-50 border-amber-300", dot: "bg-amber-500", label: "text-amber-700", btn: "bg-amber-600 hover:bg-amber-700" }
+            : { card: "bg-orange-50 border-orange-200", dot: "bg-orange-500", label: "text-orange-700", btn: "bg-orange-600 hover:bg-orange-700" };
         const headerLabel = isBlocked
-          ? "Blocked"
+          ? "Problem"
           : u === "overdue"
             ? "Event past - close out"
             : u === "today"
@@ -772,12 +788,10 @@ export function TimelineTrack({
                   : "Next to do";
         return (
           <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${tone.card}`}>
-            <div className={`w-2 h-2 rounded-full ${tone.pulseClass} flex-shrink-0 ${tone.dot}`} />
-            <div className="flex-1 min-w-0">
-              <div className={`text-[10px] font-bold uppercase tracking-wider ${tone.label}`}>
-                {headerLabel}
-              </div>
-              <div className="text-sm font-semibold text-slate-900 flex items-center gap-2 flex-wrap">
+            <div className={`h-2 w-2 flex-shrink-0 animate-pulse rounded-full motion-reduce:animate-none ${tone.dot}`} />
+            <div className="min-w-0 flex-1">
+              <div className={`text-[10px] font-bold uppercase tracking-wider ${tone.label}`}>{headerLabel}</div>
+              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
                 <span>{currentStage.label}</span>
                 {currentStage.meta?.progress && (
                   <span className="text-xs font-normal text-slate-600">
@@ -788,84 +802,49 @@ export function TimelineTrack({
                   <span className="text-xs font-normal text-slate-600">· {currentStage.meta.actor}</span>
                 )}
                 {currentStage.meta?.expectedAt && (
-                  <span className="text-xs font-normal text-slate-600">
-                    · expected {fmtDateTime(currentStage.meta.expectedAt)}
-                  </span>
+                  <span className="text-xs font-normal text-slate-600">· expected {fmtDateTime(currentStage.meta.expectedAt)}</span>
                 )}
               </div>
               {currentStage.blockedReason && (
-                <div className="text-xs text-rose-700 font-medium mt-0.5">
-                  {currentStage.blockedReason}
+                <div className="mt-0.5 text-xs font-medium text-rose-700">{currentStage.blockedReason}</div>
+              )}
+              {timeline.crossSystemBlockers.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {timeline.crossSystemBlockers.map((b, i) => (
+                    <div
+                      key={i}
+                      className={`inline-flex items-center gap-1 text-[11px] font-medium ${b.severity === "error" ? "text-rose-700" : "text-amber-700"}`}
+                    >
+                      <span aria-hidden="true">{b.severity === "error" ? "✕" : "⚠"}</span>
+                      {b.message}
+                    </div>
+                  ))}
                 </div>
               )}
-              {Array.isArray((timeline as any).crossSystemBlockers) &&
-                (timeline as any).crossSystemBlockers.length > 0 && (
-                  <div className="mt-1 space-y-0.5">
-                    {(timeline as any).crossSystemBlockers.map((b: any, i: number) => (
-                      <div
-                        key={i}
-                        className={`text-[11px] font-medium inline-flex items-center gap-1 ${
-                          b.severity === "error" ? "text-rose-700" : "text-amber-700"
-                        }`}
-                      >
-                        <span aria-hidden="true">{b.severity === "error" ? "✕" : "⚠"}</span>
-                        {b.message}
-                      </div>
-                    ))}
-                  </div>
-                )}
             </div>
             {currentStage.sourceLink && !disableSourceLinks && (
               <Link
                 href={withSlug(currentStage.sourceLink)}
                 onClick={(e) => e.stopPropagation()}
                 scroll={false}
-                className={`text-xs font-semibold flex-shrink-0 px-3 py-1.5 rounded-md text-white shadow-sm hover:shadow-md transition-shadow ${tone.btn}`}
+                className={`flex-shrink-0 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-shadow hover:shadow-md ${tone.btn}`}
               >
-                Open <ChevronRight className="w-3 h-3 inline" />
+                Open <ChevronRight className="inline h-3 w-3" />
               </Link>
             )}
           </div>
         );
       })()}
 
-      <TimelineColourLegend />
-
-      {/* Cluster band */}
-      <div className="flex items-stretch gap-1 w-full overflow-x-auto pb-1">
-        {CLUSTER_ORDER.map((g, idx) => (
-          <div key={g} className="flex items-stretch flex-1 min-w-0">
-            <div className="flex-1 flex justify-center min-w-0">
-              <ClusterBand
-                group={g}
-                stages={stagesByCluster.get(g) || []}
-                onStageClick={onStageClick}
-                withSlug={withSlug}
-                hideOperatorGlossary={hideOperatorGlossary}
-                disableSourceLinks={disableSourceLinks}
-              />
-            </div>
-            {idx < CLUSTER_ORDER.length - 1 && (
-              <div className="w-px bg-slate-200 self-stretch mx-1" />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Bottom progress count */}
-      <div className="text-[10px] text-slate-500 text-right">
-        {timeline.completedCount} of {timeline.applicableCount} stages complete
-      </div>
+      {summary}
+      <PhaseStepper phases={phases} />
+      <div className="flex justify-end">{toggle}</div>
+      {checklist}
     </div>
   );
 
-  // A caller can force the compact view everywhere by passing `compact`.
-  // Otherwise render RESPONSIVELY: the compact cluster-pill view on phones
-  // (where the 6-column desktop band's headers overlap and read as broken)
-  // and the full dot-band from md (768px) up. Previously every caller
-  // rendered the full band unconditionally, so the timeline looked crammed
-  // and unreadable on mobile on every surface (order modal, /c/order/[id],
-  // my-orders, order document, orders list rows). One switch fixes them all.
+  // Phones get the compact layout; md and up get the full stepper. A
+  // caller can force compact everywhere with the `compact` prop.
   if (compact) return compactView;
   return (
     <>

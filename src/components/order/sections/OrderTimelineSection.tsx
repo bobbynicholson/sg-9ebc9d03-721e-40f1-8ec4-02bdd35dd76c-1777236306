@@ -73,6 +73,8 @@ interface Props {
   order: OrderForTimeline;
   defaultOpen?: boolean;
   forceOpen?: boolean;
+  /** Hide the "Next to do" banner when the document header shows it. */
+  hideNowBanner?: boolean;
 }
 
 // Earliest non-null timestamp across multiple sources.
@@ -88,7 +90,7 @@ function fmtStamp(iso: string | null): string {
   return d.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
+export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBanner = false }: Props) {
   const { profile } = useAuth() as any;
   const { toast } = useToast();
   const canForceClose = !!profile?.role && isAdmin(profile.role as UserRole);
@@ -935,6 +937,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen }: Props) {
           <TimelineTrack
             timeline={sharedTimeline}
             hideOperatorGlossary
+            hideOperatorBanner={hideNowBanner}
             disableSourceLinks
           />
         </div>

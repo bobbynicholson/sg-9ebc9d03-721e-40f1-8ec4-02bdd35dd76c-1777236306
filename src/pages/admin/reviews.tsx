@@ -226,7 +226,7 @@ function AdminReviewsInner() {
             variant="hero"
             title="Reviews"
             icon={Star}
-            subtitle="What clients said after their events. Ratings and comments from the post-delivery prompt, with follow-ups flagged for the office."
+            subtitle="Read client feedback and follow up on reviews that need attention."
             meta={
               <>
                 {!loading && !loadError && (

@@ -52,6 +52,12 @@ test('EFT shows this company bank and requires proof before a claim stays pendin
   await expect(page.getByRole('button',{name:'Confirmation sent for review'})).toBeDisabled();
   expect(fixture.requests).toHaveLength(1); expect(fixture.requests[0].contentType).toContain('multipart/form-data');
   await expect(page.getByText(/Paid in full|nothing further to pay/i)).toHaveCount(0);
+  // The immediate invoice refresh still has the pre-upload snapshot. The
+  // acknowledgement must survive it, then persist from server state on reload.
+  fixture.update({eft_claims:[{id:'claim-fixture',payment_status:'pending'}]});
+  await page.reload();
+  await expect(page.getByRole('button',{name:'Confirmation sent for review'})).toBeDisabled();
+  expect(fixture.requests).toHaveLength(1);
 });
 test('online provider is the only public method when checkout is active',async({page})=>{
   await setup(page,{online:true}); await page.goto(`/pay/i/${token}`);

@@ -11,6 +11,37 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { getCheckoutGatewayCredentials } from "@/lib/checkoutGatewayCredentials";
+import { checkStripeAttemptWithProvider } from "@/lib/paymentRecovery";
+import { touchPaymentAttempt } from "@/services/paymentAttemptService";
+
+/**
+ * Stripe can be asked directly whether a Checkout session was paid. Do that
+ * on the return page so a late, lost or unconfigured webhook does not leave
+ * a paid client looking at "processing". Throttled per attempt because the
+ * return page polls; any provider error simply falls back to the webhook.
+ */
+async function recheckStripeOnReturn(sb: any, attempt: any) {
+  const lastChecked = attempt.last_checked_at ? new Date(attempt.last_checked_at).getTime() : 0;
+  if (Date.now() - lastChecked < 15000 || !attempt.provider_session_id ||
+      attempt.provider_session_id === attempt.id) return attempt;
+  try {
+    const configured = await getCheckoutGatewayCredentials(sb, attempt, String(attempt.metadata?.gatewayId || ""));
+    if (!configured?.credentials?.secretKey || configured.gateway.company_id !== attempt.company_id ||
+        configured.gateway.provider !== "stripe") return attempt;
+    const checked = await checkStripeAttemptWithProvider(sb, attempt, configured.credentials);
+    if (!checked.settled) {
+      await touchPaymentAttempt(attempt.id, checked.paid ? "paid_waiting_webhook" : checked.providerStatus);
+      return attempt;
+    }
+    const { data: fresh } = await sb.from("payment_attempts").select("*").eq("id", attempt.id).maybeSingle();
+    return fresh || attempt;
+  } catch (error) {
+    console.warn("[confirm-return] Stripe return check failed; waiting for webhook:", error);
+    try { await touchPaymentAttempt(attempt.id, "return_check_failed"); } catch { /* best effort */ }
+    return attempt;
+  }
+}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -70,7 +101,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (attemptId) {
       const { data, error } = await sb
         .from("payment_attempts")
-        .select("id, company_id, invoice_id, provider, status, amount")
+        .select("*")
         .eq("id", attemptId)
         .maybeSingle();
       if (error) throw error;
@@ -78,6 +109,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(404).json({ error: "Payment attempt not found" });
       }
       attempt = data;
+      if (attempt.status === "pending" && attempt.provider === "stripe") {
+        attempt = await recheckStripeOnReturn(sb, attempt);
+      }
     }
 
     const invoicePaid =

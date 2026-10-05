@@ -15,14 +15,13 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  MapPin, Plus, Edit, Trash2, Globe, CheckCircle, XCircle, ArrowLeft,
+  MapPin, Plus, Edit, Trash2, Globe, CheckCircle, XCircle,
   AlertCircle, Loader2, Truck, ChefHat, Users, Clock, Download, RefreshCw,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import Link from "next/link";
 import { Footer } from "@/components/Footer";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -33,7 +32,6 @@ import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { useTenantHref } from "@/lib/tenantUrl";
 
 interface Region {
   id: string;
@@ -168,7 +166,7 @@ export default function ProtectedRegionsPage() {
 function RegionsPage() {
   const { user } = useAuth();
   // Wave 27.3: tenant-slug wrapper for internal navigations.
-  const { withSlug } = useTenantHref();
+
   const { toast } = useToast();
   const [regions, setRegions] = useState<Region[]>([]);
   const [loading, setLoading] = useState(true);
@@ -786,7 +784,7 @@ function RegionsPage() {
             variant="hero"
             title="Branches"
             icon={Globe}
-            subtitle="One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on."
+            subtitle="Manage branches, their teams and delivery settings."
             meta={
               <>
                 {!loading && (
@@ -991,11 +989,6 @@ function RegionsPage() {
                   tooltip={"Sum of total_amount on orders with an event_date in the current calendar month. Cancelled orders excluded. For 'booked this month' see /admin/financial."}
                 />
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                <StatTile label="Total regions" value={stats.total} tooltip={"How many regions you have set up for your business."} />
-                <StatTile label="Countries" value={stats.countries} tooltip={"How many different countries you operate in across your regions."} />
-                <StatTile label="Linked staff" icon={Users} value={stats.totalStaff} tooltip={"Total staff members linked to any region. Client profiles are excluded."} />
-              </div>
             </>
           )}
 
@@ -1063,7 +1056,7 @@ function RegionsPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4 gap-3 mb-3">
                       <MiniStat icon={Truck} label="Events this month" value={region.mtd_order_count || 0} tooltip={"Orders for this branch with an event_date in the current calendar month. Cancelled excluded."} />
                       <MiniStat
                         icon={Users}
@@ -1234,12 +1227,6 @@ function RegionsPage() {
               ))}
             </div>
           )}
-
-          <div className="mt-12 text-sm">
-            <Link href={withSlug("/admin/dashboard")} className="text-slate-600 hover:underline inline-flex items-center gap-1">
-              <ArrowLeft className="w-4 h-4" /> Back to dashboard
-            </Link>
-          </div>
         </PortalShell>
         <Footer />
       </div>

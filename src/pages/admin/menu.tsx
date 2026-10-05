@@ -1169,7 +1169,7 @@ function MenuPage() {
               </span>
             }
             icon={BookOpen}
-            subtitle="Add menu items and build their recipes. Kitchen, dispatch and shopping read from this list."
+            subtitle="Manage dishes, prices, dietary details and recipes."
             meta={
               !loading && !loadError ? (
                 <>

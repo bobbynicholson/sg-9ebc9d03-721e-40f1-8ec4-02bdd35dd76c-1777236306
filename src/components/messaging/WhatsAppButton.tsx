@@ -307,9 +307,11 @@ export function WhatsAppButton(props: Props) {
         disabled
         className={`gap-1.5 opacity-60 ${className ?? ""}`}
         title={phoneUnavailableReason}
+        aria-label={label === "" ? "WhatsApp unavailable" : undefined}
       >
         <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
-        {label || "WhatsApp unavailable"}
+        {/* label="" means an icon-only slot; keep the reason in the tooltip. */}
+        {label === "" ? null : (label || "WhatsApp unavailable")}
       </Button>
     );
   }

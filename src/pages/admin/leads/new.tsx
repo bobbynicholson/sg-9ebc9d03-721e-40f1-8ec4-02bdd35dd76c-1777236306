@@ -310,7 +310,7 @@ function NewLeadInner() {
           <PortalHeader
             variant="hero"
             title="New lead"
-            subtitle="Capture a potential customer's enquiry so nothing gets lost before you quote. Only a name and email are required."
+            subtitle="Record the client’s contact details and event requirements."
             icon={UserPlus}
             meta={
               <>

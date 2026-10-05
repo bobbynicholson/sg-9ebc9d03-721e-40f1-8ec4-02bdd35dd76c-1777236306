@@ -535,7 +535,7 @@ function ProvidersList() {
             variant="hero"
             title="Outsource providers"
             icon={HardHat}
-            subtitle="Per-event service providers: on-site chefs, florists, photographers, sound, security."
+            subtitle="Manage external service providers and their event bookings."
             meta={
               !loading && !loadError ? (
                 <>

@@ -341,7 +341,7 @@ function NotificationsPage() {
             variant="hero"
             title={<span className="flex items-center gap-2">Notifications<InfoTooltip content={"Your inbox of system alerts: low stock, delivery updates, order changes and other events that need your attention."} className="text-white/60 hover:text-white" /></span>}
             icon={Bell}
-            subtitle="System alerts inbox. Low stock warnings, delivery updates, order changes, payment confirmations, and anything else flagged automatically by the platform. Open a row for details or jump straight to the source page."
+            subtitle="Review company alerts and open the related order, payment or task."
             meta={
               !loading && !loadError ? (
                 <>

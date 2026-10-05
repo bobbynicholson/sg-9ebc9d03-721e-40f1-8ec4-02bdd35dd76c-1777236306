@@ -296,7 +296,7 @@ export function InventoryLowStockWidget({ companyId }: Props) {
   if (!loading && rows.length === 0) return null;
 
   return (
-    <Card className={`mb-6 border-orange-200 ${shortfallCount > 0 ? "bg-rose-50/40" : "bg-orange-50/40"}`}>
+    <Card collapsible defaultOpen={false} collapseLabel="Stock running low" className={`mb-6 border-orange-200 ${shortfallCount > 0 ? "bg-rose-50/40" : "bg-orange-50/40"}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
@@ -308,8 +308,9 @@ export function InventoryLowStockWidget({ companyId }: Props) {
                   {shortfallCount} short for upcoming orders
                 </Badge>
               )}
+              {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${rows.length} items`}>{rows.length}</span>}
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="line-clamp-1 text-xs">
               Items short of stock right now. Each line shows what you have, what confirmed orders need it in the next 7 days, and which specific bookings will run short.
             </CardDescription>
           </div>

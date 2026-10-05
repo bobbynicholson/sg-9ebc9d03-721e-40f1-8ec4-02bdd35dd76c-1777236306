@@ -97,6 +97,10 @@ export function scrollToChatHash(hash?: string): boolean {
 
   const target = document.getElementById(id);
   if (!target) return false;
-  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  target.dispatchEvent(new CustomEvent("ui:expand-section", { bubbles: true }));
+  for (let parent: HTMLElement | null = target; parent; parent = parent.parentElement) {
+    if (parent.tagName === "DETAILS") (parent as HTMLDetailsElement).open = true;
+  }
+  window.requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
   return true;
 }

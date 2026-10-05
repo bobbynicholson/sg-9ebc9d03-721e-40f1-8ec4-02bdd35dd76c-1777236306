@@ -309,67 +309,61 @@ export function CatalogueOperationsStrip({
   const HealthIcon = health.icon;
 
   return (
-    <section className={`mb-5 rounded-lg border border-slate-200 bg-white shadow-sm ${className}`}>
-      <div className="flex flex-col gap-3 border-b border-slate-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-slate-900">Catalogue</p>
-              <Badge variant="outline" className={`gap-1 ${health.className}`}>
-                <HealthIcon className="h-3 w-3" />
-                {health.label}
-              </Badge>
-            </div>
-            <p className="truncate text-xs text-slate-500">
-              {loading ? "Refreshing live counts..." : error ? "Some live counts could not refresh." : `Live counts${lastLoadedAt ? `, updated ${lastLoadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}`}
-            </p>
-          </div>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => void load()}
-          disabled={loading || !companyId}
-          className="h-8 gap-1.5 self-start text-slate-600 sm:self-auto"
-        >
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Refresh
-        </Button>
-      </div>
-      <div className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {SURFACES.map((surface) => {
-          const Icon = surface.icon;
-          const activeSurface = surface.key === active;
-          const flag = flagFor(surface.key, counts);
-          return (
-            <Link
-              key={surface.key}
-              href={withSlug(surface.href)}
-              className={`min-w-0 rounded-md border px-2.5 py-2 transition-colors ${
-                activeSurface
-                  ? "border-brand-primary/30 bg-brand-primary/10 text-brand-primary"
-                  : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Icon className={`h-4 w-4 flex-shrink-0 ${activeSurface ? "text-brand-primary" : "text-slate-500"}`} />
-                <span className="min-w-0 flex-1 text-sm font-medium leading-tight">{surface.title}</span>
-              </div>
-              <div className="mt-1 flex min-h-[22px] flex-wrap items-center gap-1.5">
-                <span className="text-xs tabular-nums text-slate-500">{loading ? "..." : metricFor(surface.key, counts)}</span>
+    // One compact tab row: section links with their warning flags, and the
+    // overall health + refresh on the right. Full counts show on hover.
+    <section className={`mb-5 rounded-lg border border-slate-200 bg-white shadow-sm ${className}`} aria-label="Catalogue sections">
+      <div className="flex flex-col gap-2 p-1.5 lg:flex-row lg:items-center">
+        <nav className="flex min-w-0 flex-1 flex-wrap gap-1">
+          {SURFACES.map((surface) => {
+            const Icon = surface.icon;
+            const activeSurface = surface.key === active;
+            const flag = flagFor(surface.key, counts);
+            const metric = loading ? "" : metricFor(surface.key, counts);
+            return (
+              <Link
+                key={surface.key}
+                href={withSlug(surface.href)}
+                title={metric ? `${surface.title}: ${metric}` : surface.title}
+                aria-current={activeSurface ? "page" : undefined}
+                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+                  activeSurface
+                    ? "bg-brand-primary/10 text-brand-primary"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <Icon className={`h-4 w-4 flex-shrink-0 ${activeSurface ? "text-brand-primary" : "text-slate-400"}`} />
+                {surface.title}
                 {flag && !loading && (
                   <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none ${flagClass(flag.tone)}`}>
                     {flag.text}
                   </span>
                 )}
-              </div>
-            </Link>
-          );
-        })}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="flex shrink-0 items-center gap-1.5 border-t border-slate-100 px-1 pt-1.5 lg:border-l lg:border-t-0 lg:pl-2 lg:pt-0">
+          <Badge
+            variant="outline"
+            className={`gap-1 ${health.className}`}
+            title={loading ? "Refreshing live counts..." : error ? "Some live counts could not refresh." : `Live counts${lastLoadedAt ? `, updated ${lastLoadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}`}
+          >
+            <HealthIcon className="h-3 w-3" />
+            {health.label}
+          </Badge>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void load()}
+            disabled={loading || !companyId}
+            className="h-8 w-8 p-0 text-slate-600"
+            aria-label="Refresh catalogue counts"
+            title="Refresh catalogue counts"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          </Button>
+        </div>
       </div>
       {error && (
         <div className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">

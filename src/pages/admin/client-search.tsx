@@ -1,4 +1,5 @@
 import type { GetServerSideProps } from "next";
+import { tenantRedirectPrefix } from "@/lib/tenantRedirect";
 
 /**
  * /admin/client-search - folded into /admin/contacts.
@@ -22,7 +23,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   if (!params.has("filter")) params.set("filter", "clients");
   return {
     redirect: {
-      destination: `/admin/contacts?${params.toString()}`,
+      destination: `${tenantRedirectPrefix(ctx)}/admin/contacts?${params.toString()}`,
       permanent: false,
     },
   };

@@ -605,7 +605,7 @@ function CMSPageManagement() {
                     </div>
                   </PortalCard>
 
-                  <PortalCard>
+                  <PortalCard collapsible defaultOpen={false} collapseLabel="SEO">
                     <PortalCardHeader title="SEO" />
                     <p className="-mt-2 mb-3 text-xs text-slate-600 dark:text-slate-400">
                       What search engines and social previews will show.

@@ -95,6 +95,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       PAYFAST_PLATFORM_PASSPHRASE: present("PAYFAST_PLATFORM_PASSPHRASE"),
       STRIPE_PLATFORM_SECRET_KEY: stripeMode("STRIPE_PLATFORM_SECRET_KEY"),
       STRIPE_SUBSCRIPTION_WEBHOOK_SECRET: present("STRIPE_SUBSCRIPTION_WEBHOOK_SECRET"),
+      // Prepaid Yoco plans; secret from scripts/register-yoco-platform-webhook.mjs.
+      YOCO_PLATFORM_SECRET_KEY: present("YOCO_PLATFORM_SECRET_KEY"),
+      YOCO_PLATFORM_WEBHOOK_SECRET: present("YOCO_PLATFORM_WEBHOOK_SECRET"),
     },
     cron_and_urls: {
       CRON_SECRET: present("CRON_SECRET"),

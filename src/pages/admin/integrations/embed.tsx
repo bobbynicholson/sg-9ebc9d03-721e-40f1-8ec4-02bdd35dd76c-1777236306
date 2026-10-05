@@ -242,7 +242,7 @@ function AdminEmbedFormsPage() {
             variant="hero"
             title="Lead capture forms"
             icon={Code2}
-            subtitle="Embeddable enquiry forms for your marketing site. Pick a template, customise, paste the snippet."
+            subtitle="Create an enquiry form, preview it and copy the code for your website."
             meta={
               !loading && !loadError && forms.length > 0 ? (
                 <>

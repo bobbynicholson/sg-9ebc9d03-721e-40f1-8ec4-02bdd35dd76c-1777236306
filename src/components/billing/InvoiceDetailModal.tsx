@@ -35,9 +35,10 @@ interface InvoiceDetailModalProps {
   invoice: Invoice;
   open: boolean;
   onClose: () => void;
+  paymentAttemptId?: string;
 }
 
-export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModalProps) {
+export function InvoiceDetailModal({ invoice, open, onClose, paymentAttemptId }: InvoiceDetailModalProps) {
   const { toast } = useToast();
   const [downloading, setDownloading] = useState(false);
 
@@ -213,7 +214,7 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
                       : "bg-yellow-100 text-yellow-800"
                   }`}
                 >
-                  {invoice.status === "partial" ? "Deposit Paid" : invoice.status === "pending" ? "Awaiting Payment" : invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                  {invoice.status === "partial" ? "Partially paid" : invoice.status === "pending" ? "Awaiting Payment" : invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                 </span>
               </div>
               {invoice.paid_at && (
@@ -246,7 +247,8 @@ export function InvoiceDetailModal({ invoice, open, onClose }: InvoiceDetailModa
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => window.open(`/pay/i/${invoice.public_token}`, "_blank", "noopener")}
+                onClick={() => window.open(`/pay/i/${invoice.public_token}${paymentAttemptId
+                  ? `?payment_return=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}` : ""}`, "_blank", "noopener")}
               >
                 <FileText className="w-4 h-4 mr-2" />
                 View full invoice

@@ -16,7 +16,7 @@
  * Controller so RHF manages state without cascade re-renders.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -337,7 +337,7 @@ function NotificationSettingsPage() {
             variant="hero"
             title="Notification settings"
             icon={Bell}
-            subtitle="Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, push, or SMS. Owners get everything by default. Tune the noise from here."
+            subtitle="Choose which alerts your company receives and how they are delivered."
             meta={
               !loading && !loadError ? (
                 <>
@@ -378,13 +378,14 @@ function NotificationSettingsPage() {
           ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Email Notifications */}
-            <Card>
+            <Card collapsible defaultOpen={true} collapseLabel="Email Notifications">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="w-5 h-5 text-brand-primary" />
                   Email Notifications
                   <InfoTooltip content={"Choose which email alerts you want for orders, payments and daily summaries.\n\nSaved to your account and mirrored into legacy columns for older email notification workers."} />
                 </CardTitle>
+<CardDescription>Choose the company events delivered by email.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ToggleRow control={control} name="email.orderConfirmation" id="orderConfirmation" title="Order Confirmations" desc="Get notified when new orders are placed" />
@@ -396,13 +397,14 @@ function NotificationSettingsPage() {
             </Card>
 
             {/* Push Notifications */}
-            <Card>
+            <Card collapsible defaultOpen={false} collapseLabel="Push Notifications">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="w-5 h-5 text-slate-600" />
                   Push Notifications
                   <InfoTooltip content={"In-app push alerts for urgent issues, new orders, staff updates and stock changes.\n\nSaved to your account."} />
                 </CardTitle>
+<CardDescription>Choose which events create push alerts.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ToggleRow control={control} name="push.urgentAlerts" id="urgentAlerts" title="Urgent Alerts" desc="Critical issues requiring immediate attention" />
@@ -413,13 +415,14 @@ function NotificationSettingsPage() {
             </Card>
 
             {/* SMS Notifications */}
-            <Card>
+            <Card collapsible defaultOpen={false} collapseLabel="SMS Notifications">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-brand-primary" />
                   SMS Notifications
                   <InfoTooltip content={"SMS preferences for critical alerts and payment reminders.\n\nNeeds an SMS provider connected before messages will actually go out (none integrated yet - see docs/notifications.md)."} />
                 </CardTitle>
+<CardDescription>Choose text-message alerts and review their availability.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ToggleRow control={control} name="sms.criticalAlerts" id="criticalAlerts" title="Critical Alerts" desc="Emergency notifications via SMS" />
@@ -428,13 +431,14 @@ function NotificationSettingsPage() {
             </Card>
 
             {/* WhatsApp Notifications */}
-            <Card>
+            <Card collapsible defaultOpen={false} collapseLabel="WhatsApp Notifications">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-brand-primary" />
                   WhatsApp Notifications
                   <InfoTooltip content={"WhatsApp fan-out uses the same event buckets as push. A message is queued only when the tenant has WhatsApp connected and your profile has a WhatsApp-enabled phone number."} />
                 </CardTitle>
+<CardDescription>Choose WhatsApp alerts and review their availability.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ToggleRow control={control} name="whatsapp.urgentAlerts" id="waUrgentAlerts" title="Urgent Alerts" desc="Critical issues requiring immediate attention" />
@@ -452,7 +456,7 @@ function NotificationSettingsPage() {
                   <div className="flex items-center gap-3 min-w-0">
                     <AlertCircle className="w-5 h-5 text-brand-primary shrink-0" />
                     <p className="text-sm text-slate-700">
-                      Saved to your account and used by the notification fan-out service.
+                      Changes apply to your account as soon as you save.
                     </p>
                   </div>
                   <Button type="submit" size="lg" disabled={isSubmitting}>

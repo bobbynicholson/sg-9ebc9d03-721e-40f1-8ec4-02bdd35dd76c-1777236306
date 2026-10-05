@@ -1,11 +1,12 @@
 import type { GetServerSideProps } from "next";
+import { tenantRedirectPrefix } from "@/lib/tenantRedirect";
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const url = ctx.req.url || "";
   const qs = url.includes("?") ? url.slice(url.indexOf("?")) : "";
   return {
     redirect: {
-      destination: `/admin/tracking${qs}`,
+      destination: `${tenantRedirectPrefix(ctx)}/admin/tracking${qs}`,
       permanent: false,
     },
   };

@@ -310,7 +310,7 @@ function RecurringInvoicesPageInner() {
             variant="hero"
             title="Recurring invoices"
             icon={Repeat}
-            subtitle="Set up weekly, monthly or quarterly invoices once; the platform generates a draft on each cycle."
+            subtitle="Set a billing schedule and review the invoice templates used each cycle."
             meta={
               !loading && !loadError ? (
                 <>

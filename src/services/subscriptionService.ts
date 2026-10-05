@@ -175,16 +175,19 @@ export const subscriptionService = {
     reason?: string,
     feedback?: string
   ): Promise<CancellationRequest | null> {
-    const { data: linkedSubscription } = await supabase.from("subscriptions").select("company_id").eq("id", subscriptionId).single();
+    const { data: linkedSubscription } = await supabase.from("subscriptions").select("*").eq("id", subscriptionId).single();
     if (linkedSubscription) {
       const { data: company } = await supabase.from("companies").select("payfast_subscription_token").eq("id", linkedSubscription.company_id).single();
-      if (company?.payfast_subscription_token) {
+      // Provider-managed plans (PayFast token, Stripe, Yoco) must change
+      // through the server so the provider and our rows stay in step.
+      if (company?.payfast_subscription_token || (linkedSubscription as any).stripe_subscription_id ||
+          (linkedSubscription as any).payment_provider === "yoco") {
         const response = await fetch("/api/subscription/manage", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "cancel", subscriptionId, immediate, reason, feedback }),
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not change PayFast billing");
+        if (!response.ok) throw new Error(result.error || "Could not change billing");
         return null;
       }
     }
@@ -227,15 +230,18 @@ export const subscriptionService = {
   },
 
   async reactivateSubscription(subscriptionId: string): Promise<Subscription | null> {
-    const { data: linkedSubscription } = await supabase.from("subscriptions").select("company_id").eq("id", subscriptionId).single();
+    const { data: linkedSubscription } = await supabase.from("subscriptions").select("*").eq("id", subscriptionId).single();
     if (linkedSubscription) {
       const { data: company } = await supabase.from("companies").select("payfast_subscription_token").eq("id", linkedSubscription.company_id).single();
-      if (company?.payfast_subscription_token) {
+      // Provider-managed plans (PayFast token, Stripe, Yoco) must change
+      // through the server so the provider and our rows stay in step.
+      if (company?.payfast_subscription_token || (linkedSubscription as any).stripe_subscription_id ||
+          (linkedSubscription as any).payment_provider === "yoco") {
         const response = await fetch("/api/subscription/manage", {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "resume", subscriptionId }),
         });
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not resume PayFast billing");
+        if (!response.ok) throw new Error(result.error || "Could not resume billing");
         return result.subscription;
       }
     }

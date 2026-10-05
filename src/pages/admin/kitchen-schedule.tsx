@@ -457,7 +457,7 @@ function KitchenScheduleGrid() {
               variant="hero"
               title="Kitchen schedule"
               icon={CalendarClock}
-              subtitle="Weekly roster. Click an empty cell to plan a shift; cells flip to actual hours when the chef clocks in."
+              subtitle="Check today’s kitchen coverage and open the full schedule to plan shifts."
               meta={
                 !loading && !loadError ? (
                   <>

@@ -726,6 +726,15 @@ function AdminQuotesInner() {
   }, [regionFilteredRows, tileRange]);
 
   const counts = useMemo(() => countByBucket(regionFilteredRows), [regionFilteredRows]);
+  // First load only: if the default "In play" view is empty but open
+  // quotes exist, land on Open instead of an empty list. Later bucket
+  // choices are left alone.
+  const landingBucketChecked = useRef(false);
+  useEffect(() => {
+    if (landingBucketChecked.current || loading) return;
+    landingBucketChecked.current = true;
+    if (bucket === "in_play" && counts.in_play === 0 && counts.all > 0 && !search) setBucket("all");
+  }, [loading, bucket, counts, search]);
   const tileCounts = useMemo(() => countByBucket(tileRows), [tileRows]);
   // Phase 18 #8: revenue-by-bucket chip. Sales asks "how much do we
   // have stuck in stale" and "what's the in-play pipeline worth";
@@ -1653,7 +1662,7 @@ function AdminQuotesInner() {
             variant="hero"
             title="Quotes"
             icon={Banknote}
-            subtitle="Build and price quotes, send the public link, then chase with reminders until the client accepts or declines. Accepted quotes convert to orders."
+            subtitle="Create and send quotes, track client replies and follow up on pending decisions."
             meta={
               !loading && !loadError ? (
                 <>
@@ -1760,12 +1769,9 @@ function AdminQuotesInner() {
           <PageWorkbench />
 
           {hasMultipleBranches && (
-            <PortalCard className="mb-6 border-brand-primary/20 bg-brand-primary/[0.04]">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Quotes region</p>
-                  <p className="text-xs text-slate-500">Choose a branch to review, or show every region.</p>
-                </div>
+            <PortalCard className="mb-4 py-2.5">
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-sm font-semibold text-slate-700">Region</p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -2091,15 +2097,10 @@ function AdminQuotesInner() {
           {/* Quick-mail banner mirrors the Clients CRM pattern: explains why
               the "Compose" buttons open Gmail / Outlook / default mail rather
               than firing through a server. Personal mail, not bulk. */}
-          <div className="mb-4 flex items-start gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/10 px-4 py-3">
-            <Mail className="w-5 h-5 text-brand-primary flex-shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium text-slate-900">Personal follow-ups or direct delivery.</p>
-              <p className="text-slate-600 mt-0.5">
-                The draft composer opens Gmail / Outlook / your default mail app for manual review. Use <span className="font-medium">Send directly</span> when the message should go through your company&apos;s configured email sender.
-              </p>
-            </div>
-          </div>
+          <p className="mb-3 flex items-center gap-1.5 text-xs text-slate-500">
+            <Mail className="h-3.5 w-3.5 shrink-0" />
+            Drafts open in your own mail app; use <span className="font-medium">Send directly</span> to send from your company sender.
+          </p>
 
           {/* (Search moved into the toolbar card above.) */}
 
@@ -2173,6 +2174,11 @@ function AdminQuotesInner() {
                   <Search className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-slate-900 mb-2">No quotes in this view</h3>
                   <p className="text-slate-600">Try a different filter or clear the search.</p>
+                  {bucket !== "all" && counts.all > 0 && (
+                    <Button variant="outline" className="mt-4" onClick={() => setBucket("all")}>
+                      Show open quotes ({counts.all})
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -2513,34 +2519,19 @@ function AdminQuotesInner() {
                             </div>
                           )}
 
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="text-slate-600">
-                              {Array.isArray(quote.menu_items) ? quote.menu_items.length : 0} menu items
-                            </span>
-                            <span className="text-slate-600">
-                              {Array.isArray(quote.equipment_items) ? quote.equipment_items.length : 0} equipment items
-                            </span>
-                          </div>
-
-                          <div className="space-y-2 mt-4">
-                            <div className="flex justify-between text-sm">
-                              {/* Null-guard: legacy rows can carry a null
-                                  subtotal; .toFixed on null crashed the
-                                  whole list render. Label says just
-                                  "VAT" - the rate is per-tenant, the old
-                                  hard-coded "(15%)" lied on non-15%
-                                  tenants. */}
-                              <span className="text-slate-600">Subtotal</span>
-                              <span className="font-medium">{formatQuoteMoney(quote.subtotal ?? 0, quote.currency, tenantCurrency.code)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-600">VAT</span>
-                              <span className="font-medium">{formatQuoteMoney(quote.tax ?? 0, quote.currency, tenantCurrency.code)}</span>
-                            </div>
-                            <div className="h-px bg-slate-200" />
-                            <div className="flex justify-between font-bold">
-                              <span>Total</span>
-                              <span className="text-brand-primary">{formatQuoteMoney(quote.total ?? 0, quote.currency, tenantCurrency.code)}</span>
+                          {/* One summary line: item counts on the left, the quote's
+                              own subtotal / VAT / total on the right. Null-guarded
+                              because legacy rows can carry null money fields. */}
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-slate-100 pt-3 text-sm">
+                              <span className="text-slate-600">
+                                {Array.isArray(quote.menu_items) ? quote.menu_items.length : 0} menu items · {Array.isArray(quote.equipment_items) ? quote.equipment_items.length : 0} equipment items
+                              </span>
+                              <span className="flex flex-wrap items-center gap-x-3 text-slate-600 tabular-nums">
+                                <span>Subtotal <span className="font-medium text-slate-900">{formatQuoteMoney(quote.subtotal ?? 0, quote.currency, tenantCurrency.code)}</span></span>
+                                <span>VAT <span className="font-medium text-slate-900">{formatQuoteMoney(quote.tax ?? 0, quote.currency, tenantCurrency.code)}</span></span>
+                                <span className="font-bold text-slate-900">Total <span className="text-brand-primary">{formatQuoteMoney(quote.total ?? 0, quote.currency, tenantCurrency.code)}</span></span>
+                              </span>
                             </div>
                             {/* Money-consistency guard: the headline
                                 figure above uses the linked order's

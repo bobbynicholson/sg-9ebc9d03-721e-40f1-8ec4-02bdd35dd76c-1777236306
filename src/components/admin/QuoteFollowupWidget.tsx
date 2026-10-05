@@ -88,15 +88,16 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
   if (!loading && quotes.length === 0) return null;
 
   return (
-    <Card className="mb-6 border-amber-200 bg-amber-50/40">
+    <Card collapsible defaultOpen={false} collapseLabel="Quotes to chase" className="mb-6 border-amber-200 bg-amber-50/40">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               <Clock className="w-4 h-4 text-amber-600" />
               Quotes to chase
+              {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${quotes.length} items`}>{quotes.length}</span>}
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="line-clamp-1 text-xs">
               In-play quotes sent more than 3 days ago without a reply. Oldest first.
             </CardDescription>
           </div>

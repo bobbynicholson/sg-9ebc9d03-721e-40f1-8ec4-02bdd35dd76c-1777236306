@@ -180,7 +180,7 @@ function SubscriptionPlanPicker({ expiredAccess }: { expiredAccess: boolean }) {
             );
           })}
           {showPayfastTestPlan && (
-            <Card className="flex h-full flex-col border-dashed border-amber-400 bg-amber-50/40">
+            <Card collapsible defaultOpen={false} collapseLabel="PayFast Flow Test" className="flex h-full flex-col border-dashed border-amber-400 bg-amber-50/40">
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle>PayFast Flow Test</CardTitle>
@@ -674,7 +674,7 @@ function SubscriptionPage() {
               <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-950">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  Access stays suspended until PayFast confirms payment. If checkout is cancelled or fails, you can retry here.
+                  Access stays suspended until the payment provider confirms payment. If checkout is cancelled or fails, you can retry here.
                 </AlertDescription>
               </Alert>
             )}
@@ -775,7 +775,7 @@ function SubscriptionPage() {
               <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-950">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  Access stays suspended until PayFast confirms payment. If checkout is cancelled or fails, you can retry here.
+                  Access stays suspended until the payment provider confirms payment. If checkout is cancelled or fails, you can retry here.
                 </AlertDescription>
               </Alert>
               <SubscriptionPlanPicker expiredAccess />
@@ -810,6 +810,30 @@ function SubscriptionPage() {
                   </div>
                   <Button variant="outline" onClick={handleReactivate} className="shrink-0">
                     Reactivate Subscription
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {(subscription as any).payment_provider === "yoco" && !subscription.cancel_at_period_end && subscription.status !== "cancelled" && (
+            <Alert className={`mb-6 border-slate-200 border-l-4 bg-white dark:border-slate-800 dark:bg-slate-900 ${subscription.status === "active" ? "border-l-brand-primary" : "border-l-rose-500"}`}>
+              <Info className="h-5 w-5 text-brand-primary" />
+              <AlertDescription className="text-slate-700 dark:text-slate-300">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-semibold mb-1">{subscription.status === "active" ? "Prepaid with Yoco" : "Yoco renewal overdue"}</p>
+                    <p className="text-sm">
+                      {subscription.status === "active"
+                        ? `Paid until ${formatDate(subscription.current_period_end)}. Yoco cannot charge a saved card, so renew before then - renewing early adds a full period on top.`
+                        : `Your paid period ended on ${formatDate(subscription.current_period_end)}. Renew now to keep access.`}
+                    </p>
+                  </div>
+                  <Button
+                    className="shrink-0"
+                    onClick={() => router.push(withSlug(`/subscription/checkout?plan=${encodeURIComponent(String(subscription.plan_id || ""))}&cycle=${subscription.billing_cycle === "yearly" ? "annual" : "monthly"}&provider=yoco`))}
+                  >
+                    Renew with Yoco
                   </Button>
                 </div>
               </AlertDescription>
@@ -880,13 +904,14 @@ function SubscriptionPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card collapsible defaultOpen={false} collapseLabel="Usage This Quarter">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
                   Usage This Quarter
                   <InfoTooltip content={"How many active clients and orders you have used this quarter, compared to your plan's cap.\n\nUseful when deciding whether to upgrade."} />
                 </CardTitle>
+<CardDescription>Company usage compared with the limits of your subscription.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -927,7 +952,7 @@ function SubscriptionPage() {
             </Card>
           </div>
 
-          <Card className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="Billing History" className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
@@ -973,7 +998,7 @@ function SubscriptionPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-rose-400 dark:border-slate-800 dark:border-l-rose-400">
+          <Card collapsible defaultOpen={false} collapseLabel="Danger Zone" className="border-l-4 border-l-rose-400 dark:border-slate-800 dark:border-l-rose-400">
             <CardHeader>
               <CardTitle className="text-rose-900">Danger Zone</CardTitle>
               <CardDescription>Irreversible actions for your subscription and account</CardDescription>

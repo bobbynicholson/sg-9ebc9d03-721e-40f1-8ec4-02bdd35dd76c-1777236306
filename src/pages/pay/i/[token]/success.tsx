@@ -50,6 +50,7 @@ export default function InvoicePaymentSuccessPage() {
             body: JSON.stringify({ public_token: token, payment_attempt_id: paymentAttemptId }),
           });
           const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error("Payment status unavailable");
           if (cancelled) return;
           if (["succeeded", "failed", "expired"].includes(result?.status)) {
             setPaymentState(result.status);
@@ -104,7 +105,7 @@ export default function InvoicePaymentSuccessPage() {
       applyBrandingToDOM(row);
       loadBrandFonts(row);
       setCompanyName(company.company_name);
-    })();
+    })().catch(() => { /* Optional branding must not interrupt payment confirmation. */ });
     return () => { cancelled = true; };
   }, [token]);
 

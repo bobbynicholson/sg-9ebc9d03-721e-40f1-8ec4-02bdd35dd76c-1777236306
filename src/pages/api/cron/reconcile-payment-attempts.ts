@@ -8,10 +8,9 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { getCheckoutGatewayCredentials } from "@/lib/checkoutGatewayCredentials";
 import { paymentGatewayService } from "@/services/paymentGatewayService";
 import { transitionPaymentAttempt, touchPaymentAttempt } from "@/services/paymentAttemptService";
-import { settleTenantGatewayPayment } from "@/lib/tenantGatewaySettlement";
+import { checkStripeAttemptWithProvider } from "@/lib/paymentRecovery";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { notifyPaymentAttemptFailed } from "@/services/payments/notifyPaymentAttemptFailed";
-import Stripe from "stripe";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -75,27 +74,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (configured?.gateway.company_id === attempt.company_id && configured.gateway.provider === attempt.provider) {
         const creds = configured?.credentials || {};
         if (attempt.provider === "stripe" && creds.secretKey) {
-          const stripe = new Stripe(creds.secretKey, { timeout: 10000, maxNetworkRetries: 0, apiVersion: "2024-12-18.acacia" as Stripe.LatestApiVersion });
-          const session = await stripe.checkout.sessions.retrieve(attempt.provider_session_id);
-          providerStatus = `${session.status || "unknown"}:${session.payment_status || "unknown"}`;
-          providerPaid = session.payment_status === "paid";
-          providerTerminalUnpaid = session.status === "expired" && session.payment_status === "unpaid";
-          if (providerPaid) {
-            const intentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
-            if (!intentId || session.id !== attempt.provider_session_id ||
-                session.metadata?.paymentAttemptId !== String(attempt.metadata?.paymentAttemptId || attempt.id) ||
-                session.metadata?.companyId !== attempt.company_id ||
-                Number(session.amount_total) !== Math.round(Number(attempt.amount) * 100)) {
-              throw new Error("Stripe session does not match saved checkout");
-            }
-            const intent = await stripe.paymentIntents.retrieve(intentId);
-            if (intent.status !== "succeeded") throw new Error("Stripe paid session has no successful payment intent");
-            await settleTenantGatewayPayment({ admin: sb, provider: "stripe", transactionId: intent.id,
-              companyId: attempt.company_id, orderId: attempt.payment_type === "invoice" ? attempt.invoice_id : attempt.order_id,
-              paymentType: attempt.payment_type, invoiceId: attempt.invoice_id, paymentAttempt: attempt,
-              amount: intent.amount_received / 100, currency: intent.currency });
-            settled = true; recovered += 1;
-          }
+          const checked = await checkStripeAttemptWithProvider(sb, attempt, creds);
+          providerStatus = checked.providerStatus;
+          providerPaid = checked.paid;
+          providerTerminalUnpaid = checked.terminalUnpaid;
+          if (checked.settled) { settled = true; recovered += 1; }
         } else if (attempt.provider === "yoco" && creds.secretKey) {
           // Checkout keys cannot query the separate Yoco business Payments
           // API. No GET checkout endpoint is documented for this API. Keep

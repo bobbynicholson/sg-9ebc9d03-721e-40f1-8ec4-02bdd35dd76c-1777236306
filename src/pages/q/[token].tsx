@@ -53,6 +53,7 @@ import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { toLocalISO } from "@/lib/localDate";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
+import { QuoteProgress } from "@/components/quotes/QuoteProgress";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -385,9 +386,29 @@ export default function PublicQuotePage() {
     setJustAccepted(true);
     setAcceptOpen(false);
     if (quote) {
-      setQuote({ ...quote, accepted_at: new Date().toISOString(), status: "accepted" });
+      setQuote({ ...quote, accepted_at: new Date().toISOString(), status: "accepted", converted_to_order_id: res.orderId || quote.converted_to_order_id });
     }
   };
+
+  const [acceptedOrderUrl, setAcceptedOrderUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!token || !justAccepted || !quote?.converted_to_order_id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/public/quotes/${encodeURIComponent(token)}/order-link`, { method: "POST" });
+        const result = await response.json().catch(() => ({}));
+        if (!cancelled && response.ok && result.converted && result.url) setAcceptedOrderUrl(result.url);
+      } catch { /* The saved acceptance remains visible; reloading retries the booking link. */ }
+    })();
+    return () => { cancelled = true; };
+  }, [token, justAccepted, quote?.converted_to_order_id]);
+
+  useEffect(() => {
+    if (!acceptedOrderUrl || router.query.stay === "1") return;
+    const timer = window.setTimeout(() => { void router.replace(acceptedOrderUrl); }, 4500);
+    return () => window.clearTimeout(timer);
+  }, [acceptedOrderUrl, router, router.query.stay]);
 
   const handleSubmitChanges = async () => {
     if (!token) return;
@@ -798,6 +819,21 @@ export default function PublicQuotePage() {
             </div>
           </div>
 
+          {/* Where this quote is: Prepared -> Sent -> Viewed -> Accepted -> Booked. */}
+          <Card className="no-print mb-4 border border-stone-200 shadow-sm">
+            <CardContent className="px-4 py-5 sm:px-6">
+              <QuoteProgress
+                audience="client"
+                status={quote.status}
+                createdAt={(quote as any).created_at}
+                sentAt={(quote as any).sent_at}
+                viewedAt={(quote as any).viewed_at}
+                acceptedAt={quote.accepted_at}
+                booked={!!(quote as any).converted_to_order_id}
+              />
+            </CardContent>
+          </Card>
+
           {/* EVENT DETAILS - icon tiles so the who / when / how many /
               where scan in one glance. */}
           <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none">
@@ -1131,11 +1167,13 @@ export default function PublicQuotePage() {
                   <div>
                     <h2 className="text-xl sm:text-2xl font-serif font-bold text-brand-primary">
                       {justAccepted
-                        ? `Thanks${acceptName ? `, ${acceptName.split(" ")[0]}` : ""} - you're booked in`
+                        ? `Thanks${acceptName ? `, ${acceptName.split(" ")[0]}` : ""} - your quote is accepted`
                         : "Quote accepted"}
                     </h2>
                     <p className="text-sm text-brand-primary mt-1.5 max-w-md mx-auto">
-                      {companyName} has been notified. Here's what happens from here.
+                      {justAccepted && !quote.converted_to_order_id
+                        ? `Your acceptance is saved. ${companyName} is preparing your booking and payment details. Refresh shortly to check again.`
+                        : `${companyName} has been notified. Your booking still needs the agreed payment to be confirmed.`}
                     </p>
                   </div>
 
@@ -1176,6 +1214,11 @@ export default function PublicQuotePage() {
                   </ol>
 
                   <div className="pt-2 border-t border-brand-primary/20 flex flex-wrap items-center justify-center gap-2">
+                    {justAccepted && (
+                      <Button size="sm" onClick={() => acceptedOrderUrl ? void router.push(acceptedOrderUrl) : router.reload()}>
+                        {acceptedOrderUrl ? "View your booking and payment" : "Refresh booking and payment"}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

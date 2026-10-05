@@ -454,7 +454,7 @@ function OfferingPage() {
             variant="hero"
             title="Offering"
             icon={Sparkles}
-            subtitle="Snapshot of what you sell. Menu items and equipment for hire in one view so you can spot gaps in pricing or photos before they hit a quote."
+            subtitle="Manage menu and equipment offerings and review what clients request."
             meta={
               !loading && !error ? (
                 <>
@@ -843,7 +843,7 @@ function OfferingPage() {
               times in the window. Cross-sell intel - "clients who picked
               X also picked Y". Hidden when no qualifying pairs exist. */}
           {!loading && bundlePairs.length > 0 && (
-            <Card className="mb-6">
+            <Card collapsible defaultOpen={false} collapseLabel="Often ordered together" className="mb-6">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-slate-600" />
@@ -887,7 +887,7 @@ function OfferingPage() {
           )}
 
           {/* Recently quoted strip */}
-          <Card className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="Recently quoted" className="mb-6">
             <CardHeader>
               <CardTitle className="text-lg">Recently quoted ({period} days)</CardTitle>
               <p className="text-xs text-slate-600 mt-0.5">What clients accepted onto orders most recently.</p>
@@ -934,11 +934,12 @@ function OfferingPage() {
               the operator should review or retire. Far more actionable
               than "recently quoted" for catalogue hygiene. */}
           {!loading && neverQuoted.length > 0 && (
-            <Card>
+            <Card collapsible defaultOpen={false} collapseLabel="Not quoted items">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                   Not quoted in {period} days
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">{neverQuoted.length}</span>
                 </CardTitle>
                 <p className="text-xs text-slate-600 mt-0.5">
                   Items on the catalogue that nobody's ordered. Worth a review - update the photo, drop the price, or retire.

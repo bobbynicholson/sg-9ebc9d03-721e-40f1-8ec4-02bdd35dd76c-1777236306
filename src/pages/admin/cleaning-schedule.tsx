@@ -316,7 +316,7 @@ function CleaningScheduleGrid() {
             variant="hero"
             title="Cleaning shift roster"
             icon={Sparkles}
-            subtitle="Manager view for staff shifts, duty coverage, and handover workload."
+            subtitle="Plan cleaning shifts and check coverage and recorded hours."
             meta={
               !loading && !loadError ? (
                 <>

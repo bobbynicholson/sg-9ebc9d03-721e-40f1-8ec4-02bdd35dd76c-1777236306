@@ -630,7 +630,7 @@ function EmailSettingsPage() {
               </span>
             }
             icon={Mail}
-            subtitle="You're already set up to send. Verify your own domain below for full branding, or just edit your sender name and address."
+            subtitle="Set your sender identity, verify your domain and choose automatic client emails."
             meta={
               !loading && !loadError ? (
                 <>
@@ -806,7 +806,7 @@ function EmailSettingsPage() {
           </Card>
 
           {/* Resend domain verification - optional upgrade path */}
-          <Card className="mb-6 bg-gradient-to-br from-white to-slate-50/40">
+          <Card collapsible defaultOpen={false} collapseLabel="Use your own sending domain" className="mb-6 bg-gradient-to-br from-white to-slate-50/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-slate-600" />
@@ -851,7 +851,7 @@ function EmailSettingsPage() {
               advanced. They get their own dedicated section near the
               top with the send-test affordance attached so the
               operator can verify a change without scrolling. */}
-          <Card className="mb-6">
+          <Card collapsible defaultOpen={true} collapseLabel="Sender identity" className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="w-5 h-5 text-slate-600" />
@@ -1120,7 +1120,7 @@ function EmailSettingsPage() {
               operator's mental model better. The old title described
               the mechanism (attach a link); the new one describes the
               decision (when do these emails fire). */}
-          <Card className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="When to email clients automatically" className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-slate-600" />
@@ -1207,7 +1207,7 @@ function EmailSettingsPage() {
           </Card>
 
           {/* Mailchimp integration */}
-          <Card className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="Mailchimp (bulk campaigns)" className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Inbox className="w-5 h-5 text-brand-primary" />

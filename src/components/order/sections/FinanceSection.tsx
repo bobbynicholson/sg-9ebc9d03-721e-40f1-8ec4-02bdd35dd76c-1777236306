@@ -20,6 +20,8 @@ import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
+  /** Rendered in the narrow right-hand panel on desktop. */
+  inSidePanel?: boolean;
   orderId: string;
   companyId: string;
   defaultOpen?: boolean;
@@ -55,7 +57,7 @@ interface Payment {
 
 const fmtZAR = new Intl.NumberFormat("en-ZA", { style: "currency", currency: "ZAR" });
 
-export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, highlight }: Props) {
+export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, highlight, inSidePanel = false }: Props) {
   const [money, setMoney] = useState<OrderMoney | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoice, setInvoice] = useState<InvoiceSendDialogInvoice | null>(null);
@@ -268,7 +270,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
         <SectionSkeleton rows={4} variant="tiles" />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3 ${inSidePanel ? "lg:grid-cols-2" : ""}`}>
             <div className="rounded-md border p-3">
               <p className="text-xs text-slate-500 uppercase tracking-wider">Subtotal</p>
               <p className="text-sm font-semibold text-slate-900 tabular-nums mt-0.5">{fmtZAR.format(Number(money?.subtotal || 0))}</p>
@@ -330,7 +332,7 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
           )}
 
           {outstanding > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
+            <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3 ${inSidePanel ? "lg:flex-col lg:items-stretch" : ""}`}>
               <div>
                 <p className="text-sm font-semibold text-slate-900">Request the remaining payment</p>
                 <p className="text-xs text-slate-600 mt-0.5">

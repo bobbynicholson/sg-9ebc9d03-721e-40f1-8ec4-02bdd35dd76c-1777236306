@@ -11,12 +11,12 @@
  *   it back to the section's smart default on the next page load. The
  *   storageKey prop is kept for backwards compatibility but unused.
  * - `defaultOpen` controls the section's open state on every mount.
- * - When a section contains the active route, the section auto-expands
- *   so the highlighted item is always visible.
+ * - The active route opens its group initially. A user's explicit toggle
+ *   wins until the parent resets the group on a pathname change.
  * - Sidebar-collapsed state (the icon-only mode) hides section headers
  *   entirely and renders items flat - no accordion, just tooltips.
  */
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,8 +30,7 @@ interface CollapsibleNavSectionProps {
   /** When true, render flat with no header / no accordion control. Used
    *  when the parent sidebar is in icon-only collapsed mode. */
   flatMode?: boolean;
-  /** When true, this section contains the currently active route - the
-   *  section will auto-expand even if the user previously closed it. */
+  /** Open the active route's group initially; explicit toggles still win. */
   containsActiveRoute?: boolean;
   /** Brand-painted sidebars need light section headers on top of the
    *  tenant gradient instead of the neutral slate labels. */
@@ -42,7 +41,7 @@ interface CollapsibleNavSectionProps {
 export function CollapsibleNavSection({
   title,
   storageKey: _storageKey,
-  defaultOpen = true,
+  defaultOpen = false,
   flatMode = false,
   containsActiveRoute = false,
   brandMode = false,
@@ -53,11 +52,10 @@ export function CollapsibleNavSection({
   // In-memory only. Each mount starts at the section's defaultOpen state;
   // we don't persist the user's manual toggles. This is intentional so
   // navigating between pages always resets the menu to its smart defaults.
-  const [userOpen, setUserOpen] = useState<boolean>(defaultOpen);
-
-  // If the active route lives inside this section, force-expand it so the
-  // user can always see where they are.
-  const open = containsActiveRoute ? true : userOpen;
+  const bodyId = useId();
+  const [userOpen, setUserOpen] = useState<boolean | null>(null);
+  // The active route supplies the initial state; explicit user toggles win.
+  const open = userOpen ?? (containsActiveRoute || defaultOpen);
 
   if (flatMode) {
     return <div className="space-y-1">{children}</div>;
@@ -67,14 +65,15 @@ export function CollapsibleNavSection({
     <div>
       <button
         type="button"
-        onClick={() => setUserOpen((v) => !v)}
+        onClick={() => setUserOpen(!open)}
         className={cn(
-          "w-full flex items-center justify-between mt-3 mb-1 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+          "w-full min-h-10 flex items-center justify-between mt-2 mb-1 rounded-lg px-2.5 py-2 text-[11px] font-semibold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current",
           brandMode
             ? "text-white/65 hover:text-white"
             : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
         )}
         aria-expanded={open}
+        aria-controls={bodyId}
       >
         <span className="truncate">{title}</span>
         <ChevronDown
@@ -85,13 +84,14 @@ export function CollapsibleNavSection({
           )}
         />
       </button>
-      {/* Animated open/close. We keep the items in the DOM when closed
-          so layout doesn't jank, just hide them with CSS so the accordion
-          is fast and screen-readers can still find them when opened. */}
+      {/* Keep links mounted, but remove closed groups from keyboard focus
+          and the accessibility tree. */}
       <div
+        id={bodyId}
+        hidden={!open}
         className={cn(
           "space-y-1 overflow-hidden transition-all duration-200",
-          open ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0 pointer-events-none",
+          !open && "hidden",
         )}
       >
         {children}

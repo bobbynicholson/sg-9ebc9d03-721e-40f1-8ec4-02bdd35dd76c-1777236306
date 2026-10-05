@@ -373,7 +373,7 @@ function TaxPurchasesPage() {
             variant="hero"
             title="Tax overview"
             icon={Receipt}
-            subtitle="Read-only view of your deductible spend for the accountant. Snapping slips, marking lines and editing the log all happen on the Shopping dashboard."
+            subtitle="Review recorded deductible purchases for your accountant."
             meta={
               !loading && !loadError ? (
                 <>
@@ -533,20 +533,13 @@ function TaxPurchasesPage() {
             )}
 
             {/* WHERE-TO-EDIT BANNER */}
-            <Card className="bg-brand-primary/10 mb-4">
-              <CardContent className="py-3 px-4 flex items-center gap-3 flex-wrap">
-                <ShoppingCart className="w-5 h-5 text-brand-primary shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-brand-primary">All edits happen on the Shopping dashboard</p>
-                  <p className="text-xs text-brand-primary/80">
-                    Add slips, mark lines deductible, rescan with AI and intake stock all in one place. This page is read-only on purpose.
-                  </p>
-                </div>
-                <Link href={withSlug("/admin/shopping?tab=receipts")} className="text-brand-primary hover:text-brand-primary inline-flex items-center gap-1 text-xs font-semibold">
-                  Go to receipts tab <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
-              </CardContent>
-            </Card>
+            <p className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+              <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
+              This page is read-only. Add and edit slips on{" "}
+              <Link href={withSlug("/admin/shopping?tab=receipts")} className="inline-flex items-center gap-1 font-semibold text-brand-primary hover:underline">
+                Shopping receipts <ExternalLink className="h-3 w-3" />
+              </Link>
+            </p>
 
             {/* SUMMARY STRIP */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-4">

@@ -19,9 +19,12 @@ describe("chatbot section anchors", () => {
     indexChatPageSections();
     const target = document.getElementById("chat-section-payment-history") as HTMLElement;
     target.scrollIntoView = jest.fn();
+    // The scroll runs on the next animation frame so layout has settled.
+    const raf = jest.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => { cb(0); return 0; });
 
     expect(scrollToChatHash()).toBe(true);
     expect(target.scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    raf.mockRestore();
   });
 
   it("returns false until a delayed section has mounted", () => {

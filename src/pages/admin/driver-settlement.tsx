@@ -726,7 +726,7 @@ function DriverSettlementPage() {
             variant="hero"
             title="Driver settlement"
             icon={Wallet}
-            subtitle="Per-driver pay summary. Hourly, round-trip kilometres, callout fees, and the total owed for the period. Mark each driver as paid once the money's out."
+            subtitle="Review driver pay for the selected period and record completed payouts."
             meta={
               !loadingDrivers && !driversError && totals.roster > 0 ? (
                 <>
@@ -1517,10 +1517,10 @@ function FragmentRows({
           <td colSpan={7} className="px-4 py-3 text-rose-500 italic">Failed to load</td>
         ) : (
           <>
-            <td className="px-4 py-3 text-right tabular-nums">{t.hours_total.toFixed(2)}h</td>
-            <td className="px-4 py-3 text-right tabular-nums">{formatR(t.hourly_pay)}</td>
-            <td className="px-4 py-3 text-right tabular-nums">{t.distance_total_km.toFixed(1)} km</td>
-            <td className="px-4 py-3 text-right tabular-nums">{formatR(t.distance_pay)}</td>
+            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{t.hours_total.toFixed(2)}h</td>
+            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{formatR(t.hourly_pay)}</td>
+            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{t.distance_total_km.toFixed(1)} km</td>
+            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{formatR(t.distance_pay)}</td>
             {/* Data-honesty fix: the bulk totals path drops the per-
                 delivery array (deliveries always []), so this cell used
                 to read 0 next to a non-zero Callout pay - a visible
@@ -1537,8 +1537,8 @@ function FragmentRows({
                   ? 0
                   : "-"}
             </td>
-            <td className="px-4 py-3 text-right tabular-nums">{formatR(t.callout_pay)}</td>
-            <td className="px-4 py-3 text-right tabular-nums font-semibold text-brand-primary">{formatR(t.grand_total)}</td>
+            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">{formatR(t.callout_pay)}</td>
+            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold text-brand-primary">{formatR(t.grand_total)}</td>
           </>
         )}
         {/* DRV-B settlement status column. Paid = green chip with

@@ -418,7 +418,7 @@ function EmbedFormCustomiser() {
                     {readiness.failingRecommended} recommended
                   </Badge>
                 ) : (
-                  <Badge className="bg-brand-primary/15 text-brand-primary border border-brand-primary/20 gap-1">
+                  <Badge className="bg-emerald-50 text-emerald-800 border border-emerald-200 gap-1">
                     <CheckCircle2 className="w-3 h-3" />
                     Ready to embed
                   </Badge>

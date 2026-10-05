@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -740,7 +740,7 @@ function WhiteLabelPage() {
               </span>
             }
             icon={Palette}
-            subtitle="Logo, organisation name, and three brand colours that show on every client surface: portal, public quote pages, public invoices, and outgoing emails."
+            subtitle="Set your company logo and colours for client pages and outgoing emails."
             meta={
               !loading && !loadError ? (
                 <>
@@ -818,13 +818,14 @@ function WhiteLabelPage() {
           <>
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
             <div className="space-y-6">
-              <Card className="overflow-hidden">
+              <Card collapsible defaultOpen={true} collapseLabel="Logo & Organization" className="overflow-hidden">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ImageIcon className="w-5 h-5" />
                     Logo & Organization
                     <InfoTooltip content={"The name and logo your clients will see across every page they land on."} />
                   </CardTitle>
+<CardDescription>The company logo and display name shown on client pages.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -881,13 +882,14 @@ function WhiteLabelPage() {
                 </CardContent>
               </Card>
 
-              <Card className="overflow-hidden">
+              <Card collapsible defaultOpen={false} collapseLabel="Color Palette" className="overflow-hidden">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Palette className="w-5 h-5" />
                     Color Palette
                     <InfoTooltip content={"Three colours, primary, secondary, accent, that flow through buttons, gradients, and highlights across the app."} />
                   </CardTitle>
+<CardDescription>Choose the brand colours used for your company.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* WL-B: click-to-apply palette presets. Each
@@ -1164,12 +1166,13 @@ function WhiteLabelPage() {
             </div>
 
             <div>
-              <Card className="overflow-hidden xl:sticky xl:top-8">
+              <Card collapsible defaultOpen={false} collapseLabel="Live Preview" className="overflow-hidden xl:sticky xl:top-8">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Eye className="w-5 h-5" />
                     Live Preview
                   </CardTitle>
+<CardDescription>Preview the current branding before saving.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">

@@ -427,6 +427,114 @@ export const TEMPLATE_TYPES: ReadonlyArray<TemplateType> = Object.freeze(
  * a known column (key, header, or alias, all case + space tolerant);
  * null otherwise. Used by the upload endpoint to skip AI mapping.
  */
+/**
+ * Column names used by accounting-package customer exports (Wave, Xero,
+ * QuickBooks, Sage) for the clients import, keyed by tidied header.
+ * Most land on a client column; first/last name and the delivery/contact
+ * extras land on import-only helper keys that composeImportedClient()
+ * folds into client_name and notes during preview. Without these a Wave
+ * export mapped no name column, so every row failed "Client name is
+ * required" and nothing imported.
+ */
+const CLIENT_EXPORT_ALIASES: Record<string, string> = {
+  company: "client_name", companyname: "client_name", businessname: "client_name",
+  displayname: "client_name", organisation: "client_name", organization: "client_name",
+  firstname: "first_name", givenname: "first_name", contactfirstname: "first_name",
+  lastname: "last_name", surname: "last_name", familyname: "last_name", contactlastname: "last_name",
+  billingaddress1: "billing_address_line1", addressline1: "billing_address_line1", address1: "billing_address_line1",
+  streetaddress: "billing_address_line1", postaladdress1: "billing_address_line1",
+  billingaddress2: "billing_address_line2", addressline2: "billing_address_line2", address2: "billing_address_line2",
+  postaladdress2: "billing_address_line2",
+  billingcity: "billing_city", billingtown: "billing_city",
+  billingpostalcode: "billing_postal_code", billingpostcode: "billing_postal_code", billingzip: "billing_postal_code",
+  vatno: "tax_number", vatregistration: "tax_number", vatregistrationnumber: "tax_number", taxnumber: "tax_number",
+  mobilephone: "mobile_number", cellphonenumber: "mobile_number",
+  shippingaddress1: "delivery_address_1", shippingaddress2: "delivery_address_2",
+  shippingcity: "delivery_city", shippingprovince: "delivery_province", shippingpostalcode: "delivery_postal_code",
+  shiptocontact: "delivery_contact", shiptophone: "delivery_phone",
+  deliveryinstructions: "delivery_instructions", website: "website", fax: "fax",
+};
+/** Export columns we deliberately leave out (ids, balances, timestamps...). */
+const CLIENT_EXPORT_IGNORED = new Set([
+  "id", "tollfree", "currency", "balance", "overdue", "createdat", "updatedat",
+  "billingprovince", "billingcountry", "shippingcountry", "accountnumber",
+]);
+const CLIENT_HELPER_KEYS = [
+  "first_name", "last_name", "delivery_address_1", "delivery_address_2", "delivery_city",
+  "delivery_province", "delivery_postal_code", "delivery_contact", "delivery_phone",
+  "delivery_instructions", "website", "fax",
+] as const;
+
+/**
+ * Fold the import-only helper keys into real client fields: a name from
+ * first + last name when there is no company/name column, and the
+ * contact person, delivery details, website and fax into notes.
+ * Mutates and returns `mapped`; helper keys are removed.
+ */
+export function composeImportedClient(mapped: Record<string, any>): Record<string, any> {
+  const text = (v: unknown) => String(v ?? "").trim();
+  const person = [text(mapped.first_name), text(mapped.last_name)].filter(Boolean).join(" ");
+  const name = text(mapped.client_name);
+  const notes: string[] = [];
+  if (!name && person) mapped.client_name = person;
+  else if (name && person && name.toLowerCase() !== person.toLowerCase()) notes.push(`Contact: ${person}`);
+  const delivery = [mapped.delivery_address_1, mapped.delivery_address_2, mapped.delivery_city,
+    mapped.delivery_province, mapped.delivery_postal_code].map(text).filter(Boolean).join(", ");
+  if (delivery) notes.push(`Delivery address: ${delivery}`);
+  const deliveryContact = [text(mapped.delivery_contact), text(mapped.delivery_phone)].filter(Boolean).join(" ");
+  if (deliveryContact) notes.push(`Delivery contact: ${deliveryContact}`);
+  if (text(mapped.delivery_instructions)) notes.push(`Delivery instructions: ${text(mapped.delivery_instructions)}`);
+  if (text(mapped.website)) notes.push(`Website: ${text(mapped.website)}`);
+  if (text(mapped.fax)) notes.push(`Fax: ${text(mapped.fax)}`);
+  if (notes.length) mapped.notes = [text(mapped.notes), ...notes].filter(Boolean).join("\n");
+  for (const key of CLIENT_HELPER_KEYS) delete mapped[key];
+  return mapped;
+}
+
+const CLIENT_HELPER_DESCRIPTIONS: Record<(typeof CLIENT_HELPER_KEYS)[number], string> = {
+  first_name: "Contact first / given name (combined with last name when there is no company name)",
+  last_name: "Contact last name / surname",
+  delivery_address_1: "Delivery / shipping address line 1",
+  delivery_address_2: "Delivery / shipping address line 2 or suburb",
+  delivery_city: "Delivery / shipping city",
+  delivery_province: "Delivery / shipping province or state",
+  delivery_postal_code: "Delivery / shipping postal code",
+  delivery_contact: "Person to contact at the delivery address",
+  delivery_phone: "Phone number for the delivery contact",
+  delivery_instructions: "Delivery instructions / directions",
+  website: "Company website",
+  fax: "Fax number",
+};
+
+/**
+ * The exact fields the AI column mapper may choose for a target - the
+ * same keys preview and commit consume, so an AI choice can never land
+ * on a field that is silently dropped later. "skip" is added by the
+ * mapper itself.
+ */
+export function aiTargetFieldsFor(type: TemplateType): Array<{ key: string; description: string }> {
+  const def = TEMPLATES[type];
+  const fields = def.columns.map((col) => ({
+    key: col.key,
+    description: [
+      col.header.replace(/\s*\*$/, ""),
+      col.required ? "(required)" : "",
+      col.hint || "",
+      col.aliases?.length ? `also called: ${col.aliases.slice(0, 6).join(", ")}` : "",
+      `e.g. ${col.example}`,
+    ].filter(Boolean).join(" - "),
+  }));
+  if (type === "clients") {
+    fields.push(
+      { key: "client_name", description: "Use for a Company / business name column too (it becomes the client name)" },
+      ...CLIENT_HELPER_KEYS.map((key) => ({ key, description: CLIENT_HELPER_DESCRIPTIONS[key] })),
+    );
+  }
+  // De-duplicate keys, keeping the richer first description.
+  const seen = new Set<string>();
+  return fields.filter((f) => (seen.has(f.key) ? false : (seen.add(f.key), true)));
+}
+
 export function recogniseHeaders(headers: string[]): TemplateDefinition | null {
   const tidy = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, "").replace(/\*$/, "").trim();
   const nonEmpty = headers.filter((h) => h && h.trim().length > 0);
@@ -434,6 +542,10 @@ export function recogniseHeaders(headers: string[]): TemplateDefinition | null {
 
   for (const def of Object.values(TEMPLATES)) {
     const knownTokens = new Set<string>();
+    if (def.type === "clients") {
+      for (const token of Object.keys(CLIENT_EXPORT_ALIASES)) knownTokens.add(token);
+      for (const token of CLIENT_EXPORT_IGNORED) knownTokens.add(token);
+    }
     for (const col of def.columns) {
       knownTokens.add(tidy(col.key));
       knownTokens.add(tidy(col.header));
@@ -464,6 +576,11 @@ export function buildMappingFromTemplate(
     lookup.set(tidy(col.key), col.key);
     lookup.set(tidy(col.header), col.key);
     for (const a of col.aliases || []) lookup.set(tidy(a), col.key);
+  }
+  if (def.type === "clients") {
+    for (const [token, key] of Object.entries(CLIENT_EXPORT_ALIASES)) {
+      if (!lookup.has(token)) lookup.set(token, key);
+    }
   }
   const sheetMapping: Record<string, any> = {
     __schema__: { target: def.targetTable, source: "template-auto-map" },

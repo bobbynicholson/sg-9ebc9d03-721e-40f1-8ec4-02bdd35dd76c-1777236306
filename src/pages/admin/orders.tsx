@@ -996,7 +996,13 @@ function OrderProcessDashboard() {
       // identity has no Supabase session. The remaining list enrichments
       // are non-essential for opening a deep-linked order and would wait
       // on RLS-protected browser queries, so leave them empty locally.
-      if (localDev && tenantSlug) {
+      // Only skip when there really is no browser session. With a real
+      // signed-in local session the enrichment queries work, and skipping
+      // them left every row on "Loading timeline..." forever.
+      const hasBrowserSession = localDev && tenantSlug
+        ? Boolean((await supabase.auth.getSession()).data.session)
+        : true;
+      if (localDev && tenantSlug && !hasBrowserSession) {
         setAutoEmailMap(new Map());
         setTimelinesById(new Map());
         setReadinessById(new Map());
@@ -1954,7 +1960,7 @@ function OrderProcessDashboard() {
               variant="hero"
               title="Orders"
               icon={ShoppingCart}
-              subtitle="Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place."
+              subtitle="Review booked events, check their progress and open an order to manage it."
               meta={
                 <>
                   {!loading && !loadError && (
@@ -1974,12 +1980,6 @@ function OrderProcessDashboard() {
                       region tenants couldn't see which clock was
                       driving the math. Self-hides when no tz is
                       set on companies.timezone. */}
-                  {tenantTimezone && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
-                      <Clock className="h-3 w-3" />
-                      <span className="font-mono">{tenantTimezone}</span>
-                    </span>
-                  )}
                   {/* Phase 11 #8: pending amendment + cancellation
                       request badges. Hidden when both counts are
                       zero so a quiet day stays clean. Each badge

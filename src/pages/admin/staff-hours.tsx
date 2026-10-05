@@ -784,11 +784,11 @@ function StaffHoursPage() {
                     <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm font-medium text-slate-700">No clock-ins in this period</p>
                     <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                      This page only shows live clock-in / clock-out sessions. If your team works off manager-entered shifts on the roster instead, the wage report on{" "}
+                      This page only shows live clock-in / clock-out sessions. If your team works off manager-entered shifts on the roster instead, use the{" "}
                       <Link href={withSlug("/admin/wages")} className="text-blue-600 hover:underline">
-                        /admin/wages
+                        Wages report
                       </Link>
-                      {" "}is the source of truth. You can also{" "}
+                      . You can also{" "}
                       <button
                         type="button"
                         onClick={() => {
@@ -955,7 +955,7 @@ function StaffHoursPage() {
             </TabsContent>
 
             <TabsContent value="ledger" className="space-y-4">
-              <Card>
+              <Card collapsible defaultOpen={false} collapseLabel="Payment History">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                   <div>
                     <CardTitle className="flex items-center gap-1.5">Payment History <InfoTooltip content={"Every staff payment in this period, including the method, hours covered and rate paid."} /></CardTitle>
@@ -1057,7 +1057,7 @@ function StaffHoursPage() {
               what the page WASN'T rather than what it was for.
               Now: clear pointers to the two surfaces this page
               hands off to. */}
-          <Card className="mt-8 border-slate-200 bg-slate-50">
+          <Card collapsible defaultOpen={false} collapseLabel="Where the rest lives" className="mt-8 border-slate-200 bg-slate-50">
             <CardHeader className="pb-3">
               <CardTitle className="text-base text-slate-900">Where the rest lives</CardTitle>
               <CardDescription className="text-slate-600">

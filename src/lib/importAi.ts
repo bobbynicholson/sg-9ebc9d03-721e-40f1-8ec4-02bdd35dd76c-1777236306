@@ -138,6 +138,9 @@ export interface MapColumnsArgs {
   sampleRows: Array<Record<string, any>>;
   /** Which target field set to map against. */
   targetSchema: "clients" | "orders";
+  /** Optional custom field list (key + description). Overrides the
+   *  schema preset; a "skip" entry is added automatically. */
+  targetFields?: Array<{ key: string; description: string }>;
 }
 
 const SYSTEM_PROMPT = `You are an importer assistant for a multi-tenant catering SaaS. Your only job is to match the column headers from a customer-supplied spreadsheet to the target fields the system uses.
@@ -159,8 +162,9 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
   tokens_in: number;
   tokens_out: number;
 }> {
-  const fields =
-    args.targetSchema === "clients" ? CLIENT_TARGET_FIELDS : ORDER_TARGET_FIELDS;
+  const fields = args.targetFields && args.targetFields.length > 0
+    ? [...args.targetFields.filter((f) => f.key !== "skip"), { key: "skip", description: "No matching field; ignore this column." }]
+    : args.targetSchema === "clients" ? CLIENT_TARGET_FIELDS : ORDER_TARGET_FIELDS;
 
   // Trim sample rows so we don't send 50 of them. Three is enough
   // signal for header inference and stays under 1k tokens.
@@ -190,9 +194,11 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
       if (provider === "anthropic") {
         // Cast the SDK call to any: the @anthropic-ai/sdk types tighten
         // tool_choice + content block shapes between minor versions.
-        const response: any = await (client().messages.create as any)({
+        // Output scales with the column count (~60 tokens per mapping) so
+        // wide sheets are not cut off; bounded so one call stays cheap.
+        const mappingParams: any = {
           model: DEFAULT_MODEL,
-          max_tokens: 1024,
+          max_tokens: Math.min(4096, 256 + args.headers.length * 64),
           system: SYSTEM_PROMPT,
           tools: [
             {
@@ -223,7 +229,31 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
           ],
           tool_choice: { type: "tool", name: "return_mapping" },
           messages: [{ role: "user", content: userMessage }],
-        });
+        };
+        // Bounded so a slow provider can't hang the request (serverless limits).
+        const requestOptions = { timeout: 25_000, maxRetries: 1 };
+        let response: any;
+        try {
+          response = await (client().messages.create as any)(mappingParams, requestOptions);
+        } catch (err: any) {
+          // Newer models (Opus 5.5 / Sonnet 5.5 / Fable 5.1) reject forced
+          // tool_choice with a 400. If ANTHROPIC_IMPORT_MODEL points at one,
+          // retry once with auto + an explicit instruction to call the tool.
+          const msg = String(err?.message || "");
+          if (err?.status === 400 && /tool_choice/i.test(msg)) {
+            response = await (client().messages.create as any)({
+              ...mappingParams,
+              tool_choice: { type: "auto" },
+              system: `${SYSTEM_PROMPT}
+- Always answer by calling the return_mapping tool exactly once.`,
+            }, requestOptions);
+          } else {
+            throw err;
+          }
+        }
+        if (response?.stop_reason === "max_tokens") {
+          console.warn("[mapColumnsViaAI] output hit max_tokens; using the partial mapping");
+        }
         tokensIn = response?.usage?.input_tokens ?? 0;
         tokensOut = response?.usage?.output_tokens ?? 0;
         const blocks: any[] = Array.isArray(response?.content) ? response.content : [];

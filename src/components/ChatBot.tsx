@@ -1,9 +1,8 @@
 import { Fragment, useState, useEffect, useRef, type ReactNode } from "react";
-import { MessageSquare, X, Send, Sparkles, User, Bot, ArrowUpRight, ShieldCheck, Loader2 } from "lucide-react";
+import { MessageSquare, X, Send, Sparkles, User, Bot, ArrowUpRight, ShieldCheck, Loader2, Mic, Square } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +11,7 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { useRouter } from "next/router";
 import { beautifyChatResponse, type ChatResponsePayload } from "@/lib/chatbot/responseRenderer";
 import { filterRelevantNavigation } from "@/lib/chatbot/navigation";
+import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 interface NavigationLink {
   ref: string;
@@ -316,7 +316,56 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   const [isTyping, setIsTyping] = useState(false);
   const [workingStep, setWorkingStep] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  // Voice input: speech is written into the box live and added after
+  // anything already typed. It is NOT sent automatically - the person
+  // reviews or corrects the words, then presses Send, so a misheard
+  // word never becomes a wrong question.
+  const voiceBaseRef = useRef("");
+  const speech = useSpeechToText({
+    onInterim: (text) => setInputValue(`${voiceBaseRef.current}${text}`),
+    onFinal: (text) => {
+      setInputValue(`${voiceBaseRef.current}${text}`.trim());
+      // Hand the box back for review: cursor at the end of the text.
+      window.requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      });
+    },
+  });
+  const [voiceSeconds, setVoiceSeconds] = useState(0);
+  useEffect(() => {
+    if (speech.status !== "listening") return;
+    setVoiceSeconds(0);
+    const timer = window.setInterval(() => setVoiceSeconds((n) => n + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [speech.status]);
+  const startVoice = () => {
+    const typed = inputValue.trim();
+    voiceBaseRef.current = typed ? `${typed} ` : "";
+    speech.clearError();
+    speech.start();
+  };
+  /** Discard what was dictated and restore what was typed before. */
+  const cancelVoice = () => {
+    speech.cancel();
+    setInputValue(voiceBaseRef.current.trim());
+  };
+  useEffect(() => {
+    if (!isOpen && speech.listening) cancelVoice();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Auto-size the message box to its content.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    if (speech.listening) el.scrollTop = el.scrollHeight;
+  }, [inputValue, isOpen, speech.listening]);
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const router = useRouter();
@@ -622,7 +671,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
                     </div>
                     <div
                       className={cn(
-                        "max-w-[91%] rounded-[22px] px-4 py-3.5 shadow-sm",
+                        "max-w-[91%] break-words rounded-[22px] px-4 py-3.5 shadow-sm [overflow-wrap:anywhere]",
                         message.role === "user"
                           ? "rounded-tr-md bg-slate-950 text-white shadow-[0_10px_26px_-14px_rgba(15,23,42,0.9)]"
                           : "rounded-tl-md border border-slate-200/90 bg-white text-slate-900 shadow-[0_8px_24px_-18px_rgba(15,23,42,0.55)]"
@@ -790,22 +839,98 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
 
             {/* Input */}
             <CardContent className="border-t border-slate-200/90 bg-white p-4">
+              {speech.listening && (
+                <div role="status" aria-live="polite" className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[12px] text-rose-800">
+                  <span className="flex items-center gap-2">
+                    {speech.status === "listening" ? (
+                      <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-rose-600 motion-reduce:animate-none" />
+                    ) : (
+                      <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" />
+                    )}
+                    {speech.status === "starting"
+                      ? "Starting microphone..."
+                      : speech.status === "finishing"
+                        ? "Finishing..."
+                        : `Listening ${Math.floor(voiceSeconds / 60)}:${String(voiceSeconds % 60).padStart(2, "0")} - tap stop when done`}
+                  </span>
+                  {speech.status !== "finishing" && (
+                    <button type="button" onClick={cancelVoice} className="font-semibold text-rose-700 underline-offset-2 hover:underline">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+                  if (speech.listening) return;
                   handleSendMessage();
                 }}
-                className="flex items-center gap-2 rounded-[18px] border border-slate-200 bg-slate-50 p-1.5 pl-4 shadow-[0_4px_14px_-10px_rgba(15,23,42,0.5)] transition focus-within:border-slate-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-slate-900/[0.04]"
+                className="flex items-end gap-2 rounded-[18px] border border-slate-200 bg-slate-50 p-1.5 pl-4 shadow-[0_4px_14px_-10px_rgba(15,23,42,0.5)] transition focus-within:border-slate-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-slate-900/[0.04]"
               >
-                <Input
+                {/* Grows with the question (up to ~7 lines, then scrolls) so
+                    long or dictated questions stay fully visible. Enter
+                    sends; Shift+Enter adds a new line. */}
+                <textarea
+                  ref={inputRef}
+                  rows={1}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Ask about your workspace..."
-                  className="h-9 flex-1 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape" && speech.listening) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      speech.stop();
+                      return;
+                    }
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      if (inputValue.trim() && !isTyping && !speech.listening) void handleSendMessage();
+                    }
+                  }}
+                  placeholder={speech.status === "starting" ? "Starting microphone..." : speech.listening ? "Speak now..." : "Ask about your workspace..."}
+                  readOnly={speech.listening}
+                  aria-label="Message the assistant"
+                  className="max-h-40 min-h-9 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-0 py-2 text-[13px] leading-5 text-slate-900 placeholder:text-slate-400 focus:outline-none"
                 />
+                {speech.supported && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={isTyping || speech.status === "finishing"}
+                    onClick={() => {
+                      if (speech.listening) speech.stop();
+                      else startVoice();
+                    }}
+                    aria-label={speech.listening ? "Stop listening" : "Speak your question"}
+                    aria-pressed={speech.listening}
+                    title={speech.listening ? "Stop listening (Esc)" : "Speak your question"}
+                    className={cn(
+                      "relative h-9 w-9 shrink-0 rounded-xl p-0 transition",
+                      speech.status === "listening"
+                        ? "bg-rose-600 text-white hover:bg-rose-700"
+                        : speech.listening
+                          ? "bg-slate-200 text-slate-600"
+                          : "text-slate-500 hover:bg-slate-200 hover:text-slate-900",
+                    )}
+                  >
+                    {/* One icon per state: mic = ready, stop square = recording,
+                        spinner = mic opening or final words arriving. */}
+                    {speech.status === "listening" && (
+                      <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-xl bg-rose-500/30 motion-reduce:animate-none" />
+                    )}
+                    {speech.status === "listening" ? (
+                      <Square className="relative h-3.5 w-3.5 fill-current" />
+                    ) : speech.listening ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
                 <Button
                   type="submit"
-                  disabled={!inputValue.trim() || isTyping}
+                  disabled={!inputValue.trim() || isTyping || speech.listening}
                   aria-label="Send message"
                   className="h-9 w-9 shrink-0 rounded-xl bg-slate-950 p-0 text-white shadow-sm transition hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400"
                 >
@@ -815,7 +940,13 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
               <p className="hidden">
                 🚀 AI-powered • Company-specific data
               </p>
-              <p className="mt-2 text-center text-[10px] text-slate-400">Trusted guidance · information for your role</p>
+              {speech.error ? (
+                <p role="alert" className="mt-2 text-center text-[11px] text-rose-600">{speech.error}</p>
+              ) : (
+                <p className="mt-2 text-center text-[10px] text-slate-400">
+                  {speech.listening ? "Check the text after you stop, then press Send" : `Trusted guidance · information for your role${speech.supported ? " · tap the mic to speak" : ""}`}
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

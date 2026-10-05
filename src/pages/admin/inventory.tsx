@@ -994,7 +994,7 @@ function AdminInventory() {
             variant="hero"
             title="Food & Ingredients"
             icon={Package}
-            subtitle="Pantry and chiller stock. Levels per item, low-stock alerts, and what each upcoming event will pull."
+            subtitle="Check stock levels, adjust quantities and review upcoming shortages."
             meta={
               !loading && !loadError ? (
                 <>

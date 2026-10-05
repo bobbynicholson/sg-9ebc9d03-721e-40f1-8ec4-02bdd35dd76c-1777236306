@@ -446,7 +446,7 @@ function ImportPage() {
                 <InfoTooltip content={"Five-step wizard for moving your existing book of business into CateringMS in one go.\n\nUpload, then we map your column headings to our schema. You preview every row before anything is committed, and you have a 24-hour rollback window if anything looks wrong after."} />
               </span>
             }
-            subtitle="Drop a spreadsheet of your existing clients and outstanding orders. We match the columns, normalise the data, show you a preview, then load it."
+            subtitle="Upload a spreadsheet, check the mapping and preview records before importing."
             icon={Wand2}
             meta={
               job ? (

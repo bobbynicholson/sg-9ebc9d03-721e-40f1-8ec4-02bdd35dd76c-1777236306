@@ -1504,7 +1504,7 @@ function InvoicesPageInner() {
           variant="hero"
           title="Invoices"
           icon={FileText}
-          subtitle="Generate, send and track payment on every bill you issue, with EFT claims surfaced up top for bank-statement confirmation."
+          subtitle="Create invoices, review payments and follow up on outstanding balances."
           meta={
             <>
               {!loading && !loadError && (
@@ -1522,12 +1522,6 @@ function InvoicesPageInner() {
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                   <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
                   {statusCounts.overdue} overdue
-                </span>
-              )}
-              {tenantTimezone && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
-                  <Clock className="h-3 w-3" />
-                  <span className="font-mono">{tenantTimezone}</span>
                 </span>
               )}
             </>
@@ -1930,6 +1924,12 @@ function InvoicesPageInner() {
                 3 invoices". */}
             <AdminControlGroup
               label="Advanced filters"
+              collapsible
+              defaultOpen={Boolean(dateFrom || dateTo || amountMin || amountMax || groupByClient)}
+              summary={(() => {
+                const active = [dateFrom, dateTo, amountMin, amountMax, groupByClient].filter(Boolean).length;
+                return active ? `${active} active` : "Dates, amounts, group by client";
+              })()}
               contentClassName="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5"
             >
               <label className="flex min-w-0 flex-col gap-1 text-xs">

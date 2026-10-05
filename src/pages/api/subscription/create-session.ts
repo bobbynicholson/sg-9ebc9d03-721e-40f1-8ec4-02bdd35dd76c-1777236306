@@ -2,8 +2,13 @@
 /**
  * POST /api/subscription/create-session
  *
- * Builds the PayFast SUBSCRIPTION (plan) checkout form SERVER-side and
- * returns the self-submitting HTML, mirroring how order/deposit payments
+ * Starts a plan checkout with the chosen platform provider:
+ *   payfast (default) - self-submitting PayFast subscription form HTML
+ *   stripe            - Stripe Checkout URL for an auto-renewing subscription
+ *   yoco              - Yoco Checkout URL for one prepaid billing period
+ *
+ * For PayFast this builds the SUBSCRIPTION (plan) checkout form SERVER-side
+ * and returns the self-submitting HTML, mirroring how order/deposit payments
  * work (/api/payments/create-session). Doing it here instead of in the
  * browser means:
  *   - the PayFast passphrase stays server-only (never shipped to the
@@ -15,7 +20,7 @@
  * paying US), read from server-only env, with the NEXT_PUBLIC_* vars as a
  * backward-compatible fallback.
  *
- * Returns: { ok: true, html } | { ok: false, error }
+ * Returns: { ok: true, provider, html } | { ok: true, provider, url, checkoutId } | { error }
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
@@ -25,6 +30,18 @@ import { loadPlatformSubscriptionPlan } from "@/lib/platformSubscriptionPlans";
 import { isPayfastTestPlan, isPayfastTestTenant, PAYFAST_TEST_PLAN_AMOUNT_ZAR } from "@/lib/payfastTestPlan";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { publicAppOrigin } from "@/lib/publicAppOrigin";
+import {
+  currentRenewingSubscription,
+  platformBillingProviders,
+  startStripePlanCheckout,
+  startYocoPlanCheckout,
+  type PlatformPlanProvider,
+} from "@/services/platformPlanBilling";
+
+function providerLabel(provider: PlatformPlanProvider) {
+  return provider === "stripe" ? "Stripe" : provider === "yoco" ? "Yoco" : "PayFast";
+}
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -74,6 +91,61 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     if (companyRow.payfast_subscription_token && ["active", "trial", "past_due"].includes(companyRow.subscription_status)) {
       return res.status(409).json({ error: "This company already has recurring billing. Manage the existing subscription before starting another." });
+    }
+
+    const provider: PlatformPlanProvider = body.provider === "stripe" || body.provider === "yoco" ? body.provider : "payfast";
+    if (isTestPlan && provider !== "payfast") {
+      return res.status(400).json({ error: "The R5 test plan is PayFast-only." });
+    }
+    if (!platformBillingProviders()[provider]) {
+      return res.status(400).json({ error: `${providerLabel(provider)} plan billing isn't configured yet. Choose another payment method.` });
+    }
+
+    // Never let one company end up paying two providers for overlapping
+    // periods. A Stripe subscription renews on its own; a Yoco period is
+    // prepaid and can only be extended with another Yoco payment.
+    const renewing = await currentRenewingSubscription(admin, companyId);
+    const liveStripe = renewing.find((row: any) => row.stripe_subscription_id && !row.cancel_at_period_end);
+    if (liveStripe) {
+      return res.status(409).json({ error: "This company already has an auto-renewing Stripe subscription. Cancel it from Billing before starting another." });
+    }
+    const liveYoco = renewing.find((row: any) => row.payment_provider === "yoco" &&
+      new Date(row.current_period_end).getTime() > Date.now());
+    if (liveYoco && provider !== "yoco") {
+      return res.status(409).json({
+        error: `Your prepaid Yoco plan runs until ${new Date(liveYoco.current_period_end).toLocaleDateString("en-ZA")}. Renew with Yoco, or switch provider after that date.`,
+      });
+    }
+
+    if (provider !== "payfast") {
+      const origin = publicAppOrigin({
+        environment: process.env.NODE_ENV,
+        configuredUrl: process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL,
+        vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+        vercelUrl: process.env.VERCEL_URL,
+        requestOrigin: req.headers.origin as string | undefined,
+        requestHost: req.headers.host,
+        forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
+      });
+      const fullName = String((profile as any)?.full_name || "").trim();
+      const checkoutInput = {
+        admin, companyId, userId: user.id, plan,
+        cycle: cycle === "annual" ? "yearly" as const : "monthly" as const,
+        origin, tenantSlug: String((companyRow as any).slug || "").trim(),
+        email: String(body.email || (profile as any)?.email || user.email || "").trim(),
+        name: [body.firstName, body.lastName].filter(Boolean).join(" ").trim() || fullName,
+      };
+      try {
+        const started = provider === "stripe"
+          ? await startStripePlanCheckout(checkoutInput)
+          : await startYocoPlanCheckout(checkoutInput);
+        return res.status(200).json({ ok: true, provider, url: started.url, checkoutId: started.checkoutId });
+      } catch (providerError: any) {
+        console.error(`[subscription/create-session] ${provider} checkout failed:`, providerError);
+        return res.status(502).json({
+          error: `${providerLabel(provider)} could not start the checkout. Nothing was charged - please try again or choose another payment method.`,
+        });
+      }
     }
 
     // Platform PayFast credentials (server-only; never NEXT_PUBLIC for the
@@ -143,7 +215,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         );
     const html = svc.generatePaymentForm(params);
 
-    return res.status(200).json({ ok: true, html });
+    return res.status(200).json({ ok: true, provider: "payfast", html });
   } catch (e: any) {
     console.error("/api/subscription/create-session crashed:", e);
     return res.status(500).json({ error: dbErrorMessage(e) || "Could not start checkout" });

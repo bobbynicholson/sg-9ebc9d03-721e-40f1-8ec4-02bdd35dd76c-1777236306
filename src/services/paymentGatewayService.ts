@@ -290,7 +290,7 @@ export const paymentGatewayService = {
         fields: [
           { key: "secretKey", label: "Secret Key", type: "password", required: true },
           { key: "publicKey", label: "Public Key", type: "text", required: true },
-          { key: "webhookSecret", label: "Webhook Signing Secret", type: "password", required: true },
+          { key: "webhookSecret", label: "Webhook Signing Secret (auto-registered if blank)", type: "password", required: false },
         ],
       },
       {

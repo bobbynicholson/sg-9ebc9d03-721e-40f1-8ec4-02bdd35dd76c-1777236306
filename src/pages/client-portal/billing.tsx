@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, CreditCard, Receipt, Calendar, ArrowUpDown, Wallet } from "lucide-react";
@@ -25,6 +26,7 @@ import { PaymentModal } from "@/components/billing/PaymentModal";
 import { ReceiptDialog } from "@/components/client-portal/ReceiptDialog";
 import { ChatBot } from "@/components/ChatBot";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { getInitialInvoicePaymentAmount, resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 
 interface Invoice {
   id: string;
@@ -34,6 +36,7 @@ interface Invoice {
   invoice_date: string;
   due_date: string;
   amount: number;
+  pay_now_amount: number;
   currency: string;
   status: "pending" | "partial" | "paid" | "overdue" | "failed";
   paid_amount: number;
@@ -92,6 +95,7 @@ function ClientBillingPageInner() {
     user?.id ?? null,
     company?.id ?? null,
   );
+  const clientIdsKey = hookClientIds.join(",");
   const { toast } = useToast();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +111,9 @@ function ClientBillingPageInner() {
   // hand-off can target the same instance.
   const [receiptInvoiceId, setReceiptInvoiceId] = useState<string | null>(null);
   const appliedDeepLinkRef = useRef<string | null>(null);
-  const checkedPaymentReturnRef = useRef<string | null>(null);
+  const [paymentReturn, setPaymentReturn] = useState<{ invoiceId: string; status: string } | null>(null);
+  const returnBlocksPayment = (id: string) => paymentReturn?.invoiceId === id
+    && ["checking", "pending", "refreshing"].includes(paymentReturn.status);
 
   useEffect(() => {
     if (user && !clientIdsLoading) {
@@ -156,6 +162,7 @@ function ClientBillingPageInner() {
   useEffect(() => {
     if (!router.isReady || loading || invoices.length === 0) return;
     const invoiceId =
+      (typeof router.query.invoice_id === "string" && router.query.invoice_id) ||
       (typeof router.query.invoiceId === "string" && router.query.invoiceId) ||
       (typeof router.query.invoice === "string" && router.query.invoice) ||
       "";
@@ -265,7 +272,7 @@ function ClientBillingPageInner() {
       const { data: rows, error } = await supabase
         .from("invoices")
         .select(
-          "id, invoice_number, order_id, invoice_date, due_date, total_amount, amount_paid, balance_due, status, paid_at, invoice_data, public_token, orders:order_id ( order_number, event_date, venue_name, venue_address )",
+          "id, invoice_number, order_id, invoice_date, due_date, total_amount, amount_paid, balance_due, status, paid_at, invoice_data, public_token, currency, orders:order_id ( order_number, event_date, venue_name, venue_address, deposit_amount, deposit_percentage, currency )",
         )
         .eq("company_id", tenantCompanyId)
         .in("client_id", clientIds)
@@ -307,8 +314,8 @@ function ClientBillingPageInner() {
       }
 
       // Map invoice workflow state to the same money-based labels used by
-      // the order and public payment views. A partial payment is visibly
-      // "Deposit Paid", not the misleading generic "Pending".
+      // the order and public payment views. A partial payment stays distinct
+      // from both an unpaid invoice and a fully paid invoice.
       const todayMS = Date.now();
       const mapped: Invoice[] = ((rows as any[]) || []).map((r) => {
         const totalAmount = Number(r.total_amount || 0);
@@ -344,12 +351,22 @@ function ClientBillingPageInner() {
           invoice_date: r.invoice_date,
           due_date: r.due_date,
           amount: displayAmount,
+          pay_now_amount: r.order_id ? getInitialInvoicePaymentAmount({
+            totalAmount, balanceDue: payment.balanceDue, amountPaid: payment.amountPaid,
+            depositPercent: orderEmbed.deposit_percentage ?? 50,
+            firstPaymentAmount: resolveInvoiceFirstPaymentAmount({
+              totalAmount, orderDepositAmount: orderEmbed.deposit_amount,
+              snapshotFirstPaymentAmount: r.invoice_data?.initialPaymentAmount,
+              orderDepositPercent: orderEmbed.deposit_percentage, defaultDepositPercent: 50,
+            }),
+            eventDate: orderEmbed.event_date || r.invoice_data?.eventDate, dueDate: r.due_date,
+          }) : payment.balanceDue,
           paid_amount: payment.amountPaid,
           balance_due: payment.balanceDue,
           // Wave 23 audit: hardcoded "R" rendered "R5,000" for UK / US / EU
-          // tenants on the billing list. Resolve from the loaded company
-          // currency with currency-symbol fallback.
-          currency: currencySymbolFor((company as any)?.currency || "ZAR"),
+          // tenants on the billing list. Preserve invoice/order overrides
+          // before falling back to the company currency.
+          currency: currencySymbolFor(r.currency || orderEmbed.currency || (company as any)?.currency || "ZAR"),
           status,
           paid_at: r.paid_at || undefined,
           event_date: orderEmbed.event_date || r.invoice_date,
@@ -367,6 +384,8 @@ function ClientBillingPageInner() {
       });
 
       setInvoices(mapped);
+      setSelectedInvoice((current) => current ? mapped.find((invoice) => invoice.id === current.id) || null : null);
+      return true;
     } catch (error) {
       console.error("Error loading invoices:", error);
       toast({
@@ -374,28 +393,26 @@ function ClientBillingPageInner() {
         description: "Failed to load invoices",
         variant: "destructive",
       });
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!router.isReady || !user?.id) return;
+    if (!router.isReady || !user?.id || clientIdsLoading) return;
     const attemptId = typeof router.query.payment_attempt_id === "string"
       ? router.query.payment_attempt_id
       : "";
     const invoiceId = typeof router.query.invoice_id === "string"
       ? router.query.invoice_id
       : "";
-    if (!attemptId || !invoiceId) return;
-    const returnKey = `${attemptId}:${invoiceId}`;
-    if (checkedPaymentReturnRef.current === returnKey) return;
-    checkedPaymentReturnRef.current = returnKey;
-
+    if (!attemptId || !invoiceId) { setPaymentReturn(null); return; }
     let cancelled = false;
+    setPaymentReturn({ invoiceId, status: "checking" });
     (async () => {
       let finalStatus = "pending";
-      for (let check = 0; check < 12 && !cancelled; check += 1) {
+      for (let check = 0; check < 120 && !cancelled; check += 1) {
         try {
           const response = await fetch("/api/payments/confirm-return", {
             method: "POST",
@@ -405,17 +422,24 @@ function ClientBillingPageInner() {
           });
           const result = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(result?.error || "Payment status unavailable");
-          finalStatus = String(result?.status || "pending");
+          finalStatus = ["succeeded", "failed", "expired"].includes(result?.status) ? result.status : "pending";
+          if (cancelled) return;
           if (["succeeded", "failed", "expired"].includes(finalStatus)) break;
         } catch {
           finalStatus = "pending";
         }
-        if (check < 11) await new Promise((resolve) => setTimeout(resolve, 2500));
+        if (!cancelled) setPaymentReturn({ invoiceId, status: "pending" });
+        if (check < 119) await new Promise((resolve) => setTimeout(resolve, check < 12 ? 2500 : 10000));
       }
       if (cancelled) return;
-      await loadInvoices();
+      if (finalStatus === "succeeded") setPaymentReturn({ invoiceId, status: "refreshing" });
+      const refreshed = await loadInvoices();
+      if (cancelled) return;
+      setPaymentReturn({ invoiceId, status: finalStatus === "succeeded" && !refreshed ? "refreshing" : finalStatus });
       if (finalStatus === "succeeded") {
-        toast({ title: "Payment received", description: "The provider confirmed your payment and your invoice has been updated." });
+        toast({ title: "Payment received", description: refreshed
+          ? "The provider confirmed your payment and your invoice has been updated."
+          : "The provider confirmed your payment. Reload billing to refresh the balance before paying again." });
       } else if (finalStatus === "failed") {
         toast({ title: "Payment was not completed", description: "The provider reported a failed or cancelled payment. You can try again from the invoice.", variant: "destructive" });
       } else if (finalStatus === "expired") {
@@ -425,9 +449,9 @@ function ClientBillingPageInner() {
       }
     })();
     return () => { cancelled = true; };
-    // The request is keyed by attempt + invoice and intentionally runs once per return.
+    // Restart safely after auth/client ownership has finished hydrating.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, router.query.payment_attempt_id, router.query.invoice_id, user?.id]);
+  }, [router.isReady, router.query.payment_attempt_id, router.query.invoice_id, user?.id, company?.id, clientIdsLoading, clientIdsKey]);
 
   // (filterAndSortInvoices replaced by the useMemo + useFuzzyItems above.)
 
@@ -450,7 +474,7 @@ function ClientBillingPageInner() {
     return (
       <Badge className={`${variants[status]} border`}>
         <Icon className="w-3 h-3 mr-1" />
-        {status === "partial" ? "Deposit Paid" : status === "pending" ? "Awaiting Payment" : status.charAt(0).toUpperCase() + status.slice(1)}
+        {status === "partial" ? "Partially paid" : status === "pending" ? "Awaiting Payment" : status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
   };
@@ -461,6 +485,7 @@ function ClientBillingPageInner() {
   };
 
   const handlePayInvoice = (invoice: Invoice) => {
+    if (returnBlocksPayment(invoice.id)) return;
     setSelectedInvoice(invoice);
     setShowPaymentModal(true);
   };
@@ -492,6 +517,18 @@ function ClientBillingPageInner() {
             variant="hero"
           />
           <PageWorkbench />
+
+          {paymentReturn && (
+            <Alert className="mb-4" role="status">
+              <AlertDescription>
+                {paymentReturn.status === "succeeded" ? "Payment received. Your paid amount and remaining balance have been refreshed."
+                  : paymentReturn.status === "failed" ? "This checkout did not complete. You can retry from the invoice."
+                  : paymentReturn.status === "expired" ? "This checkout expired. You can start a new payment from the invoice."
+                  : paymentReturn.status === "refreshing" ? "Payment was confirmed. Refresh this page to load your updated balance before paying again."
+                  : "Waiting for the provider to confirm this payment. Another checkout is blocked while it is processing."}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Tenant identity strip --
               SARS rule: VAT-registered businesses must show their VAT
@@ -586,7 +623,7 @@ function ClientBillingPageInner() {
                         <SelectContent>
                           <SelectItem value="all">All statuses</SelectItem>
                           <SelectItem value="pending">Awaiting payment</SelectItem>
-                          <SelectItem value="partial">Deposit paid</SelectItem>
+                          <SelectItem value="partial">Partially paid</SelectItem>
                           <SelectItem value="paid">Paid</SelectItem>
                           <SelectItem value="overdue">Overdue</SelectItem>
                         </SelectContent>
@@ -704,6 +741,7 @@ function ClientBillingPageInner() {
                                 <Button
                                   size="sm"
                                   onClick={() => handlePayInvoice(invoice)}
+                                  disabled={returnBlocksPayment(invoice.id)}
                                   className="bg-brand-primary hover:opacity-90 text-white"
                                 >
                                   <CreditCard className="w-4 h-4 mr-2" />
@@ -728,6 +766,8 @@ function ClientBillingPageInner() {
         <>
           <InvoiceDetailModal
             invoice={selectedInvoice}
+            paymentAttemptId={typeof router.query.payment_attempt_id === "string" && paymentReturn?.invoiceId === selectedInvoice.id
+              ? router.query.payment_attempt_id : undefined}
             open={showInvoiceDetail}
             onClose={() => {
               setShowInvoiceDetail(false);
@@ -737,6 +777,7 @@ function ClientBillingPageInner() {
           <PaymentModal
             invoice={selectedInvoice}
             publicToken={selectedInvoice.public_token || undefined}
+            authenticatedCheckout
             open={showPaymentModal}
             onClose={() => {
               setShowPaymentModal(false);

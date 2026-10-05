@@ -241,7 +241,7 @@ function EquipmentPage() {
           <PortalHeader
             variant="hero"
             title="Equipment"
-            subtitle="Catering equipment catalogue. Availability per date, current bookings, shortages, and hire-in cover when you're running short for an event."
+            subtitle="Manage equipment, check availability and arrange hire-in cover for shortages."
             icon={Package}
             meta={
               heroStats ? (

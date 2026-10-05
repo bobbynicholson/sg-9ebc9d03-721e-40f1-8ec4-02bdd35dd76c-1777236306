@@ -135,7 +135,7 @@ function AccessPage() {
             variant="hero"
             title="AI access"
             icon={ShieldCheck}
-            subtitle="Control which user roles may receive approved live operational data in the assistant."
+            subtitle="Choose which roles can access live company information through the assistant."
             appearance={isPlatformAdmin ? "dark" : "brand"}
             meta={<span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white"><ShieldCheck className="h-3.5 w-3.5" /> {isPlatformAdmin ? "Platform context" : "Company-controlled"}</span>}
           />

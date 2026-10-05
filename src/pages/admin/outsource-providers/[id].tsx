@@ -250,7 +250,7 @@ function ProviderDetail() {
             variant="hero"
             title={provider?.provider_name || "Provider"}
             icon={HardHat}
-            subtitle="Booking history, accept rate, response time and billing for this outsource provider."
+            subtitle="Review this provider’s contacts, bookings and billing history."
             meta={
               !loading && !loadError && provider ? (
                 <>

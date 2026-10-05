@@ -34,6 +34,8 @@ import {
 } from "@/services/paymentGatewayService";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { publicAppOrigin } from "@/lib/publicAppOrigin";
+import { registerYocoWebhook } from "@/lib/yocoService";
 
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -155,10 +157,40 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           error: `Missing required credential${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`,
         });
       }
-      if (provider === "yoco" && body.is_test === false && !effectiveCredentials.webhookSecret) {
-        return res.status(400).json({
-          error: "Yoco Webhook Signing Secret is required before enabling live payments.",
+      // Yoco Checkout webhooks can only be created through Yoco's API, and
+      // the signing secret is shown once. Register it for the tenant when
+      // a new key arrives without a secret (or the key changed, which
+      // makes any previous secret belong to another account).
+      let yocoWebhookRegistered = false;
+      if (provider === "yoco" && (!effectiveCredentials.webhookSecret ||
+          (cleanCreds.secretKey && !cleanCreds.webhookSecret &&
+           cleanCreds.secretKey !== existingWithCredentials?.credentials?.secretKey))) {
+        const origin = publicAppOrigin({
+          environment: process.env.NODE_ENV,
+          configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+          vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+          vercelUrl: process.env.VERCEL_URL,
+          requestOrigin: req.headers.origin as string | undefined,
+          requestHost: req.headers.host,
+          forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
         });
+        const webhookUrl = `${origin}/api/webhooks/yoco-confirmation`;
+        if (!/^https:\/\//.test(webhookUrl) || /^https:\/\/(localhost|127\.|0\.0\.0\.0)/.test(webhookUrl)) {
+          return res.status(400).json({
+            error: "Yoco needs a public HTTPS webhook URL. Set NEXT_PUBLIC_APP_URL to the public site, or paste a Webhook Signing Secret you registered yourself.",
+          });
+        }
+        try {
+          const hook = await registerYocoWebhook(effectiveCredentials.secretKey, webhookUrl);
+          cleanCreds.webhookSecret = hook.secret;
+          effectiveCredentials.webhookSecret = hook.secret;
+          yocoWebhookRegistered = true;
+        } catch (e: any) {
+          console.error("[payment-gateways] Yoco webhook registration failed:", e);
+          return res.status(400).json({
+            error: `Could not register the payment webhook with Yoco: ${e?.message || "unknown error"}. Check the Secret Key and retry.`,
+          });
+        }
       }
 
       const result = await paymentGatewayService.upsertWithCredentials(
@@ -175,7 +207,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         sb,
       );
       if (result.ok) {
-        return res.status(200).json({ ok: true, gateway: result.gateway });
+        return res.status(200).json({ ok: true, gateway: result.gateway, yocoWebhookRegistered });
       }
       return res.status(500).json({ error: result.error });
     }

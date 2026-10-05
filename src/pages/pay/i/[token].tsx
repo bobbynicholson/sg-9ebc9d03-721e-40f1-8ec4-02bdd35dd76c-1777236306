@@ -293,7 +293,7 @@ export default function InvoicePaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentNotConfigured, setPaymentNotConfigured] = useState(false);
-  const [returnPaymentStatus, setReturnPaymentStatus] = useState<"idle" | "checking" | "pending" | "succeeded" | "failed" | "expired">("idle");
+  const [returnPaymentStatus, setReturnPaymentStatus] = useState<"idle" | "checking" | "pending" | "refreshing" | "succeeded" | "failed" | "expired">("idle");
   const [eftClaimedPublic, setEftClaimedPublic] = useState(false);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -374,7 +374,7 @@ export default function InvoicePaymentPage() {
   // saved attempt and prevent another checkout while its result is pending.
   useEffect(() => {
     const returnedFromCheckout = router.query.cancelled === "1" || router.query.payment_return === "1";
-    if (!router.isReady || !token || !returnedFromCheckout) return;
+    if (!router.isReady || !token || loading || !invoice || !returnedFromCheckout) return;
     const attemptId = typeof router.query.payment_attempt_id === "string"
       ? router.query.payment_attempt_id
       : "";
@@ -384,7 +384,7 @@ export default function InvoicePaymentPage() {
     setReturnPaymentStatus("checking");
     (async () => {
       let status: "pending" | "succeeded" | "failed" | "expired" = "pending";
-      for (let check = 0; check < 12 && !cancelled; check += 1) {
+      for (let check = 0; check < 120 && !cancelled; check += 1) {
         try {
           const response = await fetch("/api/payments/confirm-return", {
             method: "POST",
@@ -393,34 +393,40 @@ export default function InvoicePaymentPage() {
             body: JSON.stringify({ public_token: token, payment_attempt_id: attemptId }),
           });
           const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error("Payment status unavailable");
+          if (cancelled) return;
           status = ["succeeded", "failed", "expired"].includes(result?.status)
             ? result.status
             : "pending";
-          setReturnPaymentStatus(status);
           if (status !== "pending") break;
+          setReturnPaymentStatus("pending");
         } catch {
           status = "pending";
         }
-        if (check < 11) await new Promise((resolve) => setTimeout(resolve, 2500));
+        if (check < 119) await new Promise((resolve) => setTimeout(resolve, check < 12 ? 2500 : 10000));
       }
       if (cancelled) return;
-      setReturnPaymentStatus(status);
       if (status === "succeeded") {
+        setReturnPaymentStatus("refreshing");
         try {
           const response = await fetch(`/api/public/invoices/${encodeURIComponent(token)}/get`, { cache: "no-store" });
           const result = await response.json().catch(() => ({}));
-          if (!cancelled && result?.invoice) {
+          if (!response.ok || !result?.invoice) throw new Error("Invoice balance unavailable");
+          if (!cancelled) {
             setInvoice(result.invoice as InvoiceView);
             setPaymentNotConfigured(result.invoice.payment_options?.online_available !== true);
             setEftClaimedPublic((result.invoice.eft_claims || []).some((claim: any) => claim.payment_status === "pending"));
+            setReturnPaymentStatus("succeeded");
           }
         } catch {
-          // The verified attempt status is still enough to keep this page safe.
+          // Keep checkout disabled until the verified balance is available.
         }
+      } else {
+        setReturnPaymentStatus(status);
       }
     })();
     return () => { cancelled = true; };
-  }, [router.isReady, router.query.cancelled, router.query.payment_return, router.query.payment_attempt_id, token]);
+  }, [router.isReady, router.query.cancelled, router.query.payment_return, router.query.payment_attempt_id, token, loading, invoice?.id]);
 
   useEffect(() => {
     if (!token) return;
@@ -1235,6 +1241,8 @@ export default function InvoicePaymentPage() {
                             ? "The provider confirmed this checkout did not complete. You can try again."
                             : returnPaymentStatus === "expired"
                               ? "This checkout expired before payment was confirmed. You can start a new checkout."
+                              : returnPaymentStatus === "refreshing"
+                                ? "Your payment was confirmed. Reload this invoice to load the updated balance before paying again."
                               : returnPaymentStatus === "checking"
                                 ? "Checking the provider's payment status..."
                                 : "The provider has not confirmed this checkout yet. Wait or reload this invoice before starting another payment."}
@@ -1354,7 +1362,7 @@ export default function InvoicePaymentPage() {
                   ) : (
                     <Button
                       onClick={initiatePayment}
-                      disabled={processing || !!pendingEftClaim || (paymentNotConfigured && !(applyCredit && creditMaxApplicable >= payNow)) || payNow <= 0 || ["checking", "pending"].includes(returnPaymentStatus)}
+                      disabled={processing || !!pendingEftClaim || (paymentNotConfigured && !(applyCredit && creditMaxApplicable >= payNow)) || payNow <= 0 || ["checking", "pending", "refreshing"].includes(returnPaymentStatus)}
                       size="lg"
                       className="w-full bg-brand-primary hover:opacity-90 gap-2"
                     >

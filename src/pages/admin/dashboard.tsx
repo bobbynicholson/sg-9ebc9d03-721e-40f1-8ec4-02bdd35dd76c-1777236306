@@ -4,7 +4,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LayoutDashboard, TrendingUp, Users, Banknote, Package, Clock, AlertCircle, CheckCircle, Loader2, Calendar, ShoppingCart, FileText } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
@@ -664,12 +664,6 @@ function AdminDashboardPage() {
                     {stats.upcomingEvents} upcoming event{stats.upcomingEvents === 1 ? "" : "s"}
                   </span>
                 )}
-                {tenantTimezone && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
-                    <Clock className="h-3 w-3" />
-                    <span className="font-mono">{effectiveTenantTimezone}</span>
-                  </span>
-                )}
               </>
             }
             actions={
@@ -877,8 +871,9 @@ function AdminDashboardPage() {
               underlying sample is empty so a fresh tenant doesn't
               see meaningless zeros. Renders the row only if at
               least one tile has data. */}
-          {(stats.vatCollected > 0 || stats.quoteConversionSample > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+          {/* Secondary row: VAT, quote conversion and the live quote
+              pipeline share one tile grid instead of a full-width tile. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
               {stats.vatCollected > 0 && (
                 <MetricCard
                   label="VAT in range"
@@ -907,8 +902,6 @@ function AdminDashboardPage() {
                   href={withSlug("/admin/quotes")}
                 />
               )}
-            </div>
-          )}
 
           {/* Pipeline tile - quotes that have been sent but not yet
               accepted or rejected. Both the count and the rand value
@@ -916,7 +909,6 @@ function AdminDashboardPage() {
               value tells the owner how much pipeline is sitting in
               conversion limbo. Date-range independent (rolls all
               outstanding quotes, regardless of when they were sent). */}
-          <div className="grid grid-cols-1 mb-6">
             <MetricCard
               label="Quotes in circulation"
               value={fmt.format(stats.quotesInCirculationValue)}
@@ -1018,211 +1010,7 @@ function AdminDashboardPage() {
               src/components/admin/RecentlyViewedWidget.tsx so it can
               be re-mounted elsewhere if needed. */}
 
-          {/* Phase 9 #10: quotes-to-chase widget. Surfaces the 5
-              oldest in-play quotes sent more than 3 days ago without
-              a reply, so the sales lead doesn't have to open the
-              quotes page to find the rotting ones. Self-hides when
-              there's nothing to chase. */}
-          <WidgetErrorBoundary label="Quote follow-up"><QuoteFollowupWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 10 #4: inventory low-stock widget. Surfaces the
-              top 5 items at or below their minimum reorder level so
-              the shopping team gets a visual nudge straight from the
-              dashboard. Self-hides when nothing is short. */}
-          <WidgetErrorBoundary label="Low stock"><InventoryLowStockWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 12 #7: inventory expiry tracking. Batches with
-              stock on hand expiring within 14 days, plus already-
-              expired batches still showing quantity. Self-hides
-              when nothing is close. */}
-          <WidgetErrorBoundary label="Inventory expiry"><InventoryExpiryWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 16 #10: recent stock movements. Last 5
-              inventory_transactions in the past 7 days so the
-              shopping team coordinator sees activity at a
-              glance without per-item drilling. */}
-          <WidgetErrorBoundary label="Recent inventory adjusts"><RecentInventoryAdjustsWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 13 #4: fleet service due. Vehicles whose
-              next_service_due lands within 30 days. Self-hides
-              when no service is on the horizon. */}
-          <WidgetErrorBoundary label="Vehicle service due"><VehicleServiceDueWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 13 #6: delivery on-time SLA. delivered_at vs
-              event_time over the last 30 days, with a 15-min
-              grace window. Self-hides on a fresh tenant. */}
-          <WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* AD-5 (admin-dashboard audit, 2026-05-19): removed.
-              CleaningQueueWidget is the cleaning lead's surface,
-              not the admin's. /team-portal/cleaning/dashboard
-              already shows the cleaning_jobs queue with row-level
-              actions (Wave 41 Phase 2 made cleaning_jobs the
-              single source of truth there). Keeping a duplicate on
-              /admin/dashboard pollutes the admin view + violates
-              the one-source-of-truth rule. */}
-
-          {/* Phase 16 #2: equipment damages waiting on resolution.
-              Self-hides when nothing is unresolved. */}
-          <WidgetErrorBoundary label="Equipment damages"><EquipmentDamagesWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 22 #5: brand-new leads inside the last 24 hours.
-              Pairs with LeadAgingWidget which surfaces the >3 day
-              stragglers. Together they cover the funnel: 'who's
-              fresh' on top, 'who's rotting' below. */}
-          <WidgetErrorBoundary label="New leads today"><NewLeadsTodayWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 14 #1: lead aging. Active leads (not converted,
-              not won/lost) older than 3 days, oldest first. Self-
-              hides when nothing is overdue. */}
-          <WidgetErrorBoundary label="Lead aging"><LeadAgingWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 14 #3: tomorrow's events. Compact list with
-              earliest start time + driver assignment for the
-              evening-before review. Self-hides on a quiet day. */}
-          <WidgetErrorBoundary label="Tomorrow's events"><TomorrowsEventsWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 20 #5: who's on the clock right now. Today's
-              Pulse shows the driver count but the kitchen +
-              cleaning + shopping side was invisible. Lists open
-              staff_work_sessions sorted by longest-running so
-              stale clock-ins surface to the top. */}
-          <WidgetErrorBoundary label="Active staff now"><ActiveStaffNowWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 14 #8: dispatch coverage gaps. Confirmed
-              orders in the next 7 days with no driver
-              assigned. Self-hides when every event is covered. */}
-          <WidgetErrorBoundary label="Dispatch gaps"><DispatchGapWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 14 #9: weekly order load mini chart. Shows the
-              past + next 7 days of confirmed-and-onwards orders
-              by event date so the kitchen lead can spot bunching
-              days at a glance. Self-hides on a fresh tenant. */}
-          <WidgetErrorBoundary label="Weekly orders chart"><WeeklyOrdersChart companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 14 #6: pending refunds list. The stat tile
-              showed total + count; this surfaces individual rows
-              with client name + amount + age so the bookkeeper
-              can act on the oldest first. */}
-          <WidgetErrorBoundary label="Pending refunds"><PendingRefundsWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 19 #8: overdue invoices list. The matching surface
-              for money waiting to come in - invoices past due_date
-              that haven't been paid or cancelled, oldest first.
-              Self-hides on a tenant with no overdue invoices. */}
-          <WidgetErrorBoundary label="Overdue invoices"><OverdueInvoicesWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 19 #10: recent event ratings. Closes the loop on
-              the Phase 18 #10 quick-rating capture in the order
-              drawer - 30-day average plus the last 5 rated orders.
-              Self-hides until a tenant has stamped at least one
-              rating. */}
-          <WidgetErrorBoundary label="Recent ratings"><RecentRatingsWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 20 #7: cancellations rollup. Surfaces the last 5
-              cancelled orders plus the 30-day lost-revenue total so
-              an owner sees patterns forming. Self-hides on a clean
-              month. */}
-          <WidgetErrorBoundary label="Cancelled orders"><CancelledOrdersWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 16 #9: recent payments collected. Today's Pulse
-              shows 'Paid today' total but no row-level detail. This
-              card surfaces the last 5 completed payments so the
-              bookkeeper can reconcile against the bank deposit. */}
-          <WidgetErrorBoundary label="Recent payments"><RecentPaymentsWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 14 #7: recent activity timeline. Pivoted from
-              the brand-colour preview slot since live preview
-              already exists on /admin/white-label. Shows the
-              last 8 audit_logs entries so owners get a quick
-              read on team activity from the dashboard. */}
-          <WidgetErrorBoundary label="Recent activity"><RecentActivityWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 10 #7: email failures widget. Surfaces the last
-              5 failed sends in the last 24h so quietly broken
-              automations don't go unnoticed. Self-hides when there
-              are no failures. */}
-          <WidgetErrorBoundary label="Email failures"><EmailFailuresWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Wave 70.57 (owner brief 2026-05-22): MenuTopSellersWidget
-              and TopClientsWidget removed from the dashboard - not
-              top-of-mind signals for the owner viewing the daily
-              read. Both relocated to surfaces where the question
-              actually lives:
-                - Top sellers -> /admin/menu (kitchen + sales lead
-                  reviewing the catalogue see what's actually
-                  pulling, right above the items table).
-                - Top clients -> /admin/contacts (retention surface
-                  in the CRM inbox - thank-yous, loyalty perks,
-                  follow-up live here already, the widget belongs
-                  with them).
-              Imports kept on the page until I verify both new
-              mount sites build cleanly. */}
-
-          {/* Phase 11 #10: quote response time. Median sent->view
-              and sent->accept across the last 90 days. Helps the
-              sales lead spot pricing / tone problems separately
-              from chase cadence. Self-hides without a sample. */}
-          <WidgetErrorBoundary label="Quote response time"><QuoteResponseTimeWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 12 #2: per-branch revenue + order count
-              comparison for multi-branch tenants. Self-hides on
-              single-branch setups so it doesn't take up space. */}
-          <WidgetErrorBoundary label="Region performance"><RegionPerformanceWidget companyId={companyId} /></WidgetErrorBoundary>
-
-          {/* Phase 12 #4: year-over-year comparison. Same date
-              window shifted back 12 months so the 'this month
-              vs same month last year' read is one glance. Self-
-              hides if the prior-year window is empty. */}
-          <WidgetErrorBoundary label="Year over year">
-            <YearOverYearCard
-              companyId={companyId}
-              range={range}
-              thisYearRevenue={stats.bookedRevenue}
-              thisYearOrders={stats.bookedOrders}
-            />
-          </WidgetErrorBoundary>
-
-          {/* Day-zero "First Steps" card. Self-hides once required steps
-              are in or the owner dismisses / completes onboarding.
-              AD-7: suppress when the fresh-tenant hero at the top of
-              the page is already rendering the same card. */}
-          {companyId && !isFreshTenant ? (
-            <WidgetErrorBoundary label="First steps">
-              <FirstStepsCard companyId={companyId} slug={companySlug || ""} />
-            </WidgetErrorBoundary>
-          ) : null}
-
-          {/* First-event walkthrough. Picks up once FirstStepsCard
-              gets out of the way (onboarding_completed_at set) and
-              guides the owner through their first quote -> first
-              event flow. Self-hides once any order exists. */}
-          {companyId ? (
-            <WidgetErrorBoundary label="First event walkthrough">
-              <FirstEventWalkthrough companyId={companyId} slug={companySlug || ""} />
-            </WidgetErrorBoundary>
-          ) : null}
-
-          {/* Priority Actions, not date-bound, always-on attention
-              items. Wave 70.56 audit (Bobby brief 2026-05-22):
-                - Re-ordered by actionability: shortfall first (real
-                  money risk on confirmed events), then sent quotes
-                  awaiting client, then drafts waiting on the admin,
-                  then low stock at the floor with no demand, then
-                  upcoming events.
-                - Shortfall row added - the single most-actionable
-                  signal on the page (consumes the same demand
-                  outlook the smart low-stock widget uses).
-                - Pending Quote row split into "sent / awaiting
-                  client" + "drafts to finish" so the sub copy
-                  reads accurately for each (sent = client's court,
-                  draft = admin's court).
-                - Low Stock count now matches the smart widget
-                  (only counts items where a min threshold is
-                  configured AND current_stock is at or below it).
-                - Upcoming Events sub now reads "Next: {date}"
-                  instead of the misleading "X currently active in
-                  range" which conflated two different measures. */}
+          
           {(stats.shortfallItems > 0
             || stats.pendingQuoteSent > 0
             || stats.pendingQuoteDrafts > 0
@@ -1302,10 +1090,189 @@ function AdminDashboardPage() {
             </Card>
           )}
 
+<Card collapsible defaultOpen={true} collapseLabel="Needs attention" className="mb-6" id="dashboard-needs-attention">
+  <CardHeader><CardTitle className="text-base">Needs attention</CardTitle><CardDescription>Follow-ups, shortages, dispatch gaps and unresolved financial or delivery issues.</CardDescription></CardHeader>
+  <CardContent><div className="grid items-start gap-3 [&>div]:mb-0"><WidgetErrorBoundary label="Quote follow-up"><QuoteFollowupWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Low stock"><InventoryLowStockWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Inventory expiry"><InventoryExpiryWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Vehicle service due"><VehicleServiceDueWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Equipment damages"><EquipmentDamagesWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Lead aging"><LeadAgingWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Dispatch gaps"><DispatchGapWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Pending refunds"><PendingRefundsWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Overdue invoices"><OverdueInvoicesWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Email failures"><EmailFailuresWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
+</Card>
+
+<Card collapsible defaultOpen={false} collapseLabel="Upcoming work and team" className="mb-6" id="dashboard-upcoming-work-and-team">
+  <CardHeader><CardTitle className="text-base">Upcoming work and team</CardTitle><CardDescription>Tomorrow’s events, new leads and the staff currently on duty.</CardDescription></CardHeader>
+  <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="New leads today"><NewLeadsTodayWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Tomorrow's events"><TomorrowsEventsWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Active staff now"><ActiveStaffNowWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
+</Card>
+
+<Card collapsible defaultOpen={false} collapseLabel="Recent activity and payments" className="mb-6" id="dashboard-recent-activity-and-payments">
+  <CardHeader><CardTitle className="text-base">Recent activity and payments</CardTitle><CardDescription>Recorded payments, inventory changes, cancellations, feedback and the activity log.</CardDescription></CardHeader>
+  <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="Recent inventory adjusts"><RecentInventoryAdjustsWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Recent ratings"><RecentRatingsWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Cancelled orders"><CancelledOrdersWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Recent payments"><RecentPaymentsWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Recent activity"><RecentActivityWidget companyId={companyId} /></WidgetErrorBoundary></div></CardContent>
+</Card>
+
+<Card collapsible defaultOpen={false} collapseLabel="Performance and trends" className="mb-6" id="dashboard-performance-and-trends">
+  <CardHeader><CardTitle className="text-base">Performance and trends</CardTitle><CardDescription>Delivery performance, weekly bookings, quote response times and comparisons.</CardDescription></CardHeader>
+  <CardContent><div className="grid items-start gap-4 xl:grid-cols-2 [&>div]:mb-0"><WidgetErrorBoundary label="Delivery SLA"><DeliverySlaWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Weekly orders chart"><WeeklyOrdersChart companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Quote response time"><QuoteResponseTimeWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Region performance"><RegionPerformanceWidget companyId={companyId} /></WidgetErrorBoundary>
+<WidgetErrorBoundary label="Year over year">
+            <YearOverYearCard
+              companyId={companyId}
+              range={range}
+              thisYearRevenue={stats.bookedRevenue}
+              thisYearOrders={stats.bookedOrders}
+            />
+          </WidgetErrorBoundary></div></CardContent>
+</Card>
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          {/* AD-5 (admin-dashboard audit, 2026-05-19): removed.
+              CleaningQueueWidget is the cleaning lead's surface,
+              not the admin's. /team-portal/cleaning/dashboard
+              already shows the cleaning_jobs queue with row-level
+              actions (Wave 41 Phase 2 made cleaning_jobs the
+              single source of truth there). Keeping a duplicate on
+              /admin/dashboard pollutes the admin view + violates
+              the one-source-of-truth rule. */}
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          
+          
+
+          {/* Wave 70.57 (owner brief 2026-05-22): MenuTopSellersWidget
+              and TopClientsWidget removed from the dashboard - not
+              top-of-mind signals for the owner viewing the daily
+              read. Both relocated to surfaces where the question
+              actually lives:
+                - Top sellers -> /admin/menu (kitchen + sales lead
+                  reviewing the catalogue see what's actually
+                  pulling, right above the items table).
+                - Top clients -> /admin/contacts (retention surface
+                  in the CRM inbox - thank-yous, loyalty perks,
+                  follow-up live here already, the widget belongs
+                  with them).
+              Imports kept on the page until I verify both new
+              mount sites build cleanly. */}
+
+          
+          
+
+          
+          
+
+          
+          
+
+          {/* Day-zero "First Steps" card. Self-hides once required steps
+              are in or the owner dismisses / completes onboarding.
+              AD-7: suppress when the fresh-tenant hero at the top of
+              the page is already rendering the same card. */}
+          {companyId && !isFreshTenant ? (
+            <WidgetErrorBoundary label="First steps">
+              <FirstStepsCard companyId={companyId} slug={companySlug || ""} />
+            </WidgetErrorBoundary>
+          ) : null}
+
+          {/* First-event walkthrough. Picks up once FirstStepsCard
+              gets out of the way (onboarding_completed_at set) and
+              guides the owner through their first quote -> first
+              event flow. Self-hides once any order exists. */}
+          {companyId ? (
+            <WidgetErrorBoundary label="First event walkthrough">
+              <FirstEventWalkthrough companyId={companyId} slug={companySlug || ""} />
+            </WidgetErrorBoundary>
+          ) : null}
+
+          {/* Priority Actions, not date-bound, always-on attention
+              items. Wave 70.56 audit (Bobby brief 2026-05-22):
+                - Re-ordered by actionability: shortfall first (real
+                  money risk on confirmed events), then sent quotes
+                  awaiting client, then drafts waiting on the admin,
+                  then low stock at the floor with no demand, then
+                  upcoming events.
+                - Shortfall row added - the single most-actionable
+                  signal on the page (consumes the same demand
+                  outlook the smart low-stock widget uses).
+                - Pending Quote row split into "sent / awaiting
+                  client" + "drafts to finish" so the sub copy
+                  reads accurately for each (sent = client's court,
+                  draft = admin's court).
+                - Low Stock count now matches the smart widget
+                  (only counts items where a min threshold is
+                  configured AND current_stock is at or below it).
+                - Upcoming Events sub now reads "Next: {date}"
+                  instead of the misleading "X currently active in
+                  range" which conflated two different measures. */}
+          
+
           {/* Quick Actions */}
-          <Card id="quick-actions" data-chat-section="admin.dashboard.quick-actions" data-chat-section-label="Dashboard quick actions" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Quick Actions" id="quick-actions" data-chat-section="admin.dashboard.quick-actions" data-chat-section-label="Dashboard quick actions" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
+<CardDescription>Shortcuts to create work or open the related working page.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">

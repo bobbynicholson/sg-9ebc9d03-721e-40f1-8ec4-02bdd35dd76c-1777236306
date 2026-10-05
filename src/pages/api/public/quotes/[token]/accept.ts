@@ -355,7 +355,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     notifyClientOfAcceptance(supabase, updated),
   ]);
 
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ ok: true, orderId: convertedOrderId, conversionPending: !convertedOrderId });
 }
 
 /**
@@ -396,7 +396,7 @@ async function notifyClientOfAcceptance(supabase: any, quote: any) {
         user_id: clientAuthUid,
         recipient_id: clientAuthUid,
         notification_type: "quote_accepted_client",
-        title: "You're booked in",
+        title: "Quote accepted",
         message: `Thanks for accepting your ${eventName} quote. ${tenantName} sent your deposit invoice to lock in your event date.`,
         priority: "normal",
         link: `/client-portal/quotes/${quote.id}`,

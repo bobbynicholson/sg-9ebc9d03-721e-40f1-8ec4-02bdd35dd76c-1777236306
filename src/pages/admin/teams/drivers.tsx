@@ -462,7 +462,7 @@ function DriversTeamPage() {
             variant="hero"
             title="Drivers"
             icon={Truck}
-            subtitle="Logistics, deliveries and on-site setup."
+            subtitle="Check driver coverage, deliveries and upcoming assignments."
             meta={
               !loading && !error ? (
                 <>
@@ -797,9 +797,9 @@ function DriversTeamPage() {
 
           {/* Bottom hint - deeper drilldowns. */}
           <p className="text-xs text-slate-500 text-center mt-6">
-            Live tracking at <Link href={withSlug("/admin/tracking")} className="text-sky-700 hover:underline">/admin/tracking</Link> ·
-            dispatch queue at <Link href={withSlug("/admin/order-assignments")} className="text-sky-700 hover:underline">/admin/order-assignments</Link> ·
-            wages drivers tab at <Link href={withSlug("/admin/wages?tab=drivers")} className="text-sky-700 hover:underline">/admin/wages</Link>.
+            Also see <Link href={withSlug("/admin/tracking")} className="text-sky-700 hover:underline">Live operations</Link> ·
+            <Link href={withSlug("/admin/order-assignments")} className="text-sky-700 hover:underline">Dispatch</Link> ·
+            <Link href={withSlug("/admin/wages?tab=drivers")} className="text-sky-700 hover:underline">Driver wages</Link>.
           </p>
         </PortalShell>
       </div>

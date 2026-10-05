@@ -456,7 +456,7 @@ function RoutePlanningInner() {
                  path on optimised routes still bypasses every
                  gate; that refactor is its own PR. New copy
                  describes what's actually true today. */
-              "Auto-assign drivers and optimise routes for upcoming unassigned orders. Capacity, time-conflict and vehicle gates run on the Auto-assign and Batch buttons before any assignment lands."
+              "Assign drivers and optimise delivery routes for upcoming orders."
             }
             meta={
               !loading && !loadError ? (
@@ -599,7 +599,7 @@ function RoutePlanningInner() {
             <div className="lg:col-span-1 space-y-4">
               {/* Phase 3: batch suggestions */}
               {batchPairs.length > 0 && (
-                <Card className="border-brand-primary/20 bg-brand-primary/5">
+                <Card collapsible defaultOpen={false} collapseLabel="Batch suggestions" className="border-brand-primary/20 bg-brand-primary/5">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Sparkles className="h-4 w-4 text-brand-primary" />
@@ -816,7 +816,7 @@ function RoutePlanningInner() {
 
                   {filteredRoutes.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-8">
-                      Click &quot;Optimise All Routes&quot; to generate efficient delivery sequences
+                      Click &quot;Optimise routes&quot; to generate efficient delivery sequences
                     </p>
                   ) : (
                     filteredRoutes.map((route, index) => {
@@ -928,9 +928,10 @@ function RoutePlanningInner() {
 
               {/* Route Details */}
               {selectedRoute && (
-                <Card className="mt-6">
+                <Card collapsible defaultOpen={false} collapseLabel="Route Details & Stops" className="mt-6">
                   <CardHeader>
                     <CardTitle>Route Details &amp; Stops</CardTitle>
+<CardDescription>Stop order, distances and timings for the selected route.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {selectedRoute.infeasible_count != null && selectedRoute.infeasible_count > 0 && (

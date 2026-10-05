@@ -660,7 +660,7 @@ function KitchenStaffPage() {
               </span>
             }
             icon={Users}
-            subtitle="Your pay and clock-in roster. Add anyone you pay or clock in here (kitchen, cleaning, shopping, service, office), set pay type (hourly, monthly, or per shift) and standard hours. Note: people you invited as portal logins under Users do not appear here automatically, add them here too so their rates, hours and wages are tracked."
+            subtitle="Manage kitchen staff and their pay rates."
             meta={
               !loading && !loadError ? (
                 <>

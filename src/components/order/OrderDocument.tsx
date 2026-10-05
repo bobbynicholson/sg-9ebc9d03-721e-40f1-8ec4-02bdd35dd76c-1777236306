@@ -33,7 +33,6 @@ import {
   FileText, Activity, ChefHat, ShoppingCart, Truck, Sparkles, Droplets, Wallet, History, Star,
   MessageSquare, MessageCircle, Paperclip, ArrowRight, Utensils,
 } from "lucide-react";
-import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import { computeOrderTimeline, type OrderTimelineStage } from "@/services/order/orderTimeline";
 import { OrderHeaderSection } from "./sections/OrderHeaderSection";
 import { OrderAlertBanners } from "./OrderAlertBanners";
@@ -363,73 +362,88 @@ function OrderTrackingOverview({
     ? "border-rose-200 bg-rose-50 text-rose-700"
     : postponed
       ? "border-amber-200 bg-amber-50 text-amber-800"
-      : "border-slate-200 bg-slate-100 text-slate-700";
+      : status === "completed" || status === "delivered"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : "border-blue-200 bg-blue-50 text-blue-700";
+  const isBlocked = currentTimelineStage?.status === "blocked";
+  const nowTone = cancelled
+    ? "border-rose-200 bg-rose-50"
+    : postponed
+      ? "border-amber-200 bg-amber-50"
+      : isBlocked
+        ? "border-rose-200 bg-rose-50"
+        : "border-orange-200 bg-orange-50/70";
+  const title = order.event_name || order.client_name || "Order";
 
+  // One header for the whole document: who/what/when on the left, status
+  // on the right, then a single "Now" strip. The detailed per-stage
+  // timeline lives once, in the Status timeline section below - an
+  // earlier copy here was computed from the order row alone and showed
+  // different counts from the real one.
   return (
-    <section className="mb-3 sm:mb-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden print:border-slate-300">
+    <section className="mb-3 sm:mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm print:border-slate-300">
+      <div className="h-1 bg-gradient-to-r from-brand-primary via-brand-primary/70 to-brand-secondary" aria-hidden="true" />
       <div className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Order tracking</p>
-            <h1 className="mt-1 text-xl sm:text-2xl font-semibold text-slate-950 leading-tight">
-              {displayLabel}
+            <p className="flex flex-wrap items-center gap-x-2 text-xs font-medium text-slate-500">
+              {order.order_number && <span className="font-mono">#{order.order_number}</span>}
+              {order.client_name && order.event_name && <span>· {order.client_name}</span>}
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold leading-tight tracking-tight text-slate-950 sm:text-[1.75rem]">
+              {title}
             </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              {ownerLabel} owns the current step
-              {lastStamp ? ` - last movement ${lastStamp}` : ""}.
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+              <span>{eventLabel}</span>
+              {order.guest_count ? <span>· {order.guest_count} guests</span> : null}
+              {(order.venue_name || order.venue_address) && (
+                <span className="min-w-0 max-w-full truncate">· {order.venue_name || order.venue_address}</span>
+              )}
             </p>
           </div>
-          <Badge variant="outline" className={`${statusTone} capitalize px-3 py-1 text-xs font-semibold`}>
+          <Badge variant="outline" className={`${statusTone} px-3 py-1 text-xs font-semibold capitalize`}>
             {cleanStatus(order.status)}
           </Badge>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Next</p>
-            <p className="mt-0.5 text-sm font-medium text-slate-900">
-              {nextStage ? `${nextStage.label} - ${stageOwner(nextStage, isClient)}` : "No open timeline step"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Event</p>
-            <p className="mt-0.5 text-sm font-medium text-slate-900">{eventLabel}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Location</p>
-            <p className="mt-0.5 text-sm font-medium text-slate-900 truncate">
-              {order.venue_name || order.venue_address || "Venue not set"}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3 overflow-hidden">
-          <TimelineTrack
-            timeline={timeline}
-            hideOperatorGlossary={isClient}
-            disableSourceLinks
+        <div className={`mt-4 flex flex-wrap items-center gap-3 rounded-xl border px-3.5 py-3 ${nowTone}`}>
+          <span
+            aria-hidden="true"
+            className={`h-2.5 w-2.5 shrink-0 rounded-full ${cancelled || isBlocked ? "bg-rose-500" : postponed ? "bg-amber-500" : "animate-pulse bg-orange-500 motion-reduce:animate-none"}`}
           />
-        </div>
-
-        <div className="mt-4 flex items-center justify-between gap-3 flex-wrap print:hidden">
-          <p className="text-xs text-slate-500">
-            {timeline.completedCount}/{timeline.applicableCount} timeline steps complete
-            {lastLoadedAt ? ` - refreshed ${lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : ""}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button size="sm" variant="outline" onClick={() => scrollToSection(currentSectionId)} className="h-8 gap-1.5">
-              Open current <ArrowRight className="w-3.5 h-3.5" />
+          <div className="min-w-[13rem] flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              {cancelled ? "Order cancelled" : postponed ? "Order postponed" : isBlocked ? "Needs attention" : "Now"}
+            </p>
+            <p className="text-sm font-semibold text-slate-950">
+              {displayLabel}
+              <span className="font-normal text-slate-600"> · {ownerLabel}{lastStamp ? ` · last update ${lastStamp}` : ""}</span>
+            </p>
+            {nextStage && (
+              <p className="mt-0.5 text-xs text-slate-600">
+                Then: <span className="font-medium text-slate-800">{nextStage.label}</span> ({stageOwner(nextStage, isClient)})
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
+            <Button size="sm" onClick={() => scrollToSection(currentSectionId)} className="h-8 gap-1.5">
+              Go to this step <ArrowRight className="h-3.5 w-3.5" />
             </Button>
-            <Button size="sm" variant="outline" onClick={() => scrollToSection("section-timeline")} className="h-8 gap-1.5">
-              Full timeline <Activity className="w-3.5 h-3.5" />
+            <Button size="sm" variant="outline" onClick={() => scrollToSection("section-timeline")} className="h-8 gap-1.5 bg-white">
+              <Activity className="h-3.5 w-3.5" /> Timeline
             </Button>
             {canJumpToMySection && (
-              <Button size="sm" variant="outline" onClick={() => scrollToSection(mySectionId)} className="h-8 gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => scrollToSection(mySectionId)} className="h-8 bg-white">
                 My section
               </Button>
             )}
           </div>
         </div>
+        {lastLoadedAt && (
+          <p className="mt-2 text-right text-[11px] text-slate-400 print:hidden">
+            Updated {lastLoadedAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        )}
       </div>
     </section>
   );
@@ -715,7 +729,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   const forceAll = mode === "print";
 
   return (
-    <div className={mode === "print" ? "max-w-5xl mx-auto px-4 py-8 print:px-0 print:py-0" : "max-w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6"}>
+    <div className={mode === "print" ? "max-w-5xl mx-auto px-4 py-8 print:px-0 print:py-0" : "mx-auto max-w-[90rem] px-3 sm:px-4 md:px-6 py-4 sm:py-6"}>
       {/* Toolbar - hidden in print mode */}
       {mode !== "print" && (
         <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
@@ -827,234 +841,251 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         />
       )}
 
-      {/* ODOC H.4: admin quick-action chip strip. Mirrors what the
-          old OrderDetailsModal toolbar carried so the row-click
-          migration from modal to doc keeps the same affordances:
-          Quote / Client view / Copy link / Invoice / Call / WhatsApp
-          / Email. Hidden in print + for non-admin viewers. */}
-      <OrderQuickActions
-        order={{
-          id: order.id,
-          order_number: order.order_number,
-          client_name: order.client_name,
-          client_phone: order.client_phone,
-          client_email: order.client_email,
-          quote_id: order.quote_id,
-          assigned_driver_id: order.assigned_driver_id,
-          assigned_chef_id: order.assigned_chef_id,
-        }}
-      />
 
-      {/* ODOC H.1: admin-tier 'edits live in the quote' notice.
-          Tells admins explicitly that the order doc is read-only,
-          edits route through the source quote. Staff don't see it. */}
-      <OrderEditNotice
-        orderId={order.id}
-        quoteId={order.quote_id}
-        status={order.status}
-      />
-
-      {/* ODOC Wave F: cash-on-delivery banner - shows amount owed
-          to the assigned driver + admin tier when payment_method=cash
-          and balance is outstanding. */}
-      <OrderCODBanner
-        orderId={order.id}
-        status={order.status}
-        assignedDriverId={order.assigned_driver_id}
-        deliveredAt={order.delivered_at}
-      />
-
-      {/* ODOC Wave F: pending amendment banner - admin reviews
-          client-requested changes inline with Approve / Decline. */}
-      <OrderAmendmentBanner orderId={order.id} companyId={order.company_id} onApplied={load} />
-
-      {/* ODOC Wave F: role-aware suggested next action. One-line
-          rule-based nudge that picks the highest-value thing the
-          viewer can do for this order right now. Dismissible. */}
-      <OrderSuggestedAction order={order} shoppingOutstanding={shoppingOutstanding} />
-
-      {/* ODOC Wave B: top-of-document alert banners - countdown +
-          cancellation + postponement + comms-paused + cold-chain +
-          two-driver + amendment cutoff. */}
-      <OrderAlertBanners order={order} />
-
-      <div className="space-y-3 sm:space-y-4">
-        <OrderHeaderSection
-          order={order}
-          forceOpen={forceAll}
-          defaultOpen={true /* header is always open - it's the title block */}
-        />
-        <OrderTimelineSection
-          order={order}
-          forceOpen={forceAll}
-          defaultOpen={true /* timeline is universal context */}
-        />
-        {!isClient && showFor("history") && (
-          <HistorySection
+      {/* Two-column workspace on desktop: the work on the left, a
+          reference panel (actions, details, money, files) on the right
+          that stays in view while scrolling. On phones it stacks: actions
+          and details first, then the work, then money and files. */}
+      <div className={mode === "print" ? "space-y-3 sm:space-y-4" : "flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_25rem]"}>
+        <div className="order-2 min-w-0 space-y-3 sm:space-y-4 lg:order-none">
+          {/* ODOC H.1: admin-tier 'edits live in the quote' notice.
+              Tells admins explicitly that the order doc is read-only,
+              edits route through the source quote. Staff don't see it. */}
+          <OrderEditNotice
             orderId={order.id}
-            companyId={order.company_id}
-            forceOpen={forceAll}
-            defaultOpen={true}
+            quoteId={order.quote_id}
+            status={order.status}
           />
-        )}
-        {/* ODOC: client-facing delivery + driver card. The staff
-            DriverSection (dispatch run-sheet + POD + actions) stays hidden
-            from clients; this is the read-only customer slice - who's
-            driving, when, which vehicle, live-track link, delivery proof. */}
-        {isClient && (
-          <ClientDeliverySection
-            order={order}
-            forceOpen={forceAll}
-            defaultOpen={true}
-            highlight={primary === "client"}
-          />
-        )}
-        {/* ODOC: client-facing menu card. Clients get a clean, read-only
-            "your menu" slice (items + included crockery) - NOT the staff
-            KitchenSection, which leaks prep-task schedules, a cleaning
-            queue, recipe/equipment deep links and internal framing. */}
-        {isClient && (
-          <ClientMenuSection
+
+          {/* ODOC Wave F: cash-on-delivery banner - shows amount owed
+              to the assigned driver + admin tier when payment_method=cash
+              and balance is outstanding. */}
+          <OrderCODBanner
             orderId={order.id}
-            companyId={order.company_id}
-            collectionTime={order.collection_time}
-            eventDate={order.event_date}
-            eventTime={order.event_time}
-            forceOpen={forceAll}
-            defaultOpen={true}
-            highlight={primary === "client"}
+            status={order.status}
+            assignedDriverId={order.assigned_driver_id}
+            deliveredAt={order.delivered_at}
           />
-        )}
-        {/* ODOC: Kitchen section is the canonical menu + equipment +
-            prep view. Default open so the menu isn't hidden behind a
-            tap. Role-gated: drivers get their own load list on the run
-            sheet and cleaning works from their queue, so neither needs
-            the prep view. Kitchen role still gets the highlight ring.
-            Hidden from clients - they get ClientMenuSection above. */}
-        {!isClient && showFor("kitchen") && (
-          <KitchenSection
-            orderId={order.id}
-            companyId={order.company_id}
-            orderNumber={order.order_number}
-            orderStatus={order.status}
-            pickupTime={order.pickup_time}
-            eventDate={order.event_date}
-            eventTime={order.event_time}
-            forceOpen={forceAll}
-            defaultOpen={true}
-            highlight={primary === "kitchen"}
-          />
-        )}
-        {/* Internal operational sections - staff only, and only the
-            roles that act on them (role-relevance map above). A client
-            never sees the shopping list, driver dispatch, waiter
-            staffing or cleaning handover (internal workflow + actions). */}
-        {!isClient && (
-          <>
-            {showFor("shopping") && (
-              <ShoppingSection
-                orderId={order.id}
-                companyId={order.company_id}
-                forceOpen={forceAll}
-                defaultOpen={primary === "shopping" || primary === "kitchen"}
-                highlight={primary === "shopping" || primary === "kitchen"}
-                onOutstandingChange={setShoppingOutstanding}
-              />
-            )}
-            {showFor("driver") && (
-              <DriverSection
+
+          {/* ODOC Wave F: pending amendment banner - admin reviews
+              client-requested changes inline with Approve / Decline. */}
+          <OrderAmendmentBanner orderId={order.id} companyId={order.company_id} onApplied={load} />
+
+          {/* ODOC Wave F: role-aware suggested next action. One-line
+              rule-based nudge that picks the highest-value thing the
+              viewer can do for this order right now. Dismissible. */}
+          <OrderSuggestedAction order={order} shoppingOutstanding={shoppingOutstanding} />
+
+          {/* ODOC Wave B: top-of-document alert banners - countdown +
+              cancellation + postponement + comms-paused + cold-chain +
+              two-driver + amendment cutoff. */}
+          <OrderAlertBanners order={order} />
+
+            <OrderTimelineSection
+              order={order}
+              forceOpen={forceAll}
+              defaultOpen={true /* timeline is universal context */}
+              hideNowBanner={!staffAllowed}
+            />
+            {/* ODOC: client-facing delivery + driver card. The staff
+                DriverSection (dispatch run-sheet + POD + actions) stays hidden
+                from clients; this is the read-only customer slice - who's
+                driving, when, which vehicle, live-track link, delivery proof. */}
+            {isClient && (
+              <ClientDeliverySection
                 order={order}
                 forceOpen={forceAll}
-                defaultOpen={primary === "driver"}
-                highlight={primary === "driver"}
+                defaultOpen={true}
+                highlight={primary === "client"}
               />
             )}
-            {showFor("waiter") && (
-              <WaiterSection
+            {/* ODOC: client-facing menu card. Clients get a clean, read-only
+                "your menu" slice (items + included crockery) - NOT the staff
+                KitchenSection, which leaks prep-task schedules, a cleaning
+                queue, recipe/equipment deep links and internal framing. */}
+            {isClient && (
+              <ClientMenuSection
                 orderId={order.id}
                 companyId={order.company_id}
-                serviceRequired={!!(order.requires_waiter || order.waiter_service_required)}
+                collectionTime={order.collection_time}
+                eventDate={order.event_date}
+                eventTime={order.event_time}
                 forceOpen={forceAll}
-                defaultOpen={primary === "waiter" || primary === "driver"}
-                highlight={primary === "waiter"}
+                defaultOpen={true}
+                highlight={primary === "client"}
               />
             )}
-            {showFor("cleaning") && (
-              <CleaningSection
+            {/* ODOC: Kitchen section is the canonical menu + equipment +
+                prep view. Default open so the menu isn't hidden behind a
+                tap. Role-gated: drivers get their own load list on the run
+                sheet and cleaning works from their queue, so neither needs
+                the prep view. Kitchen role still gets the highlight ring.
+                Hidden from clients - they get ClientMenuSection above. */}
+            {!isClient && showFor("kitchen") && (
+              <KitchenSection
                 orderId={order.id}
                 companyId={order.company_id}
+                orderNumber={order.order_number}
+                orderStatus={order.status}
+                pickupTime={order.pickup_time}
+                eventDate={order.event_date}
+                eventTime={order.event_time}
                 forceOpen={forceAll}
-                defaultOpen={primary === "cleaning"}
-                highlight={primary === "cleaning"}
+                defaultOpen={true}
+                highlight={primary === "kitchen"}
               />
             )}
-          </>
-        )}
-        {/* ODOC: Finance section is permission-gated at render time.
-            Staff roles + magic-link client mode never see it - data
-            never fetched, component never mounted. */}
-        {canSeeFinance && (
-          <FinanceSection
-            orderId={order.id}
-            companyId={order.company_id}
-            forceOpen={forceAll}
-            defaultOpen={primary === "admin"}
-            highlight={primary === "admin"}
-          />
-        )}
-        {canSeeFinance && (
-          <section id="section-staffing" className="mt-4">
-            <OrderStaffingPanel orderId={order.id} companyId={order.company_id} order={order} />
-          </section>
-        )}
-        {/* ODOC Wave E: customer feedback - only mounts post-delivery.
-            Section returns null when not delivered so the doc stays
-            tight for pre-event orders. */}
-        {showFor("feedback") && (
-          <FeedbackSection
-            orderId={order.id}
-            companyId={order.company_id}
-            delivered={order.status === "delivered" || order.status === "completed" || !!order.delivered_at}
-            forceOpen={forceAll}
-            defaultOpen={false}
-          />
-        )}
-        {/* ODOC Wave F: communications log - admin-only, unified
-            feed of notifications + outgoing emails for this order. */}
-        {canSeeFinance && (
-          <CommsLogSection
-            orderId={order.id}
-            companyId={order.company_id}
-            forceOpen={forceAll}
-            defaultOpen={false}
-          />
-        )}
-        {/* ODOC Wave F: file attachments - contracts, dietary forms,
-            venue maps, etc. Visible to all staff (RLS handles scope). */}
-        {!isClient && showFor("attachments") && (
-          <AttachmentsSection
-            orderId={order.id}
-            companyId={order.company_id}
-            forceOpen={forceAll}
-            defaultOpen={false}
-          />
-        )}
+            {/* Internal operational sections - staff only, and only the
+                roles that act on them (role-relevance map above). A client
+                never sees the shopping list, driver dispatch, waiter
+                staffing or cleaning handover (internal workflow + actions). */}
+            {!isClient && (
+              <>
+                {showFor("shopping") && (
+                  <ShoppingSection
+                    orderId={order.id}
+                    companyId={order.company_id}
+                    forceOpen={forceAll}
+                    defaultOpen={primary === "shopping" || primary === "kitchen"}
+                    highlight={primary === "shopping" || primary === "kitchen"}
+                    onOutstandingChange={setShoppingOutstanding}
+                  />
+                )}
+                {showFor("driver") && (
+                  <DriverSection
+                    order={order}
+                    forceOpen={forceAll}
+                    defaultOpen={primary === "driver"}
+                    highlight={primary === "driver"}
+                  />
+                )}
+                {showFor("waiter") && (
+                  <WaiterSection
+                    orderId={order.id}
+                    companyId={order.company_id}
+                    serviceRequired={!!(order.requires_waiter || order.waiter_service_required)}
+                    forceOpen={forceAll}
+                    defaultOpen={primary === "waiter" || primary === "driver"}
+                    highlight={primary === "waiter"}
+                  />
+                )}
+                {showFor("cleaning") && (
+                  <CleaningSection
+                    orderId={order.id}
+                    companyId={order.company_id}
+                    forceOpen={forceAll}
+                    defaultOpen={primary === "cleaning"}
+                    highlight={primary === "cleaning"}
+                  />
+                )}
+              </>
+            )}
+            {canSeeFinance && (
+              <section id="section-staffing" className="mt-4">
+                <OrderStaffingPanel orderId={order.id} companyId={order.company_id} order={order} />
+              </section>
+            )}
+            {/* ODOC Wave E: customer feedback - only mounts post-delivery.
+                Section returns null when not delivered so the doc stays
+                tight for pre-event orders. */}
+            {showFor("feedback") && (
+              <FeedbackSection
+                orderId={order.id}
+                companyId={order.company_id}
+                delivered={order.status === "delivered" || order.status === "completed" || !!order.delivered_at}
+                forceOpen={forceAll}
+                defaultOpen={false}
+              />
+            )}
 
-        {/* POPIA/CPA: every client-facing document links the caterer's
-            public T&Cs page. The company id is a valid /terms identifier
-            so no extra fetch is needed for the slug. */}
-        {isClient && order.company_id && (
-          <p className="pt-4 text-center text-xs text-slate-500">
-            <a
-              href={buildCompanyTermsPath(order.company_id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-slate-700"
-            >
-              Terms &amp; Conditions
-            </a>
-          </p>
-        )}
+            {/* POPIA/CPA: every client-facing document links the caterer's
+                public T&Cs page. The company id is a valid /terms identifier
+                so no extra fetch is needed for the slug. */}
+            {isClient && order.company_id && (
+              <p className="pt-4 text-center text-xs text-slate-500">
+                <a
+                  href={buildCompanyTermsPath(order.company_id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-slate-700"
+                >
+                  Terms &amp; Conditions
+                </a>
+              </p>
+            )}
+            {!isClient && showFor("history") && (
+              <HistorySection
+                orderId={order.id}
+                companyId={order.company_id}
+                forceOpen={forceAll}
+                defaultOpen={false}
+              />
+            )}
+        </div>
+
+        <aside className={mode === "print" ? "space-y-3 sm:space-y-4" : "contents lg:sticky lg:top-16 lg:block lg:space-y-4"} aria-label="Order details and actions">
+          <div className="order-1 space-y-3 sm:space-y-4 lg:order-none">
+              {/* ODOC H.4: admin quick-action chip strip. Mirrors what the
+                  old OrderDetailsModal toolbar carried so the row-click
+                  migration from modal to doc keeps the same affordances:
+                  Quote / Client view / Copy link / Invoice / Call / WhatsApp
+                  / Email. Hidden in print + for non-admin viewers. */}
+              <OrderQuickActions
+                order={{
+                  id: order.id,
+                  order_number: order.order_number,
+                  client_name: order.client_name,
+                  client_phone: order.client_phone,
+                  client_email: order.client_email,
+                  quote_id: order.quote_id,
+                  assigned_driver_id: order.assigned_driver_id,
+                  assigned_chef_id: order.assigned_chef_id,
+                }}
+              />
+            <OrderHeaderSection
+              order={order}
+              forceOpen={forceAll}
+              defaultOpen={true /* header is always open - it's the title block */}
+              underDocumentHeader={!staffAllowed}
+              inSidePanel={mode !== "print"}
+            />
+          </div>
+          <div className="order-3 space-y-3 sm:space-y-4 lg:order-none">
+            {/* ODOC: Finance section is permission-gated at render time.
+                Staff roles + magic-link client mode never see it - data
+                never fetched, component never mounted. */}
+            {canSeeFinance && (
+              <FinanceSection
+                orderId={order.id}
+                companyId={order.company_id}
+                forceOpen={forceAll}
+                defaultOpen={primary === "admin"}
+                highlight={primary === "admin"}
+                inSidePanel={mode !== "print"}
+              />
+            )}
+            {/* ODOC Wave F: communications log - admin-only, unified
+                feed of notifications + outgoing emails for this order. */}
+            {canSeeFinance && (
+              <CommsLogSection
+                orderId={order.id}
+                companyId={order.company_id}
+                forceOpen={forceAll}
+                defaultOpen={false}
+              />
+            )}
+            {/* ODOC Wave F: file attachments - contracts, dietary forms,
+                venue maps, etc. Visible to all staff (RLS handles scope). */}
+            {!isClient && showFor("attachments") && (
+              <AttachmentsSection
+                orderId={order.id}
+                companyId={order.company_id}
+                forceOpen={forceAll}
+                defaultOpen={false}
+              />
+            )}
+          </div>
+        </aside>
       </div>
 
       {user?.id && (

@@ -380,7 +380,7 @@ function AuditLogsViewer() {
           />
           <PageWorkbench />
 
-          <PortalCard id="platform-audit-filters" data-chat-section="platform.audit-logs.filters" className="mb-6">
+          <PortalCard collapsible defaultOpen={false} collapseLabel="Filters" id="platform-audit-filters" data-chat-section="platform.audit-logs.filters" className="mb-6">
             <PortalCardHeader title="Filters" />
             <p className="-mt-2 mb-3 text-xs text-slate-500 dark:text-slate-400">
               Combine any of these. Defaults to the last 7 days across every tenant.

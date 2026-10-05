@@ -107,94 +107,78 @@ export function OrderQuickActions({ order }: Props) {
     }
   };
 
-  const chipBase = "inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2 py-1 transition";
-  const slateChip = `${chipBase} text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-900`;
-  const greenChip = `${chipBase} text-brand-primary bg-brand-primary/10 border border-brand-primary/20 hover:bg-brand-primary/15`;
+  // One action bar, three labelled groups. Every chip shares one neutral
+  // style; colour lives only in the icon so the row reads calmly.
+  const chip = "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary";
+  const groupLabel = "mr-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400";
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 mb-3 print:hidden">
-      {order.quote_id && (
-        <Link
-          href={withSlug(`/admin/quotes/${order.quote_id}`)}
-          className={slateChip}
-          title="Open the source quote"
-        >
-          <FileText className="w-3.5 h-3.5" />
-          Quote
+    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm print:hidden">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={groupLabel}>Team</span>
+        <Link href={withSlug(`/admin/order-assignments?orderId=${order.id}`)} className={chip} title="Choose the driver for this order">
+          <Truck className="h-3.5 w-3.5 text-blue-600" />
+          {order.assigned_driver_id ? "Change driver" : "Assign driver"}
         </Link>
-      )}
-      <button type="button" onClick={openClientPreview} className={slateChip} title="Open the page the client sees in a new tab">
-        <Eye className="w-3.5 h-3.5" />
-        Client view
-      </button>
-      <button type="button" onClick={copyClientLink} className={slateChip} title="Copy a tokenised client-view link">
-        <Copy className="w-3.5 h-3.5" />
-        Copy link
-      </button>
-      <Link
-        href={withSlug(`/admin/invoices?orderId=${order.id}`)}
-        className={slateChip}
-        title="Open the invoice list filtered to this order"
-      >
-        <Receipt className="w-3.5 h-3.5" />
-        Invoice
-      </Link>
-      <Link
-        href={withSlug(`/admin/order-assignments?orderId=${order.id}`)}
-        className={`${chipBase} text-blue-800 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:text-blue-950`}
-        title="Choose the driver for this order"
-      >
-        <Truck className="w-3.5 h-3.5" />
-        {order.assigned_driver_id ? "Change driver" : "Assign driver"}
-      </Link>
-      <Link
-        href={withSlug(`/admin/orders/${order.id}/ticket`)}
-        className={`${chipBase} text-orange-800 bg-orange-50 border border-orange-200 hover:bg-orange-100 hover:text-orange-950`}
-        title="Choose kitchen team members for this order's prep tasks"
-      >
-        <ChefHat className="w-3.5 h-3.5" />
-        {order.assigned_chef_id ? "Change kitchen" : "Assign kitchen"}
-      </Link>
-      <Link
-        href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)}
-        className={`${chipBase} text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:text-amber-950`}
-        title="Open the Service team section to assign or remove waiters"
-      >
-        <UserPlus className="w-3.5 h-3.5" />
-        Assign waiter
-      </Link>
-      {phone && (
-        <>
-          <a
-            href={`tel:${phone.replace(/[^+\d]/g, "")}`}
-            className={slateChip}
-            title={`Call ${phone}`}
-          >
-            <Phone className="w-3.5 h-3.5" />
-            Call {phone}
+        <Link href={withSlug(`/admin/orders/${order.id}/ticket`)} className={chip} title="Choose kitchen team members for this order's prep tasks">
+          <ChefHat className="h-3.5 w-3.5 text-orange-600" />
+          {order.assigned_chef_id ? "Change kitchen" : "Assign kitchen"}
+        </Link>
+        <Link href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)} className={chip} title="Open the Service team section to assign or remove waiters">
+          <UserPlus className="h-3.5 w-3.5 text-amber-600" />
+          Assign waiter
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={groupLabel}>Client</span>
+        {phone && (
+          <>
+            <a href={`tel:${phone.replace(/[^+d]/g, "")}`} className={chip} title={`Call ${phone}`}>
+              <Phone className="h-3.5 w-3.5 text-slate-500" />
+              Call
+            </a>
+            <a
+              href={`https://wa.me/${phone.replace(/[^d]/g, "")}?text=${encodeURIComponent(waMessage)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={chip}
+              title="Open WhatsApp pre-filled"
+            >
+              <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+              WhatsApp
+            </a>
+          </>
+        )}
+        {email && (
+          <a href={`mailto:${email}?subject=${encodeURIComponent(emailSubject)}`} className={chip} title={`Email ${email}`}>
+            <Mail className="h-3.5 w-3.5 text-slate-500" />
+            Email
           </a>
-          <a
-            href={`https://wa.me/${phone.replace(/[^\d]/g, "")}?text=${encodeURIComponent(waMessage)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={greenChip}
-            title="Open WhatsApp pre-filled"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            WhatsApp
-          </a>
-        </>
-      )}
-      {email && (
-        <a
-          href={`mailto:${email}?subject=${encodeURIComponent(emailSubject)}`}
-          className={slateChip}
-          title={`Email ${email}`}
-        >
-          <Mail className="w-3.5 h-3.5" />
-          Email
-        </a>
-      )}
+        )}
+        <button type="button" onClick={openClientPreview} className={chip} title="Open the page the client sees in a new tab">
+          <Eye className="h-3.5 w-3.5 text-slate-500" />
+          Client view
+        </button>
+        <button type="button" onClick={copyClientLink} className={chip} title="Copy a tokenised client-view link">
+          <Copy className="h-3.5 w-3.5 text-slate-500" />
+          Copy link
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={groupLabel}>Documents</span>
+        {order.quote_id && (
+          <Link href={withSlug(`/admin/quotes/${order.quote_id}`)} className={chip} title="Open the source quote">
+            <FileText className="h-3.5 w-3.5 text-slate-500" />
+            Quote
+          </Link>
+        )}
+        <Link href={withSlug(`/admin/invoices?orderId=${order.id}`)} className={chip} title="Open the invoice list filtered to this order">
+          <Receipt className="h-3.5 w-3.5 text-slate-500" />
+          Invoice
+        </Link>
+      </div>
     </div>
   );
 }

@@ -30,6 +30,14 @@ import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 import { isPayfastTestPlan, isPayfastTestTenant } from "@/lib/payfastTestPlan";
 
+type PlanProvider = "payfast" | "stripe" | "yoco";
+const PROVIDER_LABELS: Record<PlanProvider, string> = { payfast: "PayFast", stripe: "Stripe", yoco: "Yoco" };
+const PROVIDER_HINTS: Record<PlanProvider, string> = {
+  payfast: "Card or EFT, auto-renews",
+  stripe: "Card, auto-renews",
+  yoco: "Card, prepaid per period",
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { plan: planId, cycle } = router.query;
@@ -53,6 +61,8 @@ export default function CheckoutPage() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [providers, setProviders] = useState<Record<PlanProvider, boolean> | null>(null);
+  const [provider, setProvider] = useState<PlanProvider>("payfast");
 
   const selectedPlanId = typeof planId === "string" ? planId : "";
   const isTestPlan = isPayfastTestPlan(selectedPlanId);
@@ -81,6 +91,32 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!isTestPlan && (cycle === "monthly" || cycle === "annual")) setBillingCycle(cycle);
   }, [cycle, isTestPlan]);
+
+  // Which platform payment providers are configured for plan billing.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/subscription/providers", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.providers) return;
+        setProviders(body.providers);
+        const first = (["payfast", "stripe", "yoco"] as PlanProvider[]).find((key) => body.providers[key]);
+        const requested = new URLSearchParams(window.location.search).get("provider") as PlanProvider | null;
+        setProvider((current) => (requested && body.providers[requested] ? requested : body.providers[current] ? current : first || "payfast"));
+      })
+      .catch(() => { /* PayFast stays the default; the server rejects an unconfigured provider. */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Returning with the browser Back button from the payment page restores
+  // this page from cache with the button still "Processing...". Reset it.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setIsProcessing(false);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,8 +165,17 @@ export default function CheckoutPage() {
   const savings = billingCycle === "annual" ? plan.monthlyPrice * 12 - plan.annualPrice : 0;
   const savingsPercentage = billingCycle === "annual" ? Math.round((savings / (plan.monthlyPrice * 12)) * 100) : 0;
 
+  const activeProvider: PlanProvider = isTestPlan ? "payfast" : provider;
+  const providerName = PROVIDER_LABELS[activeProvider];
+  const isPrepaid = activeProvider === "yoco";
+  // Stripe/PayFast defer the first charge to the end of a trial. Yoco
+  // charges now; its paid period simply starts when the trial ends.
+  const deferredTrial = hasTrial && !isPrepaid;
+  const availableProviders = (["payfast", "stripe", "yoco"] as PlanProvider[]).filter((key) => providers?.[key]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing) return;
     setError("");
 
     if (!agreeTerms) {
@@ -160,11 +205,20 @@ export default function CheckoutPage() {
           firstName,
           lastName,
           email,
+          provider: activeProvider,
         }),
       });
       const json = await resp.json().catch(() => ({}));
+      if (resp.ok && json?.ok && typeof json.url === "string") {
+        // Stripe / Yoco hosted checkout. Access is granted only after the
+        // provider confirms the payment, never by this redirect.
+        window.location.assign(json.url);
+        return;
+      }
       if (!resp.ok || !json?.ok || !json?.html) {
-        setError(json?.error || "Could not start checkout. Please try again.");
+        setError(json?.error || (resp.status >= 500
+          ? "The payment service is temporarily unavailable. Nothing was charged - please try again."
+          : "Could not start checkout. Please try again."));
         setIsProcessing(false);
         return;
       }
@@ -180,7 +234,9 @@ export default function CheckoutPage() {
       document.body.appendChild(form);
       form.submit();
     } catch (err) {
-      setError("Failed to process payment. Please try again.");
+      setError(typeof navigator !== "undefined" && navigator.onLine === false
+        ? "You appear to be offline. Reconnect and try again - nothing was charged."
+        : "Could not reach the server to start checkout. Nothing was charged - please try again.");
       setIsProcessing(false);
     }
   };
@@ -212,17 +268,17 @@ export default function CheckoutPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="w-5 h-5 text-slate-600" />
                     <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0">
-                      {isTestPlan ? "One-time flow test" : hasTrial ? "Trial period" : "Recurring subscription"}
+                      {isTestPlan ? "One-time flow test" : deferredTrial ? "Trial period" : "Recurring subscription"}
                     </Badge>
                   </div>
-                  <CardTitle className="text-2xl">{isTestPlan ? "Verify the PayFast Payment Flow" : hasTrial ? "Set Up Billing After Your Trial" : "Start Your Subscription"}</CardTitle>
+                  <CardTitle className="text-2xl">{isTestPlan ? "Verify the PayFast Payment Flow" : deferredTrial ? "Set Up Billing After Your Trial" : "Start Your Subscription"}</CardTitle>
                   <CardDescription>
-                    {isTestPlan ? <>PayFast will collect R5 once. This test plan does not start recurring billing.</> : hasTrial ? <>No payment required today. Your card will be charged after your existing trial ends on{" "}
+                    {isTestPlan ? <>PayFast will collect R5 once. This test plan does not start recurring billing.</> : deferredTrial ? <>No payment required today. Your card will be charged after your existing trial ends on{" "}
                     {trialEndDate!.toLocaleDateString("en-ZA", {
                       day: "numeric",
                       month: "long",
                       year: "numeric",
-                    })}</> : <>Your first payment is due today. PayFast will charge your card automatically each {billingCycle === "annual" ? "year" : "month"} until you cancel.</>}
+                    })}</> : isPrepaid ? <>Pay for one {billingCycle === "annual" ? "year" : "month"} now with Yoco. Before it ends we email you a renewal link; renewing adds a new period on top.</> : <>Your first payment is due today. {providerName} will charge your card automatically each {billingCycle === "annual" ? "year" : "month"} until you cancel.</>}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -285,6 +341,28 @@ export default function CheckoutPage() {
 
                     <Separator />
 
+                    {!isTestPlan && availableProviders.length > 1 && (
+                      <div className="space-y-2">
+                        <Label>Pay with</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Payment provider">
+                          {availableProviders.map((key) => (
+                            <button
+                              key={key}
+                              type="button"
+                              role="radio"
+                              aria-checked={provider === key}
+                              disabled={isProcessing}
+                              onClick={() => setProvider(key)}
+                              className={`rounded-lg border p-3 text-left transition ${provider === key ? "border-brand-primary ring-2 ring-brand-primary/30 bg-white" : "border-slate-200 bg-slate-50 hover:bg-white"}`}
+                            >
+                              <span className="block font-medium text-slate-900">{PROVIDER_LABELS[key]}</span>
+                              <span className="block text-xs text-slate-500">{PROVIDER_HINTS[key]}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="bg-slate-50 p-4 rounded-lg space-y-3">
                       <div className="flex items-center gap-3">
                         <Shield className="w-5 h-5 text-brand-primary" />
@@ -295,7 +373,7 @@ export default function CheckoutPage() {
                       <div className="flex items-center gap-3">
                         <Lock className="w-5 h-5 text-blue-600" />
                         <p className="text-sm text-slate-700">
-                          Secure payment processing by PayFast
+                          Secure payment processing by {providerName}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -343,7 +421,7 @@ export default function CheckoutPage() {
                       ) : (
                         <>
                           <CreditCard className="w-5 h-5 mr-2" />
-                          {isTestPlan ? "Pay R5 once and test access" : hasTrial ? "Set Up Recurring Billing" : "Pay " + formatCurrency(amount) + " and Subscribe"}
+                          {isTestPlan ? "Pay R5 once and test access" : isPrepaid ? "Pay " + formatCurrency(amount) + " with Yoco" : deferredTrial ? "Set Up Recurring Billing" : "Pay " + formatCurrency(amount) + " and Subscribe"}
                         </>
                       )}
                     </Button>
@@ -351,7 +429,9 @@ export default function CheckoutPage() {
                     <p className="text-xs text-center text-slate-500">
                       {isTestPlan
                         ? "This is a single R5 payment. PayFast will not create a recurring payment."
-                        : <>You authorize PayFast to charge {formatCurrency(amount)} automatically every {billingCycle === "annual" ? "year" : "month"}{hasTrial ? " after your existing trial ends" : ", starting today"}, until you cancel.</>}
+                        : isPrepaid
+                          ? <>Yoco charges {formatCurrency(amount)} once for this {billingCycle === "annual" ? "year" : "month"}. Renew from the emailed link or Billing before it ends to keep access.</>
+                          : <>You authorize {providerName} to charge {formatCurrency(amount)} automatically every {billingCycle === "annual" ? "year" : "month"}{deferredTrial ? " after your existing trial ends" : ", starting today"}, until you cancel.</>}
                     </p>
                   </form>
                 </CardContent>
@@ -390,7 +470,7 @@ export default function CheckoutPage() {
                         </span>
                       </div>
                     )}
-                    {hasTrial && <div className="flex justify-between text-sm">
+                    {deferredTrial && <div className="flex justify-between text-sm">
                       <span className="text-slate-600">Existing trial</span>
                       <span className="text-brand-primary font-medium">-{formatCurrency(amount)}</span>
                     </div>}
@@ -401,8 +481,8 @@ export default function CheckoutPage() {
                   <div className="flex justify-between items-baseline">
                     <span className="font-semibold">Due Today</span>
                     <div className="text-right">
-                      <span className="text-2xl font-bold">{formatCurrency(hasTrial ? 0 : amount)}</span>
-                          <p className="text-xs text-slate-500">{isTestPlan ? "Single R5 test charge" : hasTrial ? "No charge during your remaining trial" : "First subscription payment"}</p>
+                      <span className="text-2xl font-bold">{formatCurrency(deferredTrial ? 0 : amount)}</span>
+                          <p className="text-xs text-slate-500">{isTestPlan ? "Single R5 test charge" : deferredTrial ? "No charge during your remaining trial" : "First subscription payment"}</p>
                     </div>
                   </div>
 
@@ -410,7 +490,7 @@ export default function CheckoutPage() {
                     <div className="flex items-start gap-2">
                       <Zap className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-medium text-blue-900 mb-1">{isTestPlan ? "One payment only" : hasTrial ? "Starting " + trialEndDate!.toLocaleDateString() : "Automatic recurring billing"}</p>
+                        <p className="text-sm font-medium text-blue-900 mb-1">{isTestPlan ? "One payment only" : deferredTrial ? "Starting " + trialEndDate!.toLocaleDateString() : isPrepaid ? "Prepaid - renew by emailed link" : "Automatic recurring billing"}</p>
                         <p className="text-sm text-blue-700">
                           {isTestPlan ? formatCurrency(amount) + " once" : formatCurrency(amount) + "/" + (billingCycle === "annual" ? "year" : "month")}
                         </p>

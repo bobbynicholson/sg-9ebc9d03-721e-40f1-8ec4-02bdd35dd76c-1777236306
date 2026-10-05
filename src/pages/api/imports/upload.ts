@@ -37,6 +37,11 @@ export const config = {
   },
 };
 
+// Parsing a large export and saving every row (about 9k for a full
+// accounting customer list) outruns the short default function timeout,
+// which surfaced as an HTML error page instead of a usable message.
+export const maxDuration = 300;
+
 const MAX_BYTES = 5 * 1024 * 1024;
 
 // Default fallback when app_config.import_row_cap is unreadable. Bobby

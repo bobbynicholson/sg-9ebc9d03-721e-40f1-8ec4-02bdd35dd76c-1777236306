@@ -39,6 +39,7 @@ interface Invoice {
   order_id: string;
   order_number: string;
   amount: number;
+  pay_now_amount?: number;
   currency: string;
   status: string;
   public_token?: string | null;
@@ -60,12 +61,19 @@ interface PaymentModalProps {
    *  redeem call both authenticate via token-bearer rather than
    *  Supabase auth. */
   publicToken?: string;
+  /** Portal checkout uses the signed-in client's ownership and returns to billing. */
+  authenticatedCheckout?: boolean;
 }
 
 type Method = "online" | "eft";
 
-export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowReceipt, publicToken }: PaymentModalProps) {
+export function PaymentModal({ invoice: sourceInvoice, open, onClose, onPaymentSuccess, onShowReceipt, publicToken, authenticatedCheckout = false }: PaymentModalProps) {
   const { toast } = useToast();
+  const [payFullBalance, setPayFullBalance] = useState(false);
+  const invoice = { ...sourceInvoice, amount: payFullBalance
+    ? sourceInvoice.amount
+    : Math.min(sourceInvoice.amount, sourceInvoice.pay_now_amount ?? sourceInvoice.amount) };
+  useEffect(() => { setPayFullBalance(false); }, [open, sourceInvoice.id]);
   const invoiceToken = publicToken || invoice.public_token || "";
   const [bank, setBank] = useState({
     name: "", holder: "", account: "", branch: "", accountType: "", instructions: "",
@@ -203,7 +211,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
       body: JSON.stringify({
         invoice_id: invoice.id,
         checkout_request_id: checkoutRequest.current.id,
-        public_token: invoiceToken || undefined,
+        public_token: authenticatedCheckout ? undefined : invoiceToken || undefined,
         pay_amount: invoice.amount,
         apply_credit: applyCredit,
         apply_credit_amount: applyCredit ? Math.min(creditMaxApplicable, invoice.amount) : undefined,
@@ -463,8 +471,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
         <DialogHeader>
           <DialogTitle>Pay {invoice.invoice_number}</DialogTitle>
           <DialogDescription>
-            Pick how you'd like to settle the {invoice.currency}
-            {invoice.amount.toLocaleString()} balance.
+            Choose how to pay this invoice. Outstanding balance: {fmtCurrency(sourceInvoice.amount)}.
           </DialogDescription>
         </DialogHeader>
 
@@ -482,7 +489,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
             )}
             <Separator className="my-3" />
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-slate-900">Amount due</span>
+              <span className="font-semibold text-slate-900">Amount to pay now</span>
               <span className="text-2xl font-bold text-blue-600">
                 {fmtCurrency(invoice.amount)}
               </span>
@@ -502,6 +509,17 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
               </div>
             )}
           </div>
+
+          {sourceInvoice.pay_now_amount != null && sourceInvoice.pay_now_amount > 0 && sourceInvoice.pay_now_amount < sourceInvoice.amount && (
+            <div className="flex flex-wrap gap-2" aria-label="Payment amount">
+              <Button variant={payFullBalance ? "outline" : "default"} disabled={processing} onClick={() => setPayFullBalance(false)}>
+                Pay first payment: {fmtCurrency(sourceInvoice.pay_now_amount)}
+              </Button>
+              <Button variant={payFullBalance ? "default" : "outline"} disabled={processing} onClick={() => setPayFullBalance(true)}>
+                Pay full balance: {fmtCurrency(sourceInvoice.amount)}
+              </Button>
+            </div>
+          )}
 
           {/* Wave 29.2: store-credit toggle. Only shown when the
               client actually has credit on file. Default-on (cashflow
@@ -529,7 +547,7 @@ export function PaymentModal({ invoice, open, onClose, onPaymentSuccess, onShowR
                     {creditMaxApplicable < creditAvailable
                       ? ` We'll apply ${fmtCurrency(creditMaxApplicable)} to this invoice and keep the rest on your account.`
                       : creditMaxApplicable >= invoice.amount
-                        ? " That covers this whole invoice - nothing left to charge."
+                        ? " That covers this selected payment - nothing left to charge now."
                         : ` We'll apply it all and you'll only pay ${fmtCurrency(netAmount)} for the rest.`}
                   </p>
                 </div>

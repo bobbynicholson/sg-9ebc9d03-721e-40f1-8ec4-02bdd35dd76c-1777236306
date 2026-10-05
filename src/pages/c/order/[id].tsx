@@ -303,11 +303,12 @@ export default function ClientOrderPage() {
       })
     : paymentSummary.balanceDue;
   const depositReceived = firstPaymentAmount > 0
-    ? paymentSummary.amountPaid + 0.01 >= firstPaymentAmount
+    ? Math.round(paymentSummary.amountPaid * 100) >= Math.round(firstPaymentAmount * 100)
     : paymentSummary.amountPaid > 0;
   const balanceSettled = scheduledBalanceDue <= 0.01;
   const hasBalanceLine = Number(order.balance_amount || 0) > 0 || scheduledBalanceDue > 0;
-  const paymentLabel = paymentSummary.label;
+  const paymentLabel = paymentSummary.state === "partial" && !depositReceived
+    ? "Partially paid" : paymentSummary.label;
   const eventDate = new Date(order.event_date);
   const daysOut = Math.ceil((eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   // Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding.
@@ -359,7 +360,7 @@ export default function ClientOrderPage() {
           className="px-4 py-6 text-white shadow-lg"
           style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
         >
-          <div className="max-w-3xl mx-auto flex items-center gap-4">
+          <div className="max-w-6xl mx-auto flex items-center gap-4">
             {company.logo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={company.logo_url} alt={company.company_name} className="w-12 h-12 rounded-lg bg-white/90 object-contain p-1" />
@@ -379,7 +380,7 @@ export default function ClientOrderPage() {
           </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
 
           {/*
             Sign-in nudge, bridges the read-only token view into the
@@ -464,490 +465,500 @@ export default function ClientOrderPage() {
             </CardContent>
           </Card>
 
-          {/* Status timeline - the same 22-stage pipeline model used
-              by admin and staff order documents. Public/source links
-              stay disabled on this magic-link surface. */}
-          {status !== "cancelled" && (
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Where we're at</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(() => {
-                  // Wave 60 - pass the related rows from the
-                  // RPC. Pre-Wave-60 the timeline computed from
-                  // order columns alone, which meant
-                  // "Preparing your food" + "Equipment collected"
-                  // could never advance because they read
-                  // kitchen_prep_tasks + driver_assignments.
-                  // Now: client sees the same stage statuses the
-                  // admin sees, exactly when they advance.
-                  const operatorTl = computeOrderTimeline({
-                    order,
-                    payments: (view as any)?.payments || [],
-                    driverAssignments: (view as any)?.driver_assignments || [],
-                    kitchenPrepTasks: (view as any)?.kitchen_prep_tasks || [],
-                    equipmentBookings: (view as any)?.equipment_bookings || [],
-                    invoices: invoice ? [invoice] : [],
-                  });
-                  return <TimelineTrack timeline={operatorTl} hideOperatorGlossary disableSourceLinks />;
-                })()}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Venue */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <MapPin className="w-4 h-4" style={{ color: primary }} />
-                Venue
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-1 text-sm">
-              {order.venue_name && <p className="font-semibold text-slate-900">{order.venue_name}</p>}
-              <p className="text-slate-700">{order.venue_address}</p>
-              {order.venue_contact_person && (
-                <p className="text-xs text-slate-500 mt-2">
-                  Contact on the day: {order.venue_contact_person}
-                  {order.venue_contact_phone && ` · ${order.venue_contact_phone}`}
-                </p>
+          {/* Two columns on desktop: the booking itself on the left; money,
+              changes and contact on the right, staying in view. Phones stack
+              the booking details first, then payment, changes and contact. */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+            <div className="min-w-0 space-y-6">
+              {/* Status timeline - the same 22-stage pipeline model used
+                  by admin and staff order documents. Public/source links
+                  stay disabled on this magic-link surface. */}
+              {status !== "cancelled" && (
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Where we're at</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      // Wave 60 - pass the related rows from the
+                      // RPC. Pre-Wave-60 the timeline computed from
+                      // order columns alone, which meant
+                      // "Preparing your food" + "Equipment collected"
+                      // could never advance because they read
+                      // kitchen_prep_tasks + driver_assignments.
+                      // Now: client sees the same stage statuses the
+                      // admin sees, exactly when they advance.
+                      const operatorTl = computeOrderTimeline({
+                        order,
+                        payments: (view as any)?.payments || [],
+                        driverAssignments: (view as any)?.driver_assignments || [],
+                        kitchenPrepTasks: (view as any)?.kitchen_prep_tasks || [],
+                        equipmentBookings: (view as any)?.equipment_bookings || [],
+                        invoices: invoice ? [invoice] : [],
+                      });
+                      return <TimelineTrack timeline={operatorTl} hideOperatorGlossary disableSourceLinks />;
+                    })()}
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
 
-          {/* Menu / line items + full money breakdown.
-              Wave 60 - pre-Wave-60 the client jumped from line-item
-              prices straight to "Total" with no transparency on
-              subtotal, discount, delivery, or VAT. Bobby's request:
-              "wheres the vat and delivery, and all info for the
-              order? I want everything here for the client to be up
-              to date". Now: every component of the total is shown
-              when present, so the client can reconcile the maths
-              themselves and never wonder "what's the R200 for". */}
-          {Array.isArray(items) && items.length > 0 && (() => {
-            // Compute the line-item subtotal locally as a fallback
-            // when order.subtotal isn't on the magic-link payload.
-            const computedSubtotal = items.reduce(
-              (s: number, it: any) => s + Number(it.line_total || 0),
-              0,
-            );
-            const subtotal = Number(order.subtotal ?? computedSubtotal) || 0;
-            const discount = Number(order.discount_amount || 0);
-            const deliveryFee = Number(order.delivery_fee || 0);
-            const taxAmount = Number(order.tax_amount ?? order.tax ?? 0);
-            const total = Number(order.total_amount || 0);
-            return (
+              {/* Venue */}
               <Card className="border-0 shadow-lg">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <ChefHat className="w-4 h-4" style={{ color: primary }} />
-                    What we're catering
+                    <MapPin className="w-4 h-4" style={{ color: primary }} />
+                    Venue
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100">
-                    {items.map((it: any, i: number) => (
-                      <div key={i} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
-                        <div className="min-w-0">
-                          <p className="font-medium text-slate-900">{it.item_name}</p>
-                          {it.special_instructions && (
-                            <p className="text-xs text-slate-500 mt-0.5">{it.special_instructions}</p>
-                          )}
-                        </div>
-                        <div className="text-right tabular-nums flex-shrink-0">
-                          <p className="text-slate-700">{it.quantity} × {fmtMoney.format(Number(it.unit_price || 0))}</p>
-                          <p className="text-xs text-slate-500">{fmtMoney.format(Number(it.line_total || 0))}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {/* Breakdown: every line only renders when there's a
-                        non-zero value to show, so a no-discount /
-                        no-delivery / VAT-inclusive order doesn't pad
-                        the receipt with R0.00 lines. */}
-                    {subtotal > 0 && (
-                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
-                        <span className="text-slate-600">Subtotal</span>
-                        <span className="text-slate-700 tabular-nums">{fmtMoney.format(subtotal)}</span>
-                      </div>
-                    )}
-                    {discount > 0 && (
-                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
-                        <span className="text-brand-primary">Discount</span>
-                        <span className="text-brand-primary tabular-nums">-{fmtMoney.format(discount)}</span>
-                      </div>
-                    )}
-                    {deliveryFee > 0 && (
-                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
-                        <span className="text-slate-600">
-                          Delivery
-                          {Number(order.delivery_distance_km) > 0 && (
-                            <span className="text-xs text-slate-500 ml-1">
-                              ({Number(order.delivery_distance_km).toFixed(1)} km)
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-slate-700 tabular-nums">{fmtMoney.format(deliveryFee)}</span>
-                      </div>
-                    )}
-                    {Number(order.collection_fee) > 0 && (
-                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
-                        <span className="text-slate-600">
-                          Collection
-                          {Number(order.collection_distance_km) > 0 && (
-                            <span className="text-xs text-slate-500 ml-1">
-                              ({Number(order.collection_distance_km).toFixed(1)} km)
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-slate-700 tabular-nums">{fmtMoney.format(Number(order.collection_fee))}</span>
-                      </div>
-                    )}
-                    {taxAmount > 0 && (
-                      <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
-                        <span className="text-slate-600">VAT</span>
-                        <span className="text-slate-700 tabular-nums">{fmtMoney.format(taxAmount)}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between px-6 py-3 bg-slate-100">
-                      <span className="font-semibold text-slate-900">Total</span>
-                      <span className="font-bold text-slate-900 text-lg tabular-nums">{fmtMoney.format(total)}</span>
-                    </div>
-                  </div>
+                <CardContent className="space-y-1 text-sm">
+                  {order.venue_name && <p className="font-semibold text-slate-900">{order.venue_name}</p>}
+                  <p className="text-slate-700">{order.venue_address}</p>
+                  {order.venue_contact_person && (
+                    <p className="text-xs text-slate-500 mt-2">
+                      Contact on the day: {order.venue_contact_person}
+                      {order.venue_contact_phone && ` · ${order.venue_contact_phone}`}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
-            );
-          })()}
 
-          {equipmentBookings.length > 0 && (
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Package className="w-4 h-4" style={{ color: primary }} />
-                  Equipment on this order
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-100">
-                  {equipmentBookings.map((it: any, i: number) => {
-                    const lineTotal = it.line_total || (it.quantity * it.unit_price);
-                    return (
-                      <div key={it.id || i} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
-                        <div className="min-w-0">
-                          <p className="font-medium text-slate-900">{it.name || "Equipment"}</p>
-                          <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
-                            {it.is_hire_in && (
-                              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">Hire-in</span>
-                            )}
-                            {it.status && (
-                              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 capitalize">
-                                {String(it.status).replace(/_/g, " ")}
-                              </span>
-                            )}
-                            {it.returned_quantity > 0 && (
-                              <span className="rounded-full border border-brand-primary/20 bg-brand-primary/10 px-2 py-0.5 text-brand-primary">
-                                {it.returned_quantity} returned
-                              </span>
-                            )}
+              {/* Menu / line items + full money breakdown.
+                  Wave 60 - pre-Wave-60 the client jumped from line-item
+                  prices straight to "Total" with no transparency on
+                  subtotal, discount, delivery, or VAT. Bobby's request:
+                  "wheres the vat and delivery, and all info for the
+                  order? I want everything here for the client to be up
+                  to date". Now: every component of the total is shown
+                  when present, so the client can reconcile the maths
+                  themselves and never wonder "what's the R200 for". */}
+              {Array.isArray(items) && items.length > 0 && (() => {
+                // Compute the line-item subtotal locally as a fallback
+                // when order.subtotal isn't on the magic-link payload.
+                const computedSubtotal = items.reduce(
+                  (s: number, it: any) => s + Number(it.line_total || 0),
+                  0,
+                );
+                const subtotal = Number(order.subtotal ?? computedSubtotal) || 0;
+                const discount = Number(order.discount_amount || 0);
+                const deliveryFee = Number(order.delivery_fee || 0);
+                const taxAmount = Number(order.tax_amount ?? order.tax ?? 0);
+                const total = Number(order.total_amount || 0);
+                return (
+                  <Card className="border-0 shadow-lg">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <ChefHat className="w-4 h-4" style={{ color: primary }} />
+                        What we're catering
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="divide-y divide-slate-100">
+                        {items.map((it: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900">{it.item_name}</p>
+                              {it.special_instructions && (
+                                <p className="text-xs text-slate-500 mt-0.5">{it.special_instructions}</p>
+                              )}
+                            </div>
+                            <div className="text-right tabular-nums flex-shrink-0">
+                              <p className="text-slate-700">{it.quantity} × {fmtMoney.format(Number(it.unit_price || 0))}</p>
+                              <p className="text-xs text-slate-500">{fmtMoney.format(Number(it.line_total || 0))}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-right tabular-nums flex-shrink-0">
-                          <p className="text-slate-700">{it.quantity || 1} x {fmtMoney.format(it.unit_price || 0)}</p>
-                          {lineTotal > 0 && <p className="text-xs text-slate-500">{fmtMoney.format(lineTotal)}</p>}
+                        ))}
+                        {/* Breakdown: every line only renders when there's a
+                            non-zero value to show, so a no-discount /
+                            no-delivery / VAT-inclusive order doesn't pad
+                            the receipt with R0.00 lines. */}
+                        {subtotal > 0 && (
+                          <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                            <span className="text-slate-600">Subtotal</span>
+                            <span className="text-slate-700 tabular-nums">{fmtMoney.format(subtotal)}</span>
+                          </div>
+                        )}
+                        {discount > 0 && (
+                          <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                            <span className="text-brand-primary">Discount</span>
+                            <span className="text-brand-primary tabular-nums">-{fmtMoney.format(discount)}</span>
+                          </div>
+                        )}
+                        {deliveryFee > 0 && (
+                          <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                            <span className="text-slate-600">
+                              Delivery
+                              {Number(order.delivery_distance_km) > 0 && (
+                                <span className="text-xs text-slate-500 ml-1">
+                                  ({Number(order.delivery_distance_km).toFixed(1)} km)
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-slate-700 tabular-nums">{fmtMoney.format(deliveryFee)}</span>
+                          </div>
+                        )}
+                        {Number(order.collection_fee) > 0 && (
+                          <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                            <span className="text-slate-600">
+                              Collection
+                              {Number(order.collection_distance_km) > 0 && (
+                                <span className="text-xs text-slate-500 ml-1">
+                                  ({Number(order.collection_distance_km).toFixed(1)} km)
+                                </span>
+                              )}
+                            </span>
+                            <span className="text-slate-700 tabular-nums">{fmtMoney.format(Number(order.collection_fee))}</span>
+                          </div>
+                        )}
+                        {taxAmount > 0 && (
+                          <div className="flex items-center justify-between px-6 py-2 text-sm bg-slate-50/60">
+                            <span className="text-slate-600">VAT</span>
+                            <span className="text-slate-700 tabular-nums">{fmtMoney.format(taxAmount)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between px-6 py-3 bg-slate-100">
+                          <span className="font-semibold text-slate-900">Total</span>
+                          <span className="font-bold text-slate-900 text-lg tabular-nums">{fmtMoney.format(total)}</span>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
-          {/* Payment summary */}
-          {(depositAmount > 0 || hasBalanceLine || settledPayments.length > 0) && (
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Receipt className="w-4 h-4" style={{ color: primary }} />
-                  Payment
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm space-y-2">
-                {depositAmount > 0 && (
-                  <Row label={`Deposit ${depositReceived ? "(paid)" : "(due)"}`} value={fmtMoney.format(depositAmount)} paid={depositReceived} />
-                )}
-                {hasBalanceLine && (
-                  <Row label={`${depositReceived || fullPaymentDue ? "Balance" : "Balance after first payment"} ${balanceSettled ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(balanceSettled ? 0 : scheduledBalanceDue)} paid={balanceSettled} />
-                )}
-                {/* Itemised payment history - what landed and when. Each
-                    line is one settled payment (deposit / balance), pulled
-                    via the order's invoice so a recorded deposit shows. */}
-                {settledPayments.length > 0 && (
-                  <div className="pt-2 mt-1 border-t border-slate-100 space-y-1">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Payments received</p>
-                    {settledPayments.map((p, i) => {
-                      const kind = String(p.payment_type || "").toLowerCase();
-                      const label = kind === "deposit" ? "Deposit" : kind === "balance" || kind === "order" ? "Balance" : "Payment";
-                      return (
-                        <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-slate-600">
-                            {label}{p.processed_at ? ` · ${new Date(p.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
-                          </span>
-                          <span className="font-semibold text-brand-primary tabular-nums">{fmtMoney.format(Number(p.amount) || 0)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {/* Wave 19: Pay button when there's an outstanding invoice.
-                    Routes through the public /pay/i/{token} flow which is
-                    itself token-bearer auth - no sign-in needed. Only
-                    renders when invoice.balance_due > 0 AND status is
-                    actionable (sent / partially_paid / overdue). */}
-                {invoice && Number(invoice.balance_due) > 0 && (
-                  <a
-                    href={`/pay/i/${invoice.public_token}`}
-                    className="mt-3 inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity"
-                    style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
-                  >
-                    <Receipt className="w-4 h-4" />
-                    Pay {fmtMoney.format(amountDueNow)} now
-                  </a>
-                )}
-                {/* TIGHTEN I.113: Download invoice PDF button. Available
-                    whenever an invoice exists (paid OR unpaid) so the
-                    client can keep a copy for their records. Opens the
-                    pay page with ?print=1 which auto-fires the browser
-                    print dialog (set up in /pay/i/[token] as part of
-                    this same PR). */}
-                {invoice && (
-                  <a
-                    href={`/pay/i/${invoice.public_token}?print=1`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center justify-center gap-2 w-full px-4 py-2 rounded-lg text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
-                  >
-                    <Receipt className="w-3.5 h-3.5" />
-                    Download invoice {invoice.invoice_number || ""}
-                  </a>
-                )}
-                {invoice && Number(invoice.balance_due) > 0 && (
-                  <p className="text-[11px] text-slate-500 text-center mt-1">
-                    Secure pay link for invoice {invoice.invoice_number}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Wave 19: live driver tracking. Token-bearer hint - when
-              the order is in_transit AND we have venue coords, surface
-              the existing /client-portal/tracking page. The page itself
-              still requires sign-in for the live map (it's the existing
-              auth-gated experience), but the button + clear copy beats
-              "Sign in for free" buried at the top. */}
-          {status === "in_transit" && (
-            <Card className="border-0 shadow-lg" style={{ borderLeft: `4px solid ${primary}` }}>
-              <CardContent className="p-4 sm:p-5">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
-                  >
-                    <Truck className="w-5 h-5 text-white animate-pulse" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-900 text-sm sm:text-base">
-                      Your driver is on the way
-                    </p>
-                    <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                      Sign in to your portal for the live map + ETA + tap-to-call.
-                    </p>
-                  </div>
-                  {company.slug && (
-                    <Link
-                      href={`/${company.slug}/client/login?email=${encodeURIComponent(order.client_email || "")}&next=${encodeURIComponent(`/client-portal/tracking?orderId=${order.id}`)}`}
-                      className="px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity flex-shrink-0 w-full sm:w-auto text-center"
-                      style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
-                    >
-                      Track live
-                    </Link>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Special / dietary */}
-          {(order.special_instructions || order.dietary_requirements) && (
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Special notes</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-700">
-                {order.special_instructions && (
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Instructions</p>
-                    <p className="whitespace-pre-line">{order.special_instructions}</p>
-                  </div>
-                )}
-                {order.dietary_requirements && (
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Dietary</p>
-                    <p className="whitespace-pre-line">{order.dietary_requirements}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Wave 20 audit: Need to change something? card. Lightweight
-              token-bearer Cancel + Amend so the magic-link client can
-              act without signing in. Hidden when the order is in a
-              terminal state since neither action makes sense then. */}
-          {!["cancelled", "completed", "delivered"].includes(status) && (
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Need to change something?</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setEditOpen(true);
-                      setCancelOpen(false);
-                    }}
-                    className="w-full"
-                  >
-                    Request a change
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setCancelOpen((v) => !v);
-                    }}
-                    className="w-full text-amber-700 border-amber-200 hover:bg-amber-50"
-                  >
-                    Postpone
-                  </Button>
-                </div>
-
-                {/* Wave 28.4: dedicated full-width Cancel button that opens
-                    the wizard. Sits below the Amend/Postpone duo so
-                    it's distinct - a destructive action shouldn't
-                    share visual weight with a benign one. */}
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setWizardOpen(true);
-                    setCancelOpen(false);
-                  }}
-                  className="w-full text-rose-700 border-rose-200 hover:bg-rose-50"
-                >
-                  Cancel this order
-                </Button>
-
-                {cancelOpen && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-3">
-                    <p className="text-sm font-semibold text-slate-900">Postpone this booking</p>
-                    {/* Client persona follow-up (client.md 5.2):
-                        consequence preview that mirrors the
-                        CancellationWizard's shape - what happens to
-                        deposit, what gets carried, what's at risk.
-                        The original copy was just "deposit travels
-                        with you" which hides edge cases
-                        (postponement notice window, the caterer's
-                        right to refuse). Now matches the cancel
-                        wizard's tone. */}
-                    <div className="rounded-md bg-white/60 border border-amber-200 px-3 py-2 text-xs text-slate-700 space-y-1">
-                      <p className="font-medium text-slate-900">What happens when you postpone</p>
-                      <ul className="list-disc list-inside space-y-0.5 text-[11px]">
-                        <li>Your deposit moves to the new date - no refund processed, nothing forfeit.</li>
-                        <li>The team reviews the new date and confirms by email. If they can't cover it they'll suggest alternatives.</li>
-                        <li>Same-week postponements may incur a committed-cost charge (shopping already done, kitchen prep started). The team will tell you on review.</li>
-                      </ul>
+              {equipmentBookings.length > 0 && (
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Package className="w-4 h-4" style={{ color: primary }} />
+                      Equipment on this order
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-slate-100">
+                      {equipmentBookings.map((it: any, i: number) => {
+                        const lineTotal = it.line_total || (it.quantity * it.unit_price);
+                        return (
+                          <div key={it.id || i} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900">{it.name || "Equipment"}</p>
+                              <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+                                {it.is_hire_in && (
+                                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">Hire-in</span>
+                                )}
+                                {it.status && (
+                                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600 capitalize">
+                                    {String(it.status).replace(/_/g, " ")}
+                                  </span>
+                                )}
+                                {it.returned_quantity > 0 && (
+                                  <span className="rounded-full border border-brand-primary/20 bg-brand-primary/10 px-2 py-0.5 text-brand-primary">
+                                    {it.returned_quantity} returned
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right tabular-nums flex-shrink-0">
+                              <p className="text-slate-700">{it.quantity || 1} x {fmtMoney.format(it.unit_price || 0)}</p>
+                              {lineTotal > 0 && <p className="text-xs text-slate-500">{fmtMoney.format(lineTotal)}</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <p className="text-xs text-slate-600">
-                      Pick a new date and the team will confirm by email.
-                    </p>
-                    <div>
-                      <label className="text-xs font-medium text-slate-700 block mb-1">New event date</label>
-                      <input
-                        type="date"
-                        value={postponeDate}
-                        min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
-                        onChange={(e) => setPostponeDate(e.target.value)}
-                        className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
-                      />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Wave 19: live driver tracking. Token-bearer hint - when
+                  the order is in_transit AND we have venue coords, surface
+                  the existing /client-portal/tracking page. The page itself
+                  still requires sign-in for the live map (it's the existing
+                  auth-gated experience), but the button + clear copy beats
+                  "Sign in for free" buried at the top. */}
+              {status === "in_transit" && (
+                <Card className="border-0 shadow-lg" style={{ borderLeft: `4px solid ${primary}` }}>
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div
+                        className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                      >
+                        <Truck className="w-5 h-5 text-white animate-pulse" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-900 text-sm sm:text-base">
+                          Your driver is on the way
+                        </p>
+                        <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                          Sign in to your portal for the live map + ETA + tap-to-call.
+                        </p>
+                      </div>
+                      {company.slug && (
+                        <Link
+                          href={`/${company.slug}/client/login?email=${encodeURIComponent(order.client_email || "")}&next=${encodeURIComponent(`/client-portal/tracking?orderId=${order.id}`)}`}
+                          className="px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity flex-shrink-0 w-full sm:w-auto text-center"
+                          style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                        >
+                          Track live
+                        </Link>
+                      )}
                     </div>
-                    <div>
-                      <label className="text-xs font-medium text-slate-700 block mb-1">Reason (optional)</label>
-                      <textarea
-                        rows={2}
-                        value={cancelReason}
-                        onChange={(e) => setCancelReason(e.target.value)}
-                        placeholder="Anything the team should know..."
-                        className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
-                      />
-                    </div>
-                    {cancelMsg && (
-                      <p className={`text-xs ${cancelMsg.tone === "ok" ? "text-brand-primary" : "text-rose-700"}`}>
-                        {cancelMsg.text}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Special / dietary */}
+              {(order.special_instructions || order.dietary_requirements) && (
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Special notes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm text-slate-700">
+                    {order.special_instructions && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Instructions</p>
+                        <p className="whitespace-pre-line">{order.special_instructions}</p>
+                      </div>
+                    )}
+                    {order.dietary_requirements && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Dietary</p>
+                        <p className="whitespace-pre-line">{order.dietary_requirements}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+            </div>
+            <aside className="space-y-6 lg:sticky lg:top-6" aria-label="Payment and help">
+              {/* Payment summary */}
+              {(depositAmount > 0 || hasBalanceLine || settledPayments.length > 0) && (
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Receipt className="w-4 h-4" style={{ color: primary }} />
+                      Payment
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm space-y-2">
+                    {depositAmount > 0 && (
+                      <Row label={`Deposit ${depositReceived ? "(paid)" : "(due)"}`} value={fmtMoney.format(depositAmount)} paid={depositReceived} />
+                    )}
+                    {hasBalanceLine && (
+                      <Row label={`${depositReceived || fullPaymentDue ? "Balance" : "Balance after first payment"} ${balanceSettled ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(balanceSettled ? 0 : scheduledBalanceDue)} paid={balanceSettled} />
+                    )}
+                    {/* Itemised payment history - what landed and when. Each
+                        line is one settled payment (deposit / balance), pulled
+                        via the order's invoice so a recorded deposit shows. */}
+                    {settledPayments.length > 0 && (
+                      <div className="pt-2 mt-1 border-t border-slate-100 space-y-1">
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Payments received</p>
+                        {settledPayments.map((p, i) => {
+                          const kind = String(p.payment_type || "").toLowerCase();
+                          const label = kind === "deposit" ? "Deposit" : kind === "balance" || kind === "order" ? "Balance" : "Payment";
+                          return (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-600">
+                                {label}{p.processed_at ? ` · ${new Date(p.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+                              </span>
+                              <span className="font-semibold text-brand-primary tabular-nums">{fmtMoney.format(Number(p.amount) || 0)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {/* Wave 19: Pay button when there's an outstanding invoice.
+                        Routes through the public /pay/i/{token} flow which is
+                        itself token-bearer auth - no sign-in needed. Only
+                        renders when invoice.balance_due > 0 AND status is
+                        actionable (sent / partially_paid / overdue). */}
+                    {invoice && Number(invoice.balance_due) > 0 && (
+                      <a
+                        href={`/pay/i/${invoice.public_token}`}
+                        className="mt-3 inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity"
+                        style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+                      >
+                        <Receipt className="w-4 h-4" />
+                        Pay {fmtMoney.format(amountDueNow)} now
+                      </a>
+                    )}
+                    {/* TIGHTEN I.113: Download invoice PDF button. Available
+                        whenever an invoice exists (paid OR unpaid) so the
+                        client can keep a copy for their records. Opens the
+                        pay page with ?print=1 which auto-fires the browser
+                        print dialog (set up in /pay/i/[token] as part of
+                        this same PR). */}
+                    {invoice && (
+                      <a
+                        href={`/pay/i/${invoice.public_token}?print=1`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center justify-center gap-2 w-full px-4 py-2 rounded-lg text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        Download invoice {invoice.invoice_number || ""}
+                      </a>
+                    )}
+                    {invoice && Number(invoice.balance_due) > 0 && (
+                      <p className="text-[11px] text-slate-500 text-center mt-1">
+                        Secure pay link for invoice {invoice.invoice_number}
                       </p>
                     )}
-                    <Button
-                      onClick={submitCancel}
-                      disabled={
-                        cancelBusy ||
-                        (cancelMsg?.tone === "ok") ||
-                        !postponeDate
-                      }
-                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
-                    >
-                      {cancelBusy ? "Sending..." : cancelMsg?.tone === "ok" ? "Sent" : "Send postponement request"}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* Catering company contact. Client persona follow-up
-              (client.md 5.7): defensive fallback when the company
-              hasn't filled in email + phone + website at all. Rare
-              case (admin email is required at signup) but possible
-              for tenants who haven't completed onboarding. */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Get in touch with {company.company_name}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {company.email && (
-                <a
-                  href={`mailto:${company.email}?subject=${encodeURIComponent(`Booking ${order.order_number || order.id}`)}`}
-                  className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1"
-                >
-                  <Mail className="w-4 h-4" style={{ color: primary }} /> {company.email}
-                </a>
+              {/* Wave 20 audit: Need to change something? card. Lightweight
+                  token-bearer Cancel + Amend so the magic-link client can
+                  act without signing in. Hidden when the order is in a
+                  terminal state since neither action makes sense then. */}
+              {!["cancelled", "completed", "delivered"].includes(status) && (
+                <Card className="border-0 shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Need to change something?</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditOpen(true);
+                          setCancelOpen(false);
+                        }}
+                        className="w-full"
+                      >
+                        Request a change
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCancelOpen((v) => !v);
+                        }}
+                        className="w-full text-amber-700 border-amber-200 hover:bg-amber-50"
+                      >
+                        Postpone
+                      </Button>
+                    </div>
+
+                    {/* Wave 28.4: dedicated full-width Cancel button that opens
+                        the wizard. Sits below the Amend/Postpone duo so
+                        it's distinct - a destructive action shouldn't
+                        share visual weight with a benign one. */}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setWizardOpen(true);
+                        setCancelOpen(false);
+                      }}
+                      className="w-full text-rose-700 border-rose-200 hover:bg-rose-50"
+                    >
+                      Cancel this order
+                    </Button>
+
+                    {cancelOpen && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+                        <p className="text-sm font-semibold text-slate-900">Postpone this booking</p>
+                        {/* Client persona follow-up (client.md 5.2):
+                            consequence preview that mirrors the
+                            CancellationWizard's shape - what happens to
+                            deposit, what gets carried, what's at risk.
+                            The original copy was just "deposit travels
+                            with you" which hides edge cases
+                            (postponement notice window, the caterer's
+                            right to refuse). Now matches the cancel
+                            wizard's tone. */}
+                        <div className="rounded-md bg-white/60 border border-amber-200 px-3 py-2 text-xs text-slate-700 space-y-1">
+                          <p className="font-medium text-slate-900">What happens when you postpone</p>
+                          <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                            <li>Your deposit moves to the new date - no refund processed, nothing forfeit.</li>
+                            <li>The team reviews the new date and confirms by email. If they can't cover it they'll suggest alternatives.</li>
+                            <li>Same-week postponements may incur a committed-cost charge (shopping already done, kitchen prep started). The team will tell you on review.</li>
+                          </ul>
+                        </div>
+                        <p className="text-xs text-slate-600">
+                          Pick a new date and the team will confirm by email.
+                        </p>
+                        <div>
+                          <label className="text-xs font-medium text-slate-700 block mb-1">New event date</label>
+                          <input
+                            type="date"
+                            value={postponeDate}
+                            min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                            onChange={(e) => setPostponeDate(e.target.value)}
+                            className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-700 block mb-1">Reason (optional)</label>
+                          <textarea
+                            rows={2}
+                            value={cancelReason}
+                            onChange={(e) => setCancelReason(e.target.value)}
+                            placeholder="Anything the team should know..."
+                            className="w-full px-3 py-2 rounded-md border border-slate-300 text-sm"
+                          />
+                        </div>
+                        {cancelMsg && (
+                          <p className={`text-xs ${cancelMsg.tone === "ok" ? "text-brand-primary" : "text-rose-700"}`}>
+                            {cancelMsg.text}
+                          </p>
+                        )}
+                        <Button
+                          onClick={submitCancel}
+                          disabled={
+                            cancelBusy ||
+                            (cancelMsg?.tone === "ok") ||
+                            !postponeDate
+                          }
+                          className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                        >
+                          {cancelBusy ? "Sending..." : cancelMsg?.tone === "ok" ? "Sent" : "Send postponement request"}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
-              {company.phone && (
-                <a href={`tel:${company.phone}`} className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1">
-                  <Phone className="w-4 h-4" style={{ color: primary }} /> {company.phone}
-                </a>
-              )}
-              {company.website && (
-                <a href={company.website} target="_blank" rel="noopener" className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1">
-                  <Globe className="w-4 h-4" style={{ color: primary }} /> {company.website}
-                </a>
-              )}
-              {!company.email && !company.phone && !company.website && (
-                <p className="text-sm text-slate-500 italic">
-                  No contact info on file. Reply to your booking-confirmation email if you need to reach the team.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+
+              {/* Catering company contact. Client persona follow-up
+                  (client.md 5.7): defensive fallback when the company
+                  hasn't filled in email + phone + website at all. Rare
+                  case (admin email is required at signup) but possible
+                  for tenants who haven't completed onboarding. */}
+              <Card className="border-0 shadow-lg">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Get in touch with {company.company_name}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {company.email && (
+                    <a
+                      href={`mailto:${company.email}?subject=${encodeURIComponent(`Booking ${order.order_number || order.id}`)}`}
+                      className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1"
+                    >
+                      <Mail className="w-4 h-4" style={{ color: primary }} /> {company.email}
+                    </a>
+                  )}
+                  {company.phone && (
+                    <a href={`tel:${company.phone}`} className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1">
+                      <Phone className="w-4 h-4" style={{ color: primary }} /> {company.phone}
+                    </a>
+                  )}
+                  {company.website && (
+                    <a href={company.website} target="_blank" rel="noopener" className="flex items-center gap-2 text-slate-700 hover:text-slate-900 min-h-11 py-1">
+                      <Globe className="w-4 h-4" style={{ color: primary }} /> {company.website}
+                    </a>
+                  )}
+                  {!company.email && !company.phone && !company.website && (
+                    <p className="text-sm text-slate-500 italic">
+                      No contact info on file. Reply to your booking-confirmation email if you need to reach the team.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+            </aside>
+          </div>
 
           <p className="text-center text-xs text-slate-400">
             This is a private link to your booking. Anyone with the link can see this page, please don't share publicly.

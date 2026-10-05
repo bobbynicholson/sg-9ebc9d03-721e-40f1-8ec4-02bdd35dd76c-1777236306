@@ -14,6 +14,7 @@
  *
  * Amounts are sent in CENTS (ZAR * 100), per Yoco docs.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 export interface YocoCheckoutInput {
   /** Tenant secret key (sk_test_... / sk_live_...). */
@@ -115,6 +116,58 @@ export async function pingYocoCredentials(secretKey: string): Promise<{
   } catch (e: any) {
     return { ok: false, status: 0, message: e?.message || "Yoco ping failed" };
   }
+}
+
+/**
+ * Register the platform's Yoco webhook on the tenant's Yoco account and
+ * return its signing secret.
+ *
+ * Yoco has no dashboard screen for Checkout webhooks: they exist only via
+ * POST /api/webhooks, and the whsec_ secret is returned once, at creation.
+ * An existing registration for the same URL cannot reveal its secret again,
+ * so it is deleted and re-created.
+ */
+export async function registerYocoWebhook(secretKey: string, url: string): Promise<{
+  id: string;
+  secret: string;
+  mode: string | null;
+}> {
+  if (!secretKey) throw new Error("Yoco secret key missing");
+  const headers = { "Authorization": `Bearer ${secretKey}`, "Content-Type": "application/json" };
+
+  const listed = await fetch(`${YOCO_BASE}/webhooks`, { headers, signal: AbortSignal.timeout(10000) });
+  if (listed.status === 401 || listed.status === 403) throw new Error("Yoco rejected the secret key");
+  if (!listed.ok) throw new Error(`Yoco webhook list failed (${listed.status})`);
+  const listJson = await listed.json().catch(() => ({})) as any;
+  const existing: Array<{ id?: string; url?: string }> = Array.isArray(listJson)
+    ? listJson
+    : Array.isArray(listJson?.subscriptions) ? listJson.subscriptions
+      : Array.isArray(listJson?.webhooks) ? listJson.webhooks
+        : Array.isArray(listJson?.data) ? listJson.data : [];
+  for (const hook of existing) {
+    if (hook?.id && hook.url === url) {
+      const removed = await fetch(`${YOCO_BASE}/webhooks/${encodeURIComponent(hook.id)}`, {
+        method: "DELETE", headers, signal: AbortSignal.timeout(10000),
+      });
+      if (!removed.ok && removed.status !== 404) throw new Error(`Yoco webhook replace failed (${removed.status})`);
+    }
+  }
+
+  const created = await fetch(`${YOCO_BASE}/webhooks`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ name: "cateringms-payments", url }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!created.ok) {
+    const text = await created.text().catch(() => "");
+    throw new Error(`Yoco webhook registration failed (${created.status}): ${text.slice(0, 300)}`);
+  }
+  const json = await created.json() as { id?: string; secret?: string; mode?: string };
+  if (!json.id || !json.secret || !/^whsec_/.test(json.secret)) {
+    throw new Error("Yoco webhook registration returned no signing secret");
+  }
+  return { id: json.id, secret: json.secret, mode: json.mode || null };
 }
 
 /**

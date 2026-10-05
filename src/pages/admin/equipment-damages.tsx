@@ -1,4 +1,5 @@
 import type { GetServerSideProps } from "next";
+import { tenantRedirectPrefix } from "@/lib/tenantRedirect";
 
 // Legacy alias. The damage register lives as the Damages tab on
 // /admin/equipment (CatalogueOperationsStrip already deep-links there),
@@ -12,7 +13,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   params.set("tab", "damages");
   return {
     redirect: {
-      destination: `/admin/equipment?${params.toString()}`,
+      destination: `${tenantRedirectPrefix(ctx)}/admin/equipment?${params.toString()}`,
       permanent: false,
     },
   };

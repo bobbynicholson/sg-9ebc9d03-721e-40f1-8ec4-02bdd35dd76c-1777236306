@@ -726,7 +726,7 @@ export function ResendDomainCard({ companyId, onVerified, compact }: Props) {
               <p className="text-sm text-brand-primary">
                 Outgoing emails for this company will now arrive at your clients showing
                 <strong className="ml-1">@{state.domain}</strong> as the sender.
-                Send a test from <code>/admin/invoices</code> or <code>/admin/quotes</code> to confirm.
+                Send a test from Invoices or Quotes to confirm.
               </p>
             </div>
           </div>

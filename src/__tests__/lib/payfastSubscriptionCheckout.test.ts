@@ -13,7 +13,10 @@ jest.mock("@/lib/supabase/service", () => ({ getServiceSupabase: () => ({
         : { slug: "starter", name: "Starter", zar_price: 299, features: [], is_active: true }
       : mockCompany,
     error: null,
-  }) }) }) }),
+  }),
+  // currentRenewingSubscription(): no existing Stripe/Yoco plan.
+  in: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) }),
+  }) }) }),
 }) }));
 
 let mockUser: any;

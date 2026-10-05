@@ -136,14 +136,12 @@ export function OrderAlertBanners({ order }: Props) {
 
     // Urgency colour band - based on hours-to-event when in future.
     let tone = "bg-slate-50 border-slate-200 text-slate-800";
-    let label = "Time to event";
     if (isOverdue) {
       // Past event - skip the banner entirely once order is closed.
       if (order.status === "completed" || order.status === "delivered") {
         // suppress - it's done
       } else {
         tone = "bg-rose-50 border-rose-300 text-rose-900";
-        label = "Event was";
       }
     } else {
       const hoursLeft = msToEvent / 3_600_000;
@@ -156,25 +154,28 @@ export function OrderAlertBanners({ order }: Props) {
 
     const show = !isOverdue || (order.status !== "completed" && order.status !== "delivered");
     if (show) {
-      const parts: string[] = [];
-      if (days > 0) parts.push(`${days}d`);
-      if (hours > 0 || days > 0) parts.push(`${hours}h`);
-      parts.push(`${mins}m`);
+      // Plain words instead of "T-24d 13h 13m": whole days when the event
+      // is 2+ days out, hours and minutes when it is close.
+      const when = days >= 2
+        ? `${days} days`
+        : days === 1
+          ? `1 day ${hours}h`
+          : hours > 0
+            ? `${hours}h ${mins}m`
+            : `${mins} min`;
+      const phrase = isOverdue ? `Event was ${when} ago` : `Event in ${when}`;
       banners.push({
         key: "countdown",
         node: (
-          <div className={`flex items-center gap-3 p-3 rounded-lg border-2 ${tone}`}>
-            <Clock className="w-5 h-5 flex-shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-wider font-semibold opacity-80">{label}</p>
-              <p className="text-lg font-bold tabular-nums leading-tight">
-                {isOverdue ? "T+" : "T-"}{parts.join(" ")}
-              </p>
-            </div>
-            <div className="text-right text-xs tabular-nums opacity-75">
-              <p>{eventStart.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}</p>
-              {order.event_time && <p>{order.event_time.slice(0, 5)}</p>}
-            </div>
+          <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-3 py-2 ${tone}`}>
+            <Clock className="h-4 w-4 flex-shrink-0" />
+            <p className="min-w-0 flex-1 text-sm font-semibold tabular-nums">
+              {phrase}
+              <span className="ml-2 text-xs font-normal opacity-75">
+                {eventStart.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
+                {order.event_time ? `, ${order.event_time.slice(0, 5)}` : ""}
+              </span>
+            </p>
           </div>
         ),
       });

@@ -28,6 +28,7 @@ function setup(credit = 0, order: Record<string, unknown> | null = null, replaye
     invoice_number: "INV-1", public_token: token, amount_paid: 0, balance_due: 1000, total_amount: 1000, status: "sent", currency: "ZAR" };
   const admin = {
     from: jest.fn((table: string) => query(table === "clients" ? { id: "client-1", client_name: "Buyer", email: "buyer@example.test" }
+      : table === "companies" ? { slug: "fixture-caterer" }
       : table === "orders" ? order : table === "payments" ? (pendingEft ? { id: "eft-claim" } : null)
         : { ...invoice, amount_paid: credit, balance_due: 1000 - credit, status: credit >= 1000 ? "paid" : "partial" })),
     rpc: jest.fn(async (name: string) => ({ data: name === "redeem_client_credit_once" ? { redeemed_amount: credit, payment_id: "credit-payment", replayed }
@@ -98,6 +99,25 @@ test("invalid public token cannot refresh balances, redeem credit or create chec
   await handler({ method: "POST", headers: {}, body: { invoice_id: invoiceId, public_token: "wrong", pay_amount: 100 } } as never, res as never);
   expect(res.status).toHaveBeenCalledWith(403); expect(admin.rpc).not.toHaveBeenCalled();
   expect(createPaymentSession).not.toHaveBeenCalled();
+});
+
+test("authenticated client checkout returns both results to its tenant billing dashboard", async () => {
+  setup(); const res = response();
+  (createPagesServerClient as jest.Mock).mockReturnValue({ auth: { getUser: async () => ({ data: { user: { id: "buyer-user" } } }) } });
+  await handler(request({ public_token: undefined, pay_amount: 5 }), res as never);
+  expect(createPaymentSession).toHaveBeenCalledWith(expect.objectContaining({
+    amount: 5,
+    successUrl: expect.stringContaining("/fixture-caterer/client-portal/billing?payment_attempt_id="),
+    cancelUrl: expect.stringContaining("/fixture-caterer/client-portal/billing?cancelled=1&payment_attempt_id="),
+  }), expect.anything());
+});
+
+test("guest checkout keeps its public invoice return for success and cancellation", async () => {
+  setup(); const res = response(); await handler(request({ pay_amount: 5 }), res as never);
+  expect(createPaymentSession).toHaveBeenCalledWith(expect.objectContaining({
+    successUrl: expect.stringContaining(`/pay/i/${token}/success?payment_attempt_id=`),
+    cancelUrl: expect.stringContaining(`/pay/i/${token}?cancelled=1&payment_attempt_id=`),
+  }), expect.anything());
 });
 
 test("the client's stable checkout key is forwarded to the atomic redemption", async () => {

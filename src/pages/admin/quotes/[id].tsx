@@ -20,8 +20,9 @@ import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import Link from "next/link";
+import { QuoteProgress } from "@/components/quotes/QuoteProgress";
 import Head from "next/head";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -784,7 +785,7 @@ function AdminQuoteDetailInner() {
             variant="hero"
             title="Quote details"
             icon={FileText}
-            subtitle="Price the request line by line, respond to client change requests, then save or send. Quotes that already went out stay read-only to preserve history."
+            subtitle="Review the client request, price the items and save or send the quote."
             meta={
               !loading && !loadError && quote ? (
                 <>
@@ -846,7 +847,7 @@ function AdminQuoteDetailInner() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_22rem] gap-6 items-start">
+            <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
               <div className="space-y-6 min-w-0">
               {/* Header card, client + status + provenance */}
               <Card>
@@ -959,11 +960,26 @@ function AdminQuoteDetailInner() {
                 </CardContent>
               </Card>
 
-              {/* Menu items, editable when draft, read-only otherwise */}
+              {/* Quote journey: Created -> Sent -> Viewed -> Accepted -> Booked. */}
               <Card>
+                <CardContent className="px-4 py-5 sm:px-6">
+                  <QuoteProgress
+                    status={quote.status}
+                    createdAt={(quote as any).created_at}
+                    sentAt={(quote as any).sent_at}
+                    viewedAt={(quote as any).viewed_at}
+                    acceptedAt={(quote as any).accepted_at}
+                    booked={!!(quote as any).converted_to_order_id}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Menu items, editable when draft, read-only otherwise */}
+              <Card collapsible defaultOpen={true} collapseLabel="Menu items">
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <CardTitle className="text-lg">Menu items</CardTitle>
+<CardDescription>Select dishes and review quantities, prices and dietary details.</CardDescription>
                     {isDraft && (
                       <p className="text-xs text-slate-500">
                         Set a unit price for each line. Totals update live.
@@ -1087,9 +1103,10 @@ function AdminQuoteDetailInner() {
                   whole priced scope and the totals below reconcile
                   with what the client sees on /q. */}
               {equipmentRows.length > 0 && (
-                <Card>
+                <Card collapsible defaultOpen={false} collapseLabel="Equipment">
                   <CardHeader>
                     <CardTitle className="text-lg">Equipment</CardTitle>
+<CardDescription>Optional equipment items and their quantities and prices.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-1.5 text-sm">
@@ -1110,9 +1127,10 @@ function AdminQuoteDetailInner() {
               )}
 
               {/* Adjustments + totals */}
-              <Card>
+              <Card collapsible defaultOpen={true} collapseLabel="Pricing">
                 <CardHeader>
                   <CardTitle className="text-lg">Pricing</CardTitle>
+<CardDescription>Review the quote’s prices, charges and total before saving.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {isDraft && (
@@ -1306,9 +1324,10 @@ function AdminQuoteDetailInner() {
 
               {/* Client-facing note, editable when draft. Private context
                   belongs in the audit-logged thread below. */}
-              <Card className="border-slate-200 shadow-sm">
+              <Card collapsible defaultOpen={false} collapseLabel="Note to the client" className="border-slate-200 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-lg">Note to the client</CardTitle>
+<CardDescription>Optional message displayed with the quote.</CardDescription>
                   <p className="text-sm text-slate-500">Shown on the client quote page as “A note from us”.</p>
                 </CardHeader>
                 <CardContent>
@@ -1338,211 +1357,6 @@ function AdminQuoteDetailInner() {
                 />
               )}
 
-              {/* Action bar */}
-              <div className="flex flex-wrap gap-3">
-                <Link href={withSlug("/admin/quotes")} className="flex-1 min-w-[120px]">
-                  <Button variant="outline" className="w-full">Back to list</Button>
-                </Link>
-                {isDraft ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      className="flex-1 min-w-[160px]"
-                      onClick={handleSaveDraft}
-                      disabled={saving || sending}
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4 mr-2" />
-                          Save draft
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      className="flex-1 min-w-[180px] bg-brand-primary"
-                      onClick={handleSend}
-                      disabled={sending || saving}
-                    >
-                      {sending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4 mr-2" />
-                          Save & Send
-                        </>
-                      )}
-                    </Button>
-                  </>
-                ) : quote.status === "accepted" && !(quote as any).converted_to_order_id ? (
-                  <Button
-                    className="flex-1 min-w-[180px] bg-brand-primary"
-                    onClick={handleConvertToOrder}
-                    disabled={converting}
-                  >
-                    {converting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Converting...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        {(quote as any).waiter_service_required ? "Convert & assign waiter" : "Convert to order"}
-                      </>
-                    )}
-                  </Button>
-                ) : null}
-                {/* Wave 14 audit: when a client requests changes after
-                    the quote has left draft (sent / viewed / accepted),
-                    the operator had no way to actually re-price or
-                    tweak it - only Mark addressed / Reply / Dismiss
-                    which close the conversation without touching the
-                    quote. The richer editor at /admin/quotes/new
-                    already supports loading an existing quote via
-                    fromQuoteId and writing back to the same row; we
-                    just need a visible affordance to get there.
-                    On Save & Send the editor clears accepted_at +
-                    viewed_at so the public view resets to "awaiting
-                    your response", and marks pending change requests
-                    as 'addressed'. */}
-                {!isDraft && (
-                  <Link
-                    href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)}
-                    className="flex-1 min-w-[180px]"
-                  >
-                    <Button
-                      variant="outline"
-                      className="w-full border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Revise &amp; resend
-                    </Button>
-                  </Link>
-                )}
-              </div>
-
-              {/* Send-flow shortcuts. Same set as the row buttons on
-                  /admin/quotes so the detail page is feature-complete:
-                  Mark sent (anchors follow-up timing), Copy link
-                  (paste into email / WhatsApp), PDF (browser-native
-                  print of the public quote page). */}
-              {!isDraft && quote.status !== "accepted" && quote.status !== "rejected" && (
-                <>
-                  {/* QTE-B (XSC Wave B): re-send email is the
-                      primary CTA when a quote is sitting at status='sent'.
-                      Pre-audit, sales reps saw only Mark/Copy/Download
-                      here and defaulted to copy-link-paste-into-whatsapp
-                      because nothing in front of them said "email".
-                      Email send tracks open rate + auto-flips status
-                      via the dialog. */}
-                  <div className="pt-2 border-t border-slate-100 space-y-2">
-                    <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                      <Send className="w-3 h-3" />
-                      Email send tracks open rate + auto-flips the quote status. Copy-link skips both.
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        onClick={handleSend}
-                        disabled={sending || saving}
-                        className="bg-brand-primary hover:opacity-90 gap-1.5"
-                      >
-                        <Send className="w-4 h-4" />
-                        {(quote as any).sent_at ? "Re-send by email" : "Send by email"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          const isAlreadySent = !!(quote as any).sent_at;
-                          const ok = isAlreadySent
-                            ? typeof window !== "undefined" && window.confirm(
-                                `Reset the 'sent' timestamp for this quote? Follow-up timing restarts from now.`,
-                              )
-                            : true;
-                          if (!ok) return;
-                          const nowIso = new Date().toISOString();
-                          const nextStatus = quote.status === "draft" ? "sent" : quote.status;
-                          try {
-                            const { error } = await (supabase as any)
-                              .from("quotes")
-                              .update({ sent_at: nowIso, status: nextStatus })
-                              .eq("id", quote.id);
-                            if (error) throw error;
-                            const refreshed = await quoteService.getQuote(quote.id);
-                            setQuote(refreshed);
-                            toast({
-                              title: isAlreadySent ? "Sent timestamp reset" : "Marked as sent",
-                              description: isAlreadySent
-                                ? "Follow-up timing restarts from now."
-                                : "Follow-up timing now anchored to this moment.",
-                            });
-                          } catch (err: any) {
-                            toast({ title: "Could not mark as sent", description: err?.message, variant: "destructive" });
-                          }
-                        }}
-                        title="Already emailed outside the system? This anchors the follow-up timer without firing another email."
-                        className="gap-1.5"
-                      >
-                        {(quote as any).sent_at ? "Reset sent timestamp" : "Mark as sent"}
-                      </Button>
-                      {(quote as any).public_token && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              const url = `${window.location.origin}/q/${(quote as any).public_token}`;
-                              try {
-                                await navigator.clipboard.writeText(url);
-                                toast({ title: "Link copied", description: "Paste into email or WhatsApp." });
-                              } catch {
-                                toast({ title: "Couldn't copy", description: url, variant: "destructive" });
-                              }
-                            }}
-                            className="gap-1.5"
-                          >
-                            Copy public link
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              // Clean react-pdf download (no browser
-                              // print chrome / bad page breaks), same
-                              // endpoint the quotes list uses. 2026-07-04.
-                              window.open(`/api/admin/quote-pdf?id=${quote.id}`, "_blank", "noopener");
-                            }}
-                            className="gap-1.5 text-slate-600"
-                          >
-                            Download PDF
-                          </Button>
-                        </>
-                      )}
-                      {(quote as any).sent_at && (
-                        <span className="text-[11px] text-slate-500 self-center ml-auto">
-                          Sent {new Date((quote as any).sent_at).toLocaleString("en-ZA")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {!isDraft && quote.status !== "accepted" && (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>This quote is no longer in draft. Editing is disabled to preserve history.</span>
-                </div>
-              )}
               </div>
 
               {/* Sticky change-request panel. Only renders if there's
@@ -1555,6 +1369,223 @@ function AdminQuoteDetailInner() {
                   away). With the column stretched, the panel stays
                   docked while the quote scrolls. */}
               <div className="lg:col-start-2 lg:self-stretch">
+                <div className="space-y-4 lg:sticky lg:top-20">
+                <Card>
+                  <CardContent className="space-y-4 p-4">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Quote total</p>
+                      <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-950">
+                        {fmtMoney(isDraft ? computed.total : safeNum((quote as any).total ?? (quote as any).total_amount))}
+                      </p>
+                      <p className="text-xs text-slate-500">Including VAT</p>
+                    </div>
+                    {/* Action bar */}
+                    <div className="flex flex-col gap-2 [&>*]:min-w-0">
+                      <Link href={withSlug("/admin/quotes")} className="flex-1 min-w-[120px]">
+                        <Button variant="outline" className="w-full">Back to list</Button>
+                      </Link>
+                      {isDraft ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            className="flex-1 min-w-[160px]"
+                            onClick={handleSaveDraft}
+                            disabled={saving || sending}
+                          >
+                            {saving ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4 mr-2" />
+                                Save draft
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            className="flex-1 min-w-[180px] bg-brand-primary"
+                            onClick={handleSend}
+                            disabled={sending || saving}
+                          >
+                            {sending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Sending...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="w-4 h-4 mr-2" />
+                                Save & Send
+                              </>
+                            )}
+                          </Button>
+                        </>
+                      ) : quote.status === "accepted" && !(quote as any).converted_to_order_id ? (
+                        <Button
+                          className="flex-1 min-w-[180px] bg-brand-primary"
+                          onClick={handleConvertToOrder}
+                          disabled={converting}
+                        >
+                          {converting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Converting...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              {(quote as any).waiter_service_required ? "Convert & assign waiter" : "Convert to order"}
+                            </>
+                          )}
+                        </Button>
+                      ) : null}
+                      {/* Wave 14 audit: when a client requests changes after
+                          the quote has left draft (sent / viewed / accepted),
+                          the operator had no way to actually re-price or
+                          tweak it - only Mark addressed / Reply / Dismiss
+                          which close the conversation without touching the
+                          quote. The richer editor at /admin/quotes/new
+                          already supports loading an existing quote via
+                          fromQuoteId and writing back to the same row; we
+                          just need a visible affordance to get there.
+                          On Save & Send the editor clears accepted_at +
+                          viewed_at so the public view resets to "awaiting
+                          your response", and marks pending change requests
+                          as 'addressed'. */}
+                      {!isDraft && (
+                        <Link
+                          href={withSlug(`/admin/quotes/new?fromQuoteId=${quote.id}`)}
+                          className="flex-1 min-w-[180px]"
+                        >
+                          <Button
+                            variant="outline"
+                            className="w-full border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            Revise &amp; resend
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
+
+                    {/* Send-flow shortcuts. Same set as the row buttons on
+                        /admin/quotes so the detail page is feature-complete:
+                        Mark sent (anchors follow-up timing), Copy link
+                        (paste into email / WhatsApp), PDF (browser-native
+                        print of the public quote page). */}
+                    {!isDraft && quote.status !== "accepted" && quote.status !== "rejected" && (
+                      <>
+                        {/* QTE-B (XSC Wave B): re-send email is the
+                            primary CTA when a quote is sitting at status='sent'.
+                            Pre-audit, sales reps saw only Mark/Copy/Download
+                            here and defaulted to copy-link-paste-into-whatsapp
+                            because nothing in front of them said "email".
+                            Email send tracks open rate + auto-flips status
+                            via the dialog. */}
+                        <div className="pt-2 border-t border-slate-100 space-y-2">
+                          <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                            <Send className="w-3 h-3" />
+                            Email send tracks open rate + auto-flips the quote status. Copy-link skips both.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              onClick={handleSend}
+                              disabled={sending || saving}
+                              className="bg-brand-primary hover:opacity-90 gap-1.5"
+                            >
+                              <Send className="w-4 h-4" />
+                              {(quote as any).sent_at ? "Re-send by email" : "Send by email"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                const isAlreadySent = !!(quote as any).sent_at;
+                                const ok = isAlreadySent
+                                  ? typeof window !== "undefined" && window.confirm(
+                                      `Reset the 'sent' timestamp for this quote? Follow-up timing restarts from now.`,
+                                    )
+                                  : true;
+                                if (!ok) return;
+                                const nowIso = new Date().toISOString();
+                                const nextStatus = quote.status === "draft" ? "sent" : quote.status;
+                                try {
+                                  const { error } = await (supabase as any)
+                                    .from("quotes")
+                                    .update({ sent_at: nowIso, status: nextStatus })
+                                    .eq("id", quote.id);
+                                  if (error) throw error;
+                                  const refreshed = await quoteService.getQuote(quote.id);
+                                  setQuote(refreshed);
+                                  toast({
+                                    title: isAlreadySent ? "Sent timestamp reset" : "Marked as sent",
+                                    description: isAlreadySent
+                                      ? "Follow-up timing restarts from now."
+                                      : "Follow-up timing now anchored to this moment.",
+                                  });
+                                } catch (err: any) {
+                                  toast({ title: "Could not mark as sent", description: err?.message, variant: "destructive" });
+                                }
+                              }}
+                              title="Already emailed outside the system? This anchors the follow-up timer without firing another email."
+                              className="gap-1.5"
+                            >
+                              {(quote as any).sent_at ? "Reset sent timestamp" : "Mark as sent"}
+                            </Button>
+                            {(quote as any).public_token && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const url = `${window.location.origin}/q/${(quote as any).public_token}`;
+                                    try {
+                                      await navigator.clipboard.writeText(url);
+                                      toast({ title: "Link copied", description: "Paste into email or WhatsApp." });
+                                    } catch {
+                                      toast({ title: "Couldn't copy", description: url, variant: "destructive" });
+                                    }
+                                  }}
+                                  className="gap-1.5"
+                                >
+                                  Copy public link
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    // Clean react-pdf download (no browser
+                                    // print chrome / bad page breaks), same
+                                    // endpoint the quotes list uses. 2026-07-04.
+                                    window.open(`/api/admin/quote-pdf?id=${quote.id}`, "_blank", "noopener");
+                                  }}
+                                  className="gap-1.5 text-slate-600"
+                                >
+                                  Download PDF
+                                </Button>
+                              </>
+                            )}
+                            {(quote as any).sent_at && (
+                              <span className="text-[11px] text-slate-500 self-center ml-auto">
+                                Sent {new Date((quote as any).sent_at).toLocaleString("en-ZA")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {!isDraft && quote.status !== "accepted" && (
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>This quote is no longer in draft. Editing is disabled to preserve history.</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
                 {/* Fetch-failure strip for the change-request panel;
                     without it a query error looked identical to "no
                     requests" and client asks went unseen. */}
@@ -1580,6 +1611,7 @@ function AdminQuoteDetailInner() {
                   updatingId={changeReqUpdatingId}
                   forceOpen={forcePanelOpen}
                 />
+                </div>
               </div>
             </div>
           )}

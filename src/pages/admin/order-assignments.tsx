@@ -837,7 +837,7 @@ function DispatchQueuePage() {
             variant="hero"
             title="Dispatch queue"
             icon={Truck}
-            subtitle="Confirmed orders waiting on a driver. Auto-suggest a driver per order with capacity, vehicle, and shift checks, or override manually. Bulk-assign by date when prep is locked in."
+            subtitle="Assign drivers and staff, then check that booked orders have coverage."
             meta={
               kpis && !loading ? (
                 <>
@@ -1345,9 +1345,9 @@ function DispatchQueuePage() {
                       </div>
                       <div className="min-w-0">
                         {order.venue ? (
-                          <span className="text-xs text-slate-600 truncate inline-flex items-center gap-1">
+                          <span className="flex min-w-0 max-w-full items-center gap-1 text-xs text-slate-600" title={order.venue}>
                             <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                            {order.venue.split(",")[0]}
+                            <span className="truncate">{order.venue.split(",")[0]}</span>
                           </span>
                         ) : (
                           <span className="text-xs text-slate-400">-</span>

@@ -134,3 +134,43 @@ export async function recoverPayFastGateway(admin: any, gateway: any, credential
     throw failure;
   }
 }
+
+/**
+ * Ask Stripe (with the checkout's own saved account) whether a pending
+ * attempt was paid, and settle it when Stripe confirms. This is
+ * authenticated provider evidence, so it is safe to use from the return
+ * page as well as the reconciliation cron when a webhook is late, lost or
+ * was never configured on the tenant's Stripe account.
+ */
+export async function checkStripeAttemptWithProvider(admin: any, attempt: any, credentials: Record<string, string>): Promise<{
+  providerStatus: string;
+  paid: boolean;
+  settled: boolean;
+  terminalUnpaid: boolean;
+}> {
+  // Lazy import keeps the Stripe SDK out of modules that never need it.
+  const { default: Stripe } = await import("stripe");
+  const stripe = new Stripe(credentials.secretKey, {
+    timeout: 10000, maxNetworkRetries: 0, apiVersion: "2024-12-18.acacia" as any,
+  });
+  const session = await stripe.checkout.sessions.retrieve(attempt.provider_session_id);
+  const providerStatus = `${session.status || "unknown"}:${session.payment_status || "unknown"}`;
+  const paid = session.payment_status === "paid";
+  const terminalUnpaid = session.status === "expired" && session.payment_status === "unpaid";
+  if (!paid) return { providerStatus, paid, settled: false, terminalUnpaid };
+
+  const intentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+  if (!intentId || session.id !== attempt.provider_session_id ||
+      session.metadata?.paymentAttemptId !== String(attempt.metadata?.paymentAttemptId || attempt.id) ||
+      session.metadata?.companyId !== attempt.company_id ||
+      Number(session.amount_total) !== Math.round(Number(attempt.amount) * 100)) {
+    throw new Error("Stripe session does not match saved checkout");
+  }
+  const intent = await stripe.paymentIntents.retrieve(intentId);
+  if (intent.status !== "succeeded") throw new Error("Stripe paid session has no successful payment intent");
+  await settleTenantGatewayPayment({ admin, provider: "stripe", transactionId: intent.id,
+    companyId: attempt.company_id, orderId: attempt.payment_type === "invoice" ? attempt.invoice_id : attempt.order_id,
+    paymentType: attempt.payment_type, invoiceId: attempt.invoice_id, paymentAttempt: attempt,
+    amount: intent.amount_received / 100, currency: intent.currency });
+  return { providerStatus, paid, settled: true, terminalUnpaid: false };
+}

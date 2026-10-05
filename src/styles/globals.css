@@ -359,11 +359,11 @@
   overflow-x: hidden;
   padding-top: 4rem;
   padding-bottom: 3.5rem;
-  background: linear-gradient(180deg, #eef2f6 0%, #f8fafc 260px, #f8fafc 100%);
+  background: linear-gradient(180deg, #e9edf3 0%, #f6f8fb 320px, #f6f8fb 100%);
 }
 
 .dark .admin-page-shell {
-  background: linear-gradient(180deg, #020617 0%, #0f172a 260px, #0f172a 100%);
+  background: linear-gradient(180deg, #020617 0%, #0f172a 320px, #0f172a 100%);
 }
 
 .admin-page-shell--center {
@@ -416,7 +416,7 @@
    Older pages may still use lg:pl-64 / xl:pl-72 -- both are matched here
    for backwards compatibility. */
 @media (min-width: 1024px) {
-  html[data-sidebar-collapsed="true"] .admin-page-shell,
+  html[data-sidebar-collapsed="true"] .admin-page-shell:not(.admin-page-shell--no-sidebar),
   html[data-sidebar-collapsed="true"] .lg\:pl-64,
   html[data-sidebar-collapsed="true"] .lg\:pl-72,
   html[data-sidebar-collapsed="true"] .xl\:pl-72,

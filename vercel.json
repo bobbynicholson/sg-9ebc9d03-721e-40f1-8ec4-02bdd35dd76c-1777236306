@@ -176,6 +176,10 @@
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/cron/platform-plan-renewals",
+      "schedule": "15 6 * * *"
+    },
+    {
       "path": "/api/cron/expire-trials",
       "schedule": "0 6 * * *"
     },

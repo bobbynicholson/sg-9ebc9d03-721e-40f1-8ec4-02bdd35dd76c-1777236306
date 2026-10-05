@@ -790,7 +790,7 @@ function DriverManagementPage() {
             variant="hero"
             title="Drivers"
             icon={Truck}
-            subtitle="Driver roster, vehicles, and pay rates. Add a driver, link their vehicle, set per-driver overrides for hourly, distance per km, and callouts. Falls back to company defaults where no override is set."
+            subtitle="Manage drivers, their vehicles and pay rates."
             meta={
               !loading && !loadError ? (
                 <>
@@ -1747,9 +1747,10 @@ function DriverManagementPage() {
             no tenant branding). Self-signup isn't a route - drivers
             are added by an admin and sign in with the credentials they
             receive by email. */}
-        <Card className="mt-6 border-brand-primary/20 bg-gradient-to-br from-brand-primary/5 to-brand-secondary/5">
+        <Card collapsible defaultOpen={false} collapseLabel="Driver portal access" className="mt-6 border-brand-primary/20 bg-gradient-to-br from-brand-primary/5 to-brand-secondary/5">
           <CardHeader>
             <CardTitle className="text-slate-900">Driver portal access</CardTitle>
+<CardDescription>Help drivers reach their portal and understand the available actions.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {(() => {

@@ -1,4 +1,5 @@
 import type { GetServerSideProps } from "next";
+import { tenantRedirectPrefix } from "@/lib/tenantRedirect";
 
 /**
  * /admin/inventory-tracking - retired into /admin/inventory.
@@ -22,7 +23,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const qs = params.toString();
   return {
     redirect: {
-      destination: `/admin/inventory${qs ? `?${qs}` : ""}`,
+      destination: `${tenantRedirectPrefix(ctx)}/admin/inventory${qs ? `?${qs}` : ""}`,
       permanent: false,
     },
   };

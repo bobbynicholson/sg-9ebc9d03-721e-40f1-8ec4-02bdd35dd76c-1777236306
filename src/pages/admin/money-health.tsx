@@ -120,7 +120,7 @@ function MoneyHealthPage() {
           <PortalHeader
             variant="hero"
             title="Money & email health"
-            subtitle="Catch money drift before a client does, and keep the email queue moving."
+            subtitle="Review email delivery and payment reconciliation issues, then open the affected records."
             icon={Activity}
             meta={
               <>

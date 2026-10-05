@@ -1081,12 +1081,12 @@ function AdminLeadsInner() {
             icon={TrendingUp}
             subtitle={
               <>
-                Structured enquiry capture. When someone asks for catering through an embed form, email, or phone call, create a lead to track event details before quoting. Leads also appear in your{" "}
+                Track new enquiries until they become quotes. Leads also appear in{" "}
                 {/* Hero band is dark; the link must read white, not brand-primary. */}
                 <Link href={withSlug("/admin/contacts")} className="font-semibold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white">
                   Contacts inbox
                 </Link>
-                {" "}automatically.
+                .
               </>
             }
             meta={

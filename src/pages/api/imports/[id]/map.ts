@@ -16,7 +16,11 @@ import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
 import { mapColumnsViaAI } from "@/lib/importAi";
+import { aiTargetFieldsFor, buildMappingFromTemplate, getTemplateDefinition } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
+
+// Large imports (thousands of rows) need more than the default timeout.
+export const maxDuration = 300;
 
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -95,21 +99,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     for (const [sheet, { headers, sampleRows }] of bySheet.entries()) {
       const schema = inferSchema(sheet, headers);
       try {
+        // Offer the AI exactly the fields preview + commit consume.
+        const targetFields = aiTargetFieldsFor(schema);
+        const allowed = new Set(targetFields.map((f) => f.key));
+        // Columns we can match deterministically (our own template
+        // headers, Wave/Xero/QuickBooks exports) don't depend on the model.
+        const known = buildMappingFromTemplate(getTemplateDefinition(schema), sheet, headers)[sheet] || {};
         const result = await mapColumnsViaAI({
           sheetName: sheet,
           headers,
           sampleRows,
           targetSchema: schema,
+          targetFields,
         });
         aiCalls += 1;
         totalIn += result.tokens_in;
         totalOut += result.tokens_out;
         const sheetMap: Record<string, { target: string; confidence: number; rationale: string }> = {};
         for (const m of result.mapping) {
+          const exact = known[m.source_header];
+          if (exact && exact.target !== "skip") {
+            sheetMap[m.source_header] = { target: exact.target, confidence: 1, rationale: "Matched a known column name" };
+            continue;
+          }
+          // A field outside the list would be silently dropped later;
+          // show it as skipped so the operator can pick the right one.
+          const valid = allowed.has(m.target);
           sheetMap[m.source_header] = {
-            target: m.target,
-            confidence: m.confidence,
-            rationale: m.rationale,
+            target: valid ? m.target : "skip",
+            confidence: valid ? m.confidence : 0,
+            rationale: valid ? m.rationale : `AI suggested "${m.target}", which is not an importable field`,
           };
         }
         // Stash the inferred schema so the preview/commit step

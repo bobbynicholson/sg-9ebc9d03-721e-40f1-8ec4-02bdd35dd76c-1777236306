@@ -226,7 +226,7 @@ function PublicHolidaysAdmin() {
             variant="hero"
             title="Public holidays"
             icon={CalendarIcon}
-            subtitle="SA gazetted dates plus any extras you observe. Shifts that land on these dates get paid at 2x per BCEA."
+            subtitle="Review holiday dates and add company holidays used for shift pay."
             meta={
               !loading && !loadError && (
                 <>

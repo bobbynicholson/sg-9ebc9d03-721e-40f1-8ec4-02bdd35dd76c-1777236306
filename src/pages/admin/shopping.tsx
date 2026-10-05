@@ -1190,7 +1190,7 @@ function SmartShoppingPage() {
               </span>
             }
             icon={ShoppingCart}
-            subtitle="Live procurement brain. Knows what to buy, when to buy it, and which supplier handles it."
+            subtitle="Review what needs buying now and plan purchases for upcoming events."
             meta={
               !loading && !loadError && outlook.length > 0 ? (
                 <>
@@ -1339,7 +1339,7 @@ function SmartShoppingPage() {
               value={enriched.filter((r) => r.status === "below_minimum").length}
               accent="text-amber-600"
               icon={TrendingDown}
-              hint="Below minimum_stock"
+              hint="Below minimum stock level"
               tooltip={"Stock has slipped below your minimum threshold but you can still cover upcoming orders.\n\nGood time to top up before it becomes urgent."}
             />
             <SummaryTile
@@ -1989,8 +1989,7 @@ function SmartShoppingPage() {
           )}
 
           <p className="text-[11px] text-slate-500 text-center mt-6">
-            Procurement maths derived from <code className="bg-slate-100 px-1 rounded">inventory_demand_outlook</code> +{" "}
-            <code className="bg-slate-100 px-1 rounded">order_ingredient_demand</code> views.
+            Buying needs come from your current stock and the ingredients your confirmed orders use.
             Updates the moment a stock change or new order lands.
           </p>
         </PortalShell>

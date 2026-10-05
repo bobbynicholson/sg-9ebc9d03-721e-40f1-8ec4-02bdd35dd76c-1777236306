@@ -144,6 +144,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(403).json({ error: "Not your invoice" });
     }
 
+    let portalBillingPath = "/client-portal/billing";
+    if (!viaPublicToken) {
+      const { data: company, error: companyError } = await admin.from("companies")
+        .select("slug").eq("id", invoice.company_id).maybeSingle();
+      if (companyError) return res.status(503).json({ error: "Could not resolve the company billing page. Please retry." });
+      if (company?.slug) portalBillingPath = `/${encodeURIComponent(company.slug)}/client-portal/billing`;
+    }
+
     const { data: repaired, error: repairError } = await (admin as any).rpc("refresh_invoice_payment_totals", {
       p_invoice_id: invoice.id, p_minimum_paid: 0,
     });
@@ -401,10 +409,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // return to the portal.
       successUrl: viaPublicToken
         ? `${baseUrl}/pay/i/${(invoice as any).public_token}/success?payment_attempt_id=${encodeURIComponent(paymentAttemptId)}`
-        : `${baseUrl}/client-portal/billing?payment_attempt_id=${encodeURIComponent(paymentAttemptId)}&invoice=${encodeURIComponent(invoice.invoice_number)}&invoice_id=${encodeURIComponent(invoice.id)}`,
+        : `${baseUrl}${portalBillingPath}?payment_attempt_id=${encodeURIComponent(paymentAttemptId)}&invoice=${encodeURIComponent(invoice.invoice_number)}&invoice_id=${encodeURIComponent(invoice.id)}`,
       cancelUrl: viaPublicToken
         ? `${baseUrl}/pay/i/${(invoice as any).public_token}?cancelled=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}`
-        : `${baseUrl}/client-portal/billing?cancelled=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}&invoice=${encodeURIComponent(invoice.invoice_number)}&invoice_id=${encodeURIComponent(invoice.id)}`,
+        : `${baseUrl}${portalBillingPath}?cancelled=1&payment_attempt_id=${encodeURIComponent(paymentAttemptId)}&invoice=${encodeURIComponent(invoice.invoice_number)}&invoice_id=${encodeURIComponent(invoice.id)}`,
       notifyUrl: notifyUrlFor(baseUrl),
       customer: {
         email: ownership.email || orderRow?.client_email || "",

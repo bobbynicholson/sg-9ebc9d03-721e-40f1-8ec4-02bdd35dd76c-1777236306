@@ -630,7 +630,7 @@ export class BillingEmailService {
         planName: subscription.plan_name,
         amount: fmtBillingAmount(subscription.amount, subscription.currency),
         renewalDate: subscription.next_billing_date ? new Date(subscription.next_billing_date).toLocaleDateString() : 'N/A',
-        paymentMethod: subscription.payment_method_last4 ? `Card ending in ${subscription.payment_method_last4}` : "PayFast",
+        paymentMethod: subscription.payment_method_label || (subscription.payment_method_last4 ? `Card ending in ${subscription.payment_method_last4}` : subscription.payment_provider === "stripe" ? "Stripe" : "PayFast"),
         subscriptionUrl: buildBillingUrl(slug, "/admin/subscription")
       },
       profile.company_id

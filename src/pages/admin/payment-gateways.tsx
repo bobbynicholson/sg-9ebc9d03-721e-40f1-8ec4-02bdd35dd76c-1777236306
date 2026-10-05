@@ -250,8 +250,10 @@ function PaymentGatewaysPage() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
       closeDialog();
-      setSavedToast(`${editProvider.name} saved.`);
-      setTimeout(() => setSavedToast(null), 3000);
+      setSavedToast(j?.yocoWebhookRegistered
+        ? `${editProvider.name} saved and payment webhook registered with Yoco.`
+        : `${editProvider.name} saved.`);
+      setTimeout(() => setSavedToast(null), 4000);
       await load();
     } catch (e: any) {
       setEditError(e?.message || "Save failed");
@@ -348,7 +350,7 @@ function PaymentGatewaysPage() {
               appearance="dark"
               title="Payment Gateways"
               icon={CreditCard}
-              subtitle="Online card and EFT processing per tenant. Pick a catering company, then connect a South African gateway like PayFast or Yoco so their clients can pay quotes and invoices through the public link instead of manual EFT."
+              subtitle="Connect a payment provider and choose the active gateway for client payments."
               meta={
                 activeCompanyId ? (
                   <>
@@ -380,7 +382,7 @@ function PaymentGatewaysPage() {
               variant="hero"
               title="Payment Gateways"
               icon={CreditCard}
-              subtitle="Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT. One gateway can be active at a time and saved credentials are never read back into the browser."
+              subtitle="Connect a payment provider and choose the active gateway for client payments."
               meta={
                 !loading && activeCompanyId ? (
                   <>
@@ -660,8 +662,9 @@ function PaymentGatewaysPage() {
           </div>
           )}
 
-          <PortalCard>
+          <PortalCard collapsible defaultOpen={false} collapseLabel="Before going live">
             <PortalCardHeader
+              description="Merchant account, sandbox and webhook checks before accepting payments."
               title={
                 <span className="flex items-center gap-2">
                   Before going live
@@ -730,8 +733,8 @@ function PaymentGatewaysPage() {
                   {editProvider.provider === "payfast"
                     ? "The passphrase signs checkout requests and verifies PayFast notifications. It must match the Security Pass Phrase in the same PayFast account. Paste the fixed webhook endpoint into the merchant account settings."
                     : editProvider.provider === "yoco"
-                      ? "Yoco requires the Secret Key, Public Key, and Webhook Signing Secret. Create the webhook in Yoco, copy its signing secret here, and use the fixed endpoint shown below."
-                      : "Stripe requires the Secret Key, Publishable Key, and Webhook Signing Secret. Create a Stripe webhook endpoint for the fixed URL below and paste its whsec_ secret here."}
+                      ? "Yoco requires the Secret Key and Public Key. Leave the Webhook Signing Secret blank and we register the payment webhook with Yoco automatically when you save (Yoco has no dashboard screen for this)."
+                      : "Stripe requires the Secret Key, Publishable Key, and Webhook Signing Secret. In Stripe → Developers → Webhooks, add the fixed URL below with the events checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed, checkout.session.expired and payment_intent.succeeded, then paste its whsec_ secret here."}
                 </p>
                 {editProvider.fields.map((field) => (
                   <div key={field.key} className="space-y-1">

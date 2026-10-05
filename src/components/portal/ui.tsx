@@ -3,6 +3,7 @@ import { ArrowUpRight, ArrowDownRight, Route } from "lucide-react";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { getNavigationRefForPath } from "@/lib/chatbot/navigation";
 import { indexChatPageSections } from "@/lib/chatbot/sectionAnchors";
 
@@ -116,7 +117,7 @@ export function PortalHeader({
     return (
       <header
         className={cn(
-          "relative mb-7 overflow-hidden rounded-2xl border px-5 py-6 text-white sm:px-7 sm:py-7",
+          "relative mb-5 overflow-hidden rounded-2xl border px-5 py-5 text-white sm:px-6",
           isBrand
             ? "border-white/15 bg-[linear-gradient(130deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))]"
             : "border-slate-800 bg-slate-950",
@@ -147,21 +148,23 @@ export function PortalHeader({
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/20"
         />
-        <div className="relative space-y-5">
-          <div className="flex min-w-0 items-start gap-4">
+        {/* Compact band: title, one-line purpose and status chips on the
+            left, page actions on the same row at desktop widths. */}
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-start gap-3.5">
             {Icon && (
-              <span className="mt-0.5 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white shadow-sm backdrop-blur-sm">
-                <Icon className="h-6 w-6" aria-hidden="true" />
+              <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white shadow-sm backdrop-blur-sm">
+                <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
             )}
             <div className="min-w-0">
-              <h1 className="font-brand-display text-balance text-[1.85rem] font-semibold leading-[1.1] tracking-tight sm:text-4xl">
+              <h1 className="font-brand-display text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem]">
                 {title}
               </h1>
               {subtitle && (
                 <p
                   className={cn(
-                    "mt-2 max-w-4xl text-pretty text-sm leading-6",
+                    "mt-1 max-w-3xl text-pretty text-sm leading-5",
                     isBrand ? "text-white/85" : "text-slate-300",
                   )}
                 >
@@ -169,12 +172,12 @@ export function PortalHeader({
                 </p>
               )}
               {meta && (
-                <div className="mt-4 flex flex-wrap items-center gap-2">{meta}</div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">{meta}</div>
               )}
             </div>
           </div>
           {actions && (
-            <div className="dark flex w-full max-w-full flex-wrap items-center justify-start gap-2 border-t border-white/10 pt-4 lg:justify-end">
+            <div className="dark flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 lg:max-w-[55%] lg:justify-end [&_button]:h-9 [&_button]:px-3 [&_button]:text-sm">
               {actions}
             </div>
           )}
@@ -221,8 +224,37 @@ export function PortalHeader({
   );
 }
 
-function humanizeSegment(segment: string) {
+// Admin route slugs whose sidebar label differs from the URL, so the
+// breadcrumb names the page the same way the navigation does.
+const ADMIN_SEGMENT_LABELS: Record<string, string> = {
+  "exceptions": "Attention center",
+  "order-assignments": "Dispatch",
+  "tracking": "Live operations",
+  "route-planning": "Routes",
+  "financial-dashboard": "Finance overview",
+  "cashflow-dashboard": "Cashflow",
+  "outstanding-balances": "Balances",
+  "tax-purchases": "Tax & purchases",
+  "money-health": "Health checks",
+  "outsource-providers": "Outsource",
+  "users": "Users & roles",
+  "hr-solutions": "HR",
+  "public-holidays": "Holiday calendar",
+  "staff": "Staff rates",
+  "company-profile": "Company",
+  "white-label": "Branding",
+  "embed": "Lead forms",
+  "email-templates": "Messages",
+  "notification-settings": "Notifications",
+  "audit-logs": "Audit log",
+  "ai-brain": "AI brain",
+  "access": "AI access",
+  "settings": "System",
+};
+
+function humanizeSegment(segment: string, admin = false) {
   if (!segment || segment.startsWith("[") || segment === "index") return "";
+  if (admin && ADMIN_SEGMENT_LABELS[segment]) return ADMIN_SEGMENT_LABELS[segment];
   return segment
     .replace(/\?.*$/, "")
     .replace(/-/g, " ")
@@ -288,8 +320,9 @@ export function PageWorkbench({
   }, [pathname]);
   const surface = routeSurface(pathname);
   const segments = visibleRouteSegments(pathname);
-  const page = humanizeSegment(segments[segments.length - 1] || "dashboard") || "Dashboard";
-  const parentCandidate = humanizeSegment(segments[segments.length - 2] || "");
+  const tenantAdmin = surface.scope === "Admin";
+  const page = humanizeSegment(segments[segments.length - 1] || "dashboard", tenantAdmin) || "Dashboard";
+  const parentCandidate = humanizeSegment(segments[segments.length - 2] || "", tenantAdmin);
   const parent = parentCandidate === surface.scope ? "" : parentCandidate;
 
   return (
@@ -298,7 +331,7 @@ export function PageWorkbench({
       data-chat-ref={getNavigationRefForPath(pathname) || undefined}
       data-chat-target-type="page"
       className={cn(
-        "!mb-7 flex items-center justify-between gap-3 text-xs",
+        "!mb-5 flex items-center justify-between gap-3 text-xs",
         className,
       )}
     >
@@ -312,9 +345,11 @@ export function PageWorkbench({
           <span className="truncate font-semibold text-slate-950 dark:text-white">{page}</span>
         </div>
       </div>
-      <span className="hidden shrink-0 rounded-full border border-slate-200/90 bg-white/80 px-3 py-1.5 font-medium uppercase tracking-wider text-slate-400 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-500 sm:inline-flex">
-        {surface.area}
-      </span>
+      {!tenantAdmin && (
+        <span className="hidden shrink-0 rounded-full border border-slate-200/90 bg-white/80 px-3 py-1.5 font-medium uppercase tracking-wider text-slate-400 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-500 sm:inline-flex">
+          {surface.area}
+        </span>
+      )}
     </nav>
   );
 }
@@ -434,13 +469,33 @@ export function PortalCard({
   className,
   padded = true,
   interactive = false,
+  collapsible = false,
+  defaultOpen = false,
+  collapseLabel = "section",
   ...rest
 }: {
   children: React.ReactNode;
   className?: string;
   padded?: boolean;
   interactive?: boolean;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  collapseLabel?: string;
 } & React.HTMLAttributes<HTMLDivElement>) {
+  if (collapsible) {
+    const items = React.Children.toArray(children);
+    const header = items.find(item => React.isValidElement(item) && item.type === PortalCardHeader);
+    if (React.isValidElement<React.ComponentProps<typeof PortalCardHeader>>(header)) {
+      return (
+        <Card {...rest} className={className} collapsible defaultOpen={defaultOpen} collapseLabel={collapseLabel}>
+          <CardHeader>
+            {React.cloneElement(header, { className: cn(header.props.className, "mb-0 border-0 pb-0") })}
+          </CardHeader>
+          <CardContent>{items.filter(item => item !== header)}</CardContent>
+        </Card>
+      );
+    }
+  }
   return (
     <div
       className={cn(
@@ -461,10 +516,12 @@ export function PortalCard({
 /** Row at the top of a card: title + optional trailing action/link. */
 export function PortalCardHeader({
   title,
+  description,
   action,
   className,
 }: {
   title: React.ReactNode;
+  description?: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
 }) {
@@ -475,10 +532,13 @@ export function PortalCardHeader({
         className,
       )}
     >
+      <div className="min-w-0 flex-1">
       <h2 className="flex items-center gap-2 text-sm font-semibold leading-5 tracking-normal text-slate-950 dark:text-white">
         <span aria-hidden="true" className="h-3.5 w-1 shrink-0 rounded-full bg-brand-primary/60" />
         {title}
       </h2>
+      {description && <p className="mt-1.5 text-sm leading-5 text-muted-foreground">{description}</p>}
+      </div>
       {action}
     </div>
   );
@@ -505,7 +565,7 @@ export function StatTile({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-slate-900/95",
+        "group relative overflow-hidden rounded-xl border border-slate-200/90 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900/95",
         SOFT_SHADOW,
         className,
       )}
@@ -519,13 +579,13 @@ export function StatTile({
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase leading-4 tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
         {Icon && (
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-brand-primary/20 bg-gradient-to-br from-brand-primary/12 to-brand-secondary/8 text-brand-primary dark:border-brand-primary/30 dark:from-brand-primary/15 dark:to-brand-secondary/10 dark:text-brand-primary">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-brand-primary/20 bg-gradient-to-br from-brand-primary/12 to-brand-secondary/8 text-brand-primary dark:border-brand-primary/30 dark:from-brand-primary/15 dark:to-brand-secondary/10 dark:text-brand-primary">
             <Icon className="h-4 w-4" />
           </span>
         )}
       </div>
-      <div className="mt-3 flex items-end justify-between gap-2">
-        <p className="text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white sm:text-3xl">
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <p className="text-2xl font-semibold leading-none tracking-tight tabular-nums text-slate-950 dark:text-white">
           {value}
         </p>
         {trend && (

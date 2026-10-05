@@ -160,7 +160,7 @@ export const analyticsService = {
       const [{ data: companies }, { data: plans }] = await Promise.all([
         supabase
           .from("companies")
-          .select("id, subscription_status, subscription_plan, subscription_tier, trial_ends_at, created_at, is_active"),
+          .select("id, subscription_status, subscription_plan, subscription_tier, trial_ends_at, created_at, updated_at, is_active"),
         supabase
           .from("platform_pricing_plans")
           .select("slug, zar_price, is_active"),
@@ -183,14 +183,31 @@ export const analyticsService = {
       // Revenue: only paying tenants count. Plan price comes from
       // platform_pricing_plans (slug match). Tenants without a slug are
       // treated as 0 - they likely haven't picked yet.
-      const monthlyRevenue = list
+      // Provider-billed amounts (real cycle + price) where available, so a
+      // yearly plan counts as a twelfth per month instead of a full month.
+      let billingByCompany: Record<string, { billing_cycle?: string; amount?: number | null }> = {};
+      if (typeof window !== "undefined") {
+        try {
+          const response = await fetch("/api/platform/subscriptions", { cache: "no-store" });
+          if (response.ok) billingByCompany = (await response.json())?.billing || {};
+        } catch {
+          // List prices below remain the fallback.
+        }
+      }
+      const monthlyRevenue = Math.round(list
         .filter((c: any) => norm(c.subscription_status) === "active")
         .reduce((sum: number, c: any) => {
+          const billing = billingByCompany[c.id];
+          if (billing?.amount != null) {
+            const amount = Number(billing.amount) || 0;
+            return sum + (billing.billing_cycle === "yearly" ? amount / 12 : amount);
+          }
           const slug = norm(c.subscription_plan || c.subscription_tier);
           return sum + (planByKey.get(slug) || 0);
-        }, 0);
-      const annualRevenue = 0; // Annual flag not currently stored on companies
-      const totalRevenue = monthlyRevenue + annualRevenue;
+        }, 0) * 100) / 100;
+      // ARR is the annualised run-rate of MRR (yearly plans already folded in).
+      const annualRevenue = Math.round(monthlyRevenue * 12 * 100) / 100;
+      const totalRevenue = monthlyRevenue;
 
       const arpu = total > 0 ? totalRevenue / total : 0;
       const conversionRate = total > 0 ? (active / total) * 100 : 0;

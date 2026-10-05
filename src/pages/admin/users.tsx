@@ -915,7 +915,7 @@ function AdminUsersPage() {
               variant="hero"
               title="User management"
               icon={Users}
-              subtitle="Everyone with a staff login: owners, admins, kitchen, drivers, waiters, shopping, cleaning."
+              subtitle="Invite staff and manage their roles and access; manage client accounts in Contacts."
             />
             <PageWorkbench />
             <div className="grid grid-cols-2 gap-4 mb-6 lg:grid-cols-4" aria-hidden="true">
@@ -992,7 +992,7 @@ function AdminUsersPage() {
             variant="hero"
             title="User management"
             icon={Users}
-            subtitle="Everyone with a staff login: owners, admins, kitchen, drivers, waiters, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts."
+            subtitle="Invite staff and manage their roles and access; manage client accounts in Contacts."
             meta={
               !error && (
                 <>
@@ -1363,12 +1363,12 @@ function AdminUsersPage() {
                                         key={dept}
                                         title={`${config?.label || dept}${isPrimary ? " · primary role" : ""}${isActive ? " · active portal" : ""}`}
                                         aria-label={`${config?.label || dept}${isPrimary ? ", primary role" : ""}${isActive ? ", active portal" : ""}`}
-                                        className={`max-w-full justify-start whitespace-normal text-left text-xs leading-4 ${config?.color} ${isPrimary ? "ring-2 ring-offset-1 ring-slate-500" : ""}`}
+                                        className={`max-w-full flex-wrap justify-start gap-x-1 whitespace-normal text-left text-xs leading-4 ${config?.color} ${isPrimary ? "ring-2 ring-offset-1 ring-slate-500" : ""}`}
                                       >
                                         <Icon className="h-3 w-3 shrink-0" />
                                         <span className="min-w-0">{config?.label || dept}</span>
-                                        {isPrimary && <span className="ml-1 text-[10px] opacity-75">Primary</span>}
-                                        {isActive && <span className="ml-1 text-[10px] opacity-75">Active</span>}
+                                        {isPrimary && <span className="shrink-0 text-[10px] opacity-75">Primary</span>}
+                                        {isActive && <span className="shrink-0 text-[10px] opacity-75">Active</span>}
                                       </Badge>
                                     );
                                   })

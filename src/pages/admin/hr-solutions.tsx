@@ -445,7 +445,7 @@ function AdminHRSolutions() {
             variant="hero"
             title={<span className="flex items-center gap-2">HR <InfoTooltip className="text-white/70 hover:text-white" content={"One landing for every staff-related tool. Active tiles take you straight to the feature; chips show this week's live numbers."} /></span>}
             icon={Users}
-            subtitle="Hours, wages, accounts and invites at a glance. Drill into a card for the full surface."
+            subtitle="Review staff hours, wages and access, then open the tool you need."
             meta={
               /* HRS-B chip row, relocated into the hero band. Same
                  live numbers, links preserved. */
@@ -659,9 +659,9 @@ function AdminHRSolutions() {
                       <div className={`p-3 rounded-lg ${isActive ? "bg-blue-100" : "bg-slate-100"}`}>
                         <Icon className={`w-6 h-6 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
                       </div>
-                      <Badge className={isActive ? "bg-brand-primary/15 text-brand-primary hover:bg-brand-primary/15" : "bg-orange-100 text-orange-800 hover:bg-orange-100"}>
+                      {!isActive && <Badge className={isActive ? "bg-brand-primary/15 text-brand-primary hover:bg-brand-primary/15" : "bg-orange-100 text-orange-800 hover:bg-orange-100"}>
                         {isActive ? "Active" : "Coming Soon"}
-                      </Badge>
+                      </Badge>}
                     </div>
                     <p className="font-semibold text-slate-900 text-lg">{feature.title}</p>
                     <p className="text-sm text-slate-600 mt-1 mb-3">{feature.description}</p>
@@ -670,7 +670,7 @@ function AdminHRSolutions() {
                     )}
                     {isActive ? (
                       <Link href={withSlug(feature.link)}>
-                        <Button className="w-full">Open</Button>
+                        <Button variant="outline" className="w-full">Open</Button>
                       </Link>
                     ) : (
                       // HRS-3: no anchor wrap on coming-soon - plain

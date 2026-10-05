@@ -219,7 +219,7 @@ function ShoppingTeamPage() {
             variant="hero"
             title="Shopping"
             icon={ShoppingBag}
-            subtitle="Procurement, receipts and supplier ops."
+            subtitle="Review purchases, receipts and upcoming shopping work."
             meta={
               !loading && !error ? (
                 <>

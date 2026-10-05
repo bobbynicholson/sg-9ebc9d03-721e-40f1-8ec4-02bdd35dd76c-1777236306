@@ -194,14 +194,15 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     : undefined;
 
   useEffect(() => {
-    const saved = localStorage.getItem(collapseKey);
-    if (saved) setIsCollapsed(JSON.parse(saved));
+    try {
+      setIsCollapsed(localStorage.getItem(collapseKey) === "true");
+    } catch { setIsCollapsed(false); }
   }, [collapseKey]);
 
   const toggleCollapse = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
-    localStorage.setItem(collapseKey, JSON.stringify(newState));
+    try { localStorage.setItem(collapseKey, JSON.stringify(newState)); } catch { /* Storage may be unavailable. */ }
   };
 
   const allHrefs = config.sections.flatMap((s) => s.items.map((i) => i.href));
@@ -502,7 +503,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           }
           return (
             <CollapsibleNavSection
-              key={section.id}
+              key={`${section.id}:${router.asPath.split(/[?#]/)[0]}`}
               title={section.title}
               storageKey={`${config.role}:${section.id}`}
               defaultOpen={section.defaultOpen}
@@ -747,7 +748,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 }
                 return (
                   <CollapsibleNavSection
-                    key={section.id}
+                    key={`${section.id}:${router.asPath.split(/[?#]/)[0]}`}
                     title={section.title}
                     storageKey={`${config.role}:${section.id}`}
                     defaultOpen={section.defaultOpen}

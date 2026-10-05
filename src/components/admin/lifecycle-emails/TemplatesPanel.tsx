@@ -39,7 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
-import { Mail, MessageCircle, Pencil, RotateCcw, Save, AlertCircle, CheckCircle2, Search, Send, Zap, MousePointerClick, ExternalLink } from "lucide-react";
+import { ChevronDown, Mail, MessageCircle, Pencil, RotateCcw, Save, AlertCircle, CheckCircle2, Search, Send, Zap, MousePointerClick, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -137,70 +137,26 @@ export function TemplatesPanel() {
 
   return (
     <>
-      {/* HEADER + COVERAGE */}
-      <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
-        <p className="text-sm text-slate-600 max-w-2xl">
-          Edit every email and WhatsApp message the system sends to clients and staff. Change the wording, the tone, the sign-off. It stays customised for your team and falls back to the system default if you reset it.
-        </p>
-        <div className="text-right">
-          <p className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Customised</p>
-          <p className="text-2xl font-bold text-brand-primary tabular-nums">
-            {customisedCount}<span className="text-sm text-slate-400 font-normal"> / {rows.length}</span>
+      {/* One compact intro: what editing does, plus the template mix. */}
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+        <div className="max-w-3xl space-y-1 text-xs leading-5 text-slate-600">
+          <p className="flex items-start gap-1.5">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600" />
+            <span><strong className="text-slate-900">Edits change what clients and staff receive.</strong> Reset any template to go back to the default. WhatsApp templates have no subject line.</span>
           </p>
-          <p className="text-[10px] text-slate-500 mt-0.5">
-            {emailCount} email &middot; {whatsappCount} WhatsApp
-          </p>
-          <p className="text-[10px] text-slate-500">
-            {automatedCount} automatic &middot; {manualCount} manual
+          <p className="flex items-start gap-1.5">
+            <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+            <span><strong className="text-slate-900">Automatic ({automatedCount})</strong> send on their own; <strong className="text-slate-900">Manual ({manualCount})</strong> open prefilled when you press Send on Leads, Quotes or Staff.</span>
           </p>
         </div>
+        <div className="text-right">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Customised</p>
+          <p className="text-xl font-bold tabular-nums text-brand-primary">
+            {customisedCount}<span className="text-sm font-normal text-slate-400"> / {rows.length}</span>
+          </p>
+          <p className="text-[10px] text-slate-500">{emailCount} email &middot; {whatsappCount} WhatsApp</p>
+        </div>
       </div>
-
-      {/* Two-panel intel banner: automatic vs manual. Operators kept
-          asking "wait, does this one actually send by itself?" - now
-          they can see at a glance. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-        <Card className="border-0 shadow-sm bg-slate-50">
-          <CardContent className="py-3 px-4 flex items-start gap-3">
-            <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-              <Zap className="w-4 h-4 bg-slate-100" />
-            </div>
-            <div className="text-xs text-slate-950 leading-relaxed">
-              <p className="font-semibold text-slate-950 mb-0.5">
-                Automatic &middot; {automatedCount} template{automatedCount === 1 ? "" : "s"}
-              </p>
-              <p>
-                The system fires these on its own (order status change, cron, webhook). Edits land immediately on the next firing - no clicking required. Use the Sent Log tab to see what's gone out.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm bg-amber-50">
-          <CardContent className="py-3 px-4 flex items-start gap-3">
-            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-              <MousePointerClick className="w-4 h-4 text-amber-700" />
-            </div>
-            <div className="text-xs text-amber-950 leading-relaxed">
-              <p className="font-semibold text-amber-900 mb-0.5">
-                Manual &middot; {manualCount} template{manualCount === 1 ? "" : "s"}
-              </p>
-              <p>
-                You click a Send button on Leads / Quotes / Staff to use these. Edits show up prefilled when you next click - perfect for tweaking your sales voice without losing the core copy.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="border-0 shadow-sm mb-4 bg-blue-50">
-        <CardContent className="py-3 px-4 flex items-start gap-3">
-          <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-          <div className="text-xs text-blue-900 leading-relaxed">
-            <strong>Editing here changes what your clients and staff actually receive.</strong>
-            {" "}Templates marked <em>Customised</em> use your wording. The rest use the system default until you save a customisation. Reset anytime to fall back to the default. WhatsApp templates skip the subject line and only edit the body.
-          </div>
-        </CardContent>
-      </Card>
 
       {/* FILTERS */}
       <Card className="border-0 shadow-sm mb-4">
@@ -304,19 +260,25 @@ export function TemplatesPanel() {
           {rows.length === 0 ? "No templates registered yet." : "No templates match the filter."}
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-2">
+          {/* Each group folds to its title row; searching opens every match. */}
           {grouped.map((g) => (
-            <div key={`${g.channel}-${g.category}-${g.group}`}>
-              <div className="flex items-center gap-2 mb-2 px-1">
+            <details
+              key={`${g.channel}-${g.category}-${g.group}-${query.trim() ? "q" : "all"}`}
+              open={Boolean(query.trim())}
+              className="group rounded-lg border border-slate-200 bg-white"
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
                 {g.channel === "email"
                   ? <Mail className="w-4 h-4 text-blue-600" />
                   : <MessageCircle className="w-4 h-4 text-brand-primary" />}
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
                   {g.channel} &middot; {g.category} &middot; {g.group}
                 </p>
-                <span className="text-[10px] text-slate-400 ml-1">({g.items.length})</span>
-              </div>
-              <div className="space-y-2">
+                <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-600">{g.items.length}</span>
+                <ChevronDown aria-hidden="true" className="ml-auto h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="space-y-2 border-t border-slate-100 p-2">
                 {g.items.map((row) => {
                   const delivery: MessageDelivery = row.delivery || "manual";
                   return (
@@ -382,7 +344,7 @@ export function TemplatesPanel() {
                   );
                 })}
               </div>
-            </div>
+            </details>
           ))}
         </div>
       )}

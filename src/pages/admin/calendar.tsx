@@ -11,7 +11,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
   PageWorkbench, StatTile,
 } from "@/components/portal/ui";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -870,7 +870,7 @@ function AdminCalendar() {
             variant="hero"
             title="Calendar"
             icon={CalendarIcon}
-            subtitle="Every confirmed event on a calendar grid. Click a day to see its events; arrow keys move you through the calendar."
+            subtitle="See booked events, select a day and check the work coming next."
             meta={
               !loading && !loadError ? (
                 <>
@@ -1638,13 +1638,14 @@ function AdminCalendar() {
               {/* Gap finder - the diary opportunity panel. Lists days
                   in the next 30 with quotes out but nothing booked, so
                   the operator can pick which quote to chase. */}
-              <Card>
+              <Card collapsible defaultOpen={false} collapseLabel="Gap finder">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-amber-600" />
                     Gap finder
                     <InfoTooltip content={"Days in the next 30 with floating quotes (sent / viewed / pending) but nothing booked yet. Each one is a sales opportunity. Chase the quote to lock the diary."} />
                   </CardTitle>
+<CardDescription>Days with pending quotes and no booked events in the next 30 days.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   {/* Wave 70.66: all four tiles measure DAYS in the
@@ -1808,27 +1809,6 @@ function AdminCalendar() {
                       })}
                     </div>
                   )}
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-50">
-                <CardContent className="pt-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600 flex items-center gap-1.5">Total events <InfoTooltip content={"Every confirmed-and-onwards event in the loaded ±6-month window. Cancelled, pending and draft orders are excluded - they live on /admin/orders, not the calendar."} /></span>
-                    <span className="text-2xl font-bold text-slate-900 tabular-nums">{orders.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600 flex items-center gap-1.5">{monthNames[month]} <InfoTooltip content={"Confirmed-and-onwards events with an event date in the month you are currently viewing."} /></span>
-                    <span className="text-2xl font-bold text-blue-900 tabular-nums">
-                      {/* Shared eventsThisMonth memo - same figure as
-                          the StatTile row above, by construction. */}
-                      {eventsThisMonth}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600 flex items-center gap-1.5">Upcoming <InfoTooltip content={"Every open event dated today or later. The preview above lists only the next five, but this is the real count."} /></span>
-                    <span className="text-2xl font-bold text-brand-primary tabular-nums">{upcomingAll.length}</span>
-                  </div>
                 </CardContent>
               </Card>
             </div>

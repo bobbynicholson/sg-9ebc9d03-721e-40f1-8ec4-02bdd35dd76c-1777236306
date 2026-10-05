@@ -53,7 +53,13 @@ type CompanySubscription = {
   currency: string;
   next_billing_date: string | null;
   trial_ends_at: string | null;
+  /** payfast | stripe | yoco when a provider bills this company; null = trial / manual. */
+  provider: string | null;
+  /** Amount normalised to one month, so yearly plans count correctly in MRR. */
+  monthly_amount: number;
 };
+
+const PROVIDER_LABELS: Record<string, string> = { payfast: "PayFast", stripe: "Stripe", yoco: "Yoco (prepaid)" };
 
 // Wave 24: super_admin gate. Surfaces every tenant's subscription
 // row + can suspend / re-enable accounts. Tenant admins MUST NOT
@@ -140,6 +146,16 @@ function PlatformSubscriptionManagement() {
 
       const planRates = await fetchPlanRates();
 
+      // Provider-billed details (cycle, real amount, next charge) live on
+      // the subscriptions rows, read server-side for every tenant.
+      let billingByCompany: Record<string, any> = {};
+      try {
+        const billingRes = await fetch("/api/platform/subscriptions", { cache: "no-store" });
+        if (billingRes.ok) billingByCompany = (await billingRes.json())?.billing || {};
+      } catch {
+        // Fall back to plan list prices; the page still loads.
+      }
+
       // 1. Pull every company. Each one is a subscription in our world.
       const { data: companies, error: companiesErr } = await supabase
         .from("companies")
@@ -171,6 +187,13 @@ function PlatformSubscriptionManagement() {
         // from the subscription_status enum so this branch can no
         // longer fire; coalesce to 'trial' for null-rows only.
         const status = c.subscription_status || "trial";
+        const billing = billingByCompany[c.id];
+        // Paying statuses use what the provider actually bills; otherwise
+        // fall back to the plan's list price.
+        const billed = ["active", "past_due"].includes(status);
+        const amount = billed
+          ? (billing?.amount != null ? Number(billing.amount) : plan.amount)
+          : 0;
         return {
           id: c.id,
           company_id: c.id,
@@ -179,12 +202,16 @@ function PlatformSubscriptionManagement() {
           owner_email: owner?.email || null,
           status,
           plan_name: plan.name,
-          billing_cycle: status === "trial" ? "trial" : "monthly",
-          amount: status === "active" ? plan.amount : 0,
-          currency: c.billing_currency || c.currency || "ZAR",
+          billing_cycle: status === "trial" ? "trial" : billing?.billing_cycle || "monthly",
+          amount,
+          currency: billing?.currency || c.billing_currency || c.currency || "ZAR",
           next_billing_date:
-            status === "trial" ? c.trial_ends_at : c.subscription_ends_at || null,
+            status === "trial"
+              ? c.trial_ends_at
+              : billing?.next_billing_date || billing?.current_period_end || c.subscription_ends_at || null,
           trial_ends_at: c.trial_ends_at,
+          provider: billing?.provider || null,
+          monthly_amount: billing?.billing_cycle === "yearly" ? Math.round((amount / 12) * 100) / 100 : amount,
         };
       });
 
@@ -207,14 +234,16 @@ function PlatformSubscriptionManagement() {
       trial: subs.filter((s) => s.status === "trial").length,
       cancelled: subs.filter((s) => s.status === "cancelled").length,
       pastDue: subs.filter((s) => s.status === "past_due").length,
+      // Yearly plans contribute a twelfth of their price per month.
       totalMRR: subs
-        .filter((s) => s.status === "active" && s.billing_cycle === "monthly")
-        .reduce((sum, s) => sum + Number(s.amount), 0),
+        .filter((s) => s.status === "active")
+        .reduce((sum, s) => sum + Number(s.monthly_amount || 0), 0),
     };
     setStats(newStats);
   };
 
   const handleActivate = async (companyId: string) => {
+    if (!confirm("Grant paid access manually? No payment is taken - use this for complimentary or offline-paid accounts.")) return;
     const { error: updateErr } = await supabase
       .from("companies")
       .update({
@@ -231,17 +260,26 @@ function PlatformSubscriptionManagement() {
     void loadData();
   };
 
-  const handleCancel = async (companyId: string) => {
-    if (!confirm("Cancel this subscription? The company stays in the database but is marked cancelled.")) return;
-    const { error: updateErr } = await supabase
-      .from("companies")
-      .update({ subscription_status: "cancelled", subscription_ends_at: new Date().toISOString() })
-      .eq("id", companyId);
-    if (updateErr) {
-      toast({ title: "Failed to cancel", description: dbErrorMessage(updateErr, { entity: "subscription" }), variant: "destructive" });
-      return;
+  const handleCancel = async (sub: CompanySubscription) => {
+    const providerNote = sub.provider === "stripe" || sub.provider === "payfast"
+      ? ` This stops ${PROVIDER_LABELS[sub.provider]} from charging their card.`
+      : sub.provider === "yoco" ? " Their prepaid Yoco period ends now (no refund is issued automatically)." : "";
+    if (!confirm(`Cancel ${sub.company_name}'s subscription now?${providerNote} The company stays in the database but loses access.`)) return;
+    try {
+      const response = await fetch("/api/platform/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", companyId: sub.company_id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Cancellation failed");
+      toast({
+        title: "Subscription cancelled",
+        description: result.stopped?.length ? `${result.stopped.join(" and ")} billing stopped.` : "No provider billing was active.",
+      });
+    } catch (cancelError: any) {
+      toast({ title: "Failed to cancel", description: cancelError?.message || "Retry shortly.", variant: "destructive" });
     }
-    toast({ title: "Subscription cancelled" });
     void loadData();
   };
 
@@ -527,6 +565,7 @@ function PlatformSubscriptionManagement() {
                       <TableHead>
                         <SortHeader sortKey="billing" activeKey={sortedSubs.sortKey} activeDir={sortedSubs.sortDir} onToggle={sortedSubs.toggle}>Billing Cycle</SortHeader>
                       </TableHead>
+                      <TableHead>Provider</TableHead>
                       <TableHead>
                         <SortHeader sortKey="next" activeKey={sortedSubs.sortKey} activeDir={sortedSubs.sortDir} onToggle={sortedSubs.toggle}>Next Billing</SortHeader>
                       </TableHead>
@@ -557,6 +596,11 @@ function PlatformSubscriptionManagement() {
                           <span className="text-sm capitalize text-slate-600 dark:text-slate-400">{sub.billing_cycle}</span>
                         </TableCell>
                         <TableCell>
+                          <span className="text-sm text-slate-600 dark:text-slate-400">
+                            {sub.provider ? PROVIDER_LABELS[sub.provider] || sub.provider : sub.status === "trial" ? "Trial" : "Manual"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
                           <span className="text-sm text-slate-600 dark:text-slate-400">{formatDate(sub.next_billing_date)}</span>
                         </TableCell>
                         <TableCell className="text-right">
@@ -571,11 +615,11 @@ function PlatformSubscriptionManagement() {
                                 Activate
                               </Button>
                             )}
-                            {sub.status === "active" && (
+                            {(sub.status === "active" || sub.status === "past_due") && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleCancel(sub.company_id)}
+                                onClick={() => handleCancel(sub)}
                                 className="text-rose-600 hover:text-rose-700"
                                 title="Cancel subscription"
                               >

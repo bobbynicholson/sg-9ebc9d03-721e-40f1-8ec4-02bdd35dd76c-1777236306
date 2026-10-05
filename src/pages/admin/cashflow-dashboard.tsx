@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   TrendingUp, Banknote, AlertTriangle, RefreshCw,
@@ -666,7 +666,7 @@ function CashflowDashboardInner() {
 
           {/* Cashflow summary grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <Card className="border-2">
+            <Card collapsible defaultOpen={true} collapseLabel="30-day cashflow summary" className="border-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Banknote className="w-5 h-5 text-brand-primary" />
@@ -691,12 +691,13 @@ function CashflowDashboardInner() {
               </CardContent>
             </Card>
 
-            <Card className="border-2">
+            <Card collapsible defaultOpen={false} collapseLabel="Quick actions" className="border-2">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   Quick actions
                   <InfoTooltip content={"Shortcuts to the working surfaces that feed the forecast.\n\nA scheduled cost only appears in the chart once it's recorded on one of these pages."} />
                 </CardTitle>
+<CardDescription>Open the pages that contribute to your cashflow forecast.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {/* CASH-D: live subtitles + ?from=cashflow on every

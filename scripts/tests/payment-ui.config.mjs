@@ -1,7 +1,7 @@
 import { defineConfig, chromium } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 export default defineConfig({
-  testDir: '.', testMatch: 'payment-ui.pw.mjs', fullyParallel: false, workers: 1, timeout: 60000,
+  testDir: '.', testMatch: ['payment-ui.pw.mjs', 'client-payment-return-ui.pw.mjs'], fullyParallel: false, workers: 1, timeout: 60000,
   outputDir: '../../tmp/payment-ui-results', reporter: 'list',
   use: { baseURL: 'http://127.0.0.1:3106', browserName: 'chromium',
     launchOptions: { executablePath: chromium.executablePath() },

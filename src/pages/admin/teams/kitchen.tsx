@@ -556,7 +556,7 @@ function KitchenTeamPage() {
             className="no-print"
             title="Kitchen"
             icon={ChefHat}
-            subtitle="Prep, plating and pass-through."
+            subtitle="Check kitchen coverage, manage the roster and record handover notes."
             meta={
               !loading && !error ? (
                 <>

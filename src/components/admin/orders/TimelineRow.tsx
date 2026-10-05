@@ -197,15 +197,15 @@ export function TimelineRow({
                 })()}
               </div>
               <div className="flex items-center gap-4 text-sm text-slate-600">
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                   <Calendar className="w-4 h-4" />
                   <span>{formatDate(eventDate)}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" />
-                  <span className="truncate max-w-xs">{order.venue_address}</span>
+                <div className="flex min-w-0 items-center gap-1">
+                  <MapPin className="w-4 h-4 shrink-0" />
+                  <span className="truncate max-w-xs" title={order.venue_address || undefined}>{order.venue_address}</span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                   <Users className="w-4 h-4" />
                   <span>{order.guest_count} guests</span>
                 </div>
@@ -215,7 +215,7 @@ export function TimelineRow({
                     already. Force 2 dp so 9223.5 renders as
                     9 223.50, matching how every invoice line
                     reads. */}
-                <div className="flex items-center gap-1 font-semibold text-slate-900">
+                <div className="flex shrink-0 items-center gap-1 whitespace-nowrap font-semibold text-slate-900">
                   <span>
                     {C}{Number(order.total_amount || 0).toLocaleString("en-ZA", {
                       minimumFractionDigits: 2,

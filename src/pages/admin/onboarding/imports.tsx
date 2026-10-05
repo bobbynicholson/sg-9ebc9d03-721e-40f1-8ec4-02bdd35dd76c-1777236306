@@ -237,7 +237,7 @@ function ImportsHistoryPage() {
                 <InfoTooltip content={"This is your one-stop shop for getting your existing business into CateringMS.\n\nThree paths below cover the usual sources: a simple client list, a richer spreadsheet of clients + outstanding orders, and supplier receipts you snap on your phone. Run the right tool for the file you have, then come back here any time to roll a previous import back."} />
               </span>
             }
-            subtitle="Bring your existing clients, orders and supplier slips into the system. Every import shows below with a 24-hour rollback window."
+            subtitle="Review previous imports and open their results."
             icon={Wand2}
             meta={
               !loading && !loadError ? (

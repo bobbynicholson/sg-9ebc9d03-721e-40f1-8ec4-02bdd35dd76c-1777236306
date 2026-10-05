@@ -253,7 +253,7 @@ function SuppliersList() {
             variant="hero"
             title="Suppliers"
             icon={Building2}
-            subtitle="Every supplier you buy from, what they sell you, and what you've spent."
+            subtitle="Manage supplier contacts, products and purchase history."
             meta={
               !loading && !loadError ? (
                 <>

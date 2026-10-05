@@ -532,7 +532,7 @@ function CleaningTeamPage() {
             variant="hero"
             title="Cleaning"
             icon={Sparkles}
-            subtitle="Wash-up, kit return and venue strike."
+            subtitle="Check cleaning coverage, manage the roster and record handover notes."
             meta={
               !loading && !error ? (
                 <>

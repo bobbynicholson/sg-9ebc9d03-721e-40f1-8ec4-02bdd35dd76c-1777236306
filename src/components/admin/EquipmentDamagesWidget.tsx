@@ -82,15 +82,16 @@ export function EquipmentDamagesWidget({ companyId }: { companyId: string | null
   const totalCost = rows.reduce((acc, r) => acc + Number(r.repair_cost || 0), 0);
 
   return (
-    <Card className="mb-6 border-rose-200 bg-rose-50/30">
+    <Card collapsible defaultOpen={false} collapseLabel="Equipment damages" className="mb-6 border-rose-200 bg-rose-50/30">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               <Wrench className="w-4 h-4 text-rose-600" />
               Equipment damages - unresolved
+              {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${rows.length} items`}>{rows.length}</span>}
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="line-clamp-1 text-xs">
               Damage reports without a resolution stamp. Newest first.
             </CardDescription>
           </div>

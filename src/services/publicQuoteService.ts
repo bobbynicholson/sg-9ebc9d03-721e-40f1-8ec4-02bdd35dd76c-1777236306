@@ -204,7 +204,7 @@ export async function recordView(token: string, currentViewedAt: string | null):
 export async function recordAccept(args: {
   token: string;
   acceptedByName: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; orderId?: string; conversionPending?: boolean }> {
   if (!args.token) return { ok: false, error: "Missing token." };
   if (!args.acceptedByName?.trim()) return { ok: false, error: "Please enter your name." };
   try {
@@ -217,7 +217,7 @@ export async function recordAccept(args: {
     if (!res.ok || json.ok === false) {
       return { ok: false, error: json.error || "Could not accept the quote, please try again." };
     }
-    return { ok: true };
+    return { ok: true, orderId: json.orderId || undefined, conversionPending: json.conversionPending === true };
   } catch (err: any) {
     return { ok: false, error: err?.message || "Network error" };
   }

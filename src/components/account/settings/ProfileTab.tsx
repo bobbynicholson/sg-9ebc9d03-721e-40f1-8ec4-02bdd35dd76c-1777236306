@@ -34,113 +34,111 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
+type SummaryProps = Pick<Props, "profile" | "company" | "formData" | "uploadingAvatar" | "fileInputRef" | "onAvatarPick" | "onAvatarChange">;
+
 /**
- * Profile tab for /account/settings. Two cards: profile overview
- * (avatar + role + created date) and personal information (editable
- * fields).
- *
- * Parent retains ownership of formData / avatar upload state so the
- * parent-level Save bar and the data fetched from useAuth stay the
- * source of truth. The tab is pure presentation.
- *
- * Extracted from inline in src/pages/account/settings.tsx (P2-13
- * account/settings split). The old "Display & Regional Preferences"
- * card was removed in the persistence rebuild: its values saved to
- * localStorage and nothing ever read them.
+ * Identity card for the left column of /account/settings: photo, name,
+ * login email, role, company and member-since, with the photo upload.
+ * Same handlers as before - the parent owns the upload state.
  */
-export function ProfileTab({
+export function ProfileSummaryCard({
   profile,
   company,
   formData,
-  onFormChange,
-  onSave,
-  saving,
   uploadingAvatar,
   fileInputRef,
   onAvatarPick,
   onAvatarChange,
+}: SummaryProps) {
+  const role = profile?.role as string | undefined;
+  const companyName = company?.company_name || profile?.company_name;
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" })
+    : null;
+
+  return (
+    <Card className="overflow-hidden border border-slate-200/90 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="h-20 bg-gradient-to-r from-brand-primary via-brand-primary/80 to-brand-secondary" aria-hidden="true" />
+      <CardContent className="-mt-12 flex flex-col items-center px-5 pb-5 text-center">
+        <div className="relative">
+          <Avatar className="h-24 w-24 bg-white ring-4 ring-white shadow-md dark:ring-slate-900">
+            <AvatarImage src={formData.avatar_url} className="object-contain" />
+            <AvatarFallback className="bg-brand-primary/10 text-2xl font-semibold text-brand-primary">
+              {getInitials(formData.full_name || "User")}
+            </AvatarFallback>
+          </Avatar>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={onAvatarChange}
+          />
+          <button
+            type="button"
+            onClick={onAvatarPick}
+            disabled={uploadingAvatar}
+            aria-label="Change photo"
+            title="Change photo (JPG, PNG or WebP, max 5 MB)"
+            className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-white shadow transition hover:bg-slate-700 disabled:opacity-60 dark:border-slate-900"
+          >
+            <Camera className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-3 text-lg font-semibold leading-tight text-slate-950 dark:text-white">
+          {formData.full_name || "Your name"}
+        </p>
+        {formData.email && (
+          <p className="mt-0.5 flex max-w-full items-center gap-1.5 truncate text-sm text-slate-500 dark:text-slate-400">
+            <Mail className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{formData.email}</span>
+          </p>
+        )}
+        {role && (
+          <Badge variant="secondary" className="mt-3 gap-1 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">
+            <Briefcase className="h-3 w-3" />
+            {ROLE_NAMES[role as keyof typeof ROLE_NAMES] || role}
+          </Badge>
+        )}
+        <dl className="mt-4 w-full space-y-2 border-t border-slate-100 pt-4 text-left text-sm dark:border-slate-800">
+          {companyName && (
+            <div className="flex items-center justify-between gap-3">
+              <dt className="flex items-center gap-1.5 text-slate-500"><Building2 className="h-3.5 w-3.5" /> Company</dt>
+              <dd className="truncate font-medium text-slate-900 dark:text-slate-100">{companyName}</dd>
+            </div>
+          )}
+          {memberSince && (
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-slate-500">Member since</dt>
+              <dd className="font-medium text-slate-900 dark:text-slate-100">{memberSince}</dd>
+            </div>
+          )}
+        </dl>
+        <p className="mt-3 text-[11px] text-slate-400">
+          {uploadingAvatar ? "Uploading photo..." : "Tap the camera to change your photo"}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Profile tab for /account/settings: the editable personal information.
+ * The identity card (photo, role, company) lives in ProfileSummaryCard,
+ * shown in the page's left column.
+ */
+export function ProfileTab({
+  profile,
+  formData,
+  onFormChange,
+  onSave,
+  saving,
 }: Props) {
   const role = profile?.role as string | undefined;
   const canEditCompanyName = role === "owner" || role === "admin" || role === "super_admin";
 
   return (
     <div className="space-y-5">
-      <Card className="overflow-hidden border border-slate-200/90 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="h-2 bg-gradient-to-r from-brand-primary via-brand-primary/70 to-orange-400" />
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg dark:text-white">
-            <User className="h-5 w-5 text-brand-primary" />
-            Your profile
-          </CardTitle>
-          <CardDescription className="dark:text-slate-400">
-            This is how your team sees you in the driver portal.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center gap-5 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-start dark:border-slate-700 dark:bg-slate-800/70">
-            <div className="flex flex-col items-center gap-3">
-              <Avatar className="h-24 w-24 ring-4 ring-white dark:ring-slate-900">
-                <AvatarImage src={formData.avatar_url} />
-                <AvatarFallback className="text-2xl bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300">
-                  {getInitials(formData.full_name || "User")}
-                </AvatarFallback>
-              </Avatar>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                onChange={onAvatarChange}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={onAvatarPick}
-                disabled={uploadingAvatar}
-              >
-                <Camera className="w-4 h-4 mr-2" />
-                {uploadingAvatar ? "Uploading..." : "Change Photo"}
-              </Button>
-              <p className="text-center text-[10px] text-slate-500 dark:text-slate-400">JPG, PNG or WebP · Max 5 MB</p>
-            </div>
-
-            <div className="grid w-full flex-1 gap-4 sm:grid-cols-2">
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Role</Label>
-                <div className="mt-1">
-                  <Badge variant="secondary" className="bg-white text-sm shadow-sm dark:bg-slate-900">
-                    <Briefcase className="w-3 h-3 mr-1" />
-                    {ROLE_NAMES[role as keyof typeof ROLE_NAMES] || role}
-                  </Badge>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Member since</Label>
-                <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-                  {new Date(profile?.created_at || "").toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-              </div>
-
-              {(company?.company_name || profile?.company_name) && (
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Company</Label>
-                  <p className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-                    <Building2 className="w-4 h-4" />
-                    {company?.company_name || profile?.company_name}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card className="border border-slate-200/90 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg dark:text-white">
@@ -244,7 +242,6 @@ export function ProfileTab({
           </div>
         </CardContent>
       </Card>
-
     </div>
   );
 }

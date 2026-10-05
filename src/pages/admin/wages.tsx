@@ -830,7 +830,7 @@ function WageDashboardPage() {
               </span>
             }
             icon={Banknote}
-            subtitle="Hours and wages for the office only. The kitchen and dispatch tablets never see rates."
+            subtitle="Review recorded hours and wages across teams and track completed payouts."
             meta={
               !isLoading && (
                 <>

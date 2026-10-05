@@ -86,15 +86,16 @@ export function DispatchGapWidget({ companyId }: { companyId: string | null }) {
   today.setHours(0, 0, 0, 0);
 
   return (
-    <Card className="mb-6 border-orange-200 bg-orange-50/30">
+    <Card collapsible defaultOpen={false} collapseLabel="Dispatch coverage gaps" className="mb-6 border-orange-200 bg-orange-50/30">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
               <Truck className="w-4 h-4 text-orange-600" />
               Dispatch coverage gaps
+              {!loading && <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700" aria-label={`${rows.length} items`}>{rows.length}</span>}
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="line-clamp-1 text-xs">
               Confirmed events in the next 7 days without a driver assigned. Soonest first.
             </CardDescription>
           </div>

@@ -56,6 +56,10 @@ interface Props {
   };
   defaultOpen?: boolean;
   forceOpen?: boolean;
+  /** The document header above already shows title, status and number. */
+  underDocumentHeader?: boolean;
+  /** Rendered in the narrow right-hand panel on desktop. */
+  inSidePanel?: boolean;
 }
 
 const STATUS_TONES: Record<string, string> = {
@@ -94,7 +98,7 @@ interface RegionLink {
   name: string | null;
 }
 
-export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
+export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumentHeader = false, inSidePanel = false }: Props) {
   const { user } = useAuth();
   const canSeeFinance = canSeeOrderFinance(user?.role as UserRole | undefined);
   const isAdminTier = canSeeFinance; // admin-tier roles see internal_notes
@@ -198,7 +202,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
   return (
     <CollapsibleSection
       id="section-header"
-      title={titleLine}
+      title={underDocumentHeader ? "Event & client details" : titleLine}
       summary={summary}
       icon={FileText}
       accent="slate"
@@ -206,7 +210,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
       forceOpen={forceOpen}
     >
       {/* Title band: prominent status pill + order number subtitle */}
-      <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+      {!underDocumentHeader && <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
         <div className="min-w-0 flex-1">
           <p className="text-xs text-slate-500 mt-0.5">{subtitleLine}</p>
         </div>
@@ -218,7 +222,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
             <span className="text-xs text-slate-500 tabular-nums font-mono">#{order.order_number}</span>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Intel chip strip - region, repeat customer, linked quote,
           linked package, lead source, allergens. Each chip only
@@ -277,7 +281,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen }: Props) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${inSidePanel ? "lg:grid-cols-1" : ""}`}>
         <div className="space-y-2">
           <p className="text-xs text-slate-500 uppercase tracking-wider">Event</p>
           <div className="flex items-center gap-2 text-sm text-slate-700">

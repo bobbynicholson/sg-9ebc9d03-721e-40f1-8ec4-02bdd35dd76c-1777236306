@@ -37,7 +37,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, Package, Receipt, Banknote } from "lucide-react";
+import { Mail, Phone, Users, Sparkles, Flame, Clock, AlertTriangle, Snowflake, Crown, Send, Inbox, ShoppingCart, CheckCircle2, RefreshCw, Plus, Pencil, Trash2, Ban, FileText, Upload, Download, Package, Receipt, Banknote, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { usePromptDialog } from "@/components/ui/confirm-dialog";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -234,8 +235,8 @@ function ClientsCRM() {
   // Default to All so the book shows on first load. The earlier
   // "Hot leads" default left import-heavy tenants (thousands of
   // imported contacts, few/no leads) staring at an empty page that
-  // read as broken. Render volume is already bounded by DISPLAY_CAP
-  // (first 500 rows) so "All" does not blow up first paint.
+  // read as broken. Rendering is paginated, so "All" does not blow up
+  // first paint.
   // ?clientId / ?q deep-links also resolve to "all" in their own
   // effects so a row jump still finds the target.
   const [filter, setFilter] = useState<ContactFilter>("all");
@@ -908,7 +909,9 @@ function ClientsCRM() {
             c.suggestion = { tone: "warm", label: "Re-engage", reason: `${c.daysSinceLastTouch}d since last event` };
             break;
           case "cold":
-            c.suggestion = { tone: "warm", label: "Win-back nudge", reason: `${c.daysSinceLastTouch}d quiet` };
+            c.suggestion = c.orderCount > 0
+              ? { tone: "warm", label: "Win-back nudge", reason: `${c.daysSinceLastTouch}d quiet` }
+              : { tone: "neutral", label: "Say hello", reason: c.daysSinceLastTouch != null ? `No orders yet · ${c.daysSinceLastTouch}d quiet` : "No orders yet" };
             break;
           case "imported":
             // Wave 70.72: bulk-imported, never touched. The right
@@ -1157,21 +1160,26 @@ function ClientsCRM() {
   ], []);
   const sortedView = useSortable<Contact>(fuzzyVisible as Contact[], sortColumns, { defaultKey: "name", defaultDir: "asc" });
   const allVisible = sortedView.rows;
-  // Render cap. The aggregation runs over the full book so the
-  // pill counts + filters stay accurate, but rendering 7500+
-  // table rows in a single pass tanked the page (8s+ to first
-  // paint on a busy tenant). We render the first DISPLAY_CAP rows
-  // by default and let the operator opt into 'show all'. Search /
-  // status / tag filters bypass the cap because they're already
-  // narrow enough.
-  const DISPLAY_CAP = 500;
-  const [showAll, setShowAll] = useState(false);
-  // Reset 'show all' when filters change so a heavy view doesn't
-  // re-explode after the operator narrows then widens again.
-  useEffect(() => { setShowAll(false); }, [filter, search, tagFilter]);
-  const filtersActive = filter !== "all" || search.trim().length > 0 || tagFilter.size > 0;
-  const visible = (filtersActive || showAll) ? allVisible : allVisible.slice(0, DISPLAY_CAP);
-  const cappedCount = allVisible.length - visible.length;
+  // Pagination. The aggregation, counts and search run over the full
+  // book, but only one page of rows is ever rendered - whatever filter
+  // or search is active. Rendering thousands of rows (an imported book,
+  // or a one-letter search) is what froze the page before.
+  const PAGE_SIZES = [25, 50, 100, 200];
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(allVisible.length / pageSize));
+  // Back to the first page whenever the result set changes shape.
+  useEffect(() => { setPage(0); }, [filter, search, tagFilter, pageSize, sortedView.sortKey, sortedView.sortDir]);
+  // A shrinking list (delete, reload) must not leave us past the end.
+  useEffect(() => { if (page > pageCount - 1) setPage(pageCount - 1); }, [page, pageCount]);
+  // Deep-linked contact: open the page that contains it.
+  useEffect(() => {
+    if (!focusedContactKey) return;
+    const index = allVisible.findIndex((c) => c.key === focusedContactKey);
+    if (index >= 0) setPage(Math.floor(index / pageSize));
+  }, [focusedContactKey, allVisible, pageSize]);
+  const pageStart = page * pageSize;
+  const visible = allVisible.slice(pageStart, pageStart + pageSize);
 
   const markContacted = (key: string) => {
     setContactedKeys((prev) => ({ ...prev, [key]: new Date().toISOString() }));
@@ -1190,7 +1198,7 @@ function ClientsCRM() {
             variant="hero"
             title="Contacts"
             icon={Users}
-            subtitle="Your CRM inbox. Everyone you've touched so far, leads and clients combined, sorted by suggested next action."
+            subtitle="Find leads and clients, review their history and choose the next follow-up."
             meta={
               <>
                 {!loading && !loadError && (
@@ -1338,15 +1346,10 @@ function ClientsCRM() {
           )}
 
           {hiddenAutomatedTestRows > 0 && (
-            <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-              <div>
-                <p className="font-semibold">Automated test contacts hidden</p>
-                <p className="mt-0.5 text-xs leading-5 text-amber-900">
-                  {hiddenAutomatedTestRows} E2E source row{hiddenAutomatedTestRows === 1 ? "" : "s"} were excluded from this CRM view so live client counts, totals and suggested actions stay clean.
-                </p>
-              </div>
-            </div>
+            <p className="mb-3 flex items-center gap-1.5 text-xs text-slate-500">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+              {hiddenAutomatedTestRows} automated test record{hiddenAutomatedTestRows === 1 ? " is" : "s are"} hidden from this list and its totals.
+            </p>
           )}
 
           {/* Command-centre stat row: live aggregates off the loaded
@@ -1395,6 +1398,14 @@ function ClientsCRM() {
               in the CRM inbox so the widget sits next to the contact
               records it points to. Self-hides on a tenant with no
               qualifying orders in the last 30 days. */}
+          {/* Optional insights fold into one closed section so the
+              contact list stays near the top. */}
+          <Card collapsible defaultOpen={false} collapseLabel="Client insights" className="mb-4">
+            <CardHeader className="py-3">
+              <CardTitle className="text-base">Client insights</CardTitle>
+              <CardDescription>Top clients this month and where your contacts come from.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4 [&>*:last-child]:mb-0">
           {companyId ? (
             <WidgetErrorBoundary label="Top clients">
               <TopClientsWidget companyId={companyId} />
@@ -1433,6 +1444,8 @@ function ClientsCRM() {
               </div>
             </div>
           )}
+            </CardContent>
+          </Card>
 
           {/* Command-centre toolbar: search + saved views + tag
               filter + status chips grouped into ONE card instead of
@@ -1526,39 +1539,10 @@ function ClientsCRM() {
           </PortalCard>
 
           {/* Email cap notice, ties to pricing tier */}
-          <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
-            <CardContent className="py-3 px-4 flex items-start gap-3">
-              <Inbox className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <p className="font-semibold text-slate-900">Personal mail, not bulk.</p>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  Quick-mail sends through Gmail / Outlook / your default mail app, so it actually arrives from <span className="font-medium">your</span> address. For bulk newsletters, plug Mailchimp into Settings &rarr; Integrations.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Render-cap notice. Shows only when 'all' is active
-              with no filters and the book is bigger than DISPLAY_CAP.
-              Most contact lookups are 'find this one client' so the
-              search box solves it instantly; this banner hands the
-              dispatch lead the override when they really do want
-              the whole 7000-row list. */}
-          {cappedCount > 0 && (
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-              <span className="text-amber-900">
-                Showing the first <strong className="tabular-nums">{visible.length}</strong> of <strong className="tabular-nums">{allVisible.length}</strong> contacts.
-                Use search or a status filter to find someone specific - or load them all.
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowAll(true)}
-                className="text-xs font-semibold text-amber-800 hover:text-amber-900 underline"
-              >
-                Show all {allVisible.length}
-              </button>
-            </div>
-          )}
+          <p className="mb-3 flex items-center gap-1.5 text-xs text-slate-500">
+            <Inbox className="h-3.5 w-3.5 shrink-0" />
+            Quick-mail opens your own mail app, so messages come from your address.
+          </p>
 
           {/* Table */}
           <Card id="contact-book" data-chat-section="admin.contacts.book" data-chat-section-label="Contact book">
@@ -1683,7 +1667,7 @@ function ClientsCRM() {
                             <InfoTooltip content={"Where this contact sits in their journey with you, from hot lead through to VIP or lost.\n\nWorked out from how often they have ordered, how much they have spent and how recently they have been active."} />
                           </span>
                         </th>
-                        <th className="text-left py-3 px-2">
+                        <th className="hidden text-left py-3 px-2 2xl:table-cell">
                           <span className="inline-flex items-center gap-1.5">
                             <SortHeader sortKey="action" activeKey={sortedView.sortKey} activeDir={sortedView.sortDir} onToggle={sortedView.toggle}>
                               Suggested action
@@ -1819,12 +1803,12 @@ function ClientsCRM() {
                               </button>
                             </td>
                             <td className="py-3 px-2">
-                              <Badge variant="outline" className={`${meta.tone} border gap-1`}>
+                              <Badge variant="outline" className={`${meta.tone} border gap-1 whitespace-nowrap`}>
                                 <Icon className="w-3 h-3" />
                                 {meta.label}
                               </Badge>
                             </td>
-                            <td className="py-3 px-2">
+                            <td className="hidden py-3 px-2 2xl:table-cell">
                               <div className={`text-xs font-medium ${
                                 c.suggestion.tone === "urgent" ? "text-rose-600" :
                                 c.suggestion.tone === "warm"   ? "text-amber-600" : "text-slate-600"
@@ -1876,7 +1860,7 @@ function ClientsCRM() {
                               ) : "-"}
                             </td>
                             <td className="py-3 pr-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex flex-nowrap items-center justify-end gap-1.5 whitespace-nowrap">
                                 {/* WhatsApp the client. Hidden when no
                                     mobile is on file or it looks like
                                     a landline. Default template depends
@@ -1947,55 +1931,41 @@ function ClientsCRM() {
                                     {c.quoteIds.length > 0 ? "Open quote" : "New quote"}
                                   </Button>
                                 )}
-                                {/* Ported from the retired /admin/client-search
-                                    page: per-row deep links into the order book
-                                    and invoice list filtered to this client.
-                                    Only registered clients (clientId set) have
-                                    rows behind those filters. */}
-                                {c.clientId && (
-                                  <>
+                                {/* Secondary row actions live in one menu so each
+                                    row stays a single line. Orders / invoices only
+                                    exist for registered clients (clientId set). */}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => router.push(withSlug(`/admin/orders?clientId=${c.clientId}`))}
                                       className="h-8 w-8 p-0"
-                                      aria-label={`Orders for ${c.name}`}
-                                      title="View this client's orders"
+                                      aria-label={`More actions for ${c.name}`}
+                                      title="More actions"
                                     >
-                                      <Package className="w-3.5 h-3.5" />
+                                      <MoreHorizontal className="w-4 h-4" />
                                     </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => router.push(withSlug(`/admin/invoices?clientId=${c.clientId}`))}
-                                      className="h-8 w-8 p-0"
-                                      aria-label={`Invoices for ${c.name}`}
-                                      title="View this client's invoices"
-                                    >
-                                      <Receipt className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </>
-                                )}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => { setEditing(c); setFormOpen(true); }}
-                                  className="h-8 w-8 p-0"
-                                  aria-label={c.clientId ? `Edit ${c.name}` : `Save ${c.name} as client`}
-                                  title={c.clientId ? "Edit" : "Save as client"}
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setConfirmDelete(c)}
-                                  className="h-8 w-8 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                                  aria-label={`Delete ${c.name}`}
-                                  title="Delete contact"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    {c.clientId && (
+                                      <>
+                                        <DropdownMenuItem onSelect={() => router.push(withSlug(`/admin/orders?clientId=${c.clientId}`))}>
+                                          <Package className="mr-2 w-3.5 h-3.5" /> View orders
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => router.push(withSlug(`/admin/invoices?clientId=${c.clientId}`))}>
+                                          <Receipt className="mr-2 w-3.5 h-3.5" /> View invoices
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                    <DropdownMenuItem onSelect={() => { setEditing(c); setFormOpen(true); }}>
+                                      <Pencil className="mr-2 w-3.5 h-3.5" /> {c.clientId ? "Edit" : "Save as client"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onSelect={() => setConfirmDelete(c)} className="text-rose-600 focus:text-rose-700">
+                                      <Trash2 className="mr-2 w-3.5 h-3.5" /> Delete contact
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
                             </td>
                           </tr>
@@ -2003,6 +1973,30 @@ function ClientsCRM() {
                       })}
                     </tbody>
                   </table>
+                  </div>
+                  {/* Pagination */}
+                  <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:text-slate-400">
+                    <span className="tabular-nums">
+                      Showing {pageStart + 1}-{Math.min(pageStart + pageSize, allVisible.length)} of {allVisible.length.toLocaleString("en-ZA")} contacts
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-1.5 text-xs">
+                        Rows
+                        <select
+                          value={pageSize}
+                          onChange={(e) => setPageSize(Number(e.target.value))}
+                          className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+                          aria-label="Rows per page"
+                        >
+                          {PAGE_SIZES.map((size) => <option key={size} value={size}>{size}</option>)}
+                        </select>
+                      </label>
+                      <Button variant="outline" size="sm" onClick={() => setPage(0)} disabled={page === 0} aria-label="First page">«</Button>
+                      <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>Previous</Button>
+                      <span className="tabular-nums text-xs">Page {page + 1} of {pageCount.toLocaleString("en-ZA")}</span>
+                      <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>Next</Button>
+                      <Button variant="outline" size="sm" onClick={() => setPage(pageCount - 1)} disabled={page >= pageCount - 1} aria-label="Last page">»</Button>
+                    </div>
                   </div>
                 </>
               )}

@@ -179,7 +179,7 @@ export function AdminNav(_: AdminNavProps = {}) {
     {
       id: "today",
       title: "Today",
-      defaultOpen: true,
+      defaultOpen: false,
       items: [
         {
           title: "Dashboard",
@@ -231,7 +231,7 @@ export function AdminNav(_: AdminNavProps = {}) {
     {
       id: "pipeline",
       title: "Sales",
-      defaultOpen: true,
+      defaultOpen: false,
       items: [
         { title: "Contacts",      href: "/admin/contacts",      icon: MessageSquare,    description: "Inbox and follow-ups" },
         {

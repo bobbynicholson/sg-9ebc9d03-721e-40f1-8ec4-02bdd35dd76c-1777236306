@@ -27,6 +27,10 @@ export default function SubscriptionSuccessPage() {
   const merchantPaymentId = typeof router.query.m_payment_id === "string"
     ? router.query.m_payment_id
     : "";
+  // Stripe / Yoco plan checkouts return with our own checkout reference.
+  const checkoutId = typeof router.query.checkout_id === "string" ? router.query.checkout_id : "";
+  const providerName = router.query.provider === "stripe" ? "Stripe" : router.query.provider === "yoco" ? "Yoco" : "PayFast";
+  const [outcome, setOutcome] = useState<"failed" | "expired" | null>(null);
   useEffect(() => {
     if (!router.isReady || !companyId) return;
     let cancelled = false;
@@ -34,6 +38,39 @@ export default function SubscriptionSuccessPage() {
     let checks = 0;
     const check = async () => {
       checks += 1;
+      if (checkoutId) {
+        try {
+          const response = await fetch("/api/subscription/checkout-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ checkout_id: checkoutId }),
+          });
+          const result = await response.json().catch(() => null);
+          if (cancelled) return;
+          if (result?.status === "succeeded") {
+            setConfirmed(true);
+            setCheckingPayment(false);
+            clearInterval(timer);
+            return;
+          }
+          if (result?.status === "failed" || result?.status === "expired") {
+            setOutcome(result.status);
+            setCheckingPayment(false);
+            clearInterval(timer);
+            return;
+          }
+        } catch (error) {
+          // Offline or a server blip: keep polling; the provider webhook
+          // still settles the payment even if this page is closed.
+          console.warn("Could not check the plan payment yet:", error);
+        }
+        if (!cancelled && checks >= 36) {
+          setCheckingPayment(false);
+          clearInterval(timer);
+        }
+        return;
+      }
       if (merchantPaymentId && attempts < 7) {
         attempts += 1;
         try {
@@ -67,7 +104,7 @@ export default function SubscriptionSuccessPage() {
     const timer = setInterval(() => { void check(); }, 5000);
     void check();
     return () => { cancelled = true; if (timer) clearInterval(timer); };
-  }, [router.isReady, companyId, merchantPaymentId]);
+  }, [router.isReady, companyId, merchantPaymentId, checkoutId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -116,15 +153,17 @@ export default function SubscriptionSuccessPage() {
           
           <div className="space-y-2">
             <Badge className="bg-gradient-to-r from-slate-500 to-rose-500 text-white border-0 px-4 py-1.5">
-              {confirmed ? "Subscription Confirmed" : "Payment Submitted"}
+              {confirmed ? "Subscription Confirmed" : outcome ? "Payment Not Completed" : "Payment Submitted"}
             </Badge>
-            <CardTitle className="text-3xl font-bold">{confirmed ? "Your subscription is confirmed" : "Your subscription is being confirmed"}</CardTitle>
+            <CardTitle className="text-3xl font-bold">{confirmed ? "Your subscription is confirmed" : outcome === "expired" ? "Your checkout expired" : outcome ? "Your payment did not go through" : "Your subscription is being confirmed"}</CardTitle>
             <CardDescription className="text-lg">
               {confirmed
-                ? "PayFast confirmed your payment. Your company workspace is ready."
-                : checkingPayment
-                  ? "CateringMS is checking PayFast for your payment and restoring access once it is verified."
-                  : "We have not received PayFast confirmation yet. You can check again shortly or return to billing."}
+                ? `${providerName} confirmed your payment. Your company workspace is ready.`
+                : outcome
+                  ? `${providerName} did not complete this payment, so nothing changed on your plan. Return to billing to try again or choose another payment method.`
+                  : checkingPayment
+                    ? `CateringMS is checking ${providerName} for your payment and restoring access once it is verified.`
+                    : `We have not received ${providerName} confirmation yet. If you paid, it will apply automatically - you can safely close this page, check again shortly, or return to billing.`}
             </CardDescription>
           </div>
         </CardHeader>
@@ -141,7 +180,7 @@ export default function SubscriptionSuccessPage() {
                 <div>
                   <h4 className="font-medium mb-1">Check your email</h4>
                   <p className="text-sm text-slate-600">
-                    Billing confirmation emails are sent after the provider notification is verified. If confirmation stays pending, contact support with your PayFast payment reference.
+                    Billing confirmation emails are sent after the provider notification is verified. If confirmation stays pending, contact support with your {providerName} payment reference.
                   </p>
                 </div>
               </div>
@@ -153,7 +192,7 @@ export default function SubscriptionSuccessPage() {
                 <div>
                   <h4 className="font-medium mb-1">Explore your dashboard</h4>
                   <p className="text-sm text-slate-600">
-                    Once PayFast confirms the payment, access to your company workspace will be restored.
+                    Once {providerName} confirms the payment, access to your company workspace will be restored.
                   </p>
                 </div>
               </div>
@@ -165,7 +204,7 @@ export default function SubscriptionSuccessPage() {
                 <div>
                   <h4 className="font-medium mb-1">Access after payment confirmation</h4>
                   <p className="text-sm text-slate-600">
-                    This page checks PayFast directly if its notification is delayed, then restores access after the payment is verified.
+                    This page keeps checking for {providerName}'s confirmation, then restores access once the payment is verified.
                   </p>
                 </div>
               </div>

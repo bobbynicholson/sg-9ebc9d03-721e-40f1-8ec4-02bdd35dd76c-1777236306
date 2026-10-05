@@ -407,12 +407,12 @@ function EventProfitabilityPageInner() {
         <title>Event profitability - CateringMS</title>
       </Head>
       <AdminNav />
-      <div className="min-h-screen pt-16 lg:pl-72 lg:pt-0 xl:pl-80">
+      <div className="admin-page-shell">
         <PortalShell>
           <PortalHeader
             variant="hero"
             title="Event profitability"
-            subtitle="See what completed events actually earned after recorded operating costs."
+            subtitle="Compare completed event revenue with recorded operating costs."
             icon={BarChart3}
             actions={
               <div className="flex flex-wrap gap-2">
@@ -491,7 +491,7 @@ function EventProfitabilityPageInner() {
                   <option value="all">All non-cancelled events</option>
                 </select>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="col-span-full text-xs text-slate-500">
                 {viewMode === "completed"
                   ? "Completed and delivered events only."
                   : "Includes confirmed, preparing, ready, in-transit, delivered, and completed events."}{" "}
@@ -526,23 +526,10 @@ function EventProfitabilityPageInner() {
               tone={margin >= 0 ? "positive" : "negative"}
             />
           </div>
-          <PortalCard className="mb-5 border-brand-primary/20 bg-gradient-to-r from-brand-primary/10 via-brand-secondary/5 to-brand-accent/10">
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 text-brand-primary" />
-              <div>
-                <p className="font-semibold text-brand-primary dark:text-white">
-                  Cost coverage
-                </p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                  Linked now: shopping, equipment hire, and driver/delivery
-                  costs. Staff labor is not yet attributable to individual
-                  orders, and payment fees appear only when the gateway response
-                  records them. Those missing categories are excluded rather
-                  than guessed.
-                </p>
-              </div>
-            </div>
-          </PortalCard>
+          <p className="mb-4 flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-primary" />
+            Costs include shopping, equipment hire and delivery. Staff labour and payment fees are left out until they can be linked to an order.
+          </p>
           <PortalCard className="overflow-hidden p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1120px] text-left text-sm">

@@ -153,7 +153,8 @@ export function DashboardTodoList({ companyId, slug }: Props) {
   }
 
   return (
-    <Card className="mb-6 border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 via-white to-brand-secondary/10 shadow-sm">
+    // Once every task is ticked the list folds to its title row.
+    <Card collapsible defaultOpen={!complete} collapseLabel="Dashboard to-do list" className="mb-6 border-brand-primary/20 bg-gradient-to-br from-brand-primary/10 via-white to-brand-secondary/10 shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>

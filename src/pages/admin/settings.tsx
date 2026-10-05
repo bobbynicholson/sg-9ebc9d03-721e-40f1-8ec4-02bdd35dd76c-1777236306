@@ -97,70 +97,70 @@ interface SettingsShortcut {
 const SETTINGS_SHORTCUTS: SettingsShortcut[] = [
   {
     title: "Company profile",
-    description: "Business identity, contact details, VAT, bank details, HQ pin, and document numbering.",
+    description: "Company details, VAT, banking, address and document numbers.",
     href: "/admin/company-profile",
     icon: Building2,
     source: "companies",
   },
   {
     title: "Branding",
-    description: "Logo, colours, accent palette, and tenant fonts used across admin, client, and team portals.",
+    description: "Logo, colours and fonts used across every portal.",
     href: "/admin/white-label",
     icon: Palette,
     source: "companies",
   },
   {
     title: "Kitchen rules",
-    description: "Prep timing, dietary flags, stock handling, and kitchen policy shared with the team landing.",
+    description: "Prep timing, dietary flags and stock rules for the kitchen.",
     href: "/admin/kitchen-settings",
     icon: CookingPot,
     source: "companies.kitchen_settings",
   },
   {
     title: "Daily operations",
-    description: "Daily kitchen and equipment cleaning times, lead-time reminders, recipients, and task status.",
+    description: "Daily cleaning times, reminders and who receives them.",
     href: "/admin/daily-operations",
     icon: Sparkles,
     source: "company_daily_operations_settings",
   },
   {
     title: "Email delivery",
-    description: "Sender identity, verified domain, provider settings, test send, and client email automation.",
+    description: "Sender name, your own domain and automatic client emails.",
     href: "/admin/email-settings",
     icon: Mail,
     source: "email_provider_settings",
   },
   {
     title: "Integrations",
-    description: "API keys, Zapier webhooks, accounting defaults, and outbound event wiring.",
+    description: "Accounting apps, Zapier, webhooks and API keys.",
     href: "/admin/integrations",
     icon: Zap,
     source: "api_keys + webhooks",
   },
   {
     title: "Lead forms",
-    description: "Embeddable enquiry forms, field mapping, live previews, snippets, and conversion metrics.",
+    description: "Enquiry forms for your website and how well they convert.",
     href: "/admin/integrations/embed",
     icon: Code2,
     source: "embed_form_configs",
   },
   {
     title: "Messages",
-    description: "Email and WhatsApp templates, sent log, automation overview, and per-tenant wording.",
+    description: "Email and WhatsApp wording, sent log and automation.",
     href: "/admin/email-templates",
     icon: MessageSquare,
     source: "email_templates",
   },
   {
     title: "Notifications",
-    description: "Per-user email, push, WhatsApp, and SMS preferences. Tenant mute rules are enforced by the notification service.",
+    description: "Which alerts your company gets, and by email, push, SMS or WhatsApp.",
     href: "/admin/notification-settings",
     icon: Bell,
     source: "email_notification_preferences",
   },
   {
     title: "Audit logs",
-    description: "Company-scoped compliance trail with filters, saved views, row links, and CSV export.",
+    description: "A record of who changed what, with filters and CSV export.",
     href: "/admin/audit-logs",
     icon: Shield,
     source: "audit_logs",
@@ -409,7 +409,7 @@ function SettingsPage() {
               </span>
             }
             icon={Settings}
-            subtitle="A clean hub for admin setup plus the shared operational defaults that affect quotes, finance, kitchen capacity, dispatch, and cancellation rules."
+            subtitle="Open a setup area or update the operational defaults used by your company."
             meta={
               !loading ? (
                 <>
@@ -441,6 +441,25 @@ function SettingsPage() {
             }
           />
           <PageWorkbench />
+      {hasUnsavedChanges && (
+        <div className="mb-6 flex justify-end">
+          <div className="flex items-center gap-3 rounded-full border border-amber-400/40 bg-slate-900 px-4 py-2.5 text-white shadow-2xl">
+            <span className="inline-flex items-center gap-2 text-xs font-medium">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+              Unsaved changes
+            </span>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              size="sm"
+              className="h-8 gap-1.5 bg-brand-primary text-white hover:bg-brand-primary/90"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </div>
+      )}
 
           {loadFailed && (
             <Card className="mb-6 border-amber-200 bg-amber-50">
@@ -470,7 +489,7 @@ function SettingsPage() {
               <div>
                 <h2 className="text-base font-semibold text-slate-900">Setup areas</h2>
                 <p className="text-sm text-slate-600">
-                  Each card opens the canonical page for that part of the admin system.
+                  Open the area you want to configure.
                 </p>
               </div>
             </div>
@@ -489,7 +508,7 @@ function SettingsPage() {
                   Operational defaults
                 </h2>
                 <p className="text-sm text-slate-600">
-                  These tabs save to company-backed settings and are shared by every admin on the tenant.
+                  Choose an area, update its defaults and save your changes.
                 </p>
               </div>
               {hasUnsavedChanges && (
@@ -571,25 +590,7 @@ function SettingsPage() {
         </PortalShell>
       </div>
 
-      {hasUnsavedChanges && (
-        <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 lg:left-[calc(50%+9rem)] xl:left-[calc(50%+10rem)]">
-          <div className="flex items-center gap-3 rounded-full border border-amber-400/40 bg-slate-900 px-4 py-2.5 text-white shadow-2xl">
-            <span className="inline-flex items-center gap-2 text-xs font-medium">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-              Unsaved changes
-            </span>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              size="sm"
-              className="h-8 gap-1.5 bg-brand-primary text-white hover:bg-brand-primary/90"
-            >
-              <Save className="h-3.5 w-3.5" />
-              {saving ? "Saving..." : "Save"}
-            </Button>
-          </div>
-        </div>
-      )}
+
     </>
   );
 }
@@ -608,10 +609,7 @@ function SettingsShortcutCard({ item, href }: { item: SettingsShortcut; href: st
             <p className="mt-1 text-sm leading-relaxed text-slate-600">{item.description}</p>
           </div>
         </div>
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-          <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600">
-            {item.source}
-          </span>
+        <div className="mt-auto flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
           <Button asChild variant="ghost" size="sm" className="gap-1.5">
             <Link href={href}>
               Open

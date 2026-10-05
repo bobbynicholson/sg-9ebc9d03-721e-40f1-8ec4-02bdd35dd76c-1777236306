@@ -452,7 +452,7 @@ function OnboardingWizard() {
             <PortalHeader
               variant="hero"
               title="Set up your business"
-              subtitle="Walk through the essentials so your quotes, invoices and client portal look right from day one. Every step saves as you go."
+              subtitle="Complete the setup steps needed to run your company."
               icon={Sparkles}
             />
             <PageWorkbench />
@@ -479,7 +479,7 @@ function OnboardingWizard() {
           <PortalHeader
             variant="hero"
             title="Set up your business"
-            subtitle="Walk through the essentials so your quotes, invoices and client portal look right from day one. Every step saves as you go."
+            subtitle="Complete the setup steps needed to run your company."
             icon={Sparkles}
             meta={
               !loadError ? (

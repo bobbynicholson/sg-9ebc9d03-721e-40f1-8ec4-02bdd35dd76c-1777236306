@@ -1,4 +1,5 @@
 import type { GetServerSideProps } from "next";
+import { tenantRedirectPrefix } from "@/lib/tenantRedirect";
 
 // Legacy page. It rendered the hardcoded RECIPE_MAPPINGS constant from
 // inventoryDeductionService and told the operator to edit a .ts file to
@@ -10,7 +11,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const qs = url.includes("?") ? url.slice(url.indexOf("?")) : "";
   return {
     redirect: {
-      destination: `/admin/menu${qs}`,
+      destination: `${tenantRedirectPrefix(ctx)}/admin/menu${qs}`,
       permanent: false,
     },
   };

@@ -259,7 +259,7 @@ function DriverScheduleGrid() {
             variant="hero"
             title="Driver schedule"
             icon={Calendar}
-            subtitle="Weekly grid of every driver's shifts. Click an empty cell to log a shift, or an existing one to edit it."
+            subtitle="Plan driver shifts and review their recorded hours."
             meta={
               !loading && !loadError ? (
                 <>

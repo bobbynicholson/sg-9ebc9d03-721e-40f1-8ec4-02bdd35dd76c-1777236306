@@ -17,6 +17,7 @@ import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
 import { normaliseFieldValue } from "@/lib/importNormalise";
+import { composeImportedClient } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 
@@ -257,6 +258,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
         mapped[decision.target] = norm.value;
       }
+
+      // Accounting exports (Wave, Xero...) split the name into company /
+      // first / last and carry delivery extras; fold those into
+      // client_name + notes before the required-name check below.
+      if (targetTable === "clients") composeImportedClient(mapped);
 
       // ── Feature D: lead-vs-client auto-classification ─────────
       // The same template ships rows where some are real clients

@@ -865,7 +865,7 @@ function RefundsPage() {
             variant="hero"
             title="Refunds & Credits"
             icon={Receipt}
-            subtitle="Every refund, store-credit issue and credit redemption in one reconciliation timeline. PayFast refunds auto-process; EFT and cash need a manual mark as paid."
+            subtitle="Review refunds and credits and complete any payouts that need manual action."
             meta={
               !loading && !loadError ? (
                 <>

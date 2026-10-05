@@ -405,7 +405,7 @@ function IntegrationsPage() {
             variant="hero"
             title={<span className="flex items-center gap-2 flex-wrap">Integrations<InfoTooltip content={"Push data in with API keys, send data out with webhooks.\n\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches."} /></span>}
             icon={Zap}
-            subtitle="API keys for inbound data and webhooks for outbound. Hook CateringMS into Zapier so leads, orders, and payments flow into Google Sheets, Slack, WhatsApp, Mailchimp, or anywhere else you already work."
+            subtitle="Connect accounting tools, API keys and webhooks to your company."
             meta={
               !loading && !loadError ? (
                 <>
@@ -497,12 +497,13 @@ function IntegrationsPage() {
           ) : null}
 
           {/* Quickstart */}
-          <Card className="mb-6 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10">
+          <Card collapsible defaultOpen={false} collapseLabel="Get a Zap running in 60 seconds" className="mb-6 bg-gradient-to-r from-brand-primary/10 to-brand-secondary/10">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Sparkles className="w-5 h-5 text-brand-primary" />
                 Get a Zap running in 60 seconds
               </CardTitle>
+<CardDescription>A short guide to connecting your first automation.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
@@ -532,7 +533,7 @@ function IntegrationsPage() {
           </Card>
 
           {/* Xero accounting */}
-          <Card className="mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
+          <Card collapsible defaultOpen={false} collapseLabel="Xero accounting" className="mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-blue-600" />
@@ -596,7 +597,7 @@ function IntegrationsPage() {
           {/* Phase 5 #8: QuickBooks counterpart. Same OAuth pattern;
               the sync endpoint mirrors Xero's drift / 401-retry /
               token-refresh shape via the shared accountingTokens lib. */}
-          <Card className="mb-6 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
+          <Card collapsible defaultOpen={false} collapseLabel="QuickBooks Online" className="mb-6 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-brand-primary" />
@@ -604,7 +605,7 @@ function IntegrationsPage() {
                 <Badge variant="outline" className="text-[10px] bg-brand-primary/15 text-brand-primary border-brand-primary/20">Native OAuth</Badge>
               </CardTitle>
               <CardDescription>
-                Direct push of CateringMS invoices into QuickBooks Online. Idempotent on external_id; QuickBooks-side edits land a 409 conflict instead of clobbering.
+                Send CateringMS invoices straight to QuickBooks Online. Each invoice is sent once, and edits made in QuickBooks are never overwritten.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -641,7 +642,7 @@ function IntegrationsPage() {
           {/* Legacy outsource-fulfilment recipes block stays untouched. */}
 
           {/* Outbound webhooks */}
-          <Card className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="Outbound webhooks" className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Webhook className="w-5 h-5 text-brand-primary" />
@@ -759,7 +760,7 @@ function IntegrationsPage() {
           </Card>
 
           {/* Inbound API keys */}
-          <Card className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="Inbound API keys" className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="w-5 h-5 text-brand-primary" />
@@ -875,7 +876,7 @@ function IntegrationsPage() {
           </Card>
 
           {/* Recipe gallery */}
-          <Card>
+          <Card collapsible defaultOpen={false} collapseLabel="Catering Zap recipes">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-slate-600" />
@@ -1047,7 +1048,7 @@ function SageCard({ companyId }: { companyId: string | null | undefined }) {
   const allFourSet = !!(metadata.default_ledger_account_id && metadata.default_tax_rate_id && metadata.default_bank_account_id);
 
   return (
-    <Card className="mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
+    <Card collapsible defaultOpen={false} collapseLabel="Sage Business Cloud (Pastel)" className="mb-6 bg-gradient-to-br from-blue-50 to-brand-secondary/10">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 flex-wrap">
           <Receipt className="w-5 h-5 text-blue-600" />

@@ -33,6 +33,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { revealSection } from "@/lib/ui/revealSection";
 import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
@@ -261,6 +262,11 @@ function CompanyProfilePage() {
     });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
+      const fieldIds: Record<string, string> = {
+        headquarters_lat: "lat", headquarters_lng: "lng", vat_registered: "section-vat",
+      };
+      const field = String(first.path[0] || "company_name");
+      revealSection(document.getElementById(fieldIds[field] || field), true);
       toast({
         title: `Check ${first.path.join(".") || "the form"}`,
         description: first.message,
@@ -396,7 +402,7 @@ function CompanyProfilePage() {
             variant="hero"
             title={<span className="flex items-center gap-2">Company profile <InfoTooltip content={"Your business name, contacts, and HQ location all live here.\n\nThis feeds the sidebar header, client-facing pages, route planning, and delivery fees. Brand colours + logo live on the White Label page."} className="text-white/60 hover:text-white" /></span>}
             icon={Building2}
-            subtitle="This drives the sidebar branding, client-facing pages, route planning and delivery fees."
+            subtitle="Update your company identity, EFT banking details and operating location."
             meta={
               <>
                 {/* CP-B: last-saved chip + unsaved-changes chip. The
@@ -466,6 +472,7 @@ function CompanyProfilePage() {
                         type="button"
                         onClick={() => {
                           const el = document.getElementById(i.anchor);
+                          el?.dispatchEvent(new CustomEvent("ui:expand-section", { bubbles: true }));
                           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
                         }}
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${
@@ -485,7 +492,7 @@ function CompanyProfilePage() {
           })()}
 
           {/* Identity */}
-          <Card id="section-identity" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={true} collapseLabel="Identity" id="section-identity" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-slate-600" />
@@ -540,7 +547,7 @@ function CompanyProfilePage() {
               invoices / payslips. Pre-populated to Africa/Johannesburg
               + ZAR by the DB migration so existing tenants don't see
               an empty value. */}
-          <Card id="section-region" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Region & currency" id="section-region" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-blue-600" />
@@ -613,7 +620,7 @@ function CompanyProfilePage() {
               Empty values fall back to the SA wedding default (May-
               September) in aiFinancialService. End < start wraps
               year-end so US Q4 caterers can set 11..1. */}
-          <Card id="section-peak" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Peak season" id="section-peak" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-amber-600" />
@@ -690,7 +697,7 @@ function CompanyProfilePage() {
               reconciles daily sets ~36; a once-a-week back office
               sets ~144. Capped at 30 days (720h) so the badge can
               never be permanently suppressed. */}
-          <Card className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="Cash on hand staleness" className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-amber-600" />
@@ -736,7 +743,7 @@ function CompanyProfilePage() {
               and invoices: VAT-registered businesses issue 'Tax
               Invoice' (with a VAT number on the document); everyone
               else issues a plain 'Invoice'. SARS rule. */}
-          <Card id="section-vat" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="VAT registration" id="section-vat" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-brand-primary" />
@@ -820,7 +827,7 @@ function CompanyProfilePage() {
               invoice. The reference clients use is the invoice
               number, hard-coded in the EFT flow - the only
               reconciliation rule that needs to hold. */}
-          <Card id="section-banking" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Banking details" id="section-banking" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Landmark className="w-5 h-5 text-blue-600" />
@@ -907,7 +914,7 @@ function CompanyProfilePage() {
           </Card>
 
           {/* Address + map coords */}
-          <Card id="section-address" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Kitchen / HQ address" id="section-address" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-brand-primary" />
@@ -999,7 +1006,7 @@ function CompanyProfilePage() {
 
           {/* Brand colours - managed on the dedicated White Label page so
               there's a single source of truth for logo + palette. */}
-          <Card id="section-brand" className="mb-6 scroll-mt-20">
+          <Card collapsible defaultOpen={false} collapseLabel="Brand colours + logo" id="section-brand" className="mb-6 scroll-mt-20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="w-5 h-5 text-rose-600" />
@@ -1032,10 +1039,7 @@ function CompanyProfilePage() {
           </Button>
 
           <p className="text-[11px] text-slate-500 text-center mt-4">
-            Saved values flow into <code className="bg-slate-100 px-1 rounded">AdminNav</code>,{" "}
-            <code className="bg-slate-100 px-1 rounded">/c/order/[id]</code>,{" "}
-            <code className="bg-slate-100 px-1 rounded">/c/account</code>, and{" "}
-            <code className="bg-slate-100 px-1 rounded">googleMapsService.calculateDeliveryFee</code>.
+            Saved details appear in the sidebar, on client order and account pages, and in delivery fee calculations.
           </p>
         </PortalShell>
       </div>
@@ -1167,7 +1171,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
     order: { highest: 0, sample: null },
   });
   const [savingType, setSavingType] = useState<DocType | null>(null);
-  const [openType, setOpenType] = useState<DocType | null>("invoice");
+  const [openType, setOpenType] = useState<DocType | null>(null);
 
   useEffect(() => {
     if (!companyId) return;
@@ -1244,7 +1248,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
   };
 
   return (
-    <Card className="mb-6">
+    <Card collapsible defaultOpen={false} collapseLabel="Document numbering" className="mb-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Hash className="w-5 h-5 text-blue-600" />
@@ -1252,8 +1256,7 @@ function DocumentNumberingCard({ companyId }: { companyId: string }) {
           <InfoTooltip content={"Per-tenant counters for the invoice, quote, and order numbers your clients see.\n\nMigrating from another tool? Set the starting number to whatever comes next in the old sequence and the platform will pick up from there.\n\nValidation blocks regressing past numbers you've already issued, so you can't accidentally re-use a live invoice number."} />
         </CardTitle>
         <CardDescription>
-          Configure how invoices, quotes, and orders are numbered for {""}
-          {DOC_TYPE_META.invoice.label.toLowerCase()}, quotes, and orders.
+          Choose how {DOC_TYPE_META.invoice.label.toLowerCase()}s, quotes and orders are numbered.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

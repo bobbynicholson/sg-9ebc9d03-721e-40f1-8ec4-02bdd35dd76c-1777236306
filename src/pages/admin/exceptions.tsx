@@ -85,12 +85,12 @@ function ExceptionCenterPageInner() {
     <>
       <Head><title>Attention center - CateringMS</title></Head>
       <AdminNav />
-      <div className="min-h-screen pt-16 lg:pl-72 lg:pt-0 xl:pl-80">
+      <div className="admin-page-shell">
         <PortalShell>
           <PortalHeader
             variant="hero"
             title="Attention center"
-            subtitle="One place for the operational items that need a decision or follow-up."
+            subtitle="Review unresolved issues and open the work that needs your attention."
             icon={AlertTriangle}
             actions={(
               <Button onClick={live.refresh} disabled={live.loading} variant="outline" className="gap-2 bg-white/10 text-white hover:bg-white/20 hover:text-white">
@@ -108,9 +108,10 @@ function ExceptionCenterPageInner() {
             </PortalCard>
           )}
 
-          <PortalCard className="mb-5 border-brand-primary/20 bg-brand-primary/5">
-            <div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 h-5 w-5 text-brand-primary" /><div><p className="font-semibold text-slate-900 dark:text-white">Resolve the red and amber items first</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Each card opens the existing screen where your team can fix the issue. A zero count means the live signal is clear.</p></div></div>
-          </PortalCard>
+          <p className="mb-4 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-brand-primary" />
+            Resolve red and amber items first. Each card opens the screen where it can be fixed.
+          </p>
 
           {activeItems.length > 0 && (
             <section className="mb-6" aria-labelledby="active-attention-heading">

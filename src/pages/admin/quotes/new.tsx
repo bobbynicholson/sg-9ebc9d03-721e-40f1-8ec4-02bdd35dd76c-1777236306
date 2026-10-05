@@ -80,6 +80,7 @@ import { useCompanyKitchens, type KitchenOption } from "@/hooks/useCompanyKitche
 import { dispatchService } from "@/services/dispatchService";
 import { googleMapsService } from "@/services/googleMapsService";
 import { resolveDefaultRegionId } from "@/lib/defaultRegion";
+import { revealSection } from "@/lib/ui/revealSection";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
@@ -1721,6 +1722,7 @@ function NewQuotePage() {
     // time isn't at least 30 min before the start. Blocks the explicit
     // Save buttons (autosave skips silently - see the effect below).
     if (setupTimeError) {
+      revealSection(document.getElementById("quote-client-event"), true);
       toast({
         title: "Check the event times",
         description: setupTimeError,
@@ -1730,6 +1732,7 @@ function NewQuotePage() {
     }
     const canKeepSavedDistance = Boolean(fromQuoteId) && !quoteUserEditedRef.current && deliveryDistance > 0;
     if (distanceStatus === "loading" || (distanceStatus === "error" && !canKeepSavedDistance)) {
+      revealSection(document.getElementById("quote-delivery-distance"), true);
       toast({
         title: "Confirm the route distance",
         description: "Google Maps could not return a driving distance. Add the Google Maps key or enter the distance manually before saving.",
@@ -2195,6 +2198,7 @@ function NewQuotePage() {
     // client. Gate Save draft on it too so we never persist a row
     // that fails the DB NOT NULL the moment it goes out.
     if (!email || !email.trim()) {
+      revealSection(document.getElementById("quote-client-email"), true);
       toast({
         title: "Client email required",
         description: "Every quote needs a client email. The follow-up + invoice flows depend on it. No deal without one.",
@@ -2240,6 +2244,7 @@ function NewQuotePage() {
 
   const handleSend = async (opts: { bypassAllergenGate?: boolean } = {}) => {
     if (!email || !email.trim()) {
+      revealSection(document.getElementById("quote-client-email"), true);
       toast({
         title: "Client email required",
         description: "No deal without an email. The follow-up + invoice + reminder flows depend on it.",
@@ -2248,6 +2253,7 @@ function NewQuotePage() {
       return;
     }
     if (computed.total <= 0) {
+      revealSection(document.getElementById("quote-menu-items"), true);
       toast({ title: "Add at least one priced line", variant: "destructive" });
       return;
     }
@@ -2764,7 +2770,7 @@ function NewQuotePage() {
               onChangeCapture={() => { if (fromQuoteId) quoteUserEditedRef.current = true; }}
             >
               {/* Client + Event */}
-              <Card>
+              <Card collapsible defaultOpen={true} collapseLabel="Client + event" id="quote-client-event">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-brand-primary" />
@@ -2776,8 +2782,9 @@ function NewQuotePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-xs">Client name</Label>
+                    <Label htmlFor="quote-client-name" className="text-xs">Client name</Label>
                     <ClientTypeahead
+                      id="quote-client-name"
                       companyId={companyId}
                       value={clientName}
                       onChange={handleClientNameChange}
@@ -2805,8 +2812,8 @@ function NewQuotePage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
-                      <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@example.com" />
+                      <Label htmlFor="quote-client-email" className="text-xs flex items-center gap-1"><Mail className="w-3 h-3" /> Email</Label>
+                      <Input id="quote-client-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@example.com" />
                     </div>
                     <div>
                       <Label className="text-xs flex items-center gap-1"><Phone className="w-3 h-3" /> Phone</Label>
@@ -2995,7 +3002,7 @@ function NewQuotePage() {
                       <div className="grid grid-cols-3 gap-2">
                         <div>
                           <Label className="text-[11px] text-brand-primary">Distance (km)</Label>
-                          <Input
+                          <Input id="quote-delivery-distance"
                             type="number"
                             min={0}
                             step="0.1"
@@ -3209,7 +3216,7 @@ function NewQuotePage() {
               </Card>
 
               {/* Menu lines */}
-              <Card>
+              <Card collapsible defaultOpen={true} collapseLabel="Menu items" id="quote-menu-items">
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
@@ -3359,7 +3366,7 @@ function NewQuotePage() {
               </Card>
 
               {/* Equipment */}
-              <Card>
+              <Card collapsible defaultOpen={false} collapseLabel="Equipment">
                 <CardHeader>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
@@ -3571,7 +3578,7 @@ function NewQuotePage() {
               </Card>
 
               {/* Adjustments */}
-              <Card>
+              <Card collapsible defaultOpen={false} collapseLabel="Pricing adjustments">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-amber-600" />
@@ -3631,7 +3638,7 @@ function NewQuotePage() {
                   client-visible note (bound to quotes.notes, hydrates
                   on edit) and pointing operators at the audit-logged
                   notes thread below for genuinely internal notes. */}
-              <Card>
+              <Card collapsible defaultOpen={false} collapseLabel="Notes">
                 <CardHeader>
                   <CardTitle className="text-base">Notes</CardTitle>
                   <CardDescription>
@@ -3753,7 +3760,7 @@ function NewQuotePage() {
                 </Card>
 
                 {previewOpen && (
-                  <Card>
+                  <Card collapsible defaultOpen={false} collapseLabel="Client preview">
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         <Eye className="w-4 h-4" /> Client preview
@@ -3873,7 +3880,7 @@ function NewQuotePage() {
           </ul>
           <p className="text-xs text-slate-500">
             Sending now puts the client and kitchen on the hook without a signed allergen statement. Open each item on{" "}
-            <Link href={withSlug("/admin/menu")} className="underline" target="_blank">/admin/menu</Link>{" "}
+            <Link href={withSlug("/admin/menu")} className="underline" target="_blank">Menu</Link>{" "}
             and save it to mark it reviewed, or send anyway if the risk is accepted.
           </p>
           <AlertDialogFooter>

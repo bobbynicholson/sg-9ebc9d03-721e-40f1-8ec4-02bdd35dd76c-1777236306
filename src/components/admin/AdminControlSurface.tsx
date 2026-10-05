@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Filter, Search, X } from "lucide-react";
+import { ChevronDown, Filter, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +49,9 @@ export function AdminControlGroup({
   children,
   className,
   contentClassName,
+  collapsible = false,
+  defaultOpen = false,
+  summary,
   ...rest
 }: {
   label?: React.ReactNode;
@@ -56,16 +59,42 @@ export function AdminControlGroup({
   children: React.ReactNode;
   className?: string;
   contentClassName?: string;
+  /** Optional groups (e.g. advanced filters) start closed; content stays mounted so values survive. */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  /** Short text shown beside the label while collapsed, e.g. "2 active". */
+  summary?: React.ReactNode;
 } & React.HTMLAttributes<HTMLElement>) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  const bodyId = React.useId();
+  const expanded = !collapsible || open;
   return (
     <section className={cn("rounded-lg border border-slate-200/80 bg-slate-50/70 p-3", className)} {...rest}>
-      {label && (
+      {label && (collapsible ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen((value) => !value)}
+          className={cn("flex min-h-8 w-full items-center gap-1.5 rounded text-left text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary", open && "mb-2")}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          <span>{label}</span>
+          {!open && summary ? <span className="ml-1 font-medium normal-case tracking-normal text-slate-400">{summary}</span> : null}
+          <ChevronDown aria-hidden="true" className={cn("ml-auto h-4 w-4 transition-transform motion-reduce:transition-none", open && "rotate-180")} />
+        </button>
+      ) : (
         <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
           <Icon className="h-3.5 w-3.5" />
           <span>{label}</span>
         </div>
-      )}
-      <div className={cn("flex min-w-0 flex-wrap items-center gap-2", contentClassName)}>
+      ))}
+      <div
+        id={bodyId}
+        hidden={!expanded}
+        className={cn("flex min-w-0 flex-wrap items-center gap-2", contentClassName, !expanded && "hidden")}
+        onInvalidCapture={() => { if (!expanded) setOpen(true); }}
+      >
         {children}
       </div>
     </section>
@@ -179,6 +208,9 @@ export function AdminSavedViewChips<T extends { id: string; name: string }>({
     <AdminControlGroup
       label="Saved views"
       icon={Filter}
+      collapsible
+      defaultOpen={views.length > 0}
+      summary={views.length ? `${views.length} saved` : "None saved yet"}
       className={className}
       contentClassName="gap-1.5"
     >

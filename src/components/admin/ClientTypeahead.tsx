@@ -24,6 +24,7 @@ import { Loader2, Search, User, Sparkles } from "lucide-react";
 import { quoteIntelligenceService, KnownClientResult } from "@/services/quoteIntelligenceService";
 
 export interface ClientTypeaheadProps {
+  id?: string;
   companyId: string | null | undefined;
   value: string;
   onChange: (value: string) => void;
@@ -48,6 +49,7 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 export function ClientTypeahead({
+  id,
   companyId,
   value,
   onChange,
@@ -132,6 +134,7 @@ export function ClientTypeahead({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         <Input
+          id={id}
           value={value}
           onChange={(e) => {
             onChange(e.target.value);

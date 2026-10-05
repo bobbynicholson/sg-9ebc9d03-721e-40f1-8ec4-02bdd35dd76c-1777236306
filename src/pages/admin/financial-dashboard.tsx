@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -940,26 +940,11 @@ function FinancialDashboardInner() {
               story; the forecast chart + payables / fixed costs
               roll-up + cashflow alerts live on the focused page. */}
           {canSeeFinanceForecast && (
-            <Card className="mb-6 border-2 border-brand-primary/20 bg-brand-primary/10">
-              <CardContent className="p-4 flex items-center justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-md bg-brand-primary/15 text-brand-primary flex items-center justify-center shrink-0">
-                    <TrendingUp className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">Cashflow forecast moved</p>
-                    <p className="text-sm text-slate-600">
-                      The 30-day projected balance chart, payables and fixed costs now live on the Cashflow dashboard.
-                    </p>
-                  </div>
-                </div>
-                <Link href={withSlug("/admin/cashflow-dashboard")}>
-                  <Button size="sm" className="bg-brand-primary hover:bg-brand-primary/90 whitespace-nowrap">
-                    Open cashflow dashboard
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+            <p className="mb-4 flex items-center gap-1.5 text-xs text-slate-500">
+              <TrendingUp className="h-3.5 w-3.5 shrink-0" />
+              The 30-day forecast, payables and fixed costs are on the{" "}
+              <Link href={withSlug("/admin/cashflow-dashboard")} className="font-semibold text-brand-primary hover:underline">Cashflow page</Link>.
+            </p>
           )}
 
           {/* Key Metrics Grid */}
@@ -1148,9 +1133,9 @@ function FinancialDashboardInner() {
                           the orders deliver. The new branching covers
                           three states. */}
                       {(metrics?.ordersMissingCost || 0) > 0
-                        ? `${metrics?.ordersMissingCost} delivered orders in the last 90 days are missing cost data. Open /admin/menu to fill in cost_per_unit per item.`
+                        ? `${metrics?.ordersMissingCost} delivered orders in the last 90 days are missing cost data. Add a cost per item on the Menu page.`
                         : (orders.length > 0
-                          ? "No delivered orders in the last 90 days yet. Margin will start showing once an order is marked delivered or completed AND its menu items have cost_per_unit filled in (set this on /admin/menu)."
+                          ? "No delivered orders in the last 90 days yet. Margin will start showing once an order is marked delivered or completed and its menu items have a cost set on the Menu page."
                           : "Once you confirm and deliver your first order, profit margin will appear here.")}
                     </p>
                   </>
@@ -1171,9 +1156,10 @@ function FinancialDashboardInner() {
 
             <TabsContent value="overview" className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
-                <Card>
+                <Card collapsible defaultOpen={true} collapseLabel="Financial Summary">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">Financial Summary <InfoTooltip content={"Quick snapshot of money in, money out, and what is still owed.\n\nPulled together from your orders and staff wage ledger."} /></CardTitle>
+<CardDescription>Money received, known costs and the resulting cash position.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* FIN-E (financial dashboard tabs audit): the
@@ -1257,12 +1243,13 @@ function FinancialDashboardInner() {
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card collapsible defaultOpen={false} collapseLabel="Quick Actions">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       Quick Actions
                       <InfoTooltip content={"Shortcuts to the pages you'll need next when the cash-flow numbers above flag a problem.\n\nEach button drops you on the relevant working surface. Nothing fires until you take action there."} />
                     </CardTitle>
+<CardDescription>Shortcuts to create work or open the related working page.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {/* FIN-C (financial dashboard follow-ups): Send
@@ -1306,9 +1293,10 @@ function FinancialDashboardInner() {
             </TabsContent>
 
             <TabsContent value="projections">
-              <Card>
+              <Card collapsible defaultOpen={false} collapseLabel="Revenue Projections">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">Revenue Projections <InfoTooltip content={"Revenue you can expect across upcoming booked events, grouped by event date.\n\nIncludes everything booked, paid or not."} /></CardTitle>
+<CardDescription>Expected revenue from upcoming booked events.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
@@ -1382,9 +1370,10 @@ function FinancialDashboardInner() {
             </TabsContent>
 
             <TabsContent value="expenses">
-              <Card>
+              <Card collapsible defaultOpen={false} collapseLabel="Expense Tracking">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">Expense Tracking <InfoTooltip content={"Two cost lines side by side: real wages owed to staff, plus a rough inventory cost estimate based on in-flight orders.\n\nIngredient costs become accurate once recipes and live stock data are wired in."} /></CardTitle>
+<CardDescription>Recorded wages and estimated inventory costs.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -1532,13 +1521,14 @@ function FinancialDashboardInner() {
 
             {showBranchesTab && (
               <TabsContent value="branches" className="space-y-4">
-                <Card>
+                <Card collapsible defaultOpen={false} collapseLabel="Per-branch P&L">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Building2 className="w-5 h-5" />
                       Per-branch P&L
                       <InfoTooltip content={"Revenue, paid amount, outstanding and order count broken down by branch.\n\nUnassigned rows are orders that don't yet have a branch stamped."} />
                     </CardTitle>
+<CardDescription>Revenue and balances grouped by operating branch.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {(() => {

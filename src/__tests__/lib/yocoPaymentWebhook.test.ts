@@ -111,3 +111,38 @@ test("Yoco credential check uses read-only documented webhooks API with a bounde
 test.each([401, 403, 404, 405, 500])("Yoco HTTP %i cannot mark credentials verified", async (status) => {
   global.fetch = jest.fn().mockResolvedValue({ status }); expect((await pingYocoCredentials("sk_test_offline")).ok).toBe(false);
 });
+
+test("a declined card stays retryable: attempt kept pending, no failure notice", async () => {
+  const res = await call(event("payment.failed", { status: "failed" }));
+  expect(res.status).toHaveBeenCalledWith(200);
+  expect(touchPaymentAttempt).toHaveBeenCalledWith(attempt.id, "payment_failed_retryable");
+  expect(transitionPaymentAttempt).not.toHaveBeenCalled();
+  expect(settleTenantGatewayPayment).not.toHaveBeenCalled();
+});
+test("platform plan payments on a shared Yoco account are acknowledged, not retried", async () => {
+  const res = await call(event("payment.succeeded", { metadata: { checkoutId: "x", purpose: "platform_plan" } }));
+  expect(res.status).toHaveBeenCalledWith(200);
+  expect(getPaymentAttemptByReference).not.toHaveBeenCalled();
+});
+test("webhook registration replaces an existing hook for the URL and returns the one-time secret", async () => {
+  const { registerYocoWebhook } = await import("@/lib/yocoService");
+  const url = "https://app.test/api/webhooks/yoco-confirmation";
+  const fetchMock = jest.fn()
+    .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ subscriptions: [{ id: "wh_old", url }, { id: "wh_other", url: "https://elsewhere" }] }) })
+    .mockResolvedValueOnce({ ok: true, status: 204 })
+    .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ id: "wh_new", secret, mode: "test" }) });
+  global.fetch = fetchMock;
+  await expect(registerYocoWebhook("sk_test_offline", url)).resolves.toEqual({ id: "wh_new", secret, mode: "test" });
+  expect(fetchMock.mock.calls[1][0]).toBe("https://payments.yoco.com/api/webhooks/wh_old");
+  expect(fetchMock.mock.calls[1][1].method).toBe("DELETE");
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ name: "cateringms-payments", url });
+});
+test("webhook registration fails loudly on a rejected key or a missing secret", async () => {
+  const { registerYocoWebhook } = await import("@/lib/yocoService");
+  global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401 });
+  await expect(registerYocoWebhook("sk_bad", "https://app.test/h")).rejects.toThrow(/rejected/);
+  global.fetch = jest.fn()
+    .mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] })
+    .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ id: "wh_1" }) });
+  await expect(registerYocoWebhook("sk_test", "https://app.test/h")).rejects.toThrow(/no signing secret/);
+});

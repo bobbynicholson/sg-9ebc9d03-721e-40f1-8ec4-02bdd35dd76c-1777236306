@@ -95,7 +95,7 @@ function KitchenSettingsAdminPage() {
             variant="hero"
             title="Kitchen rules"
             icon={Settings}
-            subtitle="Prep timing, BCEA shift thresholds and dietary alert policy for this kitchen."
+            subtitle="Set prep timing, shift thresholds and dietary alerts for your kitchen."
             meta={
               heroRules ? (
                 <>
@@ -118,7 +118,7 @@ function KitchenSettingsAdminPage() {
           <PageWorkbench />
 
           <KitchenRulesPanel
-            contextNote="These rules also surface as the 'Kitchen rules' tab inside the Kitchen team landing page (/admin/teams/kitchen) - either entry point edits the same companies.kitchen_settings JSON."
+            contextNote="These rules also appear as the 'Kitchen rules' section on the Kitchen team page. Both places edit the same settings."
           />
         </PortalShell>
       </div>

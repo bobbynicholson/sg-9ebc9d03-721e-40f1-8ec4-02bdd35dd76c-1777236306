@@ -71,6 +71,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const payload = event.payload;
     const metadata = payload.metadata || {};
     const eventType = String(event.type || "").toLowerCase();
+    // Platform plan payments have their own endpoint. If the platform and a
+    // tenant share a Yoco account, both receive every event; acknowledge the
+    // plan ones here instead of asking Yoco to retry forever.
+    if (metadata.purpose === "platform_plan") {
+      return res.status(200).json({ message: "Ignored platform plan payment" });
+    }
     const checkoutId = typeof metadata.checkoutId === "string" ? metadata.checkoutId : "";
     const providedAttemptId = typeof metadata.paymentAttemptId === "string" ? metadata.paymentAttemptId : "";
     if (!providedAttemptId && !checkoutId) return res.status(eventType.startsWith("payment.") ? 400 : 200)
@@ -124,9 +130,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const succeeded =
       eventType === "payment.succeeded" && status === "succeeded";
     if (!succeeded) {
+      // A declined card inside Yoco's hosted checkout can be retried on the
+      // same page (same checkoutId). Like Stripe's payment_intent.payment_failed,
+      // record it for support but keep the attempt open so a later success
+      // settles cleanly and the payer is not sent a premature failure notice.
+      if (eventType === "payment.failed") {
+        await touchPaymentAttempt(paymentAttempt.id, "payment_failed_retryable");
+        return res.status(200).json({ message: "Retryable card failure recorded" });
+      }
       const terminalFailure =
-        eventType.includes("failed") || eventType.includes("cancel") || eventType.includes("expired") ||
-        ["failed", "cancelled", "canceled", "expired"].includes(status);
+        eventType.includes("cancel") || eventType.includes("expired") ||
+        ["cancelled", "canceled", "expired"].includes(status);
       if (terminalFailure) {
         const terminalStatus = eventType.includes("expired") || status === "expired" ? "expired" : "failed";
         const transitioned = await transitionPaymentAttempt({

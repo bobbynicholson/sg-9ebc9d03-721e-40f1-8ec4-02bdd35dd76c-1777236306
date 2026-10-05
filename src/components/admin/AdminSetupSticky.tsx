@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import {
   ArrowRight,
   Check,
   CheckCircle2,
-  ChevronDown,
+  RefreshCw,
   ChevronUp,
   ClipboardCheck,
   X,
@@ -41,6 +41,7 @@ export function AdminSetupSticky() {
   const isPlatformAdmin = normalizedPath === "/admin/platform" || normalizedPath.startsWith("/admin/platform/");
 
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ export function AdminSetupSticky() {
       ]);
       setOnboarding(progress);
       setChecked(Object.fromEntries(rows.map((row) => [row.task_id, row.completed])));
-      setOpen((current) => current || !progress.allRequiredComplete);
+      // Refresh data without opening an unsolicited panel.
     } catch (error) {
       console.error("[admin-setup-sticky] load failed:", error);
       toast({ title: "Could not load setup progress", description: "Refresh the page to see the latest checklist.", variant: "destructive" });
@@ -67,6 +68,7 @@ export function AdminSetupSticky() {
 
   useEffect(() => {
     if (!isTenantAdmin || isPlatformAdmin || !companyId) return;
+    setOpen(false);
     void load();
     const refresh = () => void load();
     router.events.on("routeChangeComplete", refresh);
@@ -75,6 +77,17 @@ export function AdminSetupSticky() {
     // every render caused by unrelated admin page data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, slug, isTenantAdmin, isPlatformAdmin]);
+
+  const closePanel = () => {
+    setOpen(false);
+    window.requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[aria-label="Open setup checklist"]')?.focus());
+  };
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") closePanel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   useEffect(() => {
     if (!companyId || typeof window === "undefined") return;
@@ -119,12 +132,14 @@ export function AdminSetupSticky() {
       .finally(() => setSaving(null));
   };
 
-  if (authLoading || !isTenantAdmin || isPlatformAdmin || !companyId || loading || !onboarding) return null;
+  if (authLoading || !isTenantAdmin || isPlatformAdmin || !companyId || !onboarding) return null;
 
   return (
-    <aside className="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:right-5 sm:w-[380px]" aria-label="Company setup checklist">
+    // The collapsed pill must not block taps on page controls beneath the
+    // fixed strip; once setup is complete it hides (Onboarding stays in the sidebar).
+    <aside className={`pointer-events-none fixed inset-x-3 bottom-24 z-40 sm:inset-x-auto sm:right-5 sm:w-[380px] [&>*]:pointer-events-auto ${allComplete && !open ? "hidden" : ""}`} aria-label="Company setup checklist">
       {open ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
+        <div id={panelId} role="region" aria-label="Setup checklist" className="overflow-hidden rounded-2xl border border-slate-200 bg-white/95 shadow-2xl backdrop-blur dark:border-slate-700 dark:bg-slate-900/95">
           <div className="flex items-start justify-between gap-3 border-b border-slate-200 bg-gradient-to-r from-brand-primary/10 via-white to-brand-secondary/10 px-4 py-3 dark:border-slate-700 dark:via-slate-900">
             <div>
               <p className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
@@ -134,10 +149,10 @@ export function AdminSetupSticky() {
               <p className="mt-0.5 text-xs text-slate-500">{completedChecks}/{totalChecks} checks complete across your company.</p>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => void load()} aria-label="Refresh setup checklist">
-                <ChevronDown className="h-4 w-4 rotate-180" />
+              <Button variant="ghost" size="icon" className="h-9 w-9" disabled={loading} onClick={() => void load()} aria-label="Refresh setup checklist">
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(false)} aria-label="Collapse setup checklist">
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={closePanel} aria-label="Collapse setup checklist">
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -197,7 +212,7 @@ export function AdminSetupSticky() {
           </div>
         </div>
       ) : (
-        <button type="button" onClick={() => setOpen(true)} className="ml-auto flex items-center gap-2 rounded-full border border-brand-primary/25 bg-white/95 px-3.5 py-2.5 text-xs font-bold text-slate-800 shadow-xl backdrop-blur transition hover:-translate-y-0.5 hover:shadow-2xl dark:bg-slate-900/95 dark:text-white" aria-label="Open setup checklist">
+        <button type="button" onClick={() => setOpen(true)} aria-expanded={false} aria-controls={panelId} className="ml-auto flex items-center gap-2 rounded-full border border-brand-primary/25 bg-white/95 px-3.5 py-2.5 text-xs font-bold text-slate-800 shadow-xl backdrop-blur transition hover:-translate-y-0.5 hover:shadow-2xl dark:bg-slate-900/95 dark:text-white" aria-label="Open setup checklist">
           <ClipboardCheck className="h-4 w-4 text-brand-primary" />
           <span>Setup {completedChecks}/{totalChecks}</span>
           {allComplete ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <ChevronUp className="h-4 w-4 text-slate-400" />}

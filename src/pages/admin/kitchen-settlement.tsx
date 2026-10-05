@@ -573,7 +573,7 @@ function KitchenSettlementPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Per-chef breakdown</CardTitle>
                 <CardDescription className="text-xs">
-                  Computed from clocked hours x hourly_rate, with OT for shifts over the tenant's overtime threshold and any roster multipliers (Sundays / public holidays).
+                  Clocked hours times each person's hourly rate, plus overtime past your threshold and any Sunday or public-holiday multipliers.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
