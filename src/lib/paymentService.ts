@@ -192,7 +192,9 @@ async function dispatchPayFast(
     notifyUrl: input.notifyUrl,
     nameFirst: input.customer.firstName || "Customer",
     nameLast: input.customer.lastName || "",
-    emailAddress: input.customer.email,
+    // PayFast's live checkout can return 500 for an existing buyer email
+    // passed here. Let the buyer enter it on PayFast; invoice/customer
+    // correlation is carried by the saved attempt and custom fields.
     merchantPaymentId: input.extraMetadata?.paymentAttemptId || input.orderId,
     customStr1: input.orderId,
     customStr2: input.type,

@@ -47,4 +47,10 @@ describe("generatePayFastPaymentForm", () => {
     expect(html).toContain('action="https://www.payfast.co.za/eng/process"');
     expect(html).toMatch(/name="signature" value="[a-f0-9]{32}"/);
   });
+  it.each([undefined, "", "   "])("omits an absent optional buyer email (%j)", (emailAddress) => {
+    const html = generatePayFastPaymentForm({ ...BASE_INPUT, emailAddress });
+    expect(html).not.toContain('name="email_address"');
+    expect(html).toContain('name="amount" value="4900.00"');
+    expect(html).toContain('name="custom_str4" value="invoice-id"');
+  });
 });
