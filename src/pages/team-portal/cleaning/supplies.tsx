@@ -169,7 +169,7 @@ function CleaningSuppliesPageInner() {
     const m = Number(i.minimum_stock || 0);
     if (s <= 0) return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900";
     if (s <= m) return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900";
-    return "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
+    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-900";
   };
   const label = (i: Inventory) => {
     const s = Number(i.current_stock || 0);
@@ -236,7 +236,7 @@ function CleaningSuppliesPageInner() {
 
         <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
           <StatTile label="Total supplies" value={chipsReady ? stats.total : "--"} hint="On file" />
-          <StatTile label="Low stock" value={chipsReady ? stats.below : "--"} hint="At or below par" />
+          <StatTile label="Low stock" value={chipsReady ? stats.below : "--"} hint="At or below the minimum" />
           <StatTile label="Out of stock" value={chipsReady ? stats.out : "--"} hint="Run out" />
         </div>
 
@@ -295,7 +295,7 @@ function CleaningSuppliesPageInner() {
                     <span className="text-right tabular-nums">
                       <span className="text-base font-semibold text-slate-900 dark:text-white">{Number(i.current_stock ?? 0)}</span>
                       <span className="text-xs text-slate-500 dark:text-slate-400"> {i.unit_of_measure}</span>
-                      <div className="text-[11px] text-slate-400 dark:text-slate-500">par {Number(i.minimum_stock ?? 0)}</div>
+                      <div className="text-[11px] text-slate-400 dark:text-slate-500">min {Number(i.minimum_stock ?? 0)}</div>
                     </span>
                     <Minus className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                   </div>

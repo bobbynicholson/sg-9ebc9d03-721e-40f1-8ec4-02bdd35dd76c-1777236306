@@ -182,7 +182,22 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
               const busy = saving === `clock_in:${member.id}` || saving === `clock_out:${member.id}`;
               const managerMember = member.active_role === `${department}_manager` || member.role === `${department}_manager`;
               return <div key={member.id} className="flex flex-col gap-3 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${member.status.on_duty ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{initials(member)}</div><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{member.full_name || "Unnamed user"}</p><p className="truncate text-xs text-slate-500">{member.email || "No email"} · {roleLabel(member.active_role || member.role)}</p><p className={`mt-1 flex items-center gap-1 text-xs ${member.status.on_duty ? "text-emerald-700" : "text-slate-500"}`}>{member.status.on_duty ? <><Activity className="h-3 w-3" /> On duty{member.status.started_at ? ` · ${elapsed(member.status.started_at)}` : ""}</> : <><Clock className="h-3 w-3" /> Off duty</>}</p></div></div>
+                <div className="flex min-w-0 items-center gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${member.status.on_duty ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{initials(member)}</div><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{member.full_name || "Unnamed user"}</p><p className="truncate text-xs text-slate-500">{member.email || "No email"} · {roleLabel(member.active_role || member.role)}</p>{(() => {
+                  // A clock-in older than 16 hours was almost certainly never
+                  // closed; say so plainly instead of showing "671h".
+                  const started = member.status.started_at ? new Date(member.status.started_at) : null;
+                  const stale = !!(member.status.on_duty && started && Date.now() - started.getTime() > 16 * 3600_000);
+                  if (stale && started) {
+                    return (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-amber-700" title={`On duty for ${elapsed(member.status.started_at)}`}>
+                        <Clock className="h-3 w-3" /> Clocked in since {started.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · clock out if they&apos;ve left
+                      </p>
+                    );
+                  }
+                  return (
+                    <p className={`mt-1 flex items-center gap-1 text-xs ${member.status.on_duty ? "text-emerald-700" : "text-slate-500"}`}>{member.status.on_duty ? <><Activity className="h-3 w-3" /> On duty{member.status.started_at ? ` · ${elapsed(member.status.started_at)}` : ""}</> : <><Clock className="h-3 w-3" /> Off duty</>}</p>
+                  );
+                })()}</div></div>
                 {managerMember ? <span className="max-w-[220px] text-right text-xs text-slate-500">Manager work is tracked from the manager portal, not as a crew shift.</span> : <Button size="sm" variant={member.status.on_duty ? "destructive" : "default"} disabled={busy} onClick={() => void submitClock(member)} className="shrink-0 gap-2">{member.status.on_duty ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{busy ? "Updating..." : member.status.on_duty ? "Clock out" : "Clock in"}</Button>}
               </div>;
             })}

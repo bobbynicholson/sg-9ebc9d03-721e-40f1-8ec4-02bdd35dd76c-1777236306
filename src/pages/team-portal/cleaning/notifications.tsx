@@ -327,13 +327,25 @@ function CleaningNotificationsPageInner() {
           </div>
         ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-            {visible.map((n) => {
+            {(() => {
+              const groups = new Map<string, Notification[]>();
+              for (const item of visible) {
+                const key = `${item.type ?? item.notification_type ?? ""}|${item.title ?? ""}`;
+                const list = groups.get(key);
+                if (list) list.push(item); else groups.set(key, [item]);
+              }
+              return Array.from(groups.values());
+            })().map((group) => {
+              const n = group[0];
+              const unreadInGroup = group.filter((g) => !g.is_read);
+              const typeCode = n.type ?? n.notification_type;
+              const typeLabel = typeCode ? typeCode.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase()) : null;
               // Wave 24: degrade displayed priority on stale rows.
               const displayedPriority = effectivePriority(n.priority, n.created_at);
               const Icon = priorityIcon(displayedPriority);
               const tone = priorityTone(displayedPriority);
               return (
-                <li key={n.id} className={`p-4 flex items-start gap-3 ${n.is_read ? "bg-white dark:bg-transparent" : "bg-amber-50/50 dark:bg-amber-950/20"}`}>
+                <li key={n.id} className={`p-4 flex items-start gap-3 ${unreadInGroup.length === 0 ? "bg-white dark:bg-transparent" : "bg-amber-50/50 dark:bg-amber-950/20"}`}>
                   <Icon className={`h-5 w-5 ${tone} flex-shrink-0 mt-0.5`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
@@ -342,13 +354,24 @@ function CleaningNotificationsPageInner() {
                     </div>
                     {n.message && <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{n.message}</p>}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      {(n.type || n.notification_type) && (
-                        <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">{n.type ?? n.notification_type}</Badge>
+                      {typeLabel && (
+                        <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">{typeLabel}</Badge>
                       )}
-                      {!n.is_read && (
-                        <Button size="sm" variant="ghost" className="h-6 text-[11px]" disabled={pendingIds.has(n.id)} onClick={() => markRead(n.id)}>
+                      {group.length > 1 && (
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400" title="The same reminder was sent more than once">
+                          Repeated {group.length}×
+                        </span>
+                      )}
+                      {unreadInGroup.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-[11px]"
+                          disabled={unreadInGroup.some((g) => pendingIds.has(g.id))}
+                          onClick={() => { unreadInGroup.forEach((g) => void markRead(g.id)); }}
+                        >
                           <Check className="h-3 w-3 mr-1" />
-                          {pendingIds.has(n.id) ? "Marking..." : "Mark read"}
+                          {unreadInGroup.some((g) => pendingIds.has(g.id)) ? "Marking..." : unreadInGroup.length > 1 ? `Mark ${unreadInGroup.length} read` : "Mark read"}
                         </Button>
                       )}
                       {(n.link || n.action_url) && (

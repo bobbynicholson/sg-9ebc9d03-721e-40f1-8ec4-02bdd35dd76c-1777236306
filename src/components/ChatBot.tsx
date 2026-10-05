@@ -369,7 +369,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const router = useRouter();
-  const compactLauncher = router.pathname.startsWith("/team-portal/shopping");
+  const compactLauncher = router.pathname.startsWith("/team-portal/");
 
   // Theme-driven: every role's chat chrome (FAB, header, bubbles, avatar,
   // send button) uses the tenant brand gradient instead of the old

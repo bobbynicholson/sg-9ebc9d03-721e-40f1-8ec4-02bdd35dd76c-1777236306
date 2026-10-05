@@ -1,0 +1,407 @@
+[
+  {
+    "role": "company_admin",
+    "actualRole": "company_admin",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/admin/dashboard",
+        "finalPath": "/spit-braai-delivery/admin/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Admin",
+          "Dashboard",
+          "Business intelligence"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "company_admin-admin-dashboard.png"
+      },
+      {
+        "route": "/spit-braai-delivery/admin/payment-gateways",
+        "finalPath": "/spit-braai-delivery/admin/payment-gateways",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Admin",
+          "Payment Gateways",
+          "PayFast",
+          "Yoco",
+          "Stripe",
+          "Before going live"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "company_admin-admin-payment-gateways.png"
+      },
+      {
+        "route": "/spit-braai-delivery/admin/company-profile",
+        "finalPath": "/spit-braai-delivery/admin/company-profile",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Admin",
+          "Company profile "
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "company_admin-admin-company-profile.png"
+      },
+      {
+        "route": "/spit-braai-delivery/admin/invoices",
+        "finalPath": "/spit-braai-delivery/admin/invoices",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Admin",
+          "Invoices"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "company_admin-admin-invoices.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 200,
+        "expected": 200
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "admin",
+    "actualRole": "admin",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/admin/dashboard",
+        "finalPath": "/spit-braai-delivery/admin/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Admin",
+          "Dashboard",
+          "Congratulations — you’re ready to go!",
+          "Business intelligence"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "admin-admin-dashboard.png"
+      },
+      {
+        "route": "/spit-braai-delivery/admin/payment-gateways",
+        "finalPath": "/spit-braai-delivery/admin/payment-gateways",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Admin",
+          "Payment Gateways",
+          "PayFast",
+          "Yoco",
+          "Stripe",
+          "Before going live"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "admin-admin-payment-gateways.png"
+      },
+      {
+        "route": "/spit-braai-delivery/admin/company-profile",
+        "finalPath": "/spit-braai-delivery/admin/company-profile",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Admin",
+          "Company profile "
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "admin-admin-company-profile.png"
+      },
+      {
+        "route": "/spit-braai-delivery/admin/invoices",
+        "finalPath": "/spit-braai-delivery/admin/invoices",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Admin",
+          "Invoices"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "admin-admin-invoices.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 200,
+        "expected": 200
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "kitchen_staff",
+    "actualRole": "kitchen_staff",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/team-portal/kitchen/dashboard",
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Kitchen Portal",
+          "Kitchen today",
+          "Event calendarToday first · plan the rest when you need it",
+          "Low stock alerts",
+          "Today's orders0",
+          "Kitchen run sheet",
+          "Low stock"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "kitchen_staff-kitchen-dashboard.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 403,
+        "expected": 403
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "kitchen_manager",
+    "actualRole": "kitchen_staff",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/team-portal/kitchen/management",
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/management",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Kitchen Portal",
+          "Manage the kitchen team"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "kitchen_manager-kitchen-management.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 403,
+        "expected": 403
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "waiter",
+    "actualRole": "kitchen_staff",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/team-portal/waiter/dashboard",
+        "finalPath": "/spit-braai-delivery/team-portal/waiter/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Waiter Portal",
+          "Service today",
+          "Open each assigned event before you arrive"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "waiter-waiter-dashboard.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 403,
+        "expected": 403
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "driver",
+    "actualRole": "driver",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/team-portal/driver/dashboard",
+        "finalPath": "/spit-braai-delivery/team-portal/driver/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Driver Portal",
+          "Welcome back, Driver",
+          "No deliveries assigned yet",
+          "Driver Mike - run sheet"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "driver-driver-dashboard.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 403,
+        "expected": 403
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "shopping_staff",
+    "actualRole": "shopping_staff",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/team-portal/shopping/dashboard",
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Shopping Portal",
+          "Shopping today",
+          "No active shopping list",
+          "Shopping list"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "shopping_staff-shopping-dashboard.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 403,
+        "expected": 403
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "cleaning_staff",
+    "actualRole": "cleaning_staff",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Cleaning Portal",
+          "Cleaning desk",
+          "Today's priority inspections",
+          "Equipment verification",
+          "Cleaning roster",
+          "Equipment status",
+          "Floor-walk checklist"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "cleaning_staff-cleaning-dashboard.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 403,
+        "expected": 403
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "cleaning_manager",
+    "actualRole": "cleaning_staff",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/team-portal/cleaning/management",
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/management",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Cleaning Portal",
+          "Manage the cleaning team"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "cleaning_manager-cleaning-management.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 403,
+        "expected": 403
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "client",
+    "actualRole": "client",
+    "pages": [
+      {
+        "route": "/spit-braai-delivery/client-portal/dashboard",
+        "finalPath": "/spit-braai-delivery/client-portal/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Client Portal",
+          "Good afternoon, Universal",
+          "Your quotes, bookings, invoices, and tracking in one place",
+          "No events on the books yet"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "client-client-portal-dashboard.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 403,
+        "expected": 403
+      }
+    ],
+    "ok": true
+  },
+  {
+    "role": "super_admin",
+    "actualRole": "super_admin",
+    "pages": [
+      {
+        "route": "/admin/platform/dashboard",
+        "finalPath": "/admin/platform/dashboard",
+        "status": 200,
+        "loaded": true,
+        "headings": [
+          "Platform Admin",
+          "Platform analytics",
+          "Customer Growth",
+          "Subscription Status"
+        ],
+        "pageErrors": [],
+        "failedRequests": [],
+        "screenshot": "super_admin-platform-dashboard.png"
+      }
+    ],
+    "permissions": [
+      {
+        "endpoint": "/api/payment-gateways",
+        "status": 400,
+        "expected": 400
+      }
+    ],
+    "ok": true
+  }
+]

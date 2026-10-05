@@ -252,13 +252,38 @@ const ADMIN_SEGMENT_LABELS: Record<string, string> = {
   "settings": "System",
 };
 
-/** Shopping portal routes whose file name differs from the sidebar label. */
-const SHOPPING_SEGMENT_LABELS: Record<string, string> = {
-  dashboard: "Today",
-  orders: "Active shop",
-  invoices: "Spend",
-  "buy-list": "Buy list",
-  "kitchen-demand": "Kitchen demand",
+/** Portal routes whose file name differs from the sidebar label, by portal. */
+const PORTAL_SEGMENT_LABELS: Record<string, Record<string, string>> = {
+  Shopping: {
+    dashboard: "Today",
+    orders: "Active shop",
+    invoices: "Spend",
+    "buy-list": "Buy list",
+    "kitchen-demand": "Kitchen demand",
+  },
+  Kitchen: {
+    dashboard: "Today",
+    "prep-list": "Prep list",
+    duty: "Team",
+    menu: "Recipes",
+    calendar: "Kitchen calendar",
+    management: "Manage team",
+  },
+  Driver: {
+    dashboard: "Today",
+    deliveries: "All deliveries",
+  },
+  Waiter: {
+    dashboard: "Service today",
+  },
+  Cleaning: {
+    dashboard: "Today",
+    tasks: "Task board",
+    damage: "Damages",
+    schedules: "Schedule plan",
+    management: "Manage team",
+    handovers: "Handover",
+  },
 };
 
 function humanizeSegment(segment: string, admin = false, labels?: Record<string, string>) {
@@ -293,7 +318,7 @@ function routeSurface(pathname: string) {
     return { scope: "Driver", area: "Field" };
   }
   if (pathname.includes("/team-portal/waiter")) {
-    return { scope: "Service", area: "Team" };
+    return { scope: "Waiter", area: "Team" };
   }
   if (pathname.includes("/team-portal/shopping")) {
     return { scope: "Shopping", area: "Procurement" };
@@ -332,7 +357,7 @@ export function PageWorkbench({
   const segments = visibleRouteSegments(pathname);
   const tenantAdmin = surface.scope === "Admin";
   // Breadcrumb names match the sidebar, not the route file name.
-  const labels = surface.scope === "Shopping" ? SHOPPING_SEGMENT_LABELS : undefined;
+  const labels = PORTAL_SEGMENT_LABELS[surface.scope];
   const page = humanizeSegment(segments[segments.length - 1] || "dashboard", tenantAdmin, labels) || "Dashboard";
   const parentCandidate = humanizeSegment(segments[segments.length - 2] || "", tenantAdmin, labels);
   const parent = parentCandidate === surface.scope ? "" : parentCandidate;

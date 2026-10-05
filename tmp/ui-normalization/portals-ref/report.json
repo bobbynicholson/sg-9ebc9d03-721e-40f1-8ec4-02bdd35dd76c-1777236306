@@ -1,0 +1,213 @@
+[
+  {
+    "portal": "kitchen",
+    "route": "dashboard",
+    "path": "/spit-braai-delivery/team-portal/kitchen/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Kitchen today",
+          "Kitchen run sheet"
+        ],
+        "overflow": 0,
+        "height": 1597,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Kitchen today",
+          "Kitchen run sheet"
+        ],
+        "overflow": 0,
+        "height": 1713,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Kitchen today",
+          "Kitchen run sheet"
+        ],
+        "overflow": 0,
+        "height": 2058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "kitchen",
+    "route": "stock",
+    "path": "/spit-braai-delivery/team-portal/kitchen/stock",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/team-portal/kitchen/stock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Kitchen stock"
+        ],
+        "overflow": 0,
+        "height": 7164,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/team-portal/kitchen/stock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Kitchen stock"
+        ],
+        "overflow": 0,
+        "height": 7364,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/team-portal/kitchen/stock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Kitchen stock"
+        ],
+        "overflow": 0,
+        "height": 11960,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "kitchen",
+    "route": "menu",
+    "path": "/spit-braai-delivery/team-portal/kitchen/menu",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/menu",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Recipes"
+        ],
+        "overflow": 0,
+        "height": 2995,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/menu",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Recipes"
+        ],
+        "overflow": 0,
+        "height": 4559,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/menu",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Recipes"
+        ],
+        "overflow": 0,
+        "height": 5075,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "kitchen",
+    "route": "notifications",
+    "path": "/spit-braai-delivery/team-portal/kitchen/notifications",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 14182,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 15240,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/kitchen/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 24214,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  }
+]

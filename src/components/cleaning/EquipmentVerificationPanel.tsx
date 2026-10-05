@@ -223,10 +223,12 @@ export function EquipmentVerificationPanel() {
       </CardHeader>
       <CardContent className="space-y-4">
         {filteredVerifications.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p className="font-medium">No Pending Verifications</p>
-            <p className="text-sm">All equipment returns have been verified</p>
+          <div className="flex items-center gap-3 py-3 text-muted-foreground">
+            <Package className="h-5 w-5 shrink-0 opacity-50" />
+            <div>
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Nothing waiting to be verified</p>
+              <p className="text-xs">All returned equipment has been checked.</p>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

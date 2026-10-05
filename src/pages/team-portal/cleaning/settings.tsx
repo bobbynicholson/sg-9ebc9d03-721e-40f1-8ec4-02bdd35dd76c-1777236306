@@ -144,7 +144,7 @@ function CleaningSettingsPageInner() {
               </div>
               <div>
                 <Label htmlFor="cost-mult" className="text-slate-900 dark:text-white">Replacement cost multiplier</Label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-2">Multiplier applied to base replacement_cost when billing, e.g. 1.0 for cost, 1.5 to recover handling</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-2">Multiplies each item's replacement cost when billing: 1.0 charges cost, 1.5 adds 50% for handling</p>
                 <Input id="cost-mult" type="number" step="0.01" min="0" value={settings.defaultReplacementCostMultiplier}
                   onChange={(e) => update("defaultReplacementCostMultiplier", Number(e.target.value))} className="w-32" />
               </div>
@@ -181,7 +181,7 @@ function CleaningSettingsPageInner() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <Label htmlFor="nso" className="text-slate-900 dark:text-white">Notify shopping team on low cleaning supplies</Label>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">When a cleaning consumable hits par, push to the shopping portal</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">When a cleaning supply drops to its minimum stock, alert the shopping team</p>
                 </div>
                 <Switch id="nso" checked={settings.notifyShoppingOnLowStock} onCheckedChange={(v) => update("notifyShoppingOnLowStock", v)} />
               </div>

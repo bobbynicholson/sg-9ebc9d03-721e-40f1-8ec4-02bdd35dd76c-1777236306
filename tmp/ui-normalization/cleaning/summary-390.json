@@ -1,0 +1,29 @@
+[
+  {
+    "route": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+    "errors": [],
+    "height": 2376,
+    "overflow": false,
+    "h1": "Cleaning Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/team-portal/cleaning/notifications",
+    "errors": [],
+    "height": 3599,
+    "overflow": false,
+    "h1": "Cleaning Portal",
+    "sections": [],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/team-portal/cleaning/equipment",
+    "errors": [],
+    "height": 2892,
+    "overflow": false,
+    "h1": "Cleaning Portal",
+    "sections": [],
+    "bigOpenCards": []
+  }
+]

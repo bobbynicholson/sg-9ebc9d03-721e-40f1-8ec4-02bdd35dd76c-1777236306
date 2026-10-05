@@ -1,0 +1,2172 @@
+[
+  {
+    "file": "src/pages/admin/ai-brain.tsx",
+    "route": "/admin/ai-brain",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"AI brain\"",
+        "subtitle": "\"Give the assistant approved company knowledge while live operational data stays in the database and is fetched per user role.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{editingSource ? <Edit3 className={cn(\"h-5 w-5\", accentText)} /> : <Plus className={cn(\"h-5 w-5\", accentText)} />}{editingSource ? \"Update approved knowledge\" : \"Add approved knowledge\"}",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<span className=\"mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary\"><ExternalLink className=\"h-4 w-4\" /></span><span><span className=\"block\">Add website source</span><span className=\"mt-1 block text-sm font-normal leading-5 text-slate-500\">Index one public help page and keep it available to selected roles.</span></span>",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<BookOpen className={cn(\"h-5 w-5\", accentText)} />{isPlatformAdmin ? \"Platform sources\" : \"Company sources\"}",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/ai-brain/access.tsx",
+    "route": "/admin/ai-brain/access",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"AI access\"",
+        "subtitle": "\"Control which user roles may receive approved live operational data in the assistant.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/audit-logs.tsx",
+    "route": "/admin/audit-logs",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Filters"
+    ],
+    "headers": [
+      {
+        "title": "\"Audit logs\"",
+        "subtitle": "\"Append-only trail of meaningful actions across orders, quotes, payments, shifts and more. Read-only - mutations belong on the per-entity pages.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "Filters",
+        "desc": "Combine to narrow the stream. Filters reset paging to page 1.",
+        "collapsible": true
+      },
+      {
+        "title": "{totalCount != null ? `${totalCount.toLocaleString()} matching rows` : \"Loading...\"}",
+        "desc": "Newest first. 50 per page.",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/calendar.tsx",
+    "route": "/admin/calendar",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Gap finder"
+    ],
+    "headers": [
+      {
+        "title": "\"Calendar\"",
+        "subtitle": "\"Every confirmed event on a calendar grid. Click a day to see its events; arrow keys move you through the calendar.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Clock className=\"w-5 h-5 text-slate-600\" />Next 5 events <InfoTooltip content={\"The next five upcoming events on your books, sorted by date so the soonest sits at the top.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Sparkles className=\"w-5 h-5 text-amber-600\" />Gap finder <InfoTooltip content={\"Days in the next 30 with floating quotes (sent / viewed / pending) but nothing booked yet. Each one is a sales opportunity. Chase the quote to lock the diary.\"} />",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/cashflow-dashboard.tsx",
+    "route": "/admin/cashflow-dashboard",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "30-day cashflow summary",
+      "Quick actions"
+    ],
+    "headers": [
+      {
+        "title": "\"Cashflow\"",
+        "subtitle": "{'Forward-looking view of cash in and cash out. Answers \"can I pay this week?\" without doing the maths by hand.'}"
+      }
+    ],
+    "cards": [
+      {
+        "title": "<AlertTriangle className=\"w-5 h-5\" />Cashflow alerts",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Banknote className=\"w-5 h-5 text-brand-primary\" />30-day cashflow summary <InfoTooltip content={\"The same numbers the forecast chart subtracts.\\n\\nReceived: cash already in the bank from paid orders.\\n\\nWages owed, fixed costs and supplier payables are subtracted to get Net 30d.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "Quick actions <InfoTooltip content={\"Shortcuts to the working surfaces that feed the forecast.\\n\\nA scheduled cost only appears in the chart once it's recorded on one of these pages.\"} />",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/cleaning-schedule.tsx",
+    "route": "/admin/cleaning-schedule",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Cleaning shift roster\"",
+        "subtitle": "\"Manager view for staff shifts, duty coverage, and handover workload.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{staff.length}cleaning team member{staff.length === 1 ? \"\" : \"s\"}",
+        "desc": "Cells show planned hours. Once the cleaner clocks in via the team portal, the cell flips to actual hours.",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/client-search.tsx",
+    "route": "/admin/client-search",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/clients.tsx",
+    "route": "/admin/clients",
+    "kind": "redirect",
+    "header": false,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "route": "/admin/company-profile",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Identity",
+      "Region & currency",
+      "Peak season",
+      "Cash on hand staleness",
+      "VAT registration",
+      "Banking details",
+      "Kitchen / HQ address",
+      "Brand colours + logo",
+      "Document numbering"
+    ],
+    "headers": [
+      {
+        "title": "{<span className=\"flex items-center gap-2\">Company profile <InfoTooltip content={\"Your business name, contacts, and HQ location all live here.\\n\\nThis feeds the sidebar header, client-facing pages, route planning, and delivery fees. Brand colours + logo live on the White Label page.\"} className=\"text-white/60 hover:text-white\" /></span>}",
+        "subtitle": "\"This drives the sidebar branding, client-facing pages, route planning and delivery fees.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Building2 className=\"w-5 h-5 text-slate-600\" />Identity <InfoTooltip content={\"The name, phone, email, website, and registration details that show up everywhere clients and your team see your brand.\"} />",
+        "desc": "What clients and your team see across the app.",
+        "collapsible": true
+      },
+      {
+        "title": "<Globe className=\"w-5 h-5 text-blue-600\" />Region &amp; currency <InfoTooltip content={\"Sets the wall clock for every date bucket in the system. Reports, kitchen prep lead times, driver pay windows and the daily cron all key off this. Get it wrong on a UK or US deploy and reports will show events on the wrong day.\"} />",
+        "desc": "Timezone for date buckets (reports, kitchen lead time, pay windows). Currency tag on documents.",
+        "collapsible": true
+      },
+      {
+        "title": "<Calendar className=\"w-5 h-5 text-amber-600\" />Peak season <InfoTooltip content={\"Tells the financial dashboard which months count as your peak. The Peak Season banner uses these to surface a count-down 6 weeks before peak starts and a 'peak is here' pulse for the first two weeks of the window.\\n\\nLeave both blank to inherit the SA wedding default (May - September). End month can be before start month to wrap year-end - e.g. set 11 to 1 for a US holiday catering peak (Nov - Jan).\"} />",
+        "desc": "Drives the Peak Season banner on the financial dashboard. Leave blank to use the South African wedding default (May - September).",
+        "collapsible": true
+      },
+      {
+        "title": "<Calendar className=\"w-5 h-5 text-amber-600\" />Cash on hand staleness <InfoTooltip content={\"How long the cashflow dashboard waits after you last updated the Cash on hand value before it warns you the number is going stale.\\n\\nThe forecast is only as accurate as that bank-balance entry; the badge tells the bookkeeper when it's time to refresh.\\n\\nLeave blank to inherit the 72h default (matches a typical Mon/Wed/Fri reconciliation rhythm).\"} />",
+        "desc": "Hours since the last Cash on hand entry before the dashboard badge warns it&apos;s stale. Leave blank for the 72h default.",
+        "collapsible": true
+      },
+      {
+        "title": "<Globe className=\"w-5 h-5 text-brand-primary\" />VAT registration <InfoTooltip content={\"South African rule: VAT-registered businesses issue 'Tax Invoice' documents with their VAT number on every quote and invoice. Non-registered businesses issue plain 'Invoices'.\\n\\nFlip the toggle and the document templates + totals labels (incl. VAT) update everywhere automatically.\"} />",
+        "desc": "Switches the document title on your client-facing quotes and invoices, and labels totals as &apos;incl. VAT&apos; when on.",
+        "collapsible": true
+      },
+      {
+        "title": "<Landmark className=\"w-5 h-5 text-blue-600\" />Banking details <InfoTooltip content={\"Shown to your clients when they pick EFT on their portal or on a public invoice link. The reference they use is always the invoice number, which is what your bank reconciliation will match against.\\n\\nLeave the whole section blank if you don't want EFT as an option.\"} />",
+        "desc": "Clients see these on their billing page when they choose EFT. Leave blank to hide the EFT option entirely.",
+        "collapsible": true
+      },
+      {
+        "title": "<MapPin className=\"w-5 h-5 text-brand-primary\" />Kitchen / HQ address <InfoTooltip content={\"This is the starting point for every delivery distance and route plan.\\n\\nThe more accurate the address and coordinates, the more accurate every quote's delivery fee will be.\"} />",
+        "desc": "{hasMapsKey ? \"Type your address, Google Places auto-completes and fills the lat/lng for you.\" : \"Manual entry only, once Google Maps is connected (see notice below) the autocomplete kicks in.\"}",
+        "collapsible": true
+      },
+      {
+        "title": "<Palette className=\"w-5 h-5 text-rose-600\" />Brand colours + logo",
+        "desc": "Manage these on the White Label page so logo, organisation name, and the full colour palette stay in sync.",
+        "collapsible": true
+      },
+      {
+        "title": "<Hash className=\"w-5 h-5 text-blue-600\" />Document numbering <InfoTooltip content={\"Per-tenant counters for the invoice, quote, and order numbers your clients see.\\n\\nMigrating from another tool? Set the starting number to whatever comes next in the old sequence and the platform will pick up from there.\\n\\nValidation blocks regressing past numbers you've already issued, so you can't accidentally re-use a live invoice number.\"} />",
+        "desc": "Configure how invoices, quotes, and orders are numbered for {\"\"}{DOC_TYPE_META.invoice.label.toLowerCase()}, quotes, and orders.",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/contacts.tsx",
+    "route": "/admin/contacts",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Contacts\"",
+        "subtitle": "\"Your CRM inbox. Everyone you've touched so far, leads and clients combined, sorted by suggested next action.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/daily-operations.tsx",
+    "route": "/admin/daily-operations",
+    "kind": "page",
+    "header": true,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Daily operations\"",
+        "subtitle": "\"Configure one daily kitchen clean and one daily kitchen-equipment clean for your company.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/dashboard.tsx",
+    "route": "/admin/dashboard",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Needs attention",
+      "Upcoming work and team",
+      "Recent activity and payments",
+      "Performance and trends",
+      "Quick Actions"
+    ],
+    "headers": [
+      {
+        "title": "\"Dashboard\"",
+        "subtitle": "{\r\n              <>\r\n                Live metrics for events in{\" \"}\r\n                <span className=\"font-semibold text-white\">{range.label}</span>.\r\n                Every number below follows the selected date range.\r\n              </>\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "<LayoutDashboard className=\"w-6 h-6 text-brand-primary\" />Welcome to CateringMS",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Clock className=\"w-4 h-4 sm:w-5 sm:h-5 text-amber-600\" />Priority Actions",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Needs attention",
+        "desc": "Follow-ups, shortages, dispatch gaps and unresolved financial or delivery issues.",
+        "collapsible": true
+      },
+      {
+        "title": "Upcoming work and team",
+        "desc": "Tomorrow’s events, new leads and the staff currently on duty.",
+        "collapsible": true
+      },
+      {
+        "title": "Recent activity and payments",
+        "desc": "Recorded payments, inventory changes, cancellations, feedback and the activity log.",
+        "collapsible": true
+      },
+      {
+        "title": "Performance and trends",
+        "desc": "Delivery performance, weekly bookings, quote response times and comparisons.",
+        "collapsible": true
+      },
+      {
+        "title": "Quick Actions",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/dispatch-queue.tsx",
+    "route": "/admin/dispatch-queue",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/dispatch.tsx",
+    "route": "/admin/dispatch",
+    "kind": "alias",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/driver-management.tsx",
+    "route": "/admin/driver-management",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Driver portal access"
+    ],
+    "headers": [
+      {
+        "title": "\"Drivers\"",
+        "subtitle": "\"Driver roster, vehicles, and pay rates. Add a driver, link their vehicle, set per-driver overrides for hourly, distance per km, and callouts. Falls back to company defaults where no override is set.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "All Drivers <InfoTooltip content={\"Every driver matching your search, active and inactive.\"} />",
+        "desc": "Manage your delivery drivers and their account status",
+        "collapsible": false
+      },
+      {
+        "title": "Driver portal access",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/driver-schedule.tsx",
+    "route": "/admin/driver-schedule",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Driver schedule\"",
+        "subtitle": "\"Weekly grid of every driver's shifts. Click an empty cell to log a shift, or an existing one to edit it.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{drivers.length}driver{drivers.length === 1 ? \"\" : \"s\"}",
+        "desc": "Cells show planned times, with actual hours once logged. Totals use planned hours where set, otherwise actual. Click an empty cell to log a shift for that driver / day.",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/driver-settlement.tsx",
+    "route": "/admin/driver-settlement",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Driver settlement\"",
+        "subtitle": "\"Per-driver pay summary. Hourly, round-trip kilometres, callout fees, and the total owed for the period. Mark each driver as paid once the money's out.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Wallet className=\"w-5 h-5 text-brand-primary\" />Per-driver breakdown",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/email-settings.tsx",
+    "route": "/admin/email-settings",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Use your own sending domain",
+      "Sender identity",
+      "When to email clients automatically",
+      "Mailchimp (bulk campaigns)"
+    ],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex items-center gap-2 flex-wrap\">\r\n                Email settings\r\n                <InfoTooltip content={\"How CateringMS sends mail on your behalf.\\n\\nOut of the box you're already set up via our shared sender. Verify your own domain below to send from your address.\\n\\nGmail / Microsoft 365 / SMTP live further down under 'Switch provider'.\"} className=\"text-white/60 hover:text-white\" />\r\n              </span>\r\n            }",
+        "subtitle": "\"You're already set up to send. Verify your own domain below for full branding, or just edit your sender name and address.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<ShieldCheck className=\"w-5 h-5 text-slate-600\" />Use your own sending domain <span className=\"ml-1 text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700\">Optional upgrade</span>",
+        "desc": "Skip this if you're happy with the default sender above. Verify your domain once and every quote, invoice and confirmation goes out as <code>you@yourdomain.com</code>with proper SPF + DKIM. Takes about 5 minutes of DNS work at your domain host.",
+        "collapsible": true
+      },
+      {
+        "title": "<Mail className=\"w-5 h-5 text-slate-600\" />Sender identity",
+        "desc": "What clients see in their inbox. Reply-To is set to your From address automatically.",
+        "collapsible": true
+      },
+      {
+        "title": "<Send className=\"w-5 h-5 text-slate-600\" />When to email clients automatically <InfoTooltip content={\"Toggle which client emails fire automatically. Each one includes the client's secure order link. Repeat clients can also get a 'View all my events' link.\\n\\nDirect quote and CRM sends use the verified company email sender. Gmail, Outlook, and the default mail app are optional manual-draft alternatives.\"} />",
+        "desc": "Pick which moments automatically send a client email with their secure order link. {queuedCount > 0 && ( <span className=\"ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700\"> <BarChart3 className=\"w-3 h-3\" /> {queuedCount} queued </span> )}",
+        "collapsible": true
+      },
+      {
+        "title": "<Inbox className=\"w-5 h-5 text-brand-primary\" />Mailchimp (bulk campaigns) <span className=\"rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800\">Coming soon</span>",
+        "desc": "Mailchimp is for newsletters, marketing campaigns, and audience management. It does not send quotes, invoices, confirmations, order updates, password links, or staff invites. The credential form is ready, but bulk campaign sending is not active in CateringMS yet; transactional mail uses the sender above.",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/email-templates.tsx",
+    "route": "/admin/email-templates",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Lifecycle emails\"",
+        "subtitle": "\"Templates, sent log, and automation. All your post-sale email touchpoints in one place.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/equipment-damages.tsx",
+    "route": "/admin/equipment-damages",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/equipment.tsx",
+    "route": "/admin/equipment",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Equipment\"",
+        "subtitle": "\"Catering equipment catalogue. Availability per date, current bookings, shortages, and hire-in cover when you're running short for an event.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/event-profitability.tsx",
+    "route": "/admin/event-profitability",
+    "kind": "page",
+    "header": true,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Event profitability\"",
+        "subtitle": "\"See what completed events actually earned after recorded operating costs.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/exceptions.tsx",
+    "route": "/admin/exceptions",
+    "kind": "page",
+    "header": true,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Attention center\"",
+        "subtitle": "\"One place for the operational items that need a decision or follow-up.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/financial-dashboard.tsx",
+    "route": "/admin/financial-dashboard",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Financial Summary",
+      "Quick Actions",
+      "Revenue Projections",
+      "Expense Tracking",
+      "Per-branch P&L"
+    ],
+    "headers": [
+      {
+        "title": "\"Financial dashboard\"",
+        "subtitle": "{\r\n                <>\r\n                  {/* FIN-B: honest hero copy. The page is a rolling\r\n                      90-day snapshot, not a configurable daily /\r\n                      weekly / monthly view - that affordance is the\r\n                      Cashflow Dashboard (linked below). */}\r\n                  Revenue, profitability and cashflow at a glance.\r\n                  Rolling 90-day view with profit margin and\r\n                  outstanding balances.\r\n                </>\r\n              }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "Current Cash Flow {/* FIN-F (current cash flow tile audit): pre-FIN-F the tile subtracted only wages owed and called the result \"Healthy\" any time it was positive. Bobby's screenshot showed +R7,989.82 received, R0 wages, \"Healthy\" - while the Financial Summary below correctly read -R610.18 net because R8,600 of fixed costs and the COGS already incurred weren't priced in. Now the tile shows every cost line that's already in metrics state (wages + fixed costs next 30d + supplier payables next 30d + inventory COGS 90d) and the status badge reads off the real net, not the cash-minus-wages partial. */}<InfoTooltip content={\"Cash received less every known outflow in metrics state: wages owed, fixed costs due in the next 30 days, supplier payables due in the next 30 days, inventory COGS over the last 90 days.\\n\\nMatches the Net Cash Flow row on the Financial Summary card below. Status badge reads off this net, not the received-minus-wages partial.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "30-Day Projection <InfoTooltip content={\"Total value of every booked event happening in the next 30 days.\\n\\nCancelled orders are not counted.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Pending Payments <InfoTooltip content={\"Money still owed to you on orders that have not been paid in full yet.\\n\\nIncludes pending invoices and orders with only a deposit so far.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Profit Margin <InfoTooltip content={\"(Revenue - menu COGS) / revenue, on PAID delivered orders in the last 90 days.\\n\\nCOGS sourced from order_items.unit_cost - the per-unit cost snapshot from menu_items.cost_per_unit at quote-accept (PR-B). Orders whose line items have no unit_cost snapshot are excluded from both numerator and denominator (legacy data pre-snapshot); the count is surfaced below the tile so the limitation is visible.\\n\\nPayroll + supplier invoices + fixed costs are NOT folded in - the figure here is a top-line gross margin, not net. See the Cashflow dashboard (/admin/cashflow-dashboard) for the net picture.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Financial Summary <InfoTooltip content={\"Quick snapshot of money in, money out, and what is still owed.\\n\\nPulled together from your orders and staff wage ledger.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "Quick Actions <InfoTooltip content={\"Shortcuts to the pages you'll need next when the cash-flow numbers above flag a problem.\\n\\nEach button drops you on the relevant working surface. Nothing fires until you take action there.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "Revenue Projections <InfoTooltip content={\"Revenue you can expect across upcoming booked events, grouped by event date.\\n\\nIncludes everything booked, paid or not.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "Expense Tracking <InfoTooltip content={\"Two cost lines side by side: real wages owed to staff, plus a rough inventory cost estimate based on in-flight orders.\\n\\nIngredient costs become accurate once recipes and live stock data are wired in.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "Outstanding by order <InfoTooltip content={\"Top non-cancelled orders by outstanding balance. Sorted to put the biggest cash-to-collect at the top so finance knows who to chase first.\\n\\nThe Profit Margin column lives on the KPI tile above; this tab is the collections view, not a duplicate of /admin/orders.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Building2 className=\"w-5 h-5\" />Per-branch P&L <InfoTooltip content={\"Revenue, paid amount, outstanding and order count broken down by branch.\\n\\nUnassigned rows are orders that don't yet have a branch stamped.\"} />",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/fixed-costs.tsx",
+    "route": "/admin/fixed-costs",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Fixed costs\"",
+        "subtitle": "{\r\n              <>\r\n                Recurring rent, software, vehicles, anything that hits the bank account on a schedule.\r\n                Drives the cashflow forecast on{\" \"}\r\n                <Link\r\n                  href={withSlug(\"/admin/cashflow-dashboard\")}\r\n                  className=\"font-semibold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white\"\r\n                >\r\n                  Cashflow dashboard\r\n                </Link>\r\n                .\r\n              </>\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "Active",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Monthly equivalent",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<TrendingUp className=\"w-3.5 h-3.5\" />Annual burn",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Repeat className=\"w-3.5 h-3.5\" />Cadence mix",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Calendar className=\"w-3.5 h-3.5\" />Hitting the bank",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/hr-solutions.tsx",
+    "route": "/admin/hr-solutions",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{<span className=\"flex items-center gap-2\">HR <InfoTooltip className=\"text-white/70 hover:text-white\" content={\"One landing for every staff-related tool. Active tiles take you straight to the feature; chips show this week's live numbers.\"} /></span>}",
+        "subtitle": "\"Hours, wages, accounts and invites at a glance. Drill into a card for the full surface.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "route": "/admin/integrations",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Get a Zap running in 60 seconds",
+      "Xero accounting",
+      "QuickBooks Online",
+      "Outbound webhooks",
+      "Inbound API keys",
+      "Catering Zap recipes",
+      "Sage Business Cloud (Pastel)"
+    ],
+    "headers": [
+      {
+        "title": "{<span className=\"flex items-center gap-2 flex-wrap\">Integrations<InfoTooltip content={\"Push data in with API keys, send data out with webhooks.\\n\\nThis is what hooks CateringMS up to Zapier and the 5,000+ apps it reaches.\"} /></span>}",
+        "subtitle": "\"API keys for inbound data and webhooks for outbound. Hook CateringMS into Zapier so leads, orders, and payments flow into Google Sheets, Slack, WhatsApp, Mailchimp, or anywhere else you already work.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Sparkles className=\"w-5 h-5 text-brand-primary\" />Get a Zap running in 60 seconds",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<Receipt className=\"w-5 h-5 text-blue-600\" />Xero accounting <Badge variant=\"outline\" className=\"text-[10px] bg-amber-100 text-amber-700 border-amber-200\">Setup via Zapier</Badge>",
+        "desc": "Two-way sync: quotes flow both directions, payments roll back into orders. No double entry.",
+        "collapsible": true
+      },
+      {
+        "title": "<Receipt className=\"w-5 h-5 text-brand-primary\" />QuickBooks Online <Badge variant=\"outline\" className=\"text-[10px] bg-brand-primary/15 text-brand-primary border-brand-primary/20\">Native OAuth</Badge>",
+        "desc": "Direct push of CateringMS invoices into QuickBooks Online. Idempotent on external_id; QuickBooks-side edits land a 409 conflict instead of clobbering.",
+        "collapsible": true
+      },
+      {
+        "title": "<Webhook className=\"w-5 h-5 text-brand-primary\" />Outbound webhooks <InfoTooltip content={\"When something happens in CateringMS, we send the details to a URL you choose.\\n\\nPaste a Zapier 'Catch Hook' URL here and you can trigger any of the 5,000+ apps Zapier connects to.\"} />",
+        "desc": "Paste a Zapier \"Catch Hook\" URL and CateringMS will POST every matching event to it.",
+        "collapsible": true
+      },
+      {
+        "title": "<Key className=\"w-5 h-5 text-brand-primary\" />Inbound API keys <InfoTooltip content={\"Use these to push data into CateringMS from anywhere, Zapier, Make, your own scripts, Facebook Lead Ads.\\n\\nExample: a Lead Ads form fills, Zapier hits our leads endpoint with the API key, and a new lead drops into your pipeline.\"} />",
+        "desc": "Push leads into CateringMS from Zapier, Make, your own scripts, or Facebook Lead Ads.",
+        "collapsible": true
+      },
+      {
+        "title": "<Sparkles className=\"w-5 h-5 text-slate-600\" />Catering Zap recipes",
+        "desc": "One-click ideas tuned for catering operations. Each one tells you which event to listen for, then click \"Use\" to seed the form above.",
+        "collapsible": true
+      },
+      {
+        "title": "<Receipt className=\"w-5 h-5 text-blue-600\" />Sage Business Cloud (Pastel) <Badge variant=\"outline\" className=\"text-[10px] bg-blue-100 text-blue-700 border-blue-200\">Native OAuth</Badge>{connected && allFourSet && ( <Badge variant=\"outline\" className=\"text-[10px] bg-brand-primary/15 text-brand-primary border-brand-primary/30\">Sync ready</Badge> )}{connected && !allFourSet && ( <Badge variant=\"outline\" className=\"text-[10px] bg-amber-100 text-amber-800 border-amber-300\">Needs defaults</Badge> )}",
+        "desc": "Sage is the SA market default - SARS-aware, ZAR currency, comma-decimal money. Pick the four defaults below and CateringMS pushes invoices + payments straight in.",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/integrations/embed.tsx",
+    "route": "/admin/integrations/embed",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Lead capture forms\"",
+        "subtitle": "\"Embeddable enquiry forms for your marketing site. Pick a template, customise, paste the snippet.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/integrations/embed/[id].tsx",
+    "route": "/admin/integrations/embed/[id]",
+    "kind": "dynamic",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex min-w-0 flex-wrap items-center gap-2\">\r\n                <Input\r\n                  value={form.name}\r\n                  onChange={(e) => patchLocal({ name: e.target.value })}\r\n                  onBlur={() => dirty && saveForm({ name: form.name }, { silent: true })}\r\n                  className=\"text-xl md:text-2xl font-bold border-0 shadow-none px-0 focus-visible:ring-0 bg-transparent min-w-[260px] text-white placeholder:text-white/40\"\r\n                />\r\n                {dirty && <span className=\"text-xs font-normal text-amber-300\">Unsaved</span>}\r\n                {/* LCF-B: persistent readiness chip beside the title.\r\n                    Reads from the same checklist that powers the\r\n                    banner below. */}\r\n                {!readiness.ready ? (\r\n                  <Badge className=\"bg-rose-100 text-rose-800 border border-rose-200 gap-1\">\r\n                    <AlertTriangle className=\"w-3 h-3\" />\r\n                    {readiness.failingRequired} required gap{readiness.failingRequired === 1 ? \"\" : \"s\"}\r\n                  </Badge>\r\n                ) : readiness.failingRecommended > 0 ? (\r\n                  <Badge className=\"bg-amber-100 text-amber-800 border border-amber-200 gap-1\">\r\n                    <Info className=\"w-3 h-3\" />\r\n                    {readiness.failingRecommended} recommended\r\n                  </Badge>\r\n                ) : (\r\n                  <Badge className=\"bg-brand-primary/15 text-brand-primary border border-brand-primary/20 gap-1\">\r\n                    <CheckCircle2 className=\"w-3 h-3\" />\r\n                    Ready to embed\r\n                  </Badge>\r\n                )}\r\n              </span>\r\n            }",
+        "subtitle": "\"Customise fields, theme, and after-submit behaviour. Edits auto-save on blur and update the live preview.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/integrations/embed/new.tsx",
+    "route": "/admin/integrations/embed/new",
+    "kind": "redirect",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/inventory-recipes.tsx",
+    "route": "/admin/inventory-recipes",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/inventory-tracking.tsx",
+    "route": "/admin/inventory-tracking",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/inventory.tsx",
+    "route": "/admin/inventory",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Food & Ingredients\"",
+        "subtitle": "\"Pantry and chiller stock. Levels per item, low-stock alerts, and what each upcoming event will pull.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{atRiskItems.length === 0 ? ( <CheckCircle2 className=\"w-5 h-5 text-brand-primary\" /> ) : ( <AlertTriangle className=\"w-5 h-5 text-amber-600\" /> )}At risk this week",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/invoices.tsx",
+    "route": "/admin/invoices",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Invoices\"",
+        "subtitle": "\"Generate, send and track payment on every bill you issue, with EFT claims surfaced up top for bank-statement confirmation.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<AlertCircle className=\"h-5 w-5 text-yellow-700\" />Uninvoiced orders ({orders.length}) <InfoTooltip content={\"Confirmed or completed orders that still need an invoice generated.\"} />",
+        "desc": "These confirmed/completed orders don't have invoices yet",
+        "collapsible": false
+      },
+      {
+        "title": "Invoices <InfoTooltip content={\"Every invoice for your company, newest first, narrowed by your search and status filters.\"} />",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/kitchen-duty-tracking.tsx",
+    "route": "/admin/kitchen-duty-tracking",
+    "kind": "redirect",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/kitchen-schedule.tsx",
+    "route": "/admin/kitchen-schedule",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Kitchen schedule\"",
+        "subtitle": "\"Weekly roster. Click an empty cell to plan a shift; cells flip to actual hours when the chef clocks in.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "Range summary",
+        "desc": "Totals for the selected week or month.",
+        "collapsible": false
+      },
+      {
+        "title": "{selectedDayIso === todayIso ? \"Today\" : selectedDay.toLocaleDateString(\"en-ZA\", { weekday: \"long\" })}<Badge variant=\"outline\" className=\"border-brand-primary/25 bg-white text-brand-primary dark:bg-slate-900\">{selectedDay.toLocaleDateString(\"en-ZA\", { day: \"numeric\", month: \"short\" })}</Badge>",
+        "desc": "Day details open first. Use the full schedule only when you need wider planning.",
+        "collapsible": false
+      },
+      {
+        "title": "{staff.length}chef{staff.length === 1 ? \"\" : \"s\"}",
+        "desc": "Cells show planned hours. Once the chef clocks in, the cell flips to actual hours and surfaces lateness inline.",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/kitchen-settings.tsx",
+    "route": "/admin/kitchen-settings",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Kitchen rules\"",
+        "subtitle": "\"Prep timing, BCEA shift thresholds and dietary alert policy for this kitchen.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/kitchen-settlement.tsx",
+    "route": "/admin/kitchen-settlement",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Kitchen settlement\"",
+        "subtitle": "{\r\n              <>\r\n                Pay for everyone who works kitchen or cleaning shifts (team,\r\n                their managers, plus any admin or owner who logs shifts) over the\r\n                selected period, with overtime and Sunday multipliers, ready to\r\n                issue as payslips.{\" \"}\r\n                <span className=\"font-semibold text-white\">{periodStart}</span> to{\" \"}\r\n                <span className=\"font-semibold text-white\">{periodEnd}</span>.\r\n              </>\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "Per-chef breakdown",
+        "desc": "Computed from clocked hours x hourly_rate, with OT for shifts over the tenant's overtime threshold and any roster multipliers (Sundays / public holidays).",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/kitchen-staff.tsx",
+    "route": "/admin/kitchen-staff",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex items-center gap-2\">\r\n                Staff &amp; rates\r\n                <InfoTooltip content=\"Add the people working across kitchen, cleaning, shopping, service and office, set their rates and standard daily hours.\\n\\nThe department tablet boards show their tiles, one tap to clock them in, one to clock out.\\n\\nRates and wages stay on this and the wage dashboard. The team surfaces never see them.\" />\r\n              </span>\r\n            }",
+        "subtitle": "\"Your pay and clock-in roster. Add anyone you pay or clock in here (kitchen, cleaning, shopping, service, office), set pay type (hourly, monthly, or per shift) and standard hours. Note: people you invited as portal logins under Users do not appear here automatically, add them here too so their rates, hours and wages are tracked.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/leads/index.tsx",
+    "route": "/admin/leads",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Leads\"",
+        "subtitle": "{\r\n              <>\r\n                Structured enquiry capture. When someone asks for catering through an embed form, email, or phone call, create a lead to track event details before quoting. Leads also appear in your{\" \"}\r\n                {/* Hero band is dark; the link must read white, not brand-primary. */}\r\n                <Link href={withSlug(\"/admin/contacts\")} className=\"font-semibold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white\">\r\n                  Contacts inbox\r\n                </Link>\r\n                {\" \"}automatically.\r\n              </>\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "{loading ? \"Leads\" : `Leads (${filteredLeads.length})`}",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/leads/new.tsx",
+    "route": "/admin/leads/new",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"New lead\"",
+        "subtitle": "\"Capture a potential customer's enquiry so nothing gets lost before you quote. Only a name and email are required.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "\"Lead information\"",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/live-operations.tsx",
+    "route": "/admin/live-operations",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/menu.tsx",
+    "route": "/admin/menu",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex items-center gap-2\">\r\n                Menu\r\n                <InfoTooltip content=\"Build the dishes your kitchen cooks. Each menu item can have a recipe attached, the recipe lists ingredients and links each one to the inventory item it consumes.\\n\\nThe kitchen tablet sees these recipes when cooking, and the prep flywheel uses them to project ingredient demand and surface shortfalls before they hit.\" />\r\n              </span>\r\n            }",
+        "subtitle": "\"Add menu items and build their recipes. Kitchen, dispatch and shopping read from this list.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/messaging-templates.tsx",
+    "route": "/admin/messaging-templates",
+    "kind": "redirect",
+    "header": false,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/money-health.tsx",
+    "route": "/admin/money-health",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Money & email health\"",
+        "subtitle": "\"Catch money drift before a client does, and keep the email queue moving.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{<><Mail className=\"w-4 h-4\" /> Email queue</>}",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "{<><Banknote className=\"w-4 h-4\" /> Money reconciliation</>}",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/notification-settings.tsx",
+    "route": "/admin/notification-settings",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Email Notifications",
+      "Push Notifications",
+      "SMS Notifications",
+      "WhatsApp Notifications"
+    ],
+    "headers": [
+      {
+        "title": "\"Notification settings\"",
+        "subtitle": "\"Per-user channels and triggers. Decide which events ping you by email, in-app banner, WhatsApp, push, or SMS. Owners get everything by default. Tune the noise from here.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Mail className=\"w-5 h-5 text-brand-primary\" />Email Notifications <InfoTooltip content={\"Choose which email alerts you want for orders, payments and daily summaries.\\n\\nSaved to your account and mirrored into legacy columns for older email notification workers.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<Bell className=\"w-5 h-5 text-slate-600\" />Push Notifications <InfoTooltip content={\"In-app push alerts for urgent issues, new orders, staff updates and stock changes.\\n\\nSaved to your account.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<MessageSquare className=\"w-5 h-5 text-brand-primary\" />SMS Notifications <InfoTooltip content={\"SMS preferences for critical alerts and payment reminders.\\n\\nNeeds an SMS provider connected before messages will actually go out (none integrated yet - see docs/notifications.md).\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<MessageSquare className=\"w-5 h-5 text-brand-primary\" />WhatsApp Notifications <InfoTooltip content={\"WhatsApp fan-out uses the same event buckets as push. A message is queued only when the tenant has WhatsApp connected and your profile has a WhatsApp-enabled phone number.\"} />",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/notifications.tsx",
+    "route": "/admin/notifications",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{<span className=\"flex items-center gap-2\">Notifications<InfoTooltip content={\"Your inbox of system alerts: low stock, delivery updates, order changes and other events that need your attention.\"} className=\"text-white/60 hover:text-white\" /></span>}",
+        "subtitle": "\"System alerts inbox. Low stock warnings, delivery updates, order changes, payment confirmations, and anything else flagged automatically by the platform. Open a row for details or jump straight to the source page.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/offering.tsx",
+    "route": "/admin/offering",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Offering\"",
+        "subtitle": "\"Snapshot of what you sell. Menu items and equipment for hire in one view so you can spot gaps in pricing or photos before they hit a quote.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "Menu",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Equipment",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Sparkles className=\"w-4 h-4 text-slate-600\" />Often ordered together ({period}d)",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Recently quoted ({period}days)",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<AlertTriangle className=\"w-4 h-4 text-amber-600\" />Not quoted in {period}days",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/onboarding/clients.tsx",
+    "route": "/admin/onboarding/clients",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Import clients\"",
+        "subtitle": "{\r\n              <>\r\n                Drop a spreadsheet or paste rows from Excel or Sheets. The shared client template accepts{\" \"}\n                <span className=\"font-semibold text-white\">Client name</span>,{\" \"}\n                <span className=\"font-semibold text-white\">Email</span> and phone details, plus optional client history and billing fields.\n                Existing clients with the same email are skipped automatically.\n              </>\r\n            }"
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/onboarding/import.tsx",
+    "route": "/admin/onboarding/import",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"inline-flex items-center gap-2\">\r\n                AI Import\r\n                <InfoTooltip content={\"Five-step wizard for moving your existing book of business into CateringMS in one go.\\n\\nUpload, then we map your column headings to our schema. You preview every row before anything is committed, and you have a 24-hour rollback window if anything looks wrong after.\"} />\r\n              </span>\r\n            }",
+        "subtitle": "\"Drop a spreadsheet of your existing clients and outstanding orders. We match the columns, normalise the data, show you a preview, then load it.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Upload className=\"w-5 h-5 text-slate-600\" />Upload your spreadsheet <InfoTooltip content={\"Drop a CSV or XLSX with the data you want to bring across.\\n\\nIdeal shape: two sheets named 'clients' and 'orders'. We accept any column headings; we map them in the next step.\\n\\nIf it's just a contact list, the simpler 'Easy client list' tool may be a faster fit.\"} />",
+        "desc": "CSV, XLS or XLSX. Two tabs work best, one for clients and one for orders. Single-tab files are fine too.",
+        "collapsible": false
+      },
+      {
+        "title": "<Sparkles className=\"w-5 h-5 text-slate-600\" />Confirm the column mapping",
+        "desc": "We've matched your columns to our fields. Anything below 70% confidence is highlighted, have a look.",
+        "collapsible": false
+      },
+      {
+        "title": "<Eye className=\"w-5 h-5 text-slate-600\" />Preview before commit",
+        "desc": "Per-row outcome based on your mapping. Hit commit when it looks right.",
+        "collapsible": false
+      },
+      {
+        "title": "<CheckCircle2 className=\"w-5 h-5 text-brand-primary\" />Import complete",
+        "desc": "{(() => { // The commit summary carries a triad per entity // (clients, orders, leads, quotes, invoices, // payments). The old clients+orders-only line // under-reported every richer workbook import. const c = job?.summary?.commit; if (!c) return null; const entities = [\"clients\", \"orders\", \"leads\", \"quotes\", \"invoices\", \"payments\"] as const; const insertedParts = entities .map((e) => ({ e, n: Number((c as any)[e]?.inserted) || 0 })) .filter((p) => p.n > 0) .map((p) => `${p.n} ${p.e}`); const updated = entities.reduce((s, e) => s + (Number((c as any)[e]?.updated) || 0), 0); const skipped = entities.reduce((s, e) => s + (Number((c as any)[e]?.skipped) || 0), 0); const errored = entities.reduce((s, e) => s + (Number((c as any)[e]?.errored) || 0), 0); const parts = [ insertedParts.length > 0 ? `${insertedParts.join(\" + \")} inserted` : \"Nothing inserted\", updated > 0 ? `${updated} updated` : \"\", skipped > 0 ? `${skipped} skipped (already on file)` : \"\", errored > 0 ? `${errored} errored` : \"\", ].filter(Boolean); return `${parts.join(\" · \")}.`; })()}",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/onboarding/imports.tsx",
+    "route": "/admin/onboarding/imports",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"inline-flex items-center gap-2\">\r\n                Onboarding\r\n                <InfoTooltip content={\"This is your one-stop shop for getting your existing business into CateringMS.\\n\\nThree paths below cover the usual sources: a simple client list, a richer spreadsheet of clients + outstanding orders, and supplier receipts you snap on your phone. Run the right tool for the file you have, then come back here any time to roll a previous import back.\"} />\r\n              </span>\r\n            }",
+        "subtitle": "\"Bring your existing clients, orders and supplier slips into the system. Every import shows below with a 24-hour rollback window.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/onboarding/index.tsx",
+    "route": "/admin/onboarding",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Set up your business\"",
+        "subtitle": "\"Walk through the essentials so your quotes, invoices and client portal look right from day one. Every step saves as you go.\""
+      },
+      {
+        "title": "\"Set up your business\"",
+        "subtitle": "\"Walk through the essentials so your quotes, invoices and client portal look right from day one. Every step saves as you go.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/onboarding/receipts.tsx",
+    "route": "/admin/onboarding/receipts",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"inline-flex items-center gap-2\">\r\n                Receipt scanner\r\n                <InfoTooltip content={\"Snap photos of your last few weeks of supplier slips and we'll seed your inventory cost prices automatically.\\n\\nWe read each receipt and pull the supplier name, date, line items, quantities and totals. You review the extraction and commit, no typing required.\"} />\r\n              </span>\r\n            }",
+        "subtitle": "{`Photograph up to ${MAX_FILES} supplier slips. The model extracts supplier, date, line items and cost prices so your inventory loads itself.`}"
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/order-assignments.tsx",
+    "route": "/admin/order-assignments",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Dispatch queue\"",
+        "subtitle": "\"Confirmed orders waiting on a driver. Auto-suggest a driver per order with capacity, vehicle, and shift checks, or override manually. Bulk-assign by date when prep is locked in.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/orders.tsx",
+    "route": "/admin/orders",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Orders\"",
+        "subtitle": "\"Every booked job from accepted quote through to delivery, with kitchen prep, dispatch, and post-event status all in one place.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/orders/[id]/ticket.tsx",
+    "route": "/admin/orders/[id]/ticket",
+    "kind": "dynamic",
+    "header": false,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/orders/delivery-sheet.tsx",
+    "route": "/admin/orders/delivery-sheet",
+    "kind": "page",
+    "header": false,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/outsource-providers/[id].tsx",
+    "route": "/admin/outsource-providers/[id]",
+    "kind": "dynamic",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{provider?.provider_name || \"Provider\"}",
+        "subtitle": "\"Booking history, accept rate, response time and billing for this outsource provider.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/outsource-providers/index.tsx",
+    "route": "/admin/outsource-providers",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Outsource providers\"",
+        "subtitle": "\"Per-event service providers: on-site chefs, florists, photographers, sound, security.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/outstanding-balances.tsx",
+    "route": "/admin/outstanding-balances",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Outstanding balances\"",
+        "subtitle": "\"Every invoice a client still owes money on, with paid plus balance always equal to the invoice total.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/package.tsx",
+    "route": "/admin/package",
+    "kind": "alias",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/packages/[id].tsx",
+    "route": "/admin/packages/[id]",
+    "kind": "redirect",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/packages/index.tsx",
+    "route": "/admin/packages",
+    "kind": "redirect",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/payables.tsx",
+    "route": "/admin/payables",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Payables\"",
+        "subtitle": "{\r\n              <>\r\n                {/* Audit fix (2026-07-02): the forecast moved off the\r\n                    financial dashboard to the dedicated cashflow page;\r\n                    the link still pointed at the old home. */}\r\n                Outstanding supplier invoices. Drives the cashflow forecast on{\" \"}\r\n                <Link\r\n                  href={withSlug(\"/admin/cashflow-dashboard\")}\r\n                  className=\"font-semibold text-white underline decoration-white/40 underline-offset-2 hover:decoration-white\"\r\n                >\r\n                  Cashflow dashboard\r\n                </Link>\r\n                .\r\n              </>\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "Pending total",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Overdue {overdueCount > 0 && <AlertTriangle className=\"w-3.5 h-3.5 text-amber-600\" />}",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<CalendarClock className=\"w-3.5 h-3.5 text-slate-500\" />Due in next 30 days",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/payment-gateways.tsx",
+    "route": "/admin/payment-gateways",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Payment Gateways\"",
+        "subtitle": "\"Online card and EFT processing per tenant. Pick a catering company, then connect a South African gateway like PayFast or Yoco so their clients can pay quotes and invoices through the public link instead of manual EFT.\""
+      },
+      {
+        "title": "\"Payment Gateways\"",
+        "subtitle": "\"Online card and EFT processing. Connect a South African gateway like PayFast or Yoco so clients can pay quotes and invoices through the public link instead of manual EFT. One gateway can be active at a time and saved credentials are never read back into the browser.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{\r\n                      <span className=\"flex items-center gap-2\">\r\n                        <CreditCard className=\"h-4 w-4 text-brand-primary\" />\r\n                        {entry.name}\r\n                      </span>\r\n                    }",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "{\r\n                <span className=\"flex items-center gap-2\">\r\n                  Before going live\r\n                  <InfoTooltip content={\"Quick checks before you accept your first real payment.\"} />\r\n                </span>\r\n              }",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/public-holidays.tsx",
+    "route": "/admin/public-holidays",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Public holidays\"",
+        "subtitle": "\"SA gazetted dates plus any extras you observe. Shifts that land on these dates get paid at 2x per BCEA.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<CalendarDays className=\"h-4 w-4 text-slate-600\" />Calendar view",
+        "desc": "Holiday dates highlighted for {year}. Company custom days sit on top of the shared gazetted calendar.",
+        "collapsible": false
+      },
+      {
+        "title": "{selectedDate ? dateLabel(selectedDate) : \"Selected date\"}",
+        "desc": "{selectedHolidays.length > 0 ? `${selectedHolidays.length} holiday${selectedHolidays.length === 1 ? \"\" : \"s\"} on this date` : \"No holiday on the selected date\"}",
+        "collapsible": false
+      },
+      {
+        "title": "{filtered.length}{filtered.length === 1 ? \"holiday\" : \"holidays\"}in {year}",
+        "desc": "Source list used for payroll checks and CSV export.",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/quotes/[id].tsx",
+    "route": "/admin/quotes/[id]",
+    "kind": "dynamic",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Menu items",
+      "Equipment",
+      "Pricing",
+      "Note to the client"
+    ],
+    "headers": [
+      {
+        "title": "\"Quote details\"",
+        "subtitle": "\"Price the request line by line, respond to client change requests, then save or send. Quotes that already went out stay read-only to preserve history.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{quote.client_name}",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Menu items",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "Equipment",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "Pricing",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "Note to the client",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/quotes/index.tsx",
+    "route": "/admin/quotes",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Quotes\"",
+        "subtitle": "\"Build and price quotes, send the public link, then chase with reminders until the client accepts or declines. Accepted quotes convert to orders.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/quotes/new.tsx",
+    "route": "/admin/quotes/new",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Client + event",
+      "Menu items",
+      "Equipment",
+      "Pricing adjustments",
+      "Notes",
+      "Client preview"
+    ],
+    "headers": [
+      {
+        "title": "{quoteId ? \"Edit Quote\" : \"Create Quote\"}",
+        "subtitle": "{\r\n              <span className=\"flex items-center gap-2 flex-wrap\">\r\n                {quoteNumber && (\r\n                  <span className=\"font-mono text-white\">{quoteNumber}</span>\r\n                )}\r\n                {status !== \"draft\" && (\r\n                  <Badge className=\"bg-white/10 text-white border-white/20 capitalize\">{status}</Badge>\r\n                )}\r\n                {savedAt && (\r\n                  <span className=\"inline-flex items-center gap-1 text-emerald-300 text-xs\">\r\n                    <CheckCircle2 className=\"w-3.5 h-3.5\" />\r\n                    Saved {savedAt.toLocaleTimeString(\"en-ZA\", { hour: \"2-digit\", minute: \"2-digit\" })}\r\n                  </span>\r\n                )}\r\n                {saving && (\r\n                  <span className=\"inline-flex items-center gap-1 text-slate-300 text-xs\">\r\n                    <Loader2 className=\"w-3.5 h-3.5 animate-spin\" /> Saving...\r\n                  </span>\r\n                )}\r\n                {dirty && !saving && status === \"draft\" && (\r\n                  <span className=\"text-xs text-amber-300\">Unsaved changes</span>\r\n                )}\r\n              </span>\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Sparkles className=\"w-4 h-4 text-brand-primary\" />Client + event",
+        "desc": "Start typing, we'll match against existing clients, leads and past quotes.",
+        "collapsible": true
+      },
+      {
+        "title": "Menu items",
+        "desc": "Each line picks a pricing mode, qty + per-line discount.",
+        "collapsible": true
+      },
+      {
+        "title": "Equipment",
+        "desc": "Chafing dishes, serving ware, hire add-ons.",
+        "collapsible": true
+      },
+      {
+        "title": "<TrendingUp className=\"w-4 h-4 text-amber-600\" />Pricing adjustments",
+        "desc": "Surge / weekend uplift, quote-level discounts.",
+        "collapsible": true
+      },
+      {
+        "title": "Notes",
+        "desc": "The note below is client-visible. Keep internal-only context in the team thread underneath.",
+        "collapsible": true
+      },
+      {
+        "title": "Items in this quote",
+        "desc": "Dishes + equipment on this quote and what each adds up to.",
+        "collapsible": false
+      },
+      {
+        "title": "Running total",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Eye className=\"w-4 h-4\" />Client preview",
+        "desc": "What goes out in the quote email.",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/recurring-invoices.tsx",
+    "route": "/admin/recurring-invoices",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Recurring invoices\"",
+        "subtitle": "\"Set up weekly, monthly or quarterly invoices once; the platform generates a draft on each cycle.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "Your templates ({rows.length})",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/refunds.tsx",
+    "route": "/admin/refunds",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Refunds & Credits\"",
+        "subtitle": "\"Every refund, store-credit issue and credit redemption in one reconciliation timeline. PayFast refunds auto-process; EFT and cash need a manual mark as paid.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{filter === \"all\" ? \"All refunds & credits\" : filter === \"auto\" ? \"Auto-processed (PayFast)\" : filter === \"credits\" ? \"Store credit movements\" : filter === \"pending\" ? \"Pending refunds\" : \"Rejected refunds\"}",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/regions.tsx",
+    "route": "/admin/regions",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Branches\"",
+        "subtitle": "\"One company, multiple operating cities. Each branch has its own delivery rate, manager, kitchen, drivers, and inventory. Quotes, orders, and reporting all stay scoped to the branch the lead came in on.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{region.name}",
+        "desc": "<MapPin className=\"w-3 h-3\" />{[region.city, region.province_state, getCountry(region.country).name] .filter(Boolean) .join(\", \") || \"Location not set\"}",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/reviews.tsx",
+    "route": "/admin/reviews",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Reviews\"",
+        "subtitle": "\"What clients said after their events. Ratings and comments from the post-delivery prompt, with follow-ups flagged for the office.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/route-planning.tsx",
+    "route": "/admin/route-planning",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Batch suggestions",
+      "Route Details & Stops"
+    ],
+    "headers": [
+      {
+        "title": "\"Route planning\"",
+        "subtitle": "{\r\n              /* RP-B (route-planning audit, RP-3): honest copy. Pre-\r\n                 RP-B this claimed \"for tomorrow\" but no date filter\r\n                 was applied anywhere - the queue surfaces every\r\n                 unassigned confirmed order regardless of date. And\r\n                 \"Capacity, time-conflict, and vehicle gates run\r\n                 before any assignment lands\" is only true for the\r\n                 Auto-assign + Batch paths (both go through\r\n                 dispatchService.assignDriverWithGate). The Apply\r\n                 path on optimised routes still bypasses every\r\n                 gate; that refactor is its own PR. New copy\r\n                 describes what's actually true today. */\r\n              \"Auto-assign drivers and optimise routes for upcoming unassigned orders. Capacity, time-conflict and vehicle gates run on the Auto-assign and Batch buttons before any assignment lands.\"\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Sparkles className=\"h-4 w-4 text-brand-primary\" />Batch suggestions <InfoTooltip content={\"Two unassigned orders close in distance and time. Sending them to one driver saves a trip. Click Batch to auto-assign the top-scored driver to both.\"} />",
+        "desc": "{batchPairs.length}pair{batchPairs.length === 1 ? \"\" : \"s\"}can ride together",
+        "collapsible": true
+      },
+      {
+        "title": "<AlertCircle className=\"h-5 w-5 text-orange-500\" />Unassigned Orders <InfoTooltip content={\"Confirmed orders waiting on a driver. Run the optimiser to distribute these across your team.\"} />",
+        "desc": "{filteredOrders.length}of {unassignedOrders.length}order{unassignedOrders.length === 1 ? \"\" : \"s\"}",
+        "collapsible": false
+      },
+      {
+        "title": "<Truck className=\"h-5 w-5\" />Driver Routes <InfoTooltip content={\"One card per route. Click Apply to lock the route in, the driver gets a notification and the orders move to their portal.\"} />",
+        "desc": "{filteredRoutes.length}optimised route{filteredRoutes.length === 1 ? \"\" : \"s\"}",
+        "collapsible": false
+      },
+      {
+        "title": "<MapPin className=\"h-5 w-5\" />Route Visualisation",
+        "desc": "{selectedRoute ? `Showing optimised route with ${selectedRoute.stops.length} stops` : \"Select a route to view on map\"}",
+        "collapsible": false
+      },
+      {
+        "title": "Route Details &amp; Stops",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/settings.tsx",
+    "route": "/admin/settings",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex items-center gap-2\">\r\n                Settings\r\n                <InfoTooltip\r\n                  content={\r\n                    \"Use the setup cards for specialist areas such as company profile, branding, email, integrations, forms, templates, notifications, and audit logs.\\n\\nUse Operational defaults for pricing, finance, kitchen capacity, dispatch, inventory, and cancellation policy values that drive the system.\"\r\n                  }\r\n                />\r\n              </span>\r\n            }",
+        "subtitle": "\"A clean hub for admin setup plus the shared operational defaults that affect quotes, finance, kitchen capacity, dispatch, and cancellation rules.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/shopping.tsx",
+    "route": "/admin/shopping",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex items-center gap-2 flex-wrap\">\r\n                Smart Shopping\r\n                <InfoTooltip content={\"Looks at your stock, your confirmed orders for the week ahead, and your suppliers, then tells you exactly what to buy and when.\"} />\r\n              </span>\r\n            }",
+        "subtitle": "\"Live procurement brain. Knows what to buy, when to buy it, and which supplier handles it.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<ListChecks className=\"w-5 h-5 text-brand-primary\" />Buy now",
+        "desc": "Items below minimum stock or already short for the next 7 days. Tick to add to your PO list.",
+        "collapsible": false
+      },
+      {
+        "title": "<Calendar className=\"w-5 h-5 text-blue-600\" />Plan ahead",
+        "desc": "Perishables on a 14-day horizon, non-perishables 30. Sorted by buy-by date. Urgent items pulse amber.",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/staff-hours.tsx",
+    "route": "/admin/staff-hours",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Payment History",
+      "Where the rest lives"
+    ],
+    "headers": [
+      {
+        "title": "\"Staff hours\"",
+        "subtitle": "{\r\n              <>\r\n                Clock-in / clock-out audit per staff member, with payments processed on this page. For the full wage roll-up (BCEA overtime + Sunday + public-holiday splits) see{\" \"}\r\n                <Link href={withSlug(\"/admin/wages\")} className=\"font-semibold text-white underline underline-offset-2 hover:text-white/80 inline-flex items-center gap-0.5\">\r\n                  Wages dashboard <ExternalLink className=\"w-3 h-3\" />\r\n                </Link>\r\n                .\r\n              </>\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "Total Staff <InfoTooltip content={\"Number of staff who clocked in at least once during this period.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Total Hours <InfoTooltip content={\"Total hours your team has clocked during this period.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Unpaid <InfoTooltip content={\"What you still owe staff for shifts that have not yet been paid out.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "Paid Out <InfoTooltip content={\"Total paid out to staff during this period.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "{data.staff?.full_name || \"Unknown\"}",
+        "desc": "{data.staff?.role}• {data.staff?.email}",
+        "collapsible": false
+      },
+      {
+        "title": "Payment History <InfoTooltip content={\"Every staff payment in this period, including the method, hours covered and rate paid.\"} />",
+        "desc": "Complete record of all staff payments",
+        "collapsible": true
+      },
+      {
+        "title": "Where the rest lives",
+        "desc": "This page is the live clock-in audit. Pay rates, BCEA splits and the wage report are elsewhere.",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/staff.tsx",
+    "route": "/admin/staff",
+    "kind": "alias",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": [],
+    "headers": [],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/stock.tsx",
+    "route": "/admin/stock",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Stock\"",
+        "subtitle": "{\r\n              <>\r\n                {/* STK-B: operator-language hero copy. \"Pressure feed\"\r\n                    was too clever; this names the three pillars. */}\r\n                What needs your attention today: stock running low, equipment committed for upcoming events, and hire-in orders still pending.\r\n              </>\r\n            }"
+      }
+    ],
+    "cards": [
+      {
+        "title": "<Package className=\"w-4 h-4 text-rose-600\" />Low stock",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<Truck className=\"w-4 h-4 text-sky-600\" />Equipment",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<ShoppingBag className=\"w-4 h-4 text-amber-600\" />Hire-in pending",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<ZapOff className=\"w-4 h-4 sm:w-5 sm:h-5 text-rose-600\" />Stockout risk - next 7 days",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<ListChecks className=\"w-4 h-4 sm:w-5 sm:h-5 text-brand-primary\" />Event readiness - next {equipWindow}days",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<AlertTriangle className=\"w-4 h-4 sm:w-5 sm:h-5 text-amber-600\" />Needs attention",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/subscription.tsx",
+    "route": "/admin/subscription",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "PayFast Flow Test",
+      "Usage This Quarter",
+      "Billing History",
+      "Danger Zone"
+    ],
+    "headers": [
+      {
+        "title": "\"Subscription\"",
+        "subtitle": "\"Your CateringMS plan, usage against plan limits, billing history and account controls.\""
+      },
+      {
+        "title": "\"Subscription\"",
+        "subtitle": "\"Your CateringMS plan, usage against plan limits, billing history and account controls.\""
+      },
+      {
+        "title": "\"Subscription\"",
+        "subtitle": "{\n                expiredAccess\n                  ? \"Your account is suspended. Choose a plan below to restore access.\"\n                  : trialStatus?.isInTrial\n                  ? \"You're on the free trial. Pick a plan before it ends and the switchover is automatic.\"\n                  : \"Pick a plan to keep using CateringMS once your trial ends.\"\n              }"
+      },
+      {
+        "title": "\"Subscription\"",
+        "subtitle": "\"Manage your plan, billing history and account.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "{expiredAccess ? \"Choose a plan to restore access\" : \"Choose a subscription plan\"}",
+        "desc": "Select monthly or annual billing, then continue to secure PayFast checkout.",
+        "collapsible": false
+      },
+      {
+        "title": "{plan.name}",
+        "desc": "<span className=\"text-2xl font-bold text-slate-900\">{formatPrice(price, \"ZAR\")}</span><span className=\"ml-1\">/{billingCycle === \"annual\" ? \"year\" : \"month\"}</span>",
+        "collapsible": false
+      },
+      {
+        "title": "PayFast Flow Test",
+        "desc": "<span className=\"text-2xl font-bold text-slate-900\">R5</span><span className=\"ml-1\">one-time payment</span>",
+        "collapsible": true
+      },
+      {
+        "title": "<AlertTriangle className=\"h-5 w-5 text-rose-600 dark:text-rose-400\" />Could not load your subscription",
+        "desc": "{loadError}",
+        "collapsible": false
+      },
+      {
+        "title": "{trialStatus?.isInTrial ? \"No subscription yet\" : \"No active subscription\"}",
+        "desc": "{trialStatus?.isInTrial ? \"You're inside the free trial. Pick a plan now and the switchover is automatic when the trial ends, no break in service.\" : \"You currently do not have an active subscription. Choose a plan below to get started.\"}",
+        "collapsible": false
+      },
+      {
+        "title": "<CreditCard className=\"h-5 w-5\" />Current Plan <InfoTooltip content={\"Your current plan, how often you are billed, and whether the subscription is active.\"} />",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "<TrendingUp className=\"h-5 w-5\" />Usage This Quarter <InfoTooltip content={\"How many active clients and orders you have used this quarter, compared to your plan's cap.\\n\\nUseful when deciding whether to upgrade.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<Calendar className=\"h-5 w-5\" />Billing History <InfoTooltip content={\"A record of past invoices and whether they were paid successfully.\"} />",
+        "desc": "View your past invoices and payment history",
+        "collapsible": true
+      },
+      {
+        "title": "Danger Zone",
+        "desc": "Irreversible actions for your subscription and account",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/suppliers/[id].tsx",
+    "route": "/admin/suppliers/[id]",
+    "kind": "dynamic",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Purchase summary",
+      "Events during this period",
+      "Products supplied",
+      "Receipts in this window"
+    ],
+    "headers": [
+      {
+        "title": "{supplier?.supplier_name || \"Supplier\"}",
+        "subtitle": "\"Contact details, purchase analytics, linked products and receipts for this supplier.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<TrendingUp className=\"w-4 h-4 text-brand-primary\" />Purchase summary",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<Calendar className=\"w-4 h-4 text-brand-primary\" />Events during this period <Badge variant=\"outline\" className=\"text-[10px] bg-slate-50\">{relatedOrders.length}</Badge>",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<Package className=\"w-4 h-4 text-slate-600\" />Products supplied <Badge variant=\"outline\" className=\"text-[10px] bg-slate-50\">{products.length}</Badge>",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<Receipt className=\"w-4 h-4 text-brand-primary\" />Receipts in this window <Badge variant=\"outline\" className=\"text-[10px] bg-slate-50\">{receipts.length}</Badge>",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/suppliers/index.tsx",
+    "route": "/admin/suppliers",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Suppliers\"",
+        "subtitle": "\"Every supplier you buy from, what they sell you, and what you've spent.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/tax-purchases.tsx",
+    "route": "/admin/tax-purchases",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Tax overview\"",
+        "subtitle": "\"Read-only view of your deductible spend for the accountant. Snapping slips, marking lines and editing the log all happen on the Shopping dashboard.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/teams/cleaning.tsx",
+    "route": "/admin/teams/cleaning",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Cleaning\"",
+        "subtitle": "\"Wash-up, kit return and venue strike.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/teams/drivers.tsx",
+    "route": "/admin/teams/drivers",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Drivers\"",
+        "subtitle": "\"Logistics, deliveries and on-site setup.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/teams/index.tsx",
+    "route": "/admin/teams",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Teams\"",
+        "subtitle": "{\r\n              <>\r\n                Cross-team glance for prep, dispatch, cleaning, and shopping.{\" \"}\r\n                <span className=\"inline-flex items-center gap-1 text-white/80\">\r\n                  <Calendar className=\"h-3.5 w-3.5\" /> {todayLabel}\r\n                </span>\r\n                {regionLabel && (\r\n                  <>\r\n                    {\" \"}\r\n                    <span className=\"inline-flex items-center gap-1 text-white/80\">\r\n                      <MapPin className=\"h-3 w-3\" /> {regionLabel}\r\n                    </span>\r\n                  </>\r\n                )}\r\n              </>\r\n            }"
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/teams/kitchen.tsx",
+    "route": "/admin/teams/kitchen",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Kitchen\"",
+        "subtitle": "\"Prep, plating and pass-through.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/teams/shopping.tsx",
+    "route": "/admin/teams/shopping",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Shopping\"",
+        "subtitle": "\"Procurement, receipts and supplier ops.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/tracking.tsx",
+    "route": "/admin/tracking",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"Live operations\"",
+        "subtitle": "{operationsScope === \"today\"\r\n              ? \"Today's confirmed-and-onwards orders, with live driver pins, prep status, and at-risk flags surfaced first.\"\r\n              : \"All active and upcoming confirmed-and-onwards orders from today forward. Use Today when the floor is running service.\"}"
+      }
+    ],
+    "cards": [
+      {
+        "title": "{<>Live tracking map <InfoTooltip content={\"Pins for every active venue and the last known position of each driver.\\n\\nDriver pins update as their devices report new locations.\"} /></>}",
+        "desc": "",
+        "collapsible": false
+      },
+      {
+        "title": "{<>\r\n                      <MapPin className=\"w-4 h-4\" />\r\n                      {selectedOrder ? \"Order details\" : operationsScope === \"today\" ? \"Today's orders\" : \"Live orders\"}\r\n                    </>}",
+        "desc": "",
+        "collapsible": false
+      }
+    ]
+  },
+  {
+    "file": "src/pages/admin/users.tsx",
+    "route": "/admin/users",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "\"User management\"",
+        "subtitle": "\"Everyone with a staff login: owners, admins, kitchen, drivers, waiters, shopping, cleaning.\""
+      },
+      {
+        "title": "\"User management\"",
+        "subtitle": "\"Everyone with a staff login: owners, admins, kitchen, drivers, waiters, shopping, cleaning. Assign departments here; client portal accounts are managed under /admin/contacts.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/vehicles.tsx",
+    "route": "/admin/vehicles",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex items-center gap-2\">\r\n                Vehicles\r\n                <InfoTooltip\r\n                  className=\"text-white/60 hover:text-white focus-visible:text-white\"\r\n                  content={\"Your fleet plus any vehicles drivers bring themselves.\\n\\nDispatch uses these to suggest the right vehicle for an order, and to flag jobs that need two drivers.\"}\r\n                />\r\n              </span>\r\n            }",
+        "subtitle": "\"Fleet roster. Refrigerated and warmer vehicles unlock cold and hot-chain orders for assignment.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/wages.tsx",
+    "route": "/admin/wages",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex items-center gap-2 flex-wrap\">\r\n                Wages\r\n                <InfoTooltip\r\n                  className=\"text-white/70 hover:text-white\"\r\n                  content=\"Hours x rates roll-up across every department. Drivers run on the dispatch ledger (hourly + distance + callout); kitchen / shopping / cleaning run on the clocked-shift ledger with a BCEA Sunday + public-holiday split.\\n\\nThis page is the only place rand values surface, the team tablet shows hours only.\"\r\n                />\r\n              </span>\r\n            }",
+        "subtitle": "\"Hours and wages for the office only. The kitchen and dispatch tablets never see rates.\""
+      }
+    ],
+    "cards": []
+  },
+  {
+    "file": "src/pages/admin/white-label.tsx",
+    "route": "/admin/white-label",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Logo & Organization",
+      "Color Palette",
+      "Live Preview"
+    ],
+    "headers": [
+      {
+        "title": "{\r\n              <span className=\"flex items-center gap-2\">\r\n                White-label branding\r\n                <InfoTooltip content={\"Set your logo, organisation name, and three brand colours that show up on client portals and emails.\\n\\nSaved to your tenant. Every admin and client logged into your account sees the same branding.\"} className=\"text-white/60 hover:text-white\" />\r\n              </span>\r\n            }",
+        "subtitle": "\"Logo, organisation name, and three brand colours that show on every client surface: portal, public quote pages, public invoices, and outgoing emails.\""
+      }
+    ],
+    "cards": [
+      {
+        "title": "<ImageIcon className=\"w-5 h-5\" />Logo & Organization <InfoTooltip content={\"The name and logo your clients will see across every page they land on.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<Palette className=\"w-5 h-5\" />Color Palette <InfoTooltip content={\"Three colours, primary, secondary, accent, that flow through buttons, gradients, and highlights across the app.\"} />",
+        "desc": "",
+        "collapsible": true
+      },
+      {
+        "title": "<Eye className=\"w-5 h-5\" />Live Preview",
+        "desc": "",
+        "collapsible": true
+      }
+    ]
+  }
+]

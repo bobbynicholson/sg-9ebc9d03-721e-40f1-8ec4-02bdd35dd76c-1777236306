@@ -414,9 +414,22 @@ export function CleaningDutyWidget() {
                     <p className="text-sm font-medium text-slate-900 truncate">
                       {s.profile?.full_name || s.profile?.email || "Team member"}
                     </p>
-                    <p className="text-xs text-slate-500 tabular-nums">
-                      On for {formatDuration(s.duty_started_at)}
-                    </p>
+                    {(() => {
+                      // Over 16 hours means a clock-out was missed.
+                      const started = s.duty_started_at ? new Date(s.duty_started_at) : null;
+                      if (started && Date.now() - started.getTime() > 16 * 3600_000) {
+                        return (
+                          <p className="text-xs text-amber-700" title={`On for ${formatDuration(s.duty_started_at)}`}>
+                            Clocked in since {started.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · clock-out missed?
+                          </p>
+                        );
+                      }
+                      return (
+                        <p className="text-xs text-slate-500 tabular-nums">
+                          On for {formatDuration(s.duty_started_at)}
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     {s.equipment_verified && (

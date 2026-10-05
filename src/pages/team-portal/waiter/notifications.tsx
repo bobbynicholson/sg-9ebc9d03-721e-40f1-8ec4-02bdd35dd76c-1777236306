@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Check, CheckCircle2, ExternalLink, Inbox, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { AlertCircle, Archive, Bell, Check, CheckCircle2, ExternalLink, Inbox, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,6 +81,12 @@ function WaiterNotificationsInner() {
     [notifications],
   );
   const unreadCount = visible.filter((n) => !n.is_read).length;
+  const urgentUnreadCount = visible.filter((n) => {
+    if (n.is_read) return false;
+    const p = effectivePriority(n.priority ?? null, n.created_at);
+    return p === "urgent" || p === "high";
+  }).length;
+  const staleCount = visible.filter((n) => isStaleNotification(n.created_at)).length;
   const chipsReady = loaded && !loadError;
 
   const openNotification = async (n: Notification) => {
@@ -169,20 +177,29 @@ function WaiterNotificationsInner() {
       }
       overview={
         loadError && !loaded ? undefined : (
+          // Same inbox summary band as the kitchen and shopping portals.
           <PortalOverview
-            eyebrow="Inbox"
+            eyebrow="Service inbox"
             title={
               loading && !loaded
                 ? "Loading your alerts"
                 : unreadCount > 0
-                  ? "Unread service updates need attention"
-                  : "No unread waiter alerts"
+                  ? "Start with the unread alerts, newest first"
+                  : "Inbox clear, nothing needs a look"
             }
-            description="Assignments and order changes for service staff land here. Open the linked order brief before travelling to the venue."
+            description="New assignments and order changes for service staff land here. Open the linked order brief before you travel to the venue."
             items={[
-              { label: "Unread", value: unreadCount, helper: unreadCount > 0 ? "Needs attention" : "All clear", icon: Bell, tone: unreadCount > 0 ? "danger" : "success" },
-              { label: "Visible", value: visible.length, helper: tab === "unread" ? "Unread tab" : "All notifications", icon: ExternalLink, tone: "neutral" },
+              { label: "Unread", value: unreadCount, helper: unreadCount > 0 ? "Needs a look" : "All clear", icon: Bell, tone: unreadCount > 0 ? "danger" : "success" },
+              { label: "Urgent", value: urgentUnreadCount, helper: "High-priority unread", icon: AlertCircle, tone: urgentUnreadCount > 0 ? "warning" : "neutral" },
+              { label: "In inbox", value: visible.length, helper: tab === "unread" ? "Unread tab" : "Loaded alerts", icon: Inbox, tone: "neutral" },
+              { label: "Stale", value: staleCount, helper: `Older than ${STALE_NOTIFICATION_DAYS} days`, icon: Archive, tone: "neutral" },
             ]}
+            actions={
+              <Button asChild size="sm" variant="outline">
+                <Link href={withSlug("/team-portal/waiter/dashboard")}>Service today</Link>
+              </Button>
+            }
+            splitCards
           />
         )
       }

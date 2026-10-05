@@ -1,0 +1,112 @@
+﻿PASS /admin/dashboard
+PASS /admin/ai-brain
+PASS /admin/ai-brain/access
+PASS /admin/audit-logs
+PASS /admin/calendar
+PASS /admin/cashflow-dashboard
+PASS /admin/cleaning-schedule
+PASS /admin/client-search
+PASS /admin/company-profile
+PASS /admin/contacts
+PASS /admin/daily-operations
+PASS /admin/dispatch-queue
+PASS /admin/driver-management
+PASS /admin/driver-schedule
+PASS /admin/driver-settlement
+PASS /admin/email-settings
+PASS /admin/email-templates
+PASS /admin/equipment-damages
+PASS /admin/equipment
+PASS /admin/event-profitability
+PASS /admin/exceptions
+PASS /admin/financial-dashboard
+PASS /admin/fixed-costs
+PASS /admin/hr-solutions
+PASS /admin/integrations
+PASS /admin/integrations/embed
+PASS /admin/inventory-recipes
+PASS /admin/inventory-tracking
+PASS /admin/inventory
+PASS /admin/invoices
+PASS /admin/kitchen-schedule
+PASS /admin/kitchen-settings
+PASS /admin/kitchen-settlement
+PASS /admin/kitchen-staff
+PASS /admin/leads
+PASS /admin/leads/new
+PASS /admin/live-operations
+PASS /admin/menu
+PASS /admin/money-health
+PASS /admin/notification-settings
+PASS /admin/notifications
+PASS /admin/offering
+PASS /admin/onboarding/clients
+PASS /admin/onboarding/import
+PASS /admin/onboarding/imports
+PASS /admin/onboarding
+PASS /admin/onboarding/receipts
+PASS /admin/order-assignments
+PASS /admin/orders
+PASS /admin/orders/delivery-sheet
+PASS /admin/outsource-providers
+PASS /admin/outstanding-balances
+PASS /admin/payables
+PASS /admin/payment-gateways
+PASS /admin/public-holidays
+PASS /admin/quotes
+PASS /admin/quotes/new
+PASS /admin/recurring-invoices
+PASS /admin/refunds
+PASS /admin/regions
+PASS /admin/reviews
+PASS /admin/route-planning
+PASS /admin/settings
+PASS /admin/shopping
+PASS /admin/staff-hours
+PASS /admin/stock
+PASS /admin/subscription
+PASS /admin/suppliers
+PASS /admin/tax-purchases
+PASS /admin/teams/cleaning
+PASS /admin/teams/drivers
+PASS /admin/teams
+PASS /admin/teams/kitchen
+PASS /admin/teams/shopping
+PASS /admin/tracking
+PASS /admin/users
+PASS /admin/vehicles
+PASS /admin/wages
+PASS /admin/white-label
+PASS /admin/clients
+REVIEW /admin/dispatch: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/spit-braai-delivery/admin/dispatch
+Call log:
+[2m  - navigating to "http://localhost:3001/spit-braai-delivery/admin/dispatch", waiting until "domcontentloaded"[22m
+
+REVIEW /admin/integrations/embed/new: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/spit-braai-delivery/admin/integrations/embed/new
+Call log:
+[2m  - navigating to "http://localhost:3001/spit-braai-delivery/admin/integrations/embed/new", waiting until "domcontentloaded"[22m
+
+REVIEW /admin/kitchen-duty-tracking: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/spit-braai-delivery/admin/kitchen-duty-tracking
+Call log:
+[2m  - navigating to "http://localhost:3001/spit-braai-delivery/admin/kitchen-duty-tracking", waiting until "domcontentloaded"[22m
+
+REVIEW /admin/messaging-templates: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/spit-braai-delivery/admin/messaging-templates
+Call log:
+[2m  - navigating to "http://localhost:3001/spit-braai-delivery/admin/messaging-templates", waiting until "domcontentloaded"[22m
+
+REVIEW /admin/package: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/spit-braai-delivery/admin/package
+Call log:
+[2m  - navigating to "http://localhost:3001/spit-braai-delivery/admin/package", waiting until "domcontentloaded"[22m
+
+REVIEW /admin/packages/[id]: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/spit-braai-delivery/admin/packages/[id]
+Call log:
+[2m  - navigating to "http://localhost:3001/spit-braai-delivery/admin/packages/[id]", waiting until "domcontentloaded"[22m
+
+REVIEW /admin/packages: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/spit-braai-delivery/admin/packages
+Call log:
+[2m  - navigating to "http://localhost:3001/spit-braai-delivery/admin/packages", waiting until "domcontentloaded"[22m
+
+REVIEW /admin/staff: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/spit-braai-delivery/admin/staff
+Call log:
+[2m  - navigating to "http://localhost:3001/spit-braai-delivery/admin/staff", waiting until "domcontentloaded"[22m
+

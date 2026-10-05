@@ -1,0 +1,28 @@
+[
+  {
+    "route": "/spit-braai-delivery/admin/teams/cleaning",
+    "errors": [],
+    "height": 1756,
+    "overflow": false,
+    "h1": "Admin",
+    "sections": [
+      "open:Cleaning roster",
+      "closed:Daily work diary",
+      "closed:Recent notes"
+    ],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/spit-braai-delivery/admin/teams/kitchen",
+    "errors": [],
+    "height": 1001,
+    "overflow": false,
+    "h1": "Admin",
+    "sections": [
+      "closed:Kitchen roster",
+      "closed:Daily work diary",
+      "closed:Recent notes"
+    ],
+    "bigOpenCards": []
+  }
+]

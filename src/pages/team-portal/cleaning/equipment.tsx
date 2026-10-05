@@ -348,7 +348,7 @@ function CleaningEquipmentPageInner() {
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {i.condition && (
-                      <Badge variant="outline" className={`${conditionTone[i.condition] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs`}>
+                      <Badge variant="outline" className={`${conditionTone[i.condition] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize`}>
                         {i.condition}
                       </Badge>
                     )}
@@ -364,11 +364,12 @@ function CleaningEquipmentPageInner() {
                     {i.category && (
                       <Link
                         href={withSlug(`/team-portal/cleaning/workflows?category=${encodeURIComponent(i.category)}`)}
-                        className="inline-flex items-center text-xs text-brand-primary dark:text-brand-primary hover:underline"
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-brand-primary hover:bg-brand-primary/5 hover:underline dark:text-brand-primary"
                         title={`How to clean ${i.category}`}
                       >
                         <BookOpen className="h-4 w-4" />
-                        <span className="sr-only">How to clean {i.category}</span>
+                        <span className="hidden sm:inline">How to clean</span>
+                        <span className="sr-only sm:hidden">How to clean {i.category}</span>
                       </Link>
                     )}
                     <Button size="sm" variant="outline" onClick={() => openVerify(i)}>

@@ -84,7 +84,19 @@ interface Attendance {
   notes: string | null;
 }
 
-export function WaiterServicePanel() {
+/** Counts the waiter dashboard shows as stat tiles. */
+export interface WaiterServiceSummary {
+  loading: boolean;
+  failed: boolean;
+  /** Assigned events in the next 48 hours. */
+  events: number;
+  today: number;
+  guests: number;
+  /** Events whose service is marked complete. */
+  completed: number;
+}
+
+export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: WaiterServiceSummary) => void } = {}) {
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
@@ -173,6 +185,20 @@ export function WaiterServicePanel() {
   }, [user?.company_id, user?.id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Report counts to the page (waiter dashboard tiles). Display only.
+  useEffect(() => {
+    if (!onSummary) return;
+    const today = toLocalISO(new Date());
+    onSummary({
+      loading,
+      failed: Boolean(loadError),
+      events: orders.length,
+      today: orders.filter((o) => o.event_date === today).length,
+      guests: orders.reduce((sum, o) => sum + (Number(o.guest_count) || 0), 0),
+      completed: orders.filter((o) => Boolean(attendance[o.id]?.event_complete_at)).length,
+    });
+  }, [onSummary, loading, loadError, orders, attendance]);
 
   // WTR-A: realtime sub on event_attendance so a stamp from another
   // device (admin override / shared tablet) updates this UI live.
@@ -347,14 +373,15 @@ export function WaiterServicePanel() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <ChefHat className="w-5 h-5 text-brand-primary" />
-            Service today
+            Your service events
+            <span className="ml-auto text-xs font-normal text-slate-500 dark:text-slate-400">Next 48 hours</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-slate-500">
-            <PartyPopper className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-            <p className="text-sm font-medium text-slate-700">No events to staff</p>
-            <p className="text-xs mt-1">Events you're assigned to in the next 48h will appear here.</p>
+          <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+            <PartyPopper className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+            <p className="text-sm font-medium text-slate-700 dark:text-slate-200">No events assigned yet</p>
+            <p className="text-xs mt-1">When the office puts you on an event in the next 48 hours, it shows up here with the venue, time and order brief.</p>
           </div>
         </CardContent>
       </Card>
@@ -366,7 +393,7 @@ export function WaiterServicePanel() {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <ChefHat className="w-5 h-5 text-brand-primary" />
-          Service today
+          Your service events
           <Badge variant="outline" className="ml-auto text-[10px]">{orders.length}</Badge>
         </CardTitle>
       </CardHeader>

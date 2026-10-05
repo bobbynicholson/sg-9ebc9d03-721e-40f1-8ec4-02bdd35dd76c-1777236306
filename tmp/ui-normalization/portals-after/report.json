@@ -1,0 +1,466 @@
+[
+  {
+    "portal": "cleaning",
+    "route": "dashboard",
+    "path": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning desk",
+          "Cleaning roster"
+        ],
+        "overflow": 0,
+        "height": 2018,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning desk",
+          "Cleaning roster"
+        ],
+        "overflow": 0,
+        "height": 2376,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "tasks",
+    "path": "/spit-braai-delivery/team-portal/cleaning/tasks",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 971,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "schedules",
+    "path": "/spit-braai-delivery/team-portal/cleaning/schedules",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning schedules"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning schedules"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning schedules"
+        ],
+        "overflow": 0,
+        "height": 962,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "supplies",
+    "path": "/spit-braai-delivery/team-portal/cleaning/supplies",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning supplies"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning supplies"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning supplies"
+        ],
+        "overflow": 0,
+        "height": 1107,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "equipment",
+    "path": "/spit-braai-delivery/team-portal/cleaning/equipment",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment verification"
+        ],
+        "overflow": 0,
+        "height": 1966,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment verification"
+        ],
+        "overflow": 0,
+        "height": 2006,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment verification"
+        ],
+        "overflow": 0,
+        "height": 2892,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "damage",
+    "path": "/spit-braai-delivery/team-portal/cleaning/damage",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damage reports"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damage reports"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damage reports"
+        ],
+        "overflow": 0,
+        "height": 1023,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "workflows",
+    "path": "/spit-braai-delivery/team-portal/cleaning/workflows",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning workflows"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning workflows"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Cleaning workflows"
+        ],
+        "overflow": 0,
+        "height": 1009,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "notifications",
+    "path": "/spit-braai-delivery/team-portal/cleaning/notifications",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 2139,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 2395,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 3599,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "settings",
+    "path": "/spit-braai-delivery/team-portal/cleaning/settings",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1403,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1459,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 898,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  }
+]

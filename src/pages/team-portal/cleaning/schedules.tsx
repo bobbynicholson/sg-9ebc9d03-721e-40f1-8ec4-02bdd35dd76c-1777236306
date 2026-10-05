@@ -185,9 +185,8 @@ function CleaningSchedulesPageInner() {
         icon={Calendar}
         subheading={
           <>
-            Dated cleaning checklists with a cadence label for each area. Open the{" "}
-            <a href={withSlug("/team-portal/cleaning/tasks")} className="underline">tasks</a>{" "}
-            board for start, complete, and notes.
+            Repeating cleaning checklists for each area. Start and complete them on the{" "}
+            <a href={withSlug("/team-portal/cleaning/tasks")} className="underline">task board</a>.
           </>
         }
         headerAction={

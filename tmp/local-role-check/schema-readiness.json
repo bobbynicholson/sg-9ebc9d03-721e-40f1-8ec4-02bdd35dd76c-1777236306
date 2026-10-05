@@ -1,0 +1,42 @@
+[
+  {
+    "table": "payment_attempts",
+    "ready": true,
+    "errorCode": null
+  },
+  {
+    "table": "payment_gateway_events",
+    "ready": true,
+    "errorCode": null
+  },
+  {
+    "table": "payment_receipt_outbox",
+    "ready": true,
+    "errorCode": null
+  },
+  {
+    "table": "payfast_recovery_cursors",
+    "ready": true,
+    "errorCode": null
+  },
+  {
+    "table": "payment_gateway_credential_versions",
+    "ready": true,
+    "errorCode": null
+  },
+  {
+    "table": "orders",
+    "ready": true,
+    "errorCode": null
+  },
+  {
+    "table": "invoices",
+    "ready": true,
+    "errorCode": null
+  },
+  {
+    "table": "quotes",
+    "ready": true,
+    "errorCode": null
+  }
+]

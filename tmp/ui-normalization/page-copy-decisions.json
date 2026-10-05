@@ -1,0 +1,258 @@
+[
+  {
+    "route": "/admin/ai-brain",
+    "edits": 1
+  },
+  {
+    "route": "/admin/ai-brain/access",
+    "edits": 1
+  },
+  {
+    "route": "/admin/audit-logs",
+    "edits": 1
+  },
+  {
+    "route": "/admin/calendar",
+    "edits": 3
+  },
+  {
+    "route": "/admin/cashflow-dashboard",
+    "edits": 2
+  },
+  {
+    "route": "/admin/cleaning-schedule",
+    "edits": 1
+  },
+  {
+    "route": "/admin/company-profile",
+    "edits": 1
+  },
+  {
+    "route": "/admin/contacts",
+    "edits": 1
+  },
+  {
+    "route": "/admin/daily-operations",
+    "edits": 1
+  },
+  {
+    "route": "/admin/dashboard",
+    "edits": 1
+  },
+  {
+    "route": "/admin/driver-management",
+    "edits": 2
+  },
+  {
+    "route": "/admin/driver-schedule",
+    "edits": 1
+  },
+  {
+    "route": "/admin/driver-settlement",
+    "edits": 1
+  },
+  {
+    "route": "/admin/email-settings",
+    "edits": 1
+  },
+  {
+    "route": "/admin/email-templates",
+    "edits": 1
+  },
+  {
+    "route": "/admin/equipment",
+    "edits": 1
+  },
+  {
+    "route": "/admin/event-profitability",
+    "edits": 1
+  },
+  {
+    "route": "/admin/exceptions",
+    "edits": 1
+  },
+  {
+    "route": "/admin/financial-dashboard",
+    "edits": 6
+  },
+  {
+    "route": "/admin/hr-solutions",
+    "edits": 1
+  },
+  {
+    "route": "/admin/integrations",
+    "edits": 2
+  },
+  {
+    "route": "/admin/integrations/embed",
+    "edits": 1
+  },
+  {
+    "route": "/admin/inventory",
+    "edits": 1
+  },
+  {
+    "route": "/admin/invoices",
+    "edits": 1
+  },
+  {
+    "route": "/admin/kitchen-schedule",
+    "edits": 1
+  },
+  {
+    "route": "/admin/kitchen-settings",
+    "edits": 1
+  },
+  {
+    "route": "/admin/kitchen-staff",
+    "edits": 1
+  },
+  {
+    "route": "/admin/leads/new",
+    "edits": 1
+  },
+  {
+    "route": "/admin/menu",
+    "edits": 1
+  },
+  {
+    "route": "/admin/money-health",
+    "edits": 1
+  },
+  {
+    "route": "/admin/notification-settings",
+    "edits": 6
+  },
+  {
+    "route": "/admin/notifications",
+    "edits": 1
+  },
+  {
+    "route": "/admin/offering",
+    "edits": 1
+  },
+  {
+    "route": "/admin/onboarding/import",
+    "edits": 1
+  },
+  {
+    "route": "/admin/onboarding/imports",
+    "edits": 1
+  },
+  {
+    "route": "/admin/onboarding",
+    "edits": 2
+  },
+  {
+    "route": "/admin/order-assignments",
+    "edits": 1
+  },
+  {
+    "route": "/admin/orders",
+    "edits": 1
+  },
+  {
+    "route": "/admin/outsource-providers/[id]",
+    "edits": 1
+  },
+  {
+    "route": "/admin/outsource-providers",
+    "edits": 1
+  },
+  {
+    "route": "/admin/outstanding-balances",
+    "edits": 1
+  },
+  {
+    "route": "/admin/payment-gateways",
+    "edits": 2
+  },
+  {
+    "route": "/admin/public-holidays",
+    "edits": 1
+  },
+  {
+    "route": "/admin/quotes/[id]",
+    "edits": 6
+  },
+  {
+    "route": "/admin/quotes",
+    "edits": 1
+  },
+  {
+    "route": "/admin/recurring-invoices",
+    "edits": 1
+  },
+  {
+    "route": "/admin/refunds",
+    "edits": 1
+  },
+  {
+    "route": "/admin/regions",
+    "edits": 1
+  },
+  {
+    "route": "/admin/reviews",
+    "edits": 1
+  },
+  {
+    "route": "/admin/route-planning",
+    "edits": 1
+  },
+  {
+    "route": "/admin/settings",
+    "edits": 1
+  },
+  {
+    "route": "/admin/shopping",
+    "edits": 1
+  },
+  {
+    "route": "/admin/subscription",
+    "edits": 1
+  },
+  {
+    "route": "/admin/suppliers/[id]",
+    "edits": 1
+  },
+  {
+    "route": "/admin/suppliers",
+    "edits": 1
+  },
+  {
+    "route": "/admin/tax-purchases",
+    "edits": 1
+  },
+  {
+    "route": "/admin/teams/cleaning",
+    "edits": 1
+  },
+  {
+    "route": "/admin/teams/drivers",
+    "edits": 1
+  },
+  {
+    "route": "/admin/teams/kitchen",
+    "edits": 1
+  },
+  {
+    "route": "/admin/teams/shopping",
+    "edits": 1
+  },
+  {
+    "route": "/admin/users",
+    "edits": 2
+  },
+  {
+    "route": "/admin/vehicles",
+    "edits": 1
+  },
+  {
+    "route": "/admin/wages",
+    "edits": 1
+  },
+  {
+    "route": "/admin/white-label",
+    "edits": 5
+  }
+]

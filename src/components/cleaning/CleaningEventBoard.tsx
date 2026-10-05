@@ -201,12 +201,14 @@ export function CleaningEventBoard() {
       </CardHeader>
       <CardContent>
         {allEmpty ? (
-          <div className="text-center py-10">
-            <Sparkles className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-            <p className="font-medium text-slate-700">No events to track right now.</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              When an order moves to <span className="font-mono text-[11px]">confirmed</span>, a handover row lands in <span className="font-semibold">Expected</span>. When the equipment comes back, it flips to <span className="font-semibold">In progress</span>.
-            </p>
+          <div className="flex items-start gap-3 py-2">
+            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-slate-300" />
+            <div>
+              <p className="text-sm font-medium text-slate-700">No events to track right now.</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Confirmed events appear here as <span className="font-semibold">Expected</span>, and move to <span className="font-semibold">In progress</span> when the equipment comes back.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
