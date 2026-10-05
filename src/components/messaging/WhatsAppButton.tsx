@@ -132,12 +132,19 @@ export function WhatsAppButton(props: Props) {
   // the lifetime of the mount. Errors / missing rows fall back to
   // "not opted out" so we don't accidentally hide the button just
   // because the profile fetch failed.
+  // Resolved on first open, not on mount: list pages render one button
+  // per row, and checking every row up front fired dozens of lookups
+  // before anyone touched WhatsApp.
   const [autoOptedOut, setAutoOptedOut] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [optOutRequested, setOptOutRequested] = useState(false);
+  useEffect(() => { if (open) setOptOutRequested(true); }, [open]);
   useEffect(() => {
     if (props.kind !== "client" || !clientId) {
       setAutoOptedOut(false);
       return;
     }
+    if (!optOutRequested) return;
     let cancelled = false;
     (async () => {
       const { data: clientRow, error: clientRowError } = await supabase
@@ -162,7 +169,7 @@ export function WhatsAppButton(props: Props) {
       setAutoOptedOut((profileRow as any)?.whatsapp_opt_in === false);
     })();
     return () => { cancelled = true; };
-  }, [clientId, props.kind]);
+  }, [clientId, props.kind, optOutRequested]);
 
   const isOptedOut = props.kind === "client" && (optedOut || autoOptedOut);
 
@@ -194,7 +201,6 @@ export function WhatsAppButton(props: Props) {
     return props.templates ?? DEFAULT_STAFF_TEMPLATES;
   }, [props.kind, "templates" in props ? props.templates : null]);
 
-  const [open, setOpen] = useState(false);
   const [pickedKey, setPickedKey] = useState<string>(
     defaultTemplate ?? templateKeys[0],
   );
@@ -322,7 +328,8 @@ export function WhatsAppButton(props: Props) {
   // for this client and why - silent hiding would just confuse.
   if (isOptedOut) {
     return (
-      <Popover>
+      // Opened before the opt-out resolved: show the notice straight away.
+      <Popover defaultOpen={open}>
         <PopoverTrigger asChild>
           <Button
             type="button"
