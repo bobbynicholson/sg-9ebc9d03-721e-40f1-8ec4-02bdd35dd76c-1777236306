@@ -18,16 +18,17 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { mapColumnsViaAI } from "@/lib/importAi";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { isTextAiConfigured } from "@/lib/ai/textLlm";
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
 // Fields the importer understands. Keys must match the importer's row
 // shape and /api/onboarding/clients/bulk's RowInput.
 export const CLIENT_IMPORT_FIELDS: Array<{ key: string; description: string }> = [
-  { key: "name", description: "Contact person's first name, or their full name when there is no surname column" },
+  { key: "name", description: "(required, unless a company name column exists) Contact person's first name, or their full name when there is no surname column" },
   { key: "surname", description: "Contact person's last name / family name" },
   { key: "company_name", description: "Business / company / organisation name (becomes the client name; the person is kept as the contact)" },
-  { key: "email", description: "Client email address" },
+  { key: "email", description: "(required) Client email address" },
   { key: "phone", description: "Main phone number (any type)" },
   { key: "mobile_number", description: "Mobile / cell phone number" },
   { key: "landline_number", description: "Landline / office / home phone number" },
@@ -51,7 +52,7 @@ const VALID_KEYS = new Set(CLIENT_IMPORT_FIELDS.map((f) => f.key));
 
 const MAX_HEADERS = 80;
 const MAX_HEADER_LEN = 120;
-const MAX_SAMPLE_ROWS = 3;
+const MAX_SAMPLE_ROWS = 5;
 const MAX_CELL_LEN = 200;
 
 const clip = (v: unknown, n: number) => String(v ?? "").slice(0, n);
@@ -98,7 +99,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return out;
   });
 
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.GROQ_API_KEY) {
+  if (!isTextAiConfigured()) {
     return res.status(503).json({
       error: "AI column matching isn't configured on this server.",
       code: "ai_unavailable",

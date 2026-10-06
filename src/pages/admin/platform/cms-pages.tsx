@@ -268,7 +268,7 @@ function CMSPageManagement() {
     } catch (e: any) {
       toast({
         title: "AI draft failed",
-        description: dbErrorMessage(e, { fallback: "Check ANTHROPIC_API_KEY on the server." }),
+        description: dbErrorMessage(e, { fallback: "Check the AI keys (OPENROUTER_API_KEY / GROQ_API_KEY / OPENAI_API_KEY) on the server." }),
         variant: "destructive",
       });
     } finally {

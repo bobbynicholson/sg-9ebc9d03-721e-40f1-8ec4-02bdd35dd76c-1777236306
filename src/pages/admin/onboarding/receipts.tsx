@@ -61,8 +61,7 @@ function ReceiptsImportPage() {
   const { withSlug } = useTenantHref();
 
   // Preflight: the scan endpoint 500s outright when the server has no
-  // AI key (ANTHROPIC_API_KEY / GROQ_API_KEY), which is the case in
-  // prod today. Probe the quota endpoint (which now reports the same
+  // vision AI key (GROQ / OPENROUTER / OPENAI / ANTHROPIC). Probe the quota endpoint (which now reports the same
   // gate) so the operator sees a clear offline banner up front instead
   // of staging 20 photos that are guaranteed to fail. Best effort: if
   // the probe itself fails we say nothing here and the scanner's own
@@ -154,7 +153,7 @@ function ReceiptsImportPage() {
                   <div>
                     <p className="font-semibold text-rose-900">Receipt scanning is offline on this server</p>
                     <p className="text-xs text-rose-800/90 mt-1 leading-relaxed">
-                      The server has no AI key configured (ANTHROPIC_API_KEY or GROQ_API_KEY), so every
+                      The server has no AI key configured (GROQ_API_KEY, OPENROUTER_API_KEY or OPENAI_API_KEY), so every
                       scan will fail. Ask your platform administrator to add the key to the production
                       environment variables and redeploy, then check again. Photos you pick are not
                       uploaded until you press Scan, so nothing is lost in the meantime.

@@ -15,6 +15,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { isVisionAiConfigured } from "@/lib/ai/textLlm";
 
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -39,7 +40,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // Mirrors the gate in receipts/upload.ts so the scanner pages can
       // warn the operator up front instead of letting a 20-photo batch
       // 500 on submit when no AI key is configured on the server.
-      ai_configured: !!(process.env.ANTHROPIC_API_KEY || process.env.GROQ_API_KEY),
+      ai_configured: isVisionAiConfigured(),
     });
   } catch (e: unknown) {
     return res.status(500).json({ error: e instanceof Error ? dbErrorMessage(e) : "quota lookup failed" });

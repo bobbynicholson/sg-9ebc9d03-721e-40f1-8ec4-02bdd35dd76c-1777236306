@@ -328,12 +328,6 @@ function canAutoAccept(columns: ColumnChoice[]): boolean {
     && columns.every((c) => c.via !== "ai" || (c.confidence ?? 0) >= AUTO_ACCEPT_CONFIDENCE);
 }
 
-/** True when some column with data is still unmatched (worth asking AI). */
-function hasUnmatchedData(batch: PendingBatch): boolean {
-  const rows = batch.firstRowIsData ? [batch.headers, ...batch.rows] : batch.rows;
-  return batch.columns.some((c, col) => c.target === "skip" && rows.slice(0, 20).some((r) => String(r[col] ?? "").trim() !== ""));
-}
-
 function ProtectedClientImport() {
   // OWNER admitted alongside the admin tier: the API allowlist in
   // /api/onboarding/clients/bulk already includes owner and the
@@ -388,7 +382,7 @@ function ClientImportPage() {
   useEffect(() => () => aiAbort.current?.abort(), []);
 
   /** Start column matching for a freshly loaded table. */
-  const stageTable = (source: string, headers: string[], body: string[][], sheets?: SheetTable[], sheetName?: string, autoAdvance = true) => {
+  const stageTable = (source: string, headers: string[], body: string[][], sheets?: SheetTable[], sheetName?: string) => {
     aiAbort.current?.abort();
     const cleanHeaders = headers.map((h) => String(h ?? "").trim());
     const byName = columnsByName(cleanHeaders);
@@ -413,12 +407,11 @@ function ClientImportPage() {
     setAiNote(null);
     setResult(null);
     setAutoAccepted(null);
-    // Everything recognised by name already: no AI call needed.
-    if (autoAdvance && !hasUnmatchedData(batch) && canAutoAccept(batch.columns)) {
-      commitBatch(batch, "name");
-      return;
-    }
-    void matchWithAi(batch, autoAdvance);
+    // Every column goes to AI, even when the names look familiar: it
+    // reads the values too, and catches a familiar header holding the
+    // wrong data. The operator then confirms the matches before any row
+    // is built, so nothing is accepted behind their back.
+    void matchWithAi(batch, false);
   };
 
   /** Turn a matched batch into review rows. */
@@ -519,7 +512,7 @@ function ClientImportPage() {
   const switchSheet = (name: string) => {
     const t = pending?.sheets?.find((x) => x.name === name);
     if (!pending || !t) return;
-    stageTable(pending.source, t.headers, t.rows, pending.sheets, t.name, false);
+    stageTable(pending.source, t.headers, t.rows, pending.sheets, t.name);
   };
 
   const toggleFirstRowIsData = () => {
@@ -542,7 +535,7 @@ function ClientImportPage() {
     aiAbort.current?.abort();
     const controller = new AbortController();
     aiAbort.current = controller;
-    const timer = window.setTimeout(() => controller.abort(), 40_000);
+    const timer = window.setTimeout(() => controller.abort(), 60_000);
     setAiBusy(true);
     setAiNote(null);
     // Fallback when AI can't help: accept the name matches if they are enough.
@@ -559,7 +552,7 @@ function ClientImportPage() {
       const headers = batch.firstRowIsData ? batch.headers.map((_, i) => `Column ${i + 1}`) : batch.headers;
       const samples = (batch.firstRowIsData ? [batch.headers, ...batch.rows] : batch.rows)
         .filter((r) => r.some((c) => c.trim() !== ""))
-        .slice(0, 3);
+        .slice(0, 5);
       const r = await fetch("/api/onboarding/clients/map-columns", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -1189,9 +1182,23 @@ function ClientImportPage() {
                     <Button variant="ghost" size="sm" onClick={clearAll} disabled={submitting}>
                       <Trash2 className="w-4 h-4 mr-1.5" /> Clear all
                     </Button>
+                    {counts.bad > 0 && !submitting && (
+                      <Button
+                        variant="outline"
+                        onClick={submit}
+                        disabled={counts.ok === 0}
+                        className="border-amber-300 text-amber-900 hover:bg-amber-50"
+                        title="Rows with errors stay here so you can fix and import them later"
+                      >
+                        Skip {counts.bad} with errors, import {counts.ok}
+                      </Button>
+                    )}
                     <Button
                       onClick={submit}
-                      disabled={submitting || counts.ok === 0}
+                      // Locked until every row is fixed; "Skip ... import"
+                      // is the explicit way to import with errors left.
+                      disabled={submitting || counts.ok === 0 || counts.bad > 0}
+                      title={counts.bad > 0 ? `Fix the ${counts.bad} row${counts.bad === 1 ? "" : "s"} with errors first, or skip them` : undefined}
                       className="bg-brand-primary hover:opacity-90"
                     >
                       {submitting
@@ -1201,6 +1208,22 @@ function ClientImportPage() {
                     </Button>
                   </div>
                 </div>
+
+                {!submitting && (counts.bad > 0 ? (
+                  <div className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <p>
+                      <strong>{counts.bad} row{counts.bad === 1 ? " has" : "s have"} errors</strong>, so Import is locked.
+                      Fix them in the table below (or with <button type="button" className="font-semibold underline underline-offset-2" onClick={() => openResolve()}>Fix one by one</button>),
+                      or press <strong>Skip {counts.bad} with errors</strong> to import the {counts.ok} good row{counts.ok === 1 ? "" : "s"} now.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mb-4 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                    <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <p><strong>No errors.</strong> All {counts.ok} row{counts.ok === 1 ? " is" : "s are"} ready to import.</p>
+                  </div>
+                ))}
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

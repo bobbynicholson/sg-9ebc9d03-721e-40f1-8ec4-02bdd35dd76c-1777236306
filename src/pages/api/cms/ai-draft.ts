@@ -3,7 +3,7 @@
  * POST /api/cms/ai-draft
  *
  * Generates a blog-post draft for the cateringms.com marketing site
- * using Anthropic. Super-admin only - the marketing CMS is platform
+ * using gpt-oss-20b (src/lib/ai/textLlm.ts). Super-admin only - the marketing CMS is platform
  * scope, not tenant.
  *
  * Body:
@@ -21,57 +21,8 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { withApiLogging } from "@/lib/withApiLogging";
-
-
-const DEFAULT_MODEL = process.env.ANTHROPIC_BLOG_MODEL || "claude-sonnet-4-5";
-
-let _client: any = null;
-function client(): any {
-  if (_client) return _client;
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured on the server.");
-  _client = new (Anthropic as any)({ apiKey });
-  return _client;
-}
-
-// Groq fallback (OpenAI-compatible). Used when ANTHROPIC_API_KEY is
-// absent or Anthropic errors. JSON mode instead of tool-use.
-const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
-const GROQ_BLOG_MODEL = process.env.GROQ_BLOG_MODEL || "llama-3.3-70b-versatile";
-
-async function callGroqBlog(system: string, user: string): Promise<{ data: any; tokens_in: number; tokens_out: number }> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
-  const res = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: GROQ_BLOG_MODEL,
-      temperature: 0.4,
-      max_tokens: 4096,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Groq API ${res.status}: ${t.slice(0, 300) || res.statusText}`);
-  }
-  const json: any = await res.json();
-  const content: string = json?.choices?.[0]?.message?.content ?? "";
-  let data: any = null;
-  try { data = JSON.parse(content); } catch {
-    const f = content.indexOf("{");
-    const l = content.lastIndexOf("}");
-    if (f !== -1 && l > f) { try { data = JSON.parse(content.slice(f, l + 1)); } catch { /* give up */ } }
-  }
-  return { data, tokens_in: json?.usage?.prompt_tokens ?? 0, tokens_out: json?.usage?.completion_tokens ?? 0 };
-}
+import { callTextJson, isTextAiConfigured, TEXT_AI_KEYS_HINT } from "@/lib/ai/textLlm";
 
 const SYSTEM_PROMPT = `You write blog posts for CateringMS, a multi-tenant SaaS for South African catering businesses (companies that run spit braais, weddings, corporate events). The CateringMS marketing site lives at cateringms.com. Posts you write get published there.
 
@@ -90,7 +41,12 @@ Banned phrases:
 - "in today's fast-paced world"
 - AI-tone openers ("In the world of..." / "When it comes to...")
 
-Output via the return_blog_post tool. Never write free prose outside the tool.`;
+Return ONLY a JSON object (no markdown fences) with keys:
+- "title": punchy headline, 6-12 words, no clickbait
+- "slug": URL slug from the title, lowercase a-z 0-9 hyphens only, max 80 chars
+- "content": full Markdown body. One strong intro paragraph with no heading, ## for section headings, aim for the requested word count +/-10%
+- "meta_description": SEO meta description, 150-155 characters, plain text
+- "meta_keywords": 5-8 comma-separated SEO keywords`;
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -138,13 +94,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       seo_keywords: typeof keywords === "string" ? keywords.trim() : undefined,
     });
 
-    // Provider chain: Anthropic first (tool-use) when its key is set,
-    // then Groq (JSON mode). Falls through on error.
-    const providers: Array<"anthropic" | "groq"> = [];
-    if (process.env.ANTHROPIC_API_KEY) providers.push("anthropic");
-    if (process.env.GROQ_API_KEY) providers.push("groq");
-    if (providers.length === 0) {
-      return res.status(500).json({ error: "AI blog drafting is not configured - set ANTHROPIC_API_KEY or GROQ_API_KEY on the server." });
+    if (!isTextAiConfigured()) {
+      return res.status(500).json({ error: `AI blog drafting is not configured - ${TEXT_AI_KEYS_HINT}.` });
     }
 
     let draft: any = null;
@@ -152,58 +103,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     let tokensOut = 0;
     let modelUsed = "";
     let lastErr: unknown = null;
-
-    for (const provider of providers) {
-      try {
-        if (provider === "anthropic") {
-          modelUsed = DEFAULT_MODEL;
-          const response: any = await (client().messages.create as any)({
-            model: DEFAULT_MODEL,
-            max_tokens: 4096,
-            system: SYSTEM_PROMPT,
-            tools: [
-              {
-                name: "return_blog_post",
-                description: "Return the completed blog post as structured fields ready to drop into the CMS form.",
-                input_schema: {
-                  type: "object",
-                  properties: {
-                    title: { type: "string", description: "Punchy headline, 6-12 words, no clickbait." },
-                    slug: { type: "string", description: "URL slug derived from the title. Lowercase a-z 0-9 hyphens only, no leading/trailing hyphens, max 80 chars." },
-                    content: { type: "string", description: "Full body of the post in Markdown. Open with one strong intro paragraph, no heading. Use ## for section headings. Aim for the requested word count ±10%." },
-                    meta_description: { type: "string", description: "SEO meta description, 150-155 characters, plain text, must read naturally as a search snippet." },
-                    meta_keywords: { type: "string", description: "Comma-separated SEO keywords (5-8 of them), no quotes, no hashtags." },
-                  },
-                  required: ["title", "slug", "content", "meta_description", "meta_keywords"],
-                  additionalProperties: false,
-                },
-              },
-            ],
-            tool_choice: { type: "tool", name: "return_blog_post" },
-            messages: [{ role: "user", content: userPayload }],
-          });
-          tokensIn = response?.usage?.input_tokens ?? 0;
-          tokensOut = response?.usage?.output_tokens ?? 0;
-          const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
-          for (const block of blocks) {
-            if (block?.type === "tool_use" && block?.name === "return_blog_post") { draft = block.input; break; }
-          }
-        } else {
-          modelUsed = GROQ_BLOG_MODEL;
-          const groqSystem = SYSTEM_PROMPT.replace(
-            "Output via the return_blog_post tool. Never write free prose outside the tool.",
-            'Return ONLY a JSON object (no markdown fences) with keys: "title", "slug", "content", "meta_description", "meta_keywords". The "content" value is the full Markdown body.',
-          );
-          const { data, tokens_in, tokens_out } = await callGroqBlog(groqSystem, userPayload);
-          tokensIn = tokens_in;
-          tokensOut = tokens_out;
-          if (data && typeof data === "object") draft = data;
-        }
-        if (draft) break;
-      } catch (e) {
-        console.warn(`[ai-draft] provider ${provider} failed:`, e);
-        lastErr = e;
-      }
+    try {
+      const r = await callTextJson({
+        label: "ai-draft",
+        system: SYSTEM_PROMPT,
+        user: userPayload,
+        maxTokens: 4096,
+        temperature: 0.4,
+        timeoutMs: 55_000,
+        accept: (d) => typeof d?.content === "string" && d.content.trim().length > 0,
+      });
+      draft = r.data;
+      tokensIn = r.tokens_in;
+      tokensOut = r.tokens_out;
+      modelUsed = r.model;
+    } catch (e) {
+      lastErr = e;
     }
 
     if (!draft) {

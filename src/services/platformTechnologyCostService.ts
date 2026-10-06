@@ -3,6 +3,8 @@
  * page and assistant. It is an estimate, not a vendor billing integration.
  * Tenant count, active plan revenue, and FX are read from current records.
  */
+import { computeTechCosts, DEFAULT_ASSUMPTIONS, DEFAULT_USD_TO_ZAR } from "@/lib/techCosts/model";
+
 export interface TechnologyCostSummary {
   status: "ready" | "partial";
   basis: "estimated platform operating model";
@@ -23,11 +25,6 @@ export interface TechnologyCostSummary {
   as_of: string;
 }
 
-const MODEL = {
-  vercelBase: 20, supabaseBase: 35, fixed: 6.5,
-  aiPerTenant: 0.616992, emailFree: 3000, emailPro: 20,
-  mapsCredit: 200, mapPerTenant: 0.001283,
-};
 
 export async function getPlatformTechnologyCostSummary(db: any): Promise<TechnologyCostSummary | null> {
   try {
@@ -45,17 +42,24 @@ export async function getPlatformTechnologyCostSummary(db: any): Promise<Technol
     const fxRateUsdToZar = Number.isFinite(fx) && fx > 0 ? fx : null;
     const planPrices = new Map<string, number>((Array.isArray(plansResult?.data) ? plansResult.data : []).map((p: any) => [String(p.slug || p.name || "").toLowerCase(), Number(p.zar_price) || 0] as [string, number]));
     const revenue = active.reduce((sum: number, c: any) => sum + (planPrices.get(String(c.subscription_plan || c.subscription_tier || "").toLowerCase()) || 0), 0);
-    const vercel = MODEL.vercelBase;
-    const supabase = MODEL.supabaseBase;
-    const ai = tenantCount * MODEL.aiPerTenant;
-    const email = tenantCount * 200 > MODEL.emailFree ? MODEL.emailPro : 0;
-    const maps = Math.max(0, tenantCount * MODEL.mapPerTenant - MODEL.mapsCredit);
-    const monthlyCostUsd = vercel + supabase + MODEL.fixed + ai + email + maps;
+    // Same model as /admin/platform/tech-costs (src/lib/techCosts/model.ts),
+    // fed with the real company count and average paid subscription.
+    const averageSubscriptionZar = active.length > 0 ? revenue / active.length : 0;
+    const model = computeTechCosts(
+      {
+        ...DEFAULT_ASSUMPTIONS,
+        tenants: tenantCount,
+        subscription_zar_per_tenant: averageSubscriptionZar,
+        card_paying_share: tenantCount > 0 ? active.length / tenantCount : 0,
+      },
+      fxRateUsdToZar ?? DEFAULT_USD_TO_ZAR,
+    );
+    const monthlyCostUsd = model.total_usd;
     const monthlyCostZar = fxRateUsdToZar == null ? null : monthlyCostUsd * fxRateUsdToZar;
     const averageCostPerTenantZar = monthlyCostZar == null || tenantCount === 0 ? null : monthlyCostZar / tenantCount;
     const marginZar = monthlyCostZar == null || !revenue ? null : revenue - monthlyCostZar;
     const marginPercent = marginZar == null || revenue <= 0 ? null : (marginZar / revenue) * 100;
-    const services = [["Vercel hosting", vercel], ["Supabase data and auth", supabase], ["AI processing", ai], ["Email delivery", email], ["Maps and routing", maps], ["Domain and monitoring", MODEL.fixed]] as const;
+    const services = model.categories.map((c) => [c.category, c.subtotal_usd] as const);
     return {
       status: fxRateUsdToZar == null ? "partial" : "ready", basis: "estimated platform operating model",
       tenantCount, activeTenantCount: active.length, trialTenantCount: trial.length,

@@ -440,59 +440,48 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Auto-mapping shortcut. If every sheet's headers match a known
-    // template (Clients, Leads), or the caller explicitly named a
-    // template via ?template=clients|leads, synthesise the mapping
-    // here and flip the job to "mapped" so the wizard can skip the
-    // AI step and jump straight to Preview. Falls through silently
-    // for messy uploads - the AI mapping step will pick them up.
+    // template (Clients, Leads), synthesise the mapping here and flip the
+    // job to "mapped" so the wizard can skip the AI step and jump
+    // straight to Preview. Anything else - including a ?template= caller
+    // whose file has unfamiliar columns - goes through the AI map step,
+    // so no column is silently dropped. ?automap=0 always defers to the
+    // AI step (the import modal reviews every mapping with the operator).
+    // ?template= still pins the early-validation target.
+    const overrideTemplate = String(req.query.template || "").toLowerCase();
     let autoMappedTo: string | null = null;
-    try {
-      const overrideTemplate = String(req.query.template || "").toLowerCase();
-      const fullMapping: Record<string, any> = {};
-      let allRecognised = true;
+    if (req.query.automap !== "0") {
+      try {
+        const fullMapping: Record<string, any> = {};
+        let allRecognised = true;
 
-      for (const sh of sheets) {
-        const headers = sh.rows[0]
-          ? Object.keys(sh.rows[0].data)
-          : [];
-        let def = recogniseHeaders(headers);
-        if (
-          !def &&
-          (overrideTemplate === "clients"
-            || overrideTemplate === "leads"
-            || overrideTemplate === "orders"
-            || overrideTemplate === "quotes"
-            || overrideTemplate === "invoices"
-            || overrideTemplate === "payments")
-        ) {
-          // Caller forced the target. Use it as long as at least the
-          // required columns are present - prevents an empty file
-          // from inserting the wrong target_table.
-          const { getTemplateDefinition } = await import("@/lib/importTemplates");
-          def = getTemplateDefinition(overrideTemplate);
+        for (const sh of sheets) {
+          const headers = sh.rows[0]
+            ? Object.keys(sh.rows[0].data)
+            : [];
+          const def = recogniseHeaders(headers);
+          if (!def || (overrideTemplate && def.type !== overrideTemplate)) {
+            allRecognised = false;
+            break;
+          }
+          const sheetMapping = buildMappingFromTemplate(def, sh.name, headers);
+          Object.assign(fullMapping, sheetMapping);
+          autoMappedTo = def.targetTable;
         }
-        if (!def) {
-          allRecognised = false;
-          break;
-        }
-        const sheetMapping = buildMappingFromTemplate(def, sh.name, headers);
-        Object.assign(fullMapping, sheetMapping);
-        autoMappedTo = def.targetTable;
-      }
 
-      if (allRecognised && Object.keys(fullMapping).length > 0) {
-        const sb: any = getServiceSupabase();
-        await sb
-          .from("import_jobs")
-          .update({ mapping: fullMapping, status: "mapped" })
-          .eq("id", jobId);
-        await setJobStatus(jobId, "mapped", { mapping: fullMapping });
-      } else {
+        if (allRecognised && Object.keys(fullMapping).length > 0) {
+          const sb: any = getServiceSupabase();
+          await sb
+            .from("import_jobs")
+            .update({ mapping: fullMapping, status: "mapped" })
+            .eq("id", jobId);
+          await setJobStatus(jobId, "mapped", { mapping: fullMapping });
+        } else {
+          autoMappedTo = null;
+        }
+      } catch (e) {
+        console.warn("auto-mapping shortcut failed, falling back to AI map step:", e);
         autoMappedTo = null;
       }
-    } catch (e) {
-      console.warn("auto-mapping shortcut failed, falling back to AI map step:", e);
-      autoMappedTo = null;
     }
 
     // ── Feature E: early validation summary ───────────────────────
@@ -502,7 +491,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // completes - so on a huge file the operator knows the shape
     // of the problem in seconds rather than minutes. Cheap because
     // it's pure regex / required-field checks, no DB.
-    const earlyValidation = quickValidateAllSheets(sheets, autoMappedTo as any);
+    const validationTarget = autoMappedTo
+      || (overrideTemplate === "clients" || overrideTemplate === "leads" ? overrideTemplate : null);
+    const earlyValidation = quickValidateAllSheets(sheets, validationTarget as any);
 
     return res.status(200).json({
       ok: true,

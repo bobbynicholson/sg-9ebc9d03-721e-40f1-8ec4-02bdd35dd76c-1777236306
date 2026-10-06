@@ -22,6 +22,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { getImportJob, listImportRows, logEvent } from "@/services/importService";
 import { repairRowViaAI } from "@/lib/importAi";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { isTextAiConfigured, TEXT_AI_KEYS_HINT } from "@/lib/ai/textLlm";
 
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -49,9 +50,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const companyId = profile?.company_id as string | null;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
 
-    if (!process.env.ANTHROPIC_API_KEY && !process.env.GROQ_API_KEY) {
+    if (!isTextAiConfigured()) {
       return res.status(500).json({
-        error: "AI row repair is not configured, set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.",
+        error: `AI row repair is not configured, ${TEXT_AI_KEYS_HINT}.`,
       });
     }
 

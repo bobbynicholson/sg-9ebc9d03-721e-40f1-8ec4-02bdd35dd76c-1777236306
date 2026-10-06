@@ -3,89 +3,42 @@
  * AI helpers for the onboarding importer.
  *
  * Cost philosophy:
- *   - Use Haiku as the default model. 95% of the work is "match
- *     these column headers to one of these target fields" - a Haiku
- *     job, not a Sonnet job.
+ *   - Text tasks (column mapping, row repair) run on OpenAI's
+ *     open-weight gpt-oss-20b via OpenRouter / Groq, with OpenAI direct
+ *     as the last text fallback (src/lib/ai/textLlm.ts). Anthropic is not
+ *     used for text - it cost ~40x more for the same mapping job.
  *   - One round-trip per sheet for column mapping. Don't loop.
- *   - Tool-use forces structured JSON output - no parsing errors,
- *     no rambling.
+ *   - JSON mode + a fixed shape in the prompt; parsed defensively.
  *   - Hard token caps on prompts. We send headers + 3 sample rows
  *     per sheet, never the whole file.
+ *   - Receipt vision runs on Llama 4 Scout (OpenRouter), gpt-4.1-mini, Qwen 3.8 (Groq); Claude
+ *     is only a last-resort vision fallback when those all fail.
  *
  * Tenant scoping:
  *   - The AI never sees the company id. Mappings are pure structural
  *     (header -> target field) and aren't sensitive.
- *   - Sample rows DO include real cell values. Anthropic's API has
- *     a no-train policy by default for production traffic. We don't
- *     opt back in.
+ *   - Sample rows DO include real cell values (max 3 rows, clipped).
  */
-import Anthropic from "@anthropic-ai/sdk";
+import {
+  callTextJson,
+  chatCompletion,
+  parseJsonLoose,
+  visionModels,
+  visionProviderOrder,
+  VISION_AI_KEYS_HINT,
+  type VisionProvider,
+} from "@/lib/ai/textLlm";
 
-// Cheap by default. The mapper rarely benefits from Sonnet - we'll
-// flip the env var to escalate one stuck job at a time if needed.
-const DEFAULT_MODEL = process.env.ANTHROPIC_IMPORT_MODEL || "claude-haiku-4-5";
-
-// Cast to any so SDK type drift between minor versions can't break
-// our compile. The runtime API is stable.
+// Anthropic is a last-resort vision fallback only (receipt scans), so
+// the SDK is loaded lazily the first time that path actually fires.
 let _client: any = null;
-function client(): any {
+async function client(): Promise<any> {
   if (_client) return _client;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured");
+  const Anthropic = (await import("@anthropic-ai/sdk")).default;
   _client = new (Anthropic as any)({ apiKey });
   return _client;
-}
-
-// ── Provider selection (shared) ───────────────────────────────────────
-// Anthropic-first when its key is present, Groq as the fallback. Callers
-// loop this order and fall through to the next provider on error.
-function aiProviderOrder(): Array<"anthropic" | "groq"> {
-  const order: Array<"anthropic" | "groq"> = [];
-  if (process.env.ANTHROPIC_API_KEY) order.push("anthropic");
-  if (process.env.GROQ_API_KEY) order.push("groq");
-  return order;
-}
-
-// Text-only Groq model for the structured-JSON tasks (column mapping,
-// row repair, blog draft). Vision tasks use the receipt models below.
-const GROQ_TEXT_MODEL = process.env.GROQ_TEXT_MODEL || "llama-3.3-70b-versatile";
-
-/**
- * Generic Groq JSON call. Groq's OpenAI-compatible endpoint with
- * response_format=json_object, parsed defensively. Used by the text
- * tasks that previously relied on Anthropic tool-use.
- */
-async function callGroqJson(args: {
-  system: string;
-  user: string;
-  model?: string;
-  maxTokens?: number;
-}): Promise<{ data: any; tokens_in: number; tokens_out: number }> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
-  const res = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: args.model || GROQ_TEXT_MODEL,
-      temperature: 0,
-      max_tokens: args.maxTokens ?? 2048,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: args.system },
-        { role: "user", content: args.user },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Groq API ${res.status}: ${t.slice(0, 300) || res.statusText}`);
-  }
-  const json: any = await res.json();
-  const content: string = json?.choices?.[0]?.message?.content ?? "";
-  let data: any = null;
-  try { data = JSON.parse(content); } catch { data = parseReceiptJson(content); }
-  return { data, tokens_in: json?.usage?.prompt_tokens ?? 0, tokens_out: json?.usage?.completion_tokens ?? 0 };
 }
 
 // ── Target schemas ────────────────────────────────────────────────────
@@ -143,14 +96,21 @@ export interface MapColumnsArgs {
   targetFields?: Array<{ key: string; description: string }>;
 }
 
-const SYSTEM_PROMPT = `You are an importer assistant for a multi-tenant catering SaaS. Your only job is to match the column headers from a customer-supplied spreadsheet to the target fields the system uses.
+const SYSTEM_PROMPT = `You are an importer assistant for a multi-tenant catering SaaS. Your only job is to match every column of a customer-supplied spreadsheet to the target field the system uses.
 
-Rules:
-- Pick exactly one target key per source header.
-- Use 'skip' when no field is a clear match. Better to skip than to guess wrong, the operator will spot a missed column and fix it manually.
-- Confidence is a 0..1 self-assessment. Start at 0.95 for an exact synonym match (e.g. "Email" -> email), drop to 0.6-0.8 for inference (e.g. "Phone Cell" -> phone), 0.3-0.5 for plausible-but-uncertain. Below 0.3 = use skip.
-- Rationale is one sentence, max 80 chars.
-- Output via the return_mapping tool. Never write free-form prose.`;
+How to decide:
+- Read BOTH the header and the sample values. Values beat headers: a column of "x@y.com" values is the email even if the header says "Contact"; a column of 10-digit numbers starting 0 or +27 is a phone; "Col 7" full of street names is an address.
+- Fields marked (required) matter most. If any column plausibly holds a required field, map it - the import fails for every row without it.
+- Each target field may be used by at most ONE column. If two columns fit, give the field to the better one and map the other to its next-best field or 'skip'.
+- Separate first-name and last-name columns: use the dedicated first/last name fields when offered, not the full-name field twice.
+- A company / organisation column and a person-name column together: the company goes to the client / company name field, the person to the person-name (first-name) field.
+- Use the exact key strings from target_fields; never invent a key.
+- Use 'skip' only for columns with nothing importable (internal ids, running balances, blank columns, timestamps of the export itself).
+
+Confidence is a 0..1 self-assessment: 0.95 for an exact synonym ("Email" -> email), 0.7-0.85 for inference from values or a loose header, 0.4-0.6 when plausible but unsure. Below 0.4 use 'skip'.
+Rationale: one short sentence, max 80 chars, saying what in the header or values decided it.
+
+Return ONLY a JSON object: { "mappings": [ { "source_header": string, "target": string, "confidence": number, "rationale": string } ] } with exactly one entry per source header, using the header text verbatim.`;
 
 /**
  * One round-trip column mapping. Returns a per-source-header decision
@@ -166,135 +126,84 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
     ? [...args.targetFields.filter((f) => f.key !== "skip"), { key: "skip", description: "No matching field; ignore this column." }]
     : args.targetSchema === "clients" ? CLIENT_TARGET_FIELDS : ORDER_TARGET_FIELDS;
 
-  // Trim sample rows so we don't send 50 of them. Three is enough
-  // signal for header inference and stays under 1k tokens.
-  const samples = args.sampleRows.slice(0, 3);
-
-  const userMessage = JSON.stringify({
-    sheet_name: args.sheetName,
-    target_fields: fields.map((f) => ({ key: f.key, description: f.description })),
-    source_headers: args.headers,
-    sample_rows: samples,
+  // Five rows give the model enough values to recognise a column by its
+  // contents (emails, phone numbers) when the header is vague. Cells are
+  // clipped so a notes column can't blow the prompt up.
+  const samples = args.sampleRows.slice(0, 5).map((row) => {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(row || {})) {
+      out[k] = typeof v === "string" && v.length > 80 ? `${v.slice(0, 80)}...` : v;
+    }
+    return out;
   });
 
-  // Provider chain: Anthropic (tool-use) first when its key is set,
-  // then Groq (JSON mode). Falls through to the next provider on error.
-  const providers = aiProviderOrder();
-  if (providers.length === 0) {
-    throw new Error("No AI key configured - set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.");
-  }
+  const ask = async (headers: string[]) => {
+    const userMessage = JSON.stringify({
+      sheet_name: args.sheetName,
+      target_fields: fields.map((f) => ({ key: f.key, description: f.description })),
+      source_headers: headers,
+      sample_rows: samples,
+    });
+    // gpt-oss-120b first (OpenRouter -> Groq -> OpenAI). Output scales with
+    // the column count (~60 tokens per mapping) so wide sheets are not cut
+    // off; bounded so one call stays cheap. A provider that returns no
+    // mappings array falls through to the next one.
+    const { data, tokens_in, tokens_out } = await callTextJson({
+      label: "mapColumnsViaAI",
+      // Mapping decides whether a whole file imports correctly, so it
+      // gets the stronger model (gpt-oss-120b).
+      tier: "smart",
+      timeoutMs: 45_000,
+      system: SYSTEM_PROMPT,
+      user: userMessage,
+      maxTokens: Math.min(4096, 256 + headers.length * 64),
+      accept: (d) => Array.isArray(d?.mappings) && d.mappings.length > 0,
+    });
+    return { rows: data.mappings as any[], tokens_in, tokens_out };
+  };
 
-  let lastErr: unknown = null;
-  for (const provider of providers) {
+  // The model sometimes echoes a header with different case / spacing;
+  // match on a tidied form so those still count.
+  const tidy = (h: string) => h.toLowerCase().replace(/\s+/g, " ").trim();
+  const byTidy = new Map(args.headers.map((h) => [tidy(h), h]));
+  const decided = new Map<string, ColumnMappingResult>();
+  const take = (raw: any[]) => {
+    for (const m of raw) {
+      const header = byTidy.get(tidy(String(m?.source_header ?? "")));
+      if (header === undefined || decided.has(header)) continue;
+      decided.set(header, {
+        source_header: header,
+        target: String(m?.target ?? "skip"),
+        confidence: Number(m?.confidence ?? 0),
+        rationale: String(m?.rationale ?? ""),
+      });
+    }
+  };
+
+  const first = await ask(args.headers);
+  take(first.rows);
+  let tokens_in = first.tokens_in;
+  let tokens_out = first.tokens_out;
+
+  // The model occasionally leaves columns out (short headers like "X"
+  // go missing most). Ask once more about just those, so a column with
+  // real data isn't skipped by accident.
+  const missing = args.headers.filter((h) => h.trim() !== "" && !decided.has(h));
+  if (missing.length > 0) {
     try {
-      let rawMappings: any[] = [];
-      let tokensIn = 0;
-      let tokensOut = 0;
-
-      if (provider === "anthropic") {
-        // Cast the SDK call to any: the @anthropic-ai/sdk types tighten
-        // tool_choice + content block shapes between minor versions.
-        // Output scales with the column count (~60 tokens per mapping) so
-        // wide sheets are not cut off; bounded so one call stays cheap.
-        const mappingParams: any = {
-          model: DEFAULT_MODEL,
-          max_tokens: Math.min(4096, 256 + args.headers.length * 64),
-          system: SYSTEM_PROMPT,
-          tools: [
-            {
-              name: "return_mapping",
-              description: "Return the header -> target mapping. One entry per source header.",
-              input_schema: {
-                type: "object",
-                properties: {
-                  mappings: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        source_header: { type: "string" },
-                        target: { type: "string" },
-                        confidence: { type: "number", minimum: 0, maximum: 1 },
-                        rationale: { type: "string" },
-                      },
-                      required: ["source_header", "target", "confidence", "rationale"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["mappings"],
-                additionalProperties: false,
-              },
-            },
-          ],
-          tool_choice: { type: "tool", name: "return_mapping" },
-          messages: [{ role: "user", content: userMessage }],
-        };
-        // Bounded so a slow provider can't hang the request (serverless limits).
-        const requestOptions = { timeout: 25_000, maxRetries: 1 };
-        let response: any;
-        try {
-          response = await (client().messages.create as any)(mappingParams, requestOptions);
-        } catch (err: any) {
-          // Newer models (Opus 5.5 / Sonnet 5.5 / Fable 5.1) reject forced
-          // tool_choice with a 400. If ANTHROPIC_IMPORT_MODEL points at one,
-          // retry once with auto + an explicit instruction to call the tool.
-          const msg = String(err?.message || "");
-          if (err?.status === 400 && /tool_choice/i.test(msg)) {
-            response = await (client().messages.create as any)({
-              ...mappingParams,
-              tool_choice: { type: "auto" },
-              system: `${SYSTEM_PROMPT}
-- Always answer by calling the return_mapping tool exactly once.`,
-            }, requestOptions);
-          } else {
-            throw err;
-          }
-        }
-        if (response?.stop_reason === "max_tokens") {
-          console.warn("[mapColumnsViaAI] output hit max_tokens; using the partial mapping");
-        }
-        tokensIn = response?.usage?.input_tokens ?? 0;
-        tokensOut = response?.usage?.output_tokens ?? 0;
-        const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
-        for (const block of blocks) {
-          if (block?.type === "tool_use" && block?.name === "return_mapping") {
-            if (Array.isArray(block.input?.mappings)) rawMappings = block.input.mappings;
-            break;
-          }
-        }
-      } else {
-        const groqSystem = SYSTEM_PROMPT +
-          `\n\nReturn ONLY a JSON object: { "mappings": [ { "source_header": string, "target": string, "confidence": number, "rationale": string } ] }`;
-        const { data, tokens_in, tokens_out } = await callGroqJson({ system: groqSystem, user: userMessage });
-        tokensIn = tokens_in;
-        tokensOut = tokens_out;
-        if (Array.isArray(data?.mappings)) rawMappings = data.mappings;
-      }
-
-      const mapping: ColumnMappingResult[] = rawMappings.map((m: any) => ({
-        source_header: String(m.source_header ?? ""),
-        target: String(m.target ?? "skip"),
-        confidence: Number(m.confidence ?? 0),
-        rationale: String(m.rationale ?? ""),
-      }));
-
-      // Belt-and-braces: ensure every source header has a row. The model
-      // sometimes drops blanks; we default missing ones to 'skip'.
-      const seen = new Set(mapping.map((m) => m.source_header));
-      for (const h of args.headers) {
-        if (!seen.has(h)) {
-          mapping.push({ source_header: h, target: "skip", confidence: 0, rationale: "Not returned by model" });
-        }
-      }
-
-      return { mapping, tokens_in: tokensIn, tokens_out: tokensOut };
-    } catch (e) {
-      console.warn(`[mapColumnsViaAI] provider ${provider} failed:`, e);
-      lastErr = e;
+      const retry = await ask(missing);
+      take(retry.rows);
+      tokens_in += retry.tokens_in;
+      tokens_out += retry.tokens_out;
+    } catch {
+      // Keep the first answer; the rest default to skip below.
     }
   }
-  throw lastErr instanceof Error ? lastErr : new Error("Column mapping failed");
+
+  const mapping: ColumnMappingResult[] = args.headers.map((h) => decided.get(h)
+    || { source_header: h, target: "skip", confidence: 0, rationale: h.trim() ? "Not returned by model" : "Column has no heading" });
+
+  return { mapping, tokens_in, tokens_out };
 }
 
 // ── Orphan-row fixer ────────────────────────────────────────────────────
@@ -310,8 +219,6 @@ export interface RepairRowResult {
   unresolved: string[];
 }
 
-const ROW_REPAIR_MODEL = process.env.ANTHROPIC_REPAIR_MODEL || DEFAULT_MODEL;
-
 const REPAIR_SYSTEM = `You repair single rows from a customer-supplied spreadsheet that the deterministic importer flagged as broken. Your job is to suggest cleaned values for the named target fields, given the raw cells and the warning messages.
 
 Rules:
@@ -321,14 +228,16 @@ Rules:
 - Phone numbers: keep international prefix when present, otherwise return what the operator typed.
 - Names and emails: trim whitespace, normalise case for emails (lowercase).
 - If a warning says "doesn't look like an email" and you genuinely can't reconstruct one, leave email out of the fix and add the issue to unresolved.
-- Output via the return_repair tool. No prose.`;
+- No prose.
+
+Return ONLY a JSON object: { "fixes": { <field>: <value> }, "rationale": string, "unresolved": [string] }`;
 
 /**
- * Ask Claude to repair a single import row. Used when the deterministic
+ * Ask the model to repair a single import row. Used when the deterministic
  * normaliser produced warnings the operator wants help resolving --
  * e.g. weird date formats, garbled emails, free-text totals.
  *
- * Cost-conscious: one round-trip per row, Haiku by default, token
+ * Cost-conscious: one round-trip per row, gpt-oss-20b, token
  * caps tight. The wizard only triggers this when the operator clicks
  * 'AI repair' on a row, so volume stays bounded.
  */
@@ -362,86 +271,20 @@ ${JSON.stringify(args.mappedRow, null, 2)}
 Issues to resolve:
 ${args.errorMessage ? `- ERROR: ${args.errorMessage}\n` : ""}${args.warnings.map((w) => `- ${w}`).join("\n") || "(no warnings, just clean up the row)"}
 
-Return only the fields where you can improve on the current mapping. Use the return_repair tool.`;
+Return only the fields where you can improve on the current mapping, as the JSON object described.`;
 
-  const providers = aiProviderOrder();
-  if (providers.length === 0) {
-    throw new Error("No AI key configured - set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.");
-  }
-
-  let lastErr: unknown = null;
-  for (const provider of providers) {
-    try {
-      let result: RepairRowResult = { fixes: {}, rationale: "", unresolved: [] };
-      let tokensIn = 0;
-      let tokensOut = 0;
-
-      if (provider === "anthropic") {
-        const response: any = await (client().messages.create as any)({
-          model: ROW_REPAIR_MODEL,
-          max_tokens: 1024,
-          system: REPAIR_SYSTEM,
-          tools: [
-            {
-              name: "return_repair",
-              description: "Return repaired field values plus a short explanation.",
-              input_schema: {
-                type: "object",
-                properties: {
-                  fixes: {
-                    type: "object",
-                    description: "Map of target_field -> repaired value. Omit fields you can't improve.",
-                    additionalProperties: { type: ["string", "number", "null"] },
-                  },
-                  rationale: { type: "string", description: "One sentence explaining what was changed and why." },
-                  unresolved: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Issues you couldn't fix automatically. Operator follow-up needed.",
-                  },
-                },
-                required: ["fixes", "rationale", "unresolved"],
-                additionalProperties: false,
-              },
-            },
-          ],
-          tool_choice: { type: "tool", name: "return_repair" },
-          messages: [{ role: "user", content: userMessage }],
-        });
-        tokensIn = response?.usage?.input_tokens || 0;
-        tokensOut = response?.usage?.output_tokens || 0;
-        const blocks: any[] = Array.isArray(response?.content) ? response.content : [];
-        for (const block of blocks) {
-          if (block?.type === "tool_use" && block?.name === "return_repair") {
-            const input = block.input as any;
-            result = {
-              fixes: (input?.fixes && typeof input.fixes === "object") ? input.fixes : {},
-              rationale: String(input?.rationale ?? ""),
-              unresolved: Array.isArray(input?.unresolved) ? input.unresolved.map((s: any) => String(s)) : [],
-            };
-            break;
-          }
-        }
-      } else {
-        const groqSystem = REPAIR_SYSTEM +
-          `\n\nReturn ONLY a JSON object: { "fixes": { <field>: <value> }, "rationale": string, "unresolved": [string] }`;
-        const { data, tokens_in, tokens_out } = await callGroqJson({ system: groqSystem, user: userMessage });
-        tokensIn = tokens_in;
-        tokensOut = tokens_out;
-        result = {
-          fixes: (data?.fixes && typeof data.fixes === "object") ? data.fixes : {},
-          rationale: String(data?.rationale ?? ""),
-          unresolved: Array.isArray(data?.unresolved) ? data.unresolved.map((s: any) => String(s)) : [],
-        };
-      }
-
-      return { result, tokens_in: tokensIn, tokens_out: tokensOut };
-    } catch (e) {
-      console.warn(`[repairRowViaAI] provider ${provider} failed:`, e);
-      lastErr = e;
-    }
-  }
-  throw lastErr instanceof Error ? lastErr : new Error("Row repair failed");
+  const { data, tokens_in, tokens_out } = await callTextJson({
+    label: "repairRowViaAI",
+    system: REPAIR_SYSTEM,
+    user: userMessage,
+    maxTokens: 1024,
+  });
+  const result: RepairRowResult = {
+    fixes: (data?.fixes && typeof data.fixes === "object" && !Array.isArray(data.fixes)) ? data.fixes : {},
+    rationale: String(data?.rationale ?? ""),
+    unresolved: Array.isArray(data?.unresolved) ? data.unresolved.map((s: any) => String(s)) : [],
+  };
+  return { result, tokens_in, tokens_out };
 }
 
 // ── Receipt vision extractor ─────────────────────────────────────────────
@@ -489,17 +332,13 @@ export interface ReceiptExtraction {
   warnings: string[];
 }
 
-// Receipt OCR supports two providers and prefers Anthropic when its
-// key is present, falling back to Groq otherwise (or when Anthropic
-// errors / returns nothing). Within each provider there's a cheap
+// Receipt OCR provider order: OpenRouter (Llama 4 Scout) -> OpenAI
+// (gpt-4.1-mini) -> Groq (Qwen 3.8) -> Anthropic Haiku as a last resort. gpt-oss is
+// text-only so it cannot read slips. Within each provider there's a cheap
 // primary model and a higher-capability fallback used when the primary
 // returns 0 lines (faded thermal slips, sideways images, dense text).
 // All env-overridable so models can be swapped without a deploy.
-const ANTHROPIC_PRIMARY_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-haiku-4-5";
-const ANTHROPIC_FALLBACK_MODEL = process.env.ANTHROPIC_RECEIPT_FALLBACK_MODEL || "claude-sonnet-4-5";
-const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
-const GROQ_PRIMARY_MODEL = process.env.GROQ_RECEIPT_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
-const GROQ_FALLBACK_MODEL = process.env.GROQ_RECEIPT_FALLBACK_MODEL || "meta-llama/llama-4-maverick-17b-128e-instruct";
+const ANTHROPIC_RECEIPT_MODEL = process.env.ANTHROPIC_RECEIPT_MODEL || "claude-haiku-4-5";
 
 const RECEIPT_SYSTEM_BASE = `You read photos of South African supplier receipts / slips for a catering company. Your job is to extract the structured fields the catering team needs to load into their inventory: supplier, date, line items with quantities + unit prices, totals.
 
@@ -571,26 +410,10 @@ Respond with ONLY a single JSON object (no markdown fences, no prose) with EXACT
   "warnings": [string]
 }`;
 
-/** Strip markdown fences / surrounding prose and JSON.parse the model
- *  output. Returns null when nothing parseable is found. */
-function parseReceiptJson(text: string): any | null {
-  if (!text) return null;
-  let t = text.trim();
-  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence) t = fence[1].trim();
-  try { return JSON.parse(t); } catch { /* fall through to slice */ }
-  const first = t.indexOf("{");
-  const last = t.lastIndexOf("}");
-  if (first !== -1 && last > first) {
-    try { return JSON.parse(t.slice(first, last + 1)); } catch { /* give up */ }
-  }
-  return null;
-}
-
 /**
- * Single Anthropic (Claude) vision call against a chosen model. Uses
- * tool-use to force structured JSON. Kept as the preferred provider:
- * when ANTHROPIC_API_KEY is set the dispatcher tries this first.
+ * Single Anthropic (Claude) vision call. Uses tool-use to force
+ * structured JSON. Last-resort only: the dispatcher reaches it when the
+ * Llama vision providers are unconfigured or all failed.
  */
 async function callAnthropicForReceipt(args: {
   imageBase64: string;
@@ -599,7 +422,7 @@ async function callAnthropicForReceipt(args: {
   model: string;
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used: string }> {
   const systemText = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
-  const response: any = await (client().messages.create as any)({
+  const response: any = await ((await client()).messages.create as any)({
     model: args.model,
     max_tokens: 8192,
     system: [
@@ -726,63 +549,48 @@ async function callAnthropicForReceipt(args: {
 }
 
 /**
- * Single Groq vision call against a chosen model. Groq exposes an
- * OpenAI-compatible /chat/completions endpoint, so we send the receipt
- * as an image_url (base64 data URL) plus a JSON-only instruction and
- * parse the returned JSON. Extracted so the outer dispatcher can retry
- * against a higher-tier model when the primary returns 0 lines.
+ * Single OpenAI-compatible vision call (Groq or OpenRouter) against a
+ * chosen model. We send the receipt as an image_url (base64 data URL)
+ * plus a JSON-only instruction and parse the returned JSON. Extracted so
+ * the outer dispatcher can retry against a higher-tier model when the
+ * primary returns 0 lines.
  */
-async function callGroqForReceipt(args: {
+async function callOpenAiCompatibleForReceipt(args: {
+  provider: VisionProvider;
   imageBase64: string;
   imageMime: string;
   taxRules?: TaxRuleForPrompt[];
   model: string;
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used: string }> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
-
   const systemText = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []) + RECEIPT_JSON_INSTRUCTION;
   const dataUrl = `data:${args.imageMime};base64,${args.imageBase64}`;
 
   // 8192 output tokens leaves headroom for till-roll receipts (Pick n
-  // Pay / Makro / Spar) whose line_items array can run 30+ rows.
-  const res = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: args.model,
-      temperature: 0,
-      max_tokens: 8192,
-      messages: [
-        { role: "system", content: systemText },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Extract every line item, totals, supplier and date from this receipt. Respond with ONLY the JSON object." },
-            { type: "image_url", image_url: { url: dataUrl } },
-          ],
-        },
-      ],
-    }),
+  // Pay / Makro / Spar) whose line_items array can run 30+ rows. Errors
+  // (bad key, bad model id, rate limit) surface with the provider's
+  // message so the upload route + UI banner can show what to fix.
+  const r = await chatCompletion({
+    provider: args.provider,
+    model: args.model,
+    maxTokens: 8192,
+    timeoutMs: 55_000,
+    messages: [
+      { role: "system", content: systemText },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Extract every line item, totals, supplier and date from this receipt. Respond with ONLY the JSON object." },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
+      },
+    ],
   });
 
-  if (!res.ok) {
-    // Surface the real Groq error (bad key, bad model id, rate limit) so
-    // the upload route + UI banner can show the operator what to fix.
-    const errText = await res.text().catch(() => "");
-    throw new Error(`Groq API ${res.status}: ${errText.slice(0, 300) || res.statusText}`);
-  }
-
-  const json: any = await res.json();
-  const tokensIn: number = json?.usage?.prompt_tokens ?? 0;
-  const tokensOut: number = json?.usage?.completion_tokens ?? 0;
-  const choice: any = json?.choices?.[0];
-  const truncated = choice?.finish_reason === "length";
-  const content: string = choice?.message?.content ?? "";
-  const parsed = parseReceiptJson(content);
+  const tokensIn = r.tokens_in;
+  const tokensOut = r.tokens_out;
+  const truncated = r.finishReason === "length";
+  const content = r.content;
+  const parsed = parseJsonLoose(content);
 
   if (!parsed) {
     return {
@@ -832,23 +640,21 @@ async function callGroqForReceipt(args: {
 }
 
 /**
- * Run a single receipt photo through Claude's vision model and pull
- * out the structured fields. Caller hands us the image as base64
- * (PNG / JPEG / WebP) along with its MIME type.
+ * Run a single receipt photo through a vision model and pull out the
+ * structured fields. Caller hands us the image as base64 (PNG / JPEG /
+ * WebP) along with its MIME type.
  *
- * Two-tier strategy:
+ * Strategy:
  *   1. Compress the image (rotate per EXIF, resize to 1568px max long
  *      edge, re-encode as JPEG q=82). Cuts image-token cost.
- *   2. Try Haiku 4-5 first (~4x cheaper than Sonnet for the same task).
- *   3. If Haiku returns 0 line items, retry with Sonnet 4-5 - the
- *      higher-tier model handles edge cases (faded thermal slips,
- *      sideways images, very dense text) that Haiku occasionally
- *      drops. We tag the result with a "switched to higher-tier model"
- *      warning so the UI/log shows when the fallback fired.
- *
- * Net effect: ~80% of slips run on Haiku at low cost; the harder ~20%
- * still get the right answer at Sonnet rates. Expected per-scan blended
- * cost is roughly Haiku-rate + a small Sonnet tail.
+ *   2. Llama 4 Scout first (OpenRouter), then gpt-4.1-mini (OpenAI), then
+ *      Qwen 3.8 (Groq).
+ *   3. If Scout returns 0 line items, retry with Llama 4 Maverick on the
+ *      same provider (faded thermal slips, sideways images, dense text).
+ *      We tag the result with a "switched to" warning so the UI/log
+ *      shows when the fallback fired.
+ *   4. Claude Haiku only when every Llama provider failed or read
+ *      nothing - a last resort, never the default.
  */
 export async function extractReceiptViaAI(args: {
   imageBase64: string;
@@ -860,26 +666,28 @@ export async function extractReceiptViaAI(args: {
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used?: string }> {
   const compressed = await compressReceiptImage(args.imageBase64, args.imageMime);
 
-  // Provider order: Anthropic first when its key is set, then Groq.
-  // Each provider runs its own cheap-primary -> higher-tier-fallback
-  // when the primary returns 0 lines. If a provider errors (bad key,
-  // outage) or still yields 0 lines, we fall through to the next.
-  const providers: Array<"anthropic" | "groq"> = [];
+  // Provider order: OpenRouter -> OpenAI -> Groq -> Anthropic (last resort).
+  // Each Llama provider runs its own cheap-primary -> higher-tier
+  // fallback when the primary returns 0 lines. If a provider errors (bad
+  // key, outage) or still yields 0 lines, we fall through to the next.
+  type ReceiptProvider = VisionProvider | "anthropic";
+  const providers: ReceiptProvider[] = [...visionProviderOrder()];
   if (process.env.ANTHROPIC_API_KEY) providers.push("anthropic");
-  if (process.env.GROQ_API_KEY) providers.push("groq");
   if (providers.length === 0) {
-    throw new Error("AI receipt scanning is not configured - set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.");
+    throw new Error(`AI receipt scanning is not configured - ${VISION_AI_KEYS_HINT}.`);
   }
 
-  const runProvider = async (provider: "anthropic" | "groq") => {
-    const isAnthropic = provider === "anthropic";
-    const call = isAnthropic ? callAnthropicForReceipt : callGroqForReceipt;
-    const primary = isAnthropic ? ANTHROPIC_PRIMARY_MODEL : GROQ_PRIMARY_MODEL;
-    const fallback = isAnthropic ? ANTHROPIC_FALLBACK_MODEL : GROQ_FALLBACK_MODEL;
-    const res = await call({ imageBase64: compressed.base64, imageMime: compressed.mime, taxRules: args.taxRules, model: primary });
+  const runProvider = async (provider: ReceiptProvider) => {
+    const base = { imageBase64: compressed.base64, imageMime: compressed.mime, taxRules: args.taxRules };
+    if (provider === "anthropic") {
+      return callAnthropicForReceipt({ ...base, model: ANTHROPIC_RECEIPT_MODEL });
+    }
+    const { primary, fallback } = visionModels(provider);
+    const call = (model: string) => callOpenAiCompatibleForReceipt({ ...base, provider, model });
+    const res = await call(primary);
     if (res.extraction.line_items.length === 0 && primary !== fallback) {
       console.log(`[receipt] ${provider} primary ${primary} returned 0 lines, retrying with ${fallback}`);
-      const fb = await call({ imageBase64: compressed.base64, imageMime: compressed.mime, taxRules: args.taxRules, model: fallback });
+      const fb = await call(fallback);
       fb.extraction.warnings = [
         `Switched to ${fallback} after ${primary} returned no lines.`,
         ...(fb.extraction.warnings || []).filter((w) => !w.startsWith("No structured response")),

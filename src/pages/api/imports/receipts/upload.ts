@@ -26,6 +26,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { extractReceiptViaAI } from "@/lib/importAi";
 import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { isVisionAiConfigured, VISION_AI_KEYS_HINT } from "@/lib/ai/textLlm";
 
 
 export const config = {
@@ -63,9 +64,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const companyId = profile?.company_id as string | null;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
 
-    if (!process.env.ANTHROPIC_API_KEY && !process.env.GROQ_API_KEY) {
+    if (!isVisionAiConfigured()) {
       return res.status(500).json({
-        error: "AI receipt scanning is not configured, set ANTHROPIC_API_KEY or GROQ_API_KEY on the server.",
+        error: `AI receipt scanning is not configured, ${VISION_AI_KEYS_HINT}.`,
       });
     }
 

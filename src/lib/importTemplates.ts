@@ -535,6 +535,70 @@ export function aiTargetFieldsFor(type: TemplateType): Array<{ key: string; desc
   return fields.filter((f) => (seen.has(f.key) ? false : (seen.add(f.key), true)));
 }
 
+/**
+ * Fields an operator can pick in the column-matching review, with a label
+ * and whether preview rejects a row without it. Same keys as
+ * aiTargetFieldsFor(), so a manual pick lands where an AI pick would.
+ */
+export function mappableFieldsFor(type: TemplateType): Array<{ key: string; label: string; required: boolean }> {
+  const label = (key: string) => key.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  const fields = TEMPLATES[type].columns.map((col) => ({
+    key: col.key,
+    label: col.header.replace(/\s*\*$/, ""),
+    required: col.required,
+  }));
+  if (type === "clients") {
+    fields.push(...CLIENT_HELPER_KEYS.map((key) => ({ key, label: label(key), required: false })));
+  }
+  const seen = new Set<string>();
+  return fields.filter((f) => (seen.has(f.key) ? false : (seen.add(f.key), true)));
+}
+
+/**
+ * Settle columns that both claim a clients field, so two columns never
+ * fill the same field. Mutates `sheetMap`.
+ *
+ * Special case: a company column and a person-name column both claiming
+ * client_name. The company keeps client_name and the person moves to
+ * first_name; composeImportedClient() then keeps the person as
+ * "Contact: ..." in notes, or uses them as the client name on rows with
+ * no company. Every other clash keeps the most confident column.
+ */
+export function settleFieldClashes(
+  sheetMap: Record<string, { target: string; confidence: number; rationale: string }>,
+  headers: string[],
+  schema: TemplateType,
+): void {
+  const claimed = (key: string) => headers.filter((h) => sheetMap[h]?.target === key);
+  if (schema === "clients") {
+    const names = claimed("client_name");
+    if (names.length > 1 && claimed("first_name").length === 0 && claimed("last_name").length === 0) {
+      const companyLike = /compan|organi[sz]ation|business|trading|account ?name|display ?name|firm|employer/i;
+      const company = names.find((h) => companyLike.test(h))
+        || [...names].sort((x, y) => sheetMap[y].confidence - sheetMap[x].confidence)[0];
+      const person = names.find((h) => h !== company)!;
+      sheetMap[person] = {
+        target: "first_name",
+        confidence: Math.min(sheetMap[person].confidence, 0.8),
+        rationale: `Person's name; "${company}" is used as the client name`,
+      };
+    }
+  }
+  const best = new Map<string, string>();
+  for (const h of headers) {
+    const d = sheetMap[h];
+    if (!d || d.target === "skip") continue;
+    const prev = best.get(d.target);
+    if (prev === undefined || sheetMap[prev].confidence < d.confidence) best.set(d.target, h);
+  }
+  for (const h of headers) {
+    const d = sheetMap[h];
+    if (d && d.target !== "skip" && best.get(d.target) !== h) {
+      sheetMap[h] = { target: "skip", confidence: 0, rationale: `Another column matched ${d.target} more closely` };
+    }
+  }
+}
+
 export function recogniseHeaders(headers: string[]): TemplateDefinition | null {
   const tidy = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, "").replace(/\*$/, "").trim();
   const nonEmpty = headers.filter((h) => h && h.trim().length > 0);

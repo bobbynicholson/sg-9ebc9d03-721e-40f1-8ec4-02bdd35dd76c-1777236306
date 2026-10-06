@@ -1,16 +1,18 @@
 /**
  * ImportRecordsModal - routine bulk-upload UI for clients + leads.
  *
- * Single component used from the Contacts page (template="clients")
- * and the Leads page (template="leads"). Same engine the onboarding
- * wizard uses underneath: /api/imports/upload -> auto-mapping
- * shortcut -> /api/imports/[id]/preview -> /api/imports/[id]/commit.
+ * Single component used from the Contacts page and the onboarding
+ * wizard (template="clients") and the Leads page (template="leads").
+ * Same engine the import wizard uses underneath:
+ *   /api/imports/upload?automap=0
+ *     -> /api/imports/[id]/map?template=  (AI reads every column)
+ *     -> column review (operator confirms or changes each match)
+ *     -> /api/imports/[id]/preview -> fix rows inline
+ *     -> /api/imports/[id]/commit
  *
  * Differences from the wizard:
  *   - Pre-scoped to one target table (no "is this clients or
  *     orders?" decision step).
- *   - Skips the AI mapping step entirely thanks to the
- *     auto-mapping shortcut + ?template= override.
  *   - Lives inside a Dialog so the operator never leaves the
  *     Contacts / Leads page.
  *
@@ -99,7 +101,26 @@ const EDIT_FIELDS: Record<TemplateType, Array<{ key: string; label: string; type
   ],
 };
 
-type Step = "pick" | "previewing" | "preview" | "committing" | "done";
+type Step = "pick" | "mapping" | "previewing" | "preview" | "committing" | "done";
+
+type MappingDecision = { target: string; confidence: number; rationale: string; source?: string };
+type SheetMapping = Record<string, MappingDecision>;
+type MappableField = { key: string; label: string; required: boolean };
+
+/**
+ * Required fields the column review checks for. Clients accept a
+ * first / last name pair in place of a client-name column (preview
+ * joins them into client_name).
+ */
+function missingRequired(fields: MappableField[], mapped: Set<string>, template: TemplateType): MappableField[] {
+  return fields.filter((f) => {
+    if (!f.required || mapped.has(f.key)) return false;
+    if (template === "clients" && f.key === "client_name") {
+      return !mapped.has("first_name") && !mapped.has("last_name");
+    }
+    return true;
+  });
+}
 
 interface PreviewRow {
   id: string;
@@ -212,6 +233,13 @@ export function ImportRecordsModal({
   const PREVIEW_PAGE_SIZE = 100;
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [editSaving, setEditSaving] = useState(false);
+  // Column review: the AI's match for every column, the operator's
+  // changes, a few values per column so the operator can see what each
+  // one holds, and the fields that can be chosen.
+  const [mapping, setMapping] = useState<Record<string, SheetMapping> | null>(null);
+  const [columnSamples, setColumnSamples] = useState<Record<string, Record<string, string[]>>>({});
+  const [mappableFields, setMappableFields] = useState<Record<string, MappableField[]>>({});
+  const [mappingNote, setMappingNote] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const reset = () => {
@@ -226,6 +254,15 @@ export function ImportRecordsModal({
     setReconcile(null);
     setErroredRows([]);
     setShowErroredRows(false);
+    setMapping(null);
+    setColumnSamples({});
+    setMappableFields({});
+    setMappingNote(null);
+    setEditingRowId(null);
+    setEditForm({});
+    setRowView("attention");
+    setPreviewPage(0);
+    setEarlyValidation(null);
   };
 
   const close = () => {
@@ -246,7 +283,9 @@ export function ImportRecordsModal({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const r = await fetch(`/api/imports/upload?template=${template}`, {
+      // automap=0: every column goes to the AI step and the operator
+      // reviews the matches, even when the headers look familiar.
+      const r = await fetch(`/api/imports/upload?template=${template}&automap=0`, {
         method: "POST",
         body: fd,
       });
@@ -261,21 +300,22 @@ export function ImportRecordsModal({
       // waiting for the full preview pass to finish.
       const ev = j?.summary?.earlyValidation;
       if (ev) setEarlyValidation(ev);
-      // Auto-mapping should have fired (?template= override). Now run
-      // preview so the operator sees per-row outcome.
-      setStep("previewing");
-      const p = await fetch(`/api/imports/${j.jobId}/preview`, { method: "POST" });
-      const { json: pj } = await readResponse(p);
-      if (!pj) throw new Error(`Checking the rows took too long (${p.status}). Your upload is saved - try again.`);
-      if (!p.ok) throw new Error(pj?.error || "Preview failed");
-      // Pull the row list from the job-detail endpoint (which
-      // honours ?rows=1).
-      const rowsRes = await fetch(`/api/imports/${j.jobId}?rows=1`);
-      let rowsJson: any = {};
-      if (rowsRes.ok) rowsJson = await rowsRes.json().catch(() => ({}));
-      setPreviewRows((rowsJson.rows || []) as PreviewRow[]);
-      setPreviewSummary(pj.summary || null);
-      setStep("preview");
+
+      // AI reads every header plus sample values and proposes a field
+      // for each column, against this record type's import schema.
+      setStep("mapping");
+      const m = await fetch(`/api/imports/${j.jobId}/map?template=${template}&refresh=1`, { method: "POST" });
+      const { json: mj } = await readResponse(m);
+      if (!mj) throw new Error(`Matching your columns took too long (${m.status}). Your upload is saved - try again.`);
+      if (!m.ok) throw new Error(mj?.error || "Column matching failed");
+      const clean: Record<string, SheetMapping> = {};
+      for (const [sheet, sm] of Object.entries((mj.mapping || {}) as Record<string, SheetMapping>)) {
+        clean[sheet] = { ...sm };
+      }
+      setMapping(clean);
+      setColumnSamples(mj.samples || {});
+      setMappableFields(mj.fields || {});
+      setMappingNote(mj.ai?.failed || null);
     } catch (e: any) {
       setError(e?.message || "Upload failed");
       setStep("pick");
@@ -283,6 +323,63 @@ export function ImportRecordsModal({
       setBusy(false);
       // Reset the file input so re-picking the same file fires onChange.
       if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
+  /** Operator picks a field for one column; a field can only hold one column. */
+  const setColumnTarget = (sheet: string, header: string, target: string) => {
+    setMapping((prev) => {
+      if (!prev) return prev;
+      const sm: SheetMapping = { ...prev[sheet] };
+      if (target !== "skip") {
+        for (const [h, d] of Object.entries(sm)) {
+          if (h !== "__schema__" && h !== header && d.target === target) {
+            sm[h] = { target: "skip", confidence: 0, rationale: "Field moved to another column", source: "manual" };
+          }
+        }
+      }
+      sm[header] = { target, confidence: 1, rationale: "Chosen by you", source: "manual" };
+      return { ...prev, [sheet]: sm };
+    });
+  };
+
+  /** Save the reviewed mapping, then check every row against it. */
+  const runPreview = async () => {
+    if (!jobId || !mapping) return;
+    setBusy(true);
+    setError(null);
+    setEditingRowId(null);
+    setDryRunSummary(null);
+    try {
+      const save = await fetch(`/api/imports/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mapping }),
+      });
+      if (!save.ok) {
+        const sj = await save.json().catch(() => ({}));
+        throw new Error(sj?.error || "Could not save the column matches");
+      }
+      setStep("previewing");
+      const p = await fetch(`/api/imports/${jobId}/preview`, { method: "POST" });
+      const { json: pj } = await readResponse(p);
+      if (!pj) throw new Error(`Checking the rows took too long (${p.status}). Your upload is saved - try again.`);
+      if (!p.ok) throw new Error(pj?.error || "Preview failed");
+      // Pull the row list from the job-detail endpoint (which
+      // honours ?rows=1).
+      const rowsRes = await fetch(`/api/imports/${jobId}?rows=1`);
+      let rowsJson: any = {};
+      if (rowsRes.ok) rowsJson = await rowsRes.json().catch(() => ({}));
+      setPreviewRows((rowsJson.rows || []) as PreviewRow[]);
+      setPreviewSummary(pj.summary || null);
+      setRowView("attention");
+      setPreviewPage(0);
+      setStep("preview");
+    } catch (e: any) {
+      setError(e?.message || "Preview failed");
+      setStep("mapping");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -614,10 +711,12 @@ export function ImportRecordsModal({
     (r) => r.dedup_match_id && (r.dedup_decision || "skip") === "skip",
   ).length;
   const willImportCount = okCount - skipDecisionCount;
+  const updateDecisionCount = previewRows.filter((r) => r.dedup_match_id && r.dedup_decision === "update").length;
+  const canImportCount = willImportCount + updateDecisionCount;
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : close())}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-brand-primary" />
@@ -643,10 +742,11 @@ export function ImportRecordsModal({
             <div className="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center space-y-3">
               <FileSpreadsheet className="w-10 h-10 text-slate-400 mx-auto" />
               <p className="text-sm text-slate-700">
-                Download the template, fill in your {recordLabelPlural}, then upload.
+                Upload your {recordLabelPlural} as an Excel or CSV file, in any column layout.
               </p>
               <p className="text-xs text-slate-500">
-                Required fields are marked with *. The CSV and Excel templates contain the same columns and example row; download the text guide for field-by-field instructions.
+                AI reads every column and matches it to our fields; you check the matches before anything is saved.
+                The templates are optional, if you want a clean starting point.
               </p>
               <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-left text-[11px] leading-relaxed text-blue-900">
                 <p className="font-semibold mb-1">What to enter</p>
@@ -676,7 +776,7 @@ export function ImportRecordsModal({
                   className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
                 >
                   {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  Upload filled file
+                  Upload file
                 </Button>
               </div>
               <input
@@ -691,6 +791,115 @@ export function ImportRecordsModal({
               We'll preview every row before anything saves.
               Existing {recordLabelPlural} (matched by email) are skipped automatically so re-running an import is safe.
             </p>
+          </div>
+        )}
+
+        {step === "mapping" && !mapping && (
+          <div className="py-10 text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
+            <p className="text-sm text-slate-600 mt-2">AI is reading your columns...</p>
+            <p className="text-[11px] text-slate-500 mt-1">It looks at the headings and sample values to match each column to a {recordLabel} field.</p>
+          </div>
+        )}
+
+        {step === "mapping" && mapping && (
+          <div className="space-y-4 py-2">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Check the column matches</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Each column in your file and the field it will be saved into. Change any match from the dropdown,
+                or pick "Don't import" to leave a column out.
+              </p>
+            </div>
+            {mappingNote && (
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 text-xs">{mappingNote}</AlertDescription>
+              </Alert>
+            )}
+            {Object.entries(mapping).map(([sheet, sm]) => {
+              const fields = mappableFields[sheet] || [];
+              const headers = Object.keys(sm).filter((h) => h !== "__schema__");
+              const mappedTargets = new Set(headers.map((h) => sm[h]?.target).filter((t) => t && t !== "skip"));
+              const missing = missingRequired(fields, mappedTargets, template);
+              const required = fields.filter((f) => f.required);
+              const labelOf = new Map(fields.map((f) => [f.key, f.label]));
+              return (
+                <div key={sheet} className="space-y-2">
+                  {Object.keys(mapping).length > 1 && (
+                    <p className="text-xs font-semibold text-slate-700">Sheet: {sheet}</p>
+                  )}
+                  <div className={`rounded-md border px-3 py-2 text-xs ${missing.length ? "border-rose-200 bg-rose-50 text-rose-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+                    <span className="font-semibold">Required fields: </span>
+                    {required.map((f, i) => {
+                      const ok = !missing.some((m) => m.key === f.key);
+                      return (
+                        <span key={f.key}>
+                          {i > 0 && ", "}
+                          {ok ? "✓" : "✗"} {f.label}
+                        </span>
+                      );
+                    })}
+                    {missing.length > 0 && (
+                      <p className="mt-1">
+                        No column is matched to {missing.map((m) => m.label).join(" or ")}. Pick it below if your file has it.
+                        Otherwise every row will need it typed in on the next screen.
+                      </p>
+                    )}
+                  </div>
+                  <div className="border border-slate-200 rounded-lg max-h-[45vh] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 sticky top-0">
+                        <tr className="text-left text-slate-500">
+                          <th className="px-3 py-2">Your column</th>
+                          <th className="px-3 py-2">Sample values</th>
+                          <th className="px-3 py-2">Import as</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {headers.map((h) => {
+                          const d = sm[h];
+                          const skipped = !d || d.target === "skip";
+                          const uncertain = !skipped && d.source !== "manual" && d.confidence < 0.75;
+                          const values = columnSamples[sheet]?.[h] || [];
+                          return (
+                            <tr key={h} className={`border-t border-slate-100 align-top ${uncertain ? "bg-amber-50/60" : ""}`}>
+                              <td className="px-3 py-2 font-medium text-slate-800 break-words max-w-[10rem]">{h}</td>
+                              <td className="px-3 py-2 text-slate-500 max-w-[14rem]">
+                                {values.length ? values.map((v, i) => (
+                                  <div key={i} className="truncate" title={v}>{v}</div>
+                                )) : <span className="italic text-slate-400">(empty)</span>}
+                              </td>
+                              <td className="px-3 py-2 min-w-[12rem]">
+                                <select
+                                  value={skipped ? "skip" : d.target}
+                                  onChange={(e) => setColumnTarget(sheet, h, e.target.value)}
+                                  aria-label={`Import column ${h} as`}
+                                  className={`w-full border rounded px-2 py-1 bg-white text-xs ${skipped ? "border-slate-200 text-slate-400" : uncertain ? "border-amber-300 text-slate-900" : "border-slate-300 text-slate-900"}`}
+                                >
+                                  <option value="skip">Don't import</option>
+                                  {fields.map((f) => (
+                                    <option key={f.key} value={f.key}>{f.label}{f.required ? " *" : ""}</option>
+                                  ))}
+                                  {!skipped && !labelOf.has(d.target) && (
+                                    <option value={d.target}>{d.target}</option>
+                                  )}
+                                </select>
+                                {d?.rationale && (
+                                  <p className={`mt-0.5 text-[10px] leading-snug ${uncertain ? "text-amber-700" : "text-slate-400"}`}>
+                                    {uncertain ? "Not sure: " : ""}{d.rationale}
+                                  </p>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -748,6 +957,24 @@ export function ImportRecordsModal({
               <SummaryStat label="Errors" value={errorCount} tone={errorCount > 0 ? "danger" : "muted"} />
               <SummaryStat label="Total rows" value={previewSummary.total} tone="muted" />
             </div>
+
+            {errorCount > 0 ? (
+              <Alert className="border-rose-200 bg-rose-50">
+                <AlertCircle className="h-4 w-4 text-rose-600" />
+                <AlertDescription className="text-rose-800 text-xs leading-relaxed">
+                  <strong>{errorCount.toLocaleString("en-ZA")} {errorCount === 1 ? "row has" : "rows have"} errors</strong>, so Import is locked.
+                  Press <strong>Fix</strong> on a row below to fill in what's missing; the error clears as soon as you save a valid row.
+                  Or press <strong>Skip {errorCount.toLocaleString("en-ZA")} with errors</strong> to import the {canImportCount.toLocaleString("en-ZA")} good {canImportCount === 1 ? "row" : "rows"} now.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert className="border-emerald-200 bg-emerald-50">
+                <Check className="h-4 w-4 text-emerald-600" />
+                <AlertDescription className="text-emerald-800 text-xs">
+                  <strong>No errors.</strong> Every row is ready to import.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {duplicateCount > 0 && (
               <Alert className="border-amber-200 bg-amber-50">
@@ -829,9 +1056,9 @@ export function ImportRecordsModal({
               <table className="w-full text-xs">
                 <thead className="bg-slate-50 sticky top-0">
                   <tr className="text-left text-slate-500">
-                    <th className="px-3 py-2">Row</th>
+                    <th className="px-3 py-2" title="Row number in your file">Row in file</th>
                     <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2">Preview</th>
+                    <th className="px-3 py-2">Details</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1012,7 +1239,7 @@ export function ImportRecordsModal({
               <Alert className="border-amber-200 bg-amber-50">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800 text-sm">
-                  No rows are ready to import. Fix the errors in your file and re-upload.
+                  No rows are ready to import yet. Fix the rows marked Error above, or go back and change the column matches.
                 </AlertDescription>
               </Alert>
             )}
@@ -1209,11 +1436,26 @@ export function ImportRecordsModal({
         )}
 
         <DialogFooter>
-          {step === "preview" && (
+          {step === "mapping" && mapping && (
             <>
               <Button variant="outline" onClick={reset} disabled={busy}>
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Pick a different file
+              </Button>
+              <Button
+                onClick={runPreview}
+                disabled={busy || !Object.values(mapping).some((sm) => Object.entries(sm).some(([h, d]) => h !== "__schema__" && d?.target && d.target !== "skip"))}
+                className="bg-brand-primary hover:bg-brand-primary/90"
+              >
+                {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                Use these matches
+              </Button>
+            </>
+          )}
+          {step === "preview" && (
+            <>
+              <Button variant="outline" onClick={() => setStep("mapping")} disabled={busy}>
+                Change column matches
               </Button>
               <Button
                 variant="outline"
@@ -1224,20 +1466,36 @@ export function ImportRecordsModal({
                 {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Test run
               </Button>
+              {errorCount > 0 && (
+                // Rows with errors stay out of the commit (it only takes
+                // rows that passed the checks), so this imports the rest.
+                <Button
+                  variant="outline"
+                  onClick={commit}
+                  disabled={busy || canImportCount === 0}
+                  className="border-amber-300 text-amber-900 hover:bg-amber-50"
+                  title="Rows with errors are left out; everything else is saved"
+                >
+                  Skip {errorCount.toLocaleString("en-ZA")} with errors, import {canImportCount.toLocaleString("en-ZA")}
+                </Button>
+              )}
               <Button
                 onClick={commit}
-                disabled={busy || willImportCount + previewRows.filter(r => r.dedup_match_id && r.dedup_decision === "update").length === 0}
+                // Locked until every error is fixed; "Skip ... import" is
+                // the explicit way to import with errors left.
+                disabled={busy || canImportCount === 0 || errorCount > 0}
+                title={errorCount > 0 ? `Fix the ${errorCount} ${errorCount === 1 ? "row" : "rows"} with errors first, or skip them` : undefined}
                 className="bg-brand-primary hover:bg-brand-primary/90"
               >
                 {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                Import {recordLabelPlural}
+                Import {canImportCount.toLocaleString("en-ZA")} {canImportCount === 1 ? recordLabel : recordLabelPlural}
               </Button>
             </>
           )}
           {step === "done" && (
             <Button onClick={close}>Done</Button>
           )}
-          {(step === "pick" || step === "previewing" || step === "committing") && (
+          {(step === "pick" || step === "previewing" || step === "committing" || (step === "mapping" && !mapping)) && (
             <Button variant="outline" onClick={close} disabled={busy}>
               Close
             </Button>

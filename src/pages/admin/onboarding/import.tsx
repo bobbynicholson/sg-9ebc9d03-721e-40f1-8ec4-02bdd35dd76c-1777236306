@@ -118,7 +118,14 @@ function ImportPage() {
   const [editedMapping, setEditedMapping] = useState<any>(null);
 
   // Drilldown filter for the preview step row table.
-  const [rowFilter, setRowFilter] = useState<"all" | "warnings" | "errors" | "skipped" | "duplicates">("all");
+  const [rowFilter, setRowFilterState] = useState<"all" | "warnings" | "errors" | "skipped" | "duplicates">("all");
+  // Paged row list so every row is reachable on big files.
+  const [rowPage, setRowPage] = useState(0);
+  const ROW_PAGE_SIZE = 100;
+  const setRowFilter = (f: "all" | "warnings" | "errors" | "skipped" | "duplicates") => {
+    setRowFilterState(f);
+    setRowPage(0);
+  };
   const [bulkDedupBusy, setBulkDedupBusy] = useState(false);
 
   // Per-row dedup decision setter - writes through the API so
@@ -273,37 +280,13 @@ function ImportPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/imports/upload", { method: "POST", body: fd });
+      // automap=0: every column goes through AI mapping and the team
+      // confirms it, even when the headers match one of our templates.
+      const res = await fetch("/api/imports/upload?automap=0", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Upload failed");
       setJobId(json.jobId);
       await refreshJob(json.jobId);
-
-      // Auto-mapping shortcut. If the upload endpoint recognised the
-      // headers as a known template, it already wrote the mapping and
-      // flipped the job to "mapped". Run preview inline and jump
-      // straight to the preview step - saves the operator the
-      // mapping ceremony when their file is template-clean.
-      if (json.autoMappedTo) {
-        toast({
-          title: "Template recognised",
-          description: `Headers matched the ${json.autoMappedTo} template. Skipping the mapping step.`,
-        });
-        try {
-          const pr = await fetch(`/api/imports/${json.jobId}/preview`, { method: "POST" });
-          const raw = await pr.text();
-          let pj: any = {};
-          try { pj = raw ? JSON.parse(raw) : {}; } catch {
-            pj = { error: raw.slice(0, 280) || `Server returned ${pr.status}` };
-          }
-          if (!pr.ok) throw new Error(pj?.error || `Preview failed (${pr.status})`);
-          await refreshJob(json.jobId, true);
-          setStep("preview");
-        } catch (e: any) {
-          toast({ title: "Preview failed", description: e?.message || "", variant: "destructive" });
-        }
-        return;
-      }
 
       setStep("mapping");
       // Kick the AI mapping immediately - the team usually waits
@@ -891,7 +874,7 @@ function ImportPage() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {filtered.slice(0, 50).map((r) => {
+                                {filtered.slice(rowPage * ROW_PAGE_SIZE, (rowPage + 1) * ROW_PAGE_SIZE).map((r) => {
                                   const hasIssue =
                                     r.status === "error" ||
                                     r.status === "skipped" ||
@@ -997,9 +980,15 @@ function ImportPage() {
                               </tbody>
                             </table>
                           </div>
-                          {filtered.length > 50 && (
-                            <div className="px-3 py-2 text-[11px] text-slate-500 bg-slate-50 border-t border-slate-200">
-                              Showing 50 of {filtered.length}. Commit and use Imports History for the full audit.
+                          {filtered.length > ROW_PAGE_SIZE && (
+                            <div className="px-3 py-2 text-[11px] text-slate-500 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
+                              <span>
+                                Rows {(rowPage * ROW_PAGE_SIZE + 1).toLocaleString("en-ZA")}-{Math.min(filtered.length, (rowPage + 1) * ROW_PAGE_SIZE).toLocaleString("en-ZA")} of {filtered.length.toLocaleString("en-ZA")}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Button size="sm" variant="outline" className="h-6 text-[11px]" disabled={rowPage === 0} onClick={() => setRowPage(rowPage - 1)}>Previous</Button>
+                                <Button size="sm" variant="outline" className="h-6 text-[11px]" disabled={(rowPage + 1) * ROW_PAGE_SIZE >= filtered.length} onClick={() => setRowPage(rowPage + 1)}>Next</Button>
+                              </span>
                             </div>
                           )}
                         </div>
@@ -1030,8 +1019,29 @@ function ImportPage() {
                         </div>
                       )}
 
+                      {p.errors > 0 ? (
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 mt-2">
+                          <strong>{p.errors.toLocaleString("en-ZA")} {p.errors === 1 ? "row has" : "rows have"} errors</strong>, so Commit is locked.
+                          Use the Errors filter above to find them and <strong>AI repair</strong> each one, or fix the mapping.
+                          Or press <strong>Skip {p.errors.toLocaleString("en-ZA")} with errors</strong> to import everything else.
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 mt-2">
+                          <strong>No errors.</strong> Every row is ready to import.
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2 pt-2">
-                        <Button onClick={runCommit} disabled={busy} className="bg-brand-primary">
+                        {p.errors > 0 && (
+                          // Commit only takes rows that passed the checks,
+                          // so rows with errors are left behind.
+                          <Button variant="outline" onClick={runCommit} disabled={busy || p.total - p.errors === 0}
+                            className="border-amber-300 text-amber-900 hover:bg-amber-50">
+                            Skip {p.errors.toLocaleString("en-ZA")} with errors
+                          </Button>
+                        )}
+                        <Button onClick={runCommit} disabled={busy || p.errors > 0} className="bg-brand-primary"
+                          title={p.errors > 0 ? "Fix the rows with errors first, or skip them" : undefined}>
                           {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                           Commit import
                         </Button>

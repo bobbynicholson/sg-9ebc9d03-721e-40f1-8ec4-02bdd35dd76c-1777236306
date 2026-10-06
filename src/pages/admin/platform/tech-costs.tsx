@@ -4,15 +4,13 @@
  *
  * SaaS-owner unit-economics calculator. Predicts CateringMS's monthly
  * COGS as a function of tenant count + per-tenant usage assumptions,
- * across the actual tech stack:
+ * across the actual tech stack: Vercel, Supabase, AI models (gpt-oss-20b
+ * for text, Llama 4 for vision, gpt-4o-mini intent routing, OpenAI
+ * embeddings), Resend, Cloudflare, Google Maps, PayFast card fees and
+ * fixed costs.
  *
- *   - Vercel              (hosting + serverless functions)
- *   - Supabase            (Postgres + auth + storage + egress)
- *   - Anthropic API       (Sonnet 4-5 receipt scans, Haiku CSV mapping)
- *   - Resend              (transactional email)
- *   - Cloudflare DNS      (anycast nameservers for tenant sending domains)
- *   - Google Maps         (Places autocomplete + Distance Matrix)
- *   - Fixed (domain etc.) (small flat baseline)
+ * The vendor prices and the math live in src/lib/techCosts/model.ts,
+ * shared with the assistant's technology-cost answer.
  *
  * Sliders + numeric inputs drive a live recompute. The grid below shows
  * the per-line cost with the formula, the headline shows the monthly
@@ -23,10 +21,8 @@
  * signups + super-admin records) so the initial scenario reflects the
  * platform's current state.
  *
- * Pricing data is hard-coded as named constants at the top of this
- * file - this is a calculator, not an integration. If a vendor's
- * pricing changes, edit the constant and the projection updates
- * everywhere it's used.
+ * Pricing data is hard-coded in the model - this is a calculator, not
+ * an integration.
  */
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
@@ -42,381 +38,63 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Calculator, Cloud, Database, Sparkles, Mail, MapPin, Package,
-  TrendingUp, AlertTriangle, ArrowRight, Info, Globe,
+  TrendingUp, AlertTriangle, ArrowRight, Info, Globe, CreditCard, TrendingDown,
+  BookOpen, Activity, Users, ExternalLink,
 } from "lucide-react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { supabase } from "@/integrations/supabase/client";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  computeTechCosts,
+  DEFAULT_ASSUMPTIONS,
+  DEFAULT_USD_TO_ZAR,
+  ALL_PRICING_LINKS,
+  PAYMENT_GATEWAYS,
+  PRICES_CHECKED,
+  RECEIPT_SCAN_QUOTA_CAP,
+  SENTRY_PLANS,
+  TEXT_MODELS,
+  VISION_MODELS,
+  type CostCategoryKey,
+  type PaymentGatewayKey,
+  type PricingLink,
+  type SentryPlanKey,
+  type TechCostAssumptions,
+} from "@/lib/techCosts/model";
 
-// ─── Vendor pricing (USD) ────────────────────────────────────────────
-// Single source of truth. Update here when a vendor changes their card.
+type Assumptions = TechCostAssumptions;
+const DEFAULTS: Assumptions = DEFAULT_ASSUMPTIONS;
 
-const VERCEL = {
-  pro_base_usd_per_mo: 20,
-  bandwidth_included_gb: 1024,        // 1 TB included on Pro
-  bandwidth_overage_usd_per_100gb: 40,
-  invocations_included_m: 1,          // 1 million function invocations
-  invocations_overage_usd_per_m: 0.60,
+/** What to pull when a category dominates the monthly spend. */
+const LEVER_TIPS: Record<CostCategoryKey, string> = {
+  hosting: "Cut function invocations: batch automations and cache heavy API routes.",
+  database: "Move to a right-sized compute instance and keep large files out of the database.",
+  ai: "Keep text on gpt-oss and vision on Llama 4 Scout, and keep the receipt-scan cap in place.",
+  email: "Batch notifications into digests and trim automation emails nobody opens.",
+  maps: "Cache distances per venue and use session tokens on address search.",
+  payments: "Offer annual billing or debit orders / EFT, which carry lower fees than per-charge card payments.",
+  accounting: "Watch the Xero connection count: the next tier starts above 50 and above 1,000 connected companies.",
+  monitoring: "Drop to the free Sentry Developer plan if errors stay under 5,000 a month.",
+  free: "These are free; keep usage inside each provider's fair-use limits.",
+  fixed: "Review the domain renewal once a year.",
+  passthrough: "Billed to each company directly.",
 };
 
-const SUPABASE = {
-  pro_base_usd_per_mo: 25,
-  db_compute_usd_per_mo: 10,           // small instance baseline; scales with tenants
-  storage_included_gb: 8,
-  storage_usd_per_gb: 0.021,
-  egress_included_gb: 250,
-  egress_usd_per_gb: 0.09,
-  mau_included: 100_000,               // 100k MAUs included
-  mau_usd_each: 0.00325,
+const CATEGORY_ICONS: Record<CostCategoryKey, any> = {
+  hosting: Cloud,
+  database: Database,
+  ai: Sparkles,
+  email: Mail,
+  maps: MapPin,
+  payments: CreditCard,
+  accounting: BookOpen,
+  monitoring: Activity,
+  free: Globe,
+  fixed: Package,
+  passthrough: Users,
 };
-
-const ANTHROPIC = {
-  // Sonnet 4-5 - held in reserve as the fallback model for receipt
-  // scans where Haiku returns 0 lines. Empirically fires on ~10-15%
-  // of slips (faded thermal, sideways shots, very dense text).
-  sonnet_input_usd_per_m_tokens: 3,
-  sonnet_output_usd_per_m_tokens: 15,
-  // Haiku 4-5 - the workhorse. Default for receipt scans + CSV
-  // column mapping. ~4x cheaper than Sonnet for the same structured-
-  // vision task.
-  haiku_input_usd_per_m_tokens: 0.80,
-  haiku_output_usd_per_m_tokens: 4,
-  // Sonnet fallback rate: how often we escalate to Sonnet when Haiku
-  // returns 0 lines. Conservative estimate; tweak after observing real
-  // production data.
-  sonnet_fallback_rate: 0.12,
-  // Per-call profile - empirical averages from production
-  receipt_input_tokens_per_call: 4_000,   // image + system + tool schema
-  receipt_output_tokens_per_call: 1_500,  // typical 10-line slip
-  csv_input_tokens_per_call: 1_500,
-  csv_output_tokens_per_call: 600,
-  // Prompt caching: the system prompt + tax-rules table are identical
-  // across calls within a 5-minute window. Anthropic charges 10% of
-  // normal input rate for cached tokens. We assume ~80% of the input
-  // tokens are cacheable (system + tax rules + tool schema); the
-  // image is unique per call.
-  cacheable_input_fraction: 0.80,
-  cached_input_discount: 0.10, // cached tokens cost 10% of normal
-};
-
-const RESEND = {
-  free_tier_emails: 3_000,
-  paid_tier_usd_per_mo: 20,
-  paid_tier_emails: 50_000,
-  overage_usd_per_email: 0.001,
-};
-
-// Cloudflare DNS hosts every tenant's sending domain (free plan,
-// anycast nameservers globally). We adopted it after Resend's verifier
-// repeatedly stalled on tenants whose DNS sat at small SA-only hosts
-// like za-dns - queries from us-east-1 to those nameservers were
-// patchy, leaving Resend stuck on 'pending' for hours. Cloudflare's
-// anycast NS resolves from a PoP in the same region as Resend's
-// resolver, so verification flips inside 30 seconds.
-//
-// Free plan covers everything we need: unlimited DNS records, anycast,
-// DNSSEC, no rate limits at our usage scale. Listed here at zero cost
-// because we have a real chance of staying free for the life of the
-// platform; the constant exists so the calculator can flag it if we
-// ever migrate to Pro for advanced features.
-const CLOUDFLARE = {
-  free_plan_usd_per_mo: 0,
-};
-
-const GOOGLE_MAPS = {
-  // SKU prices per Google's published rates
-  autocomplete_usd_per_1k: 2.83,
-  distance_matrix_usd_per_1k_elements: 5,
-  monthly_credit_usd: 200,            // every account gets $200/month free
-};
-
-const FIXED = {
-  domain_usd_per_mo: 1.5,              // amortised
-  monitoring_usd_per_mo: 5,            // Sentry / log drains baseline
-};
-
-// ─── ZAR conversion ──────────────────────────────────────────────────
-// USD -> ZAR for display. Editable on the page so a slide in the rand
-// updates every cost projection live without a deploy.
-
-const DEFAULT_USD_TO_ZAR = 18.5;
-
-// ─── Defaults ────────────────────────────────────────────────────────
-
-interface Assumptions {
-  tenants: number;
-  // Per-tenant per-month usage averages
-  receipt_scans_per_tenant: number;
-  csv_imports_per_tenant: number;
-  emails_per_tenant: number;
-  places_autocompletes_per_tenant: number;
-  distance_matrix_calls_per_tenant: number;
-  storage_gb_per_tenant: number;          // photos, PDFs, logos
-  mau_per_tenant: number;                 // staff + active clients/mo
-  // Per-tenant subscription pricing for margin calc
-  subscription_zar_per_tenant: number;
-  // Misc per-tenant load - drives function invocation + egress projection
-  function_invocations_per_tenant_m: number;
-  egress_gb_per_tenant: number;
-}
-
-/**
- * Hard cap from src/lib/receiptScanQuota.ts - a tenant cannot exceed
- * this no matter what (the API blocks the call). Keep in sync if
- * MONTHLY_SCAN_CAP changes there. Used here to (a) seed the default
- * input and (b) flag projections that exceed it as unrealistic.
- */
-const RECEIPT_SCAN_QUOTA_CAP = 60;
-
-const DEFAULTS: Assumptions = {
-  tenants: 50,
-  // Matches the per-tenant cap enforced in src/lib/receiptScanQuota.ts.
-  // Use the cap as the calculator's default so projections show worst-
-  // case (every tenant hits the ceiling), giving a defensible upper
-  // bound on AI spend rather than an optimistic mid-point.
-  receipt_scans_per_tenant: RECEIPT_SCAN_QUOTA_CAP,
-  csv_imports_per_tenant: 1,
-  emails_per_tenant: 200,
-  places_autocompletes_per_tenant: 100,
-  distance_matrix_calls_per_tenant: 200,
-  storage_gb_per_tenant: 0.5,
-  mau_per_tenant: 25,
-  subscription_zar_per_tenant: 2_000,
-  function_invocations_per_tenant_m: 0.05, // 50k invocations/mo per tenant
-  egress_gb_per_tenant: 5,
-};
-
-// ─── Math ────────────────────────────────────────────────────────────
-
-interface LineCost {
-  label: string;
-  formula: string;
-  usd_per_mo: number;
-}
-
-interface CategoryCost {
-  category: string;
-  icon: any;
-  lines: LineCost[];
-  subtotal_usd: number;
-}
-
-function computeCosts(a: Assumptions): { categories: CategoryCost[]; total_usd: number } {
-  const categories: CategoryCost[] = [];
-
-  // Vercel
-  const vercelInvocationsM = a.tenants * a.function_invocations_per_tenant_m;
-  const vercelInvocationOverageM = Math.max(0, vercelInvocationsM - VERCEL.invocations_included_m);
-  const vercelLines: LineCost[] = [
-    {
-      label: "Pro plan base",
-      formula: `Flat US$${VERCEL.pro_base_usd_per_mo}/mo`,
-      usd_per_mo: VERCEL.pro_base_usd_per_mo,
-    },
-    {
-      label: "Function invocations",
-      formula: `${vercelInvocationsM.toFixed(2)}M used, ${VERCEL.invocations_included_m}M included; overage ${vercelInvocationOverageM.toFixed(2)}M × US$${VERCEL.invocations_overage_usd_per_m}`,
-      usd_per_mo: vercelInvocationOverageM * VERCEL.invocations_overage_usd_per_m,
-    },
-  ];
-  categories.push({
-    category: "Vercel (hosting)",
-    icon: Cloud,
-    lines: vercelLines,
-    subtotal_usd: vercelLines.reduce((s, l) => s + l.usd_per_mo, 0),
-  });
-
-  // Supabase
-  const supabaseStorageGb = a.tenants * a.storage_gb_per_tenant;
-  const supabaseStorageOverage = Math.max(0, supabaseStorageGb - SUPABASE.storage_included_gb);
-  const supabaseEgressGb = a.tenants * a.egress_gb_per_tenant;
-  const supabaseEgressOverage = Math.max(0, supabaseEgressGb - SUPABASE.egress_included_gb);
-  const supabaseMau = a.tenants * a.mau_per_tenant;
-  const supabaseMauOverage = Math.max(0, supabaseMau - SUPABASE.mau_included);
-  const supabaseLines: LineCost[] = [
-    {
-      label: "Pro plan base",
-      formula: `Flat US$${SUPABASE.pro_base_usd_per_mo}/mo`,
-      usd_per_mo: SUPABASE.pro_base_usd_per_mo,
-    },
-    {
-      label: "Database compute",
-      formula: `Small instance baseline US$${SUPABASE.db_compute_usd_per_mo}/mo (scale up at ~250 tenants)`,
-      usd_per_mo: SUPABASE.db_compute_usd_per_mo,
-    },
-    {
-      label: "Storage",
-      formula: `${supabaseStorageGb.toFixed(1)}GB used, ${SUPABASE.storage_included_gb}GB included; overage ${supabaseStorageOverage.toFixed(1)}GB × US$${SUPABASE.storage_usd_per_gb}/GB`,
-      usd_per_mo: supabaseStorageOverage * SUPABASE.storage_usd_per_gb,
-    },
-    {
-      label: "Egress (bandwidth)",
-      formula: `${supabaseEgressGb.toFixed(0)}GB egress, ${SUPABASE.egress_included_gb}GB included; overage ${supabaseEgressOverage.toFixed(0)}GB × US$${SUPABASE.egress_usd_per_gb}/GB`,
-      usd_per_mo: supabaseEgressOverage * SUPABASE.egress_usd_per_gb,
-    },
-    {
-      label: "Monthly active users",
-      formula: `${supabaseMau.toLocaleString()} MAU, ${SUPABASE.mau_included.toLocaleString()} included; overage ${supabaseMauOverage.toLocaleString()} × US$${SUPABASE.mau_usd_each}`,
-      usd_per_mo: supabaseMauOverage * SUPABASE.mau_usd_each,
-    },
-  ];
-  categories.push({
-    category: "Supabase (database, auth, storage)",
-    icon: Database,
-    lines: supabaseLines,
-    subtotal_usd: supabaseLines.reduce((s, l) => s + l.usd_per_mo, 0),
-  });
-
-  // Anthropic - now reflects the post-optimisation runtime:
-  //   1. Haiku is primary; Sonnet only fires as a fallback on the
-  //      ~12% of slips Haiku can't crack.
-  //   2. Prompt caching: ~80% of input tokens are the cacheable system
-  //      prompt + tax rules. Cached tokens bill at 10% of normal rate.
-  //   3. Image compression cuts input tokens for the image portion
-  //      (already baked into the 4_000 input estimate).
-  const totalReceiptScans = a.tenants * a.receipt_scans_per_tenant;
-  const totalCsvImports = a.tenants * a.csv_imports_per_tenant;
-
-  // Per-scan input cost factoring prompt caching: cached portion bills
-  // at the discounted rate, uncached portion at full rate.
-  const cachedFraction = ANTHROPIC.cacheable_input_fraction;
-  const uncachedFraction = 1 - cachedFraction;
-  const haikuInputCostPerCallUsd =
-    (ANTHROPIC.receipt_input_tokens_per_call / 1_000_000) *
-    ANTHROPIC.haiku_input_usd_per_m_tokens *
-    (cachedFraction * ANTHROPIC.cached_input_discount + uncachedFraction);
-  const haikuOutputCostPerCallUsd =
-    (ANTHROPIC.receipt_output_tokens_per_call / 1_000_000) *
-    ANTHROPIC.haiku_output_usd_per_m_tokens;
-  const sonnetInputCostPerCallUsd =
-    (ANTHROPIC.receipt_input_tokens_per_call / 1_000_000) *
-    ANTHROPIC.sonnet_input_usd_per_m_tokens *
-    (cachedFraction * ANTHROPIC.cached_input_discount + uncachedFraction);
-  const sonnetOutputCostPerCallUsd =
-    (ANTHROPIC.receipt_output_tokens_per_call / 1_000_000) *
-    ANTHROPIC.sonnet_output_usd_per_m_tokens;
-
-  const fallbackRate = ANTHROPIC.sonnet_fallback_rate;
-  const haikuScans = totalReceiptScans; // every scan starts on Haiku
-  const sonnetScans = totalReceiptScans * fallbackRate; // ~12% retry
-  const haikuReceiptCost =
-    haikuScans * (haikuInputCostPerCallUsd + haikuOutputCostPerCallUsd);
-  const sonnetReceiptCost =
-    sonnetScans * (sonnetInputCostPerCallUsd + sonnetOutputCostPerCallUsd);
-
-  const haikuCsvCost =
-    (totalCsvImports * ANTHROPIC.csv_input_tokens_per_call / 1_000_000) *
-      ANTHROPIC.haiku_input_usd_per_m_tokens +
-    (totalCsvImports * ANTHROPIC.csv_output_tokens_per_call / 1_000_000) *
-      ANTHROPIC.haiku_output_usd_per_m_tokens;
-
-  const aiLines: LineCost[] = [
-    {
-      label: "Receipt scans · Haiku 4-5 primary",
-      formula: `${haikuScans.toLocaleString()} scans @ Haiku rate. Per-scan: US$${(haikuInputCostPerCallUsd + haikuOutputCostPerCallUsd).toFixed(4)} (with ${(cachedFraction * 100).toFixed(0)}% prompt caching)`,
-      usd_per_mo: haikuReceiptCost,
-    },
-    {
-      label: "Receipt scans · Sonnet fallback",
-      formula: `~${(fallbackRate * 100).toFixed(0)}% of slips retry on Sonnet (Haiku returned 0 lines). ${sonnetScans.toLocaleString("en-ZA", { maximumFractionDigits: 0 })} scans @ Sonnet rate.`,
-      usd_per_mo: sonnetReceiptCost,
-    },
-    {
-      label: "CSV imports (Haiku 4-5)",
-      formula: `${totalCsvImports.toLocaleString()} imports × ${ANTHROPIC.csv_input_tokens_per_call.toLocaleString()} in + ${ANTHROPIC.csv_output_tokens_per_call.toLocaleString()} out tokens at Haiku rate`,
-      usd_per_mo: haikuCsvCost,
-    },
-  ];
-  categories.push({
-    category: "Anthropic (AI)",
-    icon: Sparkles,
-    lines: aiLines,
-    subtotal_usd: aiLines.reduce((s, l) => s + l.usd_per_mo, 0),
-  });
-
-  // Email (Resend)
-  const totalEmails = a.tenants * a.emails_per_tenant;
-  let resendCost = 0;
-  let resendFormula = "";
-  if (totalEmails <= RESEND.free_tier_emails) {
-    resendFormula = `${totalEmails.toLocaleString()} ≤ ${RESEND.free_tier_emails.toLocaleString()} (free tier)`;
-    resendCost = 0;
-  } else if (totalEmails <= RESEND.paid_tier_emails) {
-    resendFormula = `${totalEmails.toLocaleString()} on Pro tier (US$${RESEND.paid_tier_usd_per_mo}/mo flat up to ${RESEND.paid_tier_emails.toLocaleString()})`;
-    resendCost = RESEND.paid_tier_usd_per_mo;
-  } else {
-    const overage = totalEmails - RESEND.paid_tier_emails;
-    resendFormula = `${totalEmails.toLocaleString()} (Pro US$${RESEND.paid_tier_usd_per_mo} + ${overage.toLocaleString()} overage × US$${RESEND.overage_usd_per_email})`;
-    resendCost = RESEND.paid_tier_usd_per_mo + overage * RESEND.overage_usd_per_email;
-  }
-  const emailLines: LineCost[] = [
-    { label: "Transactional email", formula: resendFormula, usd_per_mo: resendCost },
-  ];
-  categories.push({
-    category: "Resend (email)",
-    icon: Mail,
-    lines: emailLines,
-    subtotal_usd: resendCost,
-  });
-
-  // Cloudflare DNS - anycast nameservers for every tenant's sending
-  // domain. Free plan covers our usage so this is informational; if
-  // we ever upgrade for analytics or advanced rules, change the
-  // constant and the line updates here.
-  const cloudflareLines: LineCost[] = [
-    {
-      label: "Anycast DNS for tenant sending domains",
-      formula: `Free plan, unlimited records, no rate limits at our scale. Adopted to keep Resend domain verification reliable globally.`,
-      usd_per_mo: CLOUDFLARE.free_plan_usd_per_mo,
-    },
-  ];
-  categories.push({
-    category: "Cloudflare (DNS)",
-    icon: Globe,
-    lines: cloudflareLines,
-    subtotal_usd: cloudflareLines.reduce((s, l) => s + l.usd_per_mo, 0),
-  });
-
-  // Google Maps
-  const totalAutocompletes = a.tenants * a.places_autocompletes_per_tenant;
-  const totalDistanceMatrix = a.tenants * a.distance_matrix_calls_per_tenant;
-  const mapsRawCost =
-    (totalAutocompletes / 1000) * GOOGLE_MAPS.autocomplete_usd_per_1k +
-    (totalDistanceMatrix / 1000) * GOOGLE_MAPS.distance_matrix_usd_per_1k_elements;
-  const mapsAfterCredit = Math.max(0, mapsRawCost - GOOGLE_MAPS.monthly_credit_usd);
-  const mapsLines: LineCost[] = [
-    {
-      label: "Places autocomplete + Distance Matrix",
-      formula: `Raw US$${mapsRawCost.toFixed(2)} (${totalAutocompletes.toLocaleString()} autocompletes + ${totalDistanceMatrix.toLocaleString()} matrix elements); US$${GOOGLE_MAPS.monthly_credit_usd} monthly credit applied`,
-      usd_per_mo: mapsAfterCredit,
-    },
-  ];
-  categories.push({
-    category: "Google Maps",
-    icon: MapPin,
-    lines: mapsLines,
-    subtotal_usd: mapsAfterCredit,
-  });
-
-  // Fixed
-  const fixedLines: LineCost[] = [
-    {
-      label: "Domain + monitoring",
-      formula: `Flat US$${(FIXED.domain_usd_per_mo + FIXED.monitoring_usd_per_mo).toFixed(2)}/mo (domain amortised + Sentry baseline)`,
-      usd_per_mo: FIXED.domain_usd_per_mo + FIXED.monitoring_usd_per_mo,
-    },
-  ];
-  categories.push({
-    category: "Fixed costs",
-    icon: Package,
-    lines: fixedLines,
-    subtotal_usd: fixedLines.reduce((s, l) => s + l.usd_per_mo, 0),
-  });
-
-  const total_usd = categories.reduce((s, c) => s + c.subtotal_usd, 0);
-  return { categories, total_usd };
-}
 
 // ─── Page ────────────────────────────────────────────────────────────
 
@@ -451,10 +129,11 @@ function TechCostsDashboard() {
     return () => { cancelled = true; };
   }, []);
 
-  const { categories, total_usd } = useMemo(
-    () => computeCosts(assumptions),
-    [assumptions],
+  const { categories, total_usd, ai_usd, ai_previous_claude_usd } = useMemo(
+    () => computeTechCosts(assumptions, usdToZar),
+    [assumptions, usdToZar],
   );
+  const ai_saving_usd = Math.max(0, ai_previous_claude_usd - ai_usd);
 
   const total_zar = total_usd * usdToZar;
   const cost_per_tenant_zar = assumptions.tenants > 0 ? total_zar / assumptions.tenants : 0;
@@ -472,7 +151,7 @@ function TechCostsDashboard() {
   const scaleScenarios = useMemo(() => {
     const counts = [10, 50, 100, 250, 500, 1000];
     return counts.map((n) => {
-      const sim = computeCosts({ ...assumptions, tenants: n });
+      const sim = computeTechCosts({ ...assumptions, tenants: n }, usdToZar);
       const monthly_zar = sim.total_usd * usdToZar;
       return {
         tenants: n,
@@ -592,6 +271,38 @@ function TechCostsDashboard() {
               </div>
           </PortalCard>
 
+          {/* AI routing savings vs the previous Claude setup */}
+          <PortalCard id="ai-savings" data-chat-section="platform.tech-costs.ai-savings" data-chat-section-label="AI model savings" className="mb-6 p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+              <TrendingDown className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">AI spend on the selected models</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Same usage on the previous Claude setup (Haiku text, Haiku + Sonnet vision) would cost
+                {" "}ZAR {(ai_previous_claude_usd * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })} / month.
+                Claude now runs only as a last-resort fallback.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 sm:text-right flex-shrink-0">
+              <div>
+                <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">AI / month</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white">
+                  ZAR {(ai_usd * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">Saved / month</p>
+                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                  ZAR {(ai_saving_usd * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
+                  {ai_previous_claude_usd > 0 && (
+                    <span className="ml-1 text-xs font-semibold">({((ai_saving_usd / ai_previous_claude_usd) * 100).toFixed(0)}%)</span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </PortalCard>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {/* Assumptions panel */}
             <PortalCard className="lg:col-span-1 space-y-5">
@@ -619,87 +330,236 @@ function TechCostsDashboard() {
                   />
                 </Section>
 
-                <Section title="Usage per company">
+                <Section title="AI models">
+                  <ModelSelect
+                    label="Text model"
+                    value={assumptions.text_model}
+                    options={Object.entries(TEXT_MODELS).map(([key, m]) => ({ key, label: m.label }))}
+                    onChange={(v) => setAssumptions({ ...assumptions, text_model: v })}
+                    tooltip="Runs client / CSV import column matching, row repair, assistant replies, knowledge review, brand palettes and blog drafts. Production routes to gpt-oss-20b (OpenRouter, then Groq), then OpenAI gpt-4o-mini; Claude is only a last-resort fallback. Pick another model to compare its cost."
+                  />
+                  <ModelSelect
+                    label="Vision model"
+                    value={assumptions.vision_model}
+                    options={Object.entries(VISION_MODELS).map(([key, m]) => ({ key, label: `${m.primary.label}${m.fallback.id !== m.primary.id ? ` + ${m.fallback.label.split(" · ")[0]} retry` : ""}` }))}
+                    onChange={(v) => setAssumptions({ ...assumptions, vision_model: v })}
+                    tooltip="Reads receipt photos and EFT proofs. gpt-oss is text-only, so vision runs on Llama 4 Scout with a Maverick retry when the first pass finds no lines."
+                  />
+                </Section>
+
+                <Section title="AI usage per company / month">
                   <NumField
-                    label="Receipt scans / month"
+                    label="Receipt scans"
                     value={assumptions.receipt_scans_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, receipt_scans_per_tenant: v })}
                     min={0}
-                    tooltip="Slips run through the AI receipt scanner per tenant per month. CAPPED at 60 server-side (src/lib/receiptScanQuota.ts). Default scenario uses the cap as a defensible upper bound. Each call ≈ 4k input + 1.5k output tokens on Haiku 4-5 primary, with a Sonnet fallback for the ~12% of slips Haiku can't crack."
+                    tooltip={`Slips run through the AI receipt scanner. CAPPED at ${RECEIPT_SCAN_QUOTA_CAP} per company server-side (src/lib/receiptScanQuota.ts); the default uses the cap as a worst case. Each scan ≈ 4k input + 1.5k output tokens.`}
                   />
                   {/* Loud warning when the input exceeds what the
-                      quota will actually allow. Without this it's easy
-                      to type a stress-test number, see R250k AI spend,
-                      and panic - the real number is bounded by the
-                      server-side cap, not by what's in this field. */}
+                      quota will actually allow. */}
                   {assumptions.receipt_scans_per_tenant > RECEIPT_SCAN_QUOTA_CAP && (
                     <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 -mt-2 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                      <strong>Above the quota cap.</strong> The server hard-caps each tenant at
-                       {" "}{RECEIPT_SCAN_QUOTA_CAP} receipt scans / month
-                       {" "}(src/lib/receiptScanQuota.ts). A tenant typing more than that gets a
-                       {" "}<em>quota exceeded</em> response. The AI call never happens. Real-
-                      world spend is bounded by the cap × tenants, regardless of what's in
-                      this field. Drop to {RECEIPT_SCAN_QUOTA_CAP} for a defensible projection.
+                      <strong>Above the quota cap.</strong> The server hard-caps each company at
+                       {" "}{RECEIPT_SCAN_QUOTA_CAP} receipt scans / month. Extra scans get a
+                       {" "}<em>quota exceeded</em> response and the AI call never happens, so real
+                      spend is bounded by the cap × companies. Drop to {RECEIPT_SCAN_QUOTA_CAP} for a defensible projection.
                     </div>
                   )}
                   <NumField
-                    label="CSV imports / month"
+                    label="EFT proofs screened"
+                    value={assumptions.eft_proofs_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, eft_proofs_per_tenant: v })}
+                    min={0}
+                    tooltip="Bank-transfer proofs uploaded by clients and screened by the vision model before an admin confirms payment."
+                  />
+                  <NumField
+                    label="Client / CSV imports"
                     value={assumptions.csv_imports_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, csv_imports_per_tenant: v })}
                     min={0}
-                    tooltip="Spreadsheet imports through the AI mapper per tenant per month. Uses Haiku 4-5 (10× cheaper than Sonnet)."
+                    tooltip="Spreadsheet imports through the AI column matcher (client import and onboarding importer). One model call per sheet: headers + 3 sample rows."
                   />
                   <NumField
-                    label="Emails / month"
+                    label="Import row repairs"
+                    value={assumptions.row_repairs_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, row_repairs_per_tenant: v })}
+                    min={0}
+                    tooltip="Times an operator presses AI repair on a flagged import row."
+                  />
+                  <NumField
+                    label="Assistant messages"
+                    value={assumptions.chat_messages_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, chat_messages_per_tenant: v })}
+                    min={0}
+                    tooltip="Messages sent to the in-app assistant. Every message is routed by gpt-4o-mini; about 60% then need a model reply (the rest are answered straight from company records)."
+                  />
+                  <NumField
+                    label="Knowledge uploads"
+                    value={assumptions.knowledge_uploads_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, knowledge_uploads_per_tenant: v })}
+                    min={0}
+                    tooltip="Documents added to the assistant's knowledge base. Each one gets an AI safety review and is embedded for search."
+                  />
+                  <NumField
+                    label="Brand palette suggestions"
+                    value={assumptions.brand_palettes_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, brand_palettes_per_tenant: v })}
+                    min={0}
+                    step={0.1}
+                    tooltip="AI colour palette suggestions on the branding screen. Usually a one-off at setup."
+                  />
+                </Section>
+
+                <Section title="Platform AI / month">
+                  <NumField
+                    label="Marketing blog drafts"
+                    value={assumptions.blog_drafts_per_month}
+                    onChange={(v) => setAssumptions({ ...assumptions, blog_drafts_per_month: v })}
+                    min={0}
+                    tooltip="AI drafts for the cateringms.com blog. Platform-wide, not per company."
+                  />
+                </Section>
+
+                <Section title="Other usage per company / month">
+                  <NumField
+                    label="Emails"
                     value={assumptions.emails_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, emails_per_tenant: v })}
                     min={0}
-                    tooltip="Transactional emails per tenant per month (quotes, invoices, automation, password resets)."
+                    tooltip="Transactional emails per company (quotes, invoices, automation, password resets)."
                   />
                   <NumField
-                    label="Places autocompletes / month"
+                    label="Map loads"
+                    value={assumptions.map_loads_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, map_loads_per_tenant: v })}
+                    min={0}
+                    tooltip="Google map views (live tracking, regions, driver screens)."
+                  />
+                  <NumField
+                    label="Places autocompletes"
                     value={assumptions.places_autocompletes_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, places_autocompletes_per_tenant: v })}
                     min={0}
-                    tooltip="Address autocomplete keystrokes against Google Places per tenant per month."
+                    tooltip="Address search requests against Google Places."
                   />
                   <NumField
-                    label="Distance matrix calls / month"
+                    label="Place details"
+                    value={assumptions.place_details_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, place_details_per_tenant: v })}
+                    min={0}
+                    tooltip="Address selections that fetch the full place (coordinates, components)."
+                  />
+                  <NumField
+                    label="Distance Matrix elements"
                     value={assumptions.distance_matrix_calls_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, distance_matrix_calls_per_tenant: v })}
                     min={0}
-                    tooltip="Delivery-distance lookups per tenant per month. Each quote rendered with venue + kitchen lat/lng counts."
+                    tooltip="Delivery-distance lookups on quotes and lead forms."
                   />
                   <NumField
-                    label="Storage GB / company"
-                    value={assumptions.storage_gb_per_tenant}
-                    onChange={(v) => setAssumptions({ ...assumptions, storage_gb_per_tenant: v })}
+                    label="Directions requests"
+                    value={assumptions.directions_calls_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, directions_calls_per_tenant: v })}
                     min={0}
-                    step={0.1}
-                    tooltip="Avatars, logos, receipt photos, generated PDFs in Supabase Storage per tenant."
+                    tooltip="Driver route calculations."
                   />
+                </Section>
+
+                <Section title="Hosting + database per company / month">
                   <NumField
-                    label="Egress GB / company"
-                    value={assumptions.egress_gb_per_tenant}
-                    onChange={(v) => setAssumptions({ ...assumptions, egress_gb_per_tenant: v })}
-                    min={0}
-                    step={0.5}
-                    tooltip="Outbound bandwidth from Supabase per tenant per month, driven by client portal page loads + image fetches."
-                  />
-                  <NumField
-                    label="Monthly active users per company"
-                    value={assumptions.mau_per_tenant}
-                    onChange={(v) => setAssumptions({ ...assumptions, mau_per_tenant: v })}
-                    min={0}
-                    tooltip="Monthly active users that touch auth (staff + active clients). Supabase MAU billing kicks in at 100k cumulative."
-                  />
-                  <NumField
-                    label="Function invocations (M) / company"
+                    label="Function invocations (M)"
                     value={assumptions.function_invocations_per_tenant_m}
                     onChange={(v) => setAssumptions({ ...assumptions, function_invocations_per_tenant_m: v })}
                     min={0}
                     step={0.01}
-                    tooltip="Vercel serverless invocations per tenant per month. 0.05M = 50,000, a busy tenant with realtime + a few automations."
+                    tooltip="Vercel serverless invocations. 0.05M = 50,000, a busy company with realtime + a few automations. 1M a month is included on Pro."
+                  />
+                  <NumField
+                    label="Active CPU hours"
+                    value={assumptions.cpu_hours_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, cpu_hours_per_tenant: v })}
+                    min={0}
+                    step={0.1}
+                    tooltip="Vercel bills Active CPU at US$0.128 per CPU-hour with no included amount. 0.7 h is about 50,000 invocations at ~50 ms CPU each."
+                  />
+                  <NumField
+                    label="Vercel bandwidth GB"
+                    value={assumptions.bandwidth_gb_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, bandwidth_gb_per_tenant: v })}
+                    min={0}
+                    step={0.5}
+                    tooltip="Fast Data Transfer from Vercel (pages, scripts, images). 1 TB a month is included on Pro."
+                  />
+                  <NumField
+                    label="Database GB"
+                    value={assumptions.db_gb_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, db_gb_per_tenant: v })}
+                    min={0}
+                    step={0.05}
+                    tooltip="Postgres data per company. 8 GB is included on Supabase Pro, then US$0.125/GB."
+                  />
+                  <NumField
+                    label="File storage GB"
+                    value={assumptions.storage_gb_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, storage_gb_per_tenant: v })}
+                    min={0}
+                    step={0.1}
+                    tooltip="Avatars, logos, receipt photos, generated PDFs in Supabase Storage. 100 GB included."
+                  />
+                  <NumField
+                    label="Supabase egress GB"
+                    value={assumptions.egress_gb_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, egress_gb_per_tenant: v })}
+                    min={0}
+                    step={0.5}
+                    tooltip="Outbound bandwidth from Supabase (client portal page loads + image fetches). 250 GB included."
+                  />
+                  <NumField
+                    label="Monthly active users"
+                    value={assumptions.mau_per_tenant}
+                    onChange={(v) => setAssumptions({ ...assumptions, mau_per_tenant: v })}
+                    min={0}
+                    tooltip="Staff + active clients that sign in. Supabase MAU billing starts above 100k across the platform."
+                  />
+                </Section>
+
+                <Section title="Platform setup">
+                  <NumField
+                    label="Vercel Pro seats"
+                    value={assumptions.vercel_seats}
+                    onChange={(v) => setAssumptions({ ...assumptions, vercel_seats: v })}
+                    min={0}
+                    tooltip="Developer seats on the Vercel team. Each is US$20/mo and includes US$20 of usage credit."
+                  />
+                  <NumField
+                    label="Share connected to Xero (0-1)"
+                    value={assumptions.xero_connected_share}
+                    onChange={(v) => setAssumptions({ ...assumptions, xero_connected_share: v })}
+                    min={0}
+                    step={0.1}
+                    tooltip="Share of companies that connect Xero. Xero charges the app by connection count: free up to 5, Core ~US$22 up to 50, Plus ~US$152 up to 1,000."
+                  />
+                  <ModelSelect
+                    label="Subscription card gateway"
+                    value={assumptions.payment_gateway}
+                    options={Object.entries(PAYMENT_GATEWAYS).map(([key, g]) => ({ key, label: `${g.label} · ${g.note}` }))}
+                    onChange={(v) => setAssumptions({ ...assumptions, payment_gateway: v as PaymentGatewayKey })}
+                    tooltip="Gateway the platform uses to collect company subscriptions by card."
+                  />
+                  <NumField
+                    label="Share paying by card (0-1)"
+                    value={assumptions.card_paying_share}
+                    onChange={(v) => setAssumptions({ ...assumptions, card_paying_share: v })}
+                    min={0}
+                    step={0.1}
+                    tooltip="Share of companies whose subscription is charged by card. 1 = all."
+                  />
+                  <ModelSelect
+                    label="Sentry plan"
+                    value={assumptions.sentry_plan}
+                    options={Object.entries(SENTRY_PLANS).map(([key, p]) => ({ key, label: p.label }))}
+                    onChange={(v) => setAssumptions({ ...assumptions, sentry_plan: v as SentryPlanKey })}
+                    tooltip="Error monitoring plan. Developer is free up to 5,000 errors a month."
                   />
                 </Section>
 
@@ -738,8 +598,8 @@ function TechCostsDashboard() {
 
                 <div className="space-y-3">
                   {categories.map((cat) => {
-                    const Icon = cat.icon;
-                    const pct = total_usd > 0 ? (cat.subtotal_usd / total_usd) * 100 : 0;
+                    const Icon = CATEGORY_ICONS[cat.key];
+                    const pct = total_usd > 0 && !cat.informational ? (cat.subtotal_usd / total_usd) * 100 : 0;
                     return (
                       <details
                         key={cat.category}
@@ -762,7 +622,7 @@ function TechCostsDashboard() {
                             <p className="text-sm font-bold text-slate-900 dark:text-white">
                               ZAR {(cat.subtotal_usd * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                             </p>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400">{pct.toFixed(0)}%</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">{cat.informational ? "not in total" : `${pct.toFixed(0)}%`}</p>
                           </div>
                         </summary>
                         <div className="px-3 pb-3 border-t border-slate-100 divide-y divide-slate-100 dark:border-slate-800 dark:divide-slate-800">
@@ -771,12 +631,19 @@ function TechCostsDashboard() {
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-slate-700 dark:text-slate-300">{line.label}</p>
                                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{line.formula}</p>
+                                {line.link && <PriceLink link={line.link} className="mt-0.5" />}
                               </div>
                               <p className="font-mono text-slate-900 dark:text-white font-semibold flex-shrink-0">
                                 ZAR {(line.usd_per_mo * usdToZar).toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
                               </p>
                             </div>
                           ))}
+                          {cat.links.length > 0 && (
+                            <div className="pt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                              <span className="font-semibold text-slate-500 dark:text-slate-400">Official pricing:</span>
+                              {cat.links.map((l) => <PriceLink key={l.url} link={l} />)}
+                            </div>
+                          )}
                         </div>
                       </details>
                     );
@@ -790,9 +657,7 @@ function TechCostsDashboard() {
                     <div className="text-xs text-amber-900 dark:text-amber-200">
                       <strong>{biggestCategory.category}</strong> is{" "}
                       {((biggestCategory.subtotal_usd / total_usd) * 100).toFixed(0)}%
-                      {" "}of your monthly spend. That&apos;s where the lever is. Caps on free-trial
-                      AI scans, image-size limits before storage, or per-company rate limits will
-                      move the dial more than anywhere else.
+                      {" "}of your monthly spend. That&apos;s where the lever is. {LEVER_TIPS[biggestCategory.key]}
                     </div>
                   </div>
                 )}
@@ -848,12 +713,31 @@ function TechCostsDashboard() {
               </div>
           </PortalCard>
 
+          {/* Every vendor's official pricing page */}
+          <PortalCard id="pricing-sources" data-chat-section="platform.tech-costs.pricing-sources" data-chat-section-label="Vendor pricing pages" className="mb-6">
+            <PortalCardHeader
+              title={
+                <>
+                  <ExternalLink className="w-4 h-4 text-brand-primary" />
+                  Vendor pricing pages
+                  <InfoTooltip content={"The official pricing page behind every number on this page. Open one to check a rate before a pricing decision."} />
+                </>
+              }
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+              Prices checked {PRICES_CHECKED}. Vendors bill in USD, ex VAT (Xero bills in AUD; PayFast and Yoco in ZAR).
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+              {ALL_PRICING_LINKS.map((l) => <PriceLink key={l.url} link={l} />)}
+            </div>
+          </PortalCard>
+
           {/* Footnote on assumptions */}
           <PortalCard className="p-4 flex items-start gap-2">
             <Info className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Vendor prices are fixed in the app and need a developer to update when a vendor changes
-              them; the projection, recommendations and margin per company then recompute. This is a
+              Vendor prices (checked {PRICES_CHECKED}) are fixed in src/lib/techCosts/model.ts and need a
+              developer to update when a vendor changes them; the projection, recommendations and margin per company then recompute. This is a
               calculator, not a live feed: it doesn&apos;t pull real billing from any vendor.
             </p>
           </PortalCard>
@@ -901,6 +785,49 @@ function NumField({
         step={step}
         className="h-9 mt-1"
       />
+    </div>
+  );
+}
+
+function PriceLink({ link, className = "" }: { link: PricingLink; className?: string }) {
+  return (
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1 text-[11px] font-medium text-brand-primary hover:underline break-all ${className}`}
+    >
+      {link.label}
+      <ExternalLink className="w-3 h-3 flex-shrink-0" />
+    </a>
+  );
+}
+
+function ModelSelect({
+  label, value, options, onChange, tooltip,
+}: {
+  label: string;
+  value: string;
+  options: Array<{ key: string; label: string }>;
+  onChange: (v: string) => void;
+  tooltip?: string;
+}) {
+  return (
+    <div>
+      <Label className="text-xs font-medium text-slate-700 dark:text-slate-300 inline-flex items-center gap-1">
+        {label}
+        {tooltip && <InfoTooltip content={tooltip} />}
+      </Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-9 mt-1 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.key} value={o.key} className="text-xs">{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

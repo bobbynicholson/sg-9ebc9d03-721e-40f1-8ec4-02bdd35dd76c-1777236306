@@ -1517,25 +1517,26 @@ function ClientsStep({ onBack, onNext }: { onBack: () => void; onNext: () => voi
     >
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
         <p className="text-sm text-slate-700 leading-relaxed">
-          Download the template, fill in your existing customer list (up to 10,000 rows),
-          and upload. We'll preview every row, flag duplicates and only save what you confirm.
+          Upload your existing customer list as Excel or CSV (up to 10,000 rows), in whatever
+          column layout you already have. AI matches your columns to our fields, you check the
+          matches, and nothing saves until you confirm.
         </p>
         <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
           <p className="font-semibold mb-1">Before you upload</p>
-          <p><strong>Required:</strong> Client name and email. Phone and all other details are optional. The company and default region are assigned automatically, so you do not need internal IDs. Existing clients with the same email are flagged for you to skip or update after the preview.</p>
+          <p><strong>Required:</strong> client name and email. Everything else is optional. The company and default region are assigned automatically, so you do not need internal IDs.</p>
         </div>
         <ul className="text-xs text-slate-600 space-y-1">
           <li className="flex items-start gap-2">
             <Check className="w-3.5 h-3.5 text-brand-primary mt-0.5 flex-shrink-0" />
-            <span>Required: client name, email or phone</span>
+            <span>Rows missing a required value are listed by row number, and you can fill them in right there</span>
           </li>
           <li className="flex items-start gap-2">
             <Check className="w-3.5 h-3.5 text-brand-primary mt-0.5 flex-shrink-0" />
-            <span>Existing customers (matched by email) are skipped automatically</span>
+            <span>Existing clients (matched by email) are flagged so you can skip or update them</span>
           </li>
           <li className="flex items-start gap-2">
             <Check className="w-3.5 h-3.5 text-brand-primary mt-0.5 flex-shrink-0" />
-            <span>Test run option lets you preview before anything saves</span>
+            <span>Not ready to fix every row? Skip the ones with errors and import the rest</span>
           </li>
         </ul>
       </div>

@@ -8,6 +8,11 @@
  *
  * Idempotent: if mapping already exists and ?refresh=1 isn't set, we
  * return the stored mapping without burning AI calls.
+ *
+ * ?template=clients|leads|... pins the target for every sheet (the
+ * Contacts / Leads / onboarding import modal knows what it imports).
+ * When the AI is down, columns matched by known names are kept so the
+ * operator can finish the matching by hand instead of hitting a dead end.
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
@@ -16,7 +21,10 @@ import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
 import { mapColumnsViaAI } from "@/lib/importAi";
-import { aiTargetFieldsFor, buildMappingFromTemplate, getTemplateDefinition } from "@/lib/importTemplates";
+import {
+  aiTargetFieldsFor, buildMappingFromTemplate, getTemplateDefinition, mappableFieldsFor, settleFieldClashes,
+  TEMPLATE_TYPES, type TemplateType,
+} from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
 
 // Large imports (thousands of rows) need more than the default timeout.
@@ -64,6 +72,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const jobId = String(req.query.id || "");
     if (!jobId) return res.status(400).json({ error: "Missing job id" });
     const refresh = req.query.refresh === "1";
+    const forcedRaw = String(req.query.template || "").toLowerCase();
+    const forced = (TEMPLATE_TYPES as readonly string[]).includes(forcedRaw) ? (forcedRaw as TemplateType) : null;
 
     const job = await getImportJob(jobId, companyId);
     if (!job) return res.status(404).json({ error: "Import job not found" });
@@ -78,38 +88,50 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: "Import has no rows to map" });
     }
 
-    // Group by sheet, keeping insertion order.
-    const bySheet = new Map<string, { headers: string[]; sampleRows: any[] }>();
+    // Group by sheet, keeping insertion order. Samples are the fullest of
+    // the first 50 rows, so a sparse first row doesn't hide a column's
+    // contents from the model.
+    const filled = (d: Record<string, any>) =>
+      Object.values(d || {}).filter((v) => v != null && String(v).trim() !== "").length;
+    const bySheet = new Map<string, { headers: string[]; candidates: any[] }>();
     for (const r of rows) {
       let bucket = bySheet.get(r.sheet);
       if (!bucket) {
         const headers = Object.keys(r.source_data || {});
-        bucket = { headers, sampleRows: [] };
+        bucket = { headers, candidates: [] };
         bySheet.set(r.sheet, bucket);
       }
-      if (bucket.sampleRows.length < 3) {
-        bucket.sampleRows.push(r.source_data);
-      }
+      if (bucket.candidates.length < 50) bucket.candidates.push(r.source_data || {});
     }
 
     const mapping: Record<string, Record<string, { target: string; confidence: number; rationale: string }>> = {};
+    const samples: Record<string, Record<string, string[]>> = {};
+    const fieldsBySheet: Record<string, ReturnType<typeof mappableFieldsFor>> = {};
+    const aiFailures: string[] = [];
     let totalIn = 0, totalOut = 0;
     let aiCalls = 0;
 
-    for (const [sheet, { headers, sampleRows }] of bySheet.entries()) {
-      const schema = inferSchema(sheet, headers);
+    for (const [sheet, { headers, candidates }] of bySheet.entries()) {
+      const schema: TemplateType = forced || inferSchema(sheet, headers);
+      const sampleRows = [...candidates].sort((a, b) => filled(b) - filled(a)).slice(0, 5);
+      // First few non-empty values per column for the review screen.
+      samples[sheet] = Object.fromEntries(headers.map((h) => [
+        h,
+        candidates.map((c) => String(c?.[h] ?? "").trim()).filter(Boolean).slice(0, 3),
+      ]));
+      fieldsBySheet[sheet] = mappableFieldsFor(schema);
+      // Columns we can match deterministically (our own template
+      // headers, Wave/Xero/QuickBooks exports) don't depend on the model.
+      const known = buildMappingFromTemplate(getTemplateDefinition(schema), sheet, headers)[sheet] || {};
       try {
         // Offer the AI exactly the fields preview + commit consume.
         const targetFields = aiTargetFieldsFor(schema);
         const allowed = new Set(targetFields.map((f) => f.key));
-        // Columns we can match deterministically (our own template
-        // headers, Wave/Xero/QuickBooks exports) don't depend on the model.
-        const known = buildMappingFromTemplate(getTemplateDefinition(schema), sheet, headers)[sheet] || {};
         const result = await mapColumnsViaAI({
           sheetName: sheet,
           headers,
           sampleRows,
-          targetSchema: schema,
+          targetSchema: schema === "orders" ? "orders" : "clients",
           targetFields,
         });
         aiCalls += 1;
@@ -131,15 +153,34 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             rationale: valid ? m.rationale : `AI suggested "${m.target}", which is not an importable field`,
           };
         }
-        // Stash the inferred schema so the preview/commit step
-        // doesn't have to re-derive it.
-        sheetMap.__schema__ = { target: schema, confidence: 1, rationale: "inferred from sheet name + headers" };
+        // One column per field (company vs person name settled first).
+        settleFieldClashes(sheetMap, headers, schema);
+        // Stash the schema so the preview/commit step doesn't have to
+        // re-derive it.
+        sheetMap.__schema__ = {
+          target: schema,
+          confidence: 1,
+          rationale: forced ? "chosen by the import screen" : "inferred from sheet name + headers",
+        };
         mapping[sheet] = sheetMap;
       } catch (e: any) {
+        // AI down or rate-limited: keep the name matches and let the
+        // operator finish by hand on the review screen.
         await logEvent(jobId, "ai_map_failed", { sheet, error: e?.message });
-        return res.status(502).json({
-          error: `AI mapping failed for sheet "${sheet}": ${e?.message || "unknown"}. Try again, or contact support.`,
-        });
+        aiFailures.push(`${sheet}: ${e?.message || "unknown error"}`);
+        const sheetMap: Record<string, { target: string; confidence: number; rationale: string }> = {};
+        for (const h of headers) {
+          const k = known[h];
+          sheetMap[h] = k && k.target !== "skip"
+            ? { target: k.target, confidence: 1, rationale: "Matched a known column name" }
+            : { target: "skip", confidence: 0, rationale: "AI matching unavailable; choose a field" };
+        }
+        sheetMap.__schema__ = {
+          target: schema,
+          confidence: 1,
+          rationale: forced ? "chosen by the import screen" : "inferred from sheet name + headers",
+        };
+        mapping[sheet] = sheetMap;
       }
     }
 
@@ -156,7 +197,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({
       ok: true,
       mapping,
-      ai: { calls: aiCalls, tokens_in: totalIn, tokens_out: totalOut },
+      samples,
+      fields: fieldsBySheet,
+      ai: {
+        calls: aiCalls,
+        tokens_in: totalIn,
+        tokens_out: totalOut,
+        failed: aiFailures.length > 0
+          ? "AI matching is unavailable right now, so only columns with familiar names were matched. Choose a field for the rest."
+          : null,
+      },
     });
   } catch (outer: any) {
     console.error("imports/[id]/map handler crashed:", outer);

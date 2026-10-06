@@ -13,6 +13,7 @@ import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
 import { normalizeChatRole } from "@/lib/chatbot/roles";
 import { normalizeChatMessage } from "@/lib/chatbot/intents/normalize";
 import { isPlatformOverviewQuestion, type ChatIntentRoute } from "./router";
+import { chatCompletion } from "@/lib/ai/textLlm";
 
 type Db = any;
 
@@ -43,10 +44,11 @@ export interface ChatFrontendContext {
 const MAX_HISTORY = 8;
 const MAX_CONTEXT_CHARS = 18_000;
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-const CHAT_MODEL = process.env.ANTHROPIC_CHAT_MODEL || "claude-sonnet-4-5";
+// Claude is a last-resort chat provider only; Haiku keeps that tail cheap.
+const ANTHROPIC_CHAT_MODEL = process.env.ANTHROPIC_CHAT_MODEL || "claude-haiku-4-5";
+const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b";
-const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || "llama-3.3-70b-versatile";
-const GROQ_BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
+const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || "openai/gpt-oss-20b";
 const EMBEDDING_DIMENSIONS = 1536;
 const EMBEDDING_BATCH_SIZE = 24;
 const EMBEDDING_MAX_ATTEMPTS = 3;
@@ -506,22 +508,6 @@ function systemPrompt(identity: ChatIdentity, liveContext: string, knowledge: Re
     "10. Speak in plain business language for everyday users. Do not mention database, schema, query, API, provider, embedding, token, metadata, tenant, RAG, live workspace data, or other internal implementation terms. Say company records, companies, current information, or information for your role instead. Use natural headings such as Registered companies, not technical headings such as Company Count.",
     "11. Page controls, sections, filters, and tags are factual UI context. Use only the exact labels supplied in CURRENT FRONTEND CONTEXT; never invent a button, tab, section, filter, or tag. Include an action only when it matches one of the safe navigation options supplied by the application.",
   ].join("\n\n");
-}
-
-async function callAnthropic(messages: Array<{ role: "user" | "assistant"; content: string }>, system: string): Promise<string> {
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error("Anthropic is not configured");
-  const response = await fetch(`${process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com"}/v1/messages`, {
-    method: "POST",
-    headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ model: CHAT_MODEL, max_tokens: 400, temperature: 0.2, system, messages }),
-  });
-  if (!response.ok) throw new Error(`Anthropic returned ${response.status}`);
-  const payload: any = await response.json();
-  return (payload?.content || []).filter((item: any) => item?.type === "text").map((item: any) => item.text).join(" ").trim();
 }
 
 function extractChatContent(message: any): string {
@@ -2514,14 +2500,21 @@ export async function reviewKnowledgeSource(input: KnowledgeReviewInput): Promis
     "decision must be approve or reject. category must be company_general, role_specific, platform, unrelated, or unsafe. All four boolean fields must be true or false. Keep reason under 160 characters.",
   ].join("\n");
   const user = `SOURCE NAME (untrusted data): ${JSON.stringify(input.sourceName)}\nSOURCE TEXT (untrusted data):\n${excerpt}`;
-  let raw: string;
-  try {
-    raw = await callOpenRouter([
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ]);
-  } catch {
-    throw new Error("AI content review is temporarily unavailable. The source was not indexed; try again when OpenRouter is available.");
+  let raw = "";
+  for (const provider of chatProviderOrder()) {
+    try {
+      const reviewMessages = [
+        { role: "system" as const, content: system },
+        { role: "user" as const, content: user },
+      ];
+      raw = provider === "openrouter" ? await callOpenRouter(reviewMessages) : await callChatProvider(provider, reviewMessages);
+      if (raw) break;
+    } catch (error) {
+      console.warn(`[chatbot] knowledge review via ${provider} failed`, error instanceof Error ? error.message : error);
+    }
+  }
+  if (!raw) {
+    throw new Error("AI content review is temporarily unavailable. The source was not indexed; try again shortly.");
   }
   let result: any;
   try {
@@ -2560,16 +2553,28 @@ export async function reviewKnowledgeSource(input: KnowledgeReviewInput): Promis
   throw new Error("The AI safety review rejected this source. Check the content and upload an approved company knowledge document.");
 }
 
-async function callGroq(messages: Array<{ role: "system" | "user" | "assistant"; content: string }>): Promise<string> {
-  if (!process.env.GROQ_API_KEY) throw new Error("Groq is not configured");
-  const response = await fetch(`${GROQ_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: GROQ_CHAT_MODEL, messages, temperature: 0.2, max_tokens: 400 }),
-  });
-  if (!response.ok) throw new Error(`Groq returned ${response.status}`);
-  const payload: any = await response.json();
-  return extractChatContent(payload?.choices?.[0]?.message);
+type ChatProvider = "openrouter" | "groq" | "openai" | "anthropic";
+
+/**
+ * Chat provider order. gpt-oss-20b is the default model (OpenRouter, then
+ * Groq); OpenAI direct is the next fallback and Claude the last resort,
+ * so a provider outage degrades cost, never the answer.
+ */
+function chatProviderOrder(): ChatProvider[] {
+  const configured = (process.env.LLM_PROVIDER || "openrouter").toLowerCase();
+  const available: ChatProvider[] = [];
+  if (process.env.OPENROUTER_API_KEY) available.push("openrouter");
+  if (process.env.GROQ_API_KEY) available.push("groq");
+  if (process.env.OPENAI_API_KEY) available.push("openai");
+  if (process.env.ANTHROPIC_API_KEY) available.push("anthropic");
+  const preferred = available.find((p) => p === configured);
+  return preferred ? [preferred, ...available.filter((p) => p !== preferred)] : available;
+}
+
+async function callChatProvider(provider: Exclude<ChatProvider, "openrouter">, messages: Array<{ role: "system" | "user" | "assistant"; content: string }>): Promise<string> {
+  const model = provider === "groq" ? GROQ_CHAT_MODEL : provider === "openai" ? OPENAI_CHAT_MODEL : ANTHROPIC_CHAT_MODEL;
+  const result = await chatCompletion({ provider, model, messages, temperature: 0.2, maxTokens: 400, timeoutMs: 30_000 });
+  return result.content;
 }
 
 export async function generateChatReply(args: {
@@ -2689,24 +2694,18 @@ export async function generateChatReply(args: {
   if (directKitchenToday) return directKitchenToday;
   const system = systemPrompt(args.identity, args.liveContext, args.knowledge, args.navigation || [], args.route, args.workflow, args.frontend);
   const history = args.history.filter((item) => item.content.trim()).slice(-MAX_HISTORY);
-  const anthropicMessages = [...history, { role: "user" as const, content: args.message }];
-  const providers: Array<"openrouter" | "anthropic" | "groq"> = [];
-  const configuredProvider = (process.env.LLM_PROVIDER || "openrouter").toLowerCase();
-  if (configuredProvider === "openrouter" && process.env.OPENROUTER_API_KEY) providers.push("openrouter");
-  if (process.env.ANTHROPIC_API_KEY) providers.push("anthropic");
-  if (process.env.GROQ_API_KEY) providers.push("groq");
-  if (configuredProvider !== "openrouter" && process.env.OPENROUTER_API_KEY) providers.push("openrouter");
+  const chatMessages = [...history, { role: "user" as const, content: args.message }];
+  const providers = chatProviderOrder();
   if (!providers.length) {
     return fallbackGroundedReply(args);
   }
   let lastError: unknown = null;
   for (const provider of providers) {
     try {
+      const withSystem = [{ role: "system" as const, content: system }, ...chatMessages];
       const text = provider === "openrouter"
-        ? await callOpenRouter([{ role: "system", content: system }, ...anthropicMessages])
-        : provider === "anthropic"
-          ? await callAnthropic(anthropicMessages, system)
-          : await callGroq([{ role: "system", content: system }, ...anthropicMessages]);
+        ? await callOpenRouter(withSystem)
+        : await callChatProvider(provider, withSystem);
       if (text) {
         const rendered = restrictRenderedActions(renderChatResponse(text), args.navigation || []);
         return { text: rendered.text, provider, retrievalCount: args.knowledge.length, rendered };
