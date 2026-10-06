@@ -27,6 +27,10 @@ import {
   Link,
 } from "@react-pdf/renderer";
 import { buildCompanyTermsUrl } from "@/lib/companyLegal";
+import {
+  paymentProviderLabel,
+  type PdfPaymentInstructions,
+} from "@/lib/pdfPaymentDetails";
 import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
 
 // --- Types -----------------------------------------------------------------
@@ -81,6 +85,8 @@ export interface QuotePdfData {
   notes?: string | null;
   status?: string | null;
   accepted_at?: string | null;
+  /** Payment route that is safe to show to the recipient of this quote. */
+  payment_instructions?: PdfPaymentInstructions | null;
 
   company: {
     /** id + slug feed the public /terms/[company] link on the footer -
@@ -486,6 +492,9 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
   const companyTermsUrl = (company.slug || company.id)
     ? buildCompanyTermsUrl(company.slug || company.id)
     : null;
+  const paymentInstructions = data.payment_instructions || null;
+  const paymentProvider = paymentProviderLabel(paymentInstructions?.online_provider);
+  const eftDetails = paymentInstructions?.eft || null;
 
   return (
     <Document
@@ -760,6 +769,39 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             );
           })()}
         </View>
+
+        {/* PAYMENT OPTIONS. A quote is not itself a payment receipt; this
+            block gives the customer the correct next step and, when EFT is
+            the only route, the complete beneficiary details. */}
+        {paymentProvider || eftDetails ? (
+          <View style={styles.card} minPresenceAhead={120}>
+            <Text style={styles.sectionLabel}>Payment options</Text>
+            {paymentProvider ? (
+              <>
+                <Text style={styles.cellValue}>Online payment with {paymentProvider}</Text>
+                <Text style={[styles.terms, { marginTop: 3 }]}>After accepting this quote, use the secure payment page to choose the requested amount and pay online.</Text>
+                {paymentInstructions?.payment_url ? (
+                  <Text style={[styles.terms, { marginTop: 3 }]}>
+                    Review and accept: <Link src={paymentInstructions.payment_url}>{paymentInstructions.payment_url}</Link>
+                  </Text>
+                ) : null}
+              </>
+            ) : null}
+            {eftDetails ? (
+              <>
+                <Text style={styles.cellValue}>Pay by EFT to {eftDetails.company_name || company.legal_name || company.company_name || "the company"}</Text>
+                {eftDetails.bank_name ? <Text style={[styles.terms, { marginTop: 3 }]}>Bank: {eftDetails.bank_name}</Text> : null}
+                {eftDetails.account_holder ? <Text style={styles.terms}>Account holder: {eftDetails.account_holder}</Text> : null}
+                {eftDetails.account_number ? <Text style={styles.terms}>Account number: {eftDetails.account_number}</Text> : null}
+                {eftDetails.branch_code ? <Text style={styles.terms}>Branch code: {eftDetails.branch_code}</Text> : null}
+                {eftDetails.account_type ? <Text style={styles.terms}>Account type: {eftDetails.account_type}</Text> : null}
+                {eftDetails.reference ? <Text style={[styles.terms, { marginTop: 3 }]}>EFT reference: {eftDetails.reference}</Text> : null}
+                {eftDetails.reference_hint ? <Text style={styles.terms}>{eftDetails.reference_hint}</Text> : null}
+                {eftDetails.instructions ? <Text style={[styles.terms, { marginTop: 3 }]}>{eftDetails.instructions}</Text> : null}
+              </>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* TERMS + valid until */}
         {(data.terms_and_conditions || validUntil) ? (

@@ -25,6 +25,8 @@ import {
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
+import { buildPdfPaymentInstructions } from "@/lib/pdfPaymentInstructions";
+import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
 export const config = { api: { responseLimit: false } };
 
@@ -47,12 +49,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: inv, error } = await supabase
       .from("invoices")
       .select(`
-        id, invoice_number, invoice_date, due_date, status,
+        id, company_id, order_id, currency, invoice_number, invoice_date, due_date, status,
         subtotal, tax_amount, total_amount, amount_paid, balance_due,
         notes, invoice_data, updated_at,
         client:client_id ( client_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code ),
-        order:order_id ( id, order_number, event_name, event_date, deposit_amount, deposit_percentage, updated_at ),
-        company:company_id ( id, slug, company_name, legal_name, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, registration_number, tax_number, currency, updated_at )
+        order:order_id ( id, order_number, event_name, event_date, deposit_amount, deposit_percentage, currency, updated_at ),
+        company:company_id ( id, slug, company_name, legal_name, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
       `)
       .eq("public_token", token)
       .is("deleted_at", null)
@@ -126,6 +128,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const clientAddress = [client.billing_address_line1, client.billing_address_line2, client.billing_city, client.billing_postal_code].filter(Boolean).join(", ") || null;
+    const paymentInstructions = await buildPdfPaymentInstructions({
+      company,
+      currency: order.currency || (inv as any).currency || company.currency || "ZAR",
+      bankSnapshot: idata.bankDetails || {},
+      paymentUrl: `${publicAppOrigin({
+        environment: process.env.NODE_ENV,
+        configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+        vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+        vercelUrl: process.env.VERCEL_URL,
+        requestOrigin: req.headers.origin as string | undefined,
+        requestHost: req.headers.host,
+        forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
+      })}/pay/i/${token}`,
+      reference: (inv as any).invoice_number || null,
+    });
 
     const { renderInvoicePdf, sanitiseFilename } = await import("@/services/pdf");
     const pdfBuffer = await renderInvoicePdf(
@@ -147,6 +164,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         first_payment_amount: firstPaymentAmount > 0 ? firstPaymentAmount : null,
         notes: (inv as any).notes || null,
         payment_terms: null,
+        payment_instructions: paymentInstructions,
         company: {
           id: company.id, slug: company.slug,
           company_name: company.company_name, legal_name: company.legal_name, logo_url: logoUrl,
@@ -158,7 +176,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           currency: company.currency,
         },
       },
-      { cacheKey: { invoiceId: (inv as any).id, invoiceUpdatedAt: (inv as any).updated_at ?? null, orderUpdatedAt: order.updated_at ?? null, companyUpdatedAt: company.updated_at ?? null } },
+      { cacheKey: { invoiceId: (inv as any).id, invoiceUpdatedAt: (inv as any).updated_at ?? null, orderUpdatedAt: order.updated_at ?? null, companyUpdatedAt: company.updated_at ?? null, paymentInstructionsFingerprint: JSON.stringify(paymentInstructions || null) } },
     );
 
     const filename = `Invoice-${sanitiseFilename((inv as any).invoice_number || (inv as any).id)}.pdf`;

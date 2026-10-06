@@ -45,6 +45,9 @@ export interface QuotePdfRenderOptions {
     quoteId: string;
     quoteUpdatedAt?: string | null;
     companyUpdatedAt?: string | null;
+    /** Gateway/EFT data lives outside the quote row, so it needs its own
+     * cache discriminator to prevent an old payment route being reused. */
+    paymentInstructionsFingerprint?: string | null;
   };
 }
 
@@ -54,6 +57,8 @@ export interface InvoicePdfRenderOptions {
     invoiceUpdatedAt?: string | null;
     orderUpdatedAt?: string | null;
     companyUpdatedAt?: string | null;
+    /** Gateway/EFT data lives outside the invoice row. */
+    paymentInstructionsFingerprint?: string | null;
   };
 }
 
@@ -131,6 +136,7 @@ export async function renderQuotePdf(
         options.cacheKey.quoteId,
         options.cacheKey.quoteUpdatedAt,
         options.cacheKey.companyUpdatedAt,
+        options.cacheKey.paymentInstructionsFingerprint,
       )
     : null;
 
@@ -177,6 +183,7 @@ export async function renderInvoicePdf(
         options.cacheKey.invoiceUpdatedAt,
         options.cacheKey.orderUpdatedAt,
         options.cacheKey.companyUpdatedAt,
+        options.cacheKey.paymentInstructionsFingerprint,
       )
     : null;
 

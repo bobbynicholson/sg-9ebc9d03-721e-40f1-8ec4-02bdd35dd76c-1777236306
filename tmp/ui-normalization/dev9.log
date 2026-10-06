@@ -2799,3 +2799,355 @@
 [middleware] [INFO] request /sounds/high.wav
 [middleware] [INFO] request /sounds/notification.wav
  ✓ Compiled in 10.3s (1451 modules)
+ ✓ Compiled in 24.6s (1455 modules)
+ ✓ Compiled in 575ms (922 modules)
+ ✓ Compiled in 795ms (922 modules)
+ ✓ Compiled in 17.6s (1668 modules)
+ ✓ Compiled in 1186ms (1124 modules)
+ ✓ Compiled in 13.1s (1668 modules)
+ ✓ Compiled in 9s (1668 modules)
+ ✓ Compiled in 1157ms (1668 modules)
+ ✓ Compiled in 1013ms (1668 modules)
+ ✓ Compiled in 342ms (1668 modules)
+ ✓ Compiled in 207ms (1124 modules)
+ ✓ Compiled in 177ms (1124 modules)
+ ✓ Compiled in 2.7s (1124 modules)
+ ✓ Compiled in 442ms (1124 modules)
+ ✓ Compiled in 453ms (1124 modules)
+ ✓ Compiled in 417ms (1124 modules)
+ ✓ Compiled in 331ms (1124 modules)
+ ✓ Compiled in 462ms (1124 modules)
+ ✓ Compiled in 213ms (1124 modules)
+ ✓ Compiled in 296ms (1124 modules)
+ ✓ Compiled in 174ms (1124 modules)
+ ✓ Compiled in 170ms (1124 modules)
+ ✓ Compiled in 187ms (1124 modules)
+ ✓ Compiled in 271ms (1124 modules)
+ ✓ Compiled in 259ms (1124 modules)
+ ✓ Compiled in 174ms (1124 modules)
+ ✓ Compiled in 183ms (1124 modules)
+ ✓ Compiled in 201ms (1124 modules)
+ ✓ Compiled in 278ms (1124 modules)
+[middleware] [INFO] request /embed/form.html
+ ✓ Compiled in 694ms (1668 modules)
+ ✓ Compiled in 1310ms (1668 modules)
+ ✓ Compiled in 361ms (1124 modules)
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest
+ ○ Compiling /api/public/embed/[token]/address-suggest ...
+ ✓ Compiled /api/public/embed/[token]/address-suggest in 3.1s (563 modules)
+
+[logger] Run #1134 - logs → logs\run-1134-2026-10-06_10-41-41
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest?q=12%20long%20street%20cape%20town 200 in 6922ms
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest?q=long%20street%20cape%20town 200 in 2173ms
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest?q=long%20street%20cape%20town 200 in 1344ms
+ ✓ Compiled in 223ms (1124 modules)
+ ✓ Compiled in 246ms (1687 modules)
+ ✓ Compiled in 226ms (1124 modules)
+ ✓ Compiled in 170ms (1124 modules)
+ ✓ Compiled in 182ms (1124 modules)
+ ✓ Compiled in 210ms (1124 modules)
+ ✓ Compiled in 251ms (1124 modules)
+ ✓ Compiled in 381ms (1668 modules)
+ ✓ Compiled in 298ms (1124 modules)
+ ✓ Compiled in 239ms (1124 modules)
+ ✓ Compiled in 263ms (1124 modules)
+ ✓ Compiled in 269ms (1124 modules)
+ ✓ Compiled in 279ms (1124 modules)
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ ○ Compiling /api/public/embed/[token]/config ...
+ ✓ Compiled /api/public/embed/[token]/config in 1032ms (564 modules)
+
+[logger] Run #1135 - logs → logs\run-1135-2026-10-06_10-47-12
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6 200 in 2759ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6 200 in 1711ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest
+ ✓ Compiled /api/public/embed/[token]/address-suggest in 93ms (566 modules)
+
+[logger] Run #1136 - logs → logs\run-1136-2026-10-06_10-47-37
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest?q=Test%20Visitor 200 in 1476ms
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6 200 in 1984ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6 200 in 1736ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest?q=Test%20Visitor 200 in 1492ms
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6&preview=1 200 in 1357ms
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6 200 in 1266ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6 200 in 1376ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6&preview=1 200 in 1915ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6 200 in 2090ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6&preview=1 200 in 1581ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6&preview=1 200 in 1668ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/address-suggest?q=Test%20Visitor 200 in 1050ms
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs 200 in 1075ms
+[middleware] [INFO] request /embed/templates/detailed-multi-step.js
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs 200 in 1082ms
+[middleware] [INFO] request /embed/templates/detailed-multi-step.js
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 1078ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs 200 in 1307ms
+[middleware] [INFO] request /embed/templates/detailed-multi-step.js
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 932ms
+[middleware] [INFO] request /embed/templates/detailed-multi-step.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 1337ms
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=pricing-calculator-gozm 200 in 1399ms
+[middleware] [INFO] request /embed/templates/pricing-calculator.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/estimate
+ ○ Compiling /api/public/embed/[token]/estimate ...
+ ✓ Compiled /api/public/embed/[token]/estimate in 981ms (568 modules)
+
+[logger] Run #1137 - logs → logs\run-1137-2026-10-06_10-49-10
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/estimate?guests=50&tierId=essential 200 in 1517ms
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=pricing-calculator-gozm 200 in 1061ms
+[middleware] [INFO] request /embed/templates/pricing-calculator.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/estimate
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/estimate?guests=50&tierId=essential 200 in 565ms
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=pricing-calculator-gozm 200 in 934ms
+[middleware] [INFO] request /embed/templates/pricing-calculator.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/estimate
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=pricing-calculator-gozm&preview=1 200 in 1341ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/estimate?guests=50&tierId=essential 200 in 540ms
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=pricing-calculator-gozm&preview=1 200 in 966ms
+[middleware] [INFO] request /embed/templates/pricing-calculator.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=pricing-calculator-gozm&preview=1 200 in 1040ms
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6&preview=1 200 in 2213ms
+ ✓ Compiled in 374ms (1124 modules)
+ ✓ Compiled in 249ms (1124 modules)
+ ✓ Compiled in 341ms (1668 modules)
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ ○ Compiling /admin/integrations/embed/[id] ...
+ ✓ Compiled /admin/integrations/embed/[id] in 16.1s (1774 modules)
+ GET /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 16647ms
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ HEAD /_next/data/development/spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643.json 200 in 231ms
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+ ✓ Compiled /api/admin/embed/company in 156ms (616 modules)
+ ✓ Compiled (618 modules)
+
+[logger] Run #1138 - logs → logs\run-1138-2026-10-06_10-51-28
+
+ GET /api/admin/embed/forms 401 in 267ms
+ GET /api/admin/embed/forms 401 in 314ms
+ GET /api/admin/embed/company 401 in 313ms
+ GET /api/admin/embed/company 401 in 266ms
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ GET /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 563ms
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ HEAD /_next/data/development/spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643.json 200 in 242ms
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+ GET /api/admin/embed/forms 401 in 17ms
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+ GET /api/admin/embed/company 401 in 25ms
+ GET /api/admin/embed/forms 401 in 7ms
+ GET /api/admin/embed/company 401 in 9ms
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ GET /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ HEAD /_next/data/development/spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643.json 200 in 228ms
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+[middleware] [INFO] request /api/admin/embed/company
+[middleware] [INFO] request /api/admin/embed/forms
+ GET /api/admin/embed/company 200 in 699ms
+ GET /api/admin/embed/forms 200 in 1133ms
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /api/admin/embed/analytics
+[middleware] [INFO] request /api/admin/embed/analytics
+ GET /api/admin/embed/company 200 in 1663ms
+ ○ Compiling /api/admin/embed/analytics ...
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ ✓ Compiled /api/public/embed/[token]/config in 1017ms (587 modules)
+ GET /api/admin/embed/forms 200 in 3185ms
+ ✓ Compiled (590 modules)
+
+[logger] Run #1139 - logs → logs\run-1139-2026-10-06_10-53-53
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/admin/embed/analytics?form_id=cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 3991ms
+ GET /api/admin/embed/analytics?form_id=cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 4249ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 3333ms
+[middleware] [INFO] request /embed/templates/detailed-multi-step.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 3573ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ GET /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 400ms
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ HEAD /_next/data/development/spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643.json 200 in 248ms
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+ GET /api/admin/embed/forms 200 in 907ms
+ GET /api/admin/embed/company 200 in 1100ms
+[middleware] [INFO] request /embed/form.html
+ GET /api/admin/embed/company 200 in 1204ms
+ GET /api/admin/embed/forms 200 in 1206ms
+[middleware] [INFO] request /api/admin/embed/analytics
+[middleware] [INFO] request /api/admin/embed/analytics
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 1029ms
+[middleware] [INFO] request /embed/templates/detailed-multi-step.js
+ GET /api/admin/embed/analytics?form_id=cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 1315ms
+ GET /api/admin/embed/analytics?form_id=cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 1362ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 1468ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ GET /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643
+ HEAD /_next/data/development/spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643.json 200 in 252ms
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+[middleware] [INFO] request /api/admin/embed/forms
+[middleware] [INFO] request /api/admin/embed/company
+ GET /api/admin/embed/company 200 in 997ms
+ GET /api/admin/embed/company 200 in 1077ms
+ GET /api/admin/embed/forms 200 in 1263ms
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /api/admin/embed/analytics
+[middleware] [INFO] request /api/admin/embed/analytics
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+ GET /api/admin/embed/forms 200 in 1904ms
+ GET /api/admin/embed/analytics?form_id=cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 801ms
+ GET /api/admin/embed/analytics?form_id=cb5dda49-6ce3-4579-aebf-baa4c509b643 200 in 1133ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 1576ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 1551ms
+[middleware] [INFO] request /embed/templates/detailed-multi-step.js
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed
+ ○ Compiling /admin/integrations/embed ...
+ ✓ Compiled /admin/integrations/embed in 12s (1757 modules)
+ GET /spit-braai-delivery/admin/integrations/embed 200 in 12430ms
+[middleware] [INFO] request /spit-braai-delivery/admin/integrations/embed
+ HEAD /_next/data/development/spit-braai-delivery/admin/integrations/embed.json 200 in 232ms
+[middleware] [INFO] request /api/admin/embed/forms
+
+[logger] Run #1140 - logs → logs\run-1140-2026-10-06_10-56-01
+
+[middleware] [INFO] request /api/admin/embed/forms
+ GET /api/admin/embed/forms 200 in 1165ms
+ GET /api/admin/embed/forms 200 in 1215ms
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /embed/form.html
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/loader.js
+[middleware] [INFO] request /embed/loader.js
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /embed/helpers.js
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+[middleware] [INFO] request /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6&preview=1 200 in 1077ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 1194ms
+[middleware] [INFO] request /embed/templates/detailed-multi-step.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=detailed-multi-step-qbvs&preview=1 200 in 1360ms
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=pricing-calculator-gozm&preview=1 200 in 1398ms
+[middleware] [INFO] request /embed/templates/pricing-calculator.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=quick-card-3gg6&preview=1 200 in 1424ms
+[middleware] [INFO] request /embed/templates/quick-card.js
+ GET /api/public/embed/e877e365-d5b7-4839-b386-d5253f0c1141/config?slug=pricing-calculator-gozm&preview=1 200 in 1673ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav

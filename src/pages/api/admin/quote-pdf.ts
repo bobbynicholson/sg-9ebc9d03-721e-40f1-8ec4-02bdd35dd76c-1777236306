@@ -22,6 +22,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { buildPdfPaymentInstructions } from "@/lib/pdfPaymentInstructions";
+import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -65,9 +67,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: q, error: readErr } = await ssr
       .from("quotes")
       .select(`
-        id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+        id, public_token, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
         venue_address, menu_items, equipment_items, notes, terms_and_conditions,
-        subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, status,
+        subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
         delivery_fee, delivery_distance_km, delivery_rate_per_km,
         collection_fee, collection_distance_km, collection_rate_per_km,
         valid_until, accepted_at, updated_at,
@@ -76,6 +78,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           address_line1, address_line2, city,
           primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
           registration_number, tax_number, currency,
+          bank_name, bank_account_holder, bank_account_number, bank_branch_code,
+          bank_account_type, eft_instructions,
           updated_at
         )
       `)
@@ -124,11 +128,29 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       logoUrl = null;
     }
 
+    const paymentInstructions = await buildPdfPaymentInstructions({
+      company: q.company,
+      currency: q.currency || q.company?.currency || "ZAR",
+      paymentUrl: q.public_token
+        ? `${publicAppOrigin({
+            environment: process.env.NODE_ENV,
+            configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+            vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+            vercelUrl: process.env.VERCEL_URL,
+            requestOrigin: req.headers.origin as string | undefined,
+            requestHost: req.headers.host,
+            forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
+          })}/q/${q.public_token}`
+        : null,
+      referenceHint: "Use the invoice number issued after acceptance as the EFT reference.",
+    });
+
     const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
     const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
     const pdfBuffer = await renderQuotePdf(
       buildQuotePdfDataFromRow({
         ...q,
+        payment_instructions: paymentInstructions,
         company: { ...(q.company || {}), logo_url: logoUrl },
       }),
       {
@@ -136,6 +158,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           quoteId,
           quoteUpdatedAt: q.updated_at ?? null,
           companyUpdatedAt: q.company?.updated_at ?? null,
+          paymentInstructionsFingerprint: JSON.stringify(paymentInstructions || null),
         },
       },
     );

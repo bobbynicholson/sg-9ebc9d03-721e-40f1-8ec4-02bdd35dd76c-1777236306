@@ -1330,7 +1330,7 @@ async function renderInvoicePdfAttachment(
   const { data: invRow, error: invRowErr } = await supabase
     .from("invoices")
     .select(`
-      id, invoice_number, invoice_date, due_date, status,
+      id, public_token, currency, invoice_number, invoice_date, due_date, status,
       subtotal, tax_amount, total_amount, amount_paid, balance_due,
       notes, invoice_data, updated_at,
       client:client_id (
@@ -1339,14 +1339,16 @@ async function renderInvoicePdfAttachment(
         billing_city, billing_postal_code
       ),
       order:order_id (
-        id, order_number, event_name, event_date, deposit_amount, deposit_percentage, updated_at
+        id, order_number, event_name, event_date, deposit_amount, deposit_percentage, currency, updated_at
       ),
       company:company_id (
         id, slug, company_name, legal_name, logo_url, email, phone,
         address_line1, address_line2, city, state_province,
         postal_code, country, primary_color,
         vat_registered, vat_number, vat_rate,
-        registration_number, tax_number, deposit_percent,
+        registration_number, tax_number, deposit_percent, payment_terms,
+        currency, bank_name, bank_account_holder, bank_account_number,
+        bank_branch_code, bank_account_type, eft_instructions,
         updated_at
       )
     `)
@@ -1398,6 +1400,28 @@ async function renderInvoicePdfAttachment(
       }))
     : [];
 
+  // This function only runs server-side for an email attachment. Keep the
+  // gateway resolver dynamically imported so browser users of the broader
+  // invoice service never bundle server payment credentials.
+  const [{ buildPdfPaymentInstructions }, { publicAppOrigin }] = await Promise.all([
+    import("@/lib/pdfPaymentInstructions"),
+    import("@/lib/publicAppOrigin"),
+  ]);
+  const invoicePaymentInstructions = await buildPdfPaymentInstructions({
+    company,
+    currency: order.currency || invAny.currency || company.currency || fallbackData.currencyCode || "ZAR",
+    bankSnapshot: invAny.invoice_data?.bankDetails || fallbackData.bankDetails || {},
+    paymentUrl: invAny.public_token
+      ? `${publicAppOrigin({
+          environment: process.env.NODE_ENV,
+          configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+          vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+          vercelUrl: process.env.VERCEL_URL,
+        })}/pay/i/${invAny.public_token}`
+      : null,
+    reference: invAny.invoice_number || null,
+  });
+
   const { renderInvoicePdf, sanitiseFilename } = await import("@/services/pdf");
   const pdfBuffer = await renderInvoicePdf(
     {
@@ -1423,6 +1447,7 @@ async function renderInvoicePdfAttachment(
       first_payment_amount: firstPaymentAmount > 0 ? firstPaymentAmount : null,
       notes: invAny.notes || fallbackData.notes || null,
       payment_terms: company.payment_terms || fallbackData.paymentTerms || null,
+      payment_instructions: invoicePaymentInstructions,
       company: {
         id: company.id,
         slug: company.slug,
@@ -1451,6 +1476,7 @@ async function renderInvoicePdfAttachment(
         invoiceUpdatedAt: invAny.updated_at ?? null,
         orderUpdatedAt: order.updated_at ?? null,
         companyUpdatedAt: company.updated_at ?? null,
+        paymentInstructionsFingerprint: JSON.stringify(invoicePaymentInstructions || null),
       },
     },
   );

@@ -92,8 +92,9 @@ export function buildQuoteCacheKey(
   quoteId: string,
   quoteUpdatedAt: string | null | undefined,
   companyUpdatedAt: string | null | undefined,
+  paymentInstructionsFingerprint?: string | null,
 ): string {
-  return `quote:${quoteId}:${quoteUpdatedAt || "0"}:${companyUpdatedAt || "0"}`;
+  return `quote:${quoteId}:${quoteUpdatedAt || "0"}:${companyUpdatedAt || "0"}:${paymentInstructionsFingerprint || "0"}`;
 }
 
 /**
@@ -106,8 +107,9 @@ export function buildInvoiceCacheKey(
   invoiceUpdatedAt: string | null | undefined,
   orderUpdatedAt: string | null | undefined,
   companyUpdatedAt: string | null | undefined,
+  paymentInstructionsFingerprint?: string | null,
 ): string {
-  return `invoice:${invoiceId}:${invoiceUpdatedAt || "0"}:${orderUpdatedAt || "0"}:${companyUpdatedAt || "0"}`;
+  return `invoice:${invoiceId}:${invoiceUpdatedAt || "0"}:${orderUpdatedAt || "0"}:${companyUpdatedAt || "0"}:${paymentInstructionsFingerprint || "0"}`;
 }
 
 /**
