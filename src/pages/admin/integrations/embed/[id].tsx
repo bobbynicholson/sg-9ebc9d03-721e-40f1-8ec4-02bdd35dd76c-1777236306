@@ -57,6 +57,23 @@ import { PageWorkbench, PortalHeader, PortalShell } from "@/components/portal/ui
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 
+// What the visitor sees for each question type, shown under the type
+// picker so the choice is clear without trying it in the preview.
+const FIELD_TYPE_HINTS: Record<string, string> = {
+  text: "A one-line answer, e.g. a name or venue.",
+  email: "An email address. Checked for a valid format.",
+  phone: "A phone or WhatsApp number.",
+  number: "A number, e.g. guest count or budget.",
+  date: "A date picker. Past dates are blocked.",
+  time: "A time picker, e.g. serving time.",
+  textarea: "A larger box for longer answers.",
+  select: "A dropdown: the visitor picks one option.",
+  radio: "Option cards: the visitor picks one.",
+  checkbox: "One tick box (the placeholder is its text, e.g. \"I agree to the terms\").",
+  checkboxes: "Tick boxes: the visitor can pick several.",
+  tier: "Pricing tiers from the Pricing tiers panel.",
+};
+
 const FIELD_TYPES: { value: EmbedFieldType; label: string }[] = [
   { value: "text",       label: "Text" },
   { value: "email",      label: "Email" },
@@ -162,18 +179,35 @@ function EmbedFormCustomiser() {
     return () => { cancelled = true; };
   }, [id, loadNonce]);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Push draft into the preview iframe whenever the form mutates.
-  // The demo loader listens for postMessage with {type: 'embed-draft', config}.
-  useEffect(() => {
-    if (!form) return;
+  // Push the unsaved draft into the preview iframe whenever the form
+  // mutates. loader.js (preview mode) re-renders on {type:'embed-draft'}
+  // and announces 'embed-preview-ready' once mounted, so the first draft
+  // is also delivered after a (re)load. Same-origin target only.
+  const formRef = useRef<EmbedFormConfig | null>(null);
+  formRef.current = form;
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
+  const postDraft = useCallback(() => {
     const iframe = previewIframeRef.current;
-    if (!iframe || !iframe.contentWindow) return;
+    const current = formRef.current;
+    if (!iframe?.contentWindow || !current) return;
     try {
-      iframe.contentWindow.postMessage({ type: "embed-draft", config: form }, "*");
+      iframe.contentWindow.postMessage({ type: "embed-draft", config: current }, window.location.origin);
     } catch {
-      // Same-origin only - the demo iframe lives on our own domain so this should not throw.
+      // Iframe still navigating; the ready message will trigger a resend.
     }
-  }, [form]);
+  }, []);
+  useEffect(() => {
+    if (form) postDraft();
+  }, [form, postDraft]);
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      if (ev.origin !== window.location.origin) return;
+      if (ev.data?.type === "embed-preview-ready") postDraft();
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [postDraft]);
 
   const saveForm = useCallback(async (next: Partial<EmbedFormConfig>, opts: { silent?: boolean } = {}) => {
     if (!form) return;
@@ -294,6 +328,15 @@ function EmbedFormCustomiser() {
     }
   }
 
+  // Scroll to a section and briefly ring it so it's obvious where to look.
+  function jumpTo(anchor: string) {
+    const el = document.getElementById(anchor);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.classList.add("ring-2", "ring-amber-400", "ring-offset-2", "rounded-xl");
+    window.setTimeout(() => el.classList.remove("ring-2", "ring-amber-400", "ring-offset-2", "rounded-xl"), 1800);
+  }
+
   const templateMeta = useMemo(
     () => form ? getTemplateMeta(form.template_id) : undefined,
     [form?.template_id]   // eslint-disable-line react-hooks/exhaustive-deps
@@ -314,41 +357,27 @@ function EmbedFormCustomiser() {
   }, [form, templateMeta, pricingTiers.length]);
   const readiness = useMemo(() => summariseReadiness(setupChecklist), [setupChecklist]);
 
+  // Preview renders the tenant's REAL form (hosted page in preview mode:
+  // live fields, brand, catalogue, tiers; submissions are never sent).
+  // Unsaved edits are layered on top via postDraft above. The previous
+  // demo.html preview showed placeholder fields, not this form.
+  // Keyed on the SAVED slug so typing in the slug box doesn't reload the
+  // iframe (and 404) on every keystroke.
+  const savedSlugRef = useRef<string>("");
+  if (form && !dirty) savedSlugRef.current = form.slug;
+  const savedSlug = savedSlugRef.current || form?.slug || "";
   const previewSrc = useMemo(() => {
-    if (!form || !companyData?.embed_token) return "";
-    // LCF-H (task #229, 2026-05-25): pass tenant brand through so the
-    // demo fallback shows real company name + colours when the API
-    // path can't be hit.
+    if (!savedSlug || !companyData?.embed_token) return "";
     const qs = new URLSearchParams({
       token: companyData.embed_token,
-      slug: form.slug,
-      template: form.template_id,
-      draft: "1",
+      slug: savedSlug,
+      preview: "1",
+      compact: "1",
     });
-    if (companyData.company_name) qs.set("companyName", companyData.company_name);
-    if (form.theme?.primary_color) qs.set("primary", form.theme.primary_color);
-    else if (companyData.primary_color) qs.set("primary", companyData.primary_color);
-    if (form.theme?.secondary_color) qs.set("secondary", form.theme.secondary_color);
-    else if (companyData.secondary_color) qs.set("secondary", companyData.secondary_color);
-    if (companyData.logo_url) qs.set("logoUrl", companyData.logo_url);
-    if (companyData.currency) qs.set("currency", companyData.currency);
-    return `/embed/demo.html?${qs.toString()}`;
-  }, [form?.slug, form?.template_id, form?.theme?.primary_color, form?.theme?.secondary_color, companyData?.embed_token, companyData?.company_name, companyData?.primary_color, companyData?.secondary_color, companyData?.logo_url, companyData?.currency]);  // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Force-reload key. The postMessage path below is the soft option,
-  // but the demo page doesn't always re-render on draft messages
-  // (helpers.js doesn't subscribe). Bumping this key on every config-
-  // affecting change forces a fresh iframe and guarantees the
-  // operator sees their edit reflected. We hash a few fields to keep
-  // re-mounts to actual content changes (not unrelated re-renders).
-  const previewKey = useMemo(() => {
-    if (!form) return "blank";
-    const themeStr = JSON.stringify(form.theme || {});
-    const fieldsStr = (form.fields || [])
-      .map((f: any) => `${f.id}:${f.type}:${f.required ? 1 : 0}:${f.label || ""}`)
-      .join("|");
-    return `${form.template_id}::${themeStr}::${fieldsStr}::${form.success_message || ""}::${form.redirect_url || ""}`;
-  }, [form]);
+    return `/embed/form.html?${qs.toString()}`;
+  }, [savedSlug, companyData?.embed_token]);
+  // Full-page preview for "Open in new tab" (saved version, no chrome strip).
+  const previewTabHref = previewSrc.replace("&compact=1", "");
 
   if (loading || !form) {
     return (
@@ -449,24 +478,83 @@ function EmbedFormCustomiser() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setSnippetOpen(true)}
-                  className="gap-2"
-                  title={readiness.ready ? "Copy embed snippet" : "Form has setup gaps - tap the checklist below first"}
-                >
-                  <Code2 className="w-4 h-4" /> Get snippet
-                </Button>
-                <Button
                   onClick={() => saveForm(form)}
                   disabled={saving || !dirty}
-                  className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
+                  className="gap-2"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Save
+                  {dirty ? "Save changes" : "Saved"}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    // Publish what's on screen: save first so the link and
+                    // snippet serve exactly what the preview shows.
+                    if (dirty) await saveForm(form, { silent: true });
+                    setSnippetOpen(true);
+                  }}
+                  className="gap-2 bg-brand-primary hover:bg-brand-primary/90"
+                  title={readiness.ready ? "Get the shareable link and website snippet" : "Fix the required items in the checklist first"}
+                >
+                  <Code2 className="w-4 h-4" /> Publish &amp; get link
                 </Button>
               </>
             }
           />
           <PageWorkbench />
+
+          {/* How-it-works guide: the three things an operator does here,
+              each with its live status, so the page reads as a flow. */}
+          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {[
+              {
+                n: 1,
+                title: "Set up your questions",
+                body: "Left column: edit labels, choose the answer type, mark required. Add or remove questions.",
+                status: readiness.ready ? "Ready" : `${readiness.failingRequired} to fix`,
+                ok: readiness.ready,
+                onClick: () => jumpTo("section-fields"),
+              },
+              {
+                n: 2,
+                title: "Try it in the preview",
+                body: "Middle column shows the real form and updates as you type. Test submissions there are not saved.",
+                status: dirty ? "Unsaved edits" : "Up to date",
+                ok: !dirty,
+                onClick: () => jumpTo("section-preview"),
+              },
+              {
+                n: 3,
+                title: "Publish",
+                body: "Copy the shareable link (any website button, WhatsApp, QR) or the snippet. Every submission lands in Leads.",
+                status: form.is_active ? "Live" : "Paused",
+                ok: form.is_active,
+                onClick: async () => {
+                  if (dirty) await saveForm(form, { silent: true });
+                  setSnippetOpen(true);
+                },
+              },
+            ].map((step) => (
+              <button
+                key={step.n}
+                type="button"
+                onClick={step.onClick}
+                className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-brand-primary/50 hover:shadow dark:border-slate-800 dark:bg-slate-900"
+              >
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-bold text-white">
+                  {step.n}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{step.title}</span>
+                    <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ${step.ok ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
+                      {step.status}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-500">{step.body}</span>
+                </span>
+              </button>
+            ))}
+          </div>
 
           {/* LCF-B (task #223, 2026-05-25): per-template setup
               checklist. Each row is anchored to the section it
@@ -538,11 +626,7 @@ function EmbedFormCustomiser() {
                         <li key={c.id}>
                           <button
                             type="button"
-                            onClick={() => {
-                              if (!c.anchor) return;
-                              const el = document.getElementById(c.anchor);
-                              if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                            }}
+                            onClick={() => { if (c.anchor) jumpTo(c.anchor); }}
                             disabled={!c.anchor}
                             className={`w-full text-left px-3 py-2 rounded-md border transition-colors text-sm flex items-start gap-2 ${tone}`}
                           >
@@ -553,9 +637,12 @@ function EmbedFormCustomiser() {
                                 <p className="text-xs opacity-90 mt-0.5">{c.detail}</p>
                               )}
                             </div>
-                            {isRequired && (
-                              <Badge className="bg-rose-600 text-white text-[10px] flex-shrink-0">Required</Badge>
-                            )}
+                            <span className="flex flex-shrink-0 flex-col items-end gap-1">
+                              {isRequired && (
+                                <Badge className="bg-rose-600 text-white text-[10px]">Required</Badge>
+                              )}
+                              {c.anchor && <span className="text-[11px] font-semibold underline underline-offset-2">Fix →</span>}
+                            </span>
                           </button>
                         </li>
                       );
@@ -573,7 +660,10 @@ function EmbedFormCustomiser() {
               <Card>
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-bold text-slate-900">Fields</h3>
+                    <div>
+                      <h3 className="font-bold text-slate-900">Questions</h3>
+                      <p className="text-[11px] text-slate-500">What visitors fill in, top to bottom.</p>
+                    </div>
                     <Button size="sm" variant="outline" onClick={addField} className="gap-1.5 h-8">
                       <Plus className="w-3.5 h-3.5" /> Add field
                     </Button>
@@ -594,7 +684,10 @@ function EmbedFormCustomiser() {
                       isFirst={idx === 0}
                       isLast={idx === form.fields.length - 1}
                       onChange={(patch) => updateField(idx, patch)}
-                      onBlurSave={() => dirty && saveForm({ fields: form.fields }, { silent: true })}
+                      // Reads refs, not this render's closure: the options
+                      // editor commits then saves on the next tick, after
+                      // its own patch has landed.
+                      onBlurSave={() => dirtyRef.current && formRef.current && saveForm({ fields: formRef.current.fields }, { silent: true })}
                       onMoveUp={() => moveField(idx, -1)}
                       onMoveDown={() => moveField(idx, 1)}
                       onRemove={() => removeField(idx)}
@@ -605,7 +698,7 @@ function EmbedFormCustomiser() {
             </div>
 
             {/* Middle: live preview */}
-            <div className="lg:col-span-5">
+            <div id="section-preview" className="lg:col-span-5 scroll-mt-20">
               <Card>
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between mb-2 px-1">
@@ -613,17 +706,19 @@ function EmbedFormCustomiser() {
                       <Eye className="w-4 h-4 text-blue-600" /> Live preview
                     </h3>
                     {previewSrc && (
-                      <Button asChild size="sm" variant="ghost" className="gap-1.5 h-8 text-xs">
-                        <a href={previewSrc} target="_blank" rel="noopener noreferrer">
+                      <Button asChild size="sm" variant="ghost" className="gap-1.5 h-8 text-xs" title={dirty ? "Save first: the new tab shows the saved version" : "Open the saved form in a new tab"}>
+                        <a href={previewTabHref} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="w-3.5 h-3.5" /> Open in new tab
                         </a>
                       </Button>
                     )}
                   </div>
+                  <p className="px-1 mb-2 text-[11px] text-slate-500">
+                    Shows your edits instantly. Test submissions here are not saved as leads.
+                  </p>
                   <div className="rounded-lg border border-slate-200 bg-white overflow-hidden h-[640px]">
                     {previewSrc ? (
                       <iframe
-                        key={previewKey}
                         ref={previewIframeRef}
                         src={previewSrc}
                         title="Form preview"
@@ -899,6 +994,39 @@ function FieldEditor({
   onRemove: () => void;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Options are edited as free text and parsed on blur. Parsing on every
+  // keystroke rewrote the textarea mid-typing ("Wedding" instantly became
+  // "Wedding|Wedding") and swallowed the Enter key, so a second option
+  // could not be added.
+  const optionsToText = (opts: EmbedField["options"]) =>
+    (opts || [])
+      .map((o: any) => (typeof o === "string" ? o : o.label && o.label !== o.value ? `${o.label} | ${o.value}` : (o.label || o.value)))
+      .join("\n");
+  const [optionsText, setOptionsText] = useState(() => optionsToText(field.options));
+  const [editingOptions, setEditingOptions] = useState(false);
+  useEffect(() => {
+    if (!editingOptions) setOptionsText(optionsToText(field.options));
+  }, [field.options, editingOptions]);
+  function commitOptions(text: string) {
+    const used = new Set<string>();
+    const opts = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        // "Label | value" or just "Label" (value derived from it).
+        const [rawLabel, rawValue] = line.split("|").map((part) => part.trim());
+        const label = rawLabel || rawValue || "";
+        let value = rawValue || label;
+        let n = 2;
+        const base = value;
+        while (used.has(value)) value = `${base} ${n++}`;
+        used.add(value);
+        return { value, label };
+      })
+      .filter((o) => o.label);
+    onChange({ options: opts });
+  }
   // Single-pick options for select/radio; multi-pick for checkboxes.
   const needsOptions =
     field.type === "select" ||
@@ -943,6 +1071,9 @@ function FieldEditor({
               className="h-8 text-xs"
             />
           </div>
+          {FIELD_TYPE_HINTS[field.type] && (
+            <p className="-mt-1 text-[11px] text-slate-500">{FIELD_TYPE_HINTS[field.type]}</p>
+          )}
           <div className="flex items-center gap-3 text-xs">
             <label className="flex items-center gap-1.5 cursor-pointer">
               <Switch checked={field.required} onCheckedChange={(v) => onChange({ required: v })} />
@@ -956,20 +1087,27 @@ function FieldEditor({
 
           {needsOptions && (
             <div>
-              <Label className="text-[10px] uppercase tracking-wide text-slate-500">Options (one per line, format: value|label)</Label>
+              <Label className="text-[10px] uppercase tracking-wide text-slate-500">Options (one per line)</Label>
               <Textarea
-                value={(field.options || []).map((o) => `${o.value}|${o.label}`).join("\n")}
-                onChange={(e) => {
-                  const opts = e.target.value.split("\n").map((line) => {
-                    const [value, label] = line.split("|").map((s) => s.trim());
-                    return { value: value || "", label: label || value || "" };
-                  }).filter((o) => o.value);
-                  onChange({ options: opts });
+                value={optionsText}
+                onFocus={() => setEditingOptions(true)}
+                onChange={(e) => setOptionsText(e.target.value)}
+                onBlur={(e) => {
+                  setEditingOptions(false);
+                  commitOptions(e.target.value);
+                  // Let the options patch land before the save reads fields.
+                  setTimeout(onBlurSave, 0);
                 }}
-                onBlur={onBlurSave}
-                rows={3}
-                className="text-xs font-mono mt-1"
+                rows={Math.min(8, Math.max(3, optionsText.split("\n").length + 1))}
+                placeholder={"Wedding\nCorporate function\nBirthday party"}
+                className="text-xs mt-1"
               />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Visitors see each line as a choice. Optional: <span className="font-mono">Label | code</span> to save a different value.
+              </p>
+              {(field.options || []).length === 0 && !optionsText.trim() && (
+                <p className="text-[10px] text-rose-600 mt-1">Add at least one option, otherwise visitors have nothing to choose.</p>
+              )}
             </div>
           )}
 
@@ -985,6 +1123,7 @@ function FieldEditor({
             <div className="space-y-2 pt-1 border-t border-slate-200">
               <div>
                 <Label className="text-[10px] uppercase tracking-wide text-slate-500">Maps to lead column</Label>
+                <p className="text-[10px] text-slate-500">Where the answer goes on the lead. &quot;No mapping&quot; still keeps it: it&apos;s added to the lead notes.</p>
                 <Select
                   value={field.mapsTo || MAP_NONE}
                   onValueChange={(v) => onChange({ mapsTo: (v === MAP_NONE ? undefined : v) as EmbedFieldMapping | undefined })}
@@ -1009,17 +1148,64 @@ function FieldEditor({
                         {otherFields.map((f) => <SelectItem key={f.id} value={f.id}>{f.label || f.id}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <Input
-                      value={Array.isArray(field.conditional?.showIfValue) ? field.conditional?.showIfValue.join(",") : (field.conditional?.showIfValue || "")}
-                      onChange={(e) => {
-                        if (!field.conditional?.showIfFieldId) return;
-                        onChange({ conditional: { showIfFieldId: field.conditional.showIfFieldId, showIfValue: e.target.value } });
-                      }}
-                      onBlur={onBlurSave}
-                      placeholder="equals value"
-                      className="h-8 text-xs"
-                      disabled={!field.conditional?.showIfFieldId}
-                    />
+                    {(() => {
+                      // When the controlling field has choices, pick one of
+                      // its real option values instead of typing a code
+                      // that silently never matches.
+                      const parent = otherFields.find((f) => f.id === field.conditional?.showIfFieldId);
+                      const parentOptions = (parent?.options || []) as { value: string; label: string }[];
+                      const current = Array.isArray(field.conditional?.showIfValue)
+                        ? field.conditional?.showIfValue.join(",")
+                        : (field.conditional?.showIfValue || "");
+                      if (parent && parent.type === "checkbox") {
+                        return (
+                          <Select
+                            value={current || "true"}
+                            onValueChange={(v) => {
+                              onChange({ conditional: { showIfFieldId: parent.id, showIfValue: v } });
+                              setTimeout(onBlurSave, 0);
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">is ticked</SelectItem>
+                              <SelectItem value="false">is not ticked</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        );
+                      }
+                      if (parent && parentOptions.length > 0) {
+                        return (
+                          <Select
+                            value={current || undefined}
+                            onValueChange={(v) => {
+                              onChange({ conditional: { showIfFieldId: parent.id, showIfValue: v } });
+                              setTimeout(onBlurSave, 0);
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="equals..." /></SelectTrigger>
+                            <SelectContent>
+                              {parentOptions.filter((o) => o.value).map((o) => (
+                                <SelectItem key={o.value} value={o.value}>{o.label || o.value}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        );
+                      }
+                      return (
+                        <Input
+                          value={current}
+                          onChange={(e) => {
+                            if (!field.conditional?.showIfFieldId) return;
+                            onChange({ conditional: { showIfFieldId: field.conditional.showIfFieldId, showIfValue: e.target.value } });
+                          }}
+                          onBlur={onBlurSave}
+                          placeholder="equals value"
+                          className="h-8 text-xs"
+                          disabled={!field.conditional?.showIfFieldId}
+                        />
+                      );
+                    })()}
                   </div>
                 </div>
               )}

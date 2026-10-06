@@ -1,0 +1,43 @@
+/**
+ * Detect which input column maps to name / surname / email / phone.
+ * Forgiving on common header spellings.
+ */
+function pickHeaderMap(headers: string[]): {
+  name: number; surname: number; email: number; phone: number; mobile_number: number; landline_number: number; notes: number;
+  client_type: number; tax_number: number; billing_address_line1: number;
+  billing_address_line2: number; billing_city: number; billing_postal_code: number;
+  payment_terms: number; credit_limit: number; tags: number;
+  historical_total_events: number; historical_lifetime_spend: number;
+  historical_last_event_date: number; historical_last_event_type: number; historical_notes: number;
+} {
+  const idx = (candidates: string[]) => {
+    for (let i = 0; i < headers.length; i++) {
+      const h = headers[i].toLowerCase().trim().replace(/\s*\*\s*$/, "");
+      if (candidates.includes(h)) return i;
+    }
+    return -1;
+  };
+  return {
+    name:    idx(["name", "client name", "client_name", "first name", "firstname", "first_name", "given name"]),
+    surname: idx(["surname", "last name", "lastname", "last_name", "family name", "family_name"]),
+    email:   idx(["email", "e-mail", "e_mail", "mail", "email address", "email_address"]),
+    phone:   idx(["phone", "tel", "telephone", "phone number", "tel number"]),
+    mobile_number: idx(["mobile", "mobile_number", "cell", "cellphone", "cell number"]),
+    landline_number: idx(["landline", "landline_number", "office", "office phone", "home phone"]),
+    notes:   idx(["notes", "note", "comments", "memo"]),
+    client_type: idx(["client type", "client_type", "type"]),
+    tax_number: idx(["tax / vat number", "tax_number", "vat", "vat number", "tax id"]),
+    billing_address_line1: idx(["billing address (line 1)", "billing_address_line1", "address", "address 1", "street"]),
+    billing_address_line2: idx(["billing address (line 2)", "billing_address_line2", "address 2", "suburb"]),
+    billing_city: idx(["city", "billing city", "billing_city", "town"]),
+    billing_postal_code: idx(["postal code", "billing postal code", "billing_postal_code", "postcode", "zip"]),
+    payment_terms: idx(["payment terms (days)", "payment_terms", "terms", "net days", "due days"]),
+    credit_limit: idx(["credit limit (r)", "credit_limit", "credit"]),
+    tags: idx(["tags (comma-separated)", "tags", "labels", "categories"]),
+    historical_total_events: idx(["total events (history)", "historical_total_events", "total events", "event count", "events booked", "lifetime events", "past events"]),
+    historical_lifetime_spend: idx(["lifetime spend (r)", "historical_lifetime_spend", "lifetime spend", "total spent", "lifetime value", "ltv", "total revenue"]),
+    historical_last_event_date: idx(["last event date (history)", "historical_last_event_date", "last event", "most recent event", "last booking", "last function"]),
+    historical_last_event_type: idx(["last event type (history)", "historical_last_event_type", "last event type", "last booking type"]),
+    historical_notes: idx(["history notes", "historical_notes", "client history", "previous notes"]),
+  };
+}

@@ -169,7 +169,9 @@ function ShoppingKitchenDemandPageInner() {
           : `Aggregated ingredient need from confirmed orders in the next ${horizon} days.`
       }
       icon={ChefHat}
-      headerAction={
+      // Only offered when something is short; a disabled brand button on
+      // the brand-coloured header read as broken.
+      headerAction={stats.shortfall > 0 || creating ? (
         <Button
           size="sm"
           onClick={handleCreateList}
@@ -180,7 +182,7 @@ function ShoppingKitchenDemandPageInner() {
             <><ShoppingCart className="w-4 h-4 mr-2" />Create shopping list</>
           )}
         </Button>
-      }
+      ) : undefined}
       meta={
         chipsReady ? (
           <>
@@ -219,9 +221,10 @@ function ShoppingKitchenDemandPageInner() {
       )}
 
       {/* Stat strip */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-5 sm:grid-cols-3 sm:gap-4">
         <StatTile
           label="Ingredients in play"
+          hint="From confirmed orders"
           value={stats.ingredients}
           icon={Boxes}
         />
@@ -237,6 +240,7 @@ function ShoppingKitchenDemandPageInner() {
         />
         <StatTile
           label="Orders feeding this"
+          hint="Confirmed in this window"
           value={stats.orders}
           icon={ClipboardList}
         />
@@ -436,9 +440,9 @@ function ShoppingKitchenDemandPageInner() {
         </PortalCard>
       )}
 
-      {/* Helper line */}
-      <p className="text-xs text-slate-600 dark:text-slate-400 mt-4 text-center">
-        Demand math comes from menu item recipes. If something&apos;s missing, {canOpenMenuBuilder ? (
+      {/* Helper line - the empty state already says this when there's no demand. */}
+      {demand.length > 0 && <p className="text-xs text-slate-600 dark:text-slate-400 mt-4 text-center">
+        Quantities come from the recipes on each menu item. If something&apos;s missing, {canOpenMenuBuilder ? (
           <>
             attach the recipe in
             <Link href={withSlug("/admin/menu")} className="text-brand-primary hover:text-brand-primary/80 dark:text-brand-primary dark:hover:text-brand-primary/80 ml-1 underline">Menu builder</Link>.
@@ -446,7 +450,7 @@ function ShoppingKitchenDemandPageInner() {
         ) : (
           "ask an admin or owner to attach the recipe."
         )}
-      </p>
+      </p>}
     </ShoppingPageShell>
   );
 }

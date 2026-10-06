@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
+import { humaniseEnum } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
-import { Bell, Check, CheckCircle2, Archive, Inbox, RefreshCw } from "lucide-react";
+import { Bell, Check, CheckCircle2, Archive, Inbox, RefreshCw, ChevronDown } from "lucide-react";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalCard } from "@/components/portal/ui";
@@ -164,7 +165,6 @@ function ShoppingNotificationsPageInner() {
     [notifs],
   );
   const unread = useMemo(() => visible.filter((n) => !n.is_read).length, [visible]);
-
   // Wave 24: stale notification cleanup - mirrors the driver,
   // kitchen and cleaning portals.
   const staleCount = useMemo(
@@ -357,8 +357,38 @@ function ShoppingNotificationsPageInner() {
             )}
           </div>
         ) : (
+          <div className="divide-y divide-slate-200 dark:divide-slate-700">
+            {(() => {
+              const groups = new Map<string, typeof visible>();
+              for (const item of visible) {
+                const key = item.type ?? item.notification_type ?? "other";
+                const list = groups.get(key);
+                if (list) list.push(item); else groups.set(key, [item]);
+              }
+              return Array.from(groups.entries());
+            })().map(([typeKey, groupItems], groupIndex) => {
+              const unreadInGroup = groupItems.filter((g) => !g.is_read);
+              return (
+                <details key={typeKey} open={(groupIndex === 0 && groupItems.length <= 5) || visible.length <= 5} className="group/type">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 bg-slate-50/80 px-4 py-2.5 hover:bg-slate-100 sm:px-5 dark:bg-slate-800/40 dark:hover:bg-slate-800 [&::-webkit-details-marker]:hidden">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">{typeKey === "other" ? "Other" : humaniseEnum(typeKey)}</span>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">{groupItems.length}</span>
+                    {unreadInGroup.length > 0 && (
+                      <span className="text-[11px] font-medium text-amber-700">{unreadInGroup.length} unread</span>
+                    )}
+                    {unreadInGroup.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); unreadInGroup.forEach((g) => void markRead(g.id)); }}
+                        className="ml-2 inline-flex items-center text-[11px] font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                      >
+                        <Check className="mr-1 h-3 w-3" /> Mark {unreadInGroup.length} read
+                      </button>
+                    )}
+                    <ChevronDown aria-hidden="true" className="ml-auto h-4 w-4 text-slate-400 transition-transform group-open/type:rotate-180" />
+                  </summary>
           <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-            {visible.map((n) => {
+            {groupItems.map((n) => {
               // Wave 24: degrade displayed priority on stale rows.
               const displayedPriority = effectivePriority(n.priority, n.created_at);
               const dot = priorityTone(displayedPriority);
@@ -391,11 +421,19 @@ function ShoppingNotificationsPageInner() {
                       <div className="font-medium text-slate-900 dark:text-slate-100">{n.title ?? "Notification"}</div>
                       <span className="text-[11px] text-slate-500 dark:text-slate-400 flex-shrink-0 tabular-nums">{n.created_at ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true }) : ""}</span>
                     </div>
-                    {n.message && <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{n.message}</p>}
+                    {n.message && (
+                      n.message.length > 160 ? (
+                        <details className="group/msg mt-1">
+                          <summary className="cursor-pointer list-none text-sm text-slate-600 dark:text-slate-400 [&::-webkit-details-marker]:hidden">
+                            <span className="line-clamp-2 group-open/msg:line-clamp-none">{n.message}</span>
+                            <span className="text-[11px] font-medium text-brand-primary group-open/msg:hidden">Show all</span>
+                          </summary>
+                        </details>
+                      ) : (
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{n.message}</p>
+                      )
+                    )}
                     <div className="flex items-center gap-3 mt-2">
-                      {(n.type || n.notification_type) && (
-                        <span className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">{n.type ?? n.notification_type}</span>
-                      )}
                       {!n.is_read && (
                         <button
                           type="button"
@@ -422,6 +460,10 @@ function ShoppingNotificationsPageInner() {
               );
             })}
           </ul>
+                </details>
+              );
+            })}
+          </div>
         )}
       </PortalCard>
     </ShoppingPageShell>

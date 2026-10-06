@@ -1,0 +1,11 @@
+{
+  "id": "0f7d5ce7-349d-4d9a-bcf3-172a6dc39185",
+  "company_id": "0e139a19-6526-4e1f-9bf7-87d6adbee5f8",
+  "provider": "resend",
+  "from_email": "hello@spitbraaidelivery.co.za",
+  "from_name": "Spit Braai Delivery | Callum",
+  "resend_domain_status": "verified",
+  "resend_sending_domain": "spitbraaidelivery.co.za",
+  "force_platform_sender": true,
+  "updated_at": "2026-09-26T07:14:40.327+00:00"
+}

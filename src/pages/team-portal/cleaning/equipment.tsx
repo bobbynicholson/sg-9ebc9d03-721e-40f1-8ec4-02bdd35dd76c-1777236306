@@ -36,9 +36,10 @@ interface Equipment {
 }
 
 const conditionTone: Record<string, string> = {
-  new: "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30",
-  excellent: "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30",
-  good: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+  // Usable condition reads green; amber/red only when it needs action.
+  new: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60",
+  excellent: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60",
+  good: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60",
   fair: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-900",
   poor: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
   damaged: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-900",
@@ -220,8 +221,8 @@ function CleaningEquipmentPageInner() {
   return (
     <>
       <CleaningPageShell
-        pageTitle="Equipment verification - CateringMS"
-        heading="Equipment verification"
+        pageTitle="Equipment - CateringMS"
+        heading="Equipment"
         subheading={
           chipsReady
             ? stats.damaged > 0
@@ -266,19 +267,22 @@ function CleaningEquipmentPageInner() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
           <StatTile
             label="Equipment items"
+            icon={Package}
             value={chipsReady ? stats.total : "--"}
             hint="Lines on file for your company"
           />
           <StatTile
             label="Damaged / poor"
+            icon={AlertTriangle}
             value={chipsReady ? stats.damaged : "--"}
             hint="Keep out of rotation until fixed"
           />
           <StatTile
             label="Replacement value"
+            icon={ShieldCheck}
             value={chipsReady ? formatZAR(stats.totalValue, { decimals: 0 }) : "--"}
             hint="Cost to replace everything today"
           />
@@ -348,7 +352,7 @@ function CleaningEquipmentPageInner() {
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {i.condition && (
-                      <Badge variant="outline" className={`${conditionTone[i.condition] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs`}>
+                      <Badge variant="outline" className={`${conditionTone[i.condition] ?? "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"} text-xs capitalize`}>
                         {i.condition}
                       </Badge>
                     )}
@@ -364,11 +368,12 @@ function CleaningEquipmentPageInner() {
                     {i.category && (
                       <Link
                         href={withSlug(`/team-portal/cleaning/workflows?category=${encodeURIComponent(i.category)}`)}
-                        className="inline-flex items-center text-xs text-brand-primary dark:text-brand-primary hover:underline"
+                        className="inline-flex h-9 items-center gap-1 rounded-md px-2 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                         title={`How to clean ${i.category}`}
                       >
                         <BookOpen className="h-4 w-4" />
-                        <span className="sr-only">How to clean {i.category}</span>
+                        <span className="hidden sm:inline">How to clean</span>
+                        <span className="sr-only sm:hidden">How to clean {i.category}</span>
                       </Link>
                     )}
                     <Button size="sm" variant="outline" onClick={() => openVerify(i)}>

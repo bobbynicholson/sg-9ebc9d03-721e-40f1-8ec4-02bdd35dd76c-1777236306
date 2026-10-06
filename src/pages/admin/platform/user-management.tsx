@@ -477,8 +477,8 @@ export default function UserManagementPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
           variant="hero"
-          title="User management"
-          subtitle="Platform-wide account directory with tenant ownership, invite state, and safe account actions."
+          title="Users"
+          subtitle="Every account on the platform, which company it belongs to, and whether the invite was accepted."
           icon={Users}
           meta={
             <>
@@ -645,7 +645,7 @@ export default function UserManagementPage() {
           <StatTile label="Accounts" value={summary.total} hint="All platform-visible profiles" icon={Users} />
           <StatTile label="Active" value={summary.active} hint="Signed in at least once" icon={CheckCircle2} />
           <StatTile label="Invite pending" value={summary.pending} hint="Created but not accepted" icon={MailQuestion} />
-          <StatTile label="Tenant-linked" value={summary.tenantLinked} hint="Assigned to a company" icon={Building2} />
+          <StatTile label="In a company" value={summary.tenantLinked} hint="Assigned to a company" icon={Building2} />
           <StatTile label="Platform admins" value={summary.platformAdmins} hint="Global admin access" icon={ShieldCheck} />
         </div>
 

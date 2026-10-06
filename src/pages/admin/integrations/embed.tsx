@@ -442,7 +442,7 @@ function AdminEmbedFormsPage() {
 }
 
 function FormCard({
-  form, embedToken, companyName, primaryColor, secondaryColor, logoUrl, currency,
+  form, embedToken,
   onTogglePause, onDuplicate, onDelete, onGetSnippet,
 }: {
   form: EmbedFormRow;
@@ -462,32 +462,16 @@ function FormCard({
     ? +(form.submissions_count / form.views_count * 100).toFixed(1)
     : 0;
 
-  // LCF-H (task #229, 2026-05-25): preview iframe now passes the
-  // tenant's actual company name + brand colours through the URL so
-  // the demo fallback (token=preview path) shows "Spit Braai Delivery"
-  // + their real colours instead of the generic "Catering Co.".
+  // Thumbnail renders the form's REAL saved config (hosted page in
+  // preview mode: fields, brand, template; never submits). It used to
+  // load demo.html, which showed generic placeholder fields instead.
   const previewSrc = embedToken
-    ? (() => {
-        const qs = new URLSearchParams({
-          template: form.template_id,
-          token: "preview",
-          slug: form.slug,
-          // LCF-J (task #231, 2026-05-25): compact=1 strips the demo
-          // page chrome (heading, controls, page padding) so only
-          // the form itself renders inside the card thumbnail. The
-          // template gallery dialog has used compact=1 since day
-          // one; the FormCard iframes were silently rendering the
-          // demo's "CateringMS embed live preview" header + the
-          // template/token/slug control row instead of the form.
-          compact: "1",
-        });
-        if (companyName) qs.set("companyName", companyName);
-        if (primaryColor) qs.set("primary", primaryColor);
-        if (secondaryColor) qs.set("secondary", secondaryColor);
-        if (logoUrl) qs.set("logoUrl", logoUrl);
-        if (currency) qs.set("currency", currency);
-        return `/embed/demo.html?${qs.toString()}`;
-      })()
+    ? `/embed/form.html?${new URLSearchParams({
+        token: embedToken,
+        slug: form.slug,
+        preview: "1",
+        compact: "1",
+      }).toString()}`
     : "";
 
   return (

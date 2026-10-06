@@ -197,7 +197,7 @@ export function CleaningJobsQueue() {
             <Droplets className="w-5 h-5 text-brand-primary" />
             Cleaning queue
             {rows.length > 0 && (
-              <Badge variant="outline" className="ml-2 bg-brand-primary/5 text-brand-primary border-brand-primary/20">
+              <Badge variant="outline" className="ml-2 whitespace-nowrap bg-brand-primary/5 text-brand-primary border-brand-primary/20">
                 {rows.length} active
               </Badge>
             )}

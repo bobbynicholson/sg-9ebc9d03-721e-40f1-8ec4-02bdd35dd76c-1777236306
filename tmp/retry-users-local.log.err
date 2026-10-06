@@ -1,0 +1,6 @@
+Warning: Detected unsettled top-level await at file:///D:/sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306/tmp/open-roles-retry.mjs:200
+await new Promise(() => {});
+^
+
+
+

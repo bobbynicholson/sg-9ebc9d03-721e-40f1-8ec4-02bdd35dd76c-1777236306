@@ -321,7 +321,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const validationFields = fieldsForRequestType(fields, requestType);
   const validation = validateSubmission(validationFields, payload);
   if (!validation.ok) {
-    return res.status(400).json({ ok: false, errors: validation.errors });
+    // The message shows in the form's banner; errors land under each field.
+    const labelOf = (id: string) =>
+      (validationFields.find((f: any) => f.id === id)?.label as string) || id;
+    const firstId = Object.keys(validation.errors || {})[0];
+    return res.status(400).json({
+      ok: false,
+      message: firstId
+        ? `Please check "${labelOf(firstId)}": ${(validation.errors || {})[firstId]}`
+        : "Please check the form and try again.",
+      errors: validation.errors,
+    });
   }
 
   // 6) Map and insert the lead
@@ -391,10 +401,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // or cross-tenant quote.
   let requestedCatalogueItems: RequestedCatalogueItem[] = [];
   const wantsDraftQuote = requestType === "quote" || requestType === "";
-  if (
-    wantsDraftQuote
-    && ["detailed-multi-step", "pricing-calculator"].includes(String(form.template_id))
-  ) {
+  // Any template can carry menu / equipment picks (see addCatalogueFields).
+  if (wantsDraftQuote) {
     const menuIds = selectedIds(payload[EMBED_MENU_FIELD_ID]);
     const equipmentIds = selectedIds(payload[EMBED_EQUIPMENT_FIELD_ID]);
     const [{ data: selectedMenu }, { data: selectedEquipment }] = await Promise.all([

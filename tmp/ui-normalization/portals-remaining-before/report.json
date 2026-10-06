@@ -1,0 +1,1481 @@
+[
+  {
+    "portal": "waiter",
+    "route": "dashboard",
+    "path": "/spit-braai-delivery/team-portal/waiter/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/waiter/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Waiter Portal",
+          "Service today"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/waiter/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Waiter Portal",
+          "Service today"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/waiter/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Waiter Portal",
+          "Service today"
+        ],
+        "overflow": 0,
+        "height": 1494,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "waiter",
+    "route": "notifications",
+    "path": "/spit-braai-delivery/team-portal/waiter/notifications",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/waiter/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Waiter Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 3210,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/waiter/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Waiter Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 3716,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/waiter/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Waiter Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 5292,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "general",
+    "route": "job-progress",
+    "path": "/spit-braai-delivery/team-portal/general/job-progress",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/general/job-progress",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Job progress overview"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/general/job-progress",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Job progress overview"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/team-portal/general/job-progress",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Kitchen Portal",
+          "Job progress overview"
+        ],
+        "overflow": 0,
+        "height": 1351,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "client",
+    "route": "dashboard",
+    "path": "/spit-braai-delivery/client-portal/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Good morning, Universal"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Good morning, Universal"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Good morning, Universal"
+        ],
+        "overflow": 0,
+        "height": 1200,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "client",
+    "route": "my-orders",
+    "path": "/spit-braai-delivery/client-portal/my-orders",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/my-orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your bookings"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/my-orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your bookings"
+        ],
+        "overflow": 0,
+        "height": 1130,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/my-orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your bookings"
+        ],
+        "overflow": 0,
+        "height": 1373,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "client",
+    "route": "quotes",
+    "path": "/spit-braai-delivery/client-portal/quotes",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/quotes",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your quotes"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/quotes",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your quotes"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/quotes",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your quotes"
+        ],
+        "overflow": 0,
+        "height": 1168,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "client",
+    "route": "billing",
+    "path": "/spit-braai-delivery/client-portal/billing",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/billing",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Billing & invoices"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/billing",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Billing & invoices"
+        ],
+        "overflow": 0,
+        "height": 1084,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/billing",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Billing & invoices"
+        ],
+        "overflow": 0,
+        "height": 1383,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "client",
+    "route": "tracking",
+    "path": "/spit-braai-delivery/client-portal/tracking",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/tracking",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Live tracking"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/tracking",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Live tracking"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/tracking",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Live tracking"
+        ],
+        "overflow": 0,
+        "height": 1092,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "client",
+    "route": "notifications",
+    "path": "/spit-braai-delivery/client-portal/notifications",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1103,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1352,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "client",
+    "route": "feedback",
+    "path": "/spit-braai-delivery/client-portal/feedback",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Good morning, Universal"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Good morning, Universal"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Good morning, Universal"
+        ],
+        "overflow": 0,
+        "height": 1200,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "client",
+    "route": "profile",
+    "path": "/spit-braai-delivery/client-portal/profile",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/profile",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your profile"
+        ],
+        "overflow": 0,
+        "height": 1211,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/profile",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your profile"
+        ],
+        "overflow": 0,
+        "height": 1452,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client-portal/profile",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Client Portal",
+          "Your profile"
+        ],
+        "overflow": 0,
+        "height": 1951,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "dashboard",
+    "path": "/admin/platform/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin"
+        ],
+        "overflow": 0,
+        "height": 898,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "company-database",
+    "path": "/admin/platform/company-database",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/company-database",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Company Management"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/company-database",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Company Management"
+        ],
+        "overflow": 0,
+        "height": 1183,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/company-database",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Company Management"
+        ],
+        "overflow": 0,
+        "height": 1660,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "user-management",
+    "path": "/admin/platform/user-management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/user-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "User management"
+        ],
+        "overflow": 0,
+        "height": 2278,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/user-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "User management"
+        ],
+        "overflow": 0,
+        "height": 2798,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/user-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "User management"
+        ],
+        "overflow": 0,
+        "height": 3116,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "subscription-management",
+    "path": "/admin/platform/subscription-management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/subscription-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/subscription-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/subscription-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin"
+        ],
+        "overflow": 0,
+        "height": 898,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "pricing-management",
+    "path": "/admin/platform/pricing-management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/pricing-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Package pricing"
+        ],
+        "overflow": 0,
+        "height": 2279,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/pricing-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Package pricing"
+        ],
+        "overflow": 0,
+        "height": 2879,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/pricing-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Package pricing"
+        ],
+        "overflow": 0,
+        "height": 4127,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "trial-management",
+    "path": "/admin/platform/trial-management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/trial-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Trial management"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/trial-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Trial management"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/trial-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Trial management"
+        ],
+        "overflow": 0,
+        "height": 1142,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "currency-monitoring",
+    "path": "/admin/platform/currency-monitoring",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/currency-monitoring",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Currency monitoring"
+        ],
+        "overflow": 0,
+        "height": 1926,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/currency-monitoring",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Currency monitoring"
+        ],
+        "overflow": 0,
+        "height": 2328,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/currency-monitoring",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Currency monitoring"
+        ],
+        "overflow": 0,
+        "height": 2774,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "cms-blog",
+    "path": "/admin/platform/cms-blog",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/cms-blog",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "AI Blog Writer"
+        ],
+        "overflow": 0,
+        "height": 1136,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/cms-blog",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "AI Blog Writer"
+        ],
+        "overflow": 0,
+        "height": 1706,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/cms-blog",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "AI Blog Writer"
+        ],
+        "overflow": 0,
+        "height": 1816,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "cms-pages",
+    "path": "/admin/platform/cms-pages",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/cms-pages",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Marketing pages"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/cms-pages",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Marketing pages"
+        ],
+        "overflow": 0,
+        "height": 1187,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/cms-pages",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Marketing pages"
+        ],
+        "overflow": 0,
+        "height": 1555,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "tax-rules",
+    "path": "/admin/platform/tax-rules",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/tax-rules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "SA Tax Rules"
+        ],
+        "overflow": 0,
+        "height": 3841,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/tax-rules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "SA Tax Rules"
+        ],
+        "overflow": 0,
+        "height": 5415,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/tax-rules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "SA Tax Rules"
+        ],
+        "overflow": 0,
+        "height": 5483,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "audit-logs",
+    "path": "/admin/platform/audit-logs",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/audit-logs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Audit logs"
+        ],
+        "overflow": 0,
+        "height": 3025,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/audit-logs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Audit logs"
+        ],
+        "overflow": 0,
+        "height": 3425,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/audit-logs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Audit logs"
+        ],
+        "overflow": 0,
+        "height": 4336,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "financial-dashboard",
+    "path": "/admin/platform/financial-dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/financial-dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform finances"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/financial-dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform finances"
+        ],
+        "overflow": 0,
+        "height": 1276,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/financial-dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform finances"
+        ],
+        "overflow": 0,
+        "height": 1514,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "messaging-templates",
+    "path": "/admin/platform/messaging-templates",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/messaging-templates",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform emails"
+        ],
+        "overflow": 0,
+        "height": 1700,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/messaging-templates",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform emails"
+        ],
+        "overflow": 0,
+        "height": 1876,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/messaging-templates",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform emails"
+        ],
+        "overflow": 0,
+        "height": 2405,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "payment-issues",
+    "path": "/admin/platform/payment-issues",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/payment-issues",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Payment issues"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/payment-issues",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Payment issues"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/payment-issues",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Payment issues"
+        ],
+        "overflow": 0,
+        "height": 1228,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "running-todo",
+    "path": "/admin/platform/running-todo",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/running-todo",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Running Todo"
+        ],
+        "overflow": 0,
+        "height": 8999,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/running-todo",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Running Todo"
+        ],
+        "overflow": 0,
+        "height": 10543,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/admin/platform/running-todo",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Running Todo"
+        ],
+        "overflow": 0,
+        "height": 11103,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "settings",
+    "path": "/admin/platform/settings",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/admin/platform/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform settings"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/admin/platform/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform settings"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": "page.goto: net::ERR_CONNECTION_RESET at http://localhost:3001/admin/platform/settings\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3001/admin/platform/settings\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "finalPath": "/",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 844,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "tech-costs",
+    "path": "/admin/platform/tech-costs",
+    "viewports": {
+      "desktop": {
+        "status": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/admin/platform/tech-costs\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3001/admin/platform/tech-costs\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "finalPath": "/",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 1000,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/admin/platform/tech-costs\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3001/admin/platform/tech-costs\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "finalPath": "/",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 1024,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/admin/platform/tech-costs\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3001/admin/platform/tech-costs\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "finalPath": "/",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 844,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "tenant-health",
+    "path": "/admin/platform/tenant-health",
+    "viewports": {
+      "desktop": {
+        "status": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/admin/platform/tenant-health\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3001/admin/platform/tenant-health\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "finalPath": "/",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 1000,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/admin/platform/tenant-health\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3001/admin/platform/tenant-health\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "finalPath": "/",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 1024,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/admin/platform/tenant-health\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3001/admin/platform/tenant-health\", waiting until \"domcontentloaded\"\u001b[22m\n",
+        "finalPath": "/",
+        "loaded": true,
+        "denied": false,
+        "h1": [],
+        "overflow": 0,
+        "height": 844,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  }
+]

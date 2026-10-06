@@ -4,10 +4,11 @@
   window.__cmsTemplates = window.__cmsTemplates || {};
 
   var CSS = [
-    '.cms-form{padding:20px;max-width:420px;margin:0 auto;border:1px solid #E5E7EB;box-shadow:0 1px 2px rgba(0,0,0,.04)}',
-    '.cms-title{margin:0 0 4px;font-size:18px;font-weight:700}',
-    '.cms-sub{margin:0 0 16px;font-size:14px;color:#6B7280}',
-    '@media(max-width:380px){.cms-form{padding:16px}}'
+    '.cms-form{padding:30px 28px 24px;max-width:560px;margin:0 auto}',
+    '.cms-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}',
+    '.cms-grid .cms-field.is-wide{grid-column:1/-1}',
+    '.cms-btn{width:100%;margin-top:6px}',
+    '@media(max-width:520px){.cms-form{padding:26px 18px 20px}.cms-grid{grid-template-columns:1fr}}'
   ].join('');
 
   function render(host, config, brand, h) {
@@ -20,42 +21,37 @@
     var alert = h.el('div', { class: 'cms-alert', hidden: 'hidden', role: 'alert' });
     form.appendChild(alert);
 
-    if (brand && (brand.logoUrl || brand.companyName)) {
-      var bar = h.el('div', { class: 'cms-brandbar' });
-      if (brand.logoUrl) bar.appendChild(h.el('img', { src: brand.logoUrl, alt: brand.companyName || '' }));
-      bar.appendChild(h.el('strong', { text: brand.companyName || '' }));
-      form.appendChild(bar);
-    }
+    form.appendChild(h.buildHeader(brand, 'Catering enquiry'));
     form.appendChild(h.el('h3', { class: 'cms-title', text: config.title || 'Get a quick quote' }));
     form.appendChild(h.el('p', { class: 'cms-sub', text: config.subtitle || 'Tell us about your event and we will reply within a working day.' }));
 
-    var inputs = {};
-    var errorEls = {};
-    var visible = h.runConditionalLogic(fields, {});
-
+    var entries = [];
+    // Two-column grid on desktop: short inputs pair up, long ones
+    // (textarea, choices, pickers, address) span the full width.
+    var grid = h.el('div', { class: 'cms-grid' });
+    form.appendChild(grid);
+    var WIDE = { textarea: 1, radio: 1, checkboxes: 1, checkbox: 1, multiselect: 1 };
     fields.forEach(function (f) {
       var wrap = h.el('div', { class: 'cms-field', dataset: { fid: f.id } });
       var inputId = 'q_' + f.id;
       wrap.appendChild(h.el('label', { class: 'cms-label', for: inputId, text: f.label + (f.required ? ' *' : '') }));
       if (f.helpText) wrap.appendChild(h.el('div', { class: 'cms-help', text: f.helpText }));
       var input = buildInput(f, inputId, h);
-      input.addEventListener('input', onChange);
-      input.addEventListener('change', onChange);
       wrap.appendChild(input);
       var err = h.el('div', { class: 'cms-error', id: inputId + '_err', 'aria-live': 'polite' });
       wrap.appendChild(err);
-      inputs[f.id] = input;
-      errorEls[f.id] = err;
-      if (!visible.has(f.id)) wrap.style.display = 'none';
-      form.appendChild(wrap);
+      if (WIDE[f.type] || f.mapsTo === 'venue' || f.id === 'venue') wrap.classList.add('is-wide');
+      grid.appendChild(wrap);
+      entries.push({ field: f, input: input, errorEl: err, wrapper: wrap });
     });
 
     form.appendChild(h.buildHoneypot());
     var turnstileSlot = h.el('div', { class: 'cms-turnstile' });
     form.appendChild(turnstileSlot);
 
-    var btn = h.el('button', { class: 'cms-btn', type: 'submit', text: config.submitLabel || 'Send enquiry' });
+    var btn = h.el('button', { class: 'cms-btn', type: 'submit', text: config.submitLabel || 'Request my quote' });
     form.appendChild(btn);
+    form.appendChild(h.buildTrustLine());
 
     host.appendChild(form);
 
@@ -64,74 +60,13 @@
       h.mountTurnstile(host, turnstileSlot, config.turnstileSiteKey, function (t) { turnstileToken = t; });
     }
 
-    function readPayload() {
-      var p = {};
-      Object.keys(inputs).forEach(function (id) {
-        var input = inputs[id];
-        var f = fields.find(function (x) { return x.id === id; });
-        if (f.type === 'checkbox') p[id] = input.checked;
-        else if (f.type === 'checkboxes' || f.type === 'multiselect') {
-          p[id] = input.selectedOptions
-            ? Array.from(input.selectedOptions).map(function (o) { return o.value; })
-            : Array.from(input.querySelectorAll('input[type="checkbox"]:checked')).map(function (o) { return o.value; });
-        } else if (f.type === 'radio') {
-          var selected = input.querySelector('input[type="radio"]:checked');
-          p[id] = selected ? selected.value : '';
-        } else {
-          p[id] = input.value;
-        }
-      });
-      return p;
-    }
-
-    function onChange() {
-      var payload = readPayload();
-      var nowVisible = h.runConditionalLogic(fields, payload);
-      fields.forEach(function (f) {
-        var w = form.querySelector('[data-fid="' + f.id + '"]');
-        if (!w) return;
-        w.style.display = nowVisible.has(f.id) ? '' : 'none';
-      });
-      visible = nowVisible;
-    }
-
-    form.addEventListener('submit', function (ev) {
-      ev.preventDefault();
-      alert.hidden = true;
-      var payload = readPayload();
-      var ok = true;
-      fields.forEach(function (f) {
-        if (!visible.has(f.id)) { errorEls[f.id].textContent = ''; return; }
-        var msg = h.validateField(f, payload[f.id]);
-        errorEls[f.id].textContent = msg || '';
-        if (msg) {
-          ok = false;
-          inputs[f.id].setAttribute('aria-invalid', 'true');
-          inputs[f.id].setAttribute('aria-describedby', errorEls[f.id].id);
-        } else {
-          inputs[f.id].removeAttribute('aria-invalid');
-        }
-      });
-      if (!ok) {
-        h.announce(host, 'Please correct the highlighted fields.');
-        var firstBad = fields.find(function (f) { return errorEls[f.id].textContent; });
-        if (firstBad) inputs[firstBad.id].focus();
-        return;
-      }
-      var clean = {};
-      Object.keys(payload).forEach(function (k) { if (visible.has(k)) clean[k] = payload[k]; });
-      btn.disabled = true;
-      btn.textContent = 'Sending...';
-      h.submit(clean, turnstileToken, form.querySelector('input[name="website"]').value)
-        .then(function (res) { h.onSuccess(res); })
-        .catch(function (err) {
-          alert.hidden = false;
-          alert.textContent = (err && err.message) || 'Could not submit. Please try again.';
-          h.announce(host, alert.textContent);
-          btn.disabled = false;
-          btn.textContent = config.submitLabel || 'Send enquiry';
-        });
+    // Shared runner: same value reading, validation, conditional logic
+    // and server-error handling as every other template.
+    var runner = h.bindFormRunner(host, form, fields, entries, h, {
+      alertEl: alert, button: btn, config: config,
+      getTurnstileToken: function () { return turnstileToken; }
     });
+    runner.syncVisibility();
   }
 
   function buildInput(f, id, h) {

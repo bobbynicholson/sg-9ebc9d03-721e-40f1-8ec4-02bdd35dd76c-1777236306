@@ -55,9 +55,28 @@ interface TaxRule {
 }
 
 const DEDUCT_TONE: Record<TaxRule["deductibility"], string> = {
-  deductible: "bg-brand-primary/15 text-brand-primary border-brand-primary/20",
+  deductible: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-900",
   partial: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-900",
   non_deductible: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-900",
+};
+
+// Same words the edit form's dropdowns use, so the table never shows
+// stored values like "non_deductible" or "not_claimable".
+const DEDUCT_LABEL: Record<TaxRule["deductibility"], string> = {
+  deductible: "Deductible",
+  partial: "Partial",
+  non_deductible: "Non-deductible",
+};
+const VAT_LABEL: Record<TaxRule["vat_input_claimable"], string> = {
+  claimable: "Claimable",
+  not_claimable: "Not claimable",
+  depends: "Depends",
+};
+const TREATMENT_LABEL: Record<TaxRule["treatment"], string> = {
+  expense: "Expense",
+  capital: "Capital",
+  mixed: "Mixed",
+  non_allowed: "Not allowed",
 };
 
 const DEDUCT_ICON: Record<TaxRule["deductibility"], typeof ShieldCheck> = {
@@ -146,8 +165,8 @@ function TaxRulesAdmin() {
 
           <PortalHeader
             variant="hero"
-            title="SA Tax Rules"
-            subtitle="Reference rules the slip scanner uses to classify line items as deductible or not. Global to all tenants. Edit with care."
+            title="Tax rules"
+            subtitle="How the receipt scanner sorts purchases into deductible or not, for South African tax. Shared by every company, so edit with care."
             icon={Landmark}
             meta={
               <>
@@ -167,7 +186,7 @@ function TaxRulesAdmin() {
           <PageWorkbench />
 
           {/* Rule mix at a glance */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTile label="Total rules" value={loading ? "-" : stats.total} icon={Tag} />
             <StatTile label="Active" value={loading ? "-" : <span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>} icon={ShieldCheck} />
             <StatTile label="Deductible" value={loading ? "-" : stats.deductible} hint="Fully claimable categories" icon={ShieldCheck} />
@@ -253,8 +272,7 @@ function TaxRulesAdmin() {
                         return (
                           <tr key={r.id} className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors ${r.is_active ? "" : "opacity-60 bg-slate-50/40 dark:bg-slate-900/40"}`}>
                             <td className="py-3 pl-4 pr-2">
-                              <div className="font-semibold text-slate-900 dark:text-white">{r.display_name}</div>
-                              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{r.category_code}</div>
+                              <div className="font-semibold text-slate-900 dark:text-white" title={`Code: ${r.category_code}`}>{r.display_name}</div>
                               {!r.is_active && (
                                 <Badge variant="outline" className="mt-1 text-[10px]">Inactive</Badge>
                               )}
@@ -263,14 +281,14 @@ function TaxRulesAdmin() {
                             <td className="py-3 px-2">
                               <Badge variant="outline" className={`${DEDUCT_TONE[r.deductibility]} border gap-1 text-[11px]`}>
                                 <Icon className="w-3 h-3" />
-                                {r.deductibility}
+                                {DEDUCT_LABEL[r.deductibility] ?? r.deductibility}
                               </Badge>
                             </td>
-                            <td className="py-3 px-2 text-xs text-slate-700 dark:text-slate-300">{r.vat_input_claimable}</td>
+                            <td className="py-3 px-2 text-xs text-slate-700 dark:text-slate-300">{VAT_LABEL[r.vat_input_claimable] ?? r.vat_input_claimable}</td>
                             <td className="py-3 px-2 text-xs text-slate-700 dark:text-slate-300">
-                              {r.treatment}
+                              {TREATMENT_LABEL[r.treatment] ?? r.treatment}
                               {r.capital_threshold_rand != null && (
-                                <div className="text-[10px] text-slate-500 dark:text-slate-400">@ ZAR {r.capital_threshold_rand}</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400">from R {Number(r.capital_threshold_rand).toLocaleString("en-ZA")}</div>
                               )}
                             </td>
                             <td className="py-3 px-2 text-xs text-slate-500 dark:text-slate-400">

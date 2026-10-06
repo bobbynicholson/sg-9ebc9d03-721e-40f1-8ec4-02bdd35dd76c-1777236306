@@ -1,0 +1,11 @@
+quote: 200 -> /q/<token> loaded=true h1=["RJ WEDDINGS"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=3
+pay-invoice: 200 -> /pay/i/<token> loaded=true h1=["Tax Invoice"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=3
+pay-invoice-legacy: 200 -> /pay/i/<token> loaded=true h1=["Tax Invoice"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=3
+unsubscribe: 200 -> /u/<token> loaded=true h1=["Unsubscribe"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=0
+customer-account: 200 -> /c/account loaded=true h1=["This link can't be opened"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=3
+customer-order: 200 -> /c/order/<token> loaded=true h1=["Your booking link has expired"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=3
+client-login-short: 200 -> /spit-braai-delivery/client/login loaded=true h1=["Sign in"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=6
+client-login: 200 -> /spit-braai-delivery/client/login loaded=true h1=["Sign in"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=6
+select-role: 200 -> /auth/select-role loaded=true h1=["Choose where you want to go"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=0
+order-doc-admin: 200 -> /spit-braai-delivery/order/<token> loaded=true h1=["Admin","EVENT"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=12
+order-doc-kitchen: 200 -> /spit-braai-delivery/order/<token> loaded=true h1=["Kitchen Portal"] errors=0 failed=0 overflow(d/t/m)=0/0/0 blockedWrites=15

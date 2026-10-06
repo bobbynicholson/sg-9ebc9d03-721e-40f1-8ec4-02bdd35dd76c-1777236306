@@ -1,0 +1,20 @@
+[
+  {
+    "role": "shopping_staff",
+    "email": "shopping@spitbraaidelivery.co.za",
+    "landing": "/spit-braai-delivery/team-portal/shopping/dashboard",
+    "authenticated": true,
+    "status": 200,
+    "finalUrl": "http://localhost:3001/spit-braai-delivery/team-portal/shopping/dashboard",
+    "checkedAt": "2026-10-05T14:53:38.627Z"
+  },
+  {
+    "role": "super_admin",
+    "email": "bobby@skylight-digital.co.za",
+    "landing": "/admin/platform/dashboard",
+    "authenticated": true,
+    "status": 200,
+    "finalUrl": "http://localhost:3001/admin/platform/dashboard",
+    "checkedAt": "2026-10-05T14:53:42.494Z"
+  }
+]

@@ -19,7 +19,6 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { ChatBot } from "@/components/ChatBot";
 import { ReceiptScanner } from "@/components/shopping/ReceiptScanner";
 
-const MAX_FILES = 20;
 
 function ShoppingReceiptsInner() {
   const { user } = useAuth() as any;
@@ -37,7 +36,7 @@ function ShoppingReceiptsInner() {
       <ShoppingPageShell
         pageTitle="Receipts - CateringMS"
         heading="Receipts"
-        subheading={`Snap up to ${MAX_FILES} supplier slips per batch (JPG, PNG or WebP, 8 MB each). We extract supplier, date, line items and cost prices so nobody retypes them.`}
+        subheading="Photograph supplier slips and we read the supplier, date, items and prices for you - no retyping."
         icon={Camera}
         headerAction={
           <Button asChild variant="outline" size="sm">

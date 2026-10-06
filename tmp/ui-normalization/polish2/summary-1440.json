@@ -1,0 +1,28 @@
+[
+  {
+    "route": "/admin/dashboard",
+    "errors": [],
+    "height": 3036,
+    "overflow": false,
+    "h1": "Admin",
+    "sections": [
+      "open:Needs attention",
+      "closed:Stock running low5",
+      "closed:Leads needing follow-up3",
+      "closed:Upcoming work and team",
+      "closed:Recent activity and payments",
+      "closed:Performance and trends",
+      "closed:Quick Actions"
+    ],
+    "bigOpenCards": []
+  },
+  {
+    "route": "/admin/suppliers",
+    "errors": [],
+    "height": 1377,
+    "overflow": false,
+    "h1": "Admin",
+    "sections": [],
+    "bigOpenCards": []
+  }
+]

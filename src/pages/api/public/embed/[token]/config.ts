@@ -101,15 +101,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const form = forms[0];
   const templateId = String(form.template_id || "");
 
-  // Quote-oriented forms receive live catalogue choices. Prices are shown for
-  // guidance, but submit.ts resolves every selected id again server-side, so a
-  // visitor cannot alter the eventual draft price in devtools.
-  const shouldLoadCatalogue = [
-    "detailed-multi-step",
-    "pricing-calculator",
-  ].includes(templateId);
+  // Every template offers live menu / equipment pickers (quote templates
+  // behind the "build my quote" choice, the rest as optional extras). Only
+  // ids cross the boundary: no prices are shown, and submit.ts resolves
+  // every selected id again server-side.
   let publicFields = (form.fields || []) as any[];
-  if (shouldLoadCatalogue) {
+  {
     const [{ data: menuRows }, { data: equipmentRows }] = await Promise.all([
       (supabase as any)
         .from("menu_items")
@@ -145,7 +142,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   // Best-effort view counter - fire-and-forget so a slow update never blocks
   // the response. Use rpc-style increment to avoid lost updates under race.
-  void (async () => {
+  // Admin previews (?preview=1) are not visitor views, so they skip it.
+  const isPreview = req.query.preview === "1";
+  if (!isPreview) void (async () => {
     try {
       await (supabase as any).rpc("increment_embed_form_views", {
         p_form_id: form.id,

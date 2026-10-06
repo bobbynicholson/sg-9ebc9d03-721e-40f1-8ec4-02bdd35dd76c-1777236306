@@ -390,6 +390,28 @@ export default function PublicQuotePage() {
     }
   };
 
+  // Acceptance may save before a transient failure interrupts conversion.
+  // The accepted-state API is idempotent; retry it without another client click.
+  useEffect(() => {
+    if (!token || autoPrint || quote?.status !== "accepted" || quote.converted_to_order_id) return;
+    let cancelled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const recover = async () => {
+      attempts += 1;
+      const result = await recordAccept({ token, acceptedByName: quote.client_name || "Client" });
+      if (cancelled) return;
+      if (result.ok && result.orderId) {
+        setQuote(current => current ? { ...current, converted_to_order_id: result.orderId } : current);
+        setJustAccepted(true);
+      } else if (attempts < 3) {
+        timer = setTimeout(() => { void recover(); }, 15000);
+      }
+    };
+    timer = setTimeout(() => { void recover(); }, 5000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [token, autoPrint, quote?.id, quote?.status, quote?.converted_to_order_id, quote?.client_name]);
+
   const [acceptedOrderUrl, setAcceptedOrderUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!token || !justAccepted || !quote?.converted_to_order_id) return;
@@ -743,7 +765,10 @@ export default function PublicQuotePage() {
             <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-brand-primary/10 to-transparent pointer-events-none" />
             <div className="relative p-6 sm:p-8 print-pad-sm">
             <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div className="flex-1 min-w-0">
+              {/* Full width on phones so the status pill wraps below
+                  instead of squeezing the title into a sliver (it broke
+                  "RJ WEDDINGS" mid-word and slid under the pill). */}
+              <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                 <div className="flex items-center gap-3 mb-4">
                   {company?.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -773,7 +798,7 @@ export default function PublicQuotePage() {
                   {quote.quote_name || `Quote for ${quote.client_name || "your event"}`}
                 </h1>
                 <p className="text-sm text-stone-600 mt-2.5">
-                  Reference <span className="font-mono font-medium text-stone-800">{quote.quote_number}</span>
+                  Reference <span className="whitespace-nowrap font-mono font-medium text-stone-800">{quote.quote_number}</span>
                   <span className="mx-1.5 text-stone-300">·</span>
                   prepared {today}
                 </p>
@@ -1171,7 +1196,7 @@ export default function PublicQuotePage() {
                         : "Quote accepted"}
                     </h2>
                     <p className="text-sm text-brand-primary mt-1.5 max-w-md mx-auto">
-                      {justAccepted && !quote.converted_to_order_id
+                      {!quote.converted_to_order_id
                         ? `Your acceptance is saved. ${companyName} is preparing your booking and payment details. Refresh shortly to check again.`
                         : `${companyName} has been notified. Your booking still needs the agreed payment to be confirmed.`}
                     </p>

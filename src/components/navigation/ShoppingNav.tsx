@@ -151,7 +151,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
               ? { text: `${counts.shortItems} to buy`, tone: "critical", pulse: true }
               : null,
             liveDescription: () => counts.shortItems === 0 && !counts.loading
-              ? "No buy-list rows"
+              ? "Nothing to buy"
               : null,
           },
           {
@@ -195,7 +195,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
         title: "Catalogue",
         defaultOpen: false,
         items: [
-          { title: "Inventory", href: "/team-portal/shopping/inventory", icon: Warehouse, description: "Stock + par levels" },
+          { title: "Inventory", href: "/team-portal/shopping/inventory", icon: Warehouse, description: "Stock + minimums" },
           {
             title: "Restock",
             href: "/team-portal/shopping/restock",

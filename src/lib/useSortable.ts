@@ -58,9 +58,14 @@ function compareValues(a: unknown, b: unknown, type: SortType): number {
     if (Number.isNaN(tb)) return -1;
     return ta - tb;
   }
-  // string fallback. Use localeCompare so unicode + diacritics behave.
-  return String(a).localeCompare(String(b), "en-ZA", { numeric: true, sensitivity: "base" });
+  // string fallback. Same ordering as localeCompare(b, "en-ZA",
+  // { numeric, sensitivity: "base" }), but through one shared collator:
+  // localeCompare with options builds a collator per call, which cost
+  // seconds when sorting a few thousand rows.
+  return STRING_COLLATOR.compare(String(a), String(b));
 }
+
+const STRING_COLLATOR = new Intl.Collator("en-ZA", { numeric: true, sensitivity: "base" });
 
 export function useSortable<T>(
   rows: T[],
@@ -75,14 +80,13 @@ export function useSortable<T>(
     const col = columns.find((c) => c.key === sortKey);
     if (!col) return rows;
     const type = col.type || "string";
-    const arr = [...rows];
-    arr.sort((a, b) => {
-      const av = col.accessor(a);
-      const bv = col.accessor(b);
-      const cmp = compareValues(av, bv, type);
+    // Read each row's sort value once (not twice per comparison).
+    const keyed = rows.map((row) => ({ row, value: col.accessor(row) }));
+    keyed.sort((a, b) => {
+      const cmp = compareValues(a.value, b.value, type);
       return sortDir === "asc" ? cmp : -cmp;
     });
-    return arr;
+    return keyed.map((k) => k.row);
   }, [rows, columns, sortKey, sortDir]);
 
   const toggle = useCallback((key: string) => {

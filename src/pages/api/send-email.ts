@@ -5,6 +5,8 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
+import { buildPdfPaymentInstructions } from "@/lib/pdfPaymentInstructions";
+import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
 
 /**
@@ -262,9 +264,9 @@ async function handler(
           const { data: q } = await ssr
             .from("quotes")
             .select(`
-              id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+              id, public_token, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
-              subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, status,
+              subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
               delivery_fee, delivery_distance_km, delivery_rate_per_km,
               valid_until, accepted_at, updated_at,
               company:company_id (
@@ -272,6 +274,8 @@ async function handler(
                 address_line1, address_line2, city,
                 primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
                 registration_number, tax_number, currency,
+                bank_name, bank_account_holder, bank_account_number, bank_branch_code,
+                bank_account_type, eft_instructions,
                 updated_at
               )
             `)
@@ -280,15 +284,32 @@ async function handler(
             .maybeSingle();
 
           if (q) {
+            const quotePaymentInstructions = await buildPdfPaymentInstructions({
+              company: (q as any).company,
+              currency: (q as any).currency || (q as any).company?.currency || "ZAR",
+              paymentUrl: (q as any).public_token
+                ? `${publicAppOrigin({
+                    environment: process.env.NODE_ENV,
+                    configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+                    vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+                    vercelUrl: process.env.VERCEL_URL,
+                    requestOrigin: req.headers.origin as string | undefined,
+                    requestHost: req.headers.host,
+                    forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
+                  })}/q/${(q as any).public_token}`
+                : null,
+              referenceHint: "Use the invoice number issued after acceptance as the EFT reference.",
+            });
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
             const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
             const pdfBuffer = await renderQuotePdf(
-              buildQuotePdfDataFromRow(q),
+              buildQuotePdfDataFromRow({ ...(q as any), payment_instructions: quotePaymentInstructions }),
               {
                 cacheKey: {
                   quoteId,
                   quoteUpdatedAt: (q as any).updated_at ?? null,
                   companyUpdatedAt: (q as any).company?.updated_at ?? null,
+                  paymentInstructionsFingerprint: JSON.stringify(quotePaymentInstructions || null),
                 },
               },
             );
@@ -319,9 +340,9 @@ async function handler(
           const { data: q2 } = await ssr
             .from("quotes")
             .select(`
-              id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+              id, public_token, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
-              subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, status,
+              subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
               delivery_fee, delivery_distance_km, delivery_rate_per_km,
               valid_until, accepted_at, updated_at,
               company:company_id (
@@ -329,6 +350,8 @@ async function handler(
                 address_line1, address_line2, city,
                 primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
                 registration_number, tax_number, currency,
+                bank_name, bank_account_holder, bank_account_number, bank_branch_code,
+                bank_account_type, eft_instructions,
                 updated_at
               )
             `)
@@ -337,15 +360,32 @@ async function handler(
             .maybeSingle();
 
           if (q2) {
+            const quotePaymentInstructions = await buildPdfPaymentInstructions({
+              company: (q2 as any).company,
+              currency: (q2 as any).currency || (q2 as any).company?.currency || "ZAR",
+              paymentUrl: (q2 as any).public_token
+                ? `${publicAppOrigin({
+                    environment: process.env.NODE_ENV,
+                    configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+                    vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+                    vercelUrl: process.env.VERCEL_URL,
+                    requestOrigin: req.headers.origin as string | undefined,
+                    requestHost: req.headers.host,
+                    forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
+                  })}/q/${(q2 as any).public_token}`
+                : null,
+              referenceHint: "Use the invoice number issued after acceptance as the EFT reference.",
+            });
             const { renderQuotePdf, sanitiseFilename } = await import("@/services/pdf");
             const { buildQuotePdfDataFromRow } = await import("@/services/pdf/quotePdfData");
             const pdfBuffer2 = await renderQuotePdf(
-              buildQuotePdfDataFromRow(q2),
+              buildQuotePdfDataFromRow({ ...(q2 as any), payment_instructions: quotePaymentInstructions }),
               {
                 cacheKey: {
                   quoteId: quoteId2,
                   quoteUpdatedAt: (q2 as any).updated_at ?? null,
                   companyUpdatedAt: (q2 as any).company?.updated_at ?? null,
+                  paymentInstructionsFingerprint: JSON.stringify(quotePaymentInstructions || null),
                 },
               },
             );
@@ -375,7 +415,7 @@ async function handler(
           const { data: inv, error: invErr } = await ssr
             .from("invoices")
             .select(`
-              id, invoice_number, invoice_date, due_date, status,
+              id, public_token, currency, invoice_number, invoice_date, due_date, status,
               subtotal, tax_amount, total_amount, amount_paid, balance_due,
               notes, invoice_data, updated_at,
               client:client_id (
@@ -384,15 +424,16 @@ async function handler(
                 billing_city, billing_postal_code
               ),
               order:order_id (
-                id, order_number, event_name, event_date, discount_amount, deposit_amount, deposit_percentage, updated_at
+                id, order_number, event_name, event_date, discount_amount, deposit_amount, deposit_percentage, currency, updated_at
               ),
               company:company_id (
                 id, slug, company_name, legal_name, logo_url, email, phone,
                 address_line1, address_line2, city, state_province,
                 postal_code, country, primary_color,
                 vat_registered, vat_number, vat_rate,
-                registration_number, tax_number, deposit_percent,
-                currency,
+                registration_number, tax_number, deposit_percent, payment_terms,
+                currency, bank_name, bank_account_holder, bank_account_number,
+                bank_branch_code, bank_account_type, eft_instructions,
                 updated_at
               )
             `)
@@ -430,6 +471,23 @@ async function handler(
             ]
               .filter(Boolean)
               .join(", ") || null;
+            const invoicePaymentInstructions = await buildPdfPaymentInstructions({
+              company,
+              currency: order.currency || invAny.currency || company.currency || "ZAR",
+              bankSnapshot: stashed.bankDetails || {},
+              paymentUrl: invAny.public_token
+                ? `${publicAppOrigin({
+                    environment: process.env.NODE_ENV,
+                    configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+                    vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+                    vercelUrl: process.env.VERCEL_URL,
+                    requestOrigin: req.headers.origin as string | undefined,
+                    requestHost: req.headers.host,
+                    forwardedProtocol: req.headers["x-forwarded-proto"] as string | undefined,
+                  })}/pay/i/${invAny.public_token}`
+                : null,
+              reference: invAny.invoice_number || null,
+            });
 
             const { renderInvoicePdf, sanitiseFilename } = await import("@/services/pdf");
             const pdfBuffer = await renderInvoicePdf(
@@ -473,6 +531,7 @@ async function handler(
                 currency: company.currency || null,
                 notes: invAny.notes || stashed.notes || null,
                 payment_terms: stashed.paymentTerms || company.payment_terms || null,
+                payment_instructions: invoicePaymentInstructions,
                 company: {
                   id: company.id,
                   slug: company.slug,
@@ -501,6 +560,7 @@ async function handler(
                   invoiceUpdatedAt: invAny.updated_at ?? null,
                   orderUpdatedAt: order.updated_at ?? null,
                   companyUpdatedAt: company.updated_at ?? null,
+                  paymentInstructionsFingerprint: JSON.stringify(invoicePaymentInstructions || null),
                 },
               },
             );

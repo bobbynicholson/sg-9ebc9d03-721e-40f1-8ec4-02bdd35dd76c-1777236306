@@ -1,0 +1,58 @@
+To: fraudalerts@mobikwik.com
+CC: grievance@mobikwik.com; nodal@mobikwik.com
+Subject: Ticket #0409244353 - URGENT fraud escalation - NCRP 31110260241417
+
+Dear MobiKwik Fraud and Nodal Team,
+
+I am Raj Mehta, writing on behalf of my father, Uresh Mehta, regarding unauthorised transactions affecting his Union Bank of India account. The attached cybercrime report records the victim's name as UVESH MEHTA; please match the case using the acknowledgement number and transaction references below.
+
+Please link this email and its attachment to my existing MobiKwik case number 0409244353. My replies to the automated acknowledgement bounced because no-reply@mobikwik.com was reported as inactive. I am therefore sending this follow-up to your published fraud and escalation addresses.
+
+My father does not have a MobiKwik account, but the attached report traces eight disputed transactions to MobiKwik. I am following up on our previous communication and requesting urgent escalation to your fraud investigation team.
+
+The complaint details are:
+
+- Total reported loss: Rs 4,16,817
+- Disputed amount pending with MobiKwik: Rs 3,17,817 across eight transactions
+- NCRP acknowledgement: 31110260241417
+- MobiKwik case number: 0409244353
+- Complaint date: 2 October 2026
+- e-Zero FIR number: 011210068264250
+- Police authority: Surat City; police station recorded as Vesu
+
+We have already contacted customer care and completed the initial legal reporting. The report lists the MobiKwik transactions as pending; we need confirmation of the current action and hold status.
+
+Please:
+
+1. Trace the receiving wallets, merchants and any onward transfers using the transaction references in the attached PDF.
+2. Place an appropriate hold on any remaining disputed funds and restrict further transfers where possible.
+3. Preserve the relevant account, KYC and transaction records, and coordinate directly with the investigating police.
+4. Confirm whether any funds are currently held, the amount held, and whether you have responded to the police request.
+5. Provide an escalation ticket number and specify any additional documents required.
+
+Please acknowledge receipt and provide an urgent written update.
+
+If you require confirmation from my father or any additional documentation to process this report, please specify what is needed and how it should be submitted securely.
+
+Regards,
+Raj Mehta
+Son of Uresh Mehta
+Contact number: +91 8866631491
+
+Attachment: URESH MAHETA.pdf
+
+------------------------------------------------------------
+BEFORE SENDING (remove this section from the email)
+------------------------------------------------------------
+
+1. Open Gmail and choose Compose to create a NEW message.
+2. Use the subject above, which includes your existing MobiKwik ticket number 0409244353.
+3. Set To to fraudalerts@mobikwik.com. Add grievance@mobikwik.com and nodal@mobikwik.com in CC. Do not include no-reply@mobikwik.com or any Mail Delivery Subsystem address.
+4. Attach the PDF again: C:\Users\raj\Downloads\URESH MAHETA.pdf
+5. Copy only the body from "Dear MobiKwik Fraud and Nodal Team," through "Attachment: URESH MAHETA.pdf" into the reply.
+6. Check the recipients and attachment, then send. Keep the sent email and any acknowledgement/ticket number.
+
+Official source for the email addresses:
+https://www.mobikwik.com/grievancepolicy
+
+This is a draft for review. No email has been sent.

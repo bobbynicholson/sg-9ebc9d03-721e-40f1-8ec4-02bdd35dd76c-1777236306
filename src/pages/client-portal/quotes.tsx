@@ -214,8 +214,8 @@ function ClientQuotesPageInner() {
 
           <PortalOverview
             eyebrow="Quotes"
-            title={grouped.pending.length > 0 ? "You have quotes waiting for a response" : "Quote history is organised by decision state"}
-            description="Open a quote to review the public quote page, accept it, request edits, or decline. Accepted quotes move toward bookings and invoices."
+            title={grouped.pending.length > 0 ? "You have quotes waiting for a response" : "Nothing waiting for your answer"}
+            description="Open a quote to read it, accept it, ask for changes or decline. Accepted quotes become bookings."
             items={[
               { label: "Waiting", value: grouped.pending.length, helper: "Needs your response", icon: Clock, tone: grouped.pending.length > 0 ? "warning" : "success" },
               { label: "Accepted", value: grouped.accepted.length, helper: "Signed off", icon: FileText, tone: "success" },

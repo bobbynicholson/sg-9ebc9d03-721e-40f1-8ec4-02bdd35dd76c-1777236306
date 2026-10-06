@@ -1,0 +1,322 @@
+[
+  {
+    "file": "src/pages/admin/audit-logs.tsx",
+    "title": "Filters",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/calendar.tsx",
+    "title": "Gap finder",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/cashflow-dashboard.tsx",
+    "title": "30-day cashflow summary",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/cashflow-dashboard.tsx",
+    "title": "Quick actions",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "Identity",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "Region & currency",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "Peak season",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "Cash on hand staleness",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "VAT registration",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "Banking details",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "Kitchen / HQ address",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "Brand colours + logo",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "title": "Document numbering",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/dashboard.tsx",
+    "title": "Quick Actions",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/driver-management.tsx",
+    "title": "Driver portal access",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/email-settings.tsx",
+    "title": "Use your own sending domain",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/email-settings.tsx",
+    "title": "Sender identity",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/email-settings.tsx",
+    "title": "When to email clients automatically",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/email-settings.tsx",
+    "title": "Mailchimp (bulk campaigns)",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/financial-dashboard.tsx",
+    "title": "Financial Summary",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/financial-dashboard.tsx",
+    "title": "Quick Actions",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/financial-dashboard.tsx",
+    "title": "Revenue Projections",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/financial-dashboard.tsx",
+    "title": "Expense Tracking",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/financial-dashboard.tsx",
+    "title": "Per-branch P&L",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "title": "Get a Zap running in 60 seconds",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "title": "Xero accounting",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "title": "QuickBooks Online",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "title": "Outbound webhooks",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "title": "Inbound API keys",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "title": "Catering Zap recipes",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "title": "Sage Business Cloud (Pastel)",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/notification-settings.tsx",
+    "title": "Email Notifications",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/notification-settings.tsx",
+    "title": "Push Notifications",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/notification-settings.tsx",
+    "title": "SMS Notifications",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/notification-settings.tsx",
+    "title": "WhatsApp Notifications",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/quotes/new.tsx",
+    "title": "Client + event",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/quotes/new.tsx",
+    "title": "Menu items",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/quotes/new.tsx",
+    "title": "Equipment",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/quotes/new.tsx",
+    "title": "Pricing adjustments",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/quotes/new.tsx",
+    "title": "Notes",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/quotes/new.tsx",
+    "title": "Client preview",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/quotes/[id].tsx",
+    "title": "Menu items",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/quotes/[id].tsx",
+    "title": "Equipment",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/quotes/[id].tsx",
+    "title": "Pricing",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/quotes/[id].tsx",
+    "title": "Note to the client",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/route-planning.tsx",
+    "title": "Batch suggestions",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/route-planning.tsx",
+    "title": "Route Details & Stops",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/staff-hours.tsx",
+    "title": "Payment History",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/staff-hours.tsx",
+    "title": "Where the rest lives",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/subscription.tsx",
+    "title": "PayFast Flow Test",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/subscription.tsx",
+    "title": "Usage This Quarter",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/subscription.tsx",
+    "title": "Billing History",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/subscription.tsx",
+    "title": "Danger Zone",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/suppliers/[id].tsx",
+    "title": "Purchase summary",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/suppliers/[id].tsx",
+    "title": "Events during this period",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/suppliers/[id].tsx",
+    "title": "Products supplied",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/suppliers/[id].tsx",
+    "title": "Receipts in this window",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/white-label.tsx",
+    "title": "Logo & Organization",
+    "defaultOpen": true
+  },
+  {
+    "file": "src/pages/admin/white-label.tsx",
+    "title": "Color Palette",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/white-label.tsx",
+    "title": "Live Preview",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/platform/audit-logs.tsx",
+    "title": "Filters",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/platform/cms-pages.tsx",
+    "title": "SEO",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/platform/currency-monitoring.tsx",
+    "title": "Currency Policy Reminder",
+    "defaultOpen": false
+  },
+  {
+    "file": "src/pages/admin/platform/settings.tsx",
+    "title": "Other config keys",
+    "defaultOpen": false
+  }
+]

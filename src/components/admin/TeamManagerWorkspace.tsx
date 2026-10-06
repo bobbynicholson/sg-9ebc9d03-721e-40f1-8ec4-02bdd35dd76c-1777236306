@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { StatTile } from "@/components/portal/ui";
 import { Activity, BookOpen, ChevronDown, Clock, Loader2, MessageSquare, Play, RefreshCw, Square, Users } from "lucide-react";
 
 type Department = "kitchen" | "cleaning";
@@ -150,7 +151,7 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
 
   return (
     <section className="mb-8 space-y-4" aria-labelledby={`${department}-manager-workspace`}>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-primary/15 bg-brand-primary/5 px-4 py-4 shadow-sm shadow-brand-primary/5 sm:mt-8 dark:border-brand-primary/25 dark:bg-brand-primary/10">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:mt-8 dark:border-slate-800 dark:bg-slate-900">
         <div>
           <p id={`${department}-manager-workspace`} className="text-sm font-semibold text-slate-900 dark:text-white">Live team controls</p>
           <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{onDuty} on duty · Manage the roster and keep today&apos;s handover notes in one place.</p>
@@ -168,10 +169,10 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
       {error && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div>}
 
       <div id={`${department}-team-controls-content`} hidden={!workspaceOpen} style={workspaceOpen ? undefined : { display: "none" }} className="space-y-4">
-      {showSummaryStats && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card><CardContent className="p-4"><p className="text-xs text-slate-500">Team members</p><p className="mt-1 text-2xl font-semibold text-slate-900">{members.length}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-slate-500">On duty now</p><p className="mt-1 text-2xl font-semibold text-emerald-700">{onDuty}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-slate-500">Diary notes</p><p className="mt-1 text-2xl font-semibold text-slate-900">{notes.length}</p></CardContent></Card>
+      {showSummaryStats && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
+        <StatTile label="Team members" value={members.length} hint="On this team" icon={Users} />
+        <StatTile label="On duty now" value={<span className="text-emerald-700 dark:text-emerald-400">{onDuty}</span>} hint="Clocked in right now" icon={Clock} />
+        <StatTile label="Diary notes" value={notes.length} hint="Handovers and issues" icon={BookOpen} />
       </div>}
 
       <div className="grid grid-cols-1 gap-4">
@@ -182,7 +183,22 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
               const busy = saving === `clock_in:${member.id}` || saving === `clock_out:${member.id}`;
               const managerMember = member.active_role === `${department}_manager` || member.role === `${department}_manager`;
               return <div key={member.id} className="flex flex-col gap-3 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${member.status.on_duty ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{initials(member)}</div><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{member.full_name || "Unnamed user"}</p><p className="truncate text-xs text-slate-500">{member.email || "No email"} · {roleLabel(member.active_role || member.role)}</p><p className={`mt-1 flex items-center gap-1 text-xs ${member.status.on_duty ? "text-emerald-700" : "text-slate-500"}`}>{member.status.on_duty ? <><Activity className="h-3 w-3" /> On duty{member.status.started_at ? ` · ${elapsed(member.status.started_at)}` : ""}</> : <><Clock className="h-3 w-3" /> Off duty</>}</p></div></div>
+                <div className="flex min-w-0 items-center gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${member.status.on_duty ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{initials(member)}</div><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{member.full_name || "Unnamed user"}</p><p className="truncate text-xs text-slate-500">{member.email || "No email"} · {roleLabel(member.active_role || member.role)}</p>{(() => {
+                  // A clock-in older than 16 hours was almost certainly never
+                  // closed; say so plainly instead of showing "671h".
+                  const started = member.status.started_at ? new Date(member.status.started_at) : null;
+                  const stale = !!(member.status.on_duty && started && Date.now() - started.getTime() > 16 * 3600_000);
+                  if (stale && started) {
+                    return (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-amber-700" title={`On duty for ${elapsed(member.status.started_at)}`}>
+                        <Clock className="h-3 w-3" /> Clocked in since {started.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · clock out if they&apos;ve left
+                      </p>
+                    );
+                  }
+                  return (
+                    <p className={`mt-1 flex items-center gap-1 text-xs ${member.status.on_duty ? "text-emerald-700" : "text-slate-500"}`}>{member.status.on_duty ? <><Activity className="h-3 w-3" /> On duty{member.status.started_at ? ` · ${elapsed(member.status.started_at)}` : ""}</> : <><Clock className="h-3 w-3" /> Off duty</>}</p>
+                  );
+                })()}</div></div>
                 {managerMember ? <span className="max-w-[220px] text-right text-xs text-slate-500">Manager work is tracked from the manager portal, not as a crew shift.</span> : <Button size="sm" variant={member.status.on_duty ? "destructive" : "default"} disabled={busy} onClick={() => void submitClock(member)} className="shrink-0 gap-2">{member.status.on_duty ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{busy ? "Updating..." : member.status.on_duty ? "Clock out" : "Clock in"}</Button>}
               </div>;
             })}

@@ -115,8 +115,8 @@ function PlatformFinancialDashboard() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             variant="hero"
-            title="Platform finances"
-            subtitle="CateringMS's own recurring revenue across every catering company on the platform. Per-tenant books live under each tenant's admin, this view is the SaaS owner's."
+            title="Revenue"
+            subtitle="CateringMS's own recurring revenue across every catering company on the platform. Each company's own books live in its admin; this view is CateringMS's."
             icon={Crown}
             meta={
               <>
@@ -128,7 +128,7 @@ function PlatformFinancialDashboard() {
                   {stats.trialing} on trial
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {stats.total} tenants total
+                  {stats.total} companies in total
                 </span>
               </>
             }
@@ -154,7 +154,7 @@ function PlatformFinancialDashboard() {
           )}
 
           {/* Money row: shared analytics source, matches the platform dashboard. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <StatTile
               label="Monthly recurring revenue"
               value={loading ? "-" : fmt(metrics?.monthlyRecurringRevenue)}
@@ -184,8 +184,8 @@ function PlatformFinancialDashboard() {
           </div>
 
           {/* Tenant mix row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatTile label="Total tenants" value={loading ? "-" : stats.total} icon={Users} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatTile label="Total companies" value={loading ? "-" : stats.total} icon={Users} />
             <StatTile label="Active subs" value={loading ? "-" : <span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>} icon={Activity} />
             <StatTile label="On trial" value={loading ? "-" : <span className="text-amber-600 dark:text-amber-500">{stats.trialing}</span>} icon={TrendingUp} />
             <StatTile label="Cancelled / churned" value={loading ? "-" : <span className="text-rose-600 dark:text-rose-500">{stats.cancelled}</span>} icon={AlertTriangle} />
@@ -208,7 +208,7 @@ function PlatformFinancialDashboard() {
 
           {/* Tenants list */}
           <PortalCard>
-            <PortalCardHeader title="Tenants on the books" />
+            <PortalCardHeader title="Companies on the books" />
             {loading ? (
               <p className="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">Loading...</p>
             ) : companies.length === 0 ? (
@@ -275,7 +275,7 @@ function CompaniesSortableTable({ companies }: { companies: CompanyRow[] }) {
                   {c.company_name || "(unnamed)"}
                 </td>
                 <td className="py-2 px-3">
-                  <Badge className={`border ${tone}`}>{status || "unknown"}</Badge>
+                  <Badge className={`border capitalize ${tone}`}>{(status || "unknown").replace(/_/g, " ")}</Badge>
                 </td>
                 <td className="py-2 px-3 text-slate-600 dark:text-slate-400">
                   {c.trial_ends_at

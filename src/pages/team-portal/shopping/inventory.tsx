@@ -20,16 +20,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download, Package, PackageX, RefreshCw } from "lucide-react";
+import { Warehouse, Search, AlertTriangle, Pencil, Loader2, History, ArrowUp, ArrowDown, Download, Package, PackageX, RefreshCw, ChevronDown, Wallet } from "lucide-react";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ShoppingFilterBar } from "@/components/shopping/ShoppingFilterBar";
 import { ShoppingPageShell, SHOPPING_HERO_CHIP } from "@/components/shopping/ShoppingPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatZAR } from "@/lib/formatters";
 import { useToast } from "@/hooks/use-toast";
 import { inventoryService, type Inventory } from "@/services/inventoryService";
 import { supabase } from "@/integrations/supabase/client";
-import { PortalCard, PortalCardHeader, StatTile } from "@/components/portal/ui";
+import { PortalCard, StatTile } from "@/components/portal/ui";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { UserRole } from "@/types/app";
 import { cn } from "@/lib/utils";
@@ -41,7 +43,12 @@ function ShoppingInventoryPageInner() {
   // Phase 11 #9: tenant currency for the stock-value stat card +
   // every cost / cost-per-unit render below. Drops the hardcoded
   // R prefix so a UK / US tenant sees the right symbol.
-  const tenantCurrency = useTenantCurrency((user as any)?.company_id ?? null);
+  const tenantCurrencyBase = useTenantCurrency((user as any)?.company_id ?? null);
+  // Grouped amounts ("R 24 493") via the shared formatter.
+  const tenantCurrency = {
+    ...tenantCurrencyBase,
+    format: (n: number, decimals = 2) => formatZAR(n, { currency: tenantCurrencyBase.code, decimals }),
+  };
 
   const [items, setItems] = useState<Inventory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,6 +178,7 @@ function ShoppingInventoryPageInner() {
     ],
     { limit: 0 },
   );
+  const activeFilterCount = [Boolean(search.trim()), category !== "all", belowParOnly].filter(Boolean).length;
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -297,14 +305,40 @@ function ShoppingInventoryPageInner() {
     const min = Number(item.minimum_stock || 0);
     if (stock <= 0) return "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900";
     if (stock <= min) return "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900";
-    return "bg-brand-primary/15 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
+    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-900";
   };
+
+  // Category groups for the table. A search or "below only" filter opens
+  // every group; otherwise groups start folded and the header shows
+  // how many items need restocking.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const needsAttention = (item: Inventory) => {
+    const stock = Number(item.current_stock || 0);
+    const min = Number(item.minimum_stock || 0);
+    return stock <= 0 || (min > 0 && stock <= min);
+  };
+  const groupedItems = useMemo(() => {
+    const map = new Map<string, Inventory[]>();
+    for (const item of filtered) {
+      const key = item.category || "Uncategorised";
+      const list = map.get(key);
+      if (list) list.push(item); else map.set(key, [item]);
+    }
+    return Array.from(map.entries())
+      .map(([category, items]) => ({ category, items, attention: items.filter(needsAttention).length }))
+      .sort((a, b) => (b.attention > 0 ? 1 : 0) - (a.attention > 0 ? 1 : 0) || a.category.localeCompare(b.category));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered]);
+  const isGroupOpen = (category: string, attention: number) =>
+    openGroups[category] ?? (Boolean(search.trim()) || belowParOnly || groupedItems.length <= 2);
+  const toggleGroup = (category: string, attention: number) =>
+    setOpenGroups((prev) => ({ ...prev, [category]: !isGroupOpen(category, attention) }));
 
   const stockLabel = (item: Inventory) => {
     const stock = Number(item.current_stock || 0);
     const min = Number(item.minimum_stock || 0);
     if (stock <= 0) return "Out of stock";
-    if (stock <= min) return "Below par";
+    if (stock <= min) return "At minimum";
     return "In stock";
   };
 
@@ -319,8 +353,8 @@ function ShoppingInventoryPageInner() {
         subheading={
           chipsReady
             ? stats.below > 0
-              ? `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, ${stats.below} at or below par.`
-              : `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, everything above par.`
+              ? `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, ${stats.below} at or below their minimum.`
+              : `${stats.total} stock line${stats.total === 1 ? "" : "s"} on the books, everything above its minimum.`
             : "Live stock levels. Click any row to adjust stock with an audit entry."
         }
         icon={Warehouse}
@@ -347,7 +381,7 @@ function ShoppingInventoryPageInner() {
             <>
               <span className={SHOPPING_HERO_CHIP}>
                 <span className={cn("h-1.5 w-1.5 rounded-full", stats.below > 0 ? "bg-amber-400" : "bg-emerald-400")} />
-                {stats.below > 0 ? `${stats.below} below par` : "All above par"}
+                {stats.below > 0 ? `${stats.below} at minimum` : "All above minimum"}
               </span>
               {stats.out > 0 && (
                 <span className={SHOPPING_HERO_CHIP}>
@@ -385,31 +419,44 @@ function ShoppingInventoryPageInner() {
             slate glyph, soft shadow + hairline + rounded-2xl. The
             semantic stock-level colour lives where it's per-row
             actionable (the table status badges), not on the counts. */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
           <StatTile
             label={<span className="flex items-center gap-1">Total items <InfoTooltip content="Number of active inventory lines on the books for your company." /></span>}
+            hint="Active stock lines"
             value={stats.total}
             icon={Package}
           />
           <StatTile
-            label={<span className="flex items-center gap-1">Below par <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
+            label={<span className="flex items-center gap-1">At minimum <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
+            hint="Put on the next run"
             value={stats.below}
             icon={AlertTriangle}
           />
           <StatTile
             label={<span className="flex items-center gap-1">Out of stock <InfoTooltip content="Items that have run out completely.\n\nYou cannot fulfil orders that need these until they're restocked." /></span>}
+            hint="Restock before orders need them"
             value={stats.out}
             icon={PackageX}
           />
           <StatTile
             label={<span className="flex items-center gap-1">Stock value <InfoTooltip content="Total value of every item currently sitting in stock, based on the last known cost per unit." /></span>}
+            icon={Wallet}
+            hint="At last cost price"
             value={tenantCurrency.format(stats.valueR, 0)}
           />
         </div>
 
-        <PortalCard id="shopping-stock" data-chat-section="shopping.inventory.stock" data-chat-section-label="Procurement stock" padded={false} className="mb-6 p-4 sm:p-5">
-          <PortalCardHeader title="Filter" />
-          <div className="flex flex-col sm:flex-row gap-3">
+        {/* Same on-demand filter bar as kitchen Stock: the table stays the
+            focus, and an active filter is always summarised while closed. */}
+        <ShoppingFilterBar
+          id="shopping-stock"
+          chatSection="shopping.inventory.stock"
+          chatSectionLabel="Procurement stock"
+          title="Stock filters"
+          idleHint="Search and narrow the stock list when you need to."
+          activeCount={activeFilterCount}
+          shownLabel={`${filtered.length} items shown`}
+        >
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
               <Input
@@ -436,10 +483,9 @@ function ShoppingInventoryPageInner() {
               className={belowParOnly ? "bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg" : "rounded-lg"}
             >
               <AlertTriangle className="h-4 w-4 mr-2" />
-              Below par only
+              At minimum only
             </Button>
-          </div>
-        </PortalCard>
+        </ShoppingFilterBar>
 
         <PortalCard padded={false} className="overflow-hidden">
             {showSkeleton ? (
@@ -485,7 +531,7 @@ function ShoppingInventoryPageInner() {
                     <Search className="h-6 w-6 text-slate-500 dark:text-slate-400" />
                   </div>
                   <p className="font-semibold text-slate-900 dark:text-white">No items match the current filter</p>
-                  <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">Try clearing the search or switching the category{belowParOnly ? ", or turn off “Below par only”" : ""}.</p>
+                  <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">Try clearing the search or switching the category{belowParOnly ? ", or turn off “At minimum only”" : ""}.</p>
                 </div>
               )
             ) : (
@@ -496,16 +542,35 @@ function ShoppingInventoryPageInner() {
                     <thead className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-left text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                       <tr>
                         <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Item <InfoTooltip content="The item's name and SKU code." /></span></th>
-                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Category <InfoTooltip content="Category used to group similar items together." /></span></th>
                         <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Stock <InfoTooltip content="How much of this item is sitting in stock right now." /></span></th>
                         <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Min <InfoTooltip content="The minimum level for this item.\n\nOnce stock dips below this, it's time to reorder." /></span></th>
-                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Quick read on the item: out of stock, below par, or in stock." /></span></th>
+                        <th className="px-4 py-3 font-semibold"><span className="inline-flex items-center gap-1">Status <InfoTooltip content="Quick read on the item: out of stock, at its minimum, or in stock." /></span></th>
                         <th className="px-4 py-3 font-semibold text-right"><span className="inline-flex items-center justify-end gap-1">Cost / unit <InfoTooltip content="The last price you paid per unit.\n\nUsed to work out the total value of stock on hand." /></span></th>
                         <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {filtered.map((i) => (
+                    {groupedItems.map(({ category, items, attention }) => {
+                      const open = isGroupOpen(category, attention);
+                      return (
+                    <tbody key={category} className="divide-y divide-slate-100 border-t border-slate-200 dark:divide-slate-800 dark:border-slate-700">
+                      <tr className="bg-slate-50/80 dark:bg-slate-800/40">
+                        <td colSpan={6} className="p-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(category, attention)}
+                            aria-expanded={open}
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800"
+                          >
+                            <ChevronDown aria-hidden="true" className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">{category}</span>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">{items.length}</span>
+                            {attention > 0 && (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">{attention} to restock</span>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                      {open && items.map((i) => (
                         <tr
                           key={i.id}
                           onClick={() => openEdit(i)}
@@ -515,7 +580,6 @@ function ShoppingInventoryPageInner() {
                             <div className="font-medium text-slate-900 dark:text-white">{i.item_name}</div>
                             {i.sku && <div className="text-xs text-slate-500 dark:text-slate-400">SKU {i.sku}</div>}
                           </td>
-                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{i.category ?? "--"}</td>
                           <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900 dark:text-white">
                             {Number(i.current_stock ?? 0)} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{i.unit_of_measure}</span>
                           </td>
@@ -539,32 +603,62 @@ function ShoppingInventoryPageInner() {
                         </tr>
                       ))}
                     </tbody>
+                      );
+                    })}
                   </table>
                 </div>
 
-                {/* Mobile card list */}
-                <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  {filtered.map((i) => (
-                    <button
-                      key={i.id}
-                      onClick={() => openEdit(i)}
-                      aria-label={`Adjust stock for ${i.item_name}`}
-                      className="w-full text-left p-4 flex items-start justify-between gap-3 transition-colors duration-150 ease-standard hover:bg-slate-50 dark:hover:bg-slate-800/60 active:bg-slate-100 dark:active:bg-slate-800"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{i.category ?? "--"}{i.sku ? `, SKU ${i.sku}` : ""}</div>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
-                          <span className="text-sm tabular-nums text-slate-900 dark:text-white">
-                            <span className="font-semibold">{Number(i.current_stock ?? 0)}</span>
-                            <span className="text-slate-500 dark:text-slate-400"> / {Number(i.minimum_stock ?? 0)} {i.unit_of_measure}</span>
-                          </span>
-                        </div>
+                {/* Mobile: same folded categories as the desktop table
+                    (categories that need restocking first). The old flat
+                    A-Z list of every item ran to ~9600px on a phone. */}
+                <div className="md:hidden">
+                  {groupedItems.map(({ category, items, attention }) => {
+                    const open = isGroupOpen(category, attention);
+                    return (
+                      <div key={category} className="border-t border-slate-200 first:border-t-0 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(category, attention)}
+                          aria-expanded={open}
+                          className="flex min-h-[48px] w-full flex-wrap items-center gap-2 bg-slate-50/80 px-4 py-3 text-left active:bg-slate-100 dark:bg-slate-800/40 dark:active:bg-slate-800"
+                        >
+                          <ChevronDown aria-hidden="true" className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                          <span className="text-sm font-semibold text-slate-900 dark:text-white">{category}</span>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">{items.length}</span>
+                          {attention > 0 && (
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">{attention} to restock</span>
+                          )}
+                        </button>
+                        {open && (
+                          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {items.map((i) => (
+                              <li key={i.id} className="flex items-center gap-3 px-4 py-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="break-words font-medium text-slate-900 dark:text-white">{i.item_name}</div>
+                                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                    <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
+                                    <span className="text-sm tabular-nums text-slate-900 dark:text-white">
+                                      <span className="font-semibold">{Number(i.current_stock ?? 0)}</span>
+                                      <span className="text-slate-500 dark:text-slate-400"> {i.unit_of_measure} · min {Number(i.minimum_stock ?? 0)}</span>
+                                    </span>
+                                  </div>
+                                  {i.sku && <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">SKU {i.sku}</div>}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <Button size="sm" variant="ghost" className="h-10 w-10 p-0" onClick={() => openHistory(i)} aria-label={`View movement history for ${i.item_name}`}>
+                                    <History className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-10" onClick={() => openEdit(i)} aria-label={`Adjust stock for ${i.item_name}`}>
+                                    <Pencil className="mr-1 h-4 w-4" /> Adjust
+                                  </Button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
-                      <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 mt-1 flex-shrink-0" />
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

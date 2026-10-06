@@ -50,6 +50,7 @@ import { UserRole } from "@/types/app";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatZAR } from "@/lib/formatters";
 import { supabase } from "@/integrations/supabase/client";
 import { inventoryService } from "@/services/inventoryService";
 import {
@@ -63,7 +64,12 @@ function ShoppingRestockPageInner() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const companyId = (profile as any)?.company_id || (user as any)?.company_id;
-  const tenantCurrency = useTenantCurrency(companyId ?? null);
+  const tenantCurrencyBase = useTenantCurrency(companyId ?? null);
+  // Grouped amounts ("R 24 493") via the shared formatter.
+  const tenantCurrency = {
+    ...tenantCurrencyBase,
+    format: (n: number, decimals = 2) => formatZAR(n, { currency: tenantCurrencyBase.code, decimals }),
+  };
 
   const [rows, setRows] = useState<RestockSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,7 +257,7 @@ function ShoppingRestockPageInner() {
     <ShoppingPageShell
       pageTitle="Restock - Shopping"
       heading="Restock"
-      subheading="Top up low par-level stock off your own judgement - no order needed. Buying adds it straight to inventory."
+      subheading="Top up items at or below their minimum without waiting for an order. What you buy goes straight into inventory."
       icon={PackagePlus}
       width="wide"
       meta={meta}
@@ -290,18 +296,18 @@ function ShoppingRestockPageInner() {
               icon={AlertCircle}
               label="Low items"
               value={String(rows.length)}
-              hint="At or below par level"
+              hint="At or below their minimum"
             />
             <StatTile
               icon={ShoppingBasket}
               label="Est. cost to top up"
               value={estToPar > 0 ? tenantCurrency.format(estToPar, 0) : "--"}
-              hint="Bring every low item back to par"
+              hint="Bring every low item back above its minimum"
             />
           </div>
 
           <PortalCard>
-            <PortalCardHeader title="Low par-level stock" />
+            <PortalCardHeader title="Items to top up" />
             <p className="-mt-2 mb-4 text-sm text-muted-foreground">
               Items at or below their minimum. Buy for stock and it lands in inventory right away.
             </p>
@@ -320,7 +326,7 @@ function ShoppingRestockPageInner() {
                 <div className="text-center py-12">
                   <CheckCircle2 className="h-8 w-8 text-brand-primary mx-auto mb-3" />
                   <p className="font-semibold">
-                    {rows.length === 0 ? "Everything's above par" : "No matches"}
+                    {rows.length === 0 ? "Everything is above its minimum" : "No matches"}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     {rows.length === 0
@@ -339,7 +345,7 @@ function ShoppingRestockPageInner() {
                             <Badge variant="outline" className="text-[11px]">{r.category}</Badge>
                           )}
                           <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900 text-[11px]">
-                            {r.currentStock} / {r.minimumStock} {r.unit}
+                            have {r.currentStock} · min {r.minimumStock} {r.unit}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -347,7 +353,7 @@ function ShoppingRestockPageInner() {
                           {r.costPerUnit > 0 && <> · ~{tenantCurrency.format(r.suggestedQty * r.costPerUnit)}</>}
                         </p>
                       </div>
-                      <Button size="sm" className="gap-1.5 shrink-0" onClick={() => openBuy(r)}>
+                      <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => openBuy(r)}>
                         <ShoppingBasket className="h-4 w-4" />
                         Buy for stock
                       </Button>
@@ -367,7 +373,7 @@ function ShoppingRestockPageInner() {
             <DialogTitle>Buy for stock</DialogTitle>
             <DialogDescription>
               {buying
-                ? `${buying.itemName} - currently ${buying.currentStock} ${buying.unit} on hand (par ${buying.minimumStock}). This adds straight to inventory, no order needed.`
+                ? `${buying.itemName} - currently ${buying.currentStock} ${buying.unit} on hand (minimum ${buying.minimumStock}). This adds straight to inventory, no order needed.`
                 : ""}
             </DialogDescription>
           </DialogHeader>

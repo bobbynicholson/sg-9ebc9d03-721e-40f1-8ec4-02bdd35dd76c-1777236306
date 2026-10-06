@@ -171,6 +171,15 @@ test('EFT claims without uploaded proof cannot be confirmed or credit an invoice
   assert.equal((await state()).payments[0].payment_status,'pending');
   assert.equal(Number((await state()).invoice.amount_paid),0);
 });
+test('EFT claim cannot exceed the balance locked by a concurrent settlement', async () => {
+  await reset(900, 'invoice');
+  await settle({ amount: 900, reference: invoice, type: 'invoice' });
+  await assert.rejects(claim(100.01), /exceeds the remaining invoice balance/);
+  const current = await state();
+  assert.equal(current.payments.length, 1);
+  assert.equal(Number(current.invoice.amount_paid), 900);
+  assert.equal(Number(current.invoice.balance_due), 100);
+});
 test('quote order conversion can safely supply NULL for the opening payment value', async () => {
   await reset();
   await db.exec('UPDATE orders SET payment_opening_paid=NULL');

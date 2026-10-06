@@ -1,0 +1,4 @@
+AUTHENTICATED [shopping_staff] shopping@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/shopping/dashboard
+AUTHENTICATED [super_admin] bobby@skylight-digital.co.za -> http://localhost:3001/admin/platform/dashboard
+
+2/11 windows open. Leave this process running; Ctrl+C to close all.

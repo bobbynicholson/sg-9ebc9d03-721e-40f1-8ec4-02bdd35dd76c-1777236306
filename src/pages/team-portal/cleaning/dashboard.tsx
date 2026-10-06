@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SprayCan, ClipboardCheck, AlertTriangle, CheckCircle, Truck, Clock, Package, Printer, Loader2, Camera, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -322,7 +321,7 @@ function CleaningDashboardInner() {
     <>
       <CleaningPageShell
         pageTitle="Cleaning dashboard - CateringMS"
-        heading="Cleaning desk"
+        heading="Today"
         subheading="Returns, washing queue, priority inspections, damages, and what is ready to send out again."
         icon={SprayCan}
         headerAction={
@@ -409,46 +408,8 @@ function CleaningDashboardInner() {
             </div>
           )}
 
-          {/* CLN2-F (cleaning deep audit, CLN2-15): pre-event
-              cleanliness checklist for tomorrow's events. The
-              formal closure of the cleaning to kitchen-readiness
-              loop that KIT2-O's chip was a v1 stand-in for. Mobile
-              first - accordion strip per event so a 6-event day
-              doesn't render a 30-cell table on a tablet. */}
-          {canManageCleaning ? (
-            <PreEventCleanlinessPanel />
-          ) : (
-            <PortalCard className="border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20">
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Cleaning status is read-only here</p>
-              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
-                Kitchen can monitor returns and readiness. Cleaning clock-in, washing, verification, and damage updates stay with the cleaning team.
-              </p>
-            </PortalCard>
-          )}
-
-          {/* Wave 70.24 - new event-grouped board is the primary
-              cleaning surface. Shows expected handovers (anticipation),
-              in-progress (active work), done-today (throughput).
-              Tap a card to open the per-event detail.
-              Wave 70.28 - id="returns" is the deep-link target from
-              the cleaning nav "Returns" item + live state strip. */}
-          <div id="returns" className="scroll-mt-20 lg:scroll-mt-6">
-            <CleaningEventBoard />
-          </div>
-
-          {/* Wave 41 Phase 2: equipment-availability ledger. Lists
-              every active cleaning_jobs row with method chip + ETA
-              back into inventory + start/complete actions. Kept as
-              the flat-by-item power-user fallback below the new
-              event-grouped board.
-              Wave 70.28 - id="washing" is the deep-link target from
-              the cleaning nav "Washing" item + live state strip. */}
-          {canManageCleaning && (
-            <div id="washing" className="scroll-mt-20 lg:scroll-mt-6">
-              <CleaningJobsQueue />
-            </div>
-          )}
-
+          {/* Work-first order: today's counts, the live washing queue,
+              items to inspect, returns by event, then tomorrow's checklist. */}
           {/* Tile row hides on a failed first load - all-zero tiles
               over a broken read would tell the lead a lie. */}
           <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 ${loadError && !loaded ? "hidden" : ""}`}>
@@ -477,6 +438,19 @@ function CleaningDashboardInner() {
               hint="Out of rotation until repaired"
             />
           </div>
+
+          {/* Wave 41 Phase 2: equipment-availability ledger. Lists
+              every active cleaning_jobs row with method chip + ETA
+              back into inventory + start/complete actions. Kept as
+              the flat-by-item power-user fallback below the new
+              event-grouped board.
+              Wave 70.28 - id="washing" is the deep-link target from
+              the cleaning nav "Washing" item + live state strip. */}
+          {canManageCleaning && (
+            <div id="washing" className="scroll-mt-20 lg:scroll-mt-6">
+              <CleaningJobsQueue />
+            </div>
+          )}
 
           <PortalCard className="mb-6 sm:mb-8">
             <PortalCardHeader title="Today's priority inspections" />
@@ -519,15 +493,42 @@ function CleaningDashboardInner() {
                       </div>
                     ))}
                   {equipment.filter(e => e.status === 'cleaning' || e.status === 'damaged').length === 0 && (
-                    <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-                      <CheckCircle className="w-12 h-12 mx-auto mb-2 text-brand-primary dark:text-brand-primary" />
-                      <p>All equipment inspections complete for today!</p>
-                    </div>
+                    <p className="flex items-center gap-2 py-1 text-sm text-slate-600 dark:text-slate-400">
+                      <CheckCircle className="h-4 w-4 text-emerald-600" />
+                      Nothing waiting for inspection.
+                    </p>
                   )}
                 </>
               )}
             </div>
           </PortalCard>
+
+          {/* Wave 70.24 - new event-grouped board is the primary
+              cleaning surface. Shows expected handovers (anticipation),
+              in-progress (active work), done-today (throughput).
+              Tap a card to open the per-event detail.
+              Wave 70.28 - id="returns" is the deep-link target from
+              the cleaning nav "Returns" item + live state strip. */}
+          <div id="returns" className="scroll-mt-20 lg:scroll-mt-6">
+            <CleaningEventBoard />
+          </div>
+
+          {/* CLN2-F (cleaning deep audit, CLN2-15): pre-event
+              cleanliness checklist for tomorrow's events. The
+              formal closure of the cleaning to kitchen-readiness
+              loop that KIT2-O's chip was a v1 stand-in for. Mobile
+              first - accordion strip per event so a 6-event day
+              doesn't render a 30-cell table on a tablet. */}
+          {canManageCleaning ? (
+            <PreEventCleanlinessPanel />
+          ) : (
+            <PortalCard className="border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20">
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Cleaning status is read-only here</p>
+              <p className="mt-1 text-sm text-amber-800 dark:text-amber-300">
+                Kitchen can monitor returns and readiness. Cleaning clock-in, washing, verification, and damage updates stay with the cleaning team.
+              </p>
+            </PortalCard>
+          )}
 
           {/* Wave 42 Tier 2: dropped the "Cleaning Workflow" tab.
               The CleaningJobsQueue mounted at the top of the page is
@@ -563,13 +564,6 @@ function CleaningDashboardInner() {
 
             <TabsContent id="cleaning-verification" data-chat-section="cleaning.dashboard.verification" data-chat-section-label="Equipment verification" value="verification" className="space-y-6 scroll-mt-20">
               <PortalCard>
-                <div className="mb-4 flex items-center gap-2">
-                  <ClipboardCheck className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Equipment verification</h2>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 -mt-2 mb-4">
-                  Verify returned equipment from functions and report any damages or losses
-                </p>
                 {canManageCleaning ? (
                   <EquipmentVerificationPanel />
                 ) : (
@@ -588,7 +582,7 @@ function CleaningDashboardInner() {
                 </div>
                 <p className="text-sm text-slate-600 dark:text-slate-400 -mt-2 mb-4">
                   {canManageCleaning
-                    ? "Mark broken, lost, or damaged items. Cost breakdown lives on /admin/equipment."
+                    ? "Mark broken, lost or damaged items. Costs are tracked by your admin."
                     : "Damage reports are read-only for kitchen roles. Ask cleaning or admin to update the damage log."}
                 </p>
                 {/* CLN2-I: cleaner gets a tight flag-form + recent
@@ -602,33 +596,6 @@ function CleaningDashboardInner() {
 
           </Tabs>
 
-          <PortalCard className="mt-6">
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                  <ClipboardCheck className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
-                  Verification
-                </Badge>
-                <span className="text-slate-500 dark:text-slate-400">Check returned equipment</span>
-              </div>
-              <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-700" />
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                  <Clock className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
-                  Cleaning queue
-                </Badge>
-                <span className="text-slate-500 dark:text-slate-400">Live wash + dishwasher status</span>
-              </div>
-              <div className="hidden sm:block h-4 w-px bg-slate-200 dark:bg-slate-700" />
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                  <AlertTriangle className="h-3 w-3 mr-1 text-slate-400 dark:text-slate-500" />
-                  Damages
-                </Badge>
-                <span className="text-slate-500 dark:text-slate-400">Monitor costs</span>
-              </div>
-            </div>
-          </PortalCard>
       </CleaningPageShell>
 
       <ChatBot userRole="cleaning" companyId={user?.company_id} />

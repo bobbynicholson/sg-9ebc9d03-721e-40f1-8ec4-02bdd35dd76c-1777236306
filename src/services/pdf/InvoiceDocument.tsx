@@ -25,6 +25,10 @@ import {
   Link,
 } from "@react-pdf/renderer";
 import { buildCompanyTermsUrl } from "@/lib/companyLegal";
+import {
+  paymentProviderLabel,
+  type PdfPaymentInstructions,
+} from "@/lib/pdfPaymentDetails";
 import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
 
 // --- Types -----------------------------------------------------------------
@@ -70,6 +74,8 @@ export interface InvoicePdfData {
 
   notes?: string | null;
   payment_terms?: string | null;
+  /** Mutually-exclusive online or EFT instructions for an unpaid invoice. */
+  payment_instructions?: PdfPaymentInstructions | null;
 
   company: {
     /** id + slug feed the public /terms/[company] link on the footer -
@@ -272,6 +278,13 @@ const buildStyles = (primary: string) =>
       borderColor: "#e7e5e4",
       borderRadius: 6,
       padding: 12,
+    },
+    fullWidthCard: {
+      borderWidth: 1,
+      borderColor: "#e7e5e4",
+      borderRadius: 6,
+      padding: 12,
+      marginBottom: 10,
     },
     sectionLabel: {
       fontSize: 8,
@@ -502,6 +515,10 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
   const companyTermsUrl = (company.slug || company.id)
     ? buildCompanyTermsUrl(company.slug || company.id)
     : null;
+  const paymentInstructions = data.payment_instructions || null;
+  const paymentProvider = paymentProviderLabel(paymentInstructions?.online_provider);
+  const eftDetails = paymentInstructions?.eft || null;
+  const hasOutstandingBalance = balanceDue > 0.005;
 
   return (
     <Document
@@ -719,6 +736,47 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             </Text>
           </View>
         </View>
+
+        {/* PAYMENT INSTRUCTIONS. Keep this immediately beneath the amount
+            due so a client can act without hunting through an email. EFT
+            details are only supplied when no online gateway is available. */}
+        {hasOutstandingBalance && (paymentProvider || eftDetails) ? (
+          <View style={styles.fullWidthCard} minPresenceAhead={120}>
+            <Text style={styles.sectionLabel}>How to pay</Text>
+            {paymentProvider ? (
+              <>
+                <Text style={styles.bodyText}>
+                  Pay online securely with {paymentProvider}.
+                </Text>
+                {paymentInstructions?.reference ? (
+                  <Text style={[styles.smallText, { marginTop: 4 }]}>
+                    Payment reference: {paymentInstructions.reference}
+                  </Text>
+                ) : null}
+                {paymentInstructions?.payment_url ? (
+                  <Text style={[styles.smallText, { marginTop: 3 }]}>
+                    Payment page: <Link src={paymentInstructions.payment_url}>{paymentInstructions.payment_url}</Link>
+                  </Text>
+                ) : null}
+              </>
+            ) : null}
+            {eftDetails ? (
+              <>
+                <Text style={styles.bodyText}>
+                  Pay by EFT to {eftDetails.company_name || company.legal_name || company.company_name || "the company"}.
+                </Text>
+                {eftDetails.bank_name ? <Text style={[styles.smallText, { marginTop: 4 }]}>Bank: {eftDetails.bank_name}</Text> : null}
+                {eftDetails.account_holder ? <Text style={styles.smallText}>Account holder: {eftDetails.account_holder}</Text> : null}
+                {eftDetails.account_number ? <Text style={styles.smallText}>Account number: {eftDetails.account_number}</Text> : null}
+                {eftDetails.branch_code ? <Text style={styles.smallText}>Branch code: {eftDetails.branch_code}</Text> : null}
+                {eftDetails.account_type ? <Text style={styles.smallText}>Account type: {eftDetails.account_type}</Text> : null}
+                {eftDetails.reference ? <Text style={[styles.smallText, { marginTop: 4 }]}>EFT reference: {eftDetails.reference}</Text> : null}
+                {eftDetails.reference_hint ? <Text style={styles.smallText}>{eftDetails.reference_hint}</Text> : null}
+                {eftDetails.instructions ? <Text style={[styles.smallText, { marginTop: 4 }]}>{eftDetails.instructions}</Text> : null}
+              </>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* NOTES + PAYMENT TERMS */}
         {(data.payment_terms || data.notes) ? (

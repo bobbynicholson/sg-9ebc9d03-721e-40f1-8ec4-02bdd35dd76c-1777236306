@@ -1,0 +1,87 @@
+URGENT MOBIKWIK FRAUD ESCALATION - DRAFT FOR THE VICTIM TO SEND
+
+To: fraudalerts@mobikwik.com
+Cc: grievance@mobikwik.com; nodal@mobikwik.com
+Subject: Urgent trace and hold request - NCRP 31110260241417 - Rs 317,817 disputed across 8 MobiKwik transactions
+Attachment: URESH MAHETA.pdf
+
+Dear MobiKwik Fraud / Nodal Team,
+
+I am the victim named in the attached cybercrime complaint, Uvesh Mehta. I do not have a MobiKwik account. I report that nine unauthorised transactions, totalling Rs 416,817, were debited from my Union Bank of India account ending 0037.
+
+NCRP acknowledgement: 31110260241417
+Complaint date: 2 October 2026
+e-Zero FIR number shown in the report: 011210068264250
+Accepting authority shown: Commissioner of Police, Surat City
+Police station recorded: Vesu, Surat City, Gujarat
+
+The attached report lists eight pending transactions with MobiKwik, with a total disputed amount of Rs 317,817, pending from 2 October 2026 at 13:47:40. The recorded payment trail passes through Axis Bank before being assigned to MobiKwik. I understand that the report's 'pending' status does not itself confirm a funds hold.
+
+Please urgently:
+1. Identify the MobiKwik wallet(s), merchant(s), or settlement destination(s) associated with these references.
+2. Place an appropriate fraud hold/restriction on identifiable remaining disputed funds and prevent further payout where possible under your procedures.
+3. Act on and update the existing NCRP complaint, coordinate with the investigating police and banks, and trace onward transfers if any funds have moved.
+4. Preserve the relevant KYC, transaction, access/device and settlement records for the investigating authority.
+5. Acknowledge this escalation with a ticket number and confirm the amount held, or the current trace/action status, as permitted. Please tell me promptly if police documentation is needed.
+
+Eight MobiKwik-related references shown in the payment trail:
+Date: 1 October 2026. Times below are those shown in the detailed trail.
+
+Reference       Disputed amount (Rs)    Time
+627456344837    15,762                  10:50 PM
+627456343259    21,255                  10:48 PM
+627416379266    89,000                  10:34 PM
+627466378514    90,800                  10:35 PM
+627426326616    30,000                  10:37 PM
+627436364370    30,000                  10:44 PM
+627416390975    30,000                  10:45 PM
+627456341191    11,000                  10:46 PM
+TOTAL          317,817
+
+These trail references appear with an additional leading zero in the victim-transaction list. Please use the attached PDF to match the original records. The Axis account shown on this route is an intermediary account in the report; it is not a verified MobiKwik wallet ID.
+
+The separate Rs 99,000 disputed route is listed as pending with SBM Bank, and is being escalated to the bank and investigating police separately.
+
+Regards,
+Uvesh Mehta
+[Victim's contact phone/email]
+
+Only send in the victim's name if you are the victim. If assisting them, replace the opening and signature with your own name and explain that you are assisting Uvesh Mehta.
+
+------------------------------------------------------------
+MESSAGE / LETTER FOR UNION BANK AND THE INVESTIGATING POLICE
+------------------------------------------------------------
+
+Subject: Urgent follow-up on NCRP 31110260241417 / e-Zero FIR 011210068264250 - request to trace and hold Rs 416,817
+
+Please urgently follow up the existing complaint and the pending financial-institution responses. The attached report records Rs 317,817 disputed across eight MobiKwik transactions and Rs 99,000 disputed on a separate SBM Bank route. Please confirm whether any funds are actually on hold, the amount held, and which transactions remain untraced.
+
+For the investigating police: please send or follow up the appropriate urgent trace/hold requests to MobiKwik, Axis Bank and SBM Bank, obtain onward-transfer details where required, and tell me the assigned investigating officer's contact details. Please use the existing complaint and FIR references rather than treating this as a new incident.
+
+For Union Bank: please formally register/confirm my unauthorised-transaction dispute for all nine debits, protect my account against further unauthorised transactions, coordinate the trace/recall/hold request with the receiving institutions and police, and provide the bank complaint number and acknowledgement date/time. Please assess my claim under the applicable RBI customer-protection rules; the cybercrime complaint is not a substitute for my bank dispute.
+
+The SBM route in the PDF shows disputed amount Rs 99,000; the later settlement amount is Rs 100,200. The settlement reference shown is 627500274271, dated 2 October 2026 at 12:17 AM. The original debit reference is 0627456326821. Please trace this route as well as the MobiKwik route.
+
+Please give me a written action/status update and instructions for the next recovery step.
+
+[Victim/authorised helper's name and contact details]
+
+------------------------------------------------------------
+OFFICIAL CONTACTS CHECKED ON 3 OCTOBER 2026
+------------------------------------------------------------
+
+MobiKwik customer care: 080-69808320 (contact page lists daily 9 AM-9 PM)
+MobiKwik nodal escalation: 080-69898317 (grievance policy lists Mon-Fri 10 AM-7 PM)
+MobiKwik fraud email: fraudalerts@mobikwik.com
+MobiKwik escalation emails: grievance@mobikwik.com; nodal@mobikwik.com
+https://www.mobikwik.com/contact
+https://www.mobikwik.com/grievancepolicy
+
+Union Bank dedicated fraud/dispute helpline on its current Contact Us page: 1800 8332
+Union Bank cybercrime complaints number: 022 44546565
+https://www.unionbankofindia.bank.in/english/personal-other-callcenter.aspx
+
+National financial cybercrime helpline: 1930
+https://www.cybercrime.gov.in/
+
+This is an unsent draft. No bank account or wallet has been frozen or contacted by preparing it. A pending complaint does not establish that the funds remain available or that recovery is guaranteed.

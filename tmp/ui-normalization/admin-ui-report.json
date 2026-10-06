@@ -1,0 +1,1987 @@
+[
+  {
+    "route": "/admin/dashboard",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/dashboard",
+    "headings": [
+      "Admin",
+      "Dashboard",
+      "Booked Revenue0 booked",
+      "Collected0 paid",
+      "OutstandingOwed",
+      "Active OrdersIn progress",
+      "Quotes in circulation",
+      "Avg Order Value",
+      "Completion Rate",
+      "Upcoming Events",
+      "Team Members",
+      "Cashflow snapshot",
+      "Needs attention",
+      "Quotes to chase",
+      "Stock running low",
+      "Stock expiring soon",
+      "Fleet service due",
+      "Equipment damages - unresolved",
+      "Leads needing follow-up",
+      "Dispatch coverage gaps",
+      "Refunds awaiting payout",
+      "Overdue invoices",
+      "Recent email failures",
+      "Upcoming work and team",
+      "Recent activity and payments",
+      "Performance and trends",
+      "Quick Actions",
+      "Business intelligence"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Needs attention",
+        "state": "open"
+      },
+      {
+        "title": "Quotes to chase",
+        "state": "closed"
+      },
+      {
+        "title": "Stock running low",
+        "state": "closed"
+      },
+      {
+        "title": "Stock expiring soon",
+        "state": "closed"
+      },
+      {
+        "title": "Fleet service due",
+        "state": "closed"
+      },
+      {
+        "title": "Equipment damages - unresolved",
+        "state": "closed"
+      },
+      {
+        "title": "Leads needing follow-up",
+        "state": "closed"
+      },
+      {
+        "title": "Dispatch coverage gaps",
+        "state": "closed"
+      },
+      {
+        "title": "Refunds awaiting payout",
+        "state": "closed"
+      },
+      {
+        "title": "Overdue invoices",
+        "state": "closed"
+      },
+      {
+        "title": "Recent email failures",
+        "state": "closed"
+      },
+      {
+        "title": "Upcoming work and team",
+        "state": "closed"
+      },
+      {
+        "title": "Recent activity and payments",
+        "state": "closed"
+      },
+      {
+        "title": "Performance and trends",
+        "state": "closed"
+      },
+      {
+        "title": "Quick Actions",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "expandWorks": true,
+    "collapseWorks": true,
+    "activeNavCanClose": true,
+    "collapsedGutter": "80px",
+    "setupInitiallyClosed": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/ai-brain",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/ai-brain",
+    "headings": [
+      "Admin",
+      "AI brain",
+      "Add approved knowledge",
+      "Add website sourceIndex one public help page and keep it available to selected roles.",
+      " Company sources"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/ai-brain/access",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/ai-brain/access",
+    "headings": [
+      "Admin",
+      "AI access"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/audit-logs",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/audit-logs",
+    "headings": [
+      "Admin",
+      "Audit logs",
+      "Filters",
+      "12 matching rows"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Filters",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/calendar",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/calendar",
+    "headings": [
+      "Admin",
+      "Calendar",
+      "October 2026",
+      "Next 5 events",
+      "Gap finder"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Gap finder",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/cashflow-dashboard",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/cashflow-dashboard",
+    "headings": [
+      "Admin",
+      "Cashflow",
+      "Cashflow Forecast",
+      "30-day cashflow summary",
+      "Quick actions"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "30-day cashflow summary",
+        "state": "open"
+      },
+      {
+        "title": "Quick actions",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/cleaning-schedule",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/cleaning-schedule",
+    "headings": [
+      "Admin",
+      "Cleaning shift roster",
+      "2 cleaning team members"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/client-search",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/admin/contacts",
+    "headings": [
+      "Admin",
+      "Contacts",
+      "Client insights"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Client insights",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/company-profile",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/company-profile",
+    "headings": [
+      "Admin",
+      "Company profile ",
+      "Identity",
+      "Region & currency",
+      "Peak season",
+      "Cash on hand staleness",
+      "VAT registration",
+      "Banking details",
+      "Kitchen / HQ address",
+      "Document numbering",
+      "Brand colours + logo"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Identity",
+        "state": "open"
+      },
+      {
+        "title": "Region & currency",
+        "state": "closed"
+      },
+      {
+        "title": "Peak season",
+        "state": "closed"
+      },
+      {
+        "title": "Cash on hand staleness",
+        "state": "closed"
+      },
+      {
+        "title": "VAT registration",
+        "state": "closed"
+      },
+      {
+        "title": "Banking details",
+        "state": "closed"
+      },
+      {
+        "title": "Kitchen / HQ address",
+        "state": "closed"
+      },
+      {
+        "title": "Document numbering",
+        "state": "closed"
+      },
+      {
+        "title": "Brand colours + logo",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/contacts",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/contacts",
+    "headings": [
+      "Admin",
+      "Contacts",
+      "Client insights"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Client insights",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/daily-operations",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/daily-operations",
+    "headings": [
+      "Admin",
+      "Daily operations",
+      "How this works",
+      "Daily kitchen clean",
+      "Daily kitchen-equipment clean",
+      "Recent task instances"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/dispatch-queue",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/order-assignments",
+    "headings": [
+      "Admin",
+      "Dispatch queue"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/driver-management",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/driver-management",
+    "headings": [
+      "Admin",
+      "Drivers",
+      "Company pay defaults",
+      "All Drivers ",
+      "Driver portal access"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Driver portal access",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/driver-schedule",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/driver-schedule",
+    "headings": [
+      "Admin",
+      "Driver schedule",
+      "5 drivers"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/driver-settlement",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/driver-settlement",
+    "headings": [
+      "Admin",
+      "Driver settlement",
+      "Per-driver breakdown"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/email-settings",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/email-settings",
+    "headings": [
+      "Admin",
+      "Email settings",
+      "You're already set up to send",
+      "Use your own sending domainOptional upgrade",
+      "Sender identity",
+      "Deliverability health (30 days)",
+      "Recent issues",
+      "When to email clients automatically",
+      "Mailchimp (bulk campaigns)Coming soon"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Use your own sending domainOptional upgrade",
+        "state": "closed"
+      },
+      {
+        "title": "Sender identity",
+        "state": "open"
+      },
+      {
+        "title": "When to email clients automatically",
+        "state": "closed"
+      },
+      {
+        "title": "Mailchimp (bulk campaigns)Coming soon",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/email-templates",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/email-templates",
+    "headings": [
+      "Admin",
+      "Lifecycle emails"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/equipment-damages",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/equipment",
+    "headings": [
+      "Admin",
+      "Equipment",
+      "Equipment Losses & Damages",
+      "Equipment Cost Breakdown"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/equipment",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/equipment",
+    "headings": [
+      "Admin",
+      "Equipment",
+      "Bain-Marie",
+      "Crockery",
+      "Cutlery",
+      "Extras",
+      "Hire-In",
+      "Other"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/event-profitability",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/event-profitability",
+    "headings": [
+      "Admin",
+      "Event profitability"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/exceptions",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/exceptions",
+    "headings": [
+      "Admin",
+      "Attention center",
+      "Needs attention now",
+      "Outstanding invoices",
+      "Live signals"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/financial-dashboard",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/financial-dashboard",
+    "headings": [
+      "Admin",
+      "Financial dashboard",
+      "Strong Financial Position",
+      "Current Cash Flow",
+      "30-Day Projection",
+      "Pending Payments",
+      "Profit Margin",
+      "Financial Summary ",
+      "Quick Actions"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Financial Summary ",
+        "state": "open"
+      },
+      {
+        "title": "Quick Actions",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/fixed-costs",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/fixed-costs",
+    "headings": [
+      "Admin",
+      "Fixed costs",
+      "Active",
+      "Monthly equivalent",
+      "Annual burn",
+      "Cadence mix",
+      "Hitting the bank"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/hr-solutions",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/hr-solutions",
+    "headings": [
+      "Admin",
+      "HR "
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/integrations",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/integrations",
+    "headings": [
+      "Admin",
+      "Integrations",
+      "Get a Zap running in 60 seconds",
+      "Xero accountingSetup via Zapier",
+      "QuickBooks OnlineNative OAuth",
+      "Sage Business Cloud (Pastel)Native OAuth",
+      "Outbound webhooks",
+      "Inbound API keys",
+      "Catering Zap recipes"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Get a Zap running in 60 seconds",
+        "state": "closed"
+      },
+      {
+        "title": "Xero accountingSetup via Zapier",
+        "state": "closed"
+      },
+      {
+        "title": "QuickBooks OnlineNative OAuth",
+        "state": "closed"
+      },
+      {
+        "title": "Sage Business Cloud (Pastel)Native OAuth",
+        "state": "closed"
+      },
+      {
+        "title": "Outbound webhooks",
+        "state": "closed"
+      },
+      {
+        "title": "Inbound API keys",
+        "state": "closed"
+      },
+      {
+        "title": "Catering Zap recipes",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/integrations/embed",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/integrations/embed",
+    "headings": [
+      "Admin",
+      "Lead capture forms",
+      "Quick Card",
+      "Pricing Calculator",
+      "Detailed Multi-Step"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/inventory-recipes",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/menu",
+    "headings": [
+      "Admin",
+      "Menu",
+      "Desserts, 3",
+      "Mains, 9",
+      "Other, 1",
+      "Salads, 7",
+      "Service, 1",
+      "Sides, 4",
+      "Starters, 3",
+      "Top sellers, last 30 days"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/inventory-tracking",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/inventory",
+    "headings": [
+      "Admin",
+      "Food & Ingredients",
+      "At risk this week"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/inventory",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/inventory",
+    "headings": [
+      "Admin",
+      "Food & Ingredients",
+      "At risk this week"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/invoices",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/invoices",
+    "headings": [
+      "Admin",
+      "Invoices",
+      "Outstanding by age(catering cycle)",
+      "Invoices "
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/kitchen-schedule",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/kitchen-schedule",
+    "headings": [
+      "Admin",
+      "Kitchen schedule",
+      "Range summary",
+      "Today04 Oct"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/kitchen-settings",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/kitchen-settings",
+    "headings": [
+      "Admin",
+      "Kitchen rules",
+      "Production timing",
+      "Shift safety prompts"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/kitchen-settlement",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/kitchen-settlement",
+    "headings": [
+      "Admin",
+      "Kitchen settlement",
+      "Per-chef breakdown"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/kitchen-staff",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/kitchen-staff",
+    "headings": [
+      "Admin",
+      "Staff & rates"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/leads",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/leads",
+    "headings": [
+      "Admin",
+      "Leads",
+      "Leads (3)",
+      "Bobby",
+      "CODEX E2E Pricing 20260725053810",
+      "Raj Mehta"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/leads/new",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/leads/new",
+    "headings": [
+      "Admin",
+      "New lead",
+      "Lead information",
+      "Contact",
+      "Event details",
+      "Extra context"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/live-operations",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/tracking",
+    "headings": [
+      "Admin",
+      "Live operations",
+      "Live tracking map ",
+      "Today's orders"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/menu",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/menu",
+    "headings": [
+      "Admin",
+      "Menu",
+      "Desserts, 3",
+      "Mains, 9",
+      "Other, 1",
+      "Salads, 7",
+      "Service, 1",
+      "Sides, 4",
+      "Starters, 3",
+      "Top sellers, last 30 days"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/money-health",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/money-health",
+    "headings": [
+      "Admin",
+      "Money & email health",
+      " Email queue",
+      " Money reconciliation"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/notification-settings",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/notification-settings",
+    "headings": [
+      "Admin",
+      "Notification settings",
+      "Email Notifications",
+      "Push Notifications",
+      "SMS Notifications",
+      "WhatsApp Notifications"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Email Notifications",
+        "state": "open"
+      },
+      {
+        "title": "Push Notifications",
+        "state": "closed"
+      },
+      {
+        "title": "SMS Notifications",
+        "state": "closed"
+      },
+      {
+        "title": "WhatsApp Notifications",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/notifications",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/notifications",
+    "headings": [
+      "Admin",
+      "Notifications",
+      "Quote accepted",
+      "Equipment shortfall on order",
+      "👀 Client viewed your quote",
+      "Quote updated",
+      "Quote accepted",
+      "Equipment shortfall on order",
+      "👀 Client viewed your quote",
+      "Quote updated",
+      "Quote accepted",
+      "Equipment shortfall on order",
+      "👀 Client viewed your quote",
+      "Quote updated",
+      "Equipment shortfall on order",
+      "Quote accepted",
+      "👀 Client viewed your quote",
+      "Quote updated",
+      "Sending domain verified",
+      "⚠️ Order past event date: ORD-356888",
+      "⚠️ Order past event date: ORD-356887",
+      "⚠️ Order past event date: ORD-356883",
+      "⚠️ Order past event date: ORD-356881",
+      "⚠️ Order past event date: ORD-918866",
+      "⚠️ Order past event date: ORD-356894",
+      "⚠️ Order past event date: ORD-356886",
+      "⚠️ Order past event date: ORD-356892",
+      "⚠️ Order past event date: ORD-326405",
+      "⚠️ Order past event date: ORD-356889",
+      "⚠️ Order past event date: ORD-918864",
+      "⚠️ Order past event date: ORD-356885",
+      "⚠️ Order past event date: QA-STAFF-32640502",
+      "⚠️ Order past event date: ORD-918865",
+      "⚠️ Order past event date: ORD-356888",
+      "⚠️ Order past event date: ORD-356887",
+      "⚠️ Order past event date: ORD-356883",
+      "⚠️ Order past event date: ORD-356881",
+      "⚠️ Order past event date: ORD-918866",
+      "⚠️ Order past event date: ORD-356894",
+      "⚠️ Order past event date: ORD-356886",
+      "⚠️ Order past event date: ORD-356892",
+      "⚠️ Order past event date: ORD-326405",
+      "⚠️ Order past event date: ORD-356889",
+      "⚠️ Order past event date: ORD-918864",
+      "⚠️ Order past event date: ORD-356885",
+      "⚠️ Order past event date: QA-STAFF-32640502",
+      "⚠️ Order past event date: ORD-918865",
+      "⚠️ Order past event date: ORD-356888",
+      "⚠️ Order past event date: ORD-356887",
+      "⚠️ Order past event date: ORD-356883",
+      "⚠️ Order past event date: ORD-356881",
+      "⚠️ Order past event date: ORD-918866",
+      "⚠️ Order past event date: ORD-356894",
+      "⚠️ Order past event date: ORD-356886",
+      "⚠️ Order past event date: ORD-356892",
+      "⚠️ Order past event date: ORD-326405",
+      "⚠️ Order past event date: ORD-356889",
+      "⚠️ Order past event date: ORD-918864",
+      "⚠️ Order past event date: ORD-356885",
+      "⚠️ Order past event date: QA-STAFF-32640502",
+      "⚠️ Order past event date: ORD-918865",
+      "⚠️ Order past event date: ORD-356888",
+      "⚠️ Order past event date: ORD-356887",
+      "⚠️ Order past event date: ORD-356883",
+      "⚠️ Order past event date: ORD-356881",
+      "⚠️ Order past event date: ORD-918866",
+      "⚠️ Order past event date: ORD-356894",
+      "⚠️ Order past event date: ORD-356886",
+      "⚠️ Order past event date: ORD-356892",
+      "⚠️ Order past event date: ORD-326405",
+      "⚠️ Order past event date: ORD-356889",
+      "⚠️ Order past event date: ORD-918864",
+      "⚠️ Order past event date: ORD-356885",
+      "⚠️ Order past event date: QA-STAFF-32640502",
+      "⚠️ Order past event date: ORD-918865",
+      "⚠️ Order past event date: ORD-356888",
+      "⚠️ Order past event date: ORD-356887",
+      "⚠️ Order past event date: ORD-356883",
+      "⚠️ Order past event date: ORD-356881",
+      "⚠️ Order past event date: ORD-918866",
+      "⚠️ Order past event date: ORD-356894",
+      "⚠️ Order past event date: ORD-356886",
+      "⚠️ Order past event date: ORD-356892",
+      "⚠️ Order past event date: ORD-326405",
+      "⚠️ Order past event date: ORD-356889",
+      "⚠️ Order past event date: ORD-918864",
+      "⚠️ Order past event date: ORD-356885",
+      "⚠️ Order past event date: QA-STAFF-32640502",
+      "⚠️ Order past event date: ORD-918865",
+      "⚠️ Collection overdue: ORD-356893",
+      "⚠️ Collection overdue: ORD-356880",
+      "Equipment return overdue: ORD-918866",
+      "Equipment return overdue: ORD-918865",
+      "Equipment return overdue: ORD-918864",
+      "Equipment return overdue: ORD-356894",
+      "Equipment return overdue: ORD-356892",
+      "Equipment return overdue: ORD-326405",
+      "Equipment return overdue: ORD-356889",
+      "Equipment return overdue: ORD-356888",
+      "Equipment return overdue: ORD-356887",
+      "Equipment return overdue: ORD-356886",
+      "Equipment return overdue: ORD-356885"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/offering",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/offering",
+    "headings": [
+      "Admin",
+      "Offering",
+      "Menu",
+      "Equipment",
+      "Recently quoted (90 days)",
+      "Not quoted in 90 days32"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Recently quoted (90 days)",
+        "state": "closed"
+      },
+      {
+        "title": "Not quoted in 90 days32",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/onboarding/clients",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/onboarding/clients",
+    "headings": [
+      "Admin",
+      "Import clients",
+      "Upload a file",
+      "Or paste from a spreadsheet"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/onboarding/import",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/onboarding/import",
+    "headings": [
+      "Admin",
+      "AI Import",
+      "Upload your spreadsheet"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/onboarding/imports",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/onboarding/imports",
+    "headings": [
+      "Admin",
+      "Onboarding",
+      "Pick the right import for what you've got"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/onboarding",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/onboarding",
+    "headings": [
+      "Admin",
+      "Set up your business",
+      "Welcome back, Spit Braai Delivery"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/onboarding/receipts",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/onboarding/receipts",
+    "headings": [
+      "Admin",
+      "Receipt scanner",
+      "Upload receipts",
+      "No receipts scanned yet"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/order-assignments",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/order-assignments",
+    "headings": [
+      "Admin",
+      "Dispatch queue"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/orders",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/orders",
+    "headings": [
+      "Admin",
+      "Orders",
+      "RAJ MEHTA",
+      "RAJ MEHTA",
+      "RAJ MEHTA",
+      "RAJ MEHTA"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/orders/delivery-sheet",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/orders/delivery-sheet",
+    "headings": [
+      "Sunday, 4 October 2026"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/outsource-providers",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/admin/outsource-providers",
+    "headings": [
+      "Admin",
+      "Outsource providers"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/outstanding-balances",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/outstanding-balances",
+    "headings": [
+      "Admin",
+      "Outstanding balances"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/payables",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/payables",
+    "headings": [
+      "Admin",
+      "Payables",
+      "Pending total",
+      "Overdue ",
+      "Due in next 30 days"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/payment-gateways",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/payment-gateways",
+    "headings": [
+      "Admin",
+      "Payment Gateways",
+      "PayFast",
+      "Yoco",
+      "Stripe",
+      "Before going live"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Before going live",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/public-holidays",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/public-holidays",
+    "headings": [
+      "Admin",
+      "Public holidays",
+      "Calendar view",
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+      "Sun, 04 Oct 2026",
+      "13 holidays in 2026"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/quotes",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/quotes",
+    "headings": [
+      "Admin",
+      "Quotes"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/quotes/new",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/quotes/new",
+    "headings": [
+      "Admin",
+      "Create Quote",
+      "Client + event",
+      "Menu items",
+      "Equipment",
+      "Pricing adjustments",
+      "Notes",
+      "Running total"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Client + event",
+        "state": "open"
+      },
+      {
+        "title": "Menu items",
+        "state": "open"
+      },
+      {
+        "title": "Equipment",
+        "state": "closed"
+      },
+      {
+        "title": "Pricing adjustments",
+        "state": "closed"
+      },
+      {
+        "title": "Notes",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/recurring-invoices",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/recurring-invoices",
+    "headings": [
+      "Admin",
+      "Recurring invoices",
+      "Your templates (0)"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/refunds",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/refunds",
+    "headings": [
+      "Admin",
+      "Refunds & Credits",
+      "All refunds & credits"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/regions",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/regions",
+    "headings": [
+      "Admin",
+      "Branches"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/reviews",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/reviews",
+    "headings": [
+      "Admin",
+      "Reviews"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/route-planning",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/route-planning",
+    "headings": [
+      "Admin",
+      "Route planning",
+      "Unassigned Orders",
+      "Driver Routes",
+      "Route Visualisation"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/settings",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/settings",
+    "headings": [
+      "Admin",
+      "Settings",
+      "Setup areas",
+      "Company profile",
+      "Branding",
+      "Kitchen rules",
+      "Daily operations",
+      "Email delivery",
+      "Integrations",
+      "Lead forms",
+      "Messages",
+      "Notifications",
+      "Audit logs",
+      "Operational defaults"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/shopping",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/shopping",
+    "headings": [
+      "Admin",
+      "Smart Shopping"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/staff-hours",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/staff-hours",
+    "headings": [
+      "Admin",
+      "Staff hours",
+      "Total Staff ",
+      "Total Hours ",
+      "Unpaid ",
+      "Paid Out ",
+      "Where the rest lives"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Where the rest lives",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/stock",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/stock",
+    "headings": [
+      "Admin",
+      "Stock",
+      "Low stock",
+      "Equipment",
+      "Hire-in pending",
+      "Needs attention"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/subscription",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/subscription",
+    "headings": [
+      "Admin",
+      "Subscription"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/suppliers",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/admin/suppliers",
+    "headings": [
+      "Admin",
+      "Suppliers"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/tax-purchases",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/tax-purchases",
+    "headings": [
+      "Admin",
+      "Tax overview"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/teams/cleaning",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/teams/cleaning",
+    "headings": [
+      "Admin",
+      "Cleaning",
+      " Cleaning roster",
+      " Daily work diary",
+      " Recent notes"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": " Cleaning roster",
+        "state": "open"
+      },
+      {
+        "title": " Daily work diary",
+        "state": "closed"
+      },
+      {
+        "title": " Recent notes",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/teams/drivers",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/teams/drivers",
+    "headings": [
+      "Admin",
+      "Drivers"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/teams",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/teams",
+    "headings": [
+      "Admin",
+      "Teams"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/teams/kitchen",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/teams/kitchen",
+    "headings": [
+      "Admin",
+      "Kitchen"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": " Kitchen roster",
+        "state": "closed"
+      },
+      {
+        "title": " Daily work diary",
+        "state": "closed"
+      },
+      {
+        "title": " Recent notes",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/teams/shopping",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/teams/shopping",
+    "headings": [
+      "Admin",
+      "Shopping"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/tracking",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/tracking",
+    "headings": [
+      "Loading..."
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/users",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/users",
+    "headings": [
+      "Admin",
+      "User management"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/vehicles",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/vehicles",
+    "headings": [
+      "Admin",
+      "Vehicles"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/wages",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/wages",
+    "headings": [
+      "Admin",
+      "Wages"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/white-label",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/white-label",
+    "headings": [
+      "Admin",
+      "White-label branding"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/clients",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/contacts",
+    "headings": [
+      "Admin",
+      "Contacts",
+      "Client insights"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [
+      {
+        "title": "Client insights",
+        "state": "closed"
+      }
+    ],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/dispatch",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/dispatch",
+    "headings": [
+      "Admin",
+      "Dispatch queue"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/integrations/embed/new",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/integrations/embed",
+    "headings": [
+      "Pick a template",
+      "Quick Card",
+      "Modern Inline",
+      "Luxe Vertical",
+      "Floating Widget",
+      "Detailed Multi-Step",
+      "Pricing Calculator",
+      "Wedding Specialist",
+      "Corporate Catering",
+      "Event Estimator",
+      "Spit Braai Quick"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/kitchen-duty-tracking",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/kitchen-duty-tracking",
+    "headings": [],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/messaging-templates",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/admin/email-templates",
+    "headings": [
+      "Admin",
+      "Lifecycle emails"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/package",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/package",
+    "headings": [],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/packages",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/orders",
+    "headings": [
+      "Admin",
+      "Orders"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  },
+  {
+    "route": "/admin/staff",
+    "pageErrors": [],
+    "failedRequests": [],
+    "status": 200,
+    "finalPath": "/spit-braai-delivery/admin/staff",
+    "headings": [
+      "Admin",
+      "Staff & rates"
+    ],
+    "loaded": true,
+    "permissionDenied": false,
+    "sections": [],
+    "desktopOverflow": false,
+    "mobileOverflow": false
+  }
+]

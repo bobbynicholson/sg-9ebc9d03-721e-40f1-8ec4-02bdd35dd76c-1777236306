@@ -554,7 +554,7 @@ function CompanyDatabasePage() {
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
           variant="hero"
-          title="Company Management"
+          title="Companies"
           subtitle="Add and manage catering companies on the platform"
           icon={Building2}
           meta={
@@ -590,7 +590,7 @@ function CompanyDatabasePage() {
           <StatTile
             label="Total Companies"
             value={companies.length}
-            hint="Every tenant; deleted excluded"
+            hint="Every company; deleted ones excluded"
             icon={Building2}
           />
           <StatTile
@@ -608,7 +608,7 @@ function CompanyDatabasePage() {
           <StatTile
             label="Total Users"
             value={<span className="text-slate-700 dark:text-slate-300">{companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}</span>}
-            hint="Across every tenant"
+            hint="Across every company"
             icon={Users}
           />
         </div>
@@ -756,7 +756,7 @@ function CompanyDatabasePage() {
                         <TableCell>
                           <div className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
                             <MapPin className="w-3 h-3" />
-                            {company.city}, {company.country}
+                            {[company.city, company.country].filter(Boolean).join(", ") || "Not set"}
                           </div>
                         </TableCell>
                         <TableCell>

@@ -187,11 +187,11 @@ function CleaningWorkflowsPageInner() {
   return (
     <CleaningPageShell
       pageTitle="Cleaning workflows - CateringMS"
-      heading="Cleaning workflows"
+      heading="Workflows"
       subheading={
         chipsReady && items.length > 0
-          ? `Step-by-step SOPs across ${categoryCount} equipment categor${categoryCount === 1 ? "y" : "ies"}, food-safety compliant.`
-          : "Step-by-step SOPs per equipment category, food-safety compliant."
+          ? `Step-by-step cleaning instructions for ${categoryCount} equipment categor${categoryCount === 1 ? "y" : "ies"}. Open a category to see its steps.`
+          : "Step-by-step cleaning instructions for each equipment category."
       }
       icon={ShieldCheck}
       meta={
@@ -273,8 +273,8 @@ function CleaningWorkflowsPageInner() {
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
               {items.length === 0
-                ? "Add equipment in Admin then return to see SOPs per category"
-                : "Clear the search to see SOPs for every category"}
+                ? "Add equipment in Admin, then come back to see the cleaning steps"
+                : "Clear the search to see every category"}
             </p>
             {items.length > 0 && search && (
               <Button variant="outline" size="sm" className="mt-4" onClick={() => setSearch("")}>
@@ -286,7 +286,9 @@ function CleaningWorkflowsPageInner() {
       ) : (
         <div className="space-y-3">
           {Object.entries(grouped).map(([cat, list]) => {
-            const isOpen = open[cat] ?? true;
+            // Folded by default so the list scans; open when searching,
+            // arriving from a "How to clean" link, or with one category.
+            const isOpen = open[cat] ?? (Boolean(search.trim()) || Object.keys(grouped).length === 1);
             const sops = pickSops(cat);
             return (
               <div key={cat} className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-16px_rgba(15,23,42,0.12)]">
@@ -299,7 +301,7 @@ function CleaningWorkflowsPageInner() {
                     <ShieldCheck className="h-5 w-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
                     <div className="min-w-0 text-left">
                       <div className="font-semibold text-slate-900 dark:text-white capitalize">{cat}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{list.length} items, {sops.length} SOP step{sops.length === 1 ? "" : "s"}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{list.length} item{list.length === 1 ? "" : "s"} · {sops.length} step{sops.length === 1 ? "" : "s"}</div>
                     </div>
                   </div>
                   {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500" /> : <ChevronRightIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />}

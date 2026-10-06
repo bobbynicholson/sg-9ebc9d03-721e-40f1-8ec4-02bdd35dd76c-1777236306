@@ -1,0 +1,11 @@
+[
+  {
+    "route": "/admin/platform/dashboard",
+    "errors": [],
+    "height": 1246,
+    "overflow": false,
+    "h1": "Platform Admin",
+    "sections": [],
+    "bigOpenCards": []
+  }
+]

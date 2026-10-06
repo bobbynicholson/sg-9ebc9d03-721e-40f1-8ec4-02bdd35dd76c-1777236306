@@ -40,12 +40,56 @@ export interface RequestedCatalogueItem {
   dietary_tags?: string[] | null;
 }
 
-const money = (value: number | null | undefined, currency: string) =>
-  new Intl.NumberFormat("en-ZA", {
-    style: "currency",
-    currency: currency || "ZAR",
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
+
+const QUOTE_SPLIT_TEMPLATES = ["detailed-multi-step", "pricing-calculator"];
+
+function menuField(
+  menu: EmbedMenuCatalogueRow[],
+  order: number,
+  conditional: EmbedField["conditional"],
+): EmbedField {
+  return {
+    id: EMBED_MENU_FIELD_ID,
+    type: "checkboxes",
+    label: "Menu items",
+    helpText:
+      "Optional. Type to search and add the dishes you would like. The team confirms portions, availability and pricing in your quote.",
+    required: false,
+    visible: true,
+    order,
+    ...(conditional ? { conditional } : {}),
+    options: menu.map((item) => ({
+      value: item.id,
+      // No prices on the public form: this is a quote request, and the
+      // team prices the final quote (portions, package size, travel).
+      label: `${item.item_name}${item.sold_as_package && item.base_servings ? ` · serves ${item.base_servings}` : ""}`,
+      group: item.category || "Other",
+    })),
+  };
+}
+
+function equipmentField(
+  equipment: EmbedEquipmentCatalogueRow[],
+  order: number,
+  conditional: EmbedField["conditional"],
+): EmbedField {
+  return {
+    id: EMBED_EQUIPMENT_FIELD_ID,
+    type: "checkboxes",
+    label: "Equipment",
+    helpText:
+      "Optional. Type to search and add what you need; the team confirms quantities and pricing in your quote.",
+    required: false,
+    visible: true,
+    order,
+    ...(conditional ? { conditional } : {}),
+    options: equipment.map((item) => ({
+      value: item.id,
+      label: item.name || "Equipment",
+      group: item.category || "Other",
+    })),
+  };
+}
 
 /**
  * Adds live, catalogue-backed customer choices to the two quote-oriented
@@ -57,10 +101,34 @@ export function addCatalogueFields(
   templateId: string,
   menu: EmbedMenuCatalogueRow[],
   equipment: EmbedEquipmentCatalogueRow[],
-  currency: string,
+  // Kept for call-site compatibility; public options no longer show prices.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _currency: string,
 ): EmbedField[] {
-  if (!["detailed-multi-step", "pricing-calculator"].includes(templateId)) {
-    return fields;
+  // Two templates split "quick enquiry" from "build my quote" with a
+  // request_type choice; every other template simply offers the menu and
+  // equipment pickers as optional extras on the same form.
+  if (!QUOTE_SPLIT_TEMPLATES.includes(templateId)) {
+    const plain = [...fields];
+    let nextOrder = plain.reduce((max, field) => Math.max(max, field.order || 0), 0) + 1;
+    // Place the pickers before a trailing notes/message field.
+    const notesIdx = plain.findIndex((f) => f.id === "notes" || f.mapsTo === "notes");
+    const insertAt = notesIdx === -1 ? plain.length : notesIdx;
+    const extras: EmbedField[] = [];
+    if (menu.length > 0 && !plain.some((f) => f.id === EMBED_MENU_FIELD_ID)) {
+      extras.push(menuField(menu, nextOrder++, undefined));
+    }
+    if (equipment.length > 0 && !plain.some((f) => f.id === EMBED_EQUIPMENT_FIELD_ID)) {
+      extras.push(equipmentField(equipment, nextOrder++, undefined));
+    }
+    if (extras.length === 0) return fields;
+    // Keep render order: extras take the notes field's slot, notes moves after.
+    if (notesIdx !== -1) {
+      const notesOrder = plain[notesIdx].order || 0;
+      extras.forEach((field, i) => { field.order = notesOrder - 0.5 + i * 0.01; });
+    }
+    plain.splice(insertAt, 0, ...extras);
+    return plain;
   }
 
   const quoteOnlyConditional = {
@@ -113,46 +181,11 @@ export function addCatalogueFields(
   }
   let order = result.reduce((max, field) => Math.max(max, field.order || 0), 0) + 1;
 
-  if (
-    menu.length > 0
-    && !result.some((field) => field.id === EMBED_MENU_FIELD_ID)
-  ) {
-    result.push({
-      id: EMBED_MENU_FIELD_ID,
-      type: "checkboxes",
-      label: "Menu preferences",
-      helpText:
-        "Choose any dishes you are interested in. The catering team will review portions and availability before sending the final quote.",
-      required: false,
-      visible: true,
-      order: order++,
-      conditional: quoteOnlyConditional,
-      options: menu.map((item) => ({
-        value: item.id,
-        label: `${item.item_name}${item.category ? ` · ${item.category}` : ""} · ${money(item.base_price, currency)}`,
-      })),
-    });
+  if (menu.length > 0 && !result.some((field) => field.id === EMBED_MENU_FIELD_ID)) {
+    result.push(menuField(menu, order++, quoteOnlyConditional));
   }
-
-  if (
-    equipment.length > 0
-    && !result.some((field) => field.id === EMBED_EQUIPMENT_FIELD_ID)
-  ) {
-    result.push({
-      id: EMBED_EQUIPMENT_FIELD_ID,
-      type: "checkboxes",
-      label: "Equipment required",
-      helpText:
-        "Optional. Choose only what you expect to need; staff will confirm quantities instead of automatically matching the guest count.",
-      required: false,
-      visible: true,
-      order,
-      conditional: quoteOnlyConditional,
-      options: equipment.map((item) => ({
-        value: item.id,
-        label: `${item.name || "Equipment"}${item.category ? ` · ${item.category}` : ""} · ${money(item.rental_price, currency)}`,
-      })),
-    });
+  if (equipment.length > 0 && !result.some((field) => field.id === EMBED_EQUIPMENT_FIELD_ID)) {
+    result.push(equipmentField(equipment, order, quoteOnlyConditional));
   }
 
   return result;

@@ -49,8 +49,11 @@ For an **existing database with the repository's previous migrations applied**, 
 | `20261003180000_financial_write_permissions.sql` | Restrict financial writes to actual owner/admin roles; client ledger/attempt reads scoped to their own records |
 | `20261004090000_idempotent_store_credit_checkout.sql` | Private replay record for partial credit payments; a lost response cannot repeat the same wallet debit |
 | `20261004100000_refund_reconciliation_and_receipts.sql` | Evidence-based refund reconciliation with an atomic audit trail and durable refund receipts |
+| `20261004120000_fix_quote_order_opening_paid.sql` | Safe quote acceptance when the opening payment total is null |
+| `20261004130000_eft_proof_screening_and_guard.sql` | EFT proof-review guard and optional screening guidance |
+| `20261006140000_eft_claim_balance_guard.sql` | Re-check an EFT amount after the invoice lock, preventing a stale claim from exceeding its remaining balance |
 
-`LOCAL_PAYMENT_MIGRATIONS.sql` combines the two payment prerequisites listed below plus these ten new files in **one transaction** for review/run in the SQL editor or with `psql`. Do not run both the individual files and the bundle. The bundle is an operational SQL script; it does not add migration-history rows automatically. If your deployment uses the migration runner, use the individual migration files so its history stays accurate.
+`LOCAL_PAYMENT_MIGRATIONS.sql` combines the two payment prerequisites listed below plus these thirteen new files in **one transaction** for review/run in the SQL editor or with `psql`. Do not run both the individual files and the bundle. The bundle is an operational SQL script; it does not add migration-history rows automatically. If your deployment uses the migration runner, use the individual migration files so its history stays accurate.
 
 First inspect migration history:
 
@@ -58,7 +61,7 @@ First inspect migration history:
 select version from supabase_migrations.schema_migrations order by version desc;
 ```
 
-The bundle includes the historical payment-attempt/gateway migration (`20260925150000_payment_attempts_and_gateway_requirements.sql`) and webhook uniqueness guard (`20261001000000_payment_webhook_idempotency_guard.sql`). Existing base payment/invoice fields, enums, gateway schema and triggers must exist. The fourteen bundled migration files are not a fresh-database bootstrap. Some long-lived duplicate payment data may require review; the new routines do not erase real payments or automatically refund excess money.
+The bundle includes the historical payment-attempt/gateway migration (`20260925150000_payment_attempts_and_gateway_requirements.sql`) and webhook uniqueness guard (`20261001000000_payment_webhook_idempotency_guard.sql`). Existing base payment/invoice fields, enums, gateway schema and triggers must exist. The fifteen bundled migration files are not a fresh-database bootstrap. Some long-lived duplicate payment data may require review; the new routines do not erase real payments or automatically refund excess money.
 
 The local inventory contains **410** migration files. Seven historical version prefixes are duplicated; do not rename/replay them blindly without comparing applied history. `LOCAL_MIGRATION_INVENTORY.txt` lists every file and duplicate group. A full local Supabase migration reset was not run: Supabase CLI/config and a running Docker engine are absent. The isolated payment SQL tests are available immediately. Step-by-step instructions are in [payment-migrations-how-to-run.md](payment-migrations-how-to-run.md).
 

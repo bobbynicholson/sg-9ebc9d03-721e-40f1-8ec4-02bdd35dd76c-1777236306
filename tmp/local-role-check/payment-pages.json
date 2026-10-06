@@ -1,0 +1,77 @@
+[
+  {
+    "role": "client",
+    "route": "client-portal/billing",
+    "finalPath": "/spit-braai-delivery/client-portal/billing",
+    "status": 200,
+    "loaded": true,
+    "headings": [
+      "Client Portal",
+      "Billing & invoices",
+      "Invoices and receipts are in one place"
+    ],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "client-client-portal-billing.png"
+  },
+  {
+    "role": "client",
+    "route": "client-portal/quotes",
+    "finalPath": "/spit-braai-delivery/client-portal/quotes",
+    "status": 200,
+    "loaded": true,
+    "headings": [
+      "Client Portal",
+      "Your quotes",
+      "Quote history is organised by decision state",
+      "No quotes yet"
+    ],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "client-client-portal-quotes.png"
+  },
+  {
+    "role": "client",
+    "route": "client-portal/my-orders",
+    "finalPath": "/spit-braai-delivery/client-portal/my-orders",
+    "status": 200,
+    "loaded": true,
+    "headings": [
+      "Client Portal",
+      "Your bookings",
+      "No bookings linked to this portal yet",
+      "Bookings (0)"
+    ],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "client-client-portal-my-orders.png"
+  },
+  {
+    "role": "company_admin",
+    "route": "admin/quotes",
+    "finalPath": "/spit-braai-delivery/admin/quotes",
+    "status": 200,
+    "loaded": true,
+    "headings": [
+      "Admin",
+      "Quotes"
+    ],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "company_admin-admin-quotes.png"
+  },
+  {
+    "role": "company_admin",
+    "route": "admin/quotes/new",
+    "finalPath": "/spit-braai-delivery/admin/quotes/new",
+    "status": 200,
+    "loaded": true,
+    "headings": [
+      "Admin",
+      "Create Quote"
+    ],
+    "pageErrors": [],
+    "failedRequests": [],
+    "screenshot": "company_admin-admin-quotes-new.png"
+  }
+]

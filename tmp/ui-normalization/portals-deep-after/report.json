@@ -1,0 +1,1218 @@
+[
+  {
+    "portal": "shopping",
+    "route": "dashboard",
+    "path": "/spit-braai-delivery/team-portal/shopping/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Today",
+          "Shopping list"
+        ],
+        "overflow": 0,
+        "height": 1202,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Today",
+          "Shopping list"
+        ],
+        "overflow": 0,
+        "height": 1314,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Today",
+          "Shopping list"
+        ],
+        "overflow": 0,
+        "height": 1387,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "buy-list",
+    "path": "/spit-braai-delivery/team-portal/shopping/buy-list",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 1747,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 1921,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 2566,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "orders",
+    "path": "/spit-braai-delivery/team-portal/shopping/orders",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Active shop"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Active shop"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Active shop"
+        ],
+        "overflow": 0,
+        "height": 1155,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "kitchen-demand",
+    "path": "/spit-braai-delivery/team-portal/shopping/kitchen-demand",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/kitchen-demand",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Kitchen demand"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/kitchen-demand",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Kitchen demand"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/kitchen-demand",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Kitchen demand"
+        ],
+        "overflow": 0,
+        "height": 1228,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "restock",
+    "path": "/spit-braai-delivery/team-portal/shopping/restock",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/restock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Restock"
+        ],
+        "overflow": 0,
+        "height": 1479,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/restock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Restock"
+        ],
+        "overflow": 0,
+        "height": 1555,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/restock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Restock"
+        ],
+        "overflow": 0,
+        "height": 2431,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "inventory",
+    "path": "/spit-braai-delivery/team-portal/shopping/inventory",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/inventory",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Inventory"
+        ],
+        "overflow": 0,
+        "height": 1207,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/inventory",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Inventory"
+        ],
+        "overflow": 0,
+        "height": 1417,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/inventory",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Inventory"
+        ],
+        "overflow": 0,
+        "height": 1590,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "suppliers",
+    "path": "/spit-braai-delivery/team-portal/shopping/suppliers",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/suppliers",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Suppliers"
+        ],
+        "overflow": 0,
+        "height": 1272,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/suppliers",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Suppliers"
+        ],
+        "overflow": 0,
+        "height": 1710,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/suppliers",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Suppliers"
+        ],
+        "overflow": 0,
+        "height": 2534,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "invoices",
+    "path": "/spit-braai-delivery/team-portal/shopping/invoices",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/invoices",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Spend"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/invoices",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Spend"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/invoices",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Spend"
+        ],
+        "overflow": 0,
+        "height": 1075,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "receipts",
+    "path": "/spit-braai-delivery/team-portal/shopping/receipts",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/receipts",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Receipts"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/receipts",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Receipts"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/receipts",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Receipts"
+        ],
+        "overflow": 0,
+        "height": 1149,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "notifications",
+    "path": "/spit-braai-delivery/team-portal/shopping/notifications",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 962,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "settings",
+    "path": "/spit-braai-delivery/team-portal/shopping/settings",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1420,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1428,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1878,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "alerts",
+    "path": "/spit-braai-delivery/team-portal/shopping/alerts",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 1747,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 1921,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 2566,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "dashboard",
+    "path": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Today",
+          "Cleaning roster"
+        ],
+        "overflow": 0,
+        "height": 2303,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Today",
+          "Cleaning roster"
+        ],
+        "overflow": 0,
+        "height": 2476,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Today",
+          "Cleaning roster"
+        ],
+        "overflow": 0,
+        "height": 3021,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "tasks",
+    "path": "/spit-braai-delivery/team-portal/cleaning/tasks",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 983,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "schedules",
+    "path": "/spit-braai-delivery/team-portal/cleaning/schedules",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Schedule plan"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Schedule plan"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Schedule plan"
+        ],
+        "overflow": 0,
+        "height": 962,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "supplies",
+    "path": "/spit-braai-delivery/team-portal/cleaning/supplies",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Supplies"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Supplies"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Supplies"
+        ],
+        "overflow": 0,
+        "height": 1269,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "equipment",
+    "path": "/spit-braai-delivery/team-portal/cleaning/equipment",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment"
+        ],
+        "overflow": 0,
+        "height": 1990,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment"
+        ],
+        "overflow": 0,
+        "height": 2030,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment"
+        ],
+        "overflow": 0,
+        "height": 3054,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "damage",
+    "path": "/spit-braai-delivery/team-portal/cleaning/damage",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damages"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damages"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damages"
+        ],
+        "overflow": 0,
+        "height": 1039,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "workflows",
+    "path": "/spit-braai-delivery/team-portal/cleaning/workflows",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Workflows"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Workflows"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Workflows"
+        ],
+        "overflow": 0,
+        "height": 1009,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "notifications",
+    "path": "/spit-braai-delivery/team-portal/cleaning/notifications",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1126,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "settings",
+    "path": "/spit-braai-delivery/team-portal/cleaning/settings",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1403,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1459,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1675,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning-manager",
+    "route": "management",
+    "path": "/spit-braai-delivery/team-portal/cleaning/management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Manage team"
+        ],
+        "overflow": 0,
+        "height": 1128,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Manage team"
+        ],
+        "overflow": 0,
+        "height": 1350,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Manage team"
+        ],
+        "overflow": 0,
+        "height": 1699,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  }
+]

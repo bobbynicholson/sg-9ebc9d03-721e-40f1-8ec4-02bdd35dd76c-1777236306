@@ -118,7 +118,7 @@ describe("website embed runtime", () => {
     expect(host.style.getPropertyValue("--brand-font")).toBe("Inter");
   });
 
-  it("renders all three active templates with the correct guest-count UX", () => {
+  it("renders all three active templates with the correct guest-count UX", async () => {
     const { helpers, templates } = loadRuntime(
       "detailed-multi-step",
       "pricing-calculator",
@@ -168,7 +168,9 @@ describe("website embed runtime", () => {
       config.brand,
       renderHelpers,
     );
-    expect(detailedHost.querySelectorAll(".cms-step")).toHaveLength(3);
+    // Contact + Event only: the empty Preferences step is skipped rather
+    // than rendered as a blank page.
+    expect(detailedHost.querySelectorAll(".cms-step")).toHaveLength(2);
     expect(
       detailedHost.querySelector('[data-step="1"] [data-fid="guest_count"]'),
     ).not.toBeNull();
@@ -226,10 +228,14 @@ describe("website embed runtime", () => {
       '[data-fid="menu_item_ids"] .cms-catalogue-picker',
     );
     expect(cataloguePicker).not.toBeNull();
-    const catalogueSelect = cataloguePicker!.querySelector("select") as HTMLSelectElement;
-    catalogueSelect.value = "menu-1";
-    catalogueSelect.dispatchEvent(new Event("change", { bubbles: true }));
-    (cataloguePicker!.querySelector(".cms-catalogue-add") as HTMLButtonElement).click();
+    // Type-ahead: type part of the name, pick the suggestion.
+    const catalogueSearch = cataloguePicker!.querySelector('input[type="search"]') as HTMLInputElement;
+    catalogueSearch.value = "lamb";
+    catalogueSearch.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const suggestion = cataloguePicker!.querySelector(".cms-suggest-item") as HTMLElement;
+    expect(suggestion).not.toBeNull();
+    suggestion.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     expect(
       cataloguePicker!.querySelector(
         'input[name="menu_item_ids"][value="menu-1"]:checked',
@@ -257,7 +263,7 @@ describe("catalogue-backed website quotes", () => {
     category: "Service",
   }];
 
-  it("adds live choices only to quote-oriented templates", () => {
+  it("adds live choices to every template", () => {
     const base = [{
       id: "email",
       type: "email" as const,
@@ -292,9 +298,21 @@ describe("catalogue-backed website quotes", () => {
       showIfFieldId: "request_type",
       showIfValue: "quote",
     });
-    expect(
-      addCatalogueFields(base, "quick-card", menu, equipment, "ZAR"),
-    ).toEqual(base);
+    // Other templates get the same pickers as plain optional fields.
+    const quick = addCatalogueFields(base, "quick-card", menu, equipment, "ZAR");
+    expect(quick.map((field) => field.id)).toEqual([
+      "email",
+      "venue",
+      "menu_item_ids",
+      "equipment_item_ids",
+    ]);
+    expect(quick.find((field) => field.id === "menu_item_ids")?.conditional).toBeUndefined();
+    // Public choices never show prices; the quote carries them.
+    for (const field of [...detailed, ...quick]) {
+      for (const option of field.options || []) {
+        expect(option.label).not.toMatch(/R\s?\d/);
+      }
+    }
   });
 
   it("uses server catalogue pricing and does not scale equipment to guests", () => {

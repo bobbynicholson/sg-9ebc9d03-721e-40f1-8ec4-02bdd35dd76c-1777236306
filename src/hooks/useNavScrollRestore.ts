@@ -94,6 +94,27 @@ export function useNavScrollRestore<T extends HTMLElement = HTMLDivElement>(key:
       listenerArmed = true;
     }, 200);
 
+    // ---- 1b. Keep the current page visible --------------------------
+    // After the restore settles, if the active link (aria-current) sits
+    // outside the rail's visible area - first visit, a jump from search,
+    // or a page inside a section further down - scroll the rail (never
+    // the page) just enough to show it.
+    const revealTimer = window.setTimeout(() => {
+      const active = viewport.querySelector<HTMLElement>('[aria-current="page"]');
+      if (!active) return;
+      const v = viewport.getBoundingClientRect();
+      const a = active.getBoundingClientRect();
+      const pad = 16;
+      if (a.top < v.top + pad) {
+        viewport.scrollTop -= v.top + pad - a.top;
+      } else if (a.bottom > v.bottom - pad) {
+        viewport.scrollTop += a.bottom - (v.bottom - pad);
+      } else {
+        return;
+      }
+      sessionStorage.setItem(storageKey, String(viewport.scrollTop));
+    }, 250);
+
     const persist = () => {
       sessionStorage.setItem(storageKey, String(viewport.scrollTop));
     };
@@ -117,6 +138,7 @@ export function useNavScrollRestore<T extends HTMLElement = HTMLDivElement>(key:
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(armTimer);
+      window.clearTimeout(revealTimer);
       viewport.removeEventListener("scroll", onScroll);
       viewport.removeEventListener("click", onClickCapture, { capture: true } as EventListenerOptions);
     };

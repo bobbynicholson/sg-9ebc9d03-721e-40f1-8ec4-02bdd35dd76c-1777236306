@@ -25,6 +25,12 @@ import {
   Link,
 } from "@react-pdf/renderer";
 import { buildCompanyTermsUrl } from "@/lib/companyLegal";
+import {
+  isEftPaymentMethod,
+  paymentProviderLabel,
+  type PdfEftPaymentDetails,
+  type PdfPaymentRecord,
+} from "@/lib/pdfPaymentDetails";
 
 // --- Types -----------------------------------------------------------------
 
@@ -42,6 +48,12 @@ export interface ReceiptPdfData {
   paid_at: string;
   payment_method?: string | null;
   payment_reference?: string | null;
+  payment_provider?: string | null;
+  transaction_id?: string | null;
+  /** All completed payments that settled the invoice, oldest first. */
+  payment_records?: PdfPaymentRecord[] | null;
+  /** Company beneficiary details, only rendered when one record is EFT. */
+  eft_details?: PdfEftPaymentDetails | null;
 
   client: {
     name: string;
@@ -131,6 +143,28 @@ const fmtDate = (raw: string | null | undefined): string | null => {
       day: "numeric",
       month: "long",
       year: "numeric",
+    });
+  } catch {
+    return null;
+  }
+};
+
+/** The date on its own is not enough for a payment audit trail. Keep the
+ * timezone explicit so a recipient never has to infer server-local time. */
+const fmtDateTime = (raw: string | null | undefined): string | null => {
+  if (!raw) return null;
+  try {
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleString("en-ZA", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "UTC",
+      timeZoneName: "short",
     });
   } catch {
     return null;
@@ -270,6 +304,14 @@ const buildStyles = (primary: string) =>
       borderColor: "#e7e5e4",
       borderRadius: 6,
       padding: 12,
+    },
+    /** Full-width cards must not inherit the two-column flex: 1 rule. */
+    fullWidthCard: {
+      borderWidth: 1,
+      borderColor: "#e7e5e4",
+      borderRadius: 6,
+      padding: 12,
+      marginBottom: 10,
     },
     sectionLabel: {
       fontSize: 8,
@@ -455,6 +497,19 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
   // been fully settled; the column is for partial-payment audit only.
   const amountPaid = data.amount_paid != null ? Number(data.amount_paid) : total;
   const fmt = (n: number | null | undefined): string => fmtMoney(n, data.currency);
+  const paymentRecords = Array.isArray(data.payment_records) && data.payment_records.length > 0
+    ? data.payment_records
+    : [{
+        amount: amountPaid,
+        payment_method: data.payment_method,
+        payment_provider: data.payment_provider,
+        transaction_id: data.transaction_id,
+        payment_reference: data.payment_reference,
+        paid_at: data.paid_at,
+      }];
+  const onlyPayment = paymentRecords.length === 1 ? paymentRecords[0] : null;
+  const headerMethod = onlyPayment?.payment_method || data.payment_method;
+  const hasEftPayment = paymentRecords.some((payment) => isEftPaymentMethod(payment?.payment_method));
 
   const billFromAddress = buildAddress(company);
   const footerLine = joinFooterParts([
@@ -517,7 +572,9 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
                 ) : null}
                 <View style={styles.metaCell}>
                   <Text style={styles.metaLabel}>Method</Text>
-                  <Text style={styles.metaValue}>{methodLabel(data.payment_method)}</Text>
+                  <Text style={styles.metaValue}>
+                    {paymentRecords.length > 1 ? `${paymentRecords.length} payments` : methodLabel(headerMethod)}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -567,17 +624,64 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
             {eventDate ? (
               <Text style={styles.smallText}>Event date: {eventDate}</Text>
             ) : null}
-            {data.payment_reference ? (
-              <Text style={[styles.smallText, { marginTop: 4 }]}>
-                Ref: {data.payment_reference}
-              </Text>
-            ) : null}
           </View>
         </View>
 
+        {/* PAYMENT RECORD. Receipt PDFs must carry the actual payment facts
+            rather than merely the invoice's paid state. For EFT, pair the
+            payment and beneficiary facts side-by-side to keep a standard
+            one-payment receipt compact without dropping audit detail. */}
+        {paymentRecords.length > 0 ? (
+          <View style={hasEftPayment && data.eft_details ? styles.columns : {}} wrap={false}>
+            <View
+              style={hasEftPayment && data.eft_details ? styles.column : styles.fullWidthCard}
+              minPresenceAhead={100}
+            >
+              <Text style={styles.sectionLabel}>Payment record</Text>
+              {paymentRecords.map((payment, index) => {
+                const provider = paymentProviderLabel(payment?.payment_provider);
+                const paidAt = fmtDateTime(payment?.paid_at);
+                const eft = isEftPaymentMethod(payment?.payment_method);
+                const recordAmount = payment?.amount != null
+                  ? fmtMoney(payment.amount, payment.currency || data.currency)
+                  : null;
+                return (
+                  <View
+                    key={`payment-${index}`}
+                    style={index < paymentRecords.length - 1 ? { paddingBottom: 6, marginBottom: 6, borderBottomWidth: 1, borderBottomColor: "#f5f5f4" } : {}}
+                    minPresenceAhead={54}
+                  >
+                    <Text style={styles.bodyText}>
+                      {recordAmount ? `${recordAmount} - ` : ""}{methodLabel(payment?.payment_method)}
+                    </Text>
+                    {paidAt ? <Text style={styles.smallText}>Paid at (UTC): {paidAt}</Text> : null}
+                    {provider ? <Text style={styles.smallText}>Payment provider: {provider}</Text> : null}
+                    {payment?.transaction_id ? <Text style={styles.smallText}>{eft ? "Bank transaction ID" : "Transaction ID"}: {payment.transaction_id}</Text> : null}
+                    {payment?.payment_reference ? <Text style={styles.smallText}>{eft ? "EFT reference" : "Payment reference"}: {payment.payment_reference}</Text> : null}
+                  </View>
+                );
+              })}
+            </View>
+            {hasEftPayment && data.eft_details ? (
+              <View style={styles.column} minPresenceAhead={112}>
+                <Text style={styles.sectionLabel}>EFT beneficiary details</Text>
+                <Text style={styles.bodyText}>{data.eft_details.company_name || company.legal_name || company.company_name || "Company"}</Text>
+                {data.eft_details.bank_name ? <Text style={[styles.smallText, { marginTop: 4 }]}>Bank: {data.eft_details.bank_name}</Text> : null}
+                {data.eft_details.account_holder ? <Text style={styles.smallText}>Account holder: {data.eft_details.account_holder}</Text> : null}
+                {data.eft_details.account_number ? <Text style={styles.smallText}>Account number: {data.eft_details.account_number}</Text> : null}
+                {data.eft_details.branch_code ? <Text style={styles.smallText}>Branch code: {data.eft_details.branch_code}</Text> : null}
+                {data.eft_details.account_type ? <Text style={styles.smallText}>Account type: {data.eft_details.account_type}</Text> : null}
+                {data.eft_details.reference ? <Text style={[styles.smallText, { marginTop: 4 }]}>EFT reference: {data.eft_details.reference}</Text> : null}
+                {data.eft_details.reference_hint ? <Text style={styles.smallText}>{data.eft_details.reference_hint}</Text> : null}
+                {data.eft_details.instructions ? <Text style={[styles.smallText, { marginTop: 4 }]}>{data.eft_details.instructions}</Text> : null}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* LINE ITEMS */}
         {lineItems.length > 0 ? (
-          <View style={[styles.column, { marginBottom: 10 }]}>
+          <View style={styles.fullWidthCard}>
             <Text style={styles.sectionLabel} minPresenceAhead={44}>
               What was paid for
             </Text>
@@ -615,7 +719,7 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
         ) : null}
 
         {/* TOTALS */}
-        <View style={styles.totalsBlock} wrap={false} minPresenceAhead={96}>
+        <View style={styles.totalsBlock} wrap={false} minPresenceAhead={40}>
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>Subtotal</Text>
             <Text style={styles.totalsValue}>{fmt(subtotal)}</Text>

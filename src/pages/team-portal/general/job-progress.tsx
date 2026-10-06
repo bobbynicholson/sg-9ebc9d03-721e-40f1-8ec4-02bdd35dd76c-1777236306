@@ -145,13 +145,14 @@ function StaffJobProgressInner() {
       <div className="min-h-screen overflow-x-hidden bg-slate-50 dark:bg-slate-950 lg:pl-72 xl:pl-80 pt-16 lg:pt-0">
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
+            variant="hero"
             title={
               <span className="flex items-center gap-2">
-                Job progress overview
+                Job progress
                 <InfoTooltip content="Live view of every active job with kitchen and driver progress in one place. Pulls every order in the next seven days that is confirmed or further along." />
               </span>
             }
-            subtitle="Monitor all active jobs and their progress in real-time"
+            subtitle="Every confirmed job in the next seven days, with kitchen and driver progress side by side."
             icon={Package}
           />
           <PageWorkbench />
@@ -231,7 +232,7 @@ function StaffJobProgressInner() {
                               <InfoTooltip content="Where the kitchen is with prep: pending, preparing, or ready to go." />
                             </span>
                           </div>
-                          <Badge className={getStatusColor(job.kitchenStatus)}>
+                          <Badge className={`capitalize ${getStatusColor(job.kitchenStatus)}`}>
                             {job.kitchenStatus}
                           </Badge>
                         </div>
@@ -264,7 +265,7 @@ function StaffJobProgressInner() {
                               <InfoTooltip content="Where the delivery is at: pending, assigned to a driver, or completed." />
                             </span>
                           </div>
-                          <Badge className={getStatusColor(job.driverStatus)}>
+                          <Badge className={`capitalize ${getStatusColor(job.driverStatus)}`}>
                             {job.driverStatus}
                           </Badge>
                         </div>

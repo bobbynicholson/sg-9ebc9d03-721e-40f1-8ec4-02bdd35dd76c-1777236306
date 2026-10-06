@@ -1615,8 +1615,10 @@ function accentClasses(accent: string): { bar: string; tile: string; icon: strin
 
 const HEADER_BADGE = "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-xs";
 
-function CardAccordion({ card }: { card: SprintCard }) {
-  const [open, setOpen] = useState(card.defaultOpen ?? false);
+function CardAccordion({ card, initialOpen = false }: { card: SprintCard; initialOpen?: boolean }) {
+  // Every card starts folded (the header shows its progress); only the
+  // Expand all / Collapse all buttons open or close it in bulk.
+  const [open, setOpen] = useState(initialOpen);
   const Icon = card.icon;
   const total = card.items.length;
   const done = card.items.filter((i) => i.status === "shipped").length;
@@ -1669,18 +1671,35 @@ function CardAccordion({ card }: { card: SprintCard }) {
 type BulkToggle = { action: "expand" | "collapse" | null; nonce: number };
 
 function GroupSection({ group, bulk }: { group: Group; bulk: BulkToggle }) {
-  // The nonce in the key re-mounts every CardAccordion on each bulk
-  // click; the last-clicked action alone decides open/closed. (The old
-  // two-counter compare reverted to card defaults whenever the counters
-  // tied, so Expand-then-Collapse left default-open cards open.)
+  // Groups fold too, so the page opens as a short list of 13 headers
+  // with progress instead of ~9000px of cards. The nonce in the keys
+  // re-mounts each group and card on every bulk click, so the
+  // last-clicked action alone decides open/closed.
+  const [open, setOpen] = useState(bulk.action === "expand");
+  const items = group.cards.flatMap((c) => c.items);
+  const done = items.filter((i) => i.status === "shipped").length;
+  const pct = items.length > 0 ? Math.round((done / items.length) * 100) : 0;
   return (
     <section id={group.id} className="space-y-3">
-      <div className="border-l-4 border-slate-300 dark:border-slate-600 pl-4 mb-4">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{group.title}</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">{group.description}</p>
-      </div>
-      {group.cards.map((card) => (
-        <CardAccordion key={`${card.id}-${bulk.nonce}`} card={{ ...card, defaultOpen: bulk.action === null ? card.defaultOpen : bulk.action === "expand" }} />
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-start justify-between gap-3 border-l-4 border-slate-300 pl-4 text-left dark:border-slate-600"
+      >
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white sm:text-xl">{group.title}</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{group.description}</p>
+          <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400 tabular-nums">
+            {group.cards.length} card{group.cards.length === 1 ? "" : "s"} · {done}/{items.length} done · {pct}%
+          </p>
+        </div>
+        {open
+          ? <ChevronDown className="mt-1 h-5 w-5 flex-shrink-0 text-slate-400 dark:text-slate-500" />
+          : <ChevronRightIcon className="mt-1 h-5 w-5 flex-shrink-0 text-slate-400 dark:text-slate-500" />}
+      </button>
+      {open && group.cards.map((card) => (
+        <CardAccordion key={`${card.id}-${bulk.nonce}`} card={card} initialOpen={bulk.action === "expand"} />
       ))}
     </section>
   );
@@ -1719,7 +1738,7 @@ function AdminRunningTodoPage() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             variant="hero"
-            title="Running Todo"
+            title="Running to-do"
             subtitle="Single source of truth, everything built, everything outstanding. Combines the original 8-week launch roadmap with findings from the 215-IQ multi-specialist audit."
             icon={ListChecks}
             meta={
@@ -1739,7 +1758,7 @@ function AdminRunningTodoPage() {
           />
           <PageWorkbench />
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
             <StatTile label="Total items" value={stats.total} />
             <StatTile
               label="Shipped"
@@ -1782,7 +1801,7 @@ function AdminRunningTodoPage() {
 
           <div className="space-y-10">
             {groups.map((group) => (
-              <GroupSection key={group.id} group={group} bulk={bulk} />
+              <GroupSection key={`${group.id}-${bulk.nonce}`} group={group} bulk={bulk} />
             ))}
           </div>
 

@@ -1,0 +1,46 @@
+/**
+ * Parse a CSV string. Handles quoted fields with commas inside, but
+ * we keep this small + dependency-free. Pasted data from Excel /
+ * Numbers / Sheets typically arrives as TSV (tabs); we also handle
+ * that.
+ */
+function parseDelimited(text: string): { headers: string[]; rows: string[][] } {
+  const trimmed = text.trim();
+  if (!trimmed) return { headers: [], rows: [] };
+
+  // Detect tab or comma. Tabs win when the first line has any.
+  const firstLine = trimmed.split(/\r?\n/, 1)[0] || "";
+  const delim = firstLine.includes("\t") ? "\t" : ",";
+
+  const lines: string[][] = [];
+  let inQuotes = false;
+  let cur = "";
+  let row: string[] = [];
+
+  const pushCell = () => { row.push(cur); cur = ""; };
+  const pushRow = () => { lines.push(row); row = []; };
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (inQuotes) {
+      if (ch === "\"") {
+        if (trimmed[i + 1] === "\"") { cur += "\""; i++; }
+        else { inQuotes = false; }
+      } else {
+        cur += ch;
+      }
+    } else {
+      if (ch === "\"") inQuotes = true;
+      else if (ch === delim) pushCell();
+      else if (ch === "\n") { pushCell(); pushRow(); }
+      else if (ch === "\r") { /* skip */ }
+      else cur += ch;
+    }
+  }
+  pushCell();
+  if (row.length > 1 || (row.length === 1 && row[0] !== "")) pushRow();
+
+  if (lines.length === 0) return { headers: [], rows: [] };
+  const [headers, ...rest] = lines;
+  return { headers: headers.map((h) => h.trim()), rows: rest };
+}

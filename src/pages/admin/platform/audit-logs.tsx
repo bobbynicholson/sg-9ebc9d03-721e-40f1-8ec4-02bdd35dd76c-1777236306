@@ -64,7 +64,7 @@ interface ProfileOption {
   email: string | null;
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 const AUDIT_CATEGORIES = [
   { value: "all", label: "All activity" },
@@ -128,6 +128,24 @@ function applyAuditCategoryFilter(query: any, category: string): any {
 // Tone the row border by action class so eyes parse the stream
 // without reading every word. Refund + payment + cancel are the
 // expensive failure modes; default tone is neutral.
+// Display-only wording for stored action / entity codes. The raw code
+// stays in the data, the filter and the row's tooltip.
+const ACTION_WORDS: Record<string, string> = {
+  pii_access_view: "Viewed personal details",
+};
+const sentence = (code: string) => {
+  const words = code.replace(/[._-]+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : code;
+};
+const actionLabel = (action: string): string => {
+  if (!action) return "Unknown action";
+  if (ACTION_WORDS[action]) return ACTION_WORDS[action];
+  if (action.startsWith("cron.")) return `Scheduled job: ${sentence(action.slice(5)).toLowerCase()}`;
+  return sentence(action);
+};
+const entityLabel = (entity: string | null | undefined): string =>
+  entity === "cron" ? "Scheduled job" : sentence(entity || "");
+
 const toneFor = (action: string): string => {
   if (action.includes("fail") || action.includes("error") || action.includes("crashed")) {
     return "border-l-rose-500 dark:border-l-rose-500 bg-rose-50/40 dark:bg-rose-500/10";
@@ -357,8 +375,8 @@ function AuditLogsViewer() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             variant="hero"
-            title="Audit logs"
-            subtitle="Append-only trail across every tenant. Read-only view; the action belongs on the entity page each row links to."
+            title="Activity log"
+            subtitle="Who did what, across every company. Nothing here can be changed; open a row to act on the record itself."
             icon={ScrollText}
             meta={
               <>
@@ -401,13 +419,13 @@ function AuditLogsViewer() {
                   </Select>
                 </div>
                 <div>
-                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Tenant</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Company</Label>
                   <Select value={companyId} onValueChange={(v) => { setCompanyId(v); setPage(0); }}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All tenants</SelectItem>
+                      <SelectItem value="all">All companies</SelectItem>
                       {companies.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.company_name || c.id.slice(0, 8)}
@@ -529,12 +547,14 @@ function AuditLogsViewer() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">{fmtTs(r.created_at)}</span>
-                          <Badge variant="outline" className="text-[10px] font-semibold">
-                            {r.action}
+                          <Badge variant="outline" className="text-[10px] font-semibold" title={r.action}>
+                            {actionLabel(r.action)}
                           </Badge>
-                          <Badge variant="outline" className="text-[10px] bg-slate-100 dark:bg-slate-800 dark:text-slate-300">
-                            {r.entity_type}
-                          </Badge>
+                          {r.entity_type && r.entity_type !== "cron" && (
+                            <Badge variant="outline" className="text-[10px] bg-slate-100 dark:bg-slate-800 dark:text-slate-300">
+                              {entityLabel(r.entity_type)}
+                            </Badge>
+                          )}
                           {company?.company_name && (
                             <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30">
                               {company.company_name}

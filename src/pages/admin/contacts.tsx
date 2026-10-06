@@ -444,35 +444,43 @@ function ClientsCRM() {
     // page could even start aggregating. Now: read page 0 with an exact
     // count, then request every remaining page at once. 50k hard cap so a
     // runaway query can't DOS the page.
+    // Offset paging (range(9000, 9999)) makes the database run the row
+    // access check on every skipped row, and an exact count re-checks the
+    // whole book on every request - with ~9k clients the later pages hit
+    // the statement timeout and only the first 1000 contacts appeared.
+    // Instead split the id space into 16 ranges fetched in parallel, each
+    // read in id order (keyset) so only returned rows are ever checked.
     const fetchAllClients = async () => {
       const PAGE = 1000;
       const HARD_CAP = 50000;
-      const pageQuery = (from: number, to: number) => {
-        let q: any = supabase
-          .from("clients")
-          .select(CLIENT_COLS, { count: "exact" })
-          .eq("company_id", companyId)
-          .is("deleted_at", null);
-        // XSC-A: scope to picked region for branch managers.
-        if (regionFilterId) q = q.eq("region_id", regionFilterId);
-        return q.range(from, to);
+      const HEX = "0123456789abcdef";
+      const bucket = async (index: number) => {
+        const lower = `${HEX[index]}0000000-0000-0000-0000-000000000000`;
+        const upper = index < 15 ? `${HEX[index + 1]}0000000-0000-0000-0000-000000000000` : null;
+        const rows: any[] = [];
+        let after: string | null = null;
+        for (;;) {
+          let q: any = supabase
+            .from("clients")
+            .select(CLIENT_COLS)
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .gte("id", lower);
+          if (upper) q = q.lt("id", upper);
+          if (after) q = q.gt("id", after);
+          // XSC-A: scope to picked region for branch managers.
+          if (regionFilterId) q = q.eq("region_id", regionFilterId);
+          const { data, error } = await q.order("id", { ascending: true }).limit(PAGE);
+          if (error) return { rows, error };
+          rows.push(...(data || []));
+          if (!data || data.length < PAGE || rows.length >= HARD_CAP) return { rows, error: null };
+          after = data[data.length - 1].id;
+        }
       };
-      const first = await pageQuery(0, PAGE - 1);
-      if (first.error) return { data: [] as any[], error: first.error };
-      const out: any[] = [...(first.data || [])];
-      const total = Math.min(first.count ?? out.length, HARD_CAP);
-      if (total > PAGE) {
-        const requests: any[] = [];
-        for (let from = PAGE; from < total; from += PAGE) {
-          requests.push(pageQuery(from, Math.min(from + PAGE - 1, total - 1)));
-        }
-        const pages = await Promise.all(requests);
-        for (const p of pages) {
-          if (p.error) return { data: out, error: p.error };
-          out.push(...(p.data || []));
-        }
-      }
-      return { data: out, error: null };
+      const parts = await Promise.all(Array.from({ length: 16 }, (_, i) => bucket(i)));
+      const out = parts.flatMap((p) => p.rows).slice(0, HARD_CAP);
+      const failed = parts.find((p) => p.error);
+      return { data: out, error: failed ? failed.error : null };
     };
     // Wave 70.80: paginate every supplementary read the same way
     // clients does. Pre-fix leads / orders / quotes / invoices ran

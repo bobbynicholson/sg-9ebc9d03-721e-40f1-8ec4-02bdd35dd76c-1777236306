@@ -342,10 +342,11 @@ function PlatformSubscriptionManagement() {
       trial: { label: "Trial", className: "bg-blue-500" },
       past_due: { label: "Past Due", className: "bg-yellow-500" },
       cancelled: { label: "Cancelled", className: "bg-rose-500" },
-      expired: { label: "Expired", className: "bg-slate-500" }
+      expired: { label: "Expired", className: "bg-slate-500" },
+      suspended: { label: "Suspended", className: "bg-slate-500" },
     };
 
-    const { label, className } = config[status] || { label: status, className: "bg-slate-500" };
+    const { label, className } = config[status] || { label: String(status || "Unknown").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()), className: "bg-slate-500" };
     return <Badge className={className}>{label}</Badge>;
   };
 
@@ -394,8 +395,8 @@ function PlatformSubscriptionManagement() {
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
           variant="hero"
-          title="Subscription Management"
-          subtitle="Monitor and manage customer subscriptions across every tenant on the platform."
+          title="Subscriptions"
+          subtitle="Every company's plan, status and next billing date, with cancellation when needed."
           icon={CreditCard}
           meta={
             <>
@@ -479,7 +480,7 @@ function PlatformSubscriptionManagement() {
           <StatTile
             label={
               <span className="flex items-center gap-1.5">
-                Monthly MRR
+                Monthly revenue
                 <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates come from the live pricing plans (the same ones edited on Pricing Management), so a price change there updates this figure on the next load." />
               </span>
             }

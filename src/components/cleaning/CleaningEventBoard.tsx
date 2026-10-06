@@ -201,28 +201,30 @@ export function CleaningEventBoard() {
       </CardHeader>
       <CardContent>
         {allEmpty ? (
-          <div className="text-center py-10">
-            <Sparkles className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-            <p className="font-medium text-slate-700">No events to track right now.</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-              When an order moves to <span className="font-mono text-[11px]">confirmed</span>, a handover row lands in <span className="font-semibold">Expected</span>. When the equipment comes back, it flips to <span className="font-semibold">In progress</span>.
-            </p>
+          <div className="flex items-start gap-3 py-2">
+            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-slate-300" />
+            <div>
+              <p className="text-sm font-medium text-slate-700">No events to track right now.</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Confirmed events appear here as <span className="font-semibold">Expected</span>, and move to <span className="font-semibold">In progress</span> when the equipment comes back.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* Expected */}
-            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 overflow-hidden">
-              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 overflow-hidden dark:border-slate-700 dark:bg-slate-900/40">
+              <div className="px-3 py-2 border-b border-amber-200 bg-amber-50 flex items-center justify-between dark:border-amber-900/60 dark:bg-amber-950/30">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
                   Expected
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
                   {expected.length}
                 </Badge>
               </div>
-              <div className="p-2 space-y-2 min-h-[120px]">
+              <div className="p-2 space-y-2">
                 {expected.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic text-center py-3">
+                  <p className="text-xs text-slate-500 text-center py-3">
                     Nothing coming back in the next 48h.
                   </p>
                 ) : (
@@ -232,18 +234,18 @@ export function CleaningEventBoard() {
             </div>
 
             {/* In progress */}
-            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 overflow-hidden">
-              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 overflow-hidden dark:border-slate-700 dark:bg-slate-900/40">
+              <div className="px-3 py-2 border-b border-sky-200 bg-sky-50 flex items-center justify-between dark:border-sky-900/60 dark:bg-sky-950/30">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">
                   In progress
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
                   {inProgress.length}
                 </Badge>
               </div>
-              <div className="p-2 space-y-2 min-h-[120px]">
+              <div className="p-2 space-y-2">
                 {inProgress.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic text-center py-3">
+                  <p className="text-xs text-slate-500 text-center py-3">
                     Nothing being cleaned right now.
                   </p>
                 ) : (
@@ -253,18 +255,18 @@ export function CleaningEventBoard() {
             </div>
 
             {/* Done today */}
-            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 overflow-hidden">
-              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 overflow-hidden dark:border-slate-700 dark:bg-slate-900/40">
+              <div className="px-3 py-2 border-b border-emerald-200 bg-emerald-50 flex items-center justify-between dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
                   Done today
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
                   {doneToday.length}
                 </Badge>
               </div>
-              <div className="p-2 space-y-2 min-h-[120px]">
+              <div className="p-2 space-y-2">
                 {doneToday.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic text-center py-3">
+                  <p className="text-xs text-slate-500 text-center py-3">
                     Nothing completed yet today.
                   </p>
                 ) : (

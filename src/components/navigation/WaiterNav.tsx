@@ -31,7 +31,7 @@ const config: PortalSidebarConfig = {
       title: "Today",
       defaultOpen: true,
       items: [
-        { title: "Service Today", href: "/team-portal/waiter/dashboard#service", icon: LayoutDashboard, description: "Assigned events and phase taps" },
+        { title: "Service today", href: "/team-portal/waiter/dashboard#service", icon: LayoutDashboard, description: "Your events and on-site progress" },
         { title: "Clock", href: "/team-portal/waiter/dashboard#clock", icon: Clock, description: "Clock in / out for your shift" },
       ],
     },

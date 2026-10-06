@@ -1,0 +1,12 @@
+src/components/admin/TeamManagerWorkspace.tsx
+src/components/cleaning/CleaningDutyWidget.tsx
+src/components/cleaning/CleaningEventBoard.tsx
+src/components/cleaning/CleaningJobsQueue.tsx
+src/components/cleaning/EquipmentVerificationPanel.tsx
+src/pages/team-portal/cleaning/dashboard.tsx
+src/pages/team-portal/cleaning/equipment.tsx
+src/pages/team-portal/cleaning/notifications.tsx
+src/pages/team-portal/cleaning/schedules.tsx
+src/pages/team-portal/cleaning/settings.tsx
+src/pages/team-portal/cleaning/supplies.tsx
+src/pages/team-portal/cleaning/workflows.tsx

@@ -452,7 +452,6 @@ function ClientPortalDashboardInner() {
   const brandText = contrastText(brandPrimary);
   const brandSecondary = company?.secondary_color || "#10b981";
   const companyName = company?.company_name || profile?.company_name || "Your portal";
-  const companyLogo = company?.logo_url || null;
   // Wave 18 audit: dashboard used to render every order total with a
   // hardcoded ZAR formatter - UK / US / EU tenants saw R5,000 against
   // a £/$/€ caterer. Resolve from the loaded company row with a ZAR
@@ -1062,7 +1061,7 @@ function ClientPortalDashboardInner() {
           <PortalHeader
             title={`${greeting}, ${firstName}`}
             subtitle={companyName}
-            icon={companyLogo ? undefined : ChefHat}
+            icon={ChefHat}
             variant="hero"
             actions={
               <>
@@ -1092,19 +1091,6 @@ function ClientPortalDashboardInner() {
             }
           />
           <PageWorkbench />
-
-          {/*
-            When the tenant has a logo, render it as a small element in
-            its own row so PortalHeader's icon slot stays restrained.
-          */}
-          {companyLogo && (
-            <div className="-mt-3 mb-5 flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                <img src={companyLogo} alt={companyName} className="h-7 w-7 object-contain" />
-              </span>
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{companyName}</span>
-            </div>
-          )}
 
           <PortalOverview
             eyebrow="Client overview"

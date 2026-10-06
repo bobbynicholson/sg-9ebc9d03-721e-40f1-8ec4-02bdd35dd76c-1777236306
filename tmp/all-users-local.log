@@ -1,0 +1,13 @@
+AUTHENTICATED [company_admin] hello@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/admin/dashboard
+AUTHENTICATED [admin] admin@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/admin/dashboard
+AUTHENTICATED [kitchen_staff] kitchen@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/kitchen/dashboard
+AUTHENTICATED [kitchen_manager] kitchen.manager.demo@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/kitchen/management
+AUTHENTICATED [waiter] waiter.demo@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/waiter/dashboard
+AUTHENTICATED [driver] driver@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/driver/dashboard
+SKIP   [shopping_staff] shopping@spitbraaidelivery.co.za: Auth session missing!
+AUTHENTICATED [cleaning_staff] cleaning@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/cleaning/dashboard
+AUTHENTICATED [cleaning_manager] cleaning.manager.demo@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/cleaning/management
+AUTHENTICATED [client] universalsportmags23@gmail.com -> http://localhost:3001/spit-braai-delivery/client-portal/dashboard
+SKIP   [super_admin] bobby@skylight-digital.co.za: Auth session missing!
+
+9/11 windows open. Leave this process running; Ctrl+C to close all.

@@ -10,11 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import Head from "next/head";
-import { ClientNav } from "@/components/navigation/ClientNav";
+import { PortalLayout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import type { Tables } from "@/integrations/supabase/types";
-import { PageWorkbench } from "@/components/portal/ui";
+import { PageWorkbench, PortalHeader } from "@/components/portal/ui";
 
 type Subscription = Tables<'subscriptions'>;
 
@@ -115,22 +115,18 @@ function SubscriptionInvoicesPage() {
         <title>My subscriptions and invoices - CateringMS</title>
       </Head>
       <NoIndexMeta />
-      <ClientNav />
-      <div className="min-h-screen bg-gray-50 lg:pl-72 xl:pl-80">
-        <main className="w-full p-4 md:p-8">
-          <PageWorkbench className="mb-5" />
-          <h1 className="text-3xl font-bold mb-6 text-gray-800">
-            Subscriptions & Invoices
-          </h1>
+      {/* PortalLayout picks the sidebar from the viewer's role: this is
+          CateringMS billing the catering company, so admins must see
+          their own sidebar, not the client one. */}
+      <PortalLayout maxWidth="full" showWorkbench={false}>
+          <PortalHeader
+            variant="hero"
+            title="Subscription invoices"
+            subtitle="Download tax invoices for your CateringMS subscription."
+            icon={FileText}
+          />
+          <PageWorkbench />
           <div className="w-full">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                Subscription Invoices
-              </h1>
-              <p className="text-slate-600">
-                Download tax invoices for your CateringMS subscription
-              </p>
-            </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -150,7 +146,7 @@ function SubscriptionInvoicesPage() {
                 {subscriptions.map((subscription) => (
                   <Card key={subscription.id}>
                     <CardHeader>
-                      <div className="flex items-start justify-between">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <CardTitle className="text-lg">
                             {subscription.plan_name} Plan
@@ -159,7 +155,7 @@ function SubscriptionInvoicesPage() {
                             Invoice Date: {formatDate(subscription.created_at)}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right">
                           <p className="text-2xl font-bold text-slate-600">
                             {formatCurrency(subscription.amount * 1.15, subscription.currency)}
                           </p>
@@ -168,14 +164,14 @@ function SubscriptionInvoicesPage() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="space-y-1 text-sm text-slate-600">
                           <p>
                             Period: {formatDate(subscription.current_period_start)} - {formatDate(subscription.current_period_end)}
                           </p>
                           <p>
-                            Status: <span className="font-medium text-brand-primary">
-                              {subscription.status}
+                            Status: <span className="font-medium capitalize text-brand-primary">
+                              {String(subscription.status || "").replace(/_/g, " ")}
                             </span>
                           </p>
                         </div>
@@ -198,8 +194,7 @@ function SubscriptionInvoicesPage() {
               </div>
             )}
           </div>
-        </main>
-      </div>
+      </PortalLayout>
     </>
   );
 }

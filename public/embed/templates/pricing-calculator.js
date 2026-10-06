@@ -5,24 +5,26 @@
   window.__cmsTemplates = window.__cmsTemplates || {};
 
   var CSS = [
-    '.cms-form{padding:24px;max-width:680px;margin:0 auto;border:1px solid #E5E7EB;background:var(--brand-bg,#fff)}',
-    '.cms-title{margin:0 0 4px;font-size:22px;font-weight:700}',
-    '.cms-sub{margin:0 0 16px;font-size:14px;color:#6B7280}',
-    '.cms-calc{padding:16px;border-radius:calc(var(--brand-radius,12px));background:#F8FAFC;margin-bottom:18px}',
+    '.cms-form{padding:30px 28px 24px;max-width:700px;margin:0 auto;background:var(--brand-bg,#fff)}',
+    '.cms-calc{padding:20px;border-radius:16px;background:linear-gradient(160deg,color-mix(in srgb,var(--brand-primary,#0F172A) 7%,#fff),#F8FAFC);border:1px solid color-mix(in srgb,var(--brand-primary,#0F172A) 14%,#E2E8F0);margin-bottom:22px}',
+    '.cms-btn[type=submit]{width:100%;margin-top:6px}',
+    '@media(max-width:520px){.cms-form{padding:26px 18px 20px}.cms-calc{padding:16px}}',
     '.cms-slider-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}',
     '.cms-slider{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:999px;background:#E5E7EB;outline:none}',
     '.cms-slider::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--brand-primary,#0F172A);cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.18)}',
     '.cms-slider::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--brand-primary,#0F172A);cursor:pointer;border:none}',
     '.cms-guests{font-weight:700;font-size:18px;min-width:80px;text-align:right}',
     '.cms-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}',
-    '.cms-tier{position:relative;border:1.5px solid #E5E7EB;border-radius:calc(var(--brand-radius,12px) - 2px);padding:12px;cursor:pointer;transition:border-color .15s,background .15s}',
+    '.cms-tier{position:relative;border:1.5px solid #E2E8F0;background:#fff;border-radius:14px;padding:14px;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s,transform .15s}',
+    '.cms-tier:hover{transform:translateY(-1px)}',
     '.cms-tier input{position:absolute;opacity:0;pointer-events:none}',
     '.cms-tier:hover{border-color:#94A3B8}',
-    '.cms-tier.is-selected{border-color:var(--brand-primary,#0F172A);background:color-mix(in srgb,var(--brand-primary,#0F172A) 6%,transparent)}',
+    '.cms-tier.is-selected{border-color:var(--brand-primary,#0F172A);background:color-mix(in srgb,var(--brand-primary,#0F172A) 6%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand-primary,#0F172A) 12%,transparent)}',
+    '.cms-tier.is-selected::after{content:"\\2713";position:absolute;top:10px;right:12px;width:20px;height:20px;border-radius:50%;background:var(--brand-primary,#0F172A);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}',
     '.cms-tier-name{font-weight:600;margin-bottom:2px}',
     '.cms-tier-pp{font-size:12px;color:#6B7280}',
     '.cms-estimate-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6B7280;margin-top:6px}',
-    '.cms-estimate{font-size:24px;font-weight:700;color:var(--brand-primary,#0F172A);margin-top:2px;line-height:1.1}',
+    '.cms-estimate{font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--brand-primary,#0F172A);margin-top:2px;line-height:1.1}',
     '.cms-estimate-sub{font-size:12px;color:#6B7280;margin-top:6px}'
   ].join('');
 
@@ -72,12 +74,7 @@
     var form = h.el('form', { class: 'cms-form', novalidate: 'novalidate' });
     var alert = h.el('div', { class: 'cms-alert', hidden: 'hidden', role: 'alert' });
     form.appendChild(alert);
-    if (brand && (brand.logoUrl || brand.companyName)) {
-      var bar = h.el('div', { class: 'cms-brandbar' });
-      if (brand.logoUrl) bar.appendChild(h.el('img', { src: brand.logoUrl, alt: brand.companyName || '' }));
-      bar.appendChild(h.el('strong', { text: brand.companyName || '' }));
-      form.appendChild(bar);
-    }
+    form.appendChild(h.buildHeader(brand, 'Instant price estimate'));
     form.appendChild(h.el('h3', { class: 'cms-title', text: config.title || 'Estimate your event' }));
     form.appendChild(h.el('p', { class: 'cms-sub', text: config.subtitle || 'Slide for guest count, pick a menu, see pricing instantly.' }));
 
@@ -201,8 +198,9 @@
 
     form.appendChild(h.buildHoneypot());
     var tslot = h.el('div', { class: 'cms-turnstile' }); form.appendChild(tslot);
-    var btn = h.el('button', { class: 'cms-btn', type: 'submit', text: config.submitLabel || 'Get a tailored quote' });
+    var btn = h.el('button', { class: 'cms-btn', type: 'submit', text: config.submitLabel || 'Get my tailored quote' });
     form.appendChild(btn);
+    form.appendChild(h.buildTrustLine());
     host.appendChild(form);
 
     var token = null;

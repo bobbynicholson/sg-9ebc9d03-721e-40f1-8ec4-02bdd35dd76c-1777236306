@@ -130,6 +130,23 @@ interface InvoiceView {
   };
 }
 
+// Payment method as words for the client ("eft" -> "EFT"); "other" or
+// empty says nothing useful, so the line just omits it.
+const PAYMENT_METHOD_WORDS: Record<string, string> = {
+  eft: "EFT",
+  payfast: "PayFast",
+  yoco: "Yoco",
+  stripe: "card",
+  card: "card",
+  cash: "cash",
+  credit: "account credit",
+};
+function paymentMethodWords(method: string | null | undefined): string {
+  const key = String(method || "").trim().toLowerCase();
+  if (!key || key === "other" || key === "unknown") return "";
+  return PAYMENT_METHOD_WORDS[key] ?? key.replace(/[_-]+/g, " ");
+}
+
 function companyInitials(name: string | null | undefined): string {
   if (!name) return "C";
   const parts = name.split(/\s+/).filter(Boolean);
@@ -768,11 +785,17 @@ export default function InvoicePaymentPage() {
   const dueState = getInvoiceDueState(invoice.due_date, nowForInvoice);
   const isOverdue = dueState.isOverdue && !isPaid;
   // Outstanding share of the total, as a percentage, for the "X% still
-  // remaining" line. Guard against a zero total.
-  const remainingPct =
+  // remaining" line. Guard against a zero total. Kept within 1-99 while
+  // something is paid and something is owed, so a small deposit never
+  // reads "100%" next to a "Partially paid" badge.
+  const rawRemainingPct =
     Number(invoice.total_amount) > 0
       ? Math.round((Number(invoice.balance_due) / Number(invoice.total_amount)) * 100)
       : 0;
+  const remainingPct =
+    Number(invoice.balance_due) > 0 && Number(invoice.balance_due) < Number(invoice.total_amount)
+      ? Math.min(99, Math.max(1, rawRemainingPct))
+      : rawRemainingPct;
   const amountPaidToDate = paymentSummary.amountPaid;
   const vatRegistered = !!company.vat_registered;
   const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
@@ -975,7 +998,7 @@ export default function InvoicePaymentPage() {
                       {invoice.payments.map((p, i) => (
                         <p key={i} className="text-[11px] text-stone-500">
                           {fmtMoney.format(Number(p.amount) || 0)} paid on {format(new Date(p.processed_at), "d MMM yyyy")}
-                          {(p.payment_method || p.gateway_provider) && ` via ${p.payment_method || p.gateway_provider}`}
+                          {paymentMethodWords(p.payment_method || p.gateway_provider) && ` via ${paymentMethodWords(p.payment_method || p.gateway_provider)}`}
                         </p>
                       ))}
                     </div>

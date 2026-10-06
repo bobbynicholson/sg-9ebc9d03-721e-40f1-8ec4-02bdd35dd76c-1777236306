@@ -312,7 +312,7 @@ function TrialManagementPage() {
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
           variant="hero"
-          title="Trial management"
+          title="Trials"
           subtitle="Monitor and manage trial expirations across all CateringMS companies"
           icon={Calendar}
           meta={

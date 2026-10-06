@@ -1,0 +1,995 @@
+[
+  {
+    "file": "src/pages/admin/ai-brain.tsx",
+    "route": "/admin/ai-brain",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/ai-brain/access.tsx",
+    "route": "/admin/ai-brain/access",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/audit-logs.tsx",
+    "route": "/admin/audit-logs",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Filters"
+    ]
+  },
+  {
+    "file": "src/pages/admin/calendar.tsx",
+    "route": "/admin/calendar",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Gap finder"
+    ]
+  },
+  {
+    "file": "src/pages/admin/cashflow-dashboard.tsx",
+    "route": "/admin/cashflow-dashboard",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "30-day cashflow summary",
+      "Quick actions"
+    ]
+  },
+  {
+    "file": "src/pages/admin/cleaning-schedule.tsx",
+    "route": "/admin/cleaning-schedule",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/client-search.tsx",
+    "route": "/admin/client-search",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/clients.tsx",
+    "route": "/admin/clients",
+    "kind": "redirect",
+    "header": false,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/company-profile.tsx",
+    "route": "/admin/company-profile",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Identity",
+      "Region & currency",
+      "Peak season",
+      "Cash on hand staleness",
+      "VAT registration",
+      "Banking details",
+      "Kitchen / HQ address",
+      "Brand colours + logo",
+      "Document numbering"
+    ]
+  },
+  {
+    "file": "src/pages/admin/contacts.tsx",
+    "route": "/admin/contacts",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Client insights"
+    ]
+  },
+  {
+    "file": "src/pages/admin/daily-operations.tsx",
+    "route": "/admin/daily-operations",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/dashboard.tsx",
+    "route": "/admin/dashboard",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Needs attention",
+      "Upcoming work and team",
+      "Recent activity and payments",
+      "Performance and trends",
+      "Quick Actions"
+    ]
+  },
+  {
+    "file": "src/pages/admin/dispatch-queue.tsx",
+    "route": "/admin/dispatch-queue",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/dispatch.tsx",
+    "route": "/admin/dispatch",
+    "kind": "alias",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/driver-management.tsx",
+    "route": "/admin/driver-management",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Driver portal access"
+    ]
+  },
+  {
+    "file": "src/pages/admin/driver-schedule.tsx",
+    "route": "/admin/driver-schedule",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/driver-settlement.tsx",
+    "route": "/admin/driver-settlement",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/email-settings.tsx",
+    "route": "/admin/email-settings",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Use your own sending domain",
+      "Sender identity",
+      "When to email clients automatically",
+      "Mailchimp (bulk campaigns)"
+    ]
+  },
+  {
+    "file": "src/pages/admin/email-templates.tsx",
+    "route": "/admin/email-templates",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/equipment-damages.tsx",
+    "route": "/admin/equipment-damages",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/equipment.tsx",
+    "route": "/admin/equipment",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/event-profitability.tsx",
+    "route": "/admin/event-profitability",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/exceptions.tsx",
+    "route": "/admin/exceptions",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/financial-dashboard.tsx",
+    "route": "/admin/financial-dashboard",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Financial Summary",
+      "Quick Actions",
+      "Revenue Projections",
+      "Expense Tracking",
+      "Per-branch P&L"
+    ]
+  },
+  {
+    "file": "src/pages/admin/fixed-costs.tsx",
+    "route": "/admin/fixed-costs",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/hr-solutions.tsx",
+    "route": "/admin/hr-solutions",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/integrations.tsx",
+    "route": "/admin/integrations",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Get a Zap running in 60 seconds",
+      "Xero accounting",
+      "QuickBooks Online",
+      "Outbound webhooks",
+      "Inbound API keys",
+      "Catering Zap recipes",
+      "Sage Business Cloud (Pastel)"
+    ]
+  },
+  {
+    "file": "src/pages/admin/integrations/embed.tsx",
+    "route": "/admin/integrations/embed",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/integrations/embed/[id].tsx",
+    "route": "/admin/integrations/embed/[id]",
+    "kind": "dynamic",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/integrations/embed/new.tsx",
+    "route": "/admin/integrations/embed/new",
+    "kind": "redirect",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/inventory-recipes.tsx",
+    "route": "/admin/inventory-recipes",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/inventory-tracking.tsx",
+    "route": "/admin/inventory-tracking",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/inventory.tsx",
+    "route": "/admin/inventory",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/invoices.tsx",
+    "route": "/admin/invoices",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/kitchen-duty-tracking.tsx",
+    "route": "/admin/kitchen-duty-tracking",
+    "kind": "redirect",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/kitchen-schedule.tsx",
+    "route": "/admin/kitchen-schedule",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/kitchen-settings.tsx",
+    "route": "/admin/kitchen-settings",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/kitchen-settlement.tsx",
+    "route": "/admin/kitchen-settlement",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/kitchen-staff.tsx",
+    "route": "/admin/kitchen-staff",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/leads/index.tsx",
+    "route": "/admin/leads",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/leads/new.tsx",
+    "route": "/admin/leads/new",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/live-operations.tsx",
+    "route": "/admin/live-operations",
+    "kind": "page",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/menu.tsx",
+    "route": "/admin/menu",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/messaging-templates.tsx",
+    "route": "/admin/messaging-templates",
+    "kind": "redirect",
+    "header": false,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/money-health.tsx",
+    "route": "/admin/money-health",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/notification-settings.tsx",
+    "route": "/admin/notification-settings",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Email Notifications",
+      "Push Notifications",
+      "SMS Notifications",
+      "WhatsApp Notifications"
+    ]
+  },
+  {
+    "file": "src/pages/admin/notifications.tsx",
+    "route": "/admin/notifications",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/offering.tsx",
+    "route": "/admin/offering",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Often ordered together",
+      "Recently quoted",
+      "Not quoted items"
+    ]
+  },
+  {
+    "file": "src/pages/admin/onboarding/clients.tsx",
+    "route": "/admin/onboarding/clients",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/onboarding/import.tsx",
+    "route": "/admin/onboarding/import",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/onboarding/imports.tsx",
+    "route": "/admin/onboarding/imports",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/onboarding/index.tsx",
+    "route": "/admin/onboarding",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/onboarding/receipts.tsx",
+    "route": "/admin/onboarding/receipts",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/order-assignments.tsx",
+    "route": "/admin/order-assignments",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/orders.tsx",
+    "route": "/admin/orders",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/orders/[id]/ticket.tsx",
+    "route": "/admin/orders/[id]/ticket",
+    "kind": "dynamic",
+    "header": false,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/orders/delivery-sheet.tsx",
+    "route": "/admin/orders/delivery-sheet",
+    "kind": "page",
+    "header": false,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/outsource-providers/[id].tsx",
+    "route": "/admin/outsource-providers/[id]",
+    "kind": "dynamic",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/outsource-providers/index.tsx",
+    "route": "/admin/outsource-providers",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/outstanding-balances.tsx",
+    "route": "/admin/outstanding-balances",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/package.tsx",
+    "route": "/admin/package",
+    "kind": "alias",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/packages/[id].tsx",
+    "route": "/admin/packages/[id]",
+    "kind": "redirect",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/packages/index.tsx",
+    "route": "/admin/packages",
+    "kind": "redirect",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/payables.tsx",
+    "route": "/admin/payables",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/payment-gateways.tsx",
+    "route": "/admin/payment-gateways",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Before going live"
+    ]
+  },
+  {
+    "file": "src/pages/admin/platform/audit-logs.tsx",
+    "route": "/admin/platform/audit-logs",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Filters"
+    ]
+  },
+  {
+    "file": "src/pages/admin/platform/cms-blog.tsx",
+    "route": "/admin/platform/cms-blog",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/cms-pages.tsx",
+    "route": "/admin/platform/cms-pages",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "SEO"
+    ]
+  },
+  {
+    "file": "src/pages/admin/platform/company-database.tsx",
+    "route": "/admin/platform/company-database",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/currency-monitoring.tsx",
+    "route": "/admin/platform/currency-monitoring",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Currency Policy Reminder"
+    ]
+  },
+  {
+    "file": "src/pages/admin/platform/dashboard.tsx",
+    "route": "/admin/platform/dashboard",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/financial-dashboard.tsx",
+    "route": "/admin/platform/financial-dashboard",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/index.tsx",
+    "route": "/admin/platform",
+    "kind": "platform",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/messaging-templates.tsx",
+    "route": "/admin/platform/messaging-templates",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/payment-issues.tsx",
+    "route": "/admin/platform/payment-issues",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/pricing-management.tsx",
+    "route": "/admin/platform/pricing-management",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/running-todo.tsx",
+    "route": "/admin/platform/running-todo",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/settings.tsx",
+    "route": "/admin/platform/settings",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Other config keys"
+    ]
+  },
+  {
+    "file": "src/pages/admin/platform/subscription-management.tsx",
+    "route": "/admin/platform/subscription-management",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/tax-rules.tsx",
+    "route": "/admin/platform/tax-rules",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/tech-costs.tsx",
+    "route": "/admin/platform/tech-costs",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/tenant-health.tsx",
+    "route": "/admin/platform/tenant-health",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/trial-management.tsx",
+    "route": "/admin/platform/trial-management",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/platform/user-management.tsx",
+    "route": "/admin/platform/user-management",
+    "kind": "platform",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/public-holidays.tsx",
+    "route": "/admin/public-holidays",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/quotes/[id].tsx",
+    "route": "/admin/quotes/[id]",
+    "kind": "dynamic",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Menu items",
+      "Equipment",
+      "Pricing",
+      "Note to the client"
+    ]
+  },
+  {
+    "file": "src/pages/admin/quotes/index.tsx",
+    "route": "/admin/quotes",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/quotes/new.tsx",
+    "route": "/admin/quotes/new",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Client + event",
+      "Menu items",
+      "Equipment",
+      "Pricing adjustments",
+      "Notes",
+      "Client preview"
+    ]
+  },
+  {
+    "file": "src/pages/admin/recurring-invoices.tsx",
+    "route": "/admin/recurring-invoices",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/refunds.tsx",
+    "route": "/admin/refunds",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/regions.tsx",
+    "route": "/admin/regions",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/reviews.tsx",
+    "route": "/admin/reviews",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/route-planning.tsx",
+    "route": "/admin/route-planning",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Batch suggestions",
+      "Route Details & Stops"
+    ]
+  },
+  {
+    "file": "src/pages/admin/settings.tsx",
+    "route": "/admin/settings",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/shopping.tsx",
+    "route": "/admin/shopping",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/staff-hours.tsx",
+    "route": "/admin/staff-hours",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Payment History",
+      "Where the rest lives"
+    ]
+  },
+  {
+    "file": "src/pages/admin/staff.tsx",
+    "route": "/admin/staff",
+    "kind": "alias",
+    "header": false,
+    "shell": false,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/stock.tsx",
+    "route": "/admin/stock",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/subscription.tsx",
+    "route": "/admin/subscription",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "PayFast Flow Test",
+      "Usage This Quarter",
+      "Billing History",
+      "Danger Zone"
+    ]
+  },
+  {
+    "file": "src/pages/admin/suppliers/[id].tsx",
+    "route": "/admin/suppliers/[id]",
+    "kind": "dynamic",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Purchase summary",
+      "Events during this period",
+      "Products supplied",
+      "Receipts in this window"
+    ]
+  },
+  {
+    "file": "src/pages/admin/suppliers/index.tsx",
+    "route": "/admin/suppliers",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/tax-purchases.tsx",
+    "route": "/admin/tax-purchases",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/teams/cleaning.tsx",
+    "route": "/admin/teams/cleaning",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/teams/drivers.tsx",
+    "route": "/admin/teams/drivers",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/teams/index.tsx",
+    "route": "/admin/teams",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/teams/kitchen.tsx",
+    "route": "/admin/teams/kitchen",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/teams/shopping.tsx",
+    "route": "/admin/teams/shopping",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/tracking.tsx",
+    "route": "/admin/tracking",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/users.tsx",
+    "route": "/admin/users",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/vehicles.tsx",
+    "route": "/admin/vehicles",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/wages.tsx",
+    "route": "/admin/wages",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": []
+  },
+  {
+    "file": "src/pages/admin/white-label.tsx",
+    "route": "/admin/white-label",
+    "kind": "page",
+    "header": true,
+    "shell": true,
+    "collapsibleSections": [
+      "Logo & Organization",
+      "Color Palette",
+      "Live Preview"
+    ]
+  }
+]

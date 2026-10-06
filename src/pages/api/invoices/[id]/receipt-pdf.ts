@@ -27,6 +27,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { buildPdfEftPaymentDetails, isEftPaymentMethod } from "@/lib/pdfPaymentDetails";
 
 
 export const config = {
@@ -75,7 +76,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           address_line1, address_line2, city, state_province,
           postal_code, country, primary_color, currency,
           vat_registered, vat_number, vat_rate,
-          registration_number, tax_number, updated_at
+          registration_number, tax_number,
+          bank_name, bank_account_holder, bank_account_number,
+          bank_branch_code, bank_account_type, eft_instructions,
+          updated_at
         )
       `)
       .eq("id", invoiceId)
@@ -114,26 +118,34 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(409).json({ error: "Invoice is not paid yet" });
     }
 
-    // Look up the payment record for method + reference. payments.
-    // invoice_id is the canonical link; fall back to most-recent
-    // completed payment on the same order if a legacy row never
-    // back-filled invoice_id.
+    // Read the complete settlement trail. A fully paid invoice can have a
+    // deposit plus one or more follow-up payments; showing only the newest
+    // row would hide the transaction ID / timestamp the client needs.
+    // invoice_id is canonical; only legacy rows with a NULL invoice_id may
+    // fall back to the linked order.
     let paymentMethod: string | null = null;
     let paymentReference: string | null = null;
+    let paymentProvider: string | null = null;
+    let transactionId: string | null = null;
+    let paymentRows: any[] = [];
     try {
       const { data: payRows } = await ssr
         .from("payments")
-        .select("payment_method, payment_reference, transaction_id, processed_at, payment_date")
+        .select("amount, currency, payment_method, payment_reference, gateway_transaction_id, transaction_id, gateway, gateway_provider, completed_at, processed_at, payment_date, created_at, updated_at")
         .or(
-          `invoice_id.eq.${inv.id}${inv.order?.id ? `,order_id.eq.${inv.order.id}` : ""}`,
+          inv.order?.id
+            ? `invoice_id.eq.${inv.id},and(invoice_id.is.null,order_id.eq.${inv.order.id})`
+            : `invoice_id.eq.${inv.id}`,
         )
         .eq("payment_status", "completed")
-        .order("payment_date", { ascending: false })
-        .limit(1);
-      const pay = (payRows as any[])?.[0];
+        .order("payment_date", { ascending: true });
+      paymentRows = (payRows as any[]) || [];
+      const pay = paymentRows[paymentRows.length - 1];
       if (pay) {
         paymentMethod = pay.payment_method || null;
-        paymentReference = pay.payment_reference || pay.transaction_id || null;
+        paymentReference = pay.payment_reference || pay.gateway_transaction_id || pay.transaction_id || null;
+        paymentProvider = pay.gateway_provider || pay.gateway || null;
+        transactionId = pay.gateway_transaction_id || pay.transaction_id || null;
       }
     } catch (payErr) {
       // Non-fatal - receipt still renders without method/ref.
@@ -172,6 +184,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // older invoices written before the snapshot pattern landed need
     // the original join.
     const invoiceData = inv.invoice_data || {};
+    const paymentRecords = paymentRows.map((payment) => ({
+      amount: payment.amount != null ? Number(payment.amount) : null,
+      currency: payment.currency || inv.company?.currency || null,
+      payment_method: payment.payment_method || null,
+      payment_provider: payment.gateway_provider || payment.gateway || null,
+      transaction_id: payment.gateway_transaction_id || payment.transaction_id || null,
+      payment_reference: payment.payment_reference || null,
+      paid_at: payment.completed_at || payment.processed_at || payment.payment_date || payment.created_at || null,
+    }));
+    const hasEftPayment = paymentRecords.some((payment) => isEftPaymentMethod(payment.payment_method));
+    const eftDetails = hasEftPayment
+      ? buildPdfEftPaymentDetails(inv.company || {}, invoiceData.bankDetails || {}, {
+          reference: inv.invoice_number || null,
+        })
+      : null;
+    const paymentAuditVersion = paymentRows
+      .map((payment) => payment.updated_at || payment.completed_at || payment.processed_at || payment.payment_date || payment.created_at || "")
+      .filter(Boolean)
+      .join("|") || null;
     let lineItems: Array<{
       name: string;
       description?: string | null;
@@ -220,6 +251,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         paid_at: inv.paid_at,
         payment_method: paymentMethod,
         payment_reference: paymentReference,
+        payment_provider: paymentProvider,
+        transaction_id: transactionId,
+        payment_records: paymentRecords,
+        eft_details: eftDetails,
         client: {
           name: inv.client?.client_name || "",
           email: inv.client?.email || null,
@@ -244,7 +279,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       {
         cacheKey: {
           invoiceId: inv.id,
-          paidAt: inv.paid_at,
+          paidAt: paymentAuditVersion ? `${inv.paid_at}:${paymentAuditVersion}` : inv.paid_at,
           invoiceUpdatedAt: inv.updated_at,
           companyUpdatedAt: inv.company?.updated_at,
         },

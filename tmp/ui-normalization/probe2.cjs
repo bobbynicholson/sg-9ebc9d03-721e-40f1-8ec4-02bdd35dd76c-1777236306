@@ -1,0 +1,3 @@
+const fs=require('fs');const env={};for(const l of fs.readFileSync('.env.local','utf8').split(/\r?\n/)){const i=l.indexOf('=');if(i>0&&!l.trim().startsWith('#'))env[l.slice(0,i).trim()]=l.slice(i+1).trim().replace(/^["']|["']$/g,'');}
+const {createClient}=require('@supabase/supabase-js');const c=createClient(env.NEXT_PUBLIC_SUPABASE_URL,env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false}});
+(async()=>{for(const col of ['total_amount','payment_method','total_hours','payment_date','payment_period_start']){const r=await c.from('staff_payment_ledger').select(col).limit(1);console.log('staff_payment_ledger.'+col, r.error?'MISSING':'exists');}})();

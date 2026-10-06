@@ -514,7 +514,7 @@ function TechCostsDashboard() {
             meta={
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {assumptions.tenants.toLocaleString()} tenant scenario
+                  {assumptions.tenants.toLocaleString()} {assumptions.tenants === 1 ? "company" : "companies"} modelled
                   {actualTenants !== null && actualTenants !== assumptions.tenants ? ` (actual ${actualTenants})` : ""}
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
@@ -522,7 +522,7 @@ function TechCostsDashboard() {
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                   <span className={`h-1.5 w-1.5 rounded-full ${margin_per_tenant_zar > 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
-                  ZAR {margin_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })} margin / tenant
+                  ZAR {margin_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })} margin / company
                 </span>
               </>
             }
@@ -544,11 +544,11 @@ function TechCostsDashboard() {
               hint={`US$${total_usd.toFixed(2)} at ZAR ${usdToZar.toFixed(2)}/USD`}
             />
             <StatTile
-              label="Cost per tenant"
+              label="Cost per company"
               value={`ZAR ${cost_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}`}
               hint={
                 <>
-                  At {assumptions.tenants.toLocaleString()} tenants
+                  At {assumptions.tenants.toLocaleString()} {assumptions.tenants === 1 ? "company" : "companies"}
                   {actualTenants !== null && actualTenants !== assumptions.tenants && (
                     <span className="ml-1 text-slate-400">(actual: {actualTenants})</span>
                   )}
@@ -556,7 +556,7 @@ function TechCostsDashboard() {
               }
             />
             <StatTile
-              label="Margin per tenant"
+              label="Margin per company"
               value={
                 <span className={margin_per_tenant_zar > 0 ? "text-amber-600 dark:text-amber-500" : "text-rose-600 dark:text-rose-500"}>
                   ZAR {margin_per_tenant_zar.toLocaleString("en-ZA", { maximumFractionDigits: 0 })}
@@ -569,7 +569,7 @@ function TechCostsDashboard() {
           {/* Total revenue + total margin row */}
           <PortalCard id="margin-analysis" data-chat-section="platform.tech-costs.margin" data-chat-section-label="Margin analysis" className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left p-4">
               <div>
-                <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">Tenants</p>
+                <p className="text-[11px] uppercase font-semibold text-slate-500 dark:text-slate-400">Companies</p>
                 <p className="text-xl font-bold text-slate-900 dark:text-white">{assumptions.tenants.toLocaleString()}</p>
               </div>
               <div>
@@ -602,7 +602,7 @@ function TechCostsDashboard() {
 
                 <Section title="Scale">
                   <NumField
-                    label="Number of tenants"
+                    label="Number of companies"
                     value={assumptions.tenants}
                     onChange={(v) => setAssumptions({ ...assumptions, tenants: v })}
                     min={1}
@@ -610,7 +610,7 @@ function TechCostsDashboard() {
                     tooltip="Active catering companies on the platform. Pulled from companies.onboarding_completed_at IS NOT NULL on first load."
                   />
                   <NumField
-                    label="Subscription per tenant (ZAR/mo)"
+                    label="Subscription per company (ZAR/mo)"
                     value={assumptions.subscription_zar_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, subscription_zar_per_tenant: v })}
                     min={0}
@@ -619,7 +619,7 @@ function TechCostsDashboard() {
                   />
                 </Section>
 
-                <Section title="Per-tenant usage">
+                <Section title="Usage per company">
                   <NumField
                     label="Receipt scans / month"
                     value={assumptions.receipt_scans_per_tenant}
@@ -671,7 +671,7 @@ function TechCostsDashboard() {
                     tooltip="Delivery-distance lookups per tenant per month. Each quote rendered with venue + kitchen lat/lng counts."
                   />
                   <NumField
-                    label="Storage GB / tenant"
+                    label="Storage GB / company"
                     value={assumptions.storage_gb_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, storage_gb_per_tenant: v })}
                     min={0}
@@ -679,7 +679,7 @@ function TechCostsDashboard() {
                     tooltip="Avatars, logos, receipt photos, generated PDFs in Supabase Storage per tenant."
                   />
                   <NumField
-                    label="Egress GB / tenant"
+                    label="Egress GB / company"
                     value={assumptions.egress_gb_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, egress_gb_per_tenant: v })}
                     min={0}
@@ -687,14 +687,14 @@ function TechCostsDashboard() {
                     tooltip="Outbound bandwidth from Supabase per tenant per month, driven by client portal page loads + image fetches."
                   />
                   <NumField
-                    label="MAU per tenant"
+                    label="Monthly active users per company"
                     value={assumptions.mau_per_tenant}
                     onChange={(v) => setAssumptions({ ...assumptions, mau_per_tenant: v })}
                     min={0}
                     tooltip="Monthly active users that touch auth (staff + active clients). Supabase MAU billing kicks in at 100k cumulative."
                   />
                   <NumField
-                    label="Function invocations (M) / tenant"
+                    label="Function invocations (M) / company"
                     value={assumptions.function_invocations_per_tenant_m}
                     onChange={(v) => setAssumptions({ ...assumptions, function_invocations_per_tenant_m: v })}
                     min={0}
@@ -791,7 +791,7 @@ function TechCostsDashboard() {
                       <strong>{biggestCategory.category}</strong> is{" "}
                       {((biggestCategory.subtotal_usd / total_usd) * 100).toFixed(0)}%
                       {" "}of your monthly spend. That&apos;s where the lever is. Caps on free-trial
-                      AI scans, image-size limits before storage, or per-tenant rate-limits will
+                      AI scans, image-size limits before storage, or per-company rate limits will
                       move the dial more than anywhere else.
                     </div>
                   </div>
@@ -814,10 +814,10 @@ function TechCostsDashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
-                      <th className="py-2">Tenants</th>
+                      <th className="py-2">Companies</th>
                       <th className="py-2">Monthly platform cost</th>
-                      <th className="py-2">Per-tenant cost</th>
-                      <th className="py-2">Per-tenant margin (at ZAR {assumptions.subscription_zar_per_tenant})</th>
+                      <th className="py-2">Cost per company</th>
+                      <th className="py-2">Margin per company (at ZAR {assumptions.subscription_zar_per_tenant})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -852,11 +852,9 @@ function TechCostsDashboard() {
           <PortalCard className="p-4 flex items-start gap-2">
             <Info className="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              All vendor pricing is captured in named constants at the top of{" "}
-              <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">src/pages/admin/platform/tech-costs.tsx</code>.
-              Update those when a vendor changes their card and the projection here, the recommendations,
-              and the per-tenant margin all recompute on the next page load. This is a calculator, not an
-              integration. It doesn&apos;t pull live billing from any vendor.
+              Vendor prices are fixed in the app and need a developer to update when a vendor changes
+              them; the projection, recommendations and margin per company then recompute. This is a
+              calculator, not a live feed: it doesn&apos;t pull real billing from any vendor.
             </p>
           </PortalCard>
         </PortalShell>

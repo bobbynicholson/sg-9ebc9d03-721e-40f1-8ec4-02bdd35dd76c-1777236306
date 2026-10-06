@@ -142,7 +142,7 @@
     // Any remaining fields after the two rows.
     fields.forEach(function (f) {
       if (entries.find(function (e) { return e.field.id === f.id; })) return;
-      if (f.id === 'guests' || f.id === 'tier') return;
+      if (f.id === 'guests' || f.id === 'guest_count' || f.id === 'tier') return;
       var wrap = h.el('div', { class: 'cms-field', dataset: { fid: f.id } });
       var id = 'ee_' + f.id;
       wrap.appendChild(h.el('label', { class: 'cms-label', for: id, text: f.label + (f.required ? ' *' : '') }));
@@ -163,10 +163,12 @@
 
     var token = null;
     if (config.turnstileSiteKey) h.mountTurnstile(host, tslot, config.turnstileSiteKey, function (t) { token = t; });
-    h.bindFormRunner(host, form, fields.filter(function (f) { return f.id !== 'guests' && f.id !== 'tier'; }), entries, h, {
+    h.bindFormRunner(host, form, fields.filter(function (f) { return f.id !== 'guests' && f.id !== 'guest_count' && f.id !== 'tier'; }), entries, h, {
       alertEl: alert, button: btn, config: config,
       getTurnstileToken: function () { return token; },
-      extraValues: function () { return { guests: Number(disp.value) || 0, tier: selectedTier }; }
+      // guest_count is the canonical id the lead mapping reads; guests
+      // is kept for legacy forms.
+      extraValues: function () { var g = Number(disp.value) || 0; return { guests: g, guest_count: g, tier: selectedTier }; }
     });
   }
   window.__cmsTemplates['event-estimator'] = { render: render };

@@ -49,6 +49,7 @@ import { SharedRoleClockCard } from "@/components/portal/SharedRoleClockCard";
 import { useActiveShoppingList } from "@/hooks/useActiveShoppingList";
 import { BarcodeScanFab } from "@/components/shopping/BarcodeScanFab";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
+import { formatDate, formatZAR } from "@/lib/formatters";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { getShoppingCostVariance, formatShoppingVariance, parseMoneyInput } from "@/lib/shopping/completionRules";
@@ -58,7 +59,12 @@ function ShoppingDashboardInner() {
   const { withSlug } = useTenantHref();
   const { toast } = useToast();
   const companyId = (user as any)?.company_id || null;
-  const tenantCurrency = useTenantCurrency(companyId);
+  const tenantCurrencyBase = useTenantCurrency(companyId);
+  // Grouped amounts ("R 24 493") via the shared formatter.
+  const tenantCurrency = {
+    ...tenantCurrencyBase,
+    format: (n: number, decimals = 2) => formatZAR(n, { currency: tenantCurrencyBase.code, decimals }),
+  };
   const activeList = useActiveShoppingList();
 
   const [filter, setFilter] = useState<"all" | "pending" | "purchased">("pending");
@@ -83,6 +89,12 @@ function ShoppingDashboardInner() {
   // are best-effort (badge just stays at 0).
   const [pendingReceiptsCount, setPendingReceiptsCount] = useState(0);
   const [lowStockCount, setLowStockCount] = useState(0);
+  // Most-short items for the "Low stock alerts" card (kitchen layout).
+  const [lowStockItems, setLowStockItems] = useState<Array<{
+    id: string; item_name: string | null; current_stock: number | null;
+    minimum_stock: number | null; unit_of_measure: string | null;
+  }>>([]);
+  const [peeksLoaded, setPeeksLoaded] = useState(false);
   useEffect(() => {
     if (!companyId) return;
     let cancelled = false;
@@ -101,15 +113,23 @@ function ShoppingDashboardInner() {
           // current_stock <= minimum_stock client-side (same as kitchen).
           (supabase as any)
             .from("inventory_items")
-            .select("current_stock, minimum_stock")
+            .select("id, item_name, current_stock, minimum_stock, unit_of_measure")
             .eq("company_id", companyId),
         ]);
         if (cancelled) return;
-        const lowCount = ((lowStockRes?.data || []) as Array<{ current_stock: number | null; minimum_stock: number | null }>)
-          .filter((i) => i.current_stock != null && i.minimum_stock != null && i.current_stock <= i.minimum_stock)
-          .length;
+        const low = ((lowStockRes?.data || []) as Array<{
+          id: string; item_name: string | null; current_stock: number | null;
+          minimum_stock: number | null; unit_of_measure: string | null;
+        }>).filter((i) => Number(i.minimum_stock || 0) > 0 && Number(i.current_stock || 0) <= Number(i.minimum_stock || 0));
+        // Same rule as Inventory "Below par" and Restock: an item with no
+        // minimum set is never "low", so all three pages agree.
         setPendingReceiptsCount(receiptsCount ?? 0);
-        setLowStockCount(lowCount);
+        setLowStockCount(low.length);
+        // Furthest below minimum first.
+        setLowStockItems([...low]
+          .sort((a, b) => ((a.current_stock ?? 0) - (a.minimum_stock ?? 0)) - ((b.current_stock ?? 0) - (b.minimum_stock ?? 0)))
+          .slice(0, 5));
+        setPeeksLoaded(true);
       } catch (e) {
         // Counts are non-critical, log + leave at 0.
         console.warn("[shopping/dashboard] peek counts failed:", e);
@@ -333,7 +353,7 @@ function ShoppingDashboardInner() {
     <>
       <ShoppingPageShell
         pageTitle="Shopping dashboard - CateringMS"
-        heading="Shopping today"
+        heading="Today"
         subheading={
           chipsReady && activeList.list
             ? "Live run desk: tick purchases, attach receipt details, and close out today's active list."
@@ -416,26 +436,116 @@ function ShoppingDashboardInner() {
               </div>
             </div>
           ) : !activeList.list ? (
-            <PortalCard padded={false}>
-              <div className="py-16 px-6 text-center">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                  <ShoppingCart className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+            // No list running: same workspace layout as the kitchen Today
+            // page - numbers first, a calm status card with the next
+            // actions, then the items that are actually running low.
+            <>
+              {/* The next job first (on a phone it used to sit ~1000px
+                  down, under the numbers); amber when something is low. */}
+              <PortalCard
+                padded={false}
+                className={`mb-6 ${lowStockCount > 0
+                  ? "border-amber-200 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20"
+                  : "border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40"}`}
+              >
+                <div className="p-4 sm:p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${lowStockCount > 0
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                      : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"}`}>
+                      {lowStockCount > 0 ? <ShoppingCart className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
+                    </span>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Next up</p>
+                      <p className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white leading-tight mt-1">
+                        {lowStockCount > 0 ? `${lowStockCount} item${lowStockCount === 1 ? "" : "s"} running low` : "All stocked"}
+                      </p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                        {lowStockCount > 0
+                          ? "Open the Buy list to start a shopping run, or top up straight into stock from Restock."
+                          : "No shopping run open. Check the Buy list before the next events come in."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 sm:shrink-0">
+                    <Link
+                      href={withSlug("/team-portal/shopping/buy-list")}
+                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-brand-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                    >
+                      <ListChecks className="h-3.5 w-3.5" />
+                      Open Buy list
+                    </Link>
+                    <Link
+                      href={withSlug("/team-portal/shopping/restock")}
+                      className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                    >
+                      Restock
+                    </Link>
+                    {pendingReceiptsCount > 0 && (
+                      <Link
+                        href={withSlug("/team-portal/shopping/receipts")}
+                        className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-brand-primary/40 hover:text-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                      >
+                        File receipts
+                      </Link>
+                    )}
+                  </div>
                 </div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1.5">
-                  No active shopping list
-                </h2>
-                <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-5">
-                  Open the Buy list to see what's short and start a new shopping run. Ticks save automatically once a list is going.
-                </p>
-                <Link href={withSlug("/team-portal/shopping/buy-list")}>
-                  <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg gap-1.5">
-                    <ListChecks className="w-4 h-4" />
-                    Open Buy list
-                    <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                  </Button>
-                </Link>
+              </PortalCard>
+
+              <div className="grid grid-cols-2 gap-3 mb-6 sm:gap-4">
+                <StatTile
+                  icon={AlertCircle}
+                  label="Low stock"
+                  value={peeksLoaded ? lowStockCount : "--"}
+                  hint="At or below their minimum"
+                />
+                <StatTile
+                  icon={Camera}
+                  label="Receipts to file"
+                  value={peeksLoaded ? pendingReceiptsCount : "--"}
+                  hint="Finished lists without a slip"
+                />
               </div>
-            </PortalCard>
+
+
+              {lowStockItems.length > 0 && (
+                <PortalCard className="mb-6 border-rose-200 dark:border-rose-900">
+                  <PortalCardHeader
+                    title={
+                      <span className="flex items-center gap-2 text-base sm:text-lg text-slate-900 dark:text-white">
+                        <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-500" />
+                        Low stock alerts
+                      </span>
+                    }
+                    action={lowStockCount > lowStockItems.length ? (
+                      <Link href={withSlug("/team-portal/shopping/restock")} className="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary hover:underline">
+                        See all {lowStockCount}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : undefined}
+                  />
+                  <div className="space-y-2">
+                    {lowStockItems.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex-wrap">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <Package className="w-5 h-5 text-rose-500 dark:text-rose-400 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm text-slate-900 dark:text-white truncate">{item.item_name || "Unnamed item"}</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                              Current: {item.current_stock} {item.unit_of_measure} &middot; Minimum: {item.minimum_stock}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900">
+                          {(item.current_stock ?? 0) <= 0 ? "Out of stock" : "Low stock"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </PortalCard>
+              )}
+            </>
           ) : (
             <>
               {/* Active list hero */}
@@ -542,7 +652,7 @@ function ShoppingDashboardInner() {
               </PortalCard>
 
               {/* Metric tiles */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+              <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 sm:mb-8">
                 <StatTile
                   icon={ShoppingCart}
                   label="Total items"
@@ -565,7 +675,7 @@ function ShoppingDashboardInner() {
                   icon={AlertCircle}
                   label="List date"
                   value={activeList.list.list_date ? new Date(activeList.list.list_date).getDate() : "--"}
-                  hint={activeList.list.list_date || "No date set"}
+                  hint={activeList.list.list_date ? formatDate(activeList.list.list_date, { year: true }) : "No date set"}
                 />
               </div>
 
