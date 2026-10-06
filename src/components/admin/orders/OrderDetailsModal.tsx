@@ -38,6 +38,7 @@ import { emitOrderUpdated, onOrderUpdated } from "@/lib/events/orderEvents";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { formatDate } from "@/lib/formatters";
 import { toLocalISO } from "@/lib/localDate";
+import { groupByCourse, groupByCategory } from "@/lib/menuCourses";
 import { downloadOrderIcs } from "@/lib/orderToIcs";
 import { staffOrderHref } from "@/lib/orderUrls";
 import {
@@ -269,7 +270,7 @@ const reloadEquipment = async () => {
   // below.
   const { data, error } = await supabase
     .from("equipment_bookings")
-    .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price)")
+    .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price, category)")
     .eq("order_id", selectedOrder.id);
   if (error) {
     console.error("[admin/orders] equipment_bookings reload failed:", error);
@@ -523,7 +524,7 @@ useEffect(() => {
     try {
       const { data, error } = await supabase
         .from("equipment_bookings")
-        .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price)")
+        .select("id, equipment_id, quantity, status, booked_from, booked_until, returned_quantity, equipment:equipment!equipment_bookings_equipment_id_fkey(name, rental_price, category)")
         .eq("order_id", selectedOrder.id);
       if (error) {
         console.error("[admin/orders] equipment_bookings fetch failed:", error);
@@ -1681,77 +1682,77 @@ return (
                 </p>
               </div>
             ) : (
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="text-left px-3 py-2">Item</th>
-                      <th className="text-right px-3 py-2 w-16">Qty</th>
-                      <th className="text-right px-3 py-2 w-28">Unit price</th>
-                      <th className="text-right px-3 py-2 w-28">Line total</th>
-                      {editMode && <th className="px-3 py-2 w-12" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderItemsRaw.map((it: any) => {
-                      // Prefer the live menu_items.category (source
-                      // of truth) over the stored description column.
-                      // Pre-Wave-30.3 quote lines collapsed 'salad'
-                      // and 'starter' into 'appetizer' and persisted
-                      // that to order_items.description; using the
-                      // joined category corrects the display without
-                      // a data backfill.
-                      // Source-of-truth order: the joined menu_item
-                      // category, then a name-match against the live menu
-                      // catalog (recovers the real category for legacy
-                      // lines with no menu_item_id), then the stored
-                      // description (which may hold the old collapsed
-                      // "appetizer" value) as a last resort.
-                      const nameKey = String(it.item_name || "").toLowerCase().trim();
-                      const liveCategory = it.menu_item?.category
-                        ? String(it.menu_item.category).toLowerCase()
-                        : (nameKey && menuCategoryByName.has(nameKey)
-                            ? String(menuCategoryByName.get(nameKey)).toLowerCase()
-                            : null);
-                      const categoryLabel = liveCategory || it.description || null;
-                      return (
-                      <tr key={it.id} className="border-t border-slate-100">
-                        <td className="px-3 py-2">
-                          <div className="font-medium text-slate-900">{it.item_name || "(unnamed)"}</div>
-                          {categoryLabel && (
-                            <div className="text-xs text-slate-500 mt-0.5">{categoryLabel}</div>
-                          )}
-                          {it.special_instructions && (
-                            <div className="text-xs text-amber-700 mt-0.5">Note: {it.special_instructions}</div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums">{it.quantity ?? "-"}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">
-                          {C}{Number(it.unit_price || 0).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="px-3 py-2 text-right tabular-nums font-medium">
-                          {C}{Number(it.line_total || (Number(it.quantity || 0) * Number(it.unit_price || 0))).toLocaleString("en-ZA", { maximumFractionDigits: 2 })}
-                        </td>
-                        {editMode && (
-                          <td className="px-3 py-2 text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 h-7 w-7 p-0"
-                              onClick={() => handleRemoveMenuItem(it.id)}
-                              disabled={miRemoving === it.id}
-                              title="Remove from order"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </td>
-                        )}
-                      </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              // Grouped by course (Starters, Mains, Sides...), the same
+              // way the quote builder and website quote form show them.
+              (() => {
+                // Older lines were saved as "Main: - Boerewors (150g)" with no
+                // category; the prefix carries the course and is hidden.
+                const LEGACY_PREFIX = /^\s*(starter|appeti[sz]er|main|side|salad|dessert|beverage|drink)s?\s*:\s*-?\s*/i;
+                const displayName = (it: any) => String(it.item_name || "(unnamed)").replace(LEGACY_PREFIX, "") || "(unnamed)";
+                const categoryFor = (it: any) => {
+                  // Source-of-truth order: the joined menu_item category,
+                  // then a name-match against the live menu catalog
+                  // (recovers legacy lines with no menu_item_id), then the
+                  // stored description (may hold the old "appetizer").
+                  const nameKey = String(it.item_name || "").toLowerCase().trim();
+                  const cleanKey = displayName(it).toLowerCase().trim();
+                  const prefix = (String(it.item_name || "").match(LEGACY_PREFIX) || [])[1];
+                  return it.menu_item?.category
+                    || (nameKey && menuCategoryByName.has(nameKey) ? menuCategoryByName.get(nameKey) : null)
+                    || (cleanKey && menuCategoryByName.has(cleanKey) ? menuCategoryByName.get(cleanKey) : null)
+                    || prefix
+                    || it.description
+                    || null;
+                };
+                const lineTotal = (it: any) => Number(it.line_total || (Number(it.quantity || 0) * Number(it.unit_price || 0)));
+                const money = (n: number) => `${C}${n.toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const groups = groupByCourse(orderItemsRaw as any[], categoryFor);
+                return (
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {groups.map((g) => (
+                      <div key={g.course} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+                          <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                            {g.heading}
+                            <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-semibold text-brand-primary">{g.items.length}</span>
+                          </span>
+                          <span className="text-xs font-semibold tabular-nums text-slate-700">
+                            {money(g.items.reduce((sum: number, it: any) => sum + lineTotal(it), 0))}
+                          </span>
+                        </div>
+                        <ul className="divide-y divide-slate-100">
+                          {g.items.map((it: any) => (
+                            <li key={it.id} className="flex items-start gap-3 px-3 py-2.5">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-slate-900">{displayName(it)}</div>
+                                <div className="mt-0.5 text-xs tabular-nums text-slate-500">
+                                  {it.quantity ?? "-"} × {money(Number(it.unit_price || 0))}
+                                </div>
+                                {it.special_instructions && (
+                                  <div className="mt-0.5 text-xs text-amber-700">Note: {it.special_instructions}</div>
+                                )}
+                              </div>
+                              <div className="text-sm font-semibold tabular-nums text-slate-900">{money(lineTotal(it))}</div>
+                              {editMode && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-800"
+                                  onClick={() => handleRemoveMenuItem(it.id)}
+                                  disabled={miRemoving === it.id}
+                                  title="Remove from order"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
             )}
 
             {!editMode && orderItemsRaw.length > 0 && (
@@ -1854,51 +1855,57 @@ return (
                 </p>
               </div>
             ) : (
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="text-left px-3 py-2">Equipment</th>
-                      <th className="text-right px-3 py-2 w-16">Qty</th>
-                      <th className="text-left px-3 py-2 w-32">Status</th>
-                      <th className="text-left px-3 py-2 w-44">Booked window</th>
-                      {editMode && <th className="px-3 py-2 w-12" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {equipmentBookings.map((b: any) => {
-                      const eqName = (b.equipment && (Array.isArray(b.equipment) ? b.equipment[0]?.name : b.equipment.name)) || "(equipment)";
-                      const window = b.booked_from && b.booked_until
-                        ? `${new Date(b.booked_from).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} → ${new Date(b.booked_until).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`
-                        : "-";
-                      return (
-                        <tr key={b.id} className="border-t border-slate-100">
-                          <td className="px-3 py-2 font-medium text-slate-900">{eqName}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{b.quantity ?? "-"}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant="outline" className="capitalize">{b.status || "booked"}</Badge>
-                          </td>
-                          <td className="px-3 py-2 text-xs text-slate-600">{window}</td>
-                          {editMode && (
-                            <td className="px-3 py-2 text-right">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 h-7 w-7 p-0"
-                                onClick={() => handleRemoveEquipment(b.id)}
-                                disabled={eqRemoving === b.id}
-                                title="Remove from order"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              // Grouped by equipment type (Crockery, Cutlery...).
+              (() => {
+                const eqOf = (b: any) => (b.equipment && (Array.isArray(b.equipment) ? b.equipment[0] : b.equipment)) || {};
+                const groups = groupByCategory(equipmentBookings as any[], (b: any) => eqOf(b).category);
+                return (
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {groups.map((g) => (
+                      <div key={g.heading} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+                          <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                            {g.heading}
+                            <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-semibold text-brand-primary">{g.items.length}</span>
+                          </span>
+                          <span className="text-xs text-slate-500 tabular-nums">
+                            {g.items.reduce((sum: number, b: any) => sum + Number(b.quantity || 0), 0)} pieces
+                          </span>
+                        </div>
+                        <ul className="divide-y divide-slate-100">
+                          {g.items.map((b: any) => {
+                            const window = b.booked_from && b.booked_until
+                              ? `${new Date(b.booked_from).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })} → ${new Date(b.booked_until).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}`
+                              : null;
+                            return (
+                              <li key={b.id} className="flex items-center gap-3 px-3 py-2.5">
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium text-slate-900">{eqOf(b).name || "(equipment)"}</div>
+                                  {window && <div className="mt-0.5 text-xs text-slate-500">{window}</div>}
+                                </div>
+                                <span className="text-sm font-semibold tabular-nums text-slate-900">× {b.quantity ?? "-"}</span>
+                                <Badge variant="outline" className="capitalize">{b.status || "booked"}</Badge>
+                                {editMode && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 w-7 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-800"
+                                    onClick={() => handleRemoveEquipment(b.id)}
+                                    disabled={eqRemoving === b.id}
+                                    title="Remove from order"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
             )}
 
             {/* Footer link out - for the rare case where the operator

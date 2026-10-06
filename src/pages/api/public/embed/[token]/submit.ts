@@ -24,6 +24,8 @@ import {
   EMBED_EQUIPMENT_PACKAGE_FIELD_ID,
   EMBED_WAITER_FIELD_ID,
   EMBED_CHEF_FIELD_ID,
+  EMBED_KIDS_FIELD_ID,
+  KIDS_MEAL_PATTERN,
   isTicked,
   resolveEquipmentPackages,
   fieldsForRequestType,
@@ -511,6 +513,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       unit_price: unitPrice,
       line_total: unitPrice,
     });
+  }
+  // Children: the tenant's kiddies meal, quantity = number of children
+  // (an R0 "Children's meals" line for staff to price if the menu has none).
+  const kids = Math.min(1000, Math.max(0, Math.floor(Number(payload[EMBED_KIDS_FIELD_ID]) || 0)));
+  if (kids > 0) {
+    const { data: menuRows } = await (supabase as any)
+      .from("menu_items")
+      .select("id, item_name, base_price, category, dietary_tags")
+      .eq("company_id", company.id)
+      .is("deleted_at", null)
+      .or("is_available.is.null,is_available.eq.true");
+    const kidsMeal = ((menuRows || []) as any[]).find((m) => KIDS_MEAL_PATTERN.test(String(m.item_name || "")));
+    const unitPrice = Number(kidsMeal?.base_price) || 0;
+    requestedCatalogueItems.push({
+      item_type: "menu",
+      menu_item_id: kidsMeal?.id,
+      item_name: kidsMeal?.item_name || "Children's meals",
+      name: kidsMeal?.item_name || "Children's meals",
+      category: kidsMeal?.category || "Other",
+      dietary_tags: kidsMeal?.dietary_tags || null,
+      pricing_mode: "per_portion",
+      quantity: kids,
+      unit_price: unitPrice,
+      line_total: Number((unitPrice * kids).toFixed(2)),
+    });
+    mapped.notes = [mapped.notes, `Children: ${kids} (${kidsMeal?.item_name || "children's meals"} added to the quote)`].filter(Boolean).join("\n\n");
   }
   const servicesRequested = [waiterRequested ? "Waiter service" : null, chefRequested ? "On-site chef" : null].filter(Boolean);
   if (servicesRequested.length > 0) {

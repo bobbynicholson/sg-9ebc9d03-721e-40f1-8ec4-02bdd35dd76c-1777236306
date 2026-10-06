@@ -80,4 +80,21 @@ describe("equipment place-setting packages", () => {
     expect(hidden).toContain("waiter_service");
     expect(hidden).not.toContain("onsite_chef");
   });
+
+  it("asks how many children right after guests, and keeps kids meals out of the menu", () => {
+    const fields = addCatalogueFields(
+      [
+        { id: "guest_count", type: "number", label: "Guests", required: true, visible: true, order: 5, mapsTo: "guest_count" },
+        { id: "notes", type: "textarea", label: "Notes", required: false, visible: true, order: 99, mapsTo: "notes" },
+      ] as any,
+      "detailed-multi-step",
+      [...menu, { id: "kid", item_name: "Kiddies Meals", base_price: 75, category: "Other" }] as any,
+      equipment as any,
+      "ZAR",
+    );
+    const ids = fields.map((f) => f.id);
+    expect(ids.indexOf("children_count")).toBe(ids.indexOf("guest_count") + 1);
+    const menuOptions = (fields.find((f) => f.id === "menu_item_ids")?.options || []) as any[];
+    expect(menuOptions.some((o) => o.value === "kid")).toBe(false);
+  });
 });

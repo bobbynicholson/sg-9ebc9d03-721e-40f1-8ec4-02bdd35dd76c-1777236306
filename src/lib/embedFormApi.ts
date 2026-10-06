@@ -126,6 +126,7 @@ const INTERNAL_PAYLOAD_KEYS = new Set([
   "equipment_package",
   "waiter_service",
   "onsite_chef",
+  "children_count",
   "website",
 ]);
 

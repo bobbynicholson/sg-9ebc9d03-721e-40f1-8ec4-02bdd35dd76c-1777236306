@@ -6,6 +6,10 @@ export const EMBED_REQUEST_TYPE_FIELD_ID = "request_type";
 export const EMBED_EQUIPMENT_PACKAGE_FIELD_ID = "equipment_package";
 export const EMBED_WAITER_FIELD_ID = "waiter_service";
 export const EMBED_CHEF_FIELD_ID = "onsite_chef";
+export const EMBED_KIDS_FIELD_ID = "children_count";
+
+/** The tenant's children's meal ("Kiddies Meals", "Kids meal"...). */
+export const KIDS_MEAL_PATTERN = /\b(kid|kids|kiddie|kiddies|child|children)/i;
 
 /** True for a ticked service box (checkbox values arrive as true / "true"). */
 export function isTicked(value: unknown): boolean {
@@ -199,11 +203,12 @@ export function addCatalogueFields(
       return next;
     });
   let nextOrder = plain.reduce((max, field) => Math.max(max, field.order || 0), 0) + 1;
-  const notesIdx = plain.findIndex((f) => f.id === "notes" || f.mapsTo === "notes");
   const extras: EmbedField[] = [];
   // Staffing (waiters, servers) is asked with the service tick boxes, so
   // "Service"/"Staff" categories stay out of the menu courses.
-  const dishes = menu.filter((item) => !/^(service|services|staff|staffing)$/i.test(String(item.category || "").trim()));
+  const dishes = menu.filter((item) =>
+    !/^(service|services|staff|staffing)$/i.test(String(item.category || "").trim())
+    && !KIDS_MEAL_PATTERN.test(String(item.item_name || "")));
   if (dishes.length > 0 && !plain.some((f) => f.id === EMBED_MENU_FIELD_ID)) {
     extras.push(menuField(dishes, nextOrder++, undefined));
   }
@@ -230,6 +235,31 @@ export function addCatalogueFields(
   } else if (equipment.length > 0 && !plain.some((f) => f.id === EMBED_EQUIPMENT_FIELD_ID)) {
     extras.push(equipmentField(equipment, nextOrder++, undefined));
   }
+  // "How many children?": the quote gets the children's meal with this
+  // quantity. Sits right after the guest count (Event step).
+  const savedKids = fields.find((f) => f.id === EMBED_KIDS_FIELD_ID);
+  const kidsIdx = plain.findIndex((f) => f.id === EMBED_KIDS_FIELD_ID);
+  if (kidsIdx !== -1) plain.splice(kidsIdx, 1);
+  if (savedKids?.visible !== false) {
+    const guestIdx = plain.findIndex((f) => f.id === "guest_count" || f.id === "guests" || f.mapsTo === "guest_count");
+    const kidsField = {
+      id: EMBED_KIDS_FIELD_ID,
+      type: "number",
+      label: savedKids?.label || "How many children?",
+      // Just the number: no hint text (the quote handles the meals).
+      placeholder: savedKids?.placeholder || "",
+      helpText: savedKids?.helpText,
+      required: false,
+      visible: true,
+      order: guestIdx !== -1 ? (plain[guestIdx].order || 0) + 0.5 : nextOrder++,
+      validation: { min: 0, max: 1000 },
+      // Multi-step form: keep it on the Event page next to the guests.
+      step: 1,
+    } as EmbedField;
+    if (guestIdx !== -1) plain.splice(guestIdx + 1, 0, kidsField);
+    else extras.push(kidsField);
+  }
+
   // Service tick boxes: waiters and an on-site chef. Shown on every form
   // unless the form saved its own version and switched it off.
   const services: { id: string; label: string; text: string }[] = [
@@ -253,6 +283,8 @@ export function addCatalogueFields(
     });
   }
   if (extras.length === 0) return plain;
+  // Found after the children box went in, so the index is current.
+  const notesIdx = plain.findIndex((f) => f.id === "notes" || f.mapsTo === "notes");
   if (notesIdx !== -1) {
     // Take the notes field's slot so notes stays last.
     const notesOrder = plain[notesIdx].order || 0;

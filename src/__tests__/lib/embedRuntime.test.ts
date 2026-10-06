@@ -294,6 +294,7 @@ describe("catalogue-backed website quotes", () => {
       "venue",
       "menu_item_ids",
       "equipment_item_ids",
+      "children_count",
       "waiter_service",
       "onsite_chef",
     ]);
