@@ -117,7 +117,7 @@ export function getSetupChecklist(opts: SetupChecksOptions): SetupCheck[] {
       id: "tier-field-present",
       severity: "required",
       label: "Form has a tier picker field",
-      detail: "The Pricing Calculator / Event Estimator templates expect a visible tier field. If you deleted it, add one back via Add field -> Pricing tier (or Dropdown named \"tier\").",
+      detail: "The Pricing Calculator / Event Estimator templates expect a visible tier field. If you deleted it, add one back via Add question -> Pricing tier (or Dropdown named \"tier\").",
       passed: hasTierField,
       anchor: "section-fields",
     });
