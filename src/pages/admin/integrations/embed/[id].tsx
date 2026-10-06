@@ -859,7 +859,7 @@ function EmbedFormCustomiser() {
                   <div className="rounded-lg border border-slate-200 p-2.5">
                     <p className="text-xs font-semibold text-slate-800">Menu, by course</p>
                     <p className="mt-0.5 text-[11px] text-slate-500">
-                      One section per category (Starters, Mains, Sides, Salads, Desserts...) with a dropdown and <strong>Add line</strong>. Built live from your menu: available items only, no prices shown.
+                      One card per category (Starters, Mains, Sides, Salads, Desserts...). Visitors pick dishes from the card&apos;s dropdown and each choice appears as a removable tag. Built live from your menu: available items only, no prices shown.
                     </p>
                     <Link href={withSlug("/admin/menu")} className="mt-1 inline-block text-[11px] font-semibold text-brand-primary hover:underline">Edit menu items →</Link>
                   </div>

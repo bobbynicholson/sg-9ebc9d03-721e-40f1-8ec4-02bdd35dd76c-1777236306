@@ -129,7 +129,7 @@ function menuField(
     type: "checkboxes",
     label: "Menu",
     helpText:
-      "Choose dishes from each course. Use Add line for more than one. The team confirms portions, availability and pricing in your quote.",
+      "Pick as many dishes as you like from each course. The team confirms portions, availability and pricing in your quote.",
     required: false,
     visible: true,
     order,

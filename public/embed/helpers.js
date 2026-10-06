@@ -369,23 +369,26 @@
     '.cms-suggest-status{padding:10px 12px;font-size:13px;color:#64748B}',
     '.cms-suggest-footer{padding:8px 10px 4px;margin-top:4px;border-top:1px solid #F1F5F9;font-size:11.5px;color:#94A3B8}',
     /* Menu by course: one card per course, dropdown lines + Add line. */
-    '.cms-course-picker{display:flex;flex-direction:column;gap:10px}',
-    '.cms-course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}',
-    '.cms-course{border:1.5px solid #E2E8F0;border-radius:14px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px}',
-    '.cms-course:focus-within{border-color:color-mix(in srgb,var(--brand-primary,#0F172A) 45%,#E2E8F0)}',
-    '.cms-course-head{display:flex;align-items:center;justify-content:space-between;gap:8px}',
-    '.cms-course-name{font-size:14px;font-weight:700;color:#0F172A}',
-    '.cms-course-count{font-size:11.5px;font-weight:600;color:var(--brand-primary,#0F172A);background:color-mix(in srgb,var(--brand-primary,#0F172A) 10%,#fff);padding:2px 8px;border-radius:999px}',
+    '.cms-course-picker{display:flex;flex-direction:column;gap:12px;padding:4px 0}',
+    '.cms-course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:16px}',
+    '.cms-course{border:1px solid #E2E8F0;border-radius:16px;padding:16px 16px 14px;background:#fff;display:flex;flex-direction:column;gap:12px;transition:border-color .15s,box-shadow .15s}',
+    '.cms-course.has-picks{border-color:color-mix(in srgb,var(--brand-primary,#0F172A) 35%,#E2E8F0);box-shadow:0 1px 0 rgba(15,23,42,.02),0 6px 18px -10px color-mix(in srgb,var(--brand-primary,#0F172A) 45%,transparent)}',
+    '.cms-course-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}',
+    '.cms-course-name{font-size:15px;font-weight:700;color:#0F172A;letter-spacing:-.01em}',
+    '.cms-course-meta{display:flex;align-items:center;gap:8px}',
+    '.cms-course-count{min-width:22px;height:22px;padding:0 7px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;background:var(--brand-primary,#0F172A)}',
     '.cms-course-count:empty{display:none}',
-    '.cms-course-lines{display:flex;flex-direction:column;gap:6px}',
-    '.cms-course-line{display:flex;gap:6px;align-items:center}',
-    '.cms-course-line .cms-select{min-height:44px;font-size:14px}',
-    '.cms-course-remove{flex-shrink:0;width:36px;height:36px;border:0;border-radius:10px;background:#F1F5F9;color:#64748B;font-size:20px;line-height:1;cursor:pointer}',
-    '.cms-course-remove:hover{background:#FEE2E2;color:#B91C1C}',
-    '.cms-course-remove[hidden]{display:none}',
-    '.cms-course-add{align-self:flex-start;font:inherit;font-size:13px;font-weight:700;border:0;border-radius:999px;padding:7px 14px;cursor:pointer;color:#fff;background:var(--brand-primary,#0F172A)}',
-    '.cms-course-add:disabled{opacity:.35;cursor:not-allowed}',
-    '.cms-course-summary{font-size:12.5px;color:#64748B}',
+    '.cms-course-avail{font-size:12px;color:#94A3B8}',
+    '.cms-course-select{min-height:46px;font-size:14.5px;background-color:#F8FAFC}',
+    '.cms-course-select:disabled{opacity:.6;cursor:default}',
+    '.cms-chips{display:flex;flex-wrap:wrap;gap:8px}',
+    '.cms-chips:empty{display:none}',
+    '.cms-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:6px 6px 6px 12px;border-radius:999px;font-size:13.5px;font-weight:500;color:#0F172A;background:color-mix(in srgb,var(--brand-primary,#0F172A) 8%,#fff);border:1px solid color-mix(in srgb,var(--brand-primary,#0F172A) 22%,#fff);animation:cmsChipIn .18s ease-out both}',
+    '.cms-chip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.cms-chip-x{flex-shrink:0;width:22px;height:22px;border:0;border-radius:50%;background:transparent;color:#64748B;font-size:16px;line-height:1;cursor:pointer}',
+    '.cms-chip-x:hover{background:#FEE2E2;color:#B91C1C}',
+    '@keyframes cmsChipIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}',
+    '.cms-course-summary{font-size:13px;color:#64748B;padding-top:2px}',
     /* Catalogue picker: chosen rows below the search box. */
     '.cms-catalogue-picker{display:flex;flex-direction:column;gap:8px}',
     '.cms-catalogue-search{position:relative}',
@@ -971,78 +974,83 @@
       return ra !== rb ? ra - rb : a.localeCompare(b);
     });
 
+    // Per course: one roomy card with a dropdown ("Add a starter...").
+    // Picking a dish adds it straight away as a removable chip, so there
+    // are no empty select rows or separate "Add line" steps to manage.
     var wrap = el('div', { class: 'cms-course-picker', role: 'group', tabindex: '-1', 'aria-label': f.label || 'Menu' });
+    var grid = el('div', { class: 'cms-course-grid' });
     var hidden = el('div', { class: 'cms-course-hidden' });
     var summary = el('div', { class: 'cms-course-summary', 'aria-live': 'polite' });
-    var grid = el('div', { class: 'cms-course-grid' });
     wrap.appendChild(grid);
     wrap.appendChild(summary);
     wrap.appendChild(hidden);
     var sections = [];
 
-    function chosenIn(section) {
-      return section.rows.map(function (r) { return r.select.value; }).filter(Boolean);
-    }
     function sync() {
       hidden.innerHTML = '';
       var total = 0;
       sections.forEach(function (section) {
-        var picked = chosenIn(section);
-        total += picked.length;
-        section.count.textContent = picked.length ? picked.length + ' chosen' : '';
-        // Hide choices already picked in another line of the same course.
-        section.rows.forEach(function (row) {
-          Array.prototype.forEach.call(row.select.options, function (opt) {
-            if (!opt.value) return;
-            opt.disabled = opt.value !== row.select.value && picked.indexOf(opt.value) !== -1;
-          });
-          row.remove.hidden = section.rows.length === 1 && !row.select.value;
+        total += section.picked.length;
+        section.card.classList.toggle('has-picks', section.picked.length > 0);
+        section.count.textContent = section.picked.length ? String(section.picked.length) : '';
+        // Dropdown lists only dishes not yet chosen in this course.
+        var left = 0;
+        Array.prototype.forEach.call(section.select.options, function (opt) {
+          if (!opt.value) return;
+          var taken = section.picked.indexOf(opt.value) !== -1;
+          opt.hidden = taken;
+          opt.disabled = taken;
+          if (!taken) left++;
         });
-        section.add.disabled = picked.length >= section.items.length || section.rows.some(function (r) { return !r.select.value; });
-        picked.forEach(function (value) {
+        section.select.disabled = left === 0;
+        section.select.options[0].text = left === 0
+          ? 'All ' + section.name.toLowerCase() + ' added'
+          : (section.picked.length ? 'Add another ' : 'Add a ') + singular(section.name).toLowerCase() + '...';
+        section.chips.innerHTML = '';
+        section.picked.forEach(function (value) {
+          var opt = section.items.find(function (o) { return o.value === value; });
+          var remove = el('button', { type: 'button', class: 'cms-chip-x', 'aria-label': 'Remove ' + (opt ? opt.label : value), html: '&times;' });
+          remove.addEventListener('click', function () {
+            section.picked.splice(section.picked.indexOf(value), 1);
+            sync();
+            wrap.dispatchEvent(new Event('change', { bubbles: true }));
+            try { section.select.focus(); } catch (e) { /* ignore */ }
+          });
+          section.chips.appendChild(el('span', { class: 'cms-chip' }, [el('span', { class: 'cms-chip-label', text: opt ? opt.label : value }), remove]));
           var cb = el('input', { type: 'checkbox', name: f.id, value: value, class: 'cms-sr', tabindex: '-1', 'aria-hidden': 'true' });
           cb.checked = true;
           hidden.appendChild(cb);
         });
       });
-      summary.textContent = total ? total + ' dish' + (total === 1 ? '' : 'es') + ' selected' : 'No dishes selected yet. Pick from any course above.';
+      summary.textContent = total
+        ? total + ' dish' + (total === 1 ? '' : 'es') + ' chosen'
+        : 'Pick from any course. You can choose several dishes per course.';
     }
-    function addRow(section, focus) {
-      var select = el('select', { class: 'cms-select', 'aria-label': 'Choose from ' + section.name });
-      select.appendChild(el('option', { value: '', text: 'Choose a ' + singular(section.name).toLowerCase() + '...' }));
-      section.items.forEach(function (o) { select.appendChild(el('option', { value: o.value, text: o.label })); });
-      var remove = el('button', { type: 'button', class: 'cms-course-remove', 'aria-label': 'Remove this line', html: '&times;' });
-      var line = el('div', { class: 'cms-course-line' }, [select, remove]);
-      var row = { select: select, remove: remove, line: line };
-      select.addEventListener('change', function () { sync(); wrap.dispatchEvent(new Event('change', { bubbles: true })); });
-      remove.addEventListener('click', function () {
-        if (section.rows.length > 1) {
-          section.rows.splice(section.rows.indexOf(row), 1);
-          line.parentNode.removeChild(line);
-        } else {
-          select.value = '';
-        }
+
+    order.forEach(function (name) {
+      var section = { name: name, items: groups[name], picked: [] };
+      section.count = el('span', { class: 'cms-course-count' });
+      section.chips = el('div', { class: 'cms-chips' });
+      section.select = el('select', { class: 'cms-select cms-course-select', 'aria-label': 'Add from ' + name });
+      section.select.appendChild(el('option', { value: '', text: '' }));
+      section.items.forEach(function (o) { section.select.appendChild(el('option', { value: o.value, text: o.label })); });
+      section.select.addEventListener('change', function () {
+        var v = section.select.value;
+        if (v && section.picked.indexOf(v) === -1) section.picked.push(v);
+        section.select.value = '';
         sync();
         wrap.dispatchEvent(new Event('change', { bubbles: true }));
       });
-      section.rows.push(row);
-      section.lines.appendChild(line);
-      if (focus) setTimeout(function () { try { select.focus(); } catch (e) { /* ignore */ } }, 0);
-    }
-    order.forEach(function (name) {
-      var section = { name: name, items: groups[name], rows: [] };
-      section.count = el('span', { class: 'cms-course-count' });
-      section.lines = el('div', { class: 'cms-course-lines' });
-      section.add = el('button', { type: 'button', class: 'cms-course-add', text: '+ Add line' });
-      section.add.addEventListener('click', function () { addRow(section, true); sync(); });
-      var card = el('div', { class: 'cms-course' }, [
-        el('div', { class: 'cms-course-head' }, [el('span', { class: 'cms-course-name', text: name }), section.count]),
-        section.lines,
-        section.add
+      section.card = el('div', { class: 'cms-course' }, [
+        el('div', { class: 'cms-course-head' }, [
+          el('span', { class: 'cms-course-name', text: name }),
+          el('span', { class: 'cms-course-meta' }, [section.count, el('span', { class: 'cms-course-avail', text: section.items.length + ' option' + (section.items.length === 1 ? '' : 's') })])
+        ]),
+        section.select,
+        section.chips
       ]);
-      grid.appendChild(card);
+      grid.appendChild(section.card);
       sections.push(section);
-      addRow(section, false);
     });
     sync();
     return wrap;

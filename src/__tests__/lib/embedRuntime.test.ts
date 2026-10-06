@@ -417,3 +417,32 @@ describe("catalogue-backed website quotes", () => {
     ).toEqual(["email", "tier", "venue"]);
   });
 });
+
+describe("menu course picker", () => {
+  it("adds a picked dish as a removable chip and sends the ids", () => {
+    const { helpers } = loadRuntime();
+    const field = {
+      id: "menu_item_ids",
+      type: "checkboxes",
+      label: "Menu",
+      options: [
+        { value: "s1", label: "Spicy Beef Strips", group: "Starters" },
+        { value: "s2", label: "Chicken Wings", group: "Starters" },
+        { value: "m1", label: "Lamb Spit", group: "Mains" },
+      ],
+    };
+    const picker = helpers.buildStandardInput(field, "menu");
+    // Courses in serving order, one dropdown each.
+    expect(Array.from(picker.querySelectorAll(".cms-course-name")).map((n: any) => n.textContent)).toEqual(["Starters", "Mains"]);
+    const starters = picker.querySelectorAll("select")[0] as HTMLSelectElement;
+    starters.value = "s2";
+    starters.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(starters.value).toBe("");
+    expect(picker.querySelector(".cms-chip-label")?.textContent).toBe("Chicken Wings");
+    // Already-picked dish is no longer offered.
+    expect((starters.querySelector('option[value="s2"]') as HTMLOptionElement).disabled).toBe(true);
+    expect(helpers.readFieldValue(field, picker)).toEqual(["s2"]);
+    (picker.querySelector(".cms-chip-x") as HTMLButtonElement).click();
+    expect(helpers.readFieldValue(field, picker)).toEqual([]);
+  });
+});
