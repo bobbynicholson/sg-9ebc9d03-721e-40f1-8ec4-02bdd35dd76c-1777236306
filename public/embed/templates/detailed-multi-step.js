@@ -4,7 +4,7 @@
   window.__cmsTemplates = window.__cmsTemplates || {};
 
   var CSS = [
-    '.cms-form{padding:30px 28px 24px;max-width:680px;margin:0 auto;background:var(--brand-bg,#fff)}',
+    '.cms-form{padding:32px 32px 26px;max-width:var(--cms-form-max,760px);margin:0 auto;background:var(--brand-bg,#fff)}',
     '.cms-progress{display:flex;gap:8px;margin-bottom:10px}',
     '.cms-progress-step{flex:1;height:6px;background:#E2E8F0;border-radius:999px;position:relative;overflow:hidden;transition:background .25s}',
     '.cms-progress-step.is-done,.cms-progress-step.is-active{background:var(--brand-primary,#0F172A)}',
@@ -16,7 +16,7 @@
     '.cms-step-actions .cms-btn{min-width:130px}',
     '@media(max-width:520px){.cms-form{padding:26px 18px 20px}}',
     '.cms-step{display:none;animation:cmsFade .25s ease}',
-    '.cms-step.is-active{display:block}',
+    '.cms-step.is-active{display:grid}',
     '@keyframes cmsFade{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}',
     '.cms-step-actions{display:flex;justify-content:space-between;gap:10px;margin-top:18px}',
     '.cms-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}',
@@ -77,9 +77,9 @@
     var entries = [];
     var stepEls = [];
     grouped.forEach(function (groupFields, idx) {
-      var step = h.el('div', { class: 'cms-step' + (idx === 0 ? ' is-active' : ''), dataset: { step: String(idx) } });
+      var step = h.el('div', { class: 'cms-step cms-grid' + (idx === 0 ? ' is-active' : ''), dataset: { step: String(idx) } });
       groupFields.forEach(function (f) {
-        var wrap = h.el('div', { class: 'cms-field', dataset: { fid: f.id } });
+        var wrap = h.el('div', { class: 'cms-field' + (h.isWideField(f) ? ' is-wide' : ''), dataset: { fid: f.id } });
         var id = 'd_' + f.id;
         wrap.appendChild(h.el('label', { class: 'cms-label', for: id, text: f.label + (f.required ? ' *' : '') }));
         if (f.helpText) wrap.appendChild(h.el('div', { class: 'cms-help', text: f.helpText }));

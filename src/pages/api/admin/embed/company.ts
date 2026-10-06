@@ -60,7 +60,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
     const { data, error } = await (db as any)
       .from("companies")
-      .select("id, company_name, embed_token, embed_pricing_tiers, primary_color, secondary_color")
+      .select("id, company_name, slug, embed_token, embed_pricing_tiers, primary_color, secondary_color")
       .eq("id", companyId)
       .single();
     if (error) return res.status(500).json({ error: dbErrorMessage(error) });

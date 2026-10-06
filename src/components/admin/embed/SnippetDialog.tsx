@@ -41,6 +41,8 @@ interface Props {
   form: Form | null;
   embedToken?: string;
   companyName?: string;
+  /** Company URL slug; enables the clean /quote/<company>/<form> link. */
+  companySlug?: string;
   /** Optional white-label host (e.g. "https://app.acme-catering.co.za").
    *  Falls back to the current page origin so dev / preview deploys work. */
   loaderHost?: string;
@@ -80,7 +82,18 @@ function safeCommentText(s: string): string {
   return htmlEscape(s).replace(/-{2,}/g, "-");
 }
 
-export function buildFormLink(token: string, slug: string, host: string, opts: { preview?: boolean } = {}) {
+export function buildFormLink(
+  token: string,
+  slug: string,
+  host: string,
+  opts: { preview?: boolean; companySlug?: string } = {},
+) {
+  // Clean public link when the company slug is known; the token link is
+  // the fallback (and keeps working for links already shared).
+  if (opts.companySlug) {
+    const base = `${host}/quote/${encodeURIComponent(opts.companySlug)}/${encodeURIComponent(slug)}`;
+    return opts.preview ? `${base}?preview=1` : base;
+  }
   const qs = new URLSearchParams({ token, slug });
   if (opts.preview) qs.set("preview", "1");
   return `${host}/embed/form.html?${qs.toString()}`;
@@ -96,7 +109,7 @@ function buildSnippet(token: string, slug: string, host: string) {
 <script async src="${htmlEscape(host)}/embed/loader.js"></script>`;
 }
 
-export function SnippetDialog({ open, onOpenChange, form, embedToken, companyName, loaderHost, onTokenRotated }: Props) {
+export function SnippetDialog({ open, onOpenChange, form, embedToken, companyName, companySlug, loaderHost, onTokenRotated }: Props) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -119,12 +132,12 @@ export function SnippetDialog({ open, onOpenChange, form, embedToken, companyNam
   }, [form, currentToken, host]);
 
   // Public link visitors use. Same page as the preview, minus preview=1.
-  const shareLink = form && currentToken ? buildFormLink(currentToken, form.slug, host) : "";
+  const shareLink = form && currentToken ? buildFormLink(currentToken, form.slug, host, { companySlug }) : "";
   // Preview renders the SAVED form (real fields, brand, template) but
   // never submits. The old demo.html link showed placeholder fields and
   // developer controls, which looked broken in a new tab.
   const previewHref = form && currentToken
-    ? buildFormLink(currentToken, form.slug, host, { preview: true })
+    ? buildFormLink(currentToken, form.slug, host, { preview: true, companySlug })
     : "#";
 
   async function rotateToken() {

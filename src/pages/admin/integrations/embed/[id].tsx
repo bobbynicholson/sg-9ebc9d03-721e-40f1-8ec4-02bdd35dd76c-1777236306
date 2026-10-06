@@ -377,7 +377,10 @@ function EmbedFormCustomiser() {
     return `/embed/form.html?${qs.toString()}`;
   }, [savedSlug, companyData?.embed_token]);
   // Full-page preview for "Open in new tab" (saved version, no chrome strip).
-  const previewTabHref = previewSrc.replace("&compact=1", "");
+  const companySlugForLink: string | undefined = companyData?.slug || company?.slug || user?.company_slug;
+  const previewTabHref = companySlugForLink && savedSlug
+    ? `/quote/${encodeURIComponent(companySlugForLink)}/${encodeURIComponent(savedSlug)}?preview=1`
+    : previewSrc.replace("&compact=1", "");
 
   if (loading || !form) {
     return (
@@ -750,7 +753,9 @@ function EmbedFormCustomiser() {
                       onBlur={() => dirty && saveForm({ slug: form.slug }, { silent: true })}
                       className="font-mono text-xs mt-1"
                     />
-                    <p className="text-[10px] text-slate-500 mt-1">URL-safe identifier used in the embed snippet.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Used in your form link{(companyData?.slug || company?.slug || user?.company_slug) ? <>: <span className="font-mono break-all">/quote/{companyData?.slug || company?.slug || user?.company_slug}/{form.slug}</span></> : null}. Pick something short like <span className="font-mono">event-quote</span>. Changing it breaks links you already shared.
+                    </p>
                   </div>
                   <div className="flex items-center justify-between pt-1">
                     <Label className="text-xs">Active</Label>
@@ -973,6 +978,7 @@ function EmbedFormCustomiser() {
         form={form}
         embedToken={companyData?.embed_token || company?.embed_token}
         companyName={company?.company_name}
+        companySlug={companyData?.slug || company?.slug || user?.company_slug}
       />
     </>
   );

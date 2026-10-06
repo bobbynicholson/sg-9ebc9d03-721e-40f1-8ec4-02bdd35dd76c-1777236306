@@ -282,6 +282,9 @@ export async function middleware(request: NextRequest) {
     // ?error=unauthorized - so every form thumbnail rendered the
     // admin dashboard inside it instead of the actual form.
     pathname.startsWith("/embed/") ||
+    // Clean public quote-request link, rewritten to
+    // /api/public/embed/hosted. Customers have no session.
+    pathname.startsWith("/quote/") ||
     // Tightened from pathname.includes(".") - that crude check matched
     // /api/foo.bar style paths too. Only skip the session check for the
     // last segment carrying a static-file extension (ico/png/jpg/webp/

@@ -41,8 +41,6 @@ export interface RequestedCatalogueItem {
 }
 
 
-const QUOTE_SPLIT_TEMPLATES = ["detailed-multi-step", "pricing-calculator"];
-
 function menuField(
   menu: EmbedMenuCatalogueRow[],
   order: number,
@@ -105,90 +103,46 @@ export function addCatalogueFields(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _currency: string,
 ): EmbedField[] {
-  // Two templates split "quick enquiry" from "build my quote" with a
-  // request_type choice; every other template simply offers the menu and
-  // equipment pickers as optional extras on the same form.
-  if (!QUOTE_SPLIT_TEMPLATES.includes(templateId)) {
-    const plain = [...fields];
-    let nextOrder = plain.reduce((max, field) => Math.max(max, field.order || 0), 0) + 1;
-    // Place the pickers before a trailing notes/message field.
-    const notesIdx = plain.findIndex((f) => f.id === "notes" || f.mapsTo === "notes");
-    const insertAt = notesIdx === -1 ? plain.length : notesIdx;
-    const extras: EmbedField[] = [];
-    if (menu.length > 0 && !plain.some((f) => f.id === EMBED_MENU_FIELD_ID)) {
-      extras.push(menuField(menu, nextOrder++, undefined));
-    }
-    if (equipment.length > 0 && !plain.some((f) => f.id === EMBED_EQUIPMENT_FIELD_ID)) {
-      extras.push(equipmentField(equipment, nextOrder++, undefined));
-    }
-    if (extras.length === 0) return fields;
-    // Keep render order: extras take the notes field's slot, notes moves after.
-    if (notesIdx !== -1) {
-      const notesOrder = plain[notesIdx].order || 0;
-      extras.forEach((field, i) => { field.order = notesOrder - 0.5 + i * 0.01; });
-    }
-    plain.splice(insertAt, 0, ...extras);
-    return plain;
-  }
-
-  const quoteOnlyConditional = {
-    showIfFieldId: EMBED_REQUEST_TYPE_FIELD_ID,
-    showIfValue: "quote",
-  };
-  const result = fields.map((field) => {
-    const isVenue =
-      field.id === "venue"
-      || field.id === "venue_address"
-      || field.mapsTo === "venue";
-    const isQuoteOnly = isVenue || field.id === "tier";
-    return isQuoteOnly
-      ? {
-          ...field,
-          conditional: quoteOnlyConditional,
-          ...(isVenue
-            ? {
-                placeholder:
-                  field.placeholder
-                  || "Start with street number and street, then suburb and city",
-                helpText:
-                  "Enter the full venue address. We verify it and save the map coordinates when you submit.",
-              }
-            : {}),
-        }
-      : field;
-  });
-  if (!result.some((field) => field.id === EMBED_REQUEST_TYPE_FIELD_ID)) {
-    result.unshift({
-      id: EMBED_REQUEST_TYPE_FIELD_ID,
-      type: "radio",
-      label: "How can we help?",
-      helpText:
-        "Choose a short enquiry, or build a detailed quote request from the live menu.",
-      required: true,
-      visible: true,
-      order: 0,
-      options: [
-        {
-          value: "enquiry",
-          label: "Quick enquiry · tell us the basics",
-        },
-        {
-          value: "quote",
-          label: "Build my quote request · choose menu and equipment",
-        },
-      ],
+  // Every form is a full quote request: no "quick enquiry vs build my
+  // quote" choice. Menu and equipment pickers are offered on every
+  // template (optional), placed before a trailing notes field. Any legacy
+  // request_type field or conditionals pointing at it are dropped.
+  void templateId;
+  const plain = fields
+    .filter((field) => field.id !== EMBED_REQUEST_TYPE_FIELD_ID)
+    .map((field) => {
+      const cond = field.conditional as { showIfFieldId?: string } | undefined;
+      const next: EmbedField = cond?.showIfFieldId === EMBED_REQUEST_TYPE_FIELD_ID
+        ? { ...field, conditional: undefined }
+        : { ...field };
+      const isVenue =
+        field.id === "venue" || field.id === "venue_address" || field.mapsTo === "venue";
+      if (isVenue) {
+        next.placeholder = field.placeholder || "Start typing the venue address";
+        next.helpText = field.helpText
+          || "Pick a suggestion or type the full address. We verify it when you submit.";
+      }
+      return next;
     });
+  let nextOrder = plain.reduce((max, field) => Math.max(max, field.order || 0), 0) + 1;
+  const notesIdx = plain.findIndex((f) => f.id === "notes" || f.mapsTo === "notes");
+  const extras: EmbedField[] = [];
+  if (menu.length > 0 && !plain.some((f) => f.id === EMBED_MENU_FIELD_ID)) {
+    extras.push(menuField(menu, nextOrder++, undefined));
   }
-  let order = result.reduce((max, field) => Math.max(max, field.order || 0), 0) + 1;
-
-  if (menu.length > 0 && !result.some((field) => field.id === EMBED_MENU_FIELD_ID)) {
-    result.push(menuField(menu, order++, quoteOnlyConditional));
+  if (equipment.length > 0 && !plain.some((f) => f.id === EMBED_EQUIPMENT_FIELD_ID)) {
+    extras.push(equipmentField(equipment, nextOrder++, undefined));
   }
-  if (equipment.length > 0 && !result.some((field) => field.id === EMBED_EQUIPMENT_FIELD_ID)) {
-    result.push(equipmentField(equipment, order, quoteOnlyConditional));
+  if (extras.length === 0) return plain;
+  if (notesIdx !== -1) {
+    // Take the notes field's slot so notes stays last.
+    const notesOrder = plain[notesIdx].order || 0;
+    extras.forEach((field, i) => { field.order = notesOrder - 0.5 + i * 0.01; });
+    plain.splice(notesIdx, 0, ...extras);
+  } else {
+    plain.push(...extras);
   }
-
-  return result;
+  return plain;
 }
 
 export function selectedIds(value: unknown, max = 50): string[] {

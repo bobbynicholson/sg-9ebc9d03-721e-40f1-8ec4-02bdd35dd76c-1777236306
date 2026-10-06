@@ -287,26 +287,23 @@ describe("catalogue-backed website quotes", () => {
       equipment,
       "ZAR",
     );
+    // Every form is a full quote request: no "quick enquiry" choice, no
+    // conditionals hiding the venue or pickers.
     expect(detailed.map((field) => field.id)).toEqual([
-      "request_type",
       "email",
       "venue",
       "menu_item_ids",
       "equipment_item_ids",
     ]);
-    expect(detailed.find((field) => field.id === "venue")?.conditional).toEqual({
-      showIfFieldId: "request_type",
-      showIfValue: "quote",
-    });
-    // Other templates get the same pickers as plain optional fields.
+    expect(detailed.every((field) => !field.conditional)).toBe(true);
     const quick = addCatalogueFields(base, "quick-card", menu, equipment, "ZAR");
-    expect(quick.map((field) => field.id)).toEqual([
-      "email",
-      "venue",
-      "menu_item_ids",
-      "equipment_item_ids",
-    ]);
-    expect(quick.find((field) => field.id === "menu_item_ids")?.conditional).toBeUndefined();
+    expect(quick.map((field) => field.id)).toEqual(detailed.map((field) => field.id));
+    // A legacy saved request_type field is dropped.
+    const legacy = addCatalogueFields(
+      [{ id: "request_type", type: "radio" as const, label: "How can we help?", required: true, visible: true, order: 0 }, ...base],
+      "pricing-calculator", menu, equipment, "ZAR",
+    );
+    expect(legacy.some((field) => field.id === "request_type")).toBe(false);
     // Public choices never show prices; the quote carries them.
     for (const field of [...detailed, ...quick]) {
       for (const option of field.options || []) {

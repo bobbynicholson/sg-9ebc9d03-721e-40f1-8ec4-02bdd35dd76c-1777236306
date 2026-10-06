@@ -4,11 +4,9 @@
   window.__cmsTemplates = window.__cmsTemplates || {};
 
   var CSS = [
-    '.cms-form{padding:30px 28px 24px;max-width:560px;margin:0 auto}',
-    '.cms-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}',
-    '.cms-grid .cms-field.is-wide{grid-column:1/-1}',
+    '.cms-form{padding:32px 32px 26px;max-width:var(--cms-form-max,760px);margin:0 auto}',
     '.cms-btn{width:100%;margin-top:6px}',
-    '@media(max-width:520px){.cms-form{padding:26px 18px 20px}.cms-grid{grid-template-columns:1fr}}'
+    '@media(max-width:520px){.cms-form{padding:26px 18px 20px}}'
   ].join('');
 
   function render(host, config, brand, h) {
@@ -30,7 +28,6 @@
     // (textarea, choices, pickers, address) span the full width.
     var grid = h.el('div', { class: 'cms-grid' });
     form.appendChild(grid);
-    var WIDE = { textarea: 1, radio: 1, checkboxes: 1, checkbox: 1, multiselect: 1 };
     fields.forEach(function (f) {
       var wrap = h.el('div', { class: 'cms-field', dataset: { fid: f.id } });
       var inputId = 'q_' + f.id;
@@ -40,7 +37,7 @@
       wrap.appendChild(input);
       var err = h.el('div', { class: 'cms-error', id: inputId + '_err', 'aria-live': 'polite' });
       wrap.appendChild(err);
-      if (WIDE[f.type] || f.mapsTo === 'venue' || f.id === 'venue') wrap.classList.add('is-wide');
+      if (h.isWideField(f)) wrap.classList.add('is-wide');
       grid.appendChild(wrap);
       entries.push({ field: f, input: input, errorEl: err, wrapper: wrap });
     });

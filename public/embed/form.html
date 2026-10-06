@@ -5,83 +5,26 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Request a quote</title>
-  <style>
-    :root { color-scheme: light; }
-    html, body { margin: 0; }
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #F1F5F9; color: #0F172A; min-height: 100vh; }
-    .wrap { max-width: 720px; margin: 0 auto; padding: 32px 16px 40px; }
-    .err { font: 14px system-ui, sans-serif; color: #991B1B; padding: 12px; border: 1px solid #FECACA; border-radius: 8px; background: #FEF2F2; }
-    .preview-bar { position: sticky; top: 0; z-index: 2; background: #FFFBEB; border-bottom: 1px solid #FDE68A; color: #92400E; font-size: 13px; padding: 8px 16px; text-align: center; }
-    .powered { text-align: center; font-size: 11px; color: #94A3B8; margin-top: 18px; }
-    .powered a { color: #64748B; text-decoration: none; }
-    /* Embedded inside the admin (form cards / editor): no page chrome. */
-    body.compact { background: #fff; min-height: 0; }
-    body.compact .wrap { padding: 8px; max-width: none; }
-    body.compact .powered, body.compact .preview-bar { display: none; }
-    @media (max-width: 480px) { .wrap { padding: 16px 12px 28px; } }
-  </style>
+  <link rel="stylesheet" href="./hosted.css">
 </head>
-<body>
+<body class="cms-hosted">
   <!--
-    Hosted lead-capture form. Mounts the REAL configured form for the
-    tenant token + form slug in the URL; submissions create real leads.
-    Share it anywhere a snippet can't be embedded: WhatsApp, Instagram
-    bio, QR codes, email signatures, or a plain link on any website.
-
-    Usage: /embed/form.html?token=<company embed_token>&slug=<form slug>
-      &preview=1  renders the saved form but never submits (admin preview)
-      &compact=1  drops page chrome (admin thumbnails / editor iframe)
+    Hosted lead-capture form (token link). The clean public link is
+    /quote/<company-slug>/<form-slug>, served by /api/public/embed/hosted
+    with the same layout. This page stays for existing links and for the
+    admin previews:
+      ?token=<embed_token>&slug=<form slug>
+      &preview=1  renders the saved form but never submits
+      &compact=1  form only, no page chrome (admin iframes)
   -->
-  <div id="previewBar" class="preview-bar" hidden>Preview: this shows your saved form exactly as visitors see it. Submitting here will not create a lead.</div>
-  <div class="wrap">
-    <div id="mount"></div>
-    <p class="powered">Powered by <a href="https://cateringms.com" rel="noopener" target="_blank">CateringMS</a></p>
-  </div>
-
-  <script>
-    (function () {
-      var params = new URLSearchParams(location.search);
-      var token = (params.get('token') || '').trim();
-      var slug = (params.get('slug') || 'default').trim();
-      var preview = params.get('preview') === '1';
-      var mountEl = document.getElementById('mount');
-
-      if (params.get('compact') === '1') document.body.classList.add('compact');
-      if (preview) document.getElementById('previewBar').hidden = false;
-
-      // The submit API validates the token as a UUID; mirror that here so
-      // a mangled link shows a clear message instead of a dead spinner.
-      var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!UUID_RE.test(token)) {
-        mountEl.innerHTML = '<div class="err">This form link is incomplete or invalid. Please ask for a fresh link.</div>';
-        return;
-      }
-
-      var div = document.createElement('div');
-      div.setAttribute('data-embed-form', '');
-      div.setAttribute('data-token', token);
-      div.setAttribute('data-slug', slug);
-      // NO data-template: the loader fetches the real config (fields,
-      // template, brand colours, pricing tiers) from the API. Live
-      // submissions go through the hardened public endpoint; preview
-      // mode renders the same config but never submits.
-      if (preview) div.setAttribute('data-preview', 'true');
-      mountEl.appendChild(div);
-
-      // Title the browser tab with the company name once known.
-      fetch('/api/public/embed/' + encodeURIComponent(token) + '/config?slug=' + encodeURIComponent(slug) + '&preview=1', { credentials: 'omit' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (cfg) {
-          var name = cfg && cfg.brand && cfg.brand.companyName;
-          if (name) document.title = 'Request a quote - ' + name;
-        })
-        .catch(function () { /* cosmetic only */ });
-
-      var s = document.createElement('script');
-      s.src = './loader.js';
-      s.async = true;
-      document.body.appendChild(s);
-    })();
-  </script>
+  <div id="hp-preview-bar" class="hp-preview-bar" hidden>Preview: this shows your saved form exactly as visitors see it. Submitting here will not create a lead.</div>
+  <main class="hp">
+    <aside id="hp-brand" class="hp-brand"></aside>
+    <section class="hp-form">
+      <div class="hp-form-inner" id="hp-mount"></div>
+      <p class="hp-powered">Powered by <a href="https://cateringms.com" rel="noopener" target="_blank">CateringMS</a></p>
+    </section>
+  </main>
+  <script src="./hosted.js"></script>
 </body>
 </html>

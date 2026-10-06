@@ -1399,77 +1399,6 @@ const smartSearchCards: SprintCard[] = [
 ];
 
 // =====================================================================
-// GROUP 12 - EMBEDDABLE LEAD-CAPTURE FORMS (29 Apr 2026)
-// =====================================================================
-// Four-agent parallel build: schema + types, public API + admin CRUD,
-// 10 vanilla-HTML templates + loader, admin gallery + customiser. 10
-// commits shipped in one wave (4e9551b through fa992d5 + 6dfdd5a, 798b2e9,
-// 75847ce). The U3 feature from Group 6 is now live in code - needs DB
-// migration applied + Turnstile keys configured before tenants can use it.
-const embedFormsCards: SprintCard[] = [
-  {
-    id: "embed-shipped",
-    title: "Shipped in this build",
-    why: "Reference list of every commit and surface that landed in the four-agent parallel build on 29 April 2026.",
-    estimate: "Done",
-    risk: "Low",
-    icon: CheckCircle2,
-    accent: "from-brand-primary to-brand-secondary",
-    items: [
-      { title: "Schema migration: companies.embed_token + embed_pricing_tiers + 3 new tables", detail: "embed_form_configs (per-tenant form variants), embed_form_submissions (audit + lead linkage), embed_rate_limits (24h pruning TODO). RLS via existing user_has_role + get_user_company_id helpers. Triggers auto-bump submissions_count + last_submission_at. CHECK constraint locks template_id to the 10 known ids. Slug format CHECK on (company_id, slug) so each form has a stable URL-friendly id.", status: "shipped", ref: "supabase/migrations/20260428120000_embed_forms.sql + commit 6dfdd5a" },
-      { title: "TypeScript types + per-template default field sets", detail: "EmbedField, EmbedFieldType, EmbedFieldConditional, EmbedTheme, EmbedPricingTier, EmbedFormConfig, EmbedFormSubmission, EmbedTemplateId union. getDefaultFieldsForTemplate(templateId) returns bespoke starter fields for each of the 10 templates with mapsTo hints set so the lead conversion is automatic.", status: "shipped", ref: "src/types/embedForms.ts + src/lib/embedTemplateDefaults.ts + commit 798b2e9" },
-      { title: "Public API: GET config / POST submit / GET estimate", detail: "Token-authed (404 on unknown, never 401). 64KB body cap, 200-key payload cap, salted SHA-256 IP hashing, fail-open rate-limit, honeypot returns 200 ok:true so bots get no signal, Turnstile soft-fail in dev. Submit pipeline: honeypot -> Turnstile -> rate-limit -> validate -> mapsTo -> create lead (source='embed') -> audit row -> fire-and-forget admin notification + auto-reply email if enabled.", status: "shipped", ref: "src/pages/api/public/embed/[token]/{config,submit,estimate}.ts + commit 75847ce" },
-      { title: "Helper module + service-role factory", detail: "Pure functions for validation, payload-to-lead mapping, IP hashing, Turnstile verify, rate-limit increment. Reusable for any other public endpoint that needs RLS bypass via service role.", status: "shipped", ref: "src/lib/embedFormApi.ts + src/lib/supabase/service.ts" },
-      { title: "Admin CRUD endpoint with tenant ownership re-check", detail: "GET list / POST create / PATCH /:id / DELETE /:id. Auth pattern matches the hardened create-user.ts. Re-reads company_id from the row before every PATCH/DELETE so a leaked form id from another tenant cannot be mutated. Only super_admin can target other tenants.", status: "shipped", ref: "src/pages/api/admin/embed/forms.ts" },
-      { title: "10 vanilla-HTML templates + loader + helpers + demo", detail: "Quick Card, Modern Inline, Luxe Vertical, Floating Widget, Detailed Multi-Step, Pricing Calculator (live estimate), Wedding Specialist, Corporate Catering, Event Estimator, Spit Braai Quick. ~33-36KB total bundle. Shadow DOM style isolation, CSS custom properties for white-label, conditional field engine, WCAG AA, mutation observer for SPA host sites, Turnstile mounted in light DOM (Cloudflare requirement).", status: "shipped", ref: "public/embed/loader.js + public/embed/helpers.js + public/embed/templates/*.js + public/embed/demo.html + commit 8d249cf" },
-      { title: "Admin gallery at /admin/integrations/embed", detail: "Gradient header, four MetricCard tiles (forms / views / submissions / conversion), per-form cards with live preview iframe + status badge + dropdown actions, fuzzy search via useFuzzyItems, empty state with 'under 2 minutes' CTA.", status: "shipped", ref: "src/pages/admin/integrations/embed.tsx + commit d0ca83a" },
-      { title: "Three-column customiser with auto-save", detail: "Field editor with up/down reorder, label/placeholder/type, required/visible toggles, options for select/radio, conditional logic, mapsTo lead-column hint. Sandboxed live-preview iframe receives postMessage on every change. Right sidebar: form settings, theme overrides, success behaviour, pricing tiers (only when template flag is set), analytics block.", status: "shipped", ref: "src/pages/admin/integrations/embed/[id].tsx + commit 5342cc4" },
-      { title: "Snippet generator with developer hand-off", detail: "Dark code block with copy button, 'Preview live' link, three accordion install guides (WordPress / Wix / Custom). 'Send to my web developer' opens the QuoteComposeDrawer pattern with Gmail / Outlook / mailto / clipboard channels.", status: "shipped", ref: "src/components/admin/embed/SnippetDialog.tsx + commit c96a093" },
-      { title: "Per-form analytics block + endpoint", detail: "30-day SVG sparkline of submissions, top-5 referrers, 30d vs prev-30d trend arrow, deep-link to /admin/leads filtered by source=embed and form_id.", status: "shipped", ref: "src/components/admin/embed/AnalyticsBlock.tsx + src/pages/api/admin/embed/analytics.ts + commit 240d9b8" },
-      { title: "AdminNav entry under Communications", detail: "Lead Capture Forms with the Code2 icon. Defaults closed since it's a quarterly setup task, not daily-use.", status: "shipped", ref: "src/components/admin/AdminNav.tsx + commit fa992d5" },
-    ],
-  },
-  {
-    id: "embed-todo",
-    title: "What Bobby still needs to do for tenants to actually use this",
-    why: "Code is on origin/main but the feature does not work end-to-end until these manual steps are done. Order matters.",
-    estimate: "1-2 hours",
-    risk: "Low",
-    icon: AlertCircle,
-    accent: "from-brand-primary to-brand-secondary",
-    defaultOpen: true,
-    items: [
-      { title: "Apply migration 20260428120000_embed_forms.sql", detail: "Open Supabase dashboard -> SQL Editor -> paste the migration -> run. Adds embed_token to companies (auto-fills via gen_random_uuid()), creates the three new tables, adds RLS policies, adds triggers.", status: "todo" },
-      { title: "Apply migration 20260428130000_embed_forms_api.sql", detail: "Same path. Adds companies.auto_reply_to_embed_submissions and the increment_embed_form_views RPC.", status: "todo" },
-      { title: "Set EMBED_IP_HASH_SALT env var on Vercel", detail: "Generate a 32+ char random string (e.g. `openssl rand -hex 32`) and add as a server-side env var. Without this the IP hashes still work but use a placeholder salt.", status: "todo" },
-      { title: "Anti-spam: revisit if spam materialises (Bobby prefers NOT Cloudflare)", detail: "Honeypot is wired and working on every public form. Turnstile env vars (TURNSTILE_SECRET_KEY + NEXT_PUBLIC_TURNSTILE_SITE_KEY) are gated and silently disabled until set, so we can add ANY provider later without code changes - the verifyTurnstile call in lib/embedFormApi.ts is generic. If spam shows up, evaluate alternatives Bobby is OK with first: hCaptcha (closest drop-in replacement, same API shape), Friendly Captcha (privacy-first, EU), or simple proof-of-work like mCaptcha. Skip Cloudflare unless every alternative fails.", status: "todo" },
-      { title: "Schedule a daily job to prune embed_rate_limits older than 24h", detail: "Either Supabase pg_cron or a Vercel cron job hitting an admin endpoint. Without this the table grows ~hundreds-of-thousands of rows per active tenant per year. Not urgent for soft-launch.", status: "todo" },
-      { title: "Decide the public loader URL", detail: "Templates assume the loader lives at https://cateringms.com/embed/loader.js. If the production domain differs, update the snippet generator's defaultLoaderUrl. The script + templates are served as static assets from Vercel under /public/embed/ so no further config needed.", status: "todo" },
-      { title: "Test end-to-end on a real tenant before announcing", detail: "Apply migrations -> log in as Spit Braai -> /admin/integrations/embed -> pick Spit Braai Quick template -> customise -> copy snippet -> paste into a test HTML page locally or on a staging marketing site -> submit a test enquiry -> verify lead lands in /admin/leads with source='embed' and the right form_id.", status: "todo" },
-    ],
-  },
-  {
-    id: "embed-followups",
-    title: "Phase 2 enhancements (post-launch)",
-    why: "Items the agents flagged as out of scope for this build but worth queuing for after tenants have used the feature for a few weeks.",
-    estimate: "2-3 weeks",
-    risk: "Low",
-    icon: Sparkles,
-    accent: "from-sky-500 to-blue-600",
-    items: [
-      { title: "A/B test framework for templates", detail: "Let a tenant publish two versions of the same form to different marketing pages, then surface conversion-rate comparison after N submissions. Builds on the existing analytics endpoint.", status: "todo" },
-      { title: "Webhook on submission for Zapier / Make / n8n", detail: "Some tenants want the lead to also flow into their existing CRM / spreadsheet / Slack channel. Add a per-form webhook URL on embed_form_configs and POST the submission payload there. Reuse the existing /api/integrations/* bearer-key pattern.", status: "todo" },
-      { title: "Calendar availability sync", detail: "Block out unavailable dates in the date picker based on existing orders.event_date. Today the form lets a client pick a date the tenant cannot deliver on, and the tenant has to email back to apologise. Wire to the orders table by event_date count vs companies.max_concurrent_events_per_day setting.", status: "todo" },
-      { title: "Multi-language support per form", detail: "EU + multi-region tenants want the same form in EN/AF/FR. Add a translations jsonb on embed_form_configs keyed by language, and language picker in the form header.", status: "todo" },
-      { title: "Custom CSS escape hatch", detail: "Power-user tenants will want raw CSS overrides. Add a custom_css text column on embed_form_configs and inject it inside the shadow root. Sandboxed by shadow DOM so it cannot leak to the host site.", status: "todo" },
-      { title: "Form version history + restore", detail: "Save a snapshot of fields + theme on every PATCH so a tenant can roll back if a customisation breaks conversions. Soft-store in embed_form_revisions table.", status: "todo" },
-      { title: "Prefill from URL params", detail: "Honour ?event_type=wedding&date=2026-06-15 in the embed URL so the tenant's marketing pages can prefill from their own copy. Already partly supported in the loader; needs explicit allow-list on the form config to avoid prefill hijacking.", status: "todo" },
-      { title: "PDF auto-quote on submission for high-intent forms", detail: "When the Pricing Calculator template has guests + tier picked, auto-generate a non-binding PDF quote and attach to the auto-reply email. Big conversion lift (industry data: 2-3x).", status: "todo" },
-    ],
-  },
-];
-
-// =====================================================================
 // GROUP 13 - DEPLOYMENT + TESTING PLAYBOOK FOR THE DEV TEAM (29 Apr 2026)
 // =====================================================================
 // Bobby cannot run the dev steps himself - he doesn't have node / vercel /
@@ -1556,7 +1485,6 @@ const groups: Group[] = [
   { id: "tooltip-audit", title: "9. Tooltip rollout audit findings (28 Apr 2026)", description: "Surfaced while rolling out info tooltips across 71 pages. P0 multi-tenancy leak already fixed (commit 596ef67). Remaining items split into broken UX, mock/localStorage flows that need real persistence, and structural patterns to consolidate.", cards: tooltipAuditCards },
   { id: "journey-audit", title: "10. Customer journey audit findings (28 Apr 2026)", description: "Six parallel auditors traced the journeys end-to-end using the rewritten tooltips as contracts: Lead->Quote->Order, Order->Kitchen, Driver->Delivery, Cleaning->Invoice->Payment, SaaS lifecycle, and cross-cutting auth+tenancy+comms. Sixteen wiring fixes shipped in flight. Remaining items split into customer-journey blockers, multi-tenancy + auth, billing/comms that lies, dead UI, and a record of the fixes already shipped.", cards: journeyAuditCards },
   { id: "tracking-route-split", title: "11. Tracking + Route Planning canonical split (29 Apr 2026)", description: "/admin/tracking and /admin/route-planning had drifted into looking like the same page. Recovered the canonical purpose split (LIVE ops vs PRE-FLIGHT dispatch), wired both surfaces to real Supabase data, and rebuilt the Order Details right-pane on tracking as a deep-link dashboard with eight blocks so an owner can answer 'where is order X' in one click.", cards: trackingRouteSplitCards },
-  { id: "embed-forms", title: "12. Embeddable lead-capture forms (29 Apr 2026)", description: "Built the U3 market-disrupting feature from Group 6: a public embeddable quote-request form system. Catering tenants drop a script tag into their own marketing site (WordPress / Wix / Squarespace / Webflow / custom) and a token-authed form lands leads in the CRM. Ten templates (Quick Card, Modern Inline, Luxe Vertical, Floating Widget, Detailed Multi-Step, Pricing Calculator, Wedding Specialist, Corporate Catering, Event Estimator, Spit Braai Quick), each white-label colour-aware, conditional-field-aware, accessibility AA, ~33-36KB total bundle. Pricing Calculator + Event Estimator hit a live /estimate endpoint to show 'From R250-R450pp' as the user moves the guest slider, the conversion-killer feature fewer than 5 of 60 surveyed sites in SA/UK/US ship. Admin gallery at /admin/integrations/embed lets tenants pick, customise (drag-reorder fields, conditional logic, white-label theme overrides, success redirect), and copy a snippet. Ten commits shipped in one parallel build run by four agents.", cards: embedFormsCards },
   { id: "dev-team-handoff", title: "13. Dev team handoff, deployment + testing playbook (29 Apr 2026)", description: "Bobby is non-technical, the items in this group are the manual dev tasks the team needs to handle. Migrations + cron + first round of build fixes are already done by his Claude session. What remains: Vercel env vars, Cloudflare Turnstile signup, walking the page-by-page test plan with him, and a reference card on the class of TypeScript error that bit four commits in a row.", cards: devOpsCards },
 ];
 
