@@ -294,6 +294,8 @@ describe("catalogue-backed website quotes", () => {
       "venue",
       "menu_item_ids",
       "equipment_item_ids",
+      "waiter_service",
+      "onsite_chef",
     ]);
     expect(detailed.every((field) => !field.conditional)).toBe(true);
     const quick = addCatalogueFields(base, "quick-card", menu, equipment, "ZAR");

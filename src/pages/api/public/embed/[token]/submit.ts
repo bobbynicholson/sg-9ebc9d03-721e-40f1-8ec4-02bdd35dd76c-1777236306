@@ -21,6 +21,11 @@ import {
   EMBED_EQUIPMENT_FIELD_ID,
   EMBED_MENU_FIELD_ID,
   EMBED_REQUEST_TYPE_FIELD_ID,
+  EMBED_EQUIPMENT_PACKAGE_FIELD_ID,
+  EMBED_WAITER_FIELD_ID,
+  EMBED_CHEF_FIELD_ID,
+  isTicked,
+  resolveEquipmentPackages,
   fieldsForRequestType,
   selectedIds,
   splitRequestedItems,
@@ -65,8 +70,9 @@ async function createPrivateDraftQuote(
   lead: Record<string, any>,
   requestedItems: RequestedCatalogueItem[],
   eventTime: string | null = null,
+  waiterRequested = false,
 ): Promise<string | null> {
-  if (requestedItems.length === 0) return null;
+  if (requestedItems.length === 0 && !waiterRequested) return null;
 
   const { menuItems, equipmentItems } = splitRequestedItems(requestedItems);
   const lineTotal = requestedItems.reduce(
@@ -146,6 +152,9 @@ async function createPrivateDraftQuote(
       venue_lng: lead.venue_lng ?? null,
       menu_items: menuItems,
       equipment_items: equipmentItems,
+      // Ticked "Waiter service" opens the quote's waiter section; staff set
+      // the number of waiters, hours and rate before sending.
+      waiter_service_required: waiterRequested,
       subtotal,
       tax_amount: tax,
       tax,
@@ -406,7 +415,33 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Any template can carry menu / equipment picks (see addCatalogueFields).
   if (wantsDraftQuote) {
     const menuIds = selectedIds(payload[EMBED_MENU_FIELD_ID]);
-    const equipmentIds = selectedIds(payload[EMBED_EQUIPMENT_FIELD_ID]);
+    const pickedEquipmentIds = selectedIds(payload[EMBED_EQUIPMENT_FIELD_ID]);
+    // A place-setting package expands into its pieces, one per guest.
+    // Resolved from the live catalogue, never from client-sent ids.
+    let packageEquipmentIds: string[] = [];
+    const packageValue = typeof payload[EMBED_EQUIPMENT_PACKAGE_FIELD_ID] === "string"
+      ? String(payload[EMBED_EQUIPMENT_PACKAGE_FIELD_ID])
+      : "";
+    if (packageValue) {
+      const { data: catalogueEquipment } = await (supabase as any)
+        .from("equipment")
+        .select("id, name, rental_price, category, description, available_quantity")
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .or("is_available.is.null,is_available.eq.true");
+      const pkg = resolveEquipmentPackages(fields, (catalogueEquipment || []) as any)
+        .find((p) => p.value === packageValue);
+      if (!pkg) {
+        return res.status(400).json({
+          ok: false,
+          message: "That equipment option is no longer available. Refresh the form and choose again.",
+        });
+      }
+      packageEquipmentIds = pkg.items;
+      // Readable on the lead too (the pieces land on the draft quote).
+      mapped.notes = [mapped.notes, `Equipment: ${pkg.label} (one set per guest)`].filter(Boolean).join("\n\n");
+    }
+    const equipmentIds = Array.from(new Set([...pickedEquipmentIds, ...packageEquipmentIds]));
     const [{ data: selectedMenu }, { data: selectedEquipment }] = await Promise.all([
       menuIds.length > 0
         ? (supabase as any)
@@ -445,7 +480,41 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       (selectedMenu || []) as any,
       (selectedEquipment || []) as any,
       mapped.guest_count || 1,
+      new Set(packageEquipmentIds),
     );
+  }
+
+  // Service tick boxes. A chef becomes a Service line on the draft quote
+  // (the tenant's own chef item when the menu has one, else an R0 line
+  // for staff to price); waiters switch on the quote's waiter section.
+  const waiterRequested = isTicked(payload[EMBED_WAITER_FIELD_ID]);
+  const chefRequested = isTicked(payload[EMBED_CHEF_FIELD_ID]);
+  if (chefRequested) {
+    const { data: chefRows } = await (supabase as any)
+      .from("menu_items")
+      .select("id, item_name, base_price, category")
+      .eq("company_id", company.id)
+      .is("deleted_at", null)
+      .or("is_available.is.null,is_available.eq.true")
+      .ilike("item_name", "%chef%")
+      .limit(1);
+    const chef = (chefRows || [])[0];
+    const unitPrice = Number(chef?.base_price) || 0;
+    requestedCatalogueItems.push({
+      item_type: "menu",
+      menu_item_id: chef?.id,
+      item_name: chef?.item_name || "On-site chef",
+      name: chef?.item_name || "On-site chef",
+      category: chef?.category || "Service",
+      pricing_mode: "flat",
+      quantity: 1,
+      unit_price: unitPrice,
+      line_total: unitPrice,
+    });
+  }
+  const servicesRequested = [waiterRequested ? "Waiter service" : null, chefRequested ? "On-site chef" : null].filter(Boolean);
+  if (servicesRequested.length > 0) {
+    mapped.notes = [mapped.notes, `Services requested: ${servicesRequested.join(", ")}`].filter(Boolean).join("\n\n");
   }
 
   const leadInsert: Record<string, any> = {
@@ -526,7 +595,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Save & Send. Contact-only submissions remain leads and do not create R0
   // quote shells.
   let draftQuoteId: string | null = null;
-  if (requestedCatalogueItems.length > 0) {
+  if (requestedCatalogueItems.length > 0 || waiterRequested) {
     try {
       draftQuoteId = await createPrivateDraftQuote(
         supabase,
@@ -536,6 +605,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         leadInsert,
         requestedCatalogueItems,
         mapped.event_time || null,
+        waiterRequested,
       );
     } catch (draftError) {
       console.warn("[embed/submit] private draft quote failed", draftError);

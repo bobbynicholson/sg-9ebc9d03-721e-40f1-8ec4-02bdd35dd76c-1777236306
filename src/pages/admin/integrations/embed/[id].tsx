@@ -852,6 +852,28 @@ function EmbedFormCustomiser() {
                 </CardContent>
               </Card>
 
+              {/* Where the menu + equipment choices on the form come from. */}
+              <Card>
+                <CardContent className="p-4 space-y-2.5">
+                  <h3 className="font-bold text-slate-900">Menu &amp; equipment on this form</h3>
+                  <div className="rounded-lg border border-slate-200 p-2.5">
+                    <p className="text-xs font-semibold text-slate-800">Menu, by course</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      One section per category (Starters, Mains, Sides, Salads, Desserts...) with a dropdown and <strong>Add line</strong>. Built live from your menu: available items only, no prices shown.
+                    </p>
+                    <Link href={withSlug("/admin/menu")} className="mt-1 inline-block text-[11px] font-semibold text-brand-primary hover:underline">Edit menu items →</Link>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-2.5">
+                    <p className="text-xs font-semibold text-slate-800">Equipment packages</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      Visitors pick <strong>Plate, knife &amp; fork</strong> or <strong>Plate, knife, fork, bowl &amp; spoon</strong>. Built from your plate, knife, fork, bowl and spoon items; the quote gets one of each per guest.
+                    </p>
+                    <Link href={withSlug("/admin/equipment")} className="mt-1 inline-block text-[11px] font-semibold text-brand-primary hover:underline">Edit equipment →</Link>
+                  </div>
+                  <p className="text-[10px] text-slate-500">Choices land on a draft quote for review, then carry into the order when it is accepted.</p>
+                </CardContent>
+              </Card>
+
               {/* Success behaviour */}
               <Card id="section-after-submit" className="scroll-mt-20">
                 <CardContent className="p-4 space-y-3">

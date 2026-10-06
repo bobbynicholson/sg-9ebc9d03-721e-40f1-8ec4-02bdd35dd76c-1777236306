@@ -368,6 +368,24 @@
     '.cms-suggest-icon svg{width:16px;height:16px}',
     '.cms-suggest-status{padding:10px 12px;font-size:13px;color:#64748B}',
     '.cms-suggest-footer{padding:8px 10px 4px;margin-top:4px;border-top:1px solid #F1F5F9;font-size:11.5px;color:#94A3B8}',
+    /* Menu by course: one card per course, dropdown lines + Add line. */
+    '.cms-course-picker{display:flex;flex-direction:column;gap:10px}',
+    '.cms-course-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}',
+    '.cms-course{border:1.5px solid #E2E8F0;border-radius:14px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px}',
+    '.cms-course:focus-within{border-color:color-mix(in srgb,var(--brand-primary,#0F172A) 45%,#E2E8F0)}',
+    '.cms-course-head{display:flex;align-items:center;justify-content:space-between;gap:8px}',
+    '.cms-course-name{font-size:14px;font-weight:700;color:#0F172A}',
+    '.cms-course-count{font-size:11.5px;font-weight:600;color:var(--brand-primary,#0F172A);background:color-mix(in srgb,var(--brand-primary,#0F172A) 10%,#fff);padding:2px 8px;border-radius:999px}',
+    '.cms-course-count:empty{display:none}',
+    '.cms-course-lines{display:flex;flex-direction:column;gap:6px}',
+    '.cms-course-line{display:flex;gap:6px;align-items:center}',
+    '.cms-course-line .cms-select{min-height:44px;font-size:14px}',
+    '.cms-course-remove{flex-shrink:0;width:36px;height:36px;border:0;border-radius:10px;background:#F1F5F9;color:#64748B;font-size:20px;line-height:1;cursor:pointer}',
+    '.cms-course-remove:hover{background:#FEE2E2;color:#B91C1C}',
+    '.cms-course-remove[hidden]{display:none}',
+    '.cms-course-add{align-self:flex-start;font:inherit;font-size:13px;font-weight:700;border:0;border-radius:999px;padding:7px 14px;cursor:pointer;color:#fff;background:var(--brand-primary,#0F172A)}',
+    '.cms-course-add:disabled{opacity:.35;cursor:not-allowed}',
+    '.cms-course-summary{font-size:12.5px;color:#64748B}',
     /* Catalogue picker: chosen rows below the search box. */
     '.cms-catalogue-picker{display:flex;flex-direction:column;gap:8px}',
     '.cms-catalogue-search{position:relative}',
@@ -667,6 +685,10 @@
       return radioWrap;
     }
     if (f.type === 'checkboxes' || f.type === 'multiselect') {
+      // Menu with courses: one section per course with "Add line".
+      if (f.id === 'menu_item_ids' && (f.options || []).some(function (o) { return o && o.group; })) {
+        return buildCategoryPicker(f, id);
+      }
       if (f.id === 'menu_item_ids' || f.id === 'equipment_item_ids') {
         return buildCataloguePicker(f, id);
       }
@@ -914,6 +936,118 @@
     }, { delay: 250, minChars: 3, loadingText: 'Searching addresses...', stacked: true, icon: PIN_SVG, footer: 'Pick your address, or keep typing the full address' });
   }
 
+  // Course order for the menu sections. Unknown categories follow,
+  // alphabetically, so any tenant's catalogue still renders sensibly.
+  var COURSE_ORDER = ['starters', 'starter', 'appetisers', 'appetizers', 'canapes', 'mains', 'main', 'main course', 'sides', 'side', 'salads', 'salad', 'desserts', 'dessert', 'drinks', 'beverages', 'service', 'other'];
+  function courseRank(name) {
+    var i = COURSE_ORDER.indexOf(String(name || '').toLowerCase().trim());
+    return i === -1 ? 50 : i;
+  }
+  function singular(name) {
+    var n = String(name || '').trim();
+    if (/ies$/i.test(n)) return n.slice(0, -3) + 'y';
+    if (/s$/i.test(n) && !/ss$/i.test(n)) return n.slice(0, -1);
+    return n;
+  }
+
+  // Menu picker laid out like the tenant's quote sheet: one section per
+  // course (Starters, Mains, Sides, Salads, Desserts...), each with a
+  // dropdown of that course's dishes and an "Add line" button for more.
+  // Selected ids are mirrored into hidden checked checkboxes so the
+  // form runner reads them like any multi-select.
+  function buildCategoryPicker(f, id) {
+    var options = normalizeOptions(f.options).map(function (o, i) {
+      var raw = (f.options || [])[i];
+      return { value: o.value, label: o.label, group: (raw && raw.group) || 'Other' };
+    });
+    var groups = {};
+    var order = [];
+    options.forEach(function (o) {
+      if (!groups[o.group]) { groups[o.group] = []; order.push(o.group); }
+      groups[o.group].push(o);
+    });
+    order.sort(function (a, b) {
+      var ra = courseRank(a), rb = courseRank(b);
+      return ra !== rb ? ra - rb : a.localeCompare(b);
+    });
+
+    var wrap = el('div', { class: 'cms-course-picker', role: 'group', tabindex: '-1', 'aria-label': f.label || 'Menu' });
+    var hidden = el('div', { class: 'cms-course-hidden' });
+    var summary = el('div', { class: 'cms-course-summary', 'aria-live': 'polite' });
+    var grid = el('div', { class: 'cms-course-grid' });
+    wrap.appendChild(grid);
+    wrap.appendChild(summary);
+    wrap.appendChild(hidden);
+    var sections = [];
+
+    function chosenIn(section) {
+      return section.rows.map(function (r) { return r.select.value; }).filter(Boolean);
+    }
+    function sync() {
+      hidden.innerHTML = '';
+      var total = 0;
+      sections.forEach(function (section) {
+        var picked = chosenIn(section);
+        total += picked.length;
+        section.count.textContent = picked.length ? picked.length + ' chosen' : '';
+        // Hide choices already picked in another line of the same course.
+        section.rows.forEach(function (row) {
+          Array.prototype.forEach.call(row.select.options, function (opt) {
+            if (!opt.value) return;
+            opt.disabled = opt.value !== row.select.value && picked.indexOf(opt.value) !== -1;
+          });
+          row.remove.hidden = section.rows.length === 1 && !row.select.value;
+        });
+        section.add.disabled = picked.length >= section.items.length || section.rows.some(function (r) { return !r.select.value; });
+        picked.forEach(function (value) {
+          var cb = el('input', { type: 'checkbox', name: f.id, value: value, class: 'cms-sr', tabindex: '-1', 'aria-hidden': 'true' });
+          cb.checked = true;
+          hidden.appendChild(cb);
+        });
+      });
+      summary.textContent = total ? total + ' dish' + (total === 1 ? '' : 'es') + ' selected' : 'No dishes selected yet. Pick from any course above.';
+    }
+    function addRow(section, focus) {
+      var select = el('select', { class: 'cms-select', 'aria-label': 'Choose from ' + section.name });
+      select.appendChild(el('option', { value: '', text: 'Choose a ' + singular(section.name).toLowerCase() + '...' }));
+      section.items.forEach(function (o) { select.appendChild(el('option', { value: o.value, text: o.label })); });
+      var remove = el('button', { type: 'button', class: 'cms-course-remove', 'aria-label': 'Remove this line', html: '&times;' });
+      var line = el('div', { class: 'cms-course-line' }, [select, remove]);
+      var row = { select: select, remove: remove, line: line };
+      select.addEventListener('change', function () { sync(); wrap.dispatchEvent(new Event('change', { bubbles: true })); });
+      remove.addEventListener('click', function () {
+        if (section.rows.length > 1) {
+          section.rows.splice(section.rows.indexOf(row), 1);
+          line.parentNode.removeChild(line);
+        } else {
+          select.value = '';
+        }
+        sync();
+        wrap.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      section.rows.push(row);
+      section.lines.appendChild(line);
+      if (focus) setTimeout(function () { try { select.focus(); } catch (e) { /* ignore */ } }, 0);
+    }
+    order.forEach(function (name) {
+      var section = { name: name, items: groups[name], rows: [] };
+      section.count = el('span', { class: 'cms-course-count' });
+      section.lines = el('div', { class: 'cms-course-lines' });
+      section.add = el('button', { type: 'button', class: 'cms-course-add', text: '+ Add line' });
+      section.add.addEventListener('click', function () { addRow(section, true); sync(); });
+      var card = el('div', { class: 'cms-course' }, [
+        el('div', { class: 'cms-course-head' }, [el('span', { class: 'cms-course-name', text: name }), section.count]),
+        section.lines,
+        section.add
+      ]);
+      grid.appendChild(card);
+      sections.push(section);
+      addRow(section, false);
+    });
+    sync();
+    return wrap;
+  }
+
   // Menu / equipment picker: type to search (or just click to browse),
   // pick from the list, chosen items appear below with Remove.
   function buildCataloguePicker(f, id) {
@@ -1007,6 +1141,8 @@
   // Long answers, choices, pickers and addresses take a full row.
   var WIDE_TYPES = { textarea: 1, radio: 1, checkboxes: 1, checkbox: 1, multiselect: 1 };
   function isWideField(f) {
+    // Service tick boxes sit side by side.
+    if (f.id === 'waiter_service' || f.id === 'onsite_chef') return false;
     return !!(WIDE_TYPES[f.type] || f.mapsTo === 'venue' || f.id === 'venue' ||
       f.id === 'venue_address' || f.id === 'menu_item_ids' || f.id === 'equipment_item_ids');
   }
