@@ -40,6 +40,7 @@
     'spit-braai-quick': 1
   };
 
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   var helpersPromise = null;
   var templatePromises = {};
   var configCache = {};
@@ -78,11 +79,13 @@
     return templatePromises[id];
   }
 
-  function fetchConfig(token, slug) {
-    var key = token + '::' + (slug || 'default');
+  function fetchConfig(token, slug, preview) {
+    var key = token + '::' + (slug || 'default') + (preview ? '::preview' : '');
     if (configCache[key]) return Promise.resolve(configCache[key]);
-    var url = API_BASE + '/api/public/embed/' + encodeURIComponent(token) + '/config?slug=' + encodeURIComponent(slug || 'default');
+    // preview=1 tells the API not to count an admin preview as a view.
+    var url = API_BASE + '/api/public/embed/' + encodeURIComponent(token) + '/config?slug=' + encodeURIComponent(slug || 'default') + (preview ? '&preview=1' : '');
     return fetch(url, { credentials: 'omit', mode: 'cors' }).then(function (r) {
+      if (r.status === 404) throw new Error('This form is paused or no longer exists.');
       if (!r.ok) throw new Error('Config request failed (' + r.status + ')');
       return r.json();
     }).then(function (data) {
@@ -172,33 +175,33 @@
           order: 9,
           conditional: quoteOnly,
           options: [
-            { value: 'demo-beef-strips', label: 'Spicy Beef Strips · Starters · R50' },
-            { value: 'demo-chicken-wings', label: 'Sticky Chicken Wings · Starters · R40' },
-            { value: 'demo-lamb-ribs-half', label: 'Lamb Ribs Half Portion · Starters · R50' },
-            { value: 'demo-boerewors', label: 'Grilled Boerewors (150g) · Mains · R25' },
-            { value: 'demo-lamb-ribs-full', label: 'Lamb Ribs Full Portion · Mains · R85' },
-            { value: 'demo-lamb-package-25', label: 'Lamb Spit (on-site) · serves 25 · Mains · R4,750' },
-            { value: 'demo-lamb-package-35', label: 'Lamb Spit (on-site) · serves 35 · Mains · R5,250' },
-            { value: 'demo-lamb-package-50', label: 'Lamb Spit (on-site) · serves 50 · Mains · R6,050' },
-            { value: 'demo-lamb-full', label: 'Lamb Spit Full Portion · Mains · R105' },
-            { value: 'demo-lamb-half', label: 'Lamb Spit Half Portion · Mains · R65' },
-            { value: 'demo-chicken', label: 'Roasted Chicken Pieces · Mains · R40' },
-            { value: 'demo-kiddies', label: 'Kiddies Meals · Mains · R75' },
-            { value: 'demo-coleslaw', label: 'Coleslaw · Salads · R20' },
-            { value: 'demo-curry-noodle', label: 'Curry Noodle Salad · Salads · R22.50' },
-            { value: 'demo-greek', label: 'Greek Salad · Salads · R22.50' },
-            { value: 'demo-green', label: 'Green Salad · Salads · R17.50' },
-            { value: 'demo-pasta', label: 'Pasta Salad · Salads · R22.50' },
-            { value: 'demo-pasta-vinaigrette', label: 'Pasta Vinaigrette · Salads · R22.50' },
-            { value: 'demo-potato', label: 'Potato Salad · Salads · R22.50' },
-            { value: 'demo-baby-potatoes', label: 'Baby Potatoes · Sides · R7.50' },
-            { value: 'demo-garlic', label: 'Garlic Bread · Sides · R7.50' },
-            { value: 'demo-veg', label: 'Mixed Chunky Vegetables · Sides · R25' },
-            { value: 'demo-roasted-potatoes', label: 'Roasted Baby Potatoes · Sides · R10' },
-            { value: 'demo-brownie', label: 'Chocolate Brownie & Cream · Desserts · R40' },
-            { value: 'demo-malva', label: 'Malva Pudding & Custard · Desserts · R35' },
-            { value: 'demo-peppermint', label: 'Peppermint Crisp Tart · Desserts · R35' },
-            { value: 'demo-waiter', label: 'Waiter / Server · Service · R300' }
+            { value: 'demo-beef-strips', label: 'Spicy Beef Strips · Starters' },
+            { value: 'demo-chicken-wings', label: 'Sticky Chicken Wings · Starters' },
+            { value: 'demo-lamb-ribs-half', label: 'Lamb Ribs Half Portion · Starters' },
+            { value: 'demo-boerewors', label: 'Grilled Boerewors (150g) · Mains' },
+            { value: 'demo-lamb-ribs-full', label: 'Lamb Ribs Full Portion · Mains' },
+            { value: 'demo-lamb-package-25', label: 'Lamb Spit (on-site) · serves 25 · Mains' },
+            { value: 'demo-lamb-package-35', label: 'Lamb Spit (on-site) · serves 35 · Mains' },
+            { value: 'demo-lamb-package-50', label: 'Lamb Spit (on-site) · serves 50 · Mains' },
+            { value: 'demo-lamb-full', label: 'Lamb Spit Full Portion · Mains' },
+            { value: 'demo-lamb-half', label: 'Lamb Spit Half Portion · Mains' },
+            { value: 'demo-chicken', label: 'Roasted Chicken Pieces · Mains' },
+            { value: 'demo-kiddies', label: 'Kiddies Meals · Mains' },
+            { value: 'demo-coleslaw', label: 'Coleslaw · Salads' },
+            { value: 'demo-curry-noodle', label: 'Curry Noodle Salad · Salads' },
+            { value: 'demo-greek', label: 'Greek Salad · Salads' },
+            { value: 'demo-green', label: 'Green Salad · Salads' },
+            { value: 'demo-pasta', label: 'Pasta Salad · Salads' },
+            { value: 'demo-pasta-vinaigrette', label: 'Pasta Vinaigrette · Salads' },
+            { value: 'demo-potato', label: 'Potato Salad · Salads' },
+            { value: 'demo-baby-potatoes', label: 'Baby Potatoes · Sides' },
+            { value: 'demo-garlic', label: 'Garlic Bread · Sides' },
+            { value: 'demo-veg', label: 'Mixed Chunky Vegetables · Sides' },
+            { value: 'demo-roasted-potatoes', label: 'Roasted Baby Potatoes · Sides' },
+            { value: 'demo-brownie', label: 'Chocolate Brownie & Cream · Desserts' },
+            { value: 'demo-malva', label: 'Malva Pudding & Custard · Desserts' },
+            { value: 'demo-peppermint', label: 'Peppermint Crisp Tart · Desserts' },
+            { value: 'demo-waiter', label: 'Waiter / Server · Service' }
           ]
         },
         {
@@ -211,14 +214,14 @@
           order: 10,
           conditional: quoteOnly,
           options: [
-            { value: 'demo-bowl-plastic', label: 'Plastic bowl · Crockery · R2.50' },
-            { value: 'demo-bowl', label: 'Porcelain bowl · Crockery · R2.50' },
-            { value: 'demo-plate-20', label: '20 cm Plate · Crockery · R2.50' },
-            { value: 'demo-plate', label: '25 cm Plate · Crockery · R2.50' },
-            { value: 'demo-fork', label: 'Stainless steel fork · Cutlery · R2' },
-            { value: 'demo-knife', label: 'Stainless steel knife · Cutlery · R2' },
-            { value: 'demo-spoon', label: 'Stainless steel spoon · Cutlery · R2' },
-            { value: 'demo-chafing', label: 'Chafing dish · Service · R85' }
+            { value: 'demo-bowl-plastic', label: 'Plastic bowl · Crockery' },
+            { value: 'demo-bowl', label: 'Porcelain bowl · Crockery' },
+            { value: 'demo-plate-20', label: '20 cm Plate · Crockery' },
+            { value: 'demo-plate', label: '25 cm Plate · Crockery' },
+            { value: 'demo-fork', label: 'Stainless steel fork · Cutlery' },
+            { value: 'demo-knife', label: 'Stainless steel knife · Cutlery' },
+            { value: 'demo-spoon', label: 'Stainless steel spoon · Cutlery' },
+            { value: 'demo-chafing', label: 'Chafing dish · Service' }
           ]
         },
         {
@@ -272,6 +275,51 @@
     host.appendChild(d);
   }
 
+  // A 'tier' field saved without options (the default pricing form)
+  // takes its choices from the company's pricing tiers.
+  var ADDRESS_FIELD_IDS = { venue: 1, venue_address: 1, delivery_address: 1, address: 1, location: 1 };
+
+  function prepareFields(config, token) {
+    var tiers = Array.isArray(config.tiers) ? config.tiers : [];
+    (config.fields || []).forEach(function (f) {
+      if (!f) return;
+      // Venue-style text fields get live address suggestions (needs a
+      // real token, so not in the placeholder demo).
+      var isAddress = f.mapsTo === 'venue' || ADDRESS_FIELD_IDS[f.id];
+      if (isAddress && (!f.type || f.type === 'text') && token && UUID_RE.test(token)) {
+        f.addressSuggestUrl = API_BASE + '/api/public/embed/' + encodeURIComponent(token) + '/address-suggest';
+      }
+      var hasOptions = Array.isArray(f.options) && f.options.length > 0;
+      if ((f.type === 'tier' || f.id === 'tier') && !hasOptions && tiers.length > 0) {
+        f.options = tiers.map(function (t) {
+          return { value: String(t.id), label: String(t.name || t.id) };
+        });
+      }
+    });
+    return config;
+  }
+
+  // Admin editor drafts arrive in the DB row shape; translate to the
+  // public config shape the templates read.
+  function mergeDraft(base, draft) {
+    var next = Object.assign({}, base);
+    if (Array.isArray(draft.fields)) {
+      var draftIds = {};
+      draft.fields.forEach(function (f) { if (f && f.id) draftIds[f.id] = true; });
+      // Keep the server-added live catalogue fields (menu, equipment,
+      // request type) that the draft never contains.
+      var serverOnly = (base.fields || []).filter(function (f) {
+        return f && !draftIds[f.id] &&
+          (f.id === 'menu_item_ids' || f.id === 'equipment_item_ids' || f.id === 'request_type');
+      });
+      next.fields = JSON.parse(JSON.stringify(draft.fields)).concat(serverOnly);
+    }
+    if (draft.theme && typeof draft.theme === 'object') next.theme = draft.theme;
+    if (draft.template_id) next.template = draft.template_id;
+    if (typeof draft.success_message === 'string') next.successMessage = draft.success_message || base.successMessage;
+    return next;
+  }
+
   function mount(hostEl) {
     if (hostEl.__cmsMounted) return;
     hostEl.__cmsMounted = true;
@@ -279,7 +327,11 @@
     var token = hostEl.getAttribute('data-token');
     var slug = hostEl.getAttribute('data-slug') || 'default';
     var templateOverride = hostEl.getAttribute('data-template') || null;
-    var demoMode = hostEl.getAttribute('data-demo') === 'true';
+    // Preview mode: the REAL saved config is rendered (unlike demo mode's
+    // placeholder fields) but nothing is ever submitted. Used by the
+    // admin editor, form cards and the "Preview" links.
+    var previewMode = hostEl.getAttribute('data-preview') === 'true';
+    var demoMode = hostEl.getAttribute('data-demo') === 'true' || previewMode;
     // LCF-H (task #229, 2026-05-25): tenant-aware demo fallback.
     // Admin preview iframes pass companyName + primaryColor +
     // secondaryColor as data attrs so the fallback config used in
@@ -315,14 +367,19 @@
       logoUrl: demoLogoUrl,
       currency: demoCurrency,
     };
-    var configReq = demoMode
-      ? Promise.resolve(fallbackConfig(slug, templateOverride, demoOpts))
-      : fetchConfig(token, slug);
+    var configReq = previewMode
+      ? fetchConfig(token, slug, true)
+      : demoMode
+        ? Promise.resolve(fallbackConfig(slug, templateOverride, demoOpts))
+        : fetchConfig(token, slug);
 
-    Promise.all([configReq, getHelpers()]).then(function (results) {
-      var config = results[0];
-      var helpers = results[1];
-      if (templateOverride) config.template = templateOverride;
+    var baseConfig = null;
+    var helpersRef = null;
+
+    function renderConfig(rawConfig) {
+      var config = prepareFields(JSON.parse(JSON.stringify(rawConfig)), token);
+      var helpers = helpersRef;
+      if (templateOverride && !previewMode) config.template = templateOverride;
       var templateId = config.template || 'quick-card';
 
       return getTemplate(templateId).then(function (tpl) {
@@ -339,7 +396,12 @@
         var renderHelpers = Object.assign({}, helpers, {
           submit: function (payload, turnstileToken, honeypot) {
             if (demoMode) {
-              return Promise.resolve({ ok: true, message: '[demo] form submission was skipped' });
+              return Promise.resolve({
+                ok: true,
+                message: previewMode
+                  ? 'Preview only: everything checked out, but no lead was created. Visitors using your shared link or website snippet will create real leads.'
+                  : '[demo] form submission was skipped'
+              });
             }
             return helpers.submitForm(API_BASE, token, slug, payload, turnstileToken, honeypot);
           },
@@ -350,7 +412,9 @@
             return helpers.fetchEstimate(API_BASE, token, guests, tierId);
           },
           onSuccess: function (response) {
-            handleSuccess(shadow, config, response, helpers);
+            // Never follow the thank-you redirect from a preview: inside
+            // the admin editor it would navigate the whole admin page away.
+            handleSuccess(shadow, demoMode ? Object.assign({}, config, { redirectUrl: null }) : config, response, helpers);
           },
           apiBase: API_BASE,
           token: token,
@@ -360,6 +424,30 @@
 
         tpl.render(shadow, config, config.brand || {}, renderHelpers);
       });
+    }
+
+    // The admin editor posts unsaved edits so the preview shows them
+    // before Save. Same-origin only: a third-party page can never
+    // re-skin a tenant's form this way.
+    function listenForDrafts() {
+      window.addEventListener('message', function (ev) {
+        if (ev.origin !== window.location.origin) return;
+        var data = ev.data;
+        if (!data || data.type !== 'embed-draft' || !data.config) return;
+        renderConfig(mergeDraft(baseConfig, data.config)).catch(function () { /* keep last render */ });
+      });
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'embed-preview-ready', slug: slug }, window.location.origin);
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    Promise.all([configReq, getHelpers()]).then(function (results) {
+      baseConfig = results[0];
+      helpersRef = results[1];
+      if (previewMode) listenForDrafts();
+      return renderConfig(baseConfig);
     }).catch(function (err) {
       // Replace shadow content with a graceful error.
       try {
@@ -390,7 +478,7 @@
   }
 
   function handleSuccess(shadow, config, response, helpers) {
-    var redirect = (response && response.redirect_url) || config.redirectUrl;
+    var redirect = (response && (response.redirectUrl || response.redirect_url)) || config.redirectUrl;
     if (redirect && isSafeRedirect(redirect)) {
       try { window.top.location.href = redirect; return; } catch (e) {
         window.location.href = redirect;

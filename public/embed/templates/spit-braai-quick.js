@@ -73,6 +73,7 @@
     addRow(['postcode', 'phone']);
     addRow(['contact_name']);
 
+    h.appendRemainingFields(form, fields, entries, 'sb_', []);
     form.appendChild(h.buildHoneypot());
     var tslot = h.el('div', { class: 'cms-turnstile' }); form.appendChild(tslot);
 

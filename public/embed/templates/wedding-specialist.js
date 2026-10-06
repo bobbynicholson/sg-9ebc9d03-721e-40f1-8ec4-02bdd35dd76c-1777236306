@@ -97,6 +97,7 @@
     form.appendChild(h.el('div', { class: 'cms-section-title', text: 'Styling' }));
     form.appendChild(stylingWrap);
 
+    h.appendRemainingFields(form, fields, entries, 'w_', ['dietary', 'full_styling']);
     form.appendChild(h.buildHoneypot());
     var tslot = h.el('div', { class: 'cms-turnstile' }); form.appendChild(tslot);
     var btn = h.el('button', { class: 'cms-btn', type: 'submit', text: config.submitLabel || 'Send our wedding team' });

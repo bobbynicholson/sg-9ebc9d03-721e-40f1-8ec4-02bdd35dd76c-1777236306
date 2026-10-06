@@ -25,15 +25,51 @@
     }
   }
 
+  // Options may be saved as {value,label} objects or as plain strings by
+  // older configs. Normalise to objects and drop blank rows so a select
+  // never renders an "undefined" choice.
+  function normalizeOptions(options) {
+    if (!Array.isArray(options)) return [];
+    var out = [];
+    options.forEach(function (o) {
+      if (o === null || o === undefined) return;
+      if (typeof o === 'string' || typeof o === 'number') {
+        var s = String(o).trim();
+        if (s) out.push({ value: s, label: s });
+        return;
+      }
+      var value = o.value !== undefined && o.value !== null ? String(o.value) : '';
+      var label = o.label !== undefined && o.label !== null ? String(o.label) : value;
+      if (!value && !label) return;
+      out.push({ value: value || label, label: label || value });
+    });
+    return out;
+  }
+
+  function todayIso() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1);
+    var day = String(d.getDate());
+    return d.getFullYear() + '-' + (m.length < 2 ? '0' + m : m) + '-' + (day.length < 2 ? '0' + day : day);
+  }
+
   // Mirrors server-side validation. Returns null if valid, else error string.
   function validateField(field, value) {
     if (!field) return null;
     var v = value;
     if (typeof v === 'string') v = v.trim();
     var empty = v === undefined || v === null || v === '' ||
-      (Array.isArray(v) && v.length === 0);
+      (Array.isArray(v) && v.length === 0) ||
+      (field.type === 'checkbox' && v === false);
 
     if (field.required && empty) {
+      if (field.type === 'checkbox') return 'Please tick this box to continue';
+      if (field.type === 'select' || field.type === 'radio' || field.type === 'tier') {
+        return 'Please choose an option';
+      }
+      if (field.type === 'checkboxes' || field.type === 'multiselect') {
+        return 'Please choose at least one option';
+      }
       return (field.label || 'This field') + ' is required';
     }
     if (empty) return null;
@@ -45,8 +81,9 @@
       }
     }
     if (field.type === 'phone' || field.type === 'tel') {
-      var digits = String(v).replace(/[^\d+]/g, '');
-      if (digits.replace(/\D/g, '').length < 7) {
+      // Same rule as the server (PHONE_RE in lib/embedFormApi.ts) so a
+      // number the browser accepts is never rejected after submit.
+      if (!/^[+\d][\d\s\-().]{5,24}$/.test(String(v)) || String(v).replace(/\D/g, '').length < 7) {
         return 'Please enter a valid phone number';
       }
     }
@@ -59,6 +96,11 @@
     if (field.type === 'date') {
       var d = new Date(v);
       if (isNaN(d.getTime())) return 'Please enter a valid date';
+      // Event dates are bookings; a past date is always a typo. ISO
+      // yyyy-mm-dd strings compare correctly as text.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(v)) && String(v) < todayIso()) {
+        return 'Please choose today or a future date';
+      }
       if (rules.minDate) {
         var md = new Date(rules.minDate);
         if (d < md) return 'Date must be on or after ' + rules.minDate;
@@ -119,8 +161,11 @@
       mode: 'cors'
     }).then(function (res) {
       return res.json().then(function (data) {
-        if (!res.ok) {
-          var err = new Error((data && data.message) || 'Request failed');
+        // The submit API answers some failures (e.g. a failed spam
+        // challenge) with HTTP 200 + ok:false, so check both.
+        if (!res.ok || (data && data.ok === false)) {
+          var fallback = data && data.errors ? 'Please correct the highlighted fields.' : 'Something went wrong. Please try again.';
+          var err = new Error((data && data.message) || fallback);
           err.status = res.status;
           err.data = data;
           throw err;
@@ -250,18 +295,24 @@
   var baseCSS = [
     '*,*::before,*::after{box-sizing:border-box}',
     ':host{all:initial;display:block;font-family:var(--brand-font,inherit);color:var(--brand-text,#0F172A);font-size:16px;line-height:1.5}',
-    '.cms-form{background:var(--brand-bg,#fff);border-radius:var(--brand-radius,16px);color:var(--brand-text,#0F172A);font-family:var(--brand-font,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif);box-shadow:0 1px 3px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.06)}',
-    '.cms-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}',
-    '.cms-label{font-size:14px;font-weight:600;color:var(--brand-text,#0F172A)}',
-    '.cms-help{font-size:12px;color:#6B7280}',
-    '.cms-input,.cms-select,.cms-textarea{font:inherit;color:inherit;width:100%;padding:11px 13px;border:1px solid #D1D5DB;border-radius:calc(var(--brand-radius,12px) - 4px);background:#fff;transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease;min-height:44px}',
-    '.cms-input:hover,.cms-select:hover,.cms-textarea:hover{border-color:#9CA3AF}',
+    '.cms-form{position:relative;background:var(--brand-bg,#fff);border-radius:20px;color:var(--brand-text,#0F172A);font-family:var(--brand-font,"Inter",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif);box-shadow:0 1px 2px rgba(15,23,42,.05),0 12px 32px -8px rgba(15,23,42,.14);border:1px solid #E8ECF2}',
+    /* Brand accent strip across the top of every form card. */
+    '.cms-form::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;border-radius:20px 20px 0 0;background:linear-gradient(90deg,var(--brand-primary,#0F172A),var(--brand-secondary,#F59E0B))}',
+    '.cms-title{font-size:22px!important;font-weight:800!important;letter-spacing:-.02em;line-height:1.25;margin:0 0 6px!important}',
+    '.cms-sub{color:#64748B!important;font-size:14.5px!important;margin:0 0 20px!important}',
+    '.cms-field{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}',
+    '.cms-label{font-size:13.5px;font-weight:600;color:#334155;letter-spacing:.005em}',
+    '.cms-help{font-size:12.5px;color:#64748B;margin-top:-3px}',
+    '.cms-input,.cms-select,.cms-textarea{font:inherit;font-size:15px;color:inherit;width:100%;padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:calc(var(--brand-radius,12px) - 2px);background:#F8FAFC;transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease;min-height:48px}',
+    '.cms-input::placeholder,.cms-textarea::placeholder{color:#94A3B8}',
+    '.cms-select{appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 fill=%27none%27 stroke=%27%2364748B%27 stroke-width=%272%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M4 6l4 4 4-4%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}',
+    '.cms-input:hover,.cms-select:hover,.cms-textarea:hover{border-color:#CBD5E1;background-color:#fff}',
     '.cms-textarea{min-height:88px;resize:vertical}',
-    '.cms-input:focus,.cms-select:focus,.cms-textarea:focus{outline:none;border-color:var(--brand-primary,#0F172A);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-primary,#0F172A) 22%,transparent)}',
+    '.cms-input:focus,.cms-select:focus,.cms-textarea:focus{outline:none;background-color:#fff;border-color:var(--brand-primary,#0F172A);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-primary,#0F172A) 16%,transparent)}',
     '.cms-input[aria-invalid="true"],.cms-select[aria-invalid="true"],.cms-textarea[aria-invalid="true"]{border-color:#DC2626}',
     '.cms-input[aria-invalid="true"]:focus,.cms-select[aria-invalid="true"]:focus,.cms-textarea[aria-invalid="true"]:focus{box-shadow:0 0 0 4px rgba(220,38,38,.18)}',
     '.cms-error{color:#B91C1C;font-size:13px;min-height:1em}',
-    '.cms-btn{font:inherit;cursor:pointer;border:none;border-radius:calc(var(--brand-radius,12px) - 2px);padding:13px 22px;font-weight:600;background:var(--brand-primary,#0F172A);color:#fff;min-height:48px;transition:transform .12s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 1px 2px rgba(15,23,42,.08),0 4px 12px color-mix(in srgb,var(--brand-primary,#0F172A) 20%,transparent)}',
+    '.cms-btn{font:inherit;font-size:15.5px;cursor:pointer;border:none;border-radius:calc(var(--brand-radius,12px) - 2px);padding:14px 24px;font-weight:700;letter-spacing:.01em;background:linear-gradient(135deg,var(--brand-primary,#0F172A),color-mix(in srgb,var(--brand-primary,#0F172A) 78%,#000));color:#fff;min-height:52px;transition:transform .12s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 1px 2px rgba(15,23,42,.08),0 4px 12px color-mix(in srgb,var(--brand-primary,#0F172A) 20%,transparent)}',
     '.cms-btn:hover{filter:brightness(1.06);box-shadow:0 2px 4px rgba(15,23,42,.10),0 6px 16px color-mix(in srgb,var(--brand-primary,#0F172A) 30%,transparent)}',
     '.cms-btn:active{transform:translateY(1px);filter:brightness(.96)}',
     '.cms-btn:focus-visible{outline:none;box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-primary,#0F172A) 30%,transparent),0 6px 16px color-mix(in srgb,var(--brand-primary,#0F172A) 30%,transparent)}',
@@ -284,25 +335,45 @@
     '.cms-brandbar img{max-height:32px;max-width:140px;width:auto;height:auto}',
     /* Radio + checkbox group layouts (used by buildStandardInput). */
     '.cms-radio-group,.cms-checkbox-group{display:flex;flex-direction:column;gap:8px}',
-    '.cms-radio-option,.cms-checkbox-option{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #E5E7EB;border-radius:calc(var(--brand-radius,12px) - 4px);cursor:pointer;transition:border-color .15s,background-color .15s}',
+    '.cms-radio-option,.cms-checkbox-option{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1.5px solid #E2E8F0;background:#fff;border-radius:calc(var(--brand-radius,12px) - 2px);cursor:pointer;transition:border-color .15s,background-color .15s,box-shadow .15s}',
+    '.cms-radio-option:has(input:checked),.cms-checkbox-option:has(input:checked){border-color:var(--brand-primary,#0F172A);background:color-mix(in srgb,var(--brand-primary,#0F172A) 6%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand-primary,#0F172A) 10%,transparent)}',
+    '.cms-radio-option:has(input:checked) .cms-radio-label{font-weight:600}',
     '.cms-radio-option:hover,.cms-checkbox-option:hover{border-color:var(--brand-primary,#9CA3AF);background:color-mix(in srgb,var(--brand-primary,#0F172A) 4%,#fff)}',
     '.cms-radio-option input,.cms-checkbox-option input{accent-color:var(--brand-primary,#0F172A);width:18px;height:18px;flex-shrink:0}',
-    '.cms-radio-label,.cms-checkbox-label{font-size:14px;color:var(--brand-text,#0F172A)}',
-    /* Searchable catalogue picker: used for live menu + equipment rows. */
+    '.cms-radio-label,.cms-checkbox-label{font-size:14.5px;color:var(--brand-text,#0F172A)}',
+    /* Shared layout pieces for the redesigned templates. */
+    '.cms-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}',
+    '.cms-head img{max-height:40px;max-width:120px;width:auto;height:auto;border-radius:8px}',
+    '.cms-head-badge{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:12px;font-weight:800;font-size:16px;color:#fff;background:linear-gradient(135deg,var(--brand-primary,#0F172A),var(--brand-secondary,#F59E0B));flex-shrink:0}',
+    '.cms-head-name{font-size:14px;font-weight:700;color:#0F172A;line-height:1.2}',
+    '.cms-head-tag{font-size:12px;color:#64748B}',
+    '.cms-section{margin:22px 0 12px;padding-top:18px;border-top:1px dashed #E2E8F0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-primary,#0F172A)}',
+    '.cms-trust{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;margin-top:14px;font-size:12.5px;color:#64748B}',
+    '.cms-trust span::before{content:"\\2713";margin-right:5px;color:var(--brand-primary,#16A34A);font-weight:700}',
+    /* Type-ahead suggestion list (venue address + menu / equipment). */
+    '.cms-suggest-anchor{position:relative}',
+    '.cms-suggest{position:absolute;left:0;right:0;z-index:20;margin-top:4px;max-height:280px;overflow-y:auto;background:#fff;border:1px solid #CBD5E1;border-radius:calc(var(--brand-radius,12px) - 4px);box-shadow:0 10px 28px rgba(15,23,42,.14)}',
+    '.cms-suggest-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid #F1F5F9}',
+    '.cms-suggest-item:last-child{border-bottom:0}',
+    '.cms-suggest-item:hover,.cms-suggest-item.is-active{background:color-mix(in srgb,var(--brand-primary,#0F172A) 8%,#fff)}',
+    '.cms-suggest-hint{font-size:12px;color:#64748B;white-space:nowrap}',
+    '.cms-suggest-status{padding:10px 12px;font-size:13px;color:#64748B}',
+    /* Catalogue picker: chosen rows below the search box. */
     '.cms-catalogue-picker{display:flex;flex-direction:column;gap:8px}',
-    '.cms-catalogue-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}',
-    '.cms-catalogue-controls .cms-input{grid-column:1/-1}',
-    '.cms-catalogue-add{min-height:44px;padding:9px 16px}',
+    '.cms-catalogue-search{position:relative}',
     '.cms-catalogue-selected{display:flex;flex-direction:column;gap:7px}',
     '.cms-catalogue-status{font-size:12px;color:#64748B;min-height:18px}',
-    '.cms-catalogue-empty{font-size:13px;color:#64748B;padding:8px 0}',
+    '.cms-catalogue-empty{font-size:13px;color:#64748B;padding:4px 0}',
     '.cms-catalogue-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid #E2E8F0;border-radius:calc(var(--brand-radius,12px) - 4px);background:#F8FAFC}',
-    '.cms-catalogue-row span{font-size:14px}',
-    '.cms-catalogue-remove{font:inherit;font-size:13px;font-weight:600;color:#B91C1C;background:transparent;border:0;cursor:pointer;padding:4px 6px;border-radius:6px}',
+    '.cms-catalogue-name{display:flex;flex-direction:column;font-size:14px;min-width:0}',
+    '.cms-catalogue-name small{font-size:12px;color:#64748B}',
+    '.cms-catalogue-remove{font:inherit;font-size:13px;font-weight:600;color:#B91C1C;background:transparent;border:0;cursor:pointer;padding:4px 6px;border-radius:6px;flex-shrink:0}',
     '.cms-catalogue-remove:hover{background:#FEE2E2}',
-    '@media(max-width:480px){.cms-catalogue-controls{grid-template-columns:1fr}.cms-catalogue-controls .cms-input{grid-column:auto}}',
     /* Standalone single checkbox -- align with adjacent label */
-    '.cms-checkbox{accent-color:var(--brand-primary,#0F172A);width:18px;height:18px}',
+    '.cms-checkbox{accent-color:var(--brand-primary,#0F172A);width:18px;height:18px;flex-shrink:0}',
+    '.cms-checkbox-single{align-self:flex-start}',
+    '.cms-radio-group[aria-invalid="true"] .cms-radio-option,.cms-checkbox-group[aria-invalid="true"] .cms-checkbox-option,.cms-checkbox-single[aria-invalid="true"]{border-color:#DC2626}',
+    '.cms-preview-note{font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:6px 10px;margin-bottom:12px}',
     '.cms-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}'
   ].join('');
 
@@ -351,6 +422,50 @@
     };
   }
 
+  // Read one field's value from the element buildStandardInput returned.
+  // Radio / checkbox groups and the single checkbox come back as wrapper
+  // elements, so read the real <input> states inside them.
+  function readFieldValue(field, inp) {
+    if (!inp) return undefined;
+    if (field.type === 'radio') {
+      if (inp.type === 'radio') return inp.checked ? inp.value : '';
+      var picked = inp.querySelector ? inp.querySelector('input[type="radio"]:checked') : null;
+      return picked ? picked.value : '';
+    }
+    if (field.type === 'checkboxes' || field.type === 'multiselect') {
+      if (inp.selectedOptions) {
+        // Legacy <select multiple> path.
+        return Array.from(inp.selectedOptions).map(function (o) { return o.value; });
+      }
+      if (inp.querySelectorAll) {
+        var picks = inp.querySelectorAll('input[type="checkbox"]:checked');
+        return Array.prototype.map.call(picks, function (c) { return c.value; });
+      }
+      return [];
+    }
+    if (field.type === 'checkbox') {
+      if (inp.type === 'checkbox') return inp.checked;
+      var cb = inp.querySelector ? inp.querySelector('input[type="checkbox"]') : null;
+      return cb ? cb.checked : false;
+    }
+    if (field.type === 'number' || field.type === 'guests') {
+      var raw = String(inp.value || '').trim();
+      return raw === '' ? '' : raw;
+    }
+    return typeof inp.value === 'string' ? inp.value.trim() : inp.value;
+  }
+
+  // Focus the first real control of a field (groups are plain divs).
+  function focusInput(inp) {
+    if (!inp) return;
+    var target = inp;
+    if (inp.tagName === 'DIV' || inp.tagName === 'LABEL') {
+      target = inp.querySelector('input:not([type="hidden"]):not(.cms-sr),select,textarea') || inp;
+    }
+    try { target.focus(); } catch (e) { /* ignore */ }
+    try { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { /* ignore */ }
+  }
+
   // Build a standard form runner: validation, conditional logic, submit.
   // Templates pass a list of {field, input, errorEl, wrapper} entries plus the form element.
   function bindFormRunner(host, form, fields, entries, h, opts) {
@@ -363,43 +478,24 @@
     function readPayload() {
       var p = {};
       entries.forEach(function (e) {
-        var inp = e.input;
-        if (!inp) { p[e.field.id] = e.value; return; }
-        // Single-pick radio group (rendered by buildStandardInput as
-        // a wrapping div). buildStandardInput returns the wrapper div
-        // for radio + checkboxes types so we read child <input> states.
-        if (e.field.type === 'radio') {
-          var picked = inp.querySelector
-            ? inp.querySelector('input[type="radio"]:checked')
-            : null;
-          p[e.field.id] = picked ? picked.value : '';
-          return;
-        }
-        if (e.field.type === 'checkboxes' || e.field.type === 'multiselect') {
-          if (inp.selectedOptions) {
-            // Legacy <select multiple> path.
-            p[e.field.id] = Array.from(inp.selectedOptions).map(function (o) { return o.value; });
-          } else if (inp.querySelectorAll) {
-            var picks = inp.querySelectorAll('input[type="checkbox"]:checked');
-            p[e.field.id] = Array.prototype.map.call(picks, function (c) { return c.value; });
-          } else {
-            p[e.field.id] = [];
-          }
-          return;
-        }
-        if (e.field.type === 'checkbox') { p[e.field.id] = inp.checked; return; }
-        if (inp.type === 'radio') {
-          var checked = form.querySelector('input[name="' + inp.name + '"]:checked');
-          p[e.field.id] = checked ? checked.value : '';
-          return;
-        }
-        p[e.field.id] = inp.value;
+        if (!e.input) { p[e.field.id] = e.value; return; }
+        p[e.field.id] = readFieldValue(e.field, e.input);
       });
       if (opts.extraValues) {
         var extras = opts.extraValues();
         Object.keys(extras).forEach(function (k) { p[k] = extras[k]; });
       }
       return p;
+    }
+    function setError(e, msg) {
+      if (e.errorEl) e.errorEl.textContent = msg || '';
+      if (!e.input) return;
+      if (msg) {
+        e.input.setAttribute('aria-invalid', 'true');
+        if (e.errorEl && e.errorEl.id) e.input.setAttribute('aria-describedby', e.errorEl.id);
+      } else {
+        e.input.removeAttribute('aria-invalid');
+      }
     }
     function syncVisibility() {
       var p = readPayload();
@@ -413,35 +509,44 @@
       if (!e.input) return;
       e.input.addEventListener('input', syncVisibility);
       e.input.addEventListener('change', syncVisibility);
+      // Clear a field's error as soon as the visitor fixes it.
+      e.input.addEventListener('change', function () {
+        if (e.errorEl && e.errorEl.textContent) {
+          var msg = validateField(e.field, readFieldValue(e.field, e.input));
+          if (!msg) setError(e, '');
+        }
+      });
     });
-    function validate() {
+    // `only` optionally restricts validation to some entries (used by
+    // the multi-step template to validate one step at a time).
+    function validate(only) {
       var p = readPayload();
       var ok = true;
       var firstBad = null;
       entries.forEach(function (e) {
-        if (!visible.has(e.field.id)) { if (e.errorEl) e.errorEl.textContent = ''; return; }
+        if (only && !only(e)) return;
+        if (!visible.has(e.field.id)) { setError(e, ''); return; }
         var msg = validateField(e.field, p[e.field.id]);
-        if (e.errorEl) e.errorEl.textContent = msg || '';
+        setError(e, msg);
         if (msg) {
           ok = false;
-          if (e.input) {
-            e.input.setAttribute('aria-invalid', 'true');
-            if (e.errorEl && e.errorEl.id) e.input.setAttribute('aria-describedby', e.errorEl.id);
-          }
           if (!firstBad) firstBad = e;
-        } else if (e.input) {
-          e.input.removeAttribute('aria-invalid');
         }
       });
       return { ok: ok, payload: p, firstBad: firstBad };
+    }
+    function showInvalid(firstBad) {
+      announce(host, 'Please correct the highlighted fields.');
+      if (!firstBad) return;
+      if (opts.onInvalid) opts.onInvalid(firstBad);
+      setTimeout(function () { focusInput(firstBad.input); }, opts.onInvalid ? 120 : 0);
     }
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
       if (alertEl) alertEl.hidden = true;
       var v = validate();
       if (!v.ok) {
-        announce(host, 'Please correct the highlighted fields.');
-        if (v.firstBad && v.firstBad.input) v.firstBad.input.focus();
+        showInvalid(v.firstBad);
         return;
       }
       var clean = {};
@@ -455,40 +560,93 @@
       h.submit(clean, opts.getTurnstileToken ? opts.getTurnstileToken() : null, hp ? hp.value : '')
         .then(function (res) { h.onSuccess(res); })
         .catch(function (err) {
+          // Server-side field errors ({errors: {fieldId: msg}}) go under
+          // the matching inputs instead of a generic banner.
+          var serverErrors = err && err.data && err.data.errors;
+          var firstBad = null;
+          if (serverErrors && typeof serverErrors === 'object') {
+            entries.forEach(function (e) {
+              var msg = serverErrors[e.field.id];
+              if (msg) {
+                setError(e, String(msg));
+                if (!firstBad) firstBad = e;
+              }
+            });
+          }
           if (alertEl) {
             alertEl.hidden = false;
             alertEl.textContent = (err && err.message) || 'Could not submit. Please try again.';
             announce(host, alertEl.textContent);
           }
+          if (firstBad) showInvalid(firstBad);
           if (btn) { btn.disabled = false; btn.textContent = defaultLabel; }
         });
     });
     return { syncVisibility: syncVisibility, validate: validate, readPayload: readPayload, getVisible: function () { return visible; } };
   }
 
+  // Render every configured field a template did not lay out itself.
+  // Templates with hand-placed rows (spit-braai, corporate, wedding) used
+  // to drop custom fields entirely, and a required one then failed
+  // server validation with nothing on screen to fill in.
+  function appendRemainingFields(form, fields, entries, prefix, skipIds, beforeEl) {
+    var skip = {};
+    (skipIds || []).forEach(function (id) { skip[id] = true; });
+    fields.forEach(function (f) {
+      if (skip[f.id]) return;
+      if (entries.some(function (e) { return e.field.id === f.id; })) return;
+      var id = prefix + f.id;
+      var wrap = el('div', { class: 'cms-field', dataset: { fid: f.id } });
+      wrap.appendChild(el('label', { class: 'cms-label', for: id, text: f.label + (f.required ? ' *' : '') }));
+      if (f.helpText) wrap.appendChild(el('div', { class: 'cms-help', text: f.helpText }));
+      var input = buildStandardInput(f, id);
+      var err = el('div', { class: 'cms-error', id: id + '_err', 'aria-live': 'polite' });
+      wrap.appendChild(input);
+      wrap.appendChild(err);
+      if (beforeEl && beforeEl.parentNode === form) form.insertBefore(wrap, beforeEl);
+      else form.appendChild(wrap);
+      entries.push({ field: f, input: input, errorEl: err, wrapper: wrap });
+    });
+  }
+
   // Standard input builder used by most templates. Covers every
   // EmbedFieldType the customiser exposes, plus a couple of legacy
   // aliases (tel, guests, multiselect) carried in older configs.
   function buildStandardInput(f, id) {
+    var opts = normalizeOptions(f.options);
     if (f.type === 'select' || f.type === 'tier') {
       // 'tier' renders the same as 'select' visually -- pricing-aware
       // templates listen for change events and call estimate().
       var sel = el('select', { class: 'cms-select', id: id, name: f.id });
-      (f.options || []).forEach(function (o) {
+      // Always start on an empty choice. Without it the browser
+      // preselects the first option, so a visitor who never touched the
+      // dropdown silently submitted "Wedding" and `required` could
+      // never fail.
+      var hasBlank = opts.some(function (o) { return o.value === ''; });
+      if (!hasBlank) {
+        sel.appendChild(el('option', { value: '', text: f.placeholder || 'Select an option' }));
+      }
+      opts.forEach(function (o) {
         sel.appendChild(el('option', { value: o.value, text: o.label || o.value }));
       });
+      sel.value = '';
       return sel;
     }
     if (f.type === 'textarea') {
       return el('textarea', { class: 'cms-textarea', id: id, name: f.id, placeholder: f.placeholder || '', rows: '4' });
     }
     if (f.type === 'checkbox') {
-      return el('input', { class: 'cms-checkbox', type: 'checkbox', id: id, name: f.id });
+      // Tick box with its own clickable text (placeholder doubles as the
+      // statement, e.g. "I agree to the terms").
+      var cbLabel = el('label', { class: 'cms-checkbox-option cms-checkbox-single' });
+      cbLabel.appendChild(el('input', { class: 'cms-checkbox', type: 'checkbox', id: id, name: f.id, value: 'true' }));
+      cbLabel.appendChild(el('span', { class: 'cms-checkbox-label', text: f.placeholder || 'Yes' }));
+      return cbLabel;
     }
     if (f.type === 'radio') {
       // A vertical group of labelled radios sharing the field's name.
-      var radioWrap = el('div', { class: 'cms-radio-group', role: 'radiogroup' });
-      (f.options || []).forEach(function (o, i) {
+      var radioWrap = el('div', { class: 'cms-radio-group', role: 'radiogroup', 'aria-label': f.label || f.id });
+      opts.forEach(function (o, i) {
         var optId = id + '__' + i;
         var label = el('label', { class: 'cms-radio-option' });
         var input = el('input', { type: 'radio', id: optId, name: f.id, value: o.value });
@@ -504,8 +662,8 @@
       }
       // Multi-pick checkbox group. The submit collector reads
       // querySelectorAll(':checked') on these per group.
-      var cbWrap = el('div', { class: 'cms-checkbox-group', role: 'group' });
-      (f.options || []).forEach(function (o, i) {
+      var cbWrap = el('div', { class: 'cms-checkbox-group', role: 'group', 'aria-label': f.label || f.id });
+      opts.forEach(function (o, i) {
         var optId = id + '__' + i;
         var label = el('label', { class: 'cms-checkbox-option' });
         var input = el('input', { type: 'checkbox', id: optId, name: f.id, value: o.value });
@@ -525,19 +683,151 @@
       });
     }
     var typeMap = { phone: 'tel', guests: 'number' };
-    return el('input', {
+    var knownTypes = { text: 1, email: 1, tel: 1, number: 1, date: 1, url: 1 };
+    var htmlType = typeMap[f.type] || f.type || 'text';
+    if (!knownTypes[htmlType]) htmlType = 'text';
+    var rules = f.validation || {};
+    var attrs = {
       class: 'cms-input',
-      type: typeMap[f.type] || f.type || 'text',
+      type: htmlType,
       id: id,
       name: f.id,
       placeholder: f.placeholder || '',
       autocomplete: f.autocomplete || (f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'on')
-    });
+    };
+    if (htmlType === 'number') {
+      attrs.inputmode = 'numeric';
+      attrs.step = rules.step !== undefined ? String(rules.step) : 'any';
+      if (rules.min !== undefined) attrs.min = String(rules.min);
+      if (rules.max !== undefined) attrs.max = String(rules.max);
+    }
+    if (htmlType === 'tel') attrs.inputmode = 'tel';
+    if (htmlType === 'date') attrs.min = rules.minDate || todayIso();
+    var input = el('input', attrs);
+    // loader.js sets addressSuggestUrl on venue-type fields.
+    if (f.addressSuggestUrl && htmlType === 'text') {
+      input.setAttribute('autocomplete', 'street-address');
+      attachAddressSuggest(input, f.addressSuggestUrl);
+    }
+    return input;
   }
 
+  // Shared type-ahead list anchored under an input. `source(term, cb)`
+  // supplies items ({value,label,hint}); `onPick(item)` runs on click /
+  // Enter. Keyboard: Up/Down to move, Enter to pick, Escape to close.
+  function attachSuggestions(input, source, onPick, opts) {
+    opts = opts || {};
+    var list = el('div', { class: 'cms-suggest', role: 'listbox', hidden: 'hidden' });
+    var items = [];
+    var active = -1;
+    var seq = 0;
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+
+    function mountList() {
+      if (list.parentNode) return;
+      var parent = input.parentNode;
+      if (!parent) return;
+      parent.classList.add('cms-suggest-anchor');
+      if (input.nextSibling) parent.insertBefore(list, input.nextSibling);
+      else parent.appendChild(list);
+    }
+    function close() {
+      list.hidden = true;
+      active = -1;
+      input.setAttribute('aria-expanded', 'false');
+    }
+    function highlight(i) {
+      active = i;
+      Array.prototype.forEach.call(list.children, function (node, idx) {
+        node.classList.toggle('is-active', idx === i);
+        if (idx === i) { try { node.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ } }
+      });
+    }
+    function render(next, status) {
+      items = next || [];
+      list.innerHTML = '';
+      if (!items.length) {
+        if (status) {
+          list.appendChild(el('div', { class: 'cms-suggest-status', text: status }));
+          list.hidden = false;
+        } else {
+          close();
+        }
+        return;
+      }
+      items.forEach(function (item, i) {
+        var row = el('div', { class: 'cms-suggest-item', role: 'option', id: input.id + '__opt' + i });
+        row.appendChild(el('span', { class: 'cms-suggest-label', text: item.label }));
+        if (item.hint) row.appendChild(el('span', { class: 'cms-suggest-hint', text: item.hint }));
+        // mousedown (not click) so the input's blur doesn't close first.
+        row.addEventListener('mousedown', function (ev) { ev.preventDefault(); pick(i); });
+        list.appendChild(row);
+      });
+      list.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      active = -1;
+    }
+    function pick(i) {
+      var item = items[i];
+      if (!item) return;
+      close();
+      onPick(item);
+    }
+    var run = debounce(function () {
+      var mine = ++seq;
+      var term = input.value.trim();
+      if (opts.loadingText && term.length >= (opts.minChars || 0)) render([], opts.loadingText);
+      source(term, function (result, status) {
+        if (mine !== seq) return; // a newer keystroke won
+        // Visitor tabbed away while results were loading: don't pop open.
+        var rootNode = input.getRootNode ? input.getRootNode() : document;
+        if (input.isConnected && rootNode.activeElement !== input && document.activeElement !== input) return;
+        render(result, status);
+      });
+    }, opts.delay || 0);
+    input.addEventListener('focus', function () { mountList(); if (opts.openOnFocus) run(); });
+    input.addEventListener('input', function () { mountList(); run(); });
+    input.addEventListener('blur', function () { setTimeout(close, 120); });
+    input.addEventListener('keydown', function (ev) {
+      if (list.hidden || !items.length) {
+        if (ev.key === 'ArrowDown') { mountList(); run(); }
+        return;
+      }
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); highlight(Math.min(items.length - 1, active + 1)); }
+      else if (ev.key === 'ArrowUp') { ev.preventDefault(); highlight(Math.max(0, active - 1)); }
+      else if (ev.key === 'Enter') { ev.preventDefault(); pick(active >= 0 ? active : 0); }
+      else if (ev.key === 'Escape') { close(); }
+    });
+    return { close: close, refresh: run };
+  }
+
+  // Venue address: suggestions from /address-suggest while typing. The
+  // visitor can always ignore them and type the full address.
+  function attachAddressSuggest(input, url) {
+    attachSuggestions(input, function (term, cb) {
+      if (term.length < 4) { cb([]); return; }
+      fetch(url + '?q=' + encodeURIComponent(term), { credentials: 'omit', mode: 'cors' })
+        .then(function (r) { return r.ok ? r.json() : { suggestions: [] }; })
+        .then(function (data) {
+          cb((data.suggestions || []).map(function (s) { return { value: s, label: s }; }));
+        })
+        .catch(function () { cb([]); });
+    }, function (item) {
+      input.value = item.value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, { delay: 300, minChars: 4 });
+  }
+
+  // Menu / equipment picker: type to search (or just click to browse),
+  // pick from the list, chosen items appear below with Remove.
   function buildCataloguePicker(f, id) {
-    var options = (f.options || []).slice();
+    var options = normalizeOptions(f.options);
     var selected = new Map();
+    var isMenu = f.id === 'menu_item_ids';
     var wrap = el('div', {
       class: 'cms-catalogue-picker',
       role: 'group',
@@ -547,65 +837,35 @@
     var search = el('input', {
       class: 'cms-input',
       type: 'search',
-      placeholder: f.id === 'menu_item_ids' ? 'Search the menu...' : 'Search equipment...',
+      id: id,
+      placeholder: isMenu ? 'Type a dish, e.g. lamb, salad, dessert...' : 'Type an item, e.g. plates, chafing dish...',
       autocomplete: 'off'
     });
-    var select = el('select', {
-      class: 'cms-select',
-      'aria-label': f.id === 'menu_item_ids' ? 'Available menu items' : 'Available equipment'
-    });
-    var add = el('button', {
-      class: 'cms-btn cms-catalogue-add',
-      type: 'button',
-      text: 'Add'
-    });
-    var controls = el('div', { class: 'cms-catalogue-controls' }, [search, select, add]);
-    var resultStatus = el('div', {
-      class: 'cms-catalogue-status',
-      'aria-live': 'polite'
-    });
-    var picked = el('div', {
-      class: 'cms-catalogue-selected',
-      'aria-live': 'polite'
-    });
-    wrap.appendChild(controls);
+    var searchWrap = el('div', { class: 'cms-catalogue-search' }, [search]);
+    var resultStatus = el('div', { class: 'cms-catalogue-status', 'aria-live': 'polite' });
+    var picked = el('div', { class: 'cms-catalogue-selected', 'aria-live': 'polite' });
+    wrap.appendChild(searchWrap);
     wrap.appendChild(resultStatus);
     wrap.appendChild(picked);
 
-    function filteredOptions() {
-      var term = search.value.trim().toLowerCase();
+    function matches(term) {
+      var words = term.toLowerCase().split(/\s+/).filter(Boolean);
       return options.filter(function (option) {
-        return !selected.has(String(option.value)) &&
-          (!term || String(option.label || option.value).toLowerCase().indexOf(term) !== -1);
+        if (selected.has(String(option.value))) return false;
+        var hay = (String(option.label || option.value) + ' ' + (option.group || '')).toLowerCase();
+        return words.every(function (w) { return hay.indexOf(w) !== -1; });
       });
     }
-    function renderSelect() {
-      select.innerHTML = '';
-      var available = filteredOptions();
-      select.appendChild(el('option', {
-        value: '',
-        text: available.length > 0 ? 'Choose an item' : 'No matching items'
-      }));
-      available.forEach(function (option) {
-        select.appendChild(el('option', {
-          value: option.value,
-          text: option.label || option.value
-        }));
-      });
-      var isSearching = search.value.trim().length > 0;
-      select.size = isSearching ? Math.min(6, Math.max(2, available.length + 1)) : 1;
-      resultStatus.textContent = isSearching
-        ? available.length + ' matching item' + (available.length === 1 ? '' : 's')
-        : options.length - selected.size + ' available';
-      add.disabled = true;
+    function updateStatus() {
+      resultStatus.textContent = selected.size > 0
+        ? selected.size + ' added'
+        : options.length + ' to choose from';
     }
     function renderSelected() {
       picked.innerHTML = '';
       if (selected.size === 0) {
-        picked.appendChild(el('div', {
-          class: 'cms-catalogue-empty',
-          text: 'No items added yet.'
-        }));
+        picked.appendChild(el('div', { class: 'cms-catalogue-empty', text: 'Nothing added yet.' }));
+        updateStatus();
         return;
       }
       selected.forEach(function (option, value) {
@@ -614,60 +874,89 @@
           name: f.id,
           value: value,
           checked: 'checked',
-          class: 'cms-sr'
+          class: 'cms-sr',
+          tabindex: '-1',
+          'aria-hidden': 'true'
         });
         hidden.checked = true;
         var remove = el('button', {
           class: 'cms-catalogue-remove',
           type: 'button',
-          text: 'Remove'
+          text: 'Remove',
+          'aria-label': 'Remove ' + (option.label || value)
         });
         remove.addEventListener('click', function () {
           selected.delete(value);
-          renderSelect();
           renderSelected();
           wrap.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        picked.appendChild(el('div', { class: 'cms-catalogue-row' }, [
-          hidden,
-          el('span', { text: option.label || option.value }),
-          remove
-        ]));
+        var text = el('span', { class: 'cms-catalogue-name' }, [option.label || value]);
+        if (option.group) text.appendChild(el('small', { text: option.group }));
+        picked.appendChild(el('div', { class: 'cms-catalogue-row' }, [hidden, text, remove]));
       });
+      updateStatus();
     }
-    function addSelected() {
-      var value = select.value;
-      if (!value) return;
-      var option = options.find(function (candidate) {
-        return String(candidate.value) === String(value);
-      });
-      if (!option) return;
-      selected.set(String(option.value), option);
+    attachSuggestions(search, function (term, cb) {
+      var found = matches(term).slice(0, 60);
+      cb(found.map(function (o) { return { value: o.value, label: o.label, hint: o.group || '', option: o }; }),
+        term ? 'No matches for "' + term + '"' : 'Everything is already added');
+    }, function (item) {
+      selected.set(String(item.value), item.option);
       search.value = '';
-      renderSelect();
       renderSelected();
       wrap.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    search.addEventListener('input', renderSelect);
-    select.addEventListener('change', function () {
-      add.disabled = !select.value;
-    });
-    add.addEventListener('click', addSelected);
-    select.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        addSelected();
-      }
-    });
-    renderSelect();
+      // Keep the list open so several items can be added in a row.
+      setTimeout(function () { search.focus(); }, 0);
+    }, { openOnFocus: true });
     renderSelected();
     return wrap;
+  }
+
+  // Brand header used by the redesigned templates: logo (or an initial
+  // badge in the brand colours) + company name + a short tagline.
+  function buildHeader(brand, tagline) {
+    var b = brand || {};
+    var head = el('div', { class: 'cms-head' });
+    function badge() {
+      return el('span', { class: 'cms-head-badge', 'aria-hidden': 'true', text: String(b.companyName || '?').trim().charAt(0).toUpperCase() });
+    }
+    if (b.logoUrl) {
+      var img = el('img', { src: b.logoUrl, alt: b.companyName || '' });
+      // A broken or expired logo URL would show alt text in a broken box.
+      img.addEventListener('error', function () {
+        if (img.parentNode) img.parentNode.replaceChild(badge(), img);
+      });
+      head.appendChild(img);
+    } else if (b.companyName) {
+      head.appendChild(badge());
+    }
+    if (b.companyName || tagline) {
+      head.appendChild(el('div', null, [
+        b.companyName ? el('div', { class: 'cms-head-name', text: b.companyName }) : null,
+        tagline ? el('div', { class: 'cms-head-tag', text: tagline }) : null
+      ]));
+    }
+    return head;
+  }
+
+  function buildTrustLine(items) {
+    var row = el('div', { class: 'cms-trust' });
+    (items || ['Free, no-obligation quote', 'Reply within 1 working day', 'Your details stay private']).forEach(function (t) {
+      row.appendChild(el('span', { text: t }));
+    });
+    return row;
   }
 
   // Public API exposed to templates only via the helpers param.
   root.__cmsEmbedHelpers = {
     bindFormRunner: bindFormRunner,
     buildStandardInput: buildStandardInput,
+    readFieldValue: readFieldValue,
+    focusInput: focusInput,
+    normalizeOptions: normalizeOptions,
+    appendRemainingFields: appendRemainingFields,
+    buildHeader: buildHeader,
+    buildTrustLine: buildTrustLine,
     formatCurrency: formatCurrency,
     validateField: validateField,
     runConditionalLogic: runConditionalLogic,

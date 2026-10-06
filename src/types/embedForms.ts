@@ -46,6 +46,8 @@ export type EmbedFieldMapping =
 export interface EmbedFieldOption {
   value: string;
   label: string;
+  /** Optional heading the option is grouped under (e.g. menu category). */
+  group?: string;
 }
 
 export interface EmbedFieldValidation {
