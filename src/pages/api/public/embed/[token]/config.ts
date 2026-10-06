@@ -193,6 +193,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     successMessage:
       form.success_message || "Thanks, we'll be in touch shortly.",
     redirectUrl: form.redirect_url || null,
+    // Templates only render the anti-spam challenge when given a site key.
+    // Without this, setting TURNSTILE_SECRET_KEY on the server would make
+    // every submission fail the challenge because no token is ever sent.
+    turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || null,
     brand: {
       companyName: company.company_name,
       primaryColor: company.primary_color || null,

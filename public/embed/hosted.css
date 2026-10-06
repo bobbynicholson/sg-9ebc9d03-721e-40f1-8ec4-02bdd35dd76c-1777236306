@@ -1,0 +1,86 @@
+/* Hosted quote-request page (/quote/<company>/<form> and /embed/form.html).
+   Two panels on desktop: brand story left, the form right. Stacks on mobile. */
+:root {
+  color-scheme: light;
+  --hp-primary: #0F172A;
+  --hp-secondary: #F59E0B;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body.cms-hosted {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #0F172A;
+  background: #F1F5F9;
+  min-height: 100vh;
+}
+.hp-preview-bar {
+  position: sticky; top: 0; z-index: 5;
+  background: #FFFBEB; border-bottom: 1px solid #FDE68A; color: #92400E;
+  font-size: 13px; padding: 8px 16px; text-align: center;
+}
+.hp {
+  display: grid;
+  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+  min-height: 100vh;
+}
+.hp-brand {
+  position: relative;
+  color: #fff;
+  padding: 48px 40px;
+  background:
+    radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--hp-secondary) 45%, transparent), transparent 60%),
+    linear-gradient(160deg, var(--hp-primary), color-mix(in srgb, var(--hp-primary) 70%, #000));
+}
+.hp-brand-inner { position: sticky; top: 48px; }
+.hp-logo {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #fff; border-radius: 16px; padding: 10px 14px; margin-bottom: 28px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+.hp-logo img { display: block; max-height: 52px; max-width: 180px; }
+.hp-logo-badge {
+  width: 56px; height: 56px; border-radius: 16px; margin-bottom: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .3);
+  font-size: 24px; font-weight: 800;
+}
+.hp-company { font-size: 14px; font-weight: 600; opacity: .85; letter-spacing: .02em; text-transform: uppercase; }
+.hp-title { font-size: 36px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em; margin: 8px 0 14px; }
+.hp-lede { font-size: 16px; line-height: 1.55; opacity: .9; margin: 0 0 28px; max-width: 34ch; }
+.hp-points { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.hp-points li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.4; }
+.hp-points li::before {
+  content: "\2713"; flex-shrink: 0;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, .18); font-size: 13px; font-weight: 700;
+}
+.hp-form { padding: 40px 48px 32px; display: flex; flex-direction: column; }
+.hp-form-inner { width: 100%; max-width: 860px; margin: 0 auto; flex: 1; }
+.hp-powered { text-align: center; font-size: 11px; color: #94A3B8; margin: 20px 0 0; }
+.hp-powered a { color: #64748B; text-decoration: none; }
+.hp-err {
+  font-size: 14px; color: #991B1B; padding: 14px; border: 1px solid #FECACA;
+  border-radius: 10px; background: #FEF2F2; max-width: 560px; margin: 40px auto;
+}
+
+@media (max-width: 960px) {
+  .hp { grid-template-columns: 1fr; min-height: 0; }
+  .hp-brand { padding: 28px 20px 30px; }
+  .hp-brand-inner { position: static; }
+  .hp-logo, .hp-logo-badge { margin-bottom: 16px; }
+  .hp-title { font-size: 28px; }
+  .hp-lede { margin-bottom: 16px; max-width: none; }
+  .hp-points { grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+  .hp-points li { font-size: 13.5px; }
+  .hp-form { padding: 20px 12px 24px; }
+}
+@media (max-width: 480px) {
+  .hp-points { grid-template-columns: 1fr; }
+}
+
+/* Inside the admin (editor preview / form cards): just the form. */
+body.compact { background: #fff; }
+body.compact .hp { display: block; min-height: 0; }
+body.compact .hp-brand, body.compact .hp-powered, body.compact .hp-preview-bar { display: none; }
+body.compact .hp-form { padding: 8px; }

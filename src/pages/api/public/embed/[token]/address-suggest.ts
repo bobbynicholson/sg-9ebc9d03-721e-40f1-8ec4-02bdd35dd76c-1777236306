@@ -19,7 +19,8 @@ import { withApiLogging } from "@/lib/withApiLogging";
  */
 
 const PHOTON_URL = "https://photon.komoot.io/api/";
-const TIMEOUT_MS = 4500;
+// Photon typically answers in 2-3s; allow headroom before giving up.
+const TIMEOUT_MS = 6000;
 const PER_IP_PER_MINUTE = 60;
 
 // Bounding boxes (minLon,minLat,maxLon,maxLat) keep suggestions in the
@@ -31,6 +32,11 @@ const BBOX_BY_CURRENCY: Record<string, string> = {
   AUD: "112.9,-43.7,153.7,-10.6",
   NZD: "166.3,-47.4,178.6,-34.3",
 };
+
+// Recent answers per (market, query): repeat searches (and the visitor's
+// own retyping) return instantly instead of waiting on Photon again.
+const resultCache = new Map<string, { suggestions: string[]; at: number }>();
+const RESULT_TTL_MS = 30 * 60_000;
 
 const companyCache = new Map<string, { ok: boolean; currency: string; at: number }>();
 const ipHits = new Map<string, { count: number; windowStart: number }>();
@@ -99,6 +105,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const company = await resolveCompany(token);
   if (!company.ok) return res.status(404).json({ ok: false, message: "Not found" });
 
+  const cacheKey = `${company.currency}::${q.toLowerCase()}`;
+  const cached = resultCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < RESULT_TTL_MS) {
+    res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
+    return res.status(200).json({ ok: true, suggestions: cached.suggestions });
+  }
+
   const params = new URLSearchParams({ q, limit: "6", lang: "en" });
   const bbox = BBOX_BY_CURRENCY[company.currency];
   if (bbox) params.set("bbox", bbox);
@@ -121,9 +134,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         suggestions.push(label);
       }
     }
-    // Same query from many visitors (e.g. a popular venue) is cheap to cache.
-    res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
-    return res.status(200).json({ ok: true, suggestions: suggestions.slice(0, 6) });
+    const top = suggestions.slice(0, 6);
+    if (top.length > 0) {
+      resultCache.set(cacheKey, { suggestions: top, at: Date.now() });
+      if (resultCache.size > 2000) resultCache.clear();
+      // Same query from many visitors (e.g. a popular venue) is cheap to cache.
+      res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
+    }
+    return res.status(200).json({ ok: true, suggestions: top });
   } catch {
     return res.status(200).json({ ok: true, suggestions: [] });
   } finally {

@@ -133,23 +133,6 @@
     // choices; live embeds receive the tenant's current catalogue from the
     // config API.
     if (template === 'detailed-multi-step' || template === 'pricing-calculator') {
-      var quoteOnly = { showIfFieldId: 'request_type', showIfValue: 'quote' };
-      fields.unshift({
-        id: 'request_type',
-        type: 'radio',
-        label: 'How can we help?',
-        helpText: 'Choose a short enquiry, or build a detailed quote request from the live menu.',
-        required: true,
-        visible: true,
-        order: 0,
-        options: [
-          { value: 'enquiry', label: 'Quick enquiry · tell us the basics' },
-          { value: 'quote', label: 'Build my quote request · choose menu and equipment' }
-        ]
-      });
-      fields.forEach(function (field) {
-        if (field.id === 'venue') field.conditional = quoteOnly;
-      });
       fields.push(
         {
           id: 'tier',
@@ -158,7 +141,6 @@
           required: false,
           visible: true,
           order: 8,
-          conditional: quoteOnly,
           options: [
             { value: 'essential', label: 'Essential' },
             { value: 'classic', label: 'Classic' },
@@ -173,7 +155,6 @@
           required: false,
           visible: true,
           order: 9,
-          conditional: quoteOnly,
           options: [
             { value: 'demo-beef-strips', label: 'Spicy Beef Strips · Starters' },
             { value: 'demo-chicken-wings', label: 'Sticky Chicken Wings · Starters' },
@@ -212,7 +193,6 @@
           required: false,
           visible: true,
           order: 10,
-          conditional: quoteOnly,
           options: [
             { value: 'demo-bowl-plastic', label: 'Plastic bowl · Crockery' },
             { value: 'demo-bowl', label: 'Porcelain bowl · Crockery' },
@@ -232,7 +212,6 @@
           required: false,
           visible: true,
           order: 11,
-          conditional: quoteOnly
         },
         {
           id: 'notes',
@@ -306,11 +285,11 @@
     if (Array.isArray(draft.fields)) {
       var draftIds = {};
       draft.fields.forEach(function (f) { if (f && f.id) draftIds[f.id] = true; });
-      // Keep the server-added live catalogue fields (menu, equipment,
-      // request type) that the draft never contains.
+      // Keep the server-added live catalogue fields (menu, equipment)
+      // that the draft never contains.
       var serverOnly = (base.fields || []).filter(function (f) {
         return f && !draftIds[f.id] &&
-          (f.id === 'menu_item_ids' || f.id === 'equipment_item_ids' || f.id === 'request_type');
+          (f.id === 'menu_item_ids' || f.id === 'equipment_item_ids');
       });
       next.fields = JSON.parse(JSON.stringify(draft.fields)).concat(serverOnly);
     }

@@ -348,6 +348,10 @@
     '.cms-head-name{font-size:14px;font-weight:700;color:#0F172A;line-height:1.2}',
     '.cms-head-tag{font-size:12px;color:#64748B}',
     '.cms-section{margin:22px 0 12px;padding-top:18px;border-top:1px dashed #E2E8F0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-primary,#0F172A)}',
+    /* Two-column field grid: short inputs pair up, long ones span. */
+    '.cms-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}',
+    '.cms-grid>.cms-field.is-wide,.cms-grid>.cms-field[data-wide]{grid-column:1/-1}',
+    '@media(max-width:560px){.cms-grid{grid-template-columns:1fr}}',
     '.cms-trust{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;margin-top:14px;font-size:12.5px;color:#64748B}',
     '.cms-trust span::before{content:"\\2713";margin-right:5px;color:var(--brand-primary,#16A34A);font-weight:700}',
     /* Type-ahead suggestion list (venue address + menu / equipment). */
@@ -721,6 +725,9 @@
     var items = [];
     var active = -1;
     var seq = 0;
+    // Set while a pick writes the chosen value back: that write fires an
+    // input event, which must not start a new search and reopen the list.
+    var picking = false;
     input.setAttribute('autocomplete', 'off');
     input.setAttribute('role', 'combobox');
     input.setAttribute('aria-autocomplete', 'list');
@@ -774,7 +781,9 @@
       var item = items[i];
       if (!item) return;
       close();
-      onPick(item);
+      seq++; // drop any search still in flight
+      picking = true;
+      try { onPick(item); } finally { picking = false; }
     }
     var run = debounce(function () {
       var mine = ++seq;
@@ -789,7 +798,7 @@
       });
     }, opts.delay || 0);
     input.addEventListener('focus', function () { mountList(); if (opts.openOnFocus) run(); });
-    input.addEventListener('input', function () { mountList(); run(); });
+    input.addEventListener('input', function () { if (picking) return; mountList(); run(); });
     input.addEventListener('blur', function () { setTimeout(close, 120); });
     input.addEventListener('keydown', function (ev) {
       if (list.hidden || !items.length) {
@@ -819,7 +828,7 @@
       input.value = item.value;
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
-    }, { delay: 300, minChars: 4 });
+    }, { delay: 300, minChars: 4, loadingText: 'Searching addresses...' });
   }
 
   // Menu / equipment picker: type to search (or just click to browse),
@@ -912,6 +921,13 @@
     return wrap;
   }
 
+  // Long answers, choices, pickers and addresses take a full row.
+  var WIDE_TYPES = { textarea: 1, radio: 1, checkboxes: 1, checkbox: 1, multiselect: 1 };
+  function isWideField(f) {
+    return !!(WIDE_TYPES[f.type] || f.mapsTo === 'venue' || f.id === 'venue' ||
+      f.id === 'venue_address' || f.id === 'menu_item_ids' || f.id === 'equipment_item_ids');
+  }
+
   // Brand header used by the redesigned templates: logo (or an initial
   // badge in the brand colours) + company name + a short tagline.
   function buildHeader(brand, tagline) {
@@ -956,6 +972,7 @@
     normalizeOptions: normalizeOptions,
     appendRemainingFields: appendRemainingFields,
     buildHeader: buildHeader,
+    isWideField: isWideField,
     buildTrustLine: buildTrustLine,
     formatCurrency: formatCurrency,
     validateField: validateField,

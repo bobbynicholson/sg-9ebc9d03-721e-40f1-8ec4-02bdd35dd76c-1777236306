@@ -5,7 +5,7 @@
   window.__cmsTemplates = window.__cmsTemplates || {};
 
   var CSS = [
-    '.cms-form{padding:30px 28px 24px;max-width:700px;margin:0 auto;background:var(--brand-bg,#fff)}',
+    '.cms-form{padding:32px 32px 26px;max-width:var(--cms-form-max,760px);margin:0 auto;background:var(--brand-bg,#fff)}',
     '.cms-calc{padding:20px;border-radius:16px;background:linear-gradient(160deg,color-mix(in srgb,var(--brand-primary,#0F172A) 7%,#fff),#F8FAFC);border:1px solid color-mix(in srgb,var(--brand-primary,#0F172A) 14%,#E2E8F0);margin-bottom:22px}',
     '.cms-btn[type=submit]{width:100%;margin-top:6px}',
     '@media(max-width:520px){.cms-form{padding:26px 18px 20px}.cms-calc{padding:16px}}',
@@ -180,19 +180,21 @@
     slider.addEventListener('input', updateEstimate);
     updateEstimate();
 
+    var fieldGrid = h.el('div', { class: 'cms-grid' });
+    form.appendChild(fieldGrid);
     fields.forEach(function (f) {
       // Skip guest/tier fields if defined -- the calculator owns those.
       // Current configs use guest_count; guests is retained for legacy
       // forms created before the canonical field id was introduced.
       if (f.id === 'request_type' || f.id === 'guests' || f.id === 'guest_count' || f.id === 'tier') return;
-      var wrap = h.el('div', { class: 'cms-field', dataset: { fid: f.id } });
+      var wrap = h.el('div', { class: 'cms-field' + (h.isWideField(f) ? ' is-wide' : ''), dataset: { fid: f.id } });
       var id = 'pc_' + f.id;
       wrap.appendChild(h.el('label', { class: 'cms-label', for: id, text: f.label + (f.required ? ' *' : '') }));
       if (f.helpText) wrap.appendChild(h.el('div', { class: 'cms-help', text: f.helpText }));
       var input = h.buildStandardInput(f, id);
       var err = h.el('div', { class: 'cms-error', id: id + '_err', 'aria-live': 'polite' });
       wrap.appendChild(input); wrap.appendChild(err);
-      form.appendChild(wrap);
+      fieldGrid.appendChild(wrap);
       entries.push({ field: f, input: input, errorEl: err, wrapper: wrap });
     });
 

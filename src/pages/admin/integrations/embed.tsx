@@ -425,6 +425,7 @@ function AdminEmbedFormsPage() {
         form={snippetForm}
         embedToken={company?.embed_token}
         companyName={company?.company_name}
+        companySlug={company?.slug || user?.company_slug}
       />
 
       {/* LCF-B: ChatBot was receiving a hardcoded "admin" role +

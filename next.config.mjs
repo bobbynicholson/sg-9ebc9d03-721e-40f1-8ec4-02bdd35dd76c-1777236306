@@ -86,6 +86,17 @@ const nextConfig = {
     // constraint stops the slug from matching anything starting with
     // "api", so /api/* always falls through to the real API handlers.
     return [
+      // ── Public quote-request page (clean shareable link) ───────
+      // /quote/<company>/<form> is served as standalone HTML by
+      // /api/public/embed/hosted (no app chrome on a customer page).
+      {
+        source: "/quote/:company([a-z0-9-]+)/:form([a-z0-9-]+)",
+        destination: "/api/public/embed/hosted?company=:company&form=:form",
+      },
+      {
+        source: "/quote/:company([a-z0-9-]+)",
+        destination: "/api/public/embed/hosted?company=:company",
+      },
       // ── Client portal (clients) ────────────────────────────────
       {
         source: "/:company_slug((?!api)[^/]+)/client-portal/:path*",
