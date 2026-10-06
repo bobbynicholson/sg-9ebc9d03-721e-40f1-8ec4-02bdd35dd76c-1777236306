@@ -391,7 +391,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
     }
 
     let frame = 0;
-    let delayedFrame = 0;
+    const delayedFrame = 0;
     const updateDock = () => {
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
