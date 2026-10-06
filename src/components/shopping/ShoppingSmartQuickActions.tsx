@@ -47,7 +47,7 @@ export function ShoppingSmartQuickActions({ onNavigate }: ShoppingSmartQuickActi
       // Wave 70.30: re-pointed at the canonical /buy-list page.
       { href: "/team-portal/shopping/buy-list",       label: "Build buy list", sub: "Shortfall first",       icon: ListChecks, accent: "from-brand-primary to-brand-secondary" },
       { href: "/team-portal/shopping/kitchen-demand", label: "Kitchen demand", sub: "Recipe pull",           icon: ChefHat,    accent: "from-brand-primary to-brand-secondary" },
-      { href: "/team-portal/shopping/inventory",      label: "Inventory",      sub: "Check par levels",      icon: Warehouse,  accent: "from-brand-primary to-brand-secondary" },
+      { href: "/team-portal/shopping/inventory",      label: "Inventory",      sub: "Stock + minimums",      icon: Warehouse,  accent: "from-brand-primary to-brand-secondary" },
     ],
     run: [
       { href: "/team-portal/shopping/receipts",       label: "Snap a receipt", sub: "Photo the slip",        icon: Camera,      accent: "from-brand-primary to-brand-secondary" },

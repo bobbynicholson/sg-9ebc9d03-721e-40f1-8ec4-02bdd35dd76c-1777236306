@@ -1,6 +1,6 @@
 # Apply the company payment fixes
 
-The code needs **12 new migrations**, from `20261003110000` through `20261004130000`.
+The code needs **13 new migrations**, from `20261003110000` through `20261006140000`.
 The ordered script also includes the two idempotent payment prerequisites `20260925150000` and `20261001000000`, because the target database reported that `public.payment_attempts` was missing. They have not been applied to the company Supabase database.
 The full ordered script is [LOCAL_PAYMENT_MIGRATIONS.sql](../LOCAL_PAYMENT_MIGRATIONS.sql).
 
@@ -17,8 +17,8 @@ The full ordered script is [LOCAL_PAYMENT_MIGRATIONS.sql](../LOCAL_PAYMENT_MIGRA
 
    Confirm the older base tables `public.payments` and `public.payment_gateways` exist. The bundle creates the missing `public.payment_attempts` prerequisite before defining settlement functions. If the previous run failed with `relation "public.payment_attempts" does not exist`, its transaction was aborted; use the updated bundle below.
 
-3. If the earlier payment bundle through `20261004100000` already succeeded, apply only `20261004120000_fix_quote_order_opening_paid.sql` and `20261004130000_eft_proof_screening_and_guard.sql`, in that order. These fix the quote-acceptance `payment_opening_paid` error and add the proof-review guard.
-4. If the repository's older base schema is installed and **none of the twelve new migrations has been applied**, paste `LOCAL_PAYMENT_MIGRATIONS.sql` into SQL Editor and run it once. It installs the two idempotent payment prerequisites, then the twelve new migrations in one transaction. An error rolls back the whole bundle; resolve it before deploying the matching code.
+3. If the earlier payment bundle through `20261004100000` already succeeded, apply `20261004120000_fix_quote_order_opening_paid.sql`, `20261004130000_eft_proof_screening_and_guard.sql`, and `20261006140000_eft_claim_balance_guard.sql`, in that order. These fix the quote-acceptance `payment_opening_paid` error, add the proof-review guard, and reject a stale EFT amount once the invoice is locked.
+4. If the repository's older base schema is installed and **none of the thirteen new migrations has been applied**, paste `LOCAL_PAYMENT_MIGRATIONS.sql` into SQL Editor and run it once. It installs the two idempotent payment prerequisites, then the thirteen new migrations in one transaction. An error rolls back the whole bundle; resolve it before deploying the matching code.
 5. If some migrations are already installed, apply **only the missing files**, in filename order, from `supabase/migrations`. Apply either prerequisite individually only if it is missing from the target database.
 6. Deploy the matching application code and follow the [payment smoke checks](payments-payfast-eft-audit.md#deployment-smoke-check), including a sandbox callback and an EFT review.
 

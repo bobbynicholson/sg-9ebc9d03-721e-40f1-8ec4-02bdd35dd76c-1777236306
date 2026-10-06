@@ -353,7 +353,7 @@ function ShoppingDashboardInner() {
     <>
       <ShoppingPageShell
         pageTitle="Shopping dashboard - CateringMS"
-        heading="Shopping today"
+        heading="Today"
         subheading={
           chipsReady && activeList.list
             ? "Live run desk: tick purchases, attach receipt details, and close out today's active list."
@@ -440,36 +440,24 @@ function ShoppingDashboardInner() {
             // page - numbers first, a calm status card with the next
             // actions, then the items that are actually running low.
             <>
-              <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3 sm:gap-4">
-                <StatTile
-                  icon={AlertCircle}
-                  label="Low stock"
-                  value={peeksLoaded ? lowStockCount : "--"}
-                  hint="At or below their minimum"
-                />
-                <StatTile
-                  icon={Camera}
-                  label="Receipts to file"
-                  value={peeksLoaded ? pendingReceiptsCount : "--"}
-                  hint="Finished lists without a slip"
-                />
-                <StatTile
-                  icon={ShoppingCart}
-                  label="Active list"
-                  value="None"
-                  hint="Start one from the Buy list"
-                />
-              </div>
-
-              <PortalCard padded={false} className="mb-6 border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
+              {/* The next job first (on a phone it used to sit ~1000px
+                  down, under the numbers); amber when something is low. */}
+              <PortalCard
+                padded={false}
+                className={`mb-6 ${lowStockCount > 0
+                  ? "border-amber-200 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20"
+                  : "border-slate-200 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40"}`}
+              >
                 <div className="p-4 sm:p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-200/80 text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                    <span className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${lowStockCount > 0
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                      : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"}`}>
                       {lowStockCount > 0 ? <ShoppingCart className="h-5 w-5" /> : <CheckCircle className="h-5 w-5" />}
                     </span>
                     <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Shopping workspace</p>
-                      <p className="text-xl sm:text-2xl font-semibold text-slate-700 dark:text-slate-200 leading-tight mt-1">
+                      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 font-semibold">Next up</p>
+                      <p className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white leading-tight mt-1">
                         {lowStockCount > 0 ? `${lowStockCount} item${lowStockCount === 1 ? "" : "s"} running low` : "All stocked"}
                       </p>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
@@ -504,6 +492,22 @@ function ShoppingDashboardInner() {
                   </div>
                 </div>
               </PortalCard>
+
+              <div className="grid grid-cols-2 gap-3 mb-6 sm:gap-4">
+                <StatTile
+                  icon={AlertCircle}
+                  label="Low stock"
+                  value={peeksLoaded ? lowStockCount : "--"}
+                  hint="At or below their minimum"
+                />
+                <StatTile
+                  icon={Camera}
+                  label="Receipts to file"
+                  value={peeksLoaded ? pendingReceiptsCount : "--"}
+                  hint="Finished lists without a slip"
+                />
+              </div>
+
 
               {lowStockItems.length > 0 && (
                 <PortalCard className="mb-6 border-rose-200 dark:border-rose-900">
@@ -648,7 +652,7 @@ function ShoppingDashboardInner() {
               </PortalCard>
 
               {/* Metric tiles */}
-              <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 sm:mb-8">
+              <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4 sm:mb-8">
                 <StatTile
                   icon={ShoppingCart}
                   label="Total items"

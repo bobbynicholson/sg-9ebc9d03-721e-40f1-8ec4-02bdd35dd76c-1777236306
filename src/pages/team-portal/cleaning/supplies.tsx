@@ -186,12 +186,12 @@ function CleaningSuppliesPageInner() {
     <>
       <CleaningPageShell
         pageTitle="Cleaning supplies - CateringMS"
-        heading="Cleaning supplies"
+        heading="Supplies"
         subheading={
           chipsReady
             ? stats.below > 0
-              ? `${stats.below} of ${stats.total} supplies at or below par, low stock feeds straight to the shopping team.`
-              : `All ${stats.total} supplies above par, nothing needs reordering.`
+              ? `${stats.below} of ${stats.total} supplies are at or below their minimum - low stock goes straight to the shopping team.`
+              : `All ${stats.total} supplies are above their minimum, nothing to reorder.`
             : "Detergents, cloths, gloves, low-stock items feed straight to the shopping team."
         }
         icon={Wrench}
@@ -234,7 +234,7 @@ function CleaningSuppliesPageInner() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
           <StatTile label="Total supplies" value={chipsReady ? stats.total : "--"} hint="On file" />
           <StatTile label="Low stock" value={chipsReady ? stats.below : "--"} hint="At or below the minimum" />
           <StatTile label="Out of stock" value={chipsReady ? stats.out : "--"} hint="Run out" />
@@ -284,7 +284,7 @@ function CleaningSuppliesPageInner() {
               {filtered.map((i) => (
                 <button key={i.id} onClick={() => openUse(i)} className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>
+                    <div className="break-words font-medium text-slate-900 dark:text-white">{i.item_name}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {i.category ?? "--"}
                       {i.storage_location ? `, ${i.storage_location}` : ""}

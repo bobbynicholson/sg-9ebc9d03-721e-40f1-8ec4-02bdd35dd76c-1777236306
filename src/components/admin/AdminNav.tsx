@@ -110,7 +110,9 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
 
   return (
     <div className="space-y-3">
-      <CommandPaletteHint className="w-full justify-center" />
+      <div className="hidden lg:block">
+        <CommandPaletteHint block className="w-full justify-center" />
+      </div>
 
       {/* Company identity - white-glass card so it sits on the
           brand-painted rail instead of reading as a generic dark tile. */}

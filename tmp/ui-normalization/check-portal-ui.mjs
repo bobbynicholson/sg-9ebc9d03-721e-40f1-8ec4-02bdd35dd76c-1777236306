@@ -35,6 +35,13 @@ const PORTALS = [
   { portal: 'cleaning', email: 'cleaning.manager.demo@spitbraaidelivery.co.za', routes: ['management'], label: 'cleaning-manager' },
   { portal: 'general', email: 'kitchen@spitbraaidelivery.co.za', routes: ['job-progress'] },
   { portal: 'client', email: 'universalsportmags23@gmail.com', base: `/${SLUG}/client-portal`, routes: ['dashboard', 'my-orders', 'quotes', 'billing', 'tracking', 'notifications', 'feedback', 'profile'] },
+  // R3 shared pages: must wear the sidebar of whichever role opened them.
+  { portal: 'account', label: 'account-admin', email: 'hello@spitbraaidelivery.co.za', base: `/${SLUG}/account`, routes: ['settings', 'achievements'] },
+  { portal: 'account', label: 'account-kitchen', email: 'kitchen@spitbraaidelivery.co.za', base: `/${SLUG}/account`, routes: ['settings', 'achievements'] },
+  { portal: 'account', label: 'account-driver', email: 'driver@spitbraaidelivery.co.za', base: `/${SLUG}/account`, routes: ['settings'] },
+  { portal: 'account', label: 'account-waiter', email: 'waiter.demo@spitbraaidelivery.co.za', base: `/${SLUG}/account`, routes: ['settings', 'achievements'] },
+  { portal: 'account', label: 'account-client', email: 'universalsportmags23@gmail.com', base: `/${SLUG}/account`, routes: ['settings'] },
+  { portal: 'client', label: 'client-subs', email: 'universalsportmags23@gmail.com', base: '/client', routes: ['subscription-invoices'] },
   { portal: 'platform', email: 'bobby@skylight-digital.co.za', base: '/admin/platform', routes: ['dashboard', 'company-database', 'user-management', 'subscription-management', 'pricing-management', 'trial-management', 'currency-monitoring', 'cms-blog', 'cms-pages', 'tax-rules', 'audit-logs', 'financial-dashboard', 'messaging-templates', 'payment-issues', 'running-todo', 'settings', 'tech-costs', 'tenant-health'] },
 ];
 const VIEWPORTS = [
@@ -92,9 +99,16 @@ try {
         page.on('response', (r) => { if (r.status() >= 400 && !r.url().includes('/_next/')) failedRequests.push({ url: r.url().slice(0, 160), status: r.status() }); });
         const res = await page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 120000 }).catch((e) => ({ error: e.message }));
         await page.waitForTimeout(6000);
+        // First dev compile of a page can outlast the fixed wait; a
+        // screenshot of a spinner must not count as a pass.
+        const LOADING = /Verifying your credentials|^\s*Loading\.\.\.\s*$|Loading [a-z ]+\.\.\./im;
+        for (let i = 0; i < 15 && LOADING.test(await page.locator('main, #main-content, body').first().innerText().catch(() => '')); i++) {
+          await page.waitForTimeout(3000);
+        }
         const body = await page.locator('body').innerText().catch(() => '');
         const result = {
           status: res?.status?.() ?? res?.error,
+          stillLoading: LOADING.test(body),
           finalPath: new URL(page.url()).pathname,
           loaded: !/Application error|Internal Server Error|This page could not be found|Unhandled Runtime Error/.test(body),
           denied: /Access Denied|You do not have permission|don't have permission/i.test(body),
@@ -123,7 +137,7 @@ try {
       }
       reports.push(report);
       const d = report.viewports.desktop, m = report.viewports.mobile;
-      console.log(`${report.portal}/${route}: ${d.status} loaded=${d.loaded} denied=${d.denied} errors=${d.pageErrors.length + m.pageErrors.length} failed=${d.failedRequests.length} overflow(d/t/m)=${d.overflow}/${report.viewports.tablet.overflow}/${m.overflow} h=${d.height}/${m.height}`);
+      console.log(`${report.portal}/${route}: ${d.status} loaded=${d.loaded}${d.stillLoading || m.stillLoading ? ' STILL-LOADING' : ''} denied=${d.denied} errors=${d.pageErrors.length + m.pageErrors.length} failed=${d.failedRequests.length} overflow(d/t/m)=${d.overflow}/${report.viewports.tablet.overflow}/${m.overflow} h=${d.height}/${m.height}`);
     }
     await ctx.close();
   }

@@ -419,7 +419,7 @@ function ShoppingInventoryPageInner() {
             slate glyph, soft shadow + hairline + rounded-2xl. The
             semantic stock-level colour lives where it's per-row
             actionable (the table status badges), not on the counts. */}
-        <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
           <StatTile
             label={<span className="flex items-center gap-1">Total items <InfoTooltip content="Number of active inventory lines on the books for your company." /></span>}
             hint="Active stock lines"
@@ -608,29 +608,57 @@ function ShoppingInventoryPageInner() {
                   </table>
                 </div>
 
-                {/* Mobile card list */}
-                <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  {filtered.map((i) => (
-                    <button
-                      key={i.id}
-                      onClick={() => openEdit(i)}
-                      aria-label={`Adjust stock for ${i.item_name}`}
-                      className="w-full text-left p-4 flex items-start justify-between gap-3 transition-colors duration-150 ease-standard hover:bg-slate-50 dark:hover:bg-slate-800/60 active:bg-slate-100 dark:active:bg-slate-800"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-slate-900 dark:text-white truncate">{i.item_name}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{i.category ?? "--"}{i.sku ? `, SKU ${i.sku}` : ""}</div>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
-                          <span className="text-sm tabular-nums text-slate-900 dark:text-white">
-                            <span className="font-semibold">{Number(i.current_stock ?? 0)}</span>
-                            <span className="text-slate-500 dark:text-slate-400"> / {Number(i.minimum_stock ?? 0)} {i.unit_of_measure}</span>
-                          </span>
-                        </div>
+                {/* Mobile: same folded categories as the desktop table
+                    (categories that need restocking first). The old flat
+                    A-Z list of every item ran to ~9600px on a phone. */}
+                <div className="md:hidden">
+                  {groupedItems.map(({ category, items, attention }) => {
+                    const open = isGroupOpen(category, attention);
+                    return (
+                      <div key={category} className="border-t border-slate-200 first:border-t-0 dark:border-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(category, attention)}
+                          aria-expanded={open}
+                          className="flex min-h-[48px] w-full flex-wrap items-center gap-2 bg-slate-50/80 px-4 py-3 text-left active:bg-slate-100 dark:bg-slate-800/40 dark:active:bg-slate-800"
+                        >
+                          <ChevronDown aria-hidden="true" className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                          <span className="text-sm font-semibold text-slate-900 dark:text-white">{category}</span>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">{items.length}</span>
+                          {attention > 0 && (
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">{attention} to restock</span>
+                          )}
+                        </button>
+                        {open && (
+                          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {items.map((i) => (
+                              <li key={i.id} className="flex items-center gap-3 px-4 py-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="break-words font-medium text-slate-900 dark:text-white">{i.item_name}</div>
+                                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                    <Badge variant="outline" className={stockTone(i)}>{stockLabel(i)}</Badge>
+                                    <span className="text-sm tabular-nums text-slate-900 dark:text-white">
+                                      <span className="font-semibold">{Number(i.current_stock ?? 0)}</span>
+                                      <span className="text-slate-500 dark:text-slate-400"> {i.unit_of_measure} · min {Number(i.minimum_stock ?? 0)}</span>
+                                    </span>
+                                  </div>
+                                  {i.sku && <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">SKU {i.sku}</div>}
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <Button size="sm" variant="ghost" className="h-10 w-10 p-0" onClick={() => openHistory(i)} aria-label={`View movement history for ${i.item_name}`}>
+                                    <History className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="h-10" onClick={() => openEdit(i)} aria-label={`Adjust stock for ${i.item_name}`}>
+                                    <Pencil className="mr-1 h-4 w-4" /> Adjust
+                                  </Button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
-                      <Pencil className="h-4 w-4 text-slate-400 dark:text-slate-500 mt-1 flex-shrink-0" />
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

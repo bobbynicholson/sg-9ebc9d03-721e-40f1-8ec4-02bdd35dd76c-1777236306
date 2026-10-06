@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Check, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive, Inbox, RefreshCw } from "lucide-react";
+import { Bell, Check, AlertCircle, AlertTriangle, Info, CheckCircle2, Archive, Inbox, RefreshCw, ChevronDown } from "lucide-react";
 import { CleaningPageShell, CLEANING_HERO_CHIP } from "@/components/cleaning/CleaningPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalCard } from "@/components/portal/ui";
@@ -48,6 +48,7 @@ function CleaningNotificationsPageInner() {
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
 
+  const [openTypes, setOpenTypes] = useState<Set<string>>(new Set());
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
@@ -326,16 +327,25 @@ function CleaningNotificationsPageInner() {
             )}
           </div>
         ) : (
-          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div>
             {(() => {
+              // Same reminder sent more than once -> one row ("Repeated N×").
               const groups = new Map<string, Notification[]>();
               for (const item of visible) {
                 const key = `${item.type ?? item.notification_type ?? ""}|${item.title ?? ""}`;
                 const list = groups.get(key);
                 if (list) list.push(item); else groups.set(key, [item]);
               }
-              return Array.from(groups.values());
-            })().map((group) => {
+              // Then one section per alert type, so 13 "Equipment return
+              // overdue" rows become one header with a count. Types with
+              // more than 3 entries start folded.
+              const sections = new Map<string, Notification[][]>();
+              for (const g of groups.values()) {
+                const t = g[0].type ?? g[0].notification_type ?? "other";
+                const list = sections.get(t);
+                if (list) list.push(g); else sections.set(t, [g]);
+              }
+              const renderRow = (group: Notification[]) => {
               const n = group[0];
               const unreadInGroup = group.filter((g) => !g.is_read);
               const typeCode = n.type ?? n.notification_type;
@@ -345,7 +355,7 @@ function CleaningNotificationsPageInner() {
               const Icon = priorityIcon(displayedPriority);
               const tone = priorityTone(displayedPriority);
               return (
-                <li key={n.id} className={`p-4 flex items-start gap-3 ${unreadInGroup.length === 0 ? "bg-white dark:bg-transparent" : "bg-amber-50/50 dark:bg-amber-950/20"}`}>
+                <li key={n.id} className={`p-4 flex items-start gap-3 ${unreadInGroup.length === 0 ? "bg-white dark:bg-transparent" : "border-l-4 border-l-brand-primary bg-white dark:bg-transparent"}`}>
                   <Icon className={`h-5 w-5 ${tone} flex-shrink-0 mt-0.5`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
@@ -366,7 +376,7 @@ function CleaningNotificationsPageInner() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 text-[11px]"
+                          className="h-8 text-xs"
                           disabled={unreadInGroup.some((g) => pendingIds.has(g.id))}
                           onClick={() => { unreadInGroup.forEach((g) => void markRead(g.id)); }}
                         >
@@ -375,14 +385,39 @@ function CleaningNotificationsPageInner() {
                         </Button>
                       )}
                       {(n.link || n.action_url) && (
-                        <button type="button" onClick={() => openLink(n)} className="text-[11px] text-brand-primary dark:text-brand-primary hover:underline">Open</button>
+                        <button type="button" onClick={() => openLink(n)} className="inline-flex h-8 items-center rounded-md px-2 text-xs font-semibold text-brand-primary hover:bg-brand-primary/10 dark:text-brand-primary">Open</button>
                       )}
                     </div>
                   </div>
                 </li>
               );
-            })}
-          </ul>
+};
+              return Array.from(sections.entries()).map(([type, groupsOfType]) => {
+                const label = type.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase());
+                const unread = groupsOfType.reduce((sum, g) => sum + g.filter((x) => !x.is_read).length, 0);
+                const foldable = groupsOfType.length > 3;
+                const open = !foldable || openTypes.has(type);
+                return (
+                  <section key={type} className="border-t border-slate-100 first:border-t-0 dark:border-slate-800">
+                    {foldable && (
+                      <button
+                        type="button"
+                        onClick={() => setOpenTypes((prev) => { const next = new Set(prev); if (next.has(type)) next.delete(type); else next.add(type); return next; })}
+                        aria-expanded={open}
+                        className="flex min-h-[48px] w-full flex-wrap items-center gap-2 bg-slate-50/80 px-4 py-3 text-left hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800"
+                      >
+                        <ChevronDown aria-hidden="true" className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white">{label}</span>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">{groupsOfType.length}</span>
+                        {unread > 0 && <span className="text-xs text-slate-500 dark:text-slate-400">{unread} unread</span>}
+                      </button>
+                    )}
+                    {open && <ul className="divide-y divide-slate-100 dark:divide-slate-800">{groupsOfType.map(renderRow)}</ul>}
+                  </section>
+                );
+              });
+            })()}
+          </div>
         )}
       </PortalCard>
     </CleaningPageShell>

@@ -1,0 +1,574 @@
+[
+  {
+    "name": "quote",
+    "path": "/q/<token>",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/q/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "RJ WEDDINGS"
+        ],
+        "overflow": 0,
+        "height": 1935,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/q/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "RJ WEDDINGS"
+        ],
+        "overflow": 0,
+        "height": 1935,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/q/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "RJ WEDDINGS"
+        ],
+        "overflow": 0,
+        "height": 2388,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST http://localhost:3001/api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/view",
+      "POST http://localhost:3001/api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/view",
+      "POST http://localhost:3001/api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/view"
+    ]
+  },
+  {
+    "name": "pay-invoice",
+    "path": "/pay/i/<token>",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/pay/i/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Tax Invoice"
+        ],
+        "overflow": 0,
+        "height": 1621,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/pay/i/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Tax Invoice"
+        ],
+        "overflow": 0,
+        "height": 1621,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/pay/i/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Tax Invoice"
+        ],
+        "overflow": 0,
+        "height": 1792,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST http://localhost:3001/api/payments/credit-balance",
+      "POST http://localhost:3001/api/payments/credit-balance",
+      "POST http://localhost:3001/api/payments/credit-balance"
+    ]
+  },
+  {
+    "name": "pay-invoice-legacy",
+    "path": "/pay/invoice/<token>",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/pay/i/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Tax Invoice"
+        ],
+        "overflow": 0,
+        "height": 1621,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/pay/i/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Tax Invoice"
+        ],
+        "overflow": 0,
+        "height": 1621,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/pay/i/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Tax Invoice"
+        ],
+        "overflow": 0,
+        "height": 1792,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST http://localhost:3001/api/payments/credit-balance",
+      "POST http://localhost:3001/api/payments/credit-balance",
+      "POST http://localhost:3001/api/payments/credit-balance"
+    ]
+  },
+  {
+    "name": "unsubscribe",
+    "path": "/u/<token>",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/u/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Unsubscribe"
+        ],
+        "overflow": 0,
+        "height": 1000,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/u/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Unsubscribe"
+        ],
+        "overflow": 0,
+        "height": 1024,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/u/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Unsubscribe"
+        ],
+        "overflow": 0,
+        "height": 844,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": []
+  },
+  {
+    "name": "customer-account",
+    "path": "/c/account",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/c/account",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "This link can't be opened"
+        ],
+        "overflow": 0,
+        "height": 1000,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/c/account",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "This link can't be opened"
+        ],
+        "overflow": 0,
+        "height": 1024,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/c/account",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "This link can't be opened"
+        ],
+        "overflow": 0,
+        "height": 844,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST http://localhost:3001/api/client-tokens/account",
+      "POST http://localhost:3001/api/client-tokens/account",
+      "POST http://localhost:3001/api/client-tokens/account"
+    ]
+  },
+  {
+    "name": "customer-order",
+    "path": "/c/order/<token>",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/c/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Your booking link has expired"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/c/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Your booking link has expired"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/c/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Your booking link has expired"
+        ],
+        "overflow": 0,
+        "height": 898,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST http://localhost:3001/api/client-tokens/view",
+      "POST http://localhost:3001/api/client-tokens/view",
+      "POST http://localhost:3001/api/client-tokens/view"
+    ]
+  },
+  {
+    "name": "client-login-short",
+    "path": "/p/spit-braai-delivery",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client/login",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Sign in"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client/login",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Sign in"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client/login",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Sign in"
+        ],
+        "overflow": 0,
+        "height": 898,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding"
+    ]
+  },
+  {
+    "name": "client-login",
+    "path": "/spit-braai-delivery/client/login",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client/login",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Sign in"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client/login",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Sign in"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/client/login",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Sign in"
+        ],
+        "overflow": 0,
+        "height": 898,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding"
+    ]
+  },
+  {
+    "name": "select-role",
+    "path": "/auth/select-role",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/auth/select-role",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Choose where you want to go"
+        ],
+        "overflow": 0,
+        "height": 1000,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/auth/select-role",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Choose where you want to go"
+        ],
+        "overflow": 0,
+        "height": 1024,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/auth/select-role",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Choose where you want to go"
+        ],
+        "overflow": 0,
+        "height": 1084,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": []
+  },
+  {
+    "name": "order-doc-admin",
+    "path": "/spit-braai-delivery/order/<token>",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Admin",
+          "EVENT"
+        ],
+        "overflow": 0,
+        "height": 2346,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Admin",
+          "EVENT"
+        ],
+        "overflow": 0,
+        "height": 3587,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Admin",
+          "EVENT"
+        ],
+        "overflow": 0,
+        "height": 4042,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding"
+    ]
+  },
+  {
+    "name": "order-doc-kitchen",
+    "path": "/spit-braai-delivery/order/<token>",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Kitchen Portal"
+        ],
+        "overflow": 0,
+        "height": 1399,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "tablet": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Kitchen Portal"
+        ],
+        "overflow": 0,
+        "height": 1903,
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "mobile": {
+        "status": 200,
+        "finalPath": "/spit-braai-delivery/order/<token>",
+        "loaded": true,
+        "stillLoading": false,
+        "h1": [
+          "Kitchen Portal"
+        ],
+        "overflow": 0,
+        "height": 1972,
+        "pageErrors": [],
+        "failedRequests": []
+      }
+    },
+    "blocked": [
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding",
+      "POST https://vsuyzovzqtrngorpqnhy.supabase.co/rest/v1/rpc/get_company_branding"
+    ]
+  }
+]

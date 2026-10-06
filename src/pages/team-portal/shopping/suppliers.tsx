@@ -260,7 +260,7 @@ function ShoppingSuppliersPageInner() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3 sm:gap-4">
+        <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-6 sm:grid-cols-3 sm:gap-4">
           <StatTile
             label={<span className="flex items-center gap-1">Total suppliers <InfoTooltip content="Every supplier saved against your company, whether they're active right now or not." /></span>}
             icon={Users}

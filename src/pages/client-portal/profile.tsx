@@ -481,7 +481,7 @@ function ClientProfilePageInner() {
                           Add your full name below so the team knows who you are.
                         </p>
                       )}
-                      <div className="flex gap-2 mt-2">
+                      <div className="flex flex-wrap gap-2 mt-2">
                         <Button
                           type="button"
                           variant="outline"

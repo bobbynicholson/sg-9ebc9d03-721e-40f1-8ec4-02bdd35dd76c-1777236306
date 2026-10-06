@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { formatDistanceToNow } from "date-fns";
-import { AlertCircle, Archive, Bell, Check, CheckCircle2, ExternalLink, Inbox, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { AlertCircle, Archive, Bell, Check, CheckCircle2, ChevronDown, Inbox, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -31,6 +31,9 @@ function WaiterNotificationsInner() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Alerts older than the stale cut-off fold away (closed by default) so
+  // the recent ones are what the waiter sees first.
+  const [showOlder, setShowOlder] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -86,7 +89,10 @@ function WaiterNotificationsInner() {
     const p = effectivePriority(n.priority ?? null, n.created_at);
     return p === "urgent" || p === "high";
   }).length;
-  const staleCount = visible.filter((n) => isStaleNotification(n.created_at)).length;
+  const recent = visible.filter((n) => !isStaleNotification(n.created_at));
+  const older = visible.filter((n) => isStaleNotification(n.created_at));
+  const staleCount = older.length;
+  const olderUnread = older.filter((n) => !n.is_read).length;
   const chipsReady = loaded && !loadError;
 
   const openNotification = async (n: Notification) => {
@@ -139,6 +145,67 @@ function WaiterNotificationsInner() {
     } finally {
       setMarkingAll(false);
     }
+  };
+
+  const renderRow = (n: Notification) => {
+    const created = n.created_at ? new Date(n.created_at) : null;
+    const ago = created ? formatDistanceToNow(created, { addSuffix: true }) : "";
+    // Stale rows are downgraded, so an old "High" ping stops shouting.
+    const priority = effectivePriority(n.priority ?? null, n.created_at);
+    return (
+      <li key={n.id}>
+        <PortalCard
+          padded={false}
+          className={cn("p-4", !n.is_read && "border-l-4 border-l-brand-primary")}
+        >
+          <div className="flex items-start gap-3">
+            {!n.is_read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand-primary" />}
+            <button
+              type="button"
+              onClick={() => openNotification(n)}
+              className="min-w-0 flex-1 text-left"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className={cn("text-sm text-slate-900 dark:text-white", n.is_read ? "font-medium" : "font-semibold")}>
+                  {n.title}
+                </h3>
+                {(priority === "high" || priority === "urgent") && (
+                  <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium capitalize text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                    {priority}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{n.message}</p>
+              <p className="mt-2 text-xs text-slate-400">{ago}</p>
+            </button>
+            <div className="flex shrink-0 flex-col gap-1">
+              {!n.is_read && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => markRead(n.id)}
+                  disabled={actingId === n.id}
+                  className="h-7 w-7 text-slate-500"
+                  title="Mark as read"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteRow(n.id)}
+                disabled={actingId === n.id}
+                className="h-7 w-7 text-rose-600"
+                title="Delete"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </PortalCard>
+      </li>
+    );
   };
 
   return (
@@ -273,64 +340,37 @@ function WaiterNotificationsInner() {
             )}
           </PortalCard>
         ) : (
-          <ul className="space-y-2">
-            {visible.map((n) => {
-              const created = n.created_at ? new Date(n.created_at) : null;
-              const ago = created ? formatDistanceToNow(created, { addSuffix: true }) : "";
-              return (
-                <li key={n.id}>
-                  <PortalCard
-                    padded={false}
-                    className={cn("p-4", !n.is_read && "border-brand-primary/40 bg-brand-primary/5")}
-                  >
-                    <div className="flex items-start gap-3">
-                      {!n.is_read && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand-primary" />}
-                      <button
-                        type="button"
-                        onClick={() => openNotification(n)}
-                        className="min-w-0 flex-1 text-left"
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className={cn("text-sm text-slate-900 dark:text-white", n.is_read ? "font-medium" : "font-semibold")}>
-                            {n.title}
-                          </h3>
-                          <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium capitalize text-slate-600">
-                            {n.priority || "normal"}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{n.message}</p>
-                        <p className="mt-2 text-xs text-slate-400">{ago}</p>
-                      </button>
-                      <div className="flex shrink-0 flex-col gap-1">
-                        {!n.is_read && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => markRead(n.id)}
-                            disabled={actingId === n.id}
-                            className="h-7 w-7 text-slate-500"
-                            title="Mark as read"
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteRow(n.id)}
-                          disabled={actingId === n.id}
-                          className="h-7 w-7 text-rose-600"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </PortalCard>
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            {recent.length > 0 ? (
+              <ul className="space-y-2">{recent.map(renderRow)}</ul>
+            ) : (
+              <PortalCard className="py-6 text-center">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Nothing in the last {STALE_NOTIFICATION_DAYS} days.
+                </p>
+              </PortalCard>
+            )}
+            {older.length > 0 && (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setShowOlder((v) => !v)}
+                  aria-expanded={showOlder}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  <span className="flex flex-wrap items-center gap-2">
+                    <Archive className="h-4 w-4 text-slate-400" />
+                    Older than {STALE_NOTIFICATION_DAYS} days ({older.length})
+                    {olderUnread > 0 && (
+                      <span className="text-xs font-medium text-slate-500">{olderUnread} unread</span>
+                    )}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 shrink-0 text-slate-400 transition-transform", showOlder && "rotate-180")} />
+                </button>
+                {showOlder && <ul className="space-y-2">{older.map(renderRow)}</ul>}
+              </div>
+            )}
+          </>
         )}
       </div>
     </WaiterPageShell>

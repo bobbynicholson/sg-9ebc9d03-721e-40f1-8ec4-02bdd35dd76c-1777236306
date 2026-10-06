@@ -321,7 +321,7 @@ function CleaningDashboardInner() {
     <>
       <CleaningPageShell
         pageTitle="Cleaning dashboard - CateringMS"
-        heading="Cleaning desk"
+        heading="Today"
         subheading="Returns, washing queue, priority inspections, damages, and what is ready to send out again."
         icon={SprayCan}
         headerAction={

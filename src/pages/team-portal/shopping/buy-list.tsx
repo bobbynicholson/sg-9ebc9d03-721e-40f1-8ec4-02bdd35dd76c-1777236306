@@ -71,7 +71,7 @@ interface OutlookRow {
 
 const STATUS_META: Record<string, { label: string; tone: string; icon: typeof AlertTriangle; sort: number }> = {
   shortfall:     { label: "Shortfall",  tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900",          icon: AlertTriangle, sort: 0 },
-  below_minimum: { label: "At or below minimum",  tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",     icon: AlertCircle,   sort: 1 },
+  below_minimum: { label: "At minimum",  tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900",     icon: AlertCircle,   sort: 1 },
   low:           { label: "Low",        tone: "bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-300 dark:border-yellow-900", icon: AlertCircle,   sort: 2 },
   ok:            { label: "OK",         tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900", icon: Package,    sort: 3 },
 };
@@ -411,11 +411,13 @@ function ShoppingBuyListPageInner() {
           )}
 
           {/* Status summary */}
-          <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-            <StatTile label="To buy" value={statusCounts.toBuy} hint="Everything not OK" icon={ListChecks} />
-            <StatTile label="Shortfall" value={statusCounts.shortfall} hint="Short for the next 7 days" icon={AlertTriangle} />
+          {/* 2-up on phones: four short numbers stacked one per row
+              pushed the list ~600px down. */}
+          <div className="grid grid-cols-2 gap-3 mb-6 sm:gap-4 xl:grid-cols-4">
+            <StatTile label="To buy" value={statusCounts.toBuy} hint="Need buying now" icon={ListChecks} />
+            <StatTile label="Shortfall" value={statusCounts.shortfall} hint="Orders need more in 7 days" icon={AlertTriangle} />
             <StatTile label="At minimum" value={statusCounts.belowPar} hint="At or below their minimum" icon={AlertCircle} />
-            <StatTile label="Low" value={statusCounts.low} hint="Short for the next 14 days" icon={AlertCircle} />
+            <StatTile label="Low" value={statusCounts.low} hint="Running out within 14 days" icon={AlertCircle} />
           </div>
 
           {/* Active list status */}
@@ -456,7 +458,7 @@ function ShoppingBuyListPageInner() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {([
-                ["all",        "All (not OK)"],
+                ["all",        "All to buy"],
                 ["shortfall",  "Shortfall"],
                 ["below_par",  "At minimum"],
                 ["low",        "Low"],
@@ -593,7 +595,7 @@ function ShoppingBuyListPageInner() {
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="truncate font-semibold text-slate-900 dark:text-white">{r.item_name}</span>
+                            <span className="min-w-0 break-words font-semibold text-slate-900 dark:text-white">{r.item_name}</span>
                             <Badge variant="outline" className={`${meta.tone} gap-1 text-[10px]`}>
                               <Icon className="h-3 w-3" />
                               {meta.label}

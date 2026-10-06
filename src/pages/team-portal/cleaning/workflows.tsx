@@ -187,7 +187,7 @@ function CleaningWorkflowsPageInner() {
   return (
     <CleaningPageShell
       pageTitle="Cleaning workflows - CateringMS"
-      heading="Cleaning workflows"
+      heading="Workflows"
       subheading={
         chipsReady && items.length > 0
           ? `Step-by-step cleaning instructions for ${categoryCount} equipment categor${categoryCount === 1 ? "y" : "ies"}. Open a category to see its steps.`

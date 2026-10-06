@@ -150,7 +150,7 @@ function PlatformTemplatesPanel() {
       <PortalHeader
         variant="hero"
         title="Platform emails"
-        subtitle="Wording for emails CateringMS sends to tenants (subscription receipts, trial reminders, owner welcome). Edits apply to every tenant immediately."
+        subtitle="Wording for emails CateringMS sends to catering companies (subscription receipts, trial reminders, owner welcome). Edits apply to every company immediately."
         icon={Mail}
         meta={
           <>

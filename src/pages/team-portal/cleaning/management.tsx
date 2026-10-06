@@ -11,7 +11,7 @@ function CleaningManagementPage() {
   return (
     <CleaningPageShell
       pageTitle="Cleaning team management"
-      heading="Manage the cleaning team"
+      heading="Manage team"
       subheading="Clock cleaners in or out and keep the cleaning work diary."
       icon={SprayCan}
       headerAction={

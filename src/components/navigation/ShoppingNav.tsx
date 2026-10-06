@@ -195,7 +195,7 @@ export function ShoppingNav(_: ShoppingNavProps = {}) {
         title: "Catalogue",
         defaultOpen: false,
         items: [
-          { title: "Inventory", href: "/team-portal/shopping/inventory", icon: Warehouse, description: "Stock + par levels" },
+          { title: "Inventory", href: "/team-portal/shopping/inventory", icon: Warehouse, description: "Stock + minimums" },
           {
             title: "Restock",
             href: "/team-portal/shopping/restock",

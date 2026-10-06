@@ -1,0 +1,2801 @@
+   ▲ Next.js 15.2.8
+   - Local:        http://localhost:3001
+   - Network:      http://192.168.56.1:3001
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3.1s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 631ms (156 modules)
+[middleware] [INFO] request /
+ ○ Compiling / ...
+ ✓ Compiled / in 21.7s (1565 modules)
+ ✓ Compiled in 1121ms (1565 modules)
+ GET / 200 in 25270ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ ○ Compiling /account/settings ...
+ ✓ Compiled /account/settings in 5.7s (1950 modules)
+ GET /spit-braai-delivery/account/settings 200 in 6807ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 253ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ ○ Compiling /api/payment-gateways ...
+ ✓ Compiled /api/payment-gateways in 586ms (610 modules)
+
+[logger] Run #1058 - logs → logs\run-1058-2026-10-06_05-09-35
+
+ GET /api/payment-gateways 200 in 1561ms
+ GET /api/payment-gateways 200 in 1812ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 910ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 255ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ ✓ Compiled in 815ms (1365 modules)
+ GET /api/payment-gateways 200 in 1316ms
+ GET /api/payment-gateways 200 in 1923ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 249ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 253ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ GET /api/payment-gateways 200 in 1019ms
+ GET /api/payment-gateways 200 in 1464ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ ○ Compiling /account/achievements ...
+ ✓ Compiled /account/achievements in 699ms (1985 modules)
+ GET /spit-braai-delivery/account/achievements 200 in 1644ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 262ms
+[middleware] [INFO] request /api/payment-gateways
+
+[logger] Run #1059 - logs → logs\run-1059-2026-10-06_05-09-57
+
+[middleware] [INFO] request /api/payment-gateways
+ GET /api/payment-gateways 200 in 1042ms
+ GET /api/payment-gateways 200 in 1860ms
+ ✓ Compiled in 799ms (1370 modules)
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 254ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 261ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ GET /api/payment-gateways 200 in 2033ms
+ GET /api/payment-gateways 200 in 2141ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 253ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 255ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ GET /api/payment-gateways 200 in 989ms
+ GET /api/payment-gateways 200 in 1484ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 322ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 252ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 261ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 252ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 252ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 252ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 274ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 270ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 265ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 272ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 266ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 258ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 250ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 264ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 253ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 253ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 261ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 261ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 263ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 252ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 259ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 259ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 257ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 257ms
+ ✓ Compiled in 1193ms (1539 modules)
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 1014ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 267ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 384ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 264ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 259ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 275ms
+ ✓ Compiled in 684ms (982 modules)
+ ✓ Compiled in 664ms (982 modules)
+ ✓ Compiled in 652ms (982 modules)
+ ✓ Compiled in 946ms (982 modules)
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ ✓ Compiled in 1338ms (1539 modules)
+ GET /spit-braai-delivery/account/settings 200 in 1701ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 245ms
+[middleware] [INFO] request /client/subscription-invoices
+ ○ Compiling /client/subscription-invoices ...
+ ✓ Compiled /client/subscription-invoices in 3.3s (1751 modules)
+ GET /client/subscription-invoices 200 in 3712ms
+[middleware] [INFO] request /client/subscription-invoices
+ GET /client/subscription-invoices 200 in 259ms
+[middleware] [INFO] request /client/subscription-invoices
+ GET /client/subscription-invoices 200 in 271ms
+[middleware] [INFO] request /admin/platform/dashboard
+ ○ Compiling /admin/platform/dashboard ...
+ ✓ Compiled /admin/platform/dashboard in 5.9s (1789 modules)
+ GET /admin/platform/dashboard 200 in 6853ms
+[middleware] [INFO] request /api/auth/roles
+ ○ Compiling /api/auth/roles ...
+ ✓ Compiled /api/auth/roles in 1111ms (1811 modules)
+
+[logger] Run #1060 - logs → logs\run-1060-2026-10-06_05-13-53
+
+ GET /api/auth/roles 200 in 1967ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 666ms
+[middleware] [INFO] request /api/platform/subscriptions
+ ○ Compiling /api/platform/subscriptions ...
+[middleware] [INFO] request /api/platform/subscriptions
+ ✓ Compiled /api/platform/subscriptions in 757ms (712 modules)
+
+[logger] Run #1061 - logs → logs\run-1061-2026-10-06_05-13-56
+
+ GET /api/platform/subscriptions 200 in 1714ms
+ GET /api/platform/subscriptions 200 in 2136ms
+ GET /api/platform/subscriptions 200 in 1136ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard 200 in 910ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 629ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 398ms
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 776ms
+ GET /api/platform/subscriptions 200 in 975ms
+ GET /api/platform/subscriptions 200 in 984ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard 200 in 261ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 842ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 739ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 973ms
+ GET /api/platform/subscriptions 200 in 1082ms
+ GET /api/platform/subscriptions 200 in 1033ms
+[middleware] [INFO] request /admin/platform/company-database
+ ○ Compiling /admin/platform/company-database ...
+ ✓ Compiled /admin/platform/company-database in 1709ms (1949 modules)
+ GET /admin/platform/company-database 200 in 2656ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1062 - logs → logs\run-1062-2026-10-06_05-14-19
+
+ GET /api/auth/roles 304 in 992ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 684ms
+[middleware] [INFO] request /admin/platform/company-database
+ GET /admin/platform/company-database 200 in 252ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 842ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 727ms
+[middleware] [INFO] request /admin/platform/company-database
+ GET /admin/platform/company-database 200 in 255ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 629ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 527ms
+[middleware] [INFO] request /admin/platform/user-management
+ ○ Compiling /admin/platform/user-management ...
+ ✓ Compiled /admin/platform/user-management in 701ms (1761 modules)
+ GET /admin/platform/user-management 200 in 1589ms
+[middleware] [INFO] request /api/admin/users-activity
+ ✓ Compiled /api/admin/users-activity in 172ms (635 modules)
+
+[logger] Run #1063 - logs → logs\run-1063-2026-10-06_05-14-42
+
+[middleware] [INFO] request /api/auth/roles
+ GET /api/admin/users-activity 200 in 956ms
+[middleware] [INFO] request /api/admin/users-activity
+ GET /api/auth/roles 304 in 769ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 432ms
+ GET /api/admin/users-activity 304 in 886ms
+ ✓ Compiled in 1066ms (1926 modules)
+[middleware] [INFO] request /admin/platform/user-management
+ GET /admin/platform/user-management 200 in 778ms
+[middleware] [INFO] request /api/admin/users-activity
+
+[logger] Run #1064 - logs → logs\run-1064-2026-10-06_05-14-49
+
+[middleware] [INFO] request /api/auth/roles
+ GET /api/admin/users-activity 304 in 1203ms
+[middleware] [INFO] request /api/admin/users-activity
+ GET /api/auth/roles 304 in 785ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 674ms
+ GET /api/admin/users-activity 304 in 1121ms
+[middleware] [INFO] request /admin/platform/user-management
+ GET /admin/platform/user-management 200 in 244ms
+[middleware] [INFO] request /api/admin/users-activity
+[middleware] [INFO] request /api/auth/roles
+ GET /api/admin/users-activity 304 in 1183ms
+[middleware] [INFO] request /api/admin/users-activity
+ GET /api/auth/roles 304 in 509ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/admin/users-activity 304 in 665ms
+ GET /api/auth/roles 304 in 697ms
+[middleware] [INFO] request /admin/platform/subscription-management
+ ○ Compiling /admin/platform/subscription-management ...
+ ✓ Compiled /admin/platform/subscription-management in 711ms (1535 modules)
+ GET /admin/platform/subscription-management 200 in 1565ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1065 - logs → logs\run-1065-2026-10-06_05-15-06
+
+ GET /api/auth/roles 304 in 2137ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ ✓ Compiled /api/platform/pricing-plans in 219ms (622 modules)
+
+[logger] Run #1066 - logs → logs\run-1066-2026-10-06_05-15-08
+
+ GET /api/auth/roles 304 in 669ms
+ GET /api/platform/pricing-plans 200 in 775ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/pricing-plans 304 in 302ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/pricing-plans 304 in 397ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1084ms
+ GET /api/platform/subscriptions 200 in 895ms
+ GET /api/platform/subscriptions 200 in 1515ms
+[middleware] [INFO] request /admin/platform/subscription-management
+ GET /admin/platform/subscription-management 200 in 820ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 588ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 403ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 734ms
+ GET /api/platform/pricing-plans 304 in 338ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/pricing-plans 304 in 254ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1281ms
+ GET /api/platform/subscriptions 200 in 1031ms
+ GET /api/platform/subscriptions 200 in 844ms
+[middleware] [INFO] request /admin/platform/subscription-management
+ GET /admin/platform/subscription-management 200 in 242ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 660ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 336ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 448ms
+ GET /api/platform/pricing-plans 304 in 347ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/pricing-plans 304 in 223ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1189ms
+ GET /api/platform/subscriptions 200 in 819ms
+ GET /api/platform/subscriptions 200 in 636ms
+ ✓ Compiled in 916ms (1517 modules)
+[middleware] [INFO] request /admin/platform/pricing-management
+ ○ Compiling /admin/platform/pricing-management ...
+ ✓ Compiled /admin/platform/pricing-management in 576ms (1529 modules)
+ GET /admin/platform/pricing-management 200 in 1506ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1067 - logs → logs\run-1067-2026-10-06_05-15-28
+
+ GET /api/auth/roles 304 in 562ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 245ms
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/auth/roles 304 in 547ms
+ GET /api/platform/pricing-plans 304 in 243ms
+[middleware] [INFO] request /admin/platform/pricing-management
+ GET /admin/platform/pricing-management 200 in 250ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 598ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 259ms
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/auth/roles 304 in 450ms
+ GET /api/platform/pricing-plans 304 in 221ms
+[middleware] [INFO] request /admin/platform/pricing-management
+ GET /admin/platform/pricing-management 200 in 238ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1330ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 344ms
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 367ms
+ GET /api/auth/roles 304 in 782ms
+[middleware] [INFO] request /admin/platform/trial-management
+ ○ Compiling /admin/platform/trial-management ...
+ ✓ Compiled /admin/platform/trial-management in 645ms (1517 modules)
+ GET /admin/platform/trial-management 200 in 1455ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1068 - logs → logs\run-1068-2026-10-06_05-15-51
+
+ GET /api/auth/roles 304 in 847ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 686ms
+ ✓ Compiled in 769ms (905 modules)
+ ✓ Compiled in 587ms (905 modules)
+[middleware] [INFO] request /admin/platform/trial-management
+ GET /admin/platform/trial-management 200 in 253ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 634ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 571ms
+[middleware] [INFO] request /admin/platform/trial-management
+ GET /admin/platform/trial-management 200 in 254ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 764ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 695ms
+[middleware] [INFO] request /admin/platform/currency-monitoring
+ ✓ Compiled /admin/platform/currency-monitoring in 425ms (1501 modules)
+ GET /admin/platform/currency-monitoring 200 in 1184ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1069 - logs → logs\run-1069-2026-10-06_05-16-13
+
+ GET /api/auth/roles 304 in 785ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 580ms
+[middleware] [INFO] request /admin/platform/currency-monitoring
+ GET /admin/platform/currency-monitoring 200 in 254ms
+[middleware] [INFO] request /api/auth/roles
+ ✓ Compiled in 932ms (1501 modules)
+
+[logger] Run #1070 - logs → logs\run-1070-2026-10-06_05-16-21
+
+ GET /api/auth/roles 304 in 1092ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 464ms
+[middleware] [INFO] request /admin/platform/currency-monitoring
+ GET /admin/platform/currency-monitoring 200 in 785ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 767ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 698ms
+[middleware] [INFO] request /admin/platform/cms-blog
+ ○ Compiling /admin/platform/cms-blog ...
+ ✓ Compiled /admin/platform/cms-blog in 807ms (1421 modules)
+ GET /admin/platform/cms-blog 200 in 1694ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1071 - logs → logs\run-1071-2026-10-06_05-16-37
+
+ GET /api/auth/roles 304 in 1393ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 826ms
+[middleware] [INFO] request /admin/platform/cms-blog
+ GET /admin/platform/cms-blog 200 in 262ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 792ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 448ms
+[middleware] [INFO] request /admin/platform/cms-blog
+ GET /admin/platform/cms-blog 200 in 253ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 787ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 698ms
+[middleware] [INFO] request /admin/platform/cms-pages
+ ✓ Compiled /admin/platform/cms-pages in 452ms (1424 modules)
+ GET /admin/platform/cms-pages 200 in 1299ms
+[middleware] [INFO] request /api/auth/roles
+ ✓ Compiled in 1461ms (1424 modules)
+
+[logger] Run #1072 - logs → logs\run-1072-2026-10-06_05-17-00
+
+ GET /api/auth/roles 304 in 1639ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 645ms
+[middleware] [INFO] request /admin/platform/cms-pages
+ GET /admin/platform/cms-pages 200 in 843ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 910ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1344ms
+[middleware] [INFO] request /admin/platform/cms-pages
+ GET /admin/platform/cms-pages 200 in 254ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1091ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1028ms
+[middleware] [INFO] request /admin/platform/tax-rules
+ ○ Compiling /admin/platform/tax-rules ...
+ ✓ Compiled /admin/platform/tax-rules in 629ms (1410 modules)
+ GET /admin/platform/tax-rules 200 in 1462ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1073 - logs → logs\run-1073-2026-10-06_05-17-21
+
+ GET /api/auth/roles 304 in 702ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 584ms
+[middleware] [INFO] request /admin/platform/tax-rules
+ GET /admin/platform/tax-rules 200 in 280ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 821ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 690ms
+[middleware] [INFO] request /admin/platform/tax-rules
+ GET /admin/platform/tax-rules 200 in 249ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 673ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 543ms
+[middleware] [INFO] request /admin/platform/audit-logs
+ ○ Compiling /admin/platform/audit-logs ...
+ ✓ Compiled /admin/platform/audit-logs in 887ms (1408 modules)
+ GET /admin/platform/audit-logs 200 in 1700ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1074 - logs → logs\run-1074-2026-10-06_05-17-45
+
+ GET /api/auth/roles 304 in 804ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 698ms
+[middleware] [INFO] request /admin/platform/cms-pages
+ GET /admin/platform/cms-pages 200 in 308ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 200 in 651ms
+ GET /api/auth/roles 200 in 649ms
+[middleware] [INFO] request /admin/platform/audit-logs
+ GET /admin/platform/audit-logs 200 in 248ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 662ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 652ms
+[middleware] [INFO] request /admin/platform/audit-logs
+ GET /admin/platform/audit-logs 200 in 267ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 635ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 564ms
+[middleware] [INFO] request /admin/platform/financial-dashboard
+ ✓ Compiled /admin/platform/financial-dashboard in 475ms (1414 modules)
+ GET /admin/platform/financial-dashboard 200 in 1219ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1075 - logs → logs\run-1075-2026-10-06_05-18-07
+
+ GET /api/auth/roles 304 in 615ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 411ms
+ ✓ Compiled /api/platform/subscriptions in 146ms (612 modules)
+
+[logger] Run #1076 - logs → logs\run-1076-2026-10-06_05-18-08
+
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1012ms
+ GET /api/platform/subscriptions 200 in 848ms
+[middleware] [INFO] request /admin/platform/financial-dashboard
+ GET /admin/platform/financial-dashboard 200 in 556ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 734ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 701ms
+ GET /api/platform/subscriptions 200 in 974ms
+ GET /api/platform/subscriptions 200 in 1006ms
+[middleware] [INFO] request /admin/platform/financial-dashboard
+ GET /admin/platform/financial-dashboard 200 in 249ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 766ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 665ms
+ GET /api/platform/subscriptions 200 in 855ms
+ GET /api/platform/subscriptions 200 in 922ms
+[middleware] [INFO] request /admin/platform/messaging-templates
+ ○ Compiling /admin/platform/messaging-templates ...
+ ✓ Compiled /admin/platform/messaging-templates in 607ms (1537 modules)
+ GET /admin/platform/messaging-templates 200 in 1357ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1077 - logs → logs\run-1077-2026-10-06_05-18-29
+
+ GET /api/auth/roles 304 in 708ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 544ms
+[middleware] [INFO] request /admin/platform/messaging-templates
+ GET /admin/platform/messaging-templates 200 in 263ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 723ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 667ms
+ ✓ Compiled in 657ms (917 modules)
+[middleware] [INFO] request /admin/platform/messaging-templates
+ GET /admin/platform/messaging-templates 200 in 259ms
+ ✓ Compiled in 837ms (1528 modules)
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1078 - logs → logs\run-1078-2026-10-06_05-18-43
+
+ GET /api/auth/roles 304 in 1034ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 638ms
+[middleware] [INFO] request /admin/platform/payment-issues
+ ○ Compiling /admin/platform/payment-issues ...
+ ✓ Compiled /admin/platform/payment-issues in 522ms (1527 modules)
+ GET /admin/platform/payment-issues 200 in 1323ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1079 - logs → logs\run-1079-2026-10-06_05-18-51
+
+ GET /api/auth/roles 304 in 613ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 553ms
+ ✓ Compiled in 593ms (911 modules)
+ ✓ Compiled in 886ms (911 modules)
+ ✓ Compiled in 746ms (911 modules)
+[middleware] [INFO] request /admin/platform/payment-issues
+ GET /admin/platform/payment-issues 200 in 252ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 512ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 418ms
+[middleware] [INFO] request /admin/platform/payment-issues
+ GET /admin/platform/payment-issues 200 in 256ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 645ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 527ms
+[middleware] [INFO] request /admin/platform/running-todo
+ ○ Compiling /admin/platform/running-todo ...
+ ✓ Compiled /admin/platform/running-todo in 2s (1522 modules)
+ GET /admin/platform/running-todo 200 in 2850ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1080 - logs → logs\run-1080-2026-10-06_05-19-15
+
+ GET /api/auth/roles 304 in 678ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 531ms
+[middleware] [INFO] request /admin/platform/running-todo
+ GET /admin/platform/running-todo 200 in 264ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1400ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 597ms
+[middleware] [INFO] request /admin/platform/running-todo
+ GET /admin/platform/running-todo 200 in 256ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 905ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 614ms
+[middleware] [INFO] request /admin/platform/settings
+ ✓ Compiled /admin/platform/settings in 387ms (1401 modules)
+ GET /admin/platform/settings 200 in 1166ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1081 - logs → logs\run-1081-2026-10-06_05-19-38
+
+ GET /api/auth/roles 304 in 1296ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/app-config
+ ✓ Compiled /api/platform/app-config in 133ms (502 modules)
+
+[logger] Run #1082 - logs → logs\run-1082-2026-10-06_05-19-39
+
+ GET /api/auth/roles 304 in 952ms
+ GET /api/platform/app-config 200 in 1752ms
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/platform/app-config 304 in 1304ms
+[middleware] [INFO] request /admin/platform/settings
+ GET /admin/platform/settings 200 in 727ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 2216ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/auth/roles 304 in 1261ms
+ GET /api/platform/app-config 304 in 1932ms
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/platform/app-config 200 in 1080ms
+[middleware] [INFO] request /admin/platform/settings
+ GET /admin/platform/settings 200 in 263ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1356ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/platform/app-config 200 in 1350ms
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/auth/roles 304 in 1534ms
+ GET /api/platform/app-config 304 in 1707ms
+[middleware] [INFO] request /admin/platform/tech-costs
+ ○ Compiling /admin/platform/tech-costs ...
+ ✓ Compiled /admin/platform/tech-costs in 2.2s (1393 modules)
+ GET /admin/platform/tech-costs 200 in 3068ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1083 - logs → logs\run-1083-2026-10-06_05-20-02
+
+ GET /api/auth/roles 304 in 1748ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 573ms
+[middleware] [INFO] request /admin/platform/tech-costs
+ GET /admin/platform/tech-costs 200 in 245ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1411ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1205ms
+[middleware] [INFO] request /admin/platform/tech-costs
+ GET /admin/platform/tech-costs 200 in 255ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 884ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 936ms
+[middleware] [INFO] request /admin/platform/tenant-health
+ ✓ Compiled /admin/platform/tenant-health in 441ms (1393 modules)
+ GET /admin/platform/tenant-health 200 in 1181ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1084 - logs → logs\run-1084-2026-10-06_05-20-24
+
+ GET /api/auth/roles 304 in 1629ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 663ms
+[middleware] [INFO] request /admin/platform/tenant-health
+ GET /admin/platform/tenant-health 200 in 249ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 2826ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1054ms
+[middleware] [INFO] request /admin/platform/tenant-health
+ GET /admin/platform/tenant-health 200 in 254ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 718ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1291ms
+ ✓ Compiled in 1103ms (1357 modules)
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ ○ Compiling /pay/i/[token] ...
+ ✓ Compiled /pay/i/[token] in 719ms (1367 modules)
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 2235ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+ ○ Compiling /api/public/invoices/[token]/get ...
+ ✓ Compiled /api/public/invoices/[token]/get in 544ms (503 modules)
+
+[logger] Run #1085 - logs → logs\run-1085-2026-10-06_05-21-16
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 3338ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 3525ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 1300ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 5065ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 6154ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 761ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2825ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 3404ms
+[middleware] [INFO] request /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206
+ ✓ Compiled /pay/invoice/[id] in 391ms (1374 modules)
+ GET /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206 308 in 1365ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 499ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+
+[logger] Run #1086 - logs → logs\run-1086-2026-10-06_05-21-41
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2001ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2214ms
+[middleware] [INFO] request /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206
+ GET /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206 308 in 614ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 582ms
+ ✓ Compiled in 992ms (1368 modules)
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+
+[logger] Run #1087 - logs → logs\run-1087-2026-10-06_05-21-50
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2375ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2763ms
+ ✓ Compiled in 493ms (873 modules)
+ ✓ Compiled in 1129ms (1368 modules)
+[middleware] [INFO] request /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206
+ GET /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206 308 in 892ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 488ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+
+[logger] Run #1088 - logs → logs\run-1088-2026-10-06_05-21-59
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 1805ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2248ms
+[middleware] [INFO] request /u/check-not-a-real-token
+ ✓ Compiled /u/[token] in 483ms (1378 modules)
+ GET /u/check-not-a-real-token 200 in 1211ms
+[middleware] [INFO] request /u/check-not-a-real-token
+ GET /u/check-not-a-real-token 200 in 249ms
+[middleware] [INFO] request /u/check-not-a-real-token
+ GET /u/check-not-a-real-token 200 in 258ms
+[middleware] [INFO] request /c/account
+ ○ Compiling /c/account ...
+ ✓ Compiled /c/account in 522ms (1285 modules)
+ GET /c/account 200 in 1251ms
+[middleware] [INFO] request /c/account
+ GET /c/account 200 in 269ms
+[middleware] [INFO] request /c/account
+ GET /c/account 200 in 260ms
+[middleware] [INFO] request /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ ○ Compiling /c/order/[id] ...
+ ✓ Compiled /c/order/[id] in 1658ms (1271 modules)
+ GET /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 2430ms
+[middleware] [INFO] request /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 289ms
+[middleware] [INFO] request /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 274ms
+[middleware] [INFO] request /p/spit-braai-delivery
+ ✓ Compiled /p/[slug] in 412ms (1219 modules)
+ GET /p/spit-braai-delivery 307 in 1220ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ ✓ Compiled /[company_slug]/client/login in 468ms (1234 modules)
+ GET /spit-braai-delivery/client/login 200 in 2534ms
+[middleware] [INFO] request /p/spit-braai-delivery
+ GET /p/spit-braai-delivery 307 in 271ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 634ms
+[middleware] [INFO] request /p/spit-braai-delivery
+ GET /p/spit-braai-delivery 307 in 249ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 674ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 779ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 752ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 971ms
+[middleware] [INFO] request /auth/select-role
+ ○ Compiling /auth/select-role ...
+ ✓ Compiled /auth/select-role in 975ms (1239 modules)
+ GET /auth/select-role 200 in 1718ms
+[middleware] [INFO] request /auth/select-role
+ GET /auth/select-role 200 in 268ms
+[middleware] [INFO] request /auth/select-role
+ GET /auth/select-role 200 in 254ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ ○ Compiling /[company_slug]/order/[id] ...
+ ✓ Compiled /[company_slug]/order/[id] in 7.3s (1700 modules)
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 8316ms
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+ ✓ Compiled /api/orders/[id]/waiters in 376ms (685 modules)
+
+[logger] Run #1089 - logs → logs\run-1089-2026-10-06_05-24-45
+
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1815ms
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1849ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 857ms
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1219ms
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1554ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 244ms
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1512ms
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1525ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 258ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 268ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 268ms
+ ✓ Compiled in 2.2s (1052 modules)
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 273ms
+ ✓ Compiled in 3.3s (1684 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ ○ Compiling /team-portal/waiter/dashboard ...
+ ✓ Compiled /team-portal/waiter/dashboard in 4.3s (1710 modules)
+ GET /spit-braai-delivery/team-portal/waiter/dashboard 200 in 5099ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ GET /spit-braai-delivery/team-portal/waiter/dashboard 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ GET /spit-braai-delivery/team-portal/waiter/dashboard 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/notifications
+ ○ Compiling /team-portal/waiter/notifications ...
+ ✓ Compiled /team-portal/waiter/notifications in 2s (1710 modules)
+ GET /spit-braai-delivery/team-portal/waiter/notifications 200 in 2710ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/notifications.json 200 in 264ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/notifications
+ GET /spit-braai-delivery/team-portal/waiter/notifications 200 in 258ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/notifications.json 200 in 255ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/notifications
+ GET /spit-braai-delivery/team-portal/waiter/notifications 200 in 267ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/notifications.json 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/general/job-progress
+ ○ Compiling /team-portal/general/job-progress ...
+ ✓ Compiled /team-portal/general/job-progress in 1606ms (1612 modules)
+ GET /spit-braai-delivery/team-portal/general/job-progress 200 in 2608ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/general/job-progress
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/general/job-progress.json 200 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/general/job-progress
+ GET /spit-braai-delivery/team-portal/general/job-progress 200 in 257ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/general/job-progress
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/general/job-progress.json 200 in 263ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/general/job-progress
+ GET /spit-braai-delivery/team-portal/general/job-progress 200 in 257ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/general/job-progress
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/general/job-progress.json 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ ○ Compiling /client-portal/dashboard ...
+ ✓ Compiled /client-portal/dashboard in 6.8s (1613 modules)
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 7603ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 267ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 253ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 262ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 265ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/my-orders
+ ○ Compiling /client-portal/my-orders ...
+ ✓ Compiled /client-portal/my-orders in 1122ms (1631 modules)
+ GET /spit-braai-delivery/client-portal/my-orders 200 in 1908ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/my-orders
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/my-orders.json 200 in 253ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/my-orders
+ GET /spit-braai-delivery/client-portal/my-orders 200 in 585ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/my-orders
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/my-orders.json 200 in 533ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/my-orders
+ GET /spit-braai-delivery/client-portal/my-orders 200 in 260ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/my-orders
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/my-orders.json 200 in 255ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/quotes
+ ○ Compiling /client-portal/quotes ...
+ ✓ Compiled /client-portal/quotes in 1956ms (1619 modules)
+ GET /spit-braai-delivery/client-portal/quotes 200 in 2635ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/quotes
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/quotes.json 200 in 267ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/quotes
+ GET /spit-braai-delivery/client-portal/quotes 200 in 228ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/quotes
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/quotes.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/quotes
+ GET /spit-braai-delivery/client-portal/quotes 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/quotes
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/quotes.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/billing
+ ○ Compiling /client-portal/billing ...
+ ✓ Compiled /client-portal/billing in 2.3s (1700 modules)
+ GET /spit-braai-delivery/client-portal/billing 200 in 3030ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/billing
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/billing.json 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/billing
+ GET /spit-braai-delivery/client-portal/billing 200 in 268ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/billing
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/billing.json 200 in 282ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/billing
+ GET /spit-braai-delivery/client-portal/billing 200 in 259ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/billing
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/billing.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter
+ ✓ Compiled /team-portal/waiter in 458ms (1633 modules)
+ GET /spit-braai-delivery/team-portal/waiter 307 in 1101ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ ✓ Compiled /team-portal/waiter/dashboard in 328ms (1671 modules)
+ GET /spit-braai-delivery/team-portal/waiter/dashboard 200 in 1067ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/tracking
+ ○ Compiling /client-portal/tracking ...
+[middleware] [INFO] request /spit-braai-delivery/team-portal/waiter/dashboard
+ ✓ Compiled /client-portal/tracking in 1427ms (1750 modules)
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/waiter/dashboard.json 200 in 837ms
+ GET /spit-braai-delivery/client-portal/tracking 200 in 2698ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/tracking
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/tracking.json 200 in 266ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/tracking
+ GET /spit-braai-delivery/client-portal/tracking 200 in 266ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/tracking
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/tracking.json 200 in 248ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/tracking
+ GET /spit-braai-delivery/client-portal/tracking 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/tracking
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/tracking.json 200 in 258ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal
+ ✓ Compiled /client-portal in 382ms (1698 modules)
+ GET /spit-braai-delivery/client-portal 307 in 982ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ ✓ Compiled /client-portal/dashboard in 367ms (1736 modules)
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 1073ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 246ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/notifications
+ ○ Compiling /client-portal/notifications ...
+ ✓ Compiled /client-portal/notifications in 2.3s (1744 modules)
+ GET /spit-braai-delivery/client-portal/notifications 200 in 2991ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/notifications
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/notifications.json 200 in 248ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/notifications
+ GET /spit-braai-delivery/client-portal/notifications 200 in 287ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/notifications
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/notifications.json 200 in 256ms
+[middleware] [INFO] request /admin/platform
+ ✓ Compiled /admin/platform in 485ms (1728 modules)
+[middleware] [INFO] request /spit-braai-delivery/client-portal/notifications
+ GET /admin/platform 307 in 1089ms
+ GET /spit-braai-delivery/client-portal/notifications 200 in 374ms
+[middleware] [INFO] request /admin/platform/dashboard
+ ○ Compiling /admin/platform/dashboard ...
+[middleware] [INFO] request /spit-braai-delivery/client-portal/notifications
+ ✓ Compiled /admin/platform/dashboard in 5s (1776 modules)
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/notifications.json 200 in 4934ms
+ GET /admin/platform/dashboard 200 in 5833ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/feedback
+ ✓ Compiled /client-portal/feedback in 398ms (1780 modules)
+ GET /spit-braai-delivery/client-portal/feedback 307 in 1044ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 409ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+ ○ Compiling /api/auth/roles ...
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ ✓ Compiled /api/auth/roles in 2.8s (1802 modules)
+
+[logger] Run #1090 - logs → logs\run-1090-2026-10-06_05-31-21
+
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 1931ms
+ GET /api/auth/roles 200 in 3983ms
+ GET /api/auth/roles 200 in 3986ms
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ ○ Compiling /api/platform/subscriptions ...
+ ✓ Compiled /api/platform/subscriptions in 1059ms (685 modules)
+
+[logger] Run #1091 - logs → logs\run-1091-2026-10-06_05-31-24
+
+ GET /api/platform/subscriptions 200 in 1660ms
+ GET /api/platform/subscriptions 200 in 1851ms
+ GET /api/platform/subscriptions 200 in 2177ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/feedback
+ GET /spit-braai-delivery/client-portal/feedback 307 in 608ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 313ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 295ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/feedback
+ GET /spit-braai-delivery/client-portal/feedback 307 in 253ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ GET /spit-braai-delivery/client-portal/dashboard 200 in 255ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/dashboard.json 200 in 251ms
+[middleware] [INFO] request /super-admin
+[middleware] [INFO] request /admin/platform
+ GET /admin/platform 307 in 289ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard 200 in 297ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 200 in 521ms
+ GET /api/auth/roles 200 in 690ms
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /spit-braai-delivery/client-portal/profile
+ GET /api/platform/subscriptions 200 in 784ms
+ GET /api/platform/subscriptions 200 in 724ms
+ GET /api/platform/subscriptions 200 in 987ms
+ ○ Compiling /client-portal/profile ...
+ ✓ Compiled /client-portal/profile in 630ms (1668 modules)
+ GET /spit-braai-delivery/client-portal/profile 200 in 1349ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/profile
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/profile.json 200 in 257ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/profile
+ GET /spit-braai-delivery/client-portal/profile 200 in 258ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/profile
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/profile.json 200 in 254ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/profile
+ GET /spit-braai-delivery/client-portal/profile 200 in 255ms
+[middleware] [INFO] request /spit-braai-delivery/client-portal/profile
+ HEAD /_next/data/development/spit-braai-delivery/client-portal/profile.json 200 in 246ms
+[middleware] [INFO] request /super-admin/admin/dashboard
+[middleware] [INFO] request /admin/platform/admin/dashboard
+ ✓ Compiled /404 in 374ms (1612 modules)
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ ○ Compiling /account/settings ...
+ GET /admin/platform/admin/dashboard 404 in 1571ms
+ ✓ Compiled /account/settings in 3.5s (1831 modules)
+ GET /spit-braai-delivery/account/settings 200 in 3954ms
+[middleware] [INFO] request /admin/platform/admin/dashboard
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 232ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1092 - logs → logs\run-1092-2026-10-06_05-32-08
+
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ ✓ Compiled /api/payment-gateways in 144ms (749 modules)
+
+[logger] Run #1093 - logs → logs\run-1093-2026-10-06_05-32-08
+
+ GET /api/auth/roles 200 in 784ms
+ GET /api/auth/roles 200 in 1025ms
+ GET /api/payment-gateways 200 in 967ms
+ GET /api/payment-gateways 200 in 1481ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 430ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 228ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ GET /api/payment-gateways 200 in 829ms
+ GET /api/payment-gateways 200 in 816ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 228ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 226ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ GET /api/payment-gateways 200 in 1455ms
+ GET /api/payment-gateways 200 in 1434ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ ○ Compiling /account/achievements ...
+ ✓ Compiled /account/achievements in 1800ms (1839 modules)
+ GET /spit-braai-delivery/account/achievements 200 in 2628ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 249ms
+[middleware] [INFO] request /api/payment-gateways
+
+[logger] Run #1094 - logs → logs\run-1094-2026-10-06_05-32-32
+
+[middleware] [INFO] request /api/payment-gateways
+ GET /api/payment-gateways 200 in 1323ms
+ GET /api/payment-gateways 200 in 1413ms
+ ✓ Compiled in 2.6s (1831 modules)
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /_next/data/development/spit-braai-delivery/account/achievements.json?company_slug=spit-braai-delivery 200 in 682ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 262ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 269ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+
+[logger] Run #1095 - logs → logs\run-1095-2026-10-06_05-32-45
+
+ GET /api/payment-gateways 200 in 1081ms
+ GET /api/payment-gateways 200 in 1626ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 246ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 251ms
+[middleware] [INFO] request /api/payment-gateways
+[middleware] [INFO] request /api/payment-gateways
+ GET /api/payment-gateways 200 in 1460ms
+ GET /api/payment-gateways 200 in 1466ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 374ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 256ms
+ ✓ Compiled in 1087ms (1568 modules)
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 808ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 249ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 228ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 333ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 269ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 248ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 252ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 260ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 251ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 248ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 1022ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 214ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 231ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 228ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 223ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ GET /spit-braai-delivery/account/achievements 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/account/achievements
+ HEAD /_next/data/development/spit-braai-delivery/account/achievements.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ GET /spit-braai-delivery/account/settings 200 in 251ms
+[middleware] [INFO] request /spit-braai-delivery/account/settings
+ HEAD /_next/data/development/spit-braai-delivery/account/settings.json 200 in 233ms
+[middleware] [INFO] request /client/subscription-invoices
+ ○ Compiling /client/subscription-invoices ...
+ ✓ Compiled /client/subscription-invoices in 4.2s (1753 modules)
+ GET /client/subscription-invoices 200 in 4735ms
+[middleware] [INFO] request /client/subscription-invoices
+ GET /client/subscription-invoices 200 in 230ms
+[middleware] [INFO] request /client/subscription-invoices
+ GET /client/subscription-invoices 200 in 237ms
+[middleware] [INFO] request /admin/platform/dashboard
+ ✓ Compiled /admin/platform/dashboard in 165ms (1789 modules)
+ GET /admin/platform/dashboard 200 in 557ms
+[middleware] [INFO] request /api/auth/roles
+ ✓ Compiled /api/auth/roles in 54ms (605 modules)
+
+[logger] Run #1096 - logs → logs\run-1096-2026-10-06_05-35-51
+
+ GET /api/auth/roles 200 in 889ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 852ms
+ ○ Compiling /api/platform/subscriptions ...
+[middleware] [INFO] request /api/platform/subscriptions
+ ✓ Compiled /api/platform/subscriptions in 3.3s (712 modules)
+
+[logger] Run #1097 - logs → logs\run-1097-2026-10-06_05-35-55
+
+ GET /api/platform/subscriptions 200 in 4163ms
+ GET /api/platform/subscriptions 200 in 3554ms
+ GET /api/platform/subscriptions 200 in 4579ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard 200 in 421ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 805ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 659ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1116ms
+ GET /api/platform/subscriptions 200 in 971ms
+ GET /api/platform/subscriptions 200 in 1015ms
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard 200 in 232ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 885ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 725ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1118ms
+ GET /api/platform/subscriptions 200 in 1032ms
+ GET /api/platform/subscriptions 200 in 910ms
+[middleware] [INFO] request /admin/platform/company-database
+ ○ Compiling /admin/platform/company-database ...
+ ✓ Compiled /admin/platform/company-database in 3.5s (1949 modules)
+ GET /admin/platform/company-database 200 in 3901ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1098 - logs → logs\run-1098-2026-10-06_05-36-18
+
+ GET /api/auth/roles 304 in 951ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 762ms
+[middleware] [INFO] request /admin/platform/company-database
+ GET /admin/platform/company-database 200 in 233ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1136ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 697ms
+[middleware] [INFO] request /admin/platform/company-database
+ GET /admin/platform/company-database 200 in 232ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1065ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 650ms
+[middleware] [INFO] request /admin/platform/user-management
+ ○ Compiling /admin/platform/user-management ...
+ ✓ Compiled /admin/platform/user-management in 792ms (1924 modules)
+ GET /admin/platform/user-management 200 in 1191ms
+[middleware] [INFO] request /api/admin/users-activity
+ ✓ Compiled /api/admin/users-activity in 83ms (716 modules)
+
+[logger] Run #1099 - logs → logs\run-1099-2026-10-06_05-36-39
+
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 729ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/admin/users-activity 200 in 1390ms
+[middleware] [INFO] request /api/admin/users-activity
+ GET /api/auth/roles 304 in 681ms
+ GET /api/admin/users-activity 304 in 943ms
+[middleware] [INFO] request /admin/platform/user-management
+ GET /admin/platform/user-management 200 in 367ms
+[middleware] [INFO] request /api/admin/users-activity
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 493ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/admin/users-activity 304 in 1073ms
+[middleware] [INFO] request /api/admin/users-activity
+ GET /api/auth/roles 304 in 680ms
+ GET /api/admin/users-activity 304 in 598ms
+[middleware] [INFO] request /admin/platform/user-management
+ GET /admin/platform/user-management 200 in 232ms
+[middleware] [INFO] request /api/admin/users-activity
+[middleware] [INFO] request /api/auth/roles
+ GET /api/admin/users-activity 304 in 778ms
+[middleware] [INFO] request /api/admin/users-activity
+ GET /api/auth/roles 304 in 439ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 425ms
+ GET /api/admin/users-activity 304 in 856ms
+[middleware] [INFO] request /admin/platform/subscription-management
+ ✓ Compiled /admin/platform/subscription-management in 345ms (1535 modules)
+ GET /admin/platform/subscription-management 200 in 966ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1100 - logs → logs\run-1100-2026-10-06_05-37-00
+
+ GET /api/auth/roles 304 in 727ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ ✓ Compiled /api/platform/pricing-plans in 419ms (622 modules)
+
+[logger] Run #1101 - logs → logs\run-1101-2026-10-06_05-37-02
+
+ GET /api/auth/roles 304 in 735ms
+ GET /api/platform/pricing-plans 200 in 900ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/pricing-plans 304 in 203ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/pricing-plans 304 in 197ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1055ms
+ GET /api/platform/subscriptions 200 in 919ms
+ GET /api/platform/subscriptions 200 in 766ms
+[middleware] [INFO] request /admin/platform/subscription-management
+ GET /admin/platform/subscription-management 200 in 367ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 674ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 333ms
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/auth/roles 304 in 587ms
+ GET /api/platform/pricing-plans 304 in 331ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/pricing-plans 304 in 202ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1002ms
+ GET /api/platform/subscriptions 200 in 752ms
+ GET /api/platform/subscriptions 200 in 974ms
+[middleware] [INFO] request /admin/platform/subscription-management
+ GET /admin/platform/subscription-management 200 in 232ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 754ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 340ms
+[middleware] [INFO] request /api/platform/pricing-plans
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/pricing-plans 304 in 328ms
+ GET /api/auth/roles 304 in 704ms
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 328ms
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 758ms
+ GET /api/platform/subscriptions 200 in 1002ms
+ GET /api/platform/subscriptions 200 in 951ms
+[middleware] [INFO] request /admin/platform/pricing-management
+ ○ Compiling /admin/platform/pricing-management ...
+ ✓ Compiled /admin/platform/pricing-management in 631ms (1529 modules)
+ GET /admin/platform/pricing-management 200 in 1059ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1102 - logs → logs\run-1102-2026-10-06_05-37-22
+
+ GET /api/auth/roles 304 in 720ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 206ms
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 196ms
+ GET /api/auth/roles 304 in 668ms
+[middleware] [INFO] request /admin/platform/pricing-management
+ GET /admin/platform/pricing-management 200 in 235ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 785ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 321ms
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 322ms
+ GET /api/auth/roles 304 in 726ms
+[middleware] [INFO] request /admin/platform/pricing-management
+ GET /admin/platform/pricing-management 200 in 237ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 488ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/platform/pricing-plans 304 in 231ms
+[middleware] [INFO] request /api/platform/pricing-plans
+ GET /api/auth/roles 304 in 437ms
+ GET /api/platform/pricing-plans 304 in 189ms
+[middleware] [INFO] request /admin/platform/trial-management
+ ○ Compiling /admin/platform/trial-management ...
+ ✓ Compiled /admin/platform/trial-management in 1752ms (1517 modules)
+ GET /admin/platform/trial-management 200 in 2252ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1103 - logs → logs\run-1103-2026-10-06_05-37-44
+
+ GET /api/auth/roles 304 in 629ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 528ms
+[middleware] [INFO] request /admin/platform/trial-management
+ GET /admin/platform/trial-management 200 in 231ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 826ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 865ms
+[middleware] [INFO] request /admin/platform/trial-management
+ GET /admin/platform/trial-management 200 in 256ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 492ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 428ms
+[middleware] [INFO] request /admin/platform/currency-monitoring
+ ✓ Compiled /admin/platform/currency-monitoring in 409ms (1501 modules)
+ GET /admin/platform/currency-monitoring 200 in 1059ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1104 - logs → logs\run-1104-2026-10-06_05-38-05
+
+ GET /api/auth/roles 304 in 582ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 436ms
+[middleware] [INFO] request /admin/platform/currency-monitoring
+ GET /admin/platform/currency-monitoring 200 in 243ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 521ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 441ms
+[middleware] [INFO] request /admin/platform/currency-monitoring
+ GET /admin/platform/currency-monitoring 200 in 230ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 747ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 399ms
+[middleware] [INFO] request /admin/platform/cms-blog
+ ○ Compiling /admin/platform/cms-blog ...
+ ✓ Compiled /admin/platform/cms-blog in 549ms (1421 modules)
+ GET /admin/platform/cms-blog 200 in 986ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1105 - logs → logs\run-1105-2026-10-06_05-38-27
+
+ GET /api/auth/roles 304 in 1254ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 653ms
+[middleware] [INFO] request /admin/platform/cms-blog
+ GET /admin/platform/cms-blog 200 in 248ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1008ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 670ms
+[middleware] [INFO] request /admin/platform/cms-blog
+ GET /admin/platform/cms-blog 200 in 231ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 719ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 663ms
+[middleware] [INFO] request /admin/platform/cms-pages
+ ✓ Compiled /admin/platform/cms-pages in 298ms (1424 modules)
+ GET /admin/platform/cms-pages 200 in 1222ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1106 - logs → logs\run-1106-2026-10-06_05-38-48
+
+ GET /api/auth/roles 304 in 818ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 660ms
+[middleware] [INFO] request /admin/platform/cms-pages
+ GET /admin/platform/cms-pages 200 in 246ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 676ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 537ms
+[middleware] [INFO] request /admin/platform/cms-pages
+ GET /admin/platform/cms-pages 200 in 232ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 650ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 545ms
+[middleware] [INFO] request /admin/platform/tax-rules
+ ✓ Compiled /admin/platform/tax-rules in 270ms (1410 modules)
+ GET /admin/platform/tax-rules 200 in 686ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1107 - logs → logs\run-1107-2026-10-06_05-39-09
+
+ GET /api/auth/roles 304 in 754ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 710ms
+[middleware] [INFO] request /admin/platform/tax-rules
+ GET /admin/platform/tax-rules 200 in 245ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 697ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 641ms
+[middleware] [INFO] request /admin/platform/tax-rules
+ GET /admin/platform/tax-rules 200 in 226ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 637ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 549ms
+[middleware] [INFO] request /admin/platform/audit-logs
+ ○ Compiling /admin/platform/audit-logs ...
+ ✓ Compiled /admin/platform/audit-logs in 650ms (1408 modules)
+ GET /admin/platform/audit-logs 200 in 1072ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1108 - logs → logs\run-1108-2026-10-06_05-39-31
+
+ GET /api/auth/roles 304 in 599ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 544ms
+[middleware] [INFO] request /admin/platform/audit-logs
+ GET /admin/platform/audit-logs 200 in 234ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 551ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 403ms
+[middleware] [INFO] request /admin/platform/audit-logs
+ GET /admin/platform/audit-logs 200 in 239ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1282ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 651ms
+[middleware] [INFO] request /admin/platform/financial-dashboard
+ ✓ Compiled /admin/platform/financial-dashboard in 188ms (1414 modules)
+ GET /admin/platform/financial-dashboard 200 in 630ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1109 - logs → logs\run-1109-2026-10-06_05-39-52
+
+ GET /api/auth/roles 304 in 947ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+ ✓ Compiled /api/platform/subscriptions in 95ms (612 modules)
+
+[logger] Run #1110 - logs → logs\run-1110-2026-10-06_05-39-53
+
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 893ms
+ GET /api/platform/subscriptions 200 in 1097ms
+ GET /api/platform/subscriptions 200 in 1069ms
+[middleware] [INFO] request /admin/platform/financial-dashboard
+ GET /admin/platform/financial-dashboard 200 in 385ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 839ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 819ms
+ GET /api/platform/subscriptions 200 in 1097ms
+ GET /api/platform/subscriptions 200 in 1191ms
+[middleware] [INFO] request /admin/platform/financial-dashboard
+ GET /admin/platform/financial-dashboard 200 in 236ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 753ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 304 in 748ms
+ GET /api/platform/subscriptions 200 in 986ms
+ GET /api/platform/subscriptions 200 in 1117ms
+[middleware] [INFO] request /admin/platform/messaging-templates
+ ✓ Compiled /admin/platform/messaging-templates in 171ms (1517 modules)
+ GET /admin/platform/messaging-templates 200 in 580ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1111 - logs → logs\run-1111-2026-10-06_05-40-12
+
+ GET /api/auth/roles 304 in 864ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 431ms
+[middleware] [INFO] request /admin/platform/messaging-templates
+ GET /admin/platform/messaging-templates 200 in 235ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 524ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 475ms
+[middleware] [INFO] request /admin/platform/messaging-templates
+ GET /admin/platform/messaging-templates 200 in 237ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 772ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 704ms
+[middleware] [INFO] request /admin/platform/payment-issues
+ ✓ Compiled /admin/platform/payment-issues in 226ms (1523 modules)
+ GET /admin/platform/payment-issues 200 in 638ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1112 - logs → logs\run-1112-2026-10-06_05-40-34
+
+ GET /api/auth/roles 304 in 682ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 680ms
+[middleware] [INFO] request /admin/platform/payment-issues
+ GET /admin/platform/payment-issues 200 in 230ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 504ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 398ms
+[middleware] [INFO] request /admin/platform/payment-issues
+ GET /admin/platform/payment-issues 200 in 242ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 721ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 658ms
+[middleware] [INFO] request /admin/platform/running-todo
+ ○ Compiling /admin/platform/running-todo ...
+ ✓ Compiled /admin/platform/running-todo in 1666ms (1522 modules)
+ GET /admin/platform/running-todo 200 in 2122ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1113 - logs → logs\run-1113-2026-10-06_05-40-58
+
+ GET /api/auth/roles 304 in 648ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1343ms
+[middleware] [INFO] request /admin/platform/running-todo
+ GET /admin/platform/running-todo 200 in 253ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 854ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 582ms
+[middleware] [INFO] request /admin/platform/running-todo
+ GET /admin/platform/running-todo 200 in 236ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 491ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 417ms
+[middleware] [INFO] request /admin/platform/settings
+ ✓ Compiled /admin/platform/settings in 190ms (1401 modules)
+ GET /admin/platform/settings 200 in 651ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1114 - logs → logs\run-1114-2026-10-06_05-41-21
+
+ GET /api/auth/roles 304 in 767ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/app-config
+ ✓ Compiled /api/platform/app-config in 63ms (502 modules)
+
+[logger] Run #1115 - logs → logs\run-1115-2026-10-06_05-41-22
+
+ GET /api/auth/roles 304 in 1101ms
+ GET /api/platform/app-config 200 in 1789ms
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/platform/app-config 304 in 1343ms
+[middleware] [INFO] request /admin/platform/settings
+ GET /admin/platform/settings 200 in 398ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 691ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/platform/app-config 304 in 611ms
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/auth/roles 304 in 706ms
+ GET /api/platform/app-config 304 in 982ms
+[middleware] [INFO] request /admin/platform/settings
+ GET /admin/platform/settings 200 in 233ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 702ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/auth/roles 304 in 594ms
+ GET /api/platform/app-config 304 in 855ms
+[middleware] [INFO] request /api/platform/app-config
+ GET /api/platform/app-config 304 in 641ms
+[middleware] [INFO] request /admin/platform/tech-costs
+ ○ Compiling /admin/platform/tech-costs ...
+ ✓ Compiled /admin/platform/tech-costs in 533ms (1393 modules)
+ GET /admin/platform/tech-costs 200 in 1177ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1116 - logs → logs\run-1116-2026-10-06_05-41-42
+
+ GET /api/auth/roles 304 in 554ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 379ms
+[middleware] [INFO] request /admin/platform/tech-costs
+ GET /admin/platform/tech-costs 200 in 225ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 770ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 549ms
+[middleware] [INFO] request /admin/platform/tech-costs
+ GET /admin/platform/tech-costs 200 in 245ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 1425ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 592ms
+[middleware] [INFO] request /admin/platform/tenant-health
+ ✓ Compiled /admin/platform/tenant-health in 216ms (1393 modules)
+ GET /admin/platform/tenant-health 200 in 697ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1117 - logs → logs\run-1117-2026-10-06_05-42-03
+
+ GET /api/auth/roles 200 in 900ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 824ms
+[middleware] [INFO] request /admin/platform/tenant-health
+ GET /admin/platform/tenant-health 200 in 226ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 934ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 654ms
+[middleware] [INFO] request /admin/platform/tenant-health
+ GET /admin/platform/tenant-health 200 in 228ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 786ms
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 304 in 735ms
+[middleware] [INFO] request /q/a633a18a-37cb-454f-acce-ba610648443a
+ ○ Compiling /q/[token] ...
+ ✓ Compiled /q/[token] in 1250ms (1405 modules)
+ GET /q/a633a18a-37cb-454f-acce-ba610648443a 200 in 1649ms
+[middleware] [INFO] request /api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/get
+ ✓ Compiled /api/public/quotes/[token]/get in 101ms (520 modules)
+
+[logger] Run #1118 - logs → logs\run-1118-2026-10-06_05-42-28
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/get 200 in 1931ms
+[middleware] [INFO] request /q/a633a18a-37cb-454f-acce-ba610648443a
+ GET /q/a633a18a-37cb-454f-acce-ba610648443a 200 in 382ms
+[middleware] [INFO] request /api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/get
+ GET /api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/get 200 in 1615ms
+[middleware] [INFO] request /q/a633a18a-37cb-454f-acce-ba610648443a
+ GET /q/a633a18a-37cb-454f-acce-ba610648443a 200 in 245ms
+[middleware] [INFO] request /api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/get
+ GET /api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/get 200 in 2269ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ ✓ Compiled /pay/i/[token] in 332ms (1422 modules)
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 1131ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+ ✓ Compiled /api/public/invoices/[token]/get in 87ms (524 modules)
+
+[logger] Run #1119 - logs → logs\run-1119-2026-10-06_05-42-50
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2426ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2830ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 784ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 1740ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2281ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 478ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 1959ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2074ms
+[middleware] [INFO] request /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206
+ ○ Compiling /pay/invoice/[id] ...
+ ✓ Compiled /pay/invoice/[id] in 690ms (1413 modules)
+ GET /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206 308 in 1445ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 592ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+
+[logger] Run #1120 - logs → logs\run-1120-2026-10-06_05-43-14
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 1904ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2097ms
+[middleware] [INFO] request /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206
+ GET /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206 308 in 532ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 464ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2134ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2536ms
+[middleware] [INFO] request /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206
+ GET /pay/invoice/19467c8d-5c78-42e8-a93b-9a95868ac206 308 in 465ms
+[middleware] [INFO] request /pay/i/00c06004-1870-4559-96b7-0317023be1e9
+ GET /pay/i/00c06004-1870-4559-96b7-0317023be1e9 200 in 450ms
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+[middleware] [INFO] request /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 2088ms
+ GET /api/public/invoices/00c06004-1870-4559-96b7-0317023be1e9/get 200 in 3035ms
+[middleware] [INFO] request /u/check-not-a-real-token
+ ✓ Compiled /u/[token] in 166ms (1328 modules)
+ GET /u/check-not-a-real-token 200 in 556ms
+[middleware] [INFO] request /u/check-not-a-real-token
+ GET /u/check-not-a-real-token 200 in 243ms
+[middleware] [INFO] request /u/check-not-a-real-token
+ GET /u/check-not-a-real-token 200 in 236ms
+[middleware] [INFO] request /c/account
+ ✓ Compiled /c/account in 190ms (1236 modules)
+ GET /c/account 200 in 603ms
+[middleware] [INFO] request /c/account
+ GET /c/account 200 in 224ms
+[middleware] [INFO] request /c/account
+ GET /c/account 200 in 222ms
+[middleware] [INFO] request /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ ○ Compiling /c/order/[id] ...
+ ✓ Compiled /c/order/[id] in 678ms (1271 modules)
+ GET /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 1103ms
+[middleware] [INFO] request /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 246ms
+[middleware] [INFO] request /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /c/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 247ms
+[middleware] [INFO] request /p/spit-braai-delivery
+ ✓ Compiled /p/[slug] in 188ms (1237 modules)
+ GET /p/spit-braai-delivery 307 in 643ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ ✓ Compiled /[company_slug]/client/login in 166ms (1234 modules)
+ GET /spit-braai-delivery/client/login 200 in 1016ms
+[middleware] [INFO] request /p/spit-braai-delivery
+ GET /p/spit-braai-delivery 307 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 494ms
+[middleware] [INFO] request /p/spit-braai-delivery
+ GET /p/spit-braai-delivery 307 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 520ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 714ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 502ms
+[middleware] [INFO] request /spit-braai-delivery/client/login
+ GET /spit-braai-delivery/client/login 200 in 514ms
+[middleware] [INFO] request /auth/select-role
+ ○ Compiling /auth/select-role ...
+ ✓ Compiled /auth/select-role in 1500ms (1239 modules)
+ GET /auth/select-role 200 in 1992ms
+[middleware] [INFO] request /auth/select-role
+ GET /auth/select-role 200 in 241ms
+[middleware] [INFO] request /auth/select-role
+ GET /auth/select-role 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ ○ Compiling /[company_slug]/order/[id] ...
+ ✓ Compiled /[company_slug]/order/[id] in 4.7s (1702 modules)
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 5590ms
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+ ○ Compiling /api/orders/[id]/waiters ...
+ ✓ Compiled /api/orders/[id]/waiters in 647ms (687 modules)
+
+[logger] Run #1121 - logs → logs\run-1121-2026-10-06_05-45-56
+
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 2187ms
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 2191ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 474ms
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1450ms
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1978ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 228ms
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+[middleware] [INFO] request /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 1355ms
+ GET /api/orders/a1219e61-4779-47a4-9aad-6e605cee2c60/waiters 200 in 2173ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 229ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60
+ GET /spit-braai-delivery/order/a1219e61-4779-47a4-9aad-6e605cee2c60 200 in 249ms
+ ✓ Compiled in 1449ms (1052 modules)
+[middleware] [INFO] request /q/a633a18a-37cb-454f-acce-ba610648443a
+ ○ Compiling /q/[token] ...
+ ✓ Compiled /q/[token] in 7.1s (1718 modules)
+ GET /q/a633a18a-37cb-454f-acce-ba610648443a 200 in 7641ms
+[middleware] [INFO] request /api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/get
+ ○ Compiling /api/public/quotes/[token]/get ...
+ ✓ Compiled /api/public/quotes/[token]/get in 1114ms (682 modules)
+
+[logger] Run #1122 - logs → logs\run-1122-2026-10-06_05-48-09
+
+[embed] EMBED_IP_HASH_SALT is not set. IP hashes are still one-way but a determined attacker with the public source can rainbow them. Set this env var in production.
+ GET /api/public/quotes/a633a18a-37cb-454f-acce-ba610648443a/get 200 in 3412ms
+[middleware] [INFO] request /
+ ○ Compiling / ...
+ ✓ Compiled / in 8s (2127 modules)
+ GET / 200 in 8611ms
+[middleware] [INFO] request /admin/platform/dashboard
+ ○ Compiling /admin/platform/dashboard ...
+ ✓ Compiled /admin/platform/dashboard in 5.8s (2174 modules)
+ GET /admin/platform/dashboard 200 in 6446ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+ ○ Compiling /api/auth/roles ...
+ ✓ Compiled /api/auth/roles in 1171ms (722 modules)
+
+[logger] Run #1123 - logs → logs\run-1123-2026-10-06_05-57-29
+
+ GET /api/auth/roles 200 in 2641ms
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/auth/roles 200 in 3710ms
+ ○ Compiling /api/platform/subscriptions ...
+ ✓ Compiled /api/platform/subscriptions in 705ms (829 modules)
+
+[logger] Run #1124 - logs → logs\run-1124-2026-10-06_05-57-32
+
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1436ms
+ GET /api/platform/subscriptions 200 in 1790ms
+ GET /api/platform/subscriptions 200 in 1069ms
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 5.2s (1564 modules)
+[middleware] [INFO] request /admin/platform/dashboard
+ GET /admin/platform/dashboard 200 in 497ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+ ✓ Compiled /api/auth/roles in 121ms (684 modules)
+
+[logger] Run #1125 - logs → logs\run-1125-2026-10-06_05-59-27
+
+ GET /api/auth/roles 200 in 891ms
+[middleware] [INFO] request /api/platform/subscriptions
+ ✓ Compiled /api/platform/subscriptions in 68ms (791 modules)
+
+[logger] Run #1126 - logs → logs\run-1126-2026-10-06_05-59-29
+
+ GET /api/auth/roles 200 in 1517ms
+[middleware] [INFO] request /api/platform/subscriptions
+[middleware] [INFO] request /api/platform/subscriptions
+ GET /api/platform/subscriptions 200 in 1106ms
+ GET /api/platform/subscriptions 200 in 1566ms
+ GET /api/platform/subscriptions 200 in 1969ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /admin/platform/tax-rules
+ ○ Compiling /admin/platform/tax-rules ...
+ ✓ Compiled /admin/platform/tax-rules in 9.8s (1713 modules)
+ GET /admin/platform/tax-rules 200 in 10247ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1127 - logs → logs\run-1127-2026-10-06_06-00-13
+
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 200 in 1484ms
+ GET /api/auth/roles 200 in 985ms
+ GET /api/auth/roles 200 in 1241ms
+[middleware] [INFO] request /admin/platform/tax-rules
+ GET /admin/platform/tax-rules 200 in 234ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 200 in 717ms
+ GET /api/auth/roles 200 in 753ms
+ GET /api/auth/roles 200 in 810ms
+ ✓ Compiled in 1659ms (1400 modules)
+[middleware] [INFO] request /admin/platform/tax-rules
+ GET /admin/platform/tax-rules 200 in 502ms
+[middleware] [INFO] request /api/auth/roles
+
+[logger] Run #1128 - logs → logs\run-1128-2026-10-06_06-02-21
+
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 200 in 931ms
+ GET /api/auth/roles 200 in 1663ms
+[middleware] [INFO] request /admin/platform/tax-rules
+ GET /admin/platform/tax-rules 200 in 232ms
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+[middleware] [INFO] request /api/auth/roles
+ GET /api/auth/roles 200 in 557ms
+ GET /api/auth/roles 200 in 483ms
+ GET /api/auth/roles 200 in 971ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ ○ Compiling /team-portal/shopping/suppliers ...
+ ✓ Compiled /team-portal/shopping/suppliers in 13.6s (1468 modules)
+ GET /spit-braai-delivery/team-portal/shopping/suppliers 200 in 14212ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/suppliers.json 200 in 230ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ ○ Compiling /admin/dashboard ...
+ ✓ Compiled /admin/dashboard in 9.3s (3207 modules)
+ GET /spit-braai-delivery/admin/dashboard 200 in 10715ms
+[middleware] [INFO] request /spit-braai-delivery/admin/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/admin/dashboard.json 200 in 228ms
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /
+ ○ Compiling / ...
+ ✓ Compiled / in 9.8s (3569 modules)
+ GET / 200 in 10404ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ ○ Compiling /team-portal/shopping/dashboard ...
+ ✓ Compiled /team-portal/shopping/dashboard in 6.2s (3819 modules)
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 6708ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 225ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 227ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 226ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ ○ Compiling /team-portal/shopping/buy-list ...
+ ✓ Compiled /team-portal/shopping/buy-list in 1470ms (3385 modules)
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 1921ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 226ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 224ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 260ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ ○ Compiling /team-portal/shopping/orders ...
+ ✓ Compiled /team-portal/shopping/orders in 1945ms (1899 modules)
+ GET /spit-braai-delivery/team-portal/shopping/orders 200 in 2598ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/orders.json 200 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ GET /spit-braai-delivery/team-portal/shopping/orders 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/orders.json 200 in 227ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ GET /spit-braai-delivery/team-portal/shopping/orders 200 in 224ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/orders.json 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ ✓ Compiled /team-portal/shopping/kitchen-demand in 416ms (1616 modules)
+ GET /spit-braai-delivery/team-portal/shopping/kitchen-demand 200 in 846ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/kitchen-demand.json 200 in 231ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ ✓ Compiled in 1397ms (1616 modules)
+ GET /spit-braai-delivery/team-portal/shopping/kitchen-demand 200 in 961ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/kitchen-demand.json 200 in 229ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ GET /spit-braai-delivery/team-portal/shopping/kitchen-demand 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/kitchen-demand.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ ○ Compiling /team-portal/shopping/restock ...
+ ✓ Compiled /team-portal/shopping/restock in 1617ms (1385 modules)
+ GET /spit-braai-delivery/team-portal/shopping/restock 200 in 2112ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/restock.json 200 in 236ms
+ ✓ Compiled in 241ms (905 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ GET /spit-braai-delivery/team-portal/shopping/restock 200 in 267ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/restock.json 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ GET /spit-braai-delivery/team-portal/shopping/restock 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/restock.json 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ ○ Compiling /team-portal/shopping/inventory ...
+ ✓ Compiled /team-portal/shopping/inventory in 3s (1399 modules)
+ GET /spit-braai-delivery/team-portal/shopping/inventory 200 in 3567ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/inventory.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ GET /spit-braai-delivery/team-portal/shopping/inventory 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/inventory.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ GET /spit-braai-delivery/team-portal/shopping/inventory 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/inventory.json 200 in 223ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ ✓ Compiled /team-portal/shopping/suppliers in 303ms (1401 modules)
+ GET /spit-braai-delivery/team-portal/shopping/suppliers 200 in 805ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/suppliers.json 200 in 228ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ GET /spit-braai-delivery/team-portal/shopping/suppliers 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/suppliers.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ GET /spit-braai-delivery/team-portal/shopping/suppliers 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/suppliers.json 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ ✓ Compiled /team-portal/shopping/invoices in 157ms (1397 modules)
+ GET /spit-braai-delivery/team-portal/shopping/invoices 200 in 616ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/invoices.json 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ GET /spit-braai-delivery/team-portal/shopping/invoices 200 in 240ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/invoices.json 200 in 228ms
+ ✓ Compiled in 325ms (911 modules)
+ ✓ Compiled in 3.1s (1397 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ GET /spit-braai-delivery/team-portal/shopping/invoices 200 in 486ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/invoices.json 200 in 229ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ ✓ Compiled /team-portal/shopping/receipts in 210ms (1419 modules)
+ GET /spit-braai-delivery/team-portal/shopping/receipts 200 in 644ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/receipts.json 200 in 247ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ ○ Compiling /api/imports/receipts/quota ...
+ ✓ Compiled /api/imports/receipts/quota in 1336ms (518 modules)
+
+[logger] Run #1129 - logs → logs\run-1129-2026-10-06_06-14-45
+
+ GET /api/imports/receipts/quota 200 in 2769ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 1021ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ GET /spit-braai-delivery/team-portal/shopping/receipts 200 in 448ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/receipts.json 200 in 229ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 1040ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 1012ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ GET /spit-braai-delivery/team-portal/shopping/receipts 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/receipts.json 200 in 234ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 1185ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 1031ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ ○ Compiling /team-portal/shopping/notifications ...
+ ✓ Compiled /team-portal/shopping/notifications in 802ms (1450 modules)
+ GET /spit-braai-delivery/team-portal/shopping/notifications 200 in 1310ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/notifications.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ GET /spit-braai-delivery/team-portal/shopping/notifications 200 in 250ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/notifications.json 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ GET /spit-braai-delivery/team-portal/shopping/notifications 200 in 246ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/notifications.json 200 in 246ms
+ ✓ Compiled in 446ms (1427 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ ✓ Compiled /team-portal/shopping/settings in 219ms (1423 modules)
+ GET /spit-braai-delivery/team-portal/shopping/settings 200 in 723ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/settings.json 200 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ GET /spit-braai-delivery/team-portal/shopping/settings 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/settings.json 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ GET /spit-braai-delivery/team-portal/shopping/settings 200 in 244ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/settings.json 200 in 229ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/alerts
+ ✓ Compiled /team-portal/shopping/alerts in 270ms (1427 modules)
+ GET /spit-braai-delivery/team-portal/shopping/alerts 307 in 697ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ ✓ Compiled /team-portal/shopping/buy-list in 222ms (1423 modules)
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 691ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 241ms
+ ✓ Compiled in 169ms (913 modules)
+ ✓ Compiled in 471ms (913 modules)
+ ✓ Compiled in 578ms (913 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/alerts
+ ✓ Compiled in 479ms (1423 modules)
+ GET /spit-braai-delivery/team-portal/shopping/alerts 307 in 766ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ ✓ Compiled in 506ms (1423 modules)
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 727ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/alerts
+ GET /spit-braai-delivery/team-portal/shopping/alerts 307 in 248ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 277ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 252ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ ○ Compiling /team-portal/cleaning/dashboard ...
+ ✓ Compiled /team-portal/cleaning/dashboard in 6.7s (1484 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 7251ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 239ms
+ ✓ Compiled in 494ms (954 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 231ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ ○ Compiling /team-portal/cleaning/tasks ...
+ ✓ Compiled /team-portal/cleaning/tasks in 743ms (1486 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/tasks 200 in 1390ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/tasks.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ GET /spit-braai-delivery/team-portal/cleaning/tasks 200 in 328ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/tasks.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ ○ Compiling /team-portal/shopping/dashboard ...
+ ✓ Compiled /team-portal/shopping/dashboard in 830ms (1712 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 1653ms
+ GET /spit-braai-delivery/team-portal/cleaning/tasks 200 in 312ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/tasks.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ ○ Compiling /team-portal/cleaning/schedules ...
+ ✓ Compiled /team-portal/cleaning/schedules in 1649ms (1727 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/schedules 200 in 2225ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/schedules.json 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ GET /spit-braai-delivery/team-portal/cleaning/schedules 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/schedules.json 200 in 221ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 264ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ GET /spit-braai-delivery/team-portal/cleaning/schedules 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/schedules.json 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ ✓ Compiled /team-portal/cleaning/supplies in 270ms (1727 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/supplies 200 in 733ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/supplies.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ GET /spit-braai-delivery/team-portal/cleaning/supplies 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/supplies.json 200 in 222ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ GET /spit-braai-delivery/team-portal/cleaning/supplies 200 in 231ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/supplies.json 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ ✓ Compiled /team-portal/cleaning/equipment in 243ms (1659 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/equipment 200 in 771ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ GET /spit-braai-delivery/team-portal/cleaning/equipment 200 in 224ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json 200 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ GET /spit-braai-delivery/team-portal/cleaning/equipment 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ ✓ Compiled /team-portal/cleaning/damage in 174ms (1657 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/damage 200 in 637ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/damage.json 200 in 240ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ GET /spit-braai-delivery/team-portal/cleaning/damage 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/damage.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ GET /spit-braai-delivery/team-portal/cleaning/damage 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/damage.json 200 in 240ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ ✓ Compiled /team-portal/cleaning/workflows in 180ms (1663 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/workflows 200 in 670ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/workflows.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ GET /spit-braai-delivery/team-portal/cleaning/workflows 200 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/workflows.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ GET /spit-braai-delivery/team-portal/cleaning/workflows 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/workflows.json 200 in 240ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ ✓ Compiled /team-portal/cleaning/notifications in 185ms (1363 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/notifications 200 in 696ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/notifications.json 200 in 224ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ GET /spit-braai-delivery/team-portal/cleaning/notifications 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/notifications.json 200 in 229ms
+ ✓ Compiled in 322ms (894 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ GET /spit-braai-delivery/team-portal/cleaning/notifications 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/notifications.json 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ ✓ Compiled /team-portal/cleaning/settings in 287ms (1385 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/settings 200 in 798ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/settings.json 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ GET /spit-braai-delivery/team-portal/cleaning/settings 200 in 227ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/settings.json 200 in 229ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ GET /spit-braai-delivery/team-portal/cleaning/settings 200 in 223ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/settings.json 200 in 228ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ ✓ Compiled /team-portal/cleaning/management in 283ms (1389 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/management 200 in 1052ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json 200 in 264ms
+[middleware] [INFO] request /api/admin/team-management
+ ○ Compiling /api/admin/team-management ...
+ ✓ Compiled /api/admin/team-management in 2.5s (523 modules)
+
+[logger] Run #1130 - logs → logs\run-1130-2026-10-06_06-19-36
+
+ GET /api/admin/team-management?department=cleaning 200 in 4037ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 200 in 990ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ GET /spit-braai-delivery/team-portal/cleaning/management 200 in 604ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json 200 in 239ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 200 in 1557ms
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled in 493ms (907 modules)
+ GET /api/admin/team-management?department=cleaning 304 in 1428ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ GET /spit-braai-delivery/team-portal/cleaning/management 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json 200 in 259ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 304 in 1465ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 304 in 1370ms
+ ✓ Compiled in 358ms (1418 modules)
+ ✓ Compiled in 599ms (898 modules)
+ ✓ Compiled in 196ms (898 modules)
+ ✓ Compiled in 207ms (898 modules)
+ ✓ Compiled in 258ms (1377 modules)
+ ✓ Compiled in 172ms (898 modules)
+ ✓ Compiled in 188ms (898 modules)
+ ✓ Compiled in 194ms (898 modules)
+ ✓ Compiled in 217ms (898 modules)
+ ✓ Compiled in 231ms (898 modules)
+ ✓ Compiled in 227ms (898 modules)
+ ✓ Compiled in 11.7s (1377 modules)
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ ○ Compiling /team-portal/shopping/dashboard ...
+ ✓ Compiled /team-portal/shopping/dashboard in 22.1s (1671 modules)
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 24552ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 248ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 259ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 249ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 253ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 269ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ ○ Compiling /team-portal/shopping/buy-list ...
+ ✓ Compiled /team-portal/shopping/buy-list in 1943ms (1660 modules)
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 2850ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 246ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 284ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 257ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 250ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 269ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ ○ Compiling /team-portal/shopping/orders ...
+ ✓ Compiled /team-portal/shopping/orders in 3.7s (1635 modules)
+ GET /spit-braai-delivery/team-portal/shopping/orders 200 in 4521ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/orders.json 200 in 264ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ GET /spit-braai-delivery/team-portal/shopping/orders 200 in 261ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/orders.json 200 in 258ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ GET /spit-braai-delivery/team-portal/shopping/orders 200 in 283ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/orders
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/orders.json 200 in 268ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ ✓ Compiled /team-portal/shopping/kitchen-demand in 496ms (1616 modules)
+ GET /spit-braai-delivery/team-portal/shopping/kitchen-demand 200 in 1243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/kitchen-demand.json 200 in 283ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ GET /spit-braai-delivery/team-portal/shopping/kitchen-demand 200 in 276ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/kitchen-demand.json 200 in 260ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ GET /spit-braai-delivery/team-portal/shopping/kitchen-demand 200 in 262ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/kitchen-demand
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/kitchen-demand.json 200 in 251ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ ○ Compiling /team-portal/shopping/restock ...
+ ✓ Compiled /team-portal/shopping/restock in 539ms (1385 modules)
+ GET /spit-braai-delivery/team-portal/shopping/restock 200 in 1270ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/restock.json 200 in 263ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ GET /spit-braai-delivery/team-portal/shopping/restock 200 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/restock.json 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ GET /spit-braai-delivery/team-portal/shopping/restock 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/restock
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/restock.json 200 in 229ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ ○ Compiling /team-portal/shopping/inventory ...
+ ✓ Compiled /team-portal/shopping/inventory in 947ms (1399 modules)
+ GET /spit-braai-delivery/team-portal/shopping/inventory 200 in 1468ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/inventory.json 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ GET /spit-braai-delivery/team-portal/shopping/inventory 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/inventory.json 200 in 627ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ GET /spit-braai-delivery/team-portal/shopping/inventory 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/inventory
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/inventory.json 200 in 249ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ ✓ Compiled /team-portal/shopping/suppliers in 372ms (1401 modules)
+ GET /spit-braai-delivery/team-portal/shopping/suppliers 200 in 844ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/suppliers.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ GET /spit-braai-delivery/team-portal/shopping/suppliers 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/suppliers.json 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ GET /spit-braai-delivery/team-portal/shopping/suppliers 200 in 223ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/suppliers
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/suppliers.json 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ ✓ Compiled /team-portal/shopping/invoices in 202ms (1397 modules)
+ GET /spit-braai-delivery/team-portal/shopping/invoices 200 in 664ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/invoices.json 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ GET /spit-braai-delivery/team-portal/shopping/invoices 200 in 247ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/invoices.json 200 in 251ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ GET /spit-braai-delivery/team-portal/shopping/invoices 200 in 259ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/invoices
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/invoices.json 200 in 256ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ ○ Compiling /team-portal/shopping/receipts ...
+ ✓ Compiled /team-portal/shopping/receipts in 2.6s (1419 modules)
+ GET /spit-braai-delivery/team-portal/shopping/receipts 200 in 3450ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/receipts.json 200 in 260ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ ○ Compiling /api/imports/receipts/quota ...
+ ✓ Compiled /api/imports/receipts/quota in 1150ms (518 modules)
+
+[logger] Run #1131 - logs → logs\run-1131-2026-10-06_06-28-12
+
+ GET /api/imports/receipts/quota 200 in 2195ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 666ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ GET /spit-braai-delivery/team-portal/shopping/receipts 200 in 500ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/receipts.json 200 in 243ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 2234ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 2131ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ GET /spit-braai-delivery/team-portal/shopping/receipts 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/receipts
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/receipts.json 200 in 228ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 2120ms
+[middleware] [INFO] request /api/imports/receipts/quota
+ GET /api/imports/receipts/quota 304 in 941ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ ✓ Compiled /team-portal/shopping/notifications in 213ms (1427 modules)
+ GET /spit-braai-delivery/team-portal/shopping/notifications 200 in 817ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/notifications.json 200 in 226ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ GET /spit-braai-delivery/team-portal/shopping/notifications 200 in 239ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/notifications.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ GET /spit-braai-delivery/team-portal/shopping/notifications 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/notifications.json 200 in 231ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ ✓ Compiled /team-portal/shopping/settings in 296ms (1423 modules)
+ GET /spit-braai-delivery/team-portal/shopping/settings 200 in 764ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/settings.json 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ GET /spit-braai-delivery/team-portal/shopping/settings 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/settings.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ GET /spit-braai-delivery/team-portal/shopping/settings 200 in 228ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/settings.json 200 in 231ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/alerts
+ ✓ Compiled /team-portal/shopping/alerts in 278ms (1417 modules)
+ GET /spit-braai-delivery/team-portal/shopping/alerts 307 in 695ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ ✓ Compiled /team-portal/shopping/buy-list in 124ms (1423 modules)
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 559ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/alerts
+ GET /spit-braai-delivery/team-portal/shopping/alerts 307 in 269ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 244ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 243ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/alerts
+ GET /spit-braai-delivery/team-portal/shopping/alerts 307 in 231ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ GET /spit-braai-delivery/team-portal/shopping/buy-list 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/buy-list
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/buy-list.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ ○ Compiling /team-portal/cleaning/dashboard ...
+ ✓ Compiled /team-portal/cleaning/dashboard in 8.6s (1484 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 9220ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ ✓ Compiled /team-portal/cleaning/tasks in 284ms (1486 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/tasks 200 in 810ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/tasks.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ GET /spit-braai-delivery/team-portal/cleaning/tasks 200 in 248ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/tasks.json 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ GET /spit-braai-delivery/team-portal/cleaning/tasks 200 in 282ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/tasks
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/tasks.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ ○ Compiling /team-portal/cleaning/schedules ...
+ ✓ Compiled /team-portal/cleaning/schedules in 2.3s (1481 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/schedules 200 in 2970ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/schedules.json 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ GET /spit-braai-delivery/team-portal/cleaning/schedules 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/schedules.json 200 in 233ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ GET /spit-braai-delivery/team-portal/cleaning/schedules 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/schedules
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/schedules.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ ✓ Compiled /team-portal/cleaning/supplies in 221ms (1433 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/supplies 200 in 691ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/supplies.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ GET /spit-braai-delivery/team-portal/cleaning/supplies 200 in 227ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/supplies.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ GET /spit-braai-delivery/team-portal/cleaning/supplies 200 in 240ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/supplies
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/supplies.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ ✓ Compiled /team-portal/cleaning/equipment in 261ms (1363 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/equipment 200 in 834ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ GET /spit-braai-delivery/team-portal/cleaning/equipment 200 in 226ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json 200 in 235ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ GET /spit-braai-delivery/team-portal/cleaning/equipment 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/equipment
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/equipment.json 200 in 224ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ ✓ Compiled /team-portal/cleaning/damage in 253ms (1359 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/damage 200 in 757ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/damage.json 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ GET /spit-braai-delivery/team-portal/cleaning/damage 200 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/damage.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ GET /spit-braai-delivery/team-portal/cleaning/damage 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/damage
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/damage.json 200 in 230ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ ✓ Compiled /team-portal/cleaning/workflows in 227ms (1361 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/workflows 200 in 726ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/workflows.json 200 in 225ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ GET /spit-braai-delivery/team-portal/cleaning/workflows 200 in 238ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/workflows.json 200 in 229ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ GET /spit-braai-delivery/team-portal/cleaning/workflows 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/workflows
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/workflows.json 200 in 240ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ ✓ Compiled /team-portal/cleaning/notifications in 204ms (1363 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/notifications 200 in 737ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/notifications.json 200 in 242ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ GET /spit-braai-delivery/team-portal/cleaning/notifications 200 in 236ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/notifications.json 200 in 232ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ GET /spit-braai-delivery/team-portal/cleaning/notifications 200 in 237ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/notifications
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/notifications.json 200 in 234ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ ○ Compiling /team-portal/cleaning/settings ...
+ ✓ Compiled /team-portal/cleaning/settings in 766ms (1379 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/settings 200 in 1732ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/settings.json 200 in 246ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ GET /spit-braai-delivery/team-portal/cleaning/settings 200 in 248ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/settings.json 200 in 245ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ GET /spit-braai-delivery/team-portal/cleaning/settings 200 in 276ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/settings
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/settings.json 200 in 241ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ ○ Compiling /team-portal/cleaning/management ...
+ ✓ Compiled /team-portal/cleaning/management in 2.1s (1389 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/management 200 in 3123ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json 200 in 248ms
+[middleware] [INFO] request /api/admin/team-management
+ ○ Compiling /api/admin/team-management ...
+ ✓ Compiled /api/admin/team-management in 3.9s (523 modules)
+
+[logger] Run #1132 - logs → logs\run-1132-2026-10-06_06-33-09
+
+ GET /api/admin/team-management?department=cleaning 200 in 6376ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 200 in 544ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ GET /spit-braai-delivery/team-portal/cleaning/management 200 in 823ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json 200 in 261ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 200 in 1518ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 304 in 1987ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ GET /spit-braai-delivery/team-portal/cleaning/management 200 in 965ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json 200 in 279ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 304 in 4671ms
+[middleware] [INFO] request /api/admin/team-management
+ GET /api/admin/team-management?department=cleaning 200 in 295ms
+[middleware] [INFO] request /
+ ○ Compiling / ...
+ ✓ Compiled / in 8.9s (1843 modules)
+ GET / 200 in 11292ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ ○ Compiling /team-portal/shopping/dashboard ...
+ ✓ Compiled /team-portal/shopping/dashboard in 588ms (2096 modules)
+ GET /spit-braai-delivery/team-portal/shopping/dashboard 200 in 1532ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/shopping/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/shopping/dashboard.json 200 in 255ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ ✓ Compiled /team-portal/cleaning/dashboard in 385ms (1720 modules)
+ GET /spit-braai-delivery/team-portal/cleaning/dashboard 200 in 1433ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/dashboard
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/dashboard.json 200 in 254ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ GET /spit-braai-delivery/team-portal/cleaning/management 200 in 279ms
+[middleware] [INFO] request /spit-braai-delivery/team-portal/cleaning/management
+ HEAD /_next/data/development/spit-braai-delivery/team-portal/cleaning/management.json 200 in 242ms
+[middleware] [INFO] request /api/admin/team-management
+[middleware] [INFO] request /api/admin/team-management
+ ✓ Compiled /api/admin/team-management in 81ms (572 modules)
+
+[logger] Run #1133 - logs → logs\run-1133-2026-10-06_06-35-30
+
+ GET /api/admin/team-management?department=cleaning 200 in 3855ms
+ GET /api/admin/team-management?department=cleaning 200 in 4794ms
+[middleware] [INFO] request /sounds/urgent.wav
+[middleware] [INFO] request /sounds/high.wav
+[middleware] [INFO] request /sounds/notification.wav
+ ✓ Compiled in 10.3s (1451 modules)

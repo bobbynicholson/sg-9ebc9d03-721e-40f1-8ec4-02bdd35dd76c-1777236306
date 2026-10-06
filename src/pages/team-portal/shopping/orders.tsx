@@ -67,8 +67,10 @@ const NEUTRAL_TONE =
   "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
 const AMBER_TONE =
   "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60";
+// Done / fine is green everywhere (it was the brand colour, so a
+// completed list showed red for a red-branded company).
 const EMERALD_TONE =
-  "bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30";
+  "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60";
 const ROSE_TONE =
   "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60";
 
@@ -440,7 +442,7 @@ function ShoppingOrdersPageInner() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3 sm:gap-4">
+          <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-6 sm:grid-cols-3 sm:gap-4">
             <StatTile
               label={<span className="flex items-center gap-1">Open lists <InfoTooltip content="Shopping lists that haven't been finished off or cancelled yet." /></span>}
               hint="Not finished yet"
@@ -541,6 +543,29 @@ function ShoppingOrdersPageInner() {
                 </Button>
               </PortalCard>
             ) : (
+              <>
+              {/* Nothing open: say so and point at the next step, rather
+                  than only showing finished lists. */}
+              {!lists.some((l) => !["completed", "cancelled"].includes(String(l.status || ""))) && (
+                <PortalCard className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                      <Check className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-white">Nothing being shopped right now</p>
+                      <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">Start from the Buy list to pick what to buy, or create an empty list. Finished lists are below.</p>
+                    </div>
+                  </div>
+                  <Link
+                    href={withSlug("/team-portal/shopping/buy-list")}
+                    className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand-primary px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    <ListChecks className="h-4 w-4" />
+                    Open Buy list
+                  </Link>
+                </PortalCard>
+              )}
               <PortalCard padded={false}>
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {lists.map((l) => {
@@ -561,7 +586,13 @@ function ShoppingOrdersPageInner() {
                             </Badge>
                           )}
                         </div>
-                        {l.notes && <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{l.notes}</p>}
+                        {l.notes && (
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+                            {/^Auto-generated from aggregated kitchen demand/i.test(l.notes)
+                              ? "Made automatically from what the kitchen needs"
+                              : l.notes}
+                          </p>
+                        )}
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
                           {/* Money via the tenant formatter, never hand-rolled toFixed. */}
                           {l.estimated_total != null && <span>Est. {tenantCurrency.format(Number(l.estimated_total))}</span>}
@@ -583,6 +614,7 @@ function ShoppingOrdersPageInner() {
                   })}
                 </ul>
               </PortalCard>
+              </>
             )
           ) : (
             loadError && upcomingOrders.length === 0 ? (

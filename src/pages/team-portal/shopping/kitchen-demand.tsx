@@ -221,7 +221,7 @@ function ShoppingKitchenDemandPageInner() {
       )}
 
       {/* Stat strip */}
-      <div className="grid grid-cols-1 gap-3 mb-5 sm:grid-cols-3 sm:gap-4">
+      <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-5 sm:grid-cols-3 sm:gap-4">
         <StatTile
           label="Ingredients in play"
           hint="From confirmed orders"

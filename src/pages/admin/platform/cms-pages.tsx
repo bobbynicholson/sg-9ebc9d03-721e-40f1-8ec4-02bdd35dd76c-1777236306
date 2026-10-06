@@ -703,7 +703,7 @@ function CMSPageManagement() {
               <PortalHeader
                 variant="hero"
                 title="Marketing pages"
-                subtitle="Static pages and blog posts that live on cateringms.com. Public-site content only, never a tenant's portal."
+                subtitle="Static pages and blog posts that live on cateringms.com. Public-site content only, never a company's portal."
                 icon={Globe}
                 meta={
                   loading ? (

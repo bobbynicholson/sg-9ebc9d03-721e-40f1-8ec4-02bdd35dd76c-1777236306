@@ -284,6 +284,36 @@ const PORTAL_SEGMENT_LABELS: Record<string, Record<string, string>> = {
     management: "Manage team",
     handovers: "Handover",
   },
+  Team: {
+    "job-progress": "Job progress",
+  },
+  Order: {
+    order: "Order details",
+  },
+  Client: {
+    "my-orders": "Bookings",
+    tracking: "Live tracking",
+    "subscription-invoices": "Subscription invoices",
+  },
+  Platform: {
+    "tenant-health": "Company health",
+    "payment-issues": "Payment issues",
+    "audit-logs": "Activity log",
+    "company-database": "Companies",
+    "user-management": "Users",
+    "subscription-management": "Subscriptions",
+    "trial-management": "Trials",
+    "financial-dashboard": "Revenue",
+    "pricing-management": "Pricing",
+    "tech-costs": "Tech costs",
+    "currency-monitoring": "Currency",
+    "tax-rules": "Tax rules",
+    "cms-pages": "Pages",
+    "cms-blog": "Blog",
+    "messaging-templates": "Platform emails",
+    settings: "Platform settings",
+    "running-todo": "Running to-do",
+  },
 };
 
 function humanizeSegment(segment: string, admin = false, labels?: Record<string, string>) {
@@ -297,7 +327,7 @@ function humanizeSegment(segment: string, admin = false, labels?: Record<string,
 }
 
 function visibleRouteSegments(pathname: string) {
-  const hidden = new Set(["admin", "account", "client-portal", "team-portal", "c"]);
+  const hidden = new Set(["admin", "account", "client-portal", "team-portal", "c", "general"]);
   return pathname
     .split("/")
     .filter(Boolean)
@@ -326,8 +356,11 @@ function routeSurface(pathname: string) {
   if (pathname.includes("/team-portal/cleaning")) {
     return { scope: "Cleaning", area: "Close-out" };
   }
+  if (pathname.includes("/team-portal/general")) {
+    return { scope: "Team", area: "Shared" };
+  }
   if (pathname.includes("/admin")) {
-    return { scope: "Admin", area: "Tenant" };
+    return { scope: "Admin", area: "Company" };
   }
   if (pathname.includes("/account/")) {
     return { scope: "Account", area: "Personal" };
@@ -440,7 +473,7 @@ export function PortalOverview({
       </h2>
       {description && (
         <p
-          className="mt-1 max-w-3xl line-clamp-1 text-sm leading-6 text-slate-600 dark:text-slate-400"
+          className="mt-1 max-w-3xl line-clamp-2 text-sm leading-6 text-slate-600 dark:text-slate-400"
           title={typeof description === "string" ? description : undefined}
         >
           {description}
@@ -495,7 +528,9 @@ export function PortalOverview({
         className,
       )}
     >
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
+      {/* Heading over tiles: side by side left each tile ~135px at
+          1440 and truncated every label and hint. */}
+      <div className="grid gap-4">
         {heading}
         {metricCards}
       </div>

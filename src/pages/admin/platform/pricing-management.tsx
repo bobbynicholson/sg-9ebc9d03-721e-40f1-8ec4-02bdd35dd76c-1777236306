@@ -207,7 +207,7 @@ function PricingManagementPage() {
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
           variant="hero"
-          title="Package pricing"
+          title="Pricing"
           subtitle="Subscription pricing across the SA, US, UK and EU markets"
           icon={Tag}
           meta={

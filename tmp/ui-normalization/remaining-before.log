@@ -1,0 +1,35 @@
+waiter/dashboard: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1494
+waiter/notifications: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=3210/5292
+general/job-progress: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1351
+client/dashboard: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1200
+client/my-orders: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1373
+client/quotes: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1168
+client/billing: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1383
+client/tracking: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1092
+client/notifications: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1352
+client/feedback: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1200
+client/profile: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1211/1951
+platform/dashboard: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/898
+platform/company-database: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1660
+platform/user-management: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=2278/3116
+platform/subscription-management: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/898
+platform/pricing-management: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=2279/4127
+platform/trial-management: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1142
+platform/currency-monitoring: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1926/2774
+platform/cms-blog: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1136/1816
+platform/cms-pages: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1555
+platform/tax-rules: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=3841/5483
+platform/audit-logs: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=3025/4336
+platform/financial-dashboard: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1514
+platform/messaging-templates: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1700/2405
+platform/payment-issues: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1228
+platform/running-todo: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=8999/11103
+platform/settings: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/844
+platform/tech-costs: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/admin/platform/tech-costs
+Call log:
+[2m  - navigating to "http://localhost:3001/admin/platform/tech-costs", waiting until "domcontentloaded"[22m
+ loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1000/844
+platform/tenant-health: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3001/admin/platform/tenant-health
+Call log:
+[2m  - navigating to "http://localhost:3001/admin/platform/tenant-health", waiting until "domcontentloaded"[22m
+ loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1000/844

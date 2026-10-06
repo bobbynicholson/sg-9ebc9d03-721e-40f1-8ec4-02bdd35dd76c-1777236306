@@ -15,7 +15,15 @@ const SEEN_KEY = "cms:cmdk-hint-seen";
  * normal appearance. The flag persists so returning users never see the
  * pulse again.
  */
-export function CommandPaletteHint({ className }: { className?: string }) {
+export function CommandPaletteHint({
+  className,
+  block = false,
+}: {
+  className?: string;
+  /** Fill the parent's width (sidebar use). The wrapper was inline-flex,
+   *  so a `w-full` on the button alone never took effect. */
+  block?: boolean;
+}) {
   const [isMac, setIsMac] = useState(false);
   const [isNew, setIsNew] = useState(false);
 
@@ -55,7 +63,7 @@ export function CommandPaletteHint({ className }: { className?: string }) {
   };
 
   return (
-    <div className="relative inline-flex">
+    <div className={cn("relative", block ? "flex w-full" : "inline-flex")}>
       {/* Attention pulse ring — only renders on first visit */}
       {isNew && (
         <span

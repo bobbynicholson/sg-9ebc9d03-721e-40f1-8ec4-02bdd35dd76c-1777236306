@@ -10,11 +10,13 @@
  * Tap target: opens a popover with the auto-detected mode + a manual
  * override. Same pattern as cleaning + kitchen.
  *
- * Tones (WCAG AA on white sidebar bg):
- *   quiet     - slate, neutral
- *   plan      - brand, gearing up
- *   run       - brand solid pulse (the "live" state)
- *   reconcile - brand, winding down
+ * Tones follow the portal status colours and stay readable on both a
+ * light rail and the brand-painted rail (which scopes `dark`). The old
+ * brand-on-brand tones rendered red text on the red rail - unreadable.
+ *   quiet     - slate, all fine
+ *   plan      - amber, needs attention
+ *   run       - solid pill with pulse (the "live" state)
+ *   reconcile - sky, a follow-up task
  */
 import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -45,8 +47,8 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Plan",
     description: "Shortfalls or upcoming events. Build today's buy list.",
     icon: ListChecks,
-    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
-    text: "text-brand-primary dark:text-brand-primary",
+    bg: "bg-amber-50 border-amber-200 dark:bg-amber-400/15 dark:border-amber-300/40",
+    text: "text-amber-800 dark:text-amber-100",
     pulse: false,
   },
   run: {
@@ -54,8 +56,8 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Run",
     description: "A shopping list is active right now. Tick items off as you buy.",
     icon: ShoppingCart,
-    bg: "bg-brand-primary border-brand-primary",
-    text: "text-white",
+    bg: "bg-brand-primary border-brand-primary dark:bg-white dark:border-white",
+    text: "text-white dark:text-slate-900",
     pulse: true,
   },
   reconcile: {
@@ -63,8 +65,8 @@ const MODE_META: Record<ShoppingPortalMode, {
     shortLabel: "Reconcile",
     description: "Today's shops are done. Upload receipts and log actual totals.",
     icon: Receipt,
-    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
-    text: "text-brand-primary dark:text-brand-primary",
+    bg: "bg-sky-50 border-sky-200 dark:bg-sky-400/15 dark:border-sky-300/40",
+    text: "text-sky-800 dark:text-sky-100",
     pulse: false,
   },
 };

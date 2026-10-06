@@ -159,7 +159,7 @@ function TenantHealthDashboard() {
       console.error("[tenant-health] load failed:", e);
       // Silent-failure audit: a failed load previously rendered four
       // zeroed tiles + "all clear" tables. Say so instead.
-      setLoadError(e?.message || "Couldn't load tenant health data. Please try again.");
+      setLoadError(e?.message || "Couldn't load company health. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -206,7 +206,7 @@ function TenantHealthDashboard() {
     <PortalCard id={sectionId} data-chat-section={sectionRef} padded={false}>
       <div className="px-5 pt-5 pb-3">
         <PortalCardHeader className="mb-0" title={label} />
-        <p className="text-sm text-slate-500 dark:text-slate-400">{list.length} tenant{list.length === 1 ? "" : "s"}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{list.length} {list.length === 1 ? "company" : "companies"}</p>
       </div>
         {/* Don't flash the cheerful empty state while data is still
             loading - "all clear" before the query lands is a lie. */}
@@ -247,7 +247,7 @@ function TenantHealthDashboard() {
   return (
     <>
       <Head>
-        <title>Tenant health - CateringMS</title>
+        <title>Company health - CateringMS</title>
       </Head>
       <NoIndexMeta />
       <div className="admin-page-shell">
@@ -255,15 +255,15 @@ function TenantHealthDashboard() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             variant="hero"
-            title="Tenant health"
-            subtitle="Spot tenants that need a nudge before they churn quietly."
+            title="Company health"
+            subtitle="Spot companies that need a nudge before they quietly leave."
             icon={Activity}
             meta={
               loading ? undefined : (
                 <>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    {rows.length} tenants tracked
+                    {rows.length} companies tracked
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                     {stuckOnboarding.length} stuck in onboarding
@@ -291,24 +291,24 @@ function TenantHealthDashboard() {
             </Alert>
           )}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTile
               icon={Clock}
               label="Stuck onboarding"
               value={loading ? "-" : stuckOnboarding.length}
-              hint={`Tenants signed up >${DAYS_STUCK_ONBOARDING} days ago without onboarding_completed_at.`}
+              hint={`Signed up over ${DAYS_STUCK_ONBOARDING} days ago and still haven't finished setup.`}
             />
             <StatTile
               icon={AlertTriangle}
               label="Dormant"
               value={loading ? "-" : dormant.length}
-              hint={`Onboarded tenants whose last order event was >${DAYS_DORMANT} days ago.`}
+              hint={`Set up, but no order activity for over ${DAYS_DORMANT} days.`}
             />
             <StatTile
               icon={CreditCard}
-              label="No payment gateway"
+              label="No online payments"
               value={loading ? "-" : noPaymentGateway.length}
-              hint="Onboarded tenants with no active payment_gateways row. Can't take online payments."
+              hint="Set up, but no online payment method connected, so they can't take card payments."
             />
             <StatTile
               icon={Building2}
@@ -327,16 +327,16 @@ function TenantHealthDashboard() {
               (r) => `${daysSince(r.company.created_at)}d`,
             )}
             {renderTable(
-              "dormant-companies", "platform.tenant-health.dormant", "Dormant tenants",
+              "dormant-companies", "platform.tenant-health.dormant", "Dormant companies",
               dormant,
               "Everyone onboarded is shipping orders.",
               "since last event",
               (r) => `${daysSince(r.lastOrderEventDate)}d`,
             )}
             {renderTable(
-              "payment-issues", "platform.tenant-health.payment-issues", "No payment gateway",
+              "payment-issues", "platform.tenant-health.payment-issues", "No online payments",
               noPaymentGateway,
-              "Every onboarded tenant has a gateway.",
+              "Every set-up company can take online payments.",
               "signup",
               (r) => fmtDate(r.company.created_at),
             )}

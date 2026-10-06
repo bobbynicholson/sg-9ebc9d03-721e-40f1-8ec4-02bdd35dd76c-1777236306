@@ -765,7 +765,10 @@ export default function PublicQuotePage() {
             <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-brand-primary/10 to-transparent pointer-events-none" />
             <div className="relative p-6 sm:p-8 print-pad-sm">
             <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div className="flex-1 min-w-0">
+              {/* Full width on phones so the status pill wraps below
+                  instead of squeezing the title into a sliver (it broke
+                  "RJ WEDDINGS" mid-word and slid under the pill). */}
+              <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                 <div className="flex items-center gap-3 mb-4">
                   {company?.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -795,7 +798,7 @@ export default function PublicQuotePage() {
                   {quote.quote_name || `Quote for ${quote.client_name || "your event"}`}
                 </h1>
                 <p className="text-sm text-stone-600 mt-2.5">
-                  Reference <span className="font-mono font-medium text-stone-800">{quote.quote_number}</span>
+                  Reference <span className="whitespace-nowrap font-mono font-medium text-stone-800">{quote.quote_number}</span>
                   <span className="mx-1.5 text-stone-300">·</span>
                   prepared {today}
                 </p>

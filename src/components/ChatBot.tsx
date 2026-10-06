@@ -37,6 +37,11 @@ interface ChatRequestError extends Error {
   retryable?: boolean;
 }
 
+type LauncherDock = {
+  bottom: number;
+  side: "left" | "right";
+};
+
 function normaliseStoredResponse(value: unknown, fallbackText?: string): ChatResponsePayload | undefined {
   if (!value || typeof value !== "object") {
     return fallbackText?.trim() ? beautifyChatResponse(fallbackText) : undefined;
@@ -316,6 +321,8 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   const [isTyping, setIsTyping] = useState(false);
   const [workingStep, setWorkingStep] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [launcherDock, setLauncherDock] = useState<LauncherDock | null>(null);
+  const launcherRef = useRef<HTMLDivElement>(null);
   // Voice input: speech is written into the box live and added after
   // anything already typed. It is NOT sent automatically - the person
   // reviews or corrects the words, then presses Send, so a misheard
@@ -369,7 +376,97 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   const { user } = useAuth();
   const { withSlug } = useTenantHref();
   const router = useRouter();
-  const compactLauncher = router.pathname.startsWith("/team-portal/");
+  const compactLauncher = ["/team-portal/", "/admin/platform/", "/client-portal/", "/client/", "/account/"].some(
+    (prefix) => router.pathname.startsWith(prefix),
+  );
+
+  // A fixed assistant is useful on a long phone page only while it stays out
+  // of the way. Dense list pages can put a button or input in its usual
+  // bottom-right dock, so choose the nearest clear dock for the current
+  // viewport instead of covering the control underneath it.
+  useEffect(() => {
+    if (isOpen || !compactLauncher || typeof window === "undefined") {
+      setLauncherDock(null);
+      return;
+    }
+
+    let frame = 0;
+    let delayedFrame = 0;
+    const updateDock = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        if (window.innerWidth >= 640) {
+          setLauncherDock(null);
+          return;
+        }
+
+        const launcher = launcherRef.current;
+        const launcherButton = launcher?.querySelector<HTMLElement>("button");
+        const launcherRect = launcherButton?.getBoundingClientRect() ?? launcher?.getBoundingClientRect();
+        if (!launcher || !launcherRect || launcherRect.width < 1 || launcherRect.height < 1) return;
+
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const edge = 16;
+        const clearance = 4;
+        const controls = Array.from(document.querySelectorAll<HTMLElement>(
+          "button, input, select, textarea, a[href], [role='button'], [role='tab'], [role='link']",
+        )).filter((element) => {
+          if (launcher.contains(element)) return false;
+          const style = window.getComputedStyle(element);
+          if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+          const rect = element.getBoundingClientRect();
+          return rect.width > 1 && rect.height > 1
+            && rect.right > 0 && rect.left < viewportWidth
+            && rect.bottom > 0 && rect.top < viewportHeight;
+        }).map((element) => element.getBoundingClientRect());
+
+        const docks: LauncherDock[] = [];
+        const highestBottom = Math.max(edge, viewportHeight - launcherRect.height - 96);
+        for (let bottom = edge; bottom <= highestBottom; bottom += 72) {
+          docks.push({ bottom, side: "right" }, { bottom, side: "left" });
+        }
+        if (docks[docks.length - 1]?.bottom !== highestBottom) {
+          docks.push({ bottom: highestBottom, side: "right" }, { bottom: highestBottom, side: "left" });
+        }
+
+        const clearDock = docks.find((dock) => {
+          const left = dock.side === "left" ? edge : viewportWidth - edge - launcherRect.width;
+          const top = viewportHeight - dock.bottom - launcherRect.height;
+          const right = left + launcherRect.width;
+          const bottom = top + launcherRect.height;
+          return controls.every((control) => (
+            right <= control.left - clearance
+            || left >= control.right + clearance
+            || bottom <= control.top - clearance
+            || top >= control.bottom + clearance
+          ));
+        }) ?? { bottom: edge, side: "right" as const };
+
+        setLauncherDock((current) => (
+          current?.bottom === clearDock.bottom && current.side === clearDock.side
+            ? current
+            : clearDock
+        ));
+      });
+    };
+
+    updateDock();
+    // Deferred passes catch page data and cards that arrive just after the
+    // first shell render without observing every live update in the portal.
+    const shortDelay = window.setTimeout(updateDock, 250);
+    const longDelay = window.setTimeout(updateDock, 1500);
+    window.addEventListener("resize", updateDock);
+    window.addEventListener("scroll", updateDock, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(delayedFrame);
+      window.clearTimeout(shortDelay);
+      window.clearTimeout(longDelay);
+      window.removeEventListener("resize", updateDock);
+      window.removeEventListener("scroll", updateDock, true);
+    };
+  }, [compactLauncher, isOpen, router.asPath]);
 
   // Theme-driven: every role's chat chrome (FAB, header, bubbles, avatar,
   // send button) uses the tenant brand gradient instead of the old
@@ -596,7 +693,17 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   return (
     <>
       {/* Floating Chat Button */}
-      <div data-chatbot-root data-chatbot-global={global ? "true" : undefined} className="fixed bottom-4 right-4 z-50 block sm:bottom-5 sm:right-5">
+      <div
+        ref={launcherRef}
+        data-chatbot-root
+        data-chatbot-global={global ? "true" : undefined}
+        className="fixed bottom-4 right-4 z-50 block transition-[bottom,left,right] duration-200 motion-reduce:transition-none sm:bottom-5 sm:right-5"
+        style={launcherDock ? {
+          bottom: `${launcherDock.bottom}px`,
+          left: launcherDock.side === "left" ? "16px" : "auto",
+          right: launcherDock.side === "right" ? "16px" : "auto",
+        } : undefined}
+      >
         {!isOpen && (
           <Button
             onClick={() => setIsOpen(true)}

@@ -213,18 +213,18 @@ export function CleaningEventBoard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* Expected */}
-            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 overflow-hidden">
-              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 overflow-hidden dark:border-slate-700 dark:bg-slate-900/40">
+              <div className="px-3 py-2 border-b border-amber-200 bg-amber-50 flex items-center justify-between dark:border-amber-900/60 dark:bg-amber-950/30">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
                   Expected
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
                   {expected.length}
                 </Badge>
               </div>
-              <div className="p-2 space-y-2 min-h-[120px]">
+              <div className="p-2 space-y-2">
                 {expected.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic text-center py-3">
+                  <p className="text-xs text-slate-500 text-center py-3">
                     Nothing coming back in the next 48h.
                   </p>
                 ) : (
@@ -234,18 +234,18 @@ export function CleaningEventBoard() {
             </div>
 
             {/* In progress */}
-            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 overflow-hidden">
-              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 overflow-hidden dark:border-slate-700 dark:bg-slate-900/40">
+              <div className="px-3 py-2 border-b border-sky-200 bg-sky-50 flex items-center justify-between dark:border-sky-900/60 dark:bg-sky-950/30">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">
                   In progress
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
                   {inProgress.length}
                 </Badge>
               </div>
-              <div className="p-2 space-y-2 min-h-[120px]">
+              <div className="p-2 space-y-2">
                 {inProgress.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic text-center py-3">
+                  <p className="text-xs text-slate-500 text-center py-3">
                     Nothing being cleaned right now.
                   </p>
                 ) : (
@@ -255,18 +255,18 @@ export function CleaningEventBoard() {
             </div>
 
             {/* Done today */}
-            <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 overflow-hidden">
-              <div className="px-3 py-2 border-b border-brand-primary/20 bg-brand-primary/10 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-primary">
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 overflow-hidden dark:border-slate-700 dark:bg-slate-900/40">
+              <div className="px-3 py-2 border-b border-emerald-200 bg-emerald-50 flex items-center justify-between dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
                   Done today
                 </p>
                 <Badge variant="outline" className="text-[10px] tabular-nums bg-white">
                   {doneToday.length}
                 </Badge>
               </div>
-              <div className="p-2 space-y-2 min-h-[120px]">
+              <div className="p-2 space-y-2">
                 {doneToday.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic text-center py-3">
+                  <p className="text-xs text-slate-500 text-center py-3">
                     Nothing completed yet today.
                   </p>
                 ) : (

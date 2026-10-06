@@ -40,22 +40,24 @@ const MODE_META: Record<PortalServiceMode, {
   prep: {
     label: "Prep mode",
     icon: ChefHat,
-    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
-    text: "text-brand-primary dark:text-brand-primary",
+    // Amber = needs attention; readable on light and brand-painted rails
+    // (brand-on-brand was red text on the red rail).
+    bg: "bg-amber-50 border-amber-200 dark:bg-amber-400/15 dark:border-amber-300/40",
+    text: "text-amber-800 dark:text-amber-100",
     pulse: false,
   },
   service: {
     label: "Service",
     icon: Flame,
-    bg: "bg-brand-primary border-brand-primary",
-    text: "text-white",
+    bg: "bg-brand-primary border-brand-primary dark:bg-white dark:border-white",
+    text: "text-white dark:text-slate-900",
     pulse: true,
   },
   close: {
     label: "Close-down",
     icon: Coffee,
-    bg: "bg-brand-primary/10 dark:bg-brand-primary/15 border-brand-primary/20 dark:border-brand-primary/30",
-    text: "text-brand-primary dark:text-brand-primary",
+    bg: "bg-sky-50 border-sky-200 dark:bg-sky-400/15 dark:border-sky-300/40",
+    text: "text-sky-800 dark:text-sky-100",
     pulse: false,
   },
 };

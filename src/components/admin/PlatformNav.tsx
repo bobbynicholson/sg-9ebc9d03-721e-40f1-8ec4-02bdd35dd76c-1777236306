@@ -72,7 +72,11 @@ function PlatformTopSlot() {
 
   return (
     <div className="space-y-3">
-      <CommandPaletteHint className="w-full justify-center" />
+      {/* Desktop only: the phone drawer already opens with a search
+          box, and a Ctrl K shortcut means nothing on a touchscreen. */}
+      <div className="hidden lg:block">
+        <CommandPaletteHint block className="w-full justify-center" />
+      </div>
       <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-brand-primary/30 bg-brand-primary/10">
           <span className="text-[11px] font-bold text-brand-primary">{initials}</span>
@@ -102,7 +106,7 @@ export function PlatformNav(_: PlatformNavProps = {}) {
   const config: PortalSidebarConfig = {
     role: "platform",
     title: "Platform Admin",
-    mobileSubtitle: "CateringMS internal",
+    mobileSubtitle: "CateringMS",
     brandIcon: Crown,
     // Forced-dark command rail: the super admin area reads instantly as
     // "platform, not tenant" even in light mode. Team/tenant portals keep
@@ -112,9 +116,11 @@ export function PlatformNav(_: PlatformNavProps = {}) {
     searchHint: "Search companies, users, orders...",
     dashboardHref: "/admin/platform/dashboard",
     mobileQuickActions: [
-      { href: "/admin/platform/company-database",       label: "Companies",     sub: "All companies",  icon: Building2,   accent: BRAND_ACCENT },
-      { href: "/admin/platform/user-management",        label: "Users",         sub: "All users",      icon: Users,       accent: BRAND_ACCENT },
-      { href: "/admin/platform/subscription-management", label: "Subscriptions", sub: "Plans + billing", icon: CreditCard,  accent: BRAND_ACCENT },
+      // Labels sized for the 3-up phone grid (~90px a tile): longer
+      // ones ("Subscriptions", "Plans + billing") were truncated.
+      { href: "/admin/platform/company-database", label: "Companies", sub: "Businesses", icon: Building2, accent: BRAND_ACCENT },
+      { href: "/admin/platform/user-management",  label: "Users",     sub: "Accounts",   icon: Users,     accent: BRAND_ACCENT },
+      { href: "/admin/platform/tenant-health",    label: "Health",    sub: "At risk",    icon: Activity,  accent: BRAND_ACCENT },
     ],
     renderTopSlot: () => <PlatformTopSlot />,
     // Grouped the way a platform owner works: what's happening, who the

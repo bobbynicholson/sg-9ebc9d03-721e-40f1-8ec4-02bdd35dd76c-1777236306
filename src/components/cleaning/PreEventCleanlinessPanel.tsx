@@ -95,7 +95,7 @@ function EventStrip({
             {order.event_time && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {order.event_time}
+                {order.event_time.slice(0, 5)}
               </span>
             )}
             {order.guest_count ? <span>{order.guest_count} guests</span> : null}

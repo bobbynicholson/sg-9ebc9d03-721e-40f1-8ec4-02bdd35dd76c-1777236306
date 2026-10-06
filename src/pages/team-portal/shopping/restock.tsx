@@ -345,7 +345,7 @@ function ShoppingRestockPageInner() {
                             <Badge variant="outline" className="text-[11px]">{r.category}</Badge>
                           )}
                           <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900 text-[11px]">
-                            {r.currentStock} / {r.minimumStock} {r.unit}
+                            have {r.currentStock} · min {r.minimumStock} {r.unit}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">

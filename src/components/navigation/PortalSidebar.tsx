@@ -32,6 +32,7 @@ import { CollapsibleNavSection } from "@/components/navigation/CollapsibleNavSec
 import { buildIsActive } from "@/lib/navActiveMatcher";
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface PortalSidebarNavItem {
   title: string;
@@ -144,6 +145,8 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
   useCloseOnDesktop(open, setOpen);
   const [isCollapsed, setIsCollapsed] = useState(false);
   useSyncSidebarCollapsed(isCollapsed);
+  const { userRoles } = useAuth();
+  const hasSeveralRoles = (userRoles?.length ?? 0) > 1;
 
   // Wave 70.7c - external open trigger. The kitchen service FAB
   // sits at the bottom-left during service hours and dispatches
@@ -344,6 +347,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
         key={item.href}
         href={hrefForItem(item.href)}
         onClick={handleNavClick(item, onClickAfterNav)}
+        aria-current={active ? "page" : undefined}
         className={cn(
           // Wave 70.41b - overflow-hidden so long badges + descriptions
           // never bleed outside the sidebar's right edge. Matches the
@@ -677,8 +681,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                       <p className={cn("text-xs truncate", forceBrand ? "text-white/70" : "text-slate-600 dark:text-slate-400")}>{companyName}</p>
                     </div>
                   </Link>
+                  {/* The labelled role picker sits right below this row, so
+                      no compact copy here - it only squeezed the title. */}
                   <div className="flex items-center gap-2 shrink-0">
-                    <RoleSwitcher variant="compact" showLabel={false} />
                     <NotificationBell />
                     <ThemeSwitch />
                   </div>
@@ -699,7 +704,9 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
 
           {/* Every portal exposes assigned roles at the top of the rail.
               RoleSwitcher only renders when multiple roles exist. */}
-          {!isCollapsed && (
+          {/* Only for multi-role accounts: RoleSwitcher renders nothing
+              for one role, which left an empty bordered strip. */}
+          {!isCollapsed && hasSeveralRoles && (
             <div
               className={cn(
                 "border-b px-4 py-2",

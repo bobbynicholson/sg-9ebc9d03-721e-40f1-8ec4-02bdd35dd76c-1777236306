@@ -75,6 +75,13 @@ export default function ProtectedPlatformDashboard() {
   );
 }
 
+// "2026-04" -> "Apr 2026"; anything else is shown as-is.
+const monthLabel = (m: string) => {
+  const match = /^(\d{4})-(\d{2})$/.exec(m || "");
+  if (!match) return m;
+  return new Date(Number(match[1]), Number(match[2]) - 1, 1).toLocaleDateString("en-ZA", { month: "short", year: "numeric" });
+};
+
 function PlatformDashboard() {
   const { user } = useAuth();
   const router = useRouter();
@@ -165,7 +172,7 @@ function PlatformDashboard() {
         <PortalHeader
           variant="hero"
           title="Platform analytics"
-          subtitle="Revenue, growth and tenant mix across the whole platform in one view."
+          subtitle="Revenue, growth and company mix across the whole platform in one view."
           icon={Activity}
           meta={
             metrics ? (
@@ -175,7 +182,7 @@ function PlatformDashboard() {
                   {metrics?.activeCompanies ?? metrics?.activeSubscriptions ?? 0} active companies
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {metrics?.totalCompanies ?? 0} total tenants
+                  {metrics?.totalCompanies ?? 0} companies in total
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                   {analyticsService.formatCurrency(metrics?.monthlyRecurringRevenue || 0)} MRR
@@ -227,7 +234,7 @@ function PlatformDashboard() {
           </Alert>
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <StatCard
             title="SaaS Revenue (active)"
             value={analyticsService.formatCurrency(metrics?.totalRevenue || 0)}
@@ -258,7 +265,7 @@ function PlatformDashboard() {
           />
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <StatCard
             title="Avg Revenue Per User"
             value={analyticsService.formatCurrency(metrics?.averageRevenuePerUser || 0)}
@@ -309,7 +316,7 @@ function PlatformDashboard() {
                       {customerGrowth.slice(-6).map((item) => (
                         <div key={item.month} className="flex items-center justify-between rounded-lg -mx-2 px-2 py-1.5 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                           <div>
-                            <p className="font-medium text-slate-900 dark:text-white">{item.month}</p>
+                            <p className="font-medium text-slate-900 dark:text-white">{monthLabel(item.month)}</p>
                             <p className="text-sm text-slate-600 dark:text-slate-400">
                               {item.newCustomers} new • {item.totalCustomers} total
                             </p>
@@ -532,8 +539,8 @@ function PlatformDashboard() {
         <details className="group mt-8 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
             <span>
-              <span className="block text-base font-semibold text-slate-900 dark:text-white">Recent system audit logs</span>
-              <span className="block text-xs text-slate-500">Latest 100 platform events. Open to view, or use Audit logs for search and filters.</span>
+              <span className="block text-base font-semibold text-slate-900 dark:text-white">Recent activity</span>
+              <span className="block text-xs text-slate-500">Latest 100 platform events. Open to view, or use Activity log to search and filter.</span>
             </span>
             <span className="text-xs font-medium text-slate-600 group-open:hidden">Show</span>
             <span className="hidden text-xs font-medium text-slate-600 group-open:inline">Hide</span>

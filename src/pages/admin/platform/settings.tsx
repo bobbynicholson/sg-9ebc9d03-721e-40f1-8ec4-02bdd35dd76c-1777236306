@@ -40,7 +40,7 @@ const KNOWN_KEYS: KnownKey[] = [
     key: "import_row_cap",
     label: "Import row cap",
     description:
-      "Maximum number of rows accepted per Excel / CSV import (clients, leads, onboarding wizard). Stops a tenant uploading thousands of new customers in one shot. Onboarding a real legacy database, bump it temporarily, then revert.",
+      "Maximum number of rows accepted per Excel / CSV import (clients, leads, onboarding wizard). Stops a company uploading thousands of customers in one go. To bring in a large existing customer list, raise it for that import, then set it back.",
     type: "number",
     unit: "rows",
     example: "200",
@@ -159,17 +159,14 @@ function PlatformSettingsPage() {
         <PortalHeader
           variant="hero"
           title="Platform settings"
-          subtitle="Tunables for the SaaS itself. Changes apply immediately to every tenant."
+          subtitle="Settings for CateringMS itself. Changes apply immediately to every company."
           icon={Settings}
           meta={
             loading ? undefined : (
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  {rows.length} config key{rows.length === 1 ? "" : "s"} loaded
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {KNOWN_KEYS.length} documented tunables
+                  {KNOWN_KEYS.length} setting{KNOWN_KEYS.length === 1 ? "" : "s"}
                 </span>
               </>
             )
@@ -230,9 +227,6 @@ function PlatformSettingsPage() {
                       {saving === k.key ? "Saving..." : savedKey === k.key ? "Saved" : "Save"}
                     </Button>
                   </div>
-                  <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
-                    app_config.{k.key}
-                  </p>
                 </div>
               </PortalCard>
             ))}

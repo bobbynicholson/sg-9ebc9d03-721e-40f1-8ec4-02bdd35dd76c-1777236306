@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { StatTile } from "@/components/portal/ui";
 import { Activity, BookOpen, ChevronDown, Clock, Loader2, MessageSquare, Play, RefreshCw, Square, Users } from "lucide-react";
 
 type Department = "kitchen" | "cleaning";
@@ -150,7 +151,7 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
 
   return (
     <section className="mb-8 space-y-4" aria-labelledby={`${department}-manager-workspace`}>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-primary/15 bg-brand-primary/5 px-4 py-4 shadow-sm shadow-brand-primary/5 sm:mt-8 dark:border-brand-primary/25 dark:bg-brand-primary/10">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:mt-8 dark:border-slate-800 dark:bg-slate-900">
         <div>
           <p id={`${department}-manager-workspace`} className="text-sm font-semibold text-slate-900 dark:text-white">Live team controls</p>
           <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{onDuty} on duty · Manage the roster and keep today&apos;s handover notes in one place.</p>
@@ -168,10 +169,10 @@ export function TeamManagerWorkspace({ department, defaultRosterOpen = true, sho
       {error && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div>}
 
       <div id={`${department}-team-controls-content`} hidden={!workspaceOpen} style={workspaceOpen ? undefined : { display: "none" }} className="space-y-4">
-      {showSummaryStats && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card><CardContent className="p-4"><p className="text-xs text-slate-500">Team members</p><p className="mt-1 text-2xl font-semibold text-slate-900">{members.length}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-slate-500">On duty now</p><p className="mt-1 text-2xl font-semibold text-emerald-700">{onDuty}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-slate-500">Diary notes</p><p className="mt-1 text-2xl font-semibold text-slate-900">{notes.length}</p></CardContent></Card>
+      {showSummaryStats && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
+        <StatTile label="Team members" value={members.length} hint="On this team" icon={Users} />
+        <StatTile label="On duty now" value={<span className="text-emerald-700 dark:text-emerald-400">{onDuty}</span>} hint="Clocked in right now" icon={Clock} />
+        <StatTile label="Diary notes" value={notes.length} hint="Handovers and issues" icon={BookOpen} />
       </div>}
 
       <div className="grid grid-cols-1 gap-4">

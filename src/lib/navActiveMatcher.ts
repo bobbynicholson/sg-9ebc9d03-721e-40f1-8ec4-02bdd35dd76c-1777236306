@@ -46,9 +46,18 @@ interface MatcherDeps {
   withSlug: (href: string) => string;
 }
 
+const stripHash = (p: string) => p.split("#")[0];
+const hashOf = (p: string) => {
+  const i = p.indexOf("#");
+  return i < 0 ? "" : p.slice(i + 1);
+};
+
 const splitHref = (
-  h: string,
+  raw: string,
 ): { path: string; query: URLSearchParams | null } => {
+  // Section anchors (/team-portal/waiter/dashboard#clock) point at a
+  // page, so the hash never takes part in the path match.
+  const h = stripHash(raw);
   const i = h.indexOf("?");
   if (i < 0) return { path: h, query: null };
   return {
@@ -57,7 +66,7 @@ const splitHref = (
   };
 };
 
-const stripQuery = (p: string) => p.split("?")[0];
+const stripQuery = (p: string) => stripHash(p).split("?")[0];
 
 /**
  * Returns true when the given nav href should be considered "active"
@@ -97,7 +106,7 @@ export function matchesHref(href: string, deps: MatcherDeps): boolean {
   if (!hrefQuery) return true;
 
   const currentQ = new URLSearchParams(
-    router.asPath.split("?")[1] || "",
+    stripHash(router.asPath).split("?")[1] || "",
   );
   for (const [k, v] of hrefQuery.entries()) {
     if (currentQ.get(k) !== v) return false;
@@ -110,6 +119,10 @@ export function matchesHref(href: string, deps: MatcherDeps): boolean {
  * active nav item. Picks the longest matching href so that nested
  * routes light up the most specific entry in the sidebar.
  *
+ * Links that differ only by #section (two anchors on one page) tie on
+ * length; the one matching the current hash wins, otherwise the first
+ * one listed.
+ *
  * Returns the winning href, or null if nothing matches.
  */
 export function resolveActiveHref(
@@ -118,7 +131,11 @@ export function resolveActiveHref(
 ): string | null {
   const matching = hrefs.filter((h) => matchesHref(h, deps));
   if (matching.length === 0) return null;
-  return matching.sort((a, b) => b.length - a.length)[0];
+  const currentHash = hashOf(deps.router.asPath);
+  const score = (h: string) =>
+    stripHash(h).length * 2 + (currentHash && hashOf(h) === currentHash ? 1 : 0);
+  // Array.prototype.sort is stable, so ties keep sidebar order.
+  return [...matching].sort((a, b) => score(b) - score(a))[0];
 }
 
 /**

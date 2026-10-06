@@ -357,7 +357,7 @@ function CleaningDamagePageInner() {
     <>
       <CleaningPageShell
         pageTitle="Damage reports - CateringMS"
-        heading="Damage reports"
+        heading="Damages"
         subheading={
           chipsReady
             ? stats.open > 0
