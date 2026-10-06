@@ -33,6 +33,7 @@ export type EmbedFieldMapping =
   | 'email'
   | 'phone'
   | 'event_date'
+  | 'event_time'
   | 'guest_count'
   | 'venue'
   | 'event_name'

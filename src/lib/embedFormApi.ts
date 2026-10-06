@@ -300,6 +300,8 @@ export interface MappedLead {
   phone?: string;
   client_phone?: string;
   event_date?: string;
+  /** HH:MM. Leads have no time column; it goes onto the draft quote. */
+  event_time?: string;
   event_type?: string;
   guest_count?: number;
   venue_address?: string;
@@ -325,6 +327,16 @@ export function mapPayloadToLead(
     if (!isVisible(field, payload)) continue;
     const value = payload[field.id];
     if (isEmpty(value)) continue;
+    // Event start time: the field mapped to it, else the first time
+    // question (e.g. "Eating time"). Still listed in the notes below.
+    if (
+      !lead.event_time
+      && (field.mapsTo === "event_time" || field.type === "time")
+      && /^\d{1,2}:\d{2}/.test(String(value))
+    ) {
+      const [h, m] = String(value).split(":");
+      lead.event_time = `${h.padStart(2, "0")}:${m.slice(0, 2)}`;
+    }
     if (!field.mapsTo || !MAPPED_COLUMNS.has(field.mapsTo)) {
       if (!INTERNAL_PAYLOAD_KEYS.has(field.id)) {
         extraDetails.push(`${field.label || humaniseKey(field.id)}: ${displayValue(field, value)}`);

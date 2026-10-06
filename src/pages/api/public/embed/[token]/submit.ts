@@ -64,6 +64,7 @@ async function createPrivateDraftQuote(
   leadId: string,
   lead: Record<string, any>,
   requestedItems: RequestedCatalogueItem[],
+  eventTime: string | null = null,
 ): Promise<string | null> {
   if (requestedItems.length === 0) return null;
 
@@ -138,6 +139,7 @@ async function createPrivateDraftQuote(
       client_phone: lead.client_phone || lead.phone || null,
       event_type: lead.event_type || null,
       event_date: lead.event_date || null,
+      event_time: eventTime,
       guest_count: lead.guest_count ?? null,
       venue_address: lead.venue_address || null,
       venue_lat: lead.venue_lat ?? null,
@@ -533,6 +535,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         leadRow.id,
         leadInsert,
         requestedCatalogueItems,
+        mapped.event_time || null,
       );
     } catch (draftError) {
       console.warn("[embed/submit] private draft quote failed", draftError);

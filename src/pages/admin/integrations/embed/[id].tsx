@@ -128,6 +128,7 @@ const MAPPINGS: { value: typeof MAP_NONE | EmbedFieldMapping; label: string }[] 
   { value: "email",       label: "Lead email" },
   { value: "phone",       label: "Lead phone" },
   { value: "event_date",  label: "Event date" },
+  { value: "event_time",  label: "Event start time" },
   { value: "guest_count", label: "Guest count" },
   { value: "venue",       label: "Venue" },
   { value: "event_name",  label: "Event type" },

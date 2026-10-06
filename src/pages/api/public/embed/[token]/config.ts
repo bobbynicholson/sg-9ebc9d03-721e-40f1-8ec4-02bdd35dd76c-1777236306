@@ -197,6 +197,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Without this, setting TURNSTILE_SECRET_KEY on the server would make
     // every submission fail the challenge because no token is ever sent.
     turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || null,
+    // Public browser key (same one the admin address boxes use). The form
+    // only uses it on our own domain, where its referrer restriction holds.
+    googleMapsKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null,
+    addressCountry: ({ ZAR: "za", GBP: "gb", USD: "us", AUD: "au", NZD: "nz" } as Record<string, string>)[
+      String((company as any).currency || "ZAR").toUpperCase()
+    ] || null,
     brand: {
       companyName: company.company_name,
       primaryColor: company.primary_color || null,

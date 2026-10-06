@@ -267,6 +267,11 @@
       var isAddress = f.mapsTo === 'venue' || ADDRESS_FIELD_IDS[f.id];
       if (isAddress && (!f.type || f.type === 'text') && token && UUID_RE.test(token)) {
         f.addressSuggestUrl = API_BASE + '/api/public/embed/' + encodeURIComponent(token) + '/address-suggest';
+        // Google Places only on our own domain (hosted /quote page and
+        // admin previews): the browser key is restricted to it.
+        if (config.googleMapsKey && location.origin === API_BASE) {
+          f.addressGoogle = { key: config.googleMapsKey, country: config.addressCountry || null };
+        }
       }
       var hasOptions = Array.isArray(f.options) && f.options.length > 0;
       if ((f.type === 'tier' || f.id === 'tier') && !hasOptions && tiers.length > 0) {

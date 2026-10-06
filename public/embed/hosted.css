@@ -55,8 +55,8 @@ body.cms-hosted {
   display: inline-flex; align-items: center; justify-content: center;
   background: rgba(255, 255, 255, .18); font-size: 13px; font-weight: 700;
 }
-.hp-form { padding: 40px 48px 32px; display: flex; flex-direction: column; }
-.hp-form-inner { width: 100%; max-width: 860px; margin: 0 auto; flex: 1; }
+.hp-form { padding: 40px clamp(20px, 3vw, 56px) 32px; display: flex; flex-direction: column; }
+.hp-form-inner { width: 100%; max-width: 1240px; margin: 0 auto; flex: 1; }
 .hp-powered { text-align: center; font-size: 11px; color: #94A3B8; margin: 20px 0 0; }
 .hp-powered a { color: #64748B; text-decoration: none; }
 .hp-err {

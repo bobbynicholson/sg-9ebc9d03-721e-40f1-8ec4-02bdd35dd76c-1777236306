@@ -349,19 +349,25 @@
     '.cms-head-tag{font-size:12px;color:#64748B}',
     '.cms-section{margin:22px 0 12px;padding-top:18px;border-top:1px dashed #E2E8F0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--brand-primary,#0F172A)}',
     /* Two-column field grid: short inputs pair up, long ones span. */
-    '.cms-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}',
+    '.cms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:0 18px}',
     '.cms-grid>.cms-field.is-wide,.cms-grid>.cms-field[data-wide]{grid-column:1/-1}',
     '@media(max-width:560px){.cms-grid{grid-template-columns:1fr}}',
     '.cms-trust{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;margin-top:14px;font-size:12.5px;color:#64748B}',
     '.cms-trust span::before{content:"\\2713";margin-right:5px;color:var(--brand-primary,#16A34A);font-weight:700}',
     /* Type-ahead suggestion list (venue address + menu / equipment). */
     '.cms-suggest-anchor{position:relative}',
-    '.cms-suggest{position:absolute;left:0;right:0;z-index:20;margin-top:4px;max-height:280px;overflow-y:auto;background:#fff;border:1px solid #CBD5E1;border-radius:calc(var(--brand-radius,12px) - 4px);box-shadow:0 10px 28px rgba(15,23,42,.14)}',
-    '.cms-suggest-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;font-size:14px;cursor:pointer;border-bottom:1px solid #F1F5F9}',
-    '.cms-suggest-item:last-child{border-bottom:0}',
-    '.cms-suggest-item:hover,.cms-suggest-item.is-active{background:color-mix(in srgb,var(--brand-primary,#0F172A) 8%,#fff)}',
-    '.cms-suggest-hint{font-size:12px;color:#64748B;white-space:nowrap}',
+    '.cms-suggest{position:absolute;left:0;z-index:30;max-height:320px;overflow-y:auto;background:#fff;border:1px solid #E2E8F0;border-radius:12px;box-shadow:0 16px 40px -8px rgba(15,23,42,.22),0 2px 6px rgba(15,23,42,.06);padding:6px}',
+    '.cms-suggest-item{display:flex;align-items:center;gap:10px;padding:9px 10px;font-size:14px;cursor:pointer;border-radius:8px;color:#0F172A}',
+    '.cms-suggest-item:hover,.cms-suggest-item.is-active{background:#F1F5F9}',
+    '.cms-suggest-text{display:flex;flex:1;min-width:0;align-items:baseline;justify-content:space-between;gap:10px}',
+    '.cms-suggest-item.is-stacked .cms-suggest-text{flex-direction:column;align-items:flex-start;gap:1px}',
+    '.cms-suggest-label{font-weight:500;overflow:hidden;text-overflow:ellipsis}',
+    '.cms-suggest-item.is-stacked .cms-suggest-label{font-weight:600;white-space:nowrap;max-width:100%}',
+    '.cms-suggest-hint{font-size:12px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}',
+    '.cms-suggest-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:32px;height:32px;border-radius:50%;background:color-mix(in srgb,var(--brand-primary,#0F172A) 10%,#fff);color:var(--brand-primary,#0F172A)}',
+    '.cms-suggest-icon svg{width:16px;height:16px}',
     '.cms-suggest-status{padding:10px 12px;font-size:13px;color:#64748B}',
+    '.cms-suggest-footer{padding:8px 10px 4px;margin-top:4px;border-top:1px solid #F1F5F9;font-size:11.5px;color:#94A3B8}',
     /* Catalogue picker: chosen rows below the search box. */
     '.cms-catalogue-picker{display:flex;flex-direction:column;gap:8px}',
     '.cms-catalogue-search{position:relative}',
@@ -711,7 +717,8 @@
     // loader.js sets addressSuggestUrl on venue-type fields.
     if (f.addressSuggestUrl && htmlType === 'text') {
       input.setAttribute('autocomplete', 'street-address');
-      attachAddressSuggest(input, f.addressSuggestUrl);
+      if (!f.placeholder) input.setAttribute('placeholder', 'Start typing the venue address');
+      attachAddressSuggest(input, f.addressSuggestUrl, f.addressGoogle || null);
     }
     return input;
   }
@@ -734,12 +741,19 @@
     input.setAttribute('aria-expanded', 'false');
 
     function mountList() {
-      if (list.parentNode) return;
       var parent = input.parentNode;
       if (!parent) return;
-      parent.classList.add('cms-suggest-anchor');
-      if (input.nextSibling) parent.insertBefore(list, input.nextSibling);
-      else parent.appendChild(list);
+      if (!list.parentNode) {
+        parent.classList.add('cms-suggest-anchor');
+        if (input.nextSibling) parent.insertBefore(list, input.nextSibling);
+        else parent.appendChild(list);
+      }
+      // Pin the list directly under the input. Without explicit offsets an
+      // absolute child of a flex column sits at the top of the field and
+      // covers its label.
+      list.style.top = (input.offsetTop + input.offsetHeight + 4) + 'px';
+      list.style.left = input.offsetLeft + 'px';
+      list.style.width = input.offsetWidth + 'px';
     }
     function close() {
       list.hidden = true;
@@ -758,6 +772,7 @@
       list.innerHTML = '';
       if (!items.length) {
         if (status) {
+          mountList();
           list.appendChild(el('div', { class: 'cms-suggest-status', text: status }));
           list.hidden = false;
         } else {
@@ -765,14 +780,19 @@
         }
         return;
       }
+      mountList();
       items.forEach(function (item, i) {
-        var row = el('div', { class: 'cms-suggest-item', role: 'option', id: input.id + '__opt' + i });
-        row.appendChild(el('span', { class: 'cms-suggest-label', text: item.label }));
-        if (item.hint) row.appendChild(el('span', { class: 'cms-suggest-hint', text: item.hint }));
+        var row = el('div', { class: 'cms-suggest-item' + (opts.stacked ? ' is-stacked' : ''), role: 'option', id: input.id + '__opt' + i });
+        if (opts.icon) row.appendChild(el('span', { class: 'cms-suggest-icon', 'aria-hidden': 'true', html: opts.icon }));
+        var textWrap = el('span', { class: 'cms-suggest-text' });
+        textWrap.appendChild(el('span', { class: 'cms-suggest-label', text: item.label }));
+        if (item.hint) textWrap.appendChild(el('span', { class: 'cms-suggest-hint', text: item.hint }));
+        row.appendChild(textWrap);
         // mousedown (not click) so the input's blur doesn't close first.
         row.addEventListener('mousedown', function (ev) { ev.preventDefault(); pick(i); });
         list.appendChild(row);
       });
+      if (opts.footer) list.appendChild(el('div', { class: 'cms-suggest-footer', text: opts.footer }));
       list.hidden = false;
       input.setAttribute('aria-expanded', 'true');
       active = -1;
@@ -813,22 +833,85 @@
     return { close: close, refresh: run };
   }
 
-  // Venue address: suggestions from /address-suggest while typing. The
-  // visitor can always ignore them and type the full address.
-  function attachAddressSuggest(input, url) {
-    attachSuggestions(input, function (term, cb) {
-      if (term.length < 4) { cb([]); return; }
+  var PIN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>';
+
+  // Google Places (same search the platform's own address boxes use).
+  // Only offered on our own domain, where the referrer-restricted key is
+  // valid; anywhere it fails we fall back to the OpenStreetMap search.
+  var googleState = { promise: null, failed: false };
+  function loadGooglePlaces(key) {
+    if (root.google && root.google.maps && root.google.maps.places) return Promise.resolve(root.google);
+    if (googleState.promise) return googleState.promise;
+    googleState.promise = new Promise(function (resolve, reject) {
+      var prevAuthFailure = root.gm_authFailure;
+      root.gm_authFailure = function () {
+        googleState.failed = true;
+        if (typeof prevAuthFailure === 'function') prevAuthFailure();
+      };
+      var s = document.createElement('script');
+      s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&libraries=places&loading=async&callback=__cmsGoogleReady';
+      s.async = true;
+      root.__cmsGoogleReady = function () { resolve(root.google); };
+      s.onerror = function () { googleState.failed = true; reject(new Error('google load failed')); };
+      document.head.appendChild(s);
+      setTimeout(function () { if (!(root.google && root.google.maps && root.google.maps.places)) reject(new Error('google timeout')); }, 8000);
+    });
+    return googleState.promise;
+  }
+
+  function googlePredictions(term, google, country, cb, fail) {
+    try {
+      var svc = new google.maps.places.AutocompleteService();
+      var req = { input: term };
+      if (country) req.componentRestrictions = { country: country };
+      svc.getPlacePredictions(req, function (preds, status) {
+        if (status === 'OK' && preds) {
+          cb(preds.map(function (p) {
+            var sf = p.structured_formatting || {};
+            return { value: p.description, label: sf.main_text || p.description, hint: sf.secondary_text || '' };
+          }));
+        } else if (status === 'ZERO_RESULTS') {
+          cb([]);
+        } else {
+          fail();
+        }
+      });
+    } catch (e) { fail(); }
+  }
+
+  // Venue address: suggestions while typing. The visitor can always
+  // ignore them and type the full address.
+  function attachAddressSuggest(input, url, google) {
+    function photon(term, cb) {
       fetch(url + '?q=' + encodeURIComponent(term), { credentials: 'omit', mode: 'cors' })
         .then(function (r) { return r.ok ? r.json() : { suggestions: [] }; })
         .then(function (data) {
-          cb((data.suggestions || []).map(function (s) { return { value: s, label: s }; }));
+          if (Array.isArray(data.items) && data.items.length) {
+            cb(data.items.map(function (it) { return { value: it.full, label: it.main, hint: it.secondary }; }));
+          } else {
+            cb((data.suggestions || []).map(function (s) { return { value: s, label: s }; }));
+          }
         })
         .catch(function () { cb([]); });
+    }
+    attachSuggestions(input, function (term, cb) {
+      if (term.length < 3) { cb([]); return; }
+      if (google && google.key && !googleState.failed) {
+        loadGooglePlaces(google.key).then(function (g) {
+          if (googleState.failed) { photon(term, cb); return; }
+          googlePredictions(term, g, google.country, cb, function () {
+            googleState.failed = true;
+            photon(term, cb);
+          });
+        }, function () { photon(term, cb); });
+        return;
+      }
+      photon(term, cb);
     }, function (item) {
       input.value = item.value;
       input.dispatchEvent(new Event('input', { bubbles: true }));
       input.dispatchEvent(new Event('change', { bubbles: true }));
-    }, { delay: 300, minChars: 4, loadingText: 'Searching addresses...' });
+    }, { delay: 250, minChars: 3, loadingText: 'Searching addresses...', stacked: true, icon: PIN_SVG, footer: 'Pick your address, or keep typing the full address' });
   }
 
   // Menu / equipment picker: type to search (or just click to browse),

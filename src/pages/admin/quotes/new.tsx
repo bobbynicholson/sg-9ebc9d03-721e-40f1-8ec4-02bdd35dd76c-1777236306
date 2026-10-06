@@ -462,6 +462,9 @@ function NewQuotePage() {
    *  the picker when the company has more than one branch. */
   const [kitchenId, setKitchenId] = useState<string | null>(null);
   const quoteHydratedRef = useRef(false);
+  // True when the reopened quote already had a distance saved. Only then
+  // is the first computed distance held back (to avoid silent repricing).
+  const savedDistanceRef = useRef(false);
   // True once the operator MANUALLY switches kitchen/branch (not the
   // auto-default selection, not the saved-quote load). Gates whether the
   // branch-settings effect is allowed to overwrite the saved delivery
@@ -1026,6 +1029,9 @@ function NewQuotePage() {
     // silently clobber what the operator (or the client) saw on the
     // saved quote.
     if (typeof q.delivery_distance_km === "number") setDeliveryDistance(q.delivery_distance_km);
+    // Website-lead drafts (source "embed") arrive with venue coordinates
+    // but no distance yet; the first distance run must fill it in.
+    savedDistanceRef.current = Number(q.delivery_distance_km) > 0 || Number(q.collection_distance_km) > 0;
     if (typeof q.delivery_rate_per_km === "number") setDeliveryCostPerKm(q.delivery_rate_per_km);
     if (typeof q.delivery_fee === "number") {
       setDeliveryFee(q.delivery_fee);
@@ -1222,9 +1228,11 @@ function NewQuotePage() {
       } else {
         // First run after mount. For a NEW quote set the computed
         // distance; for an EDITED quote keep the saved distance so
-        // reopening doesn't silently reprice (Pic 64).
+        // reopening doesn't silently reprice (Pic 64). A quote with no
+        // saved distance (e.g. a draft from a website lead) gets the
+        // computed one, otherwise its delivery fee stays empty.
         havInitRef.current = true;
-        if (!fromQuoteId) {
+        if (!fromQuoteId || !savedDistanceRef.current) {
           setDeliveryDistance(kmRounded);
           setCollectionDistance(kmRounded);
         }
@@ -1239,12 +1247,31 @@ function NewQuotePage() {
       `${selectedKitchen.lat},${selectedKitchen.lng}`;
     const venueDestination = venueAddress.trim() || `${venueLat},${venueLng}`;
 
+    // Fallback when the road-distance lookup fails or the Maps key isn't
+    // set: straight-line distance between known coordinates, scaled by a
+    // typical road factor (1.3) so the fee isn't systematically low.
+    const fallbackToStraightLine = () => {
+      if (cancelled) return;
+      const kLat = Number(selectedKitchen.lat);
+      const kLng = Number(selectedKitchen.lng);
+      if (typeof venueLat === "number" && typeof venueLng === "number" && Number.isFinite(kLat) && Number.isFinite(kLng)) {
+        const toRad = (d: number) => (d * Math.PI) / 180;
+        const dLat = toRad(venueLat - kLat);
+        const dLng = toRad(venueLng - kLng);
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(kLat)) * Math.cos(toRad(venueLat)) * Math.sin(dLng / 2) ** 2;
+        const straightKm = 2 * 6371 * Math.asin(Math.sqrt(h));
+        applyDistance(Number((straightKm * 1.3).toFixed(2)));
+      } else {
+        setDistanceStatus("error");
+      }
+    };
+
     if (kitchenOrigin && venueDestination) {
       googleMapsService.calculateDistance(kitchenOrigin, venueDestination)
         .then((result) => {
           if (cancelled) return;
           if (!result) {
-            setDistanceStatus("error");
+            fallbackToStraightLine();
             return;
           }
           // result.distance is in metres from the Distance Matrix API.
@@ -1252,8 +1279,8 @@ function NewQuotePage() {
           applyDistance(roadKm);
         })
         .catch(() => {
-          // Google Maps unavailable or API key not set — fall back to haversine.
-          if (!cancelled) setDistanceStatus("error");
+          // Google Maps unavailable or API key not set: fall back to haversine.
+          fallbackToStraightLine();
         });
     }
 

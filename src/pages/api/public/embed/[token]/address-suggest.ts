@@ -35,7 +35,7 @@ const BBOX_BY_CURRENCY: Record<string, string> = {
 
 // Recent answers per (market, query): repeat searches (and the visitor's
 // own retyping) return instantly instead of waiting on Photon again.
-const resultCache = new Map<string, { suggestions: string[]; at: number }>();
+const resultCache = new Map<string, { suggestions: string[]; items: SuggestItem[]; at: number }>();
 const RESULT_TTL_MS = 30 * 60_000;
 
 const companyCache = new Map<string, { ok: boolean; currency: string; at: number }>();
@@ -68,6 +68,30 @@ async function resolveCompany(token: string) {
   };
   companyCache.set(token, entry);
   return entry;
+}
+
+interface SuggestItem { main: string; secondary: string; full: string }
+
+// Two-line suggestion like Google's: "17 Denison Way" / "Edgemead, Cape Town".
+// A house number the visitor typed is kept when Photon only matched the street.
+function toItem(f: any, typedNumber: string | null): SuggestItem | null {
+  const p = f?.properties || {};
+  const isStreet = p.osm_key === "highway" || p.type === "street";
+  const number = p.housenumber || (isStreet && typedNumber ? typedNumber : null);
+  const streetName = isStreet ? p.name : p.street;
+  const street = [number, streetName].filter(Boolean).join(" ");
+  const place = !isStreet && p.name && p.name !== p.street ? p.name : null;
+  const main = place || street;
+  if (!main) return null;
+  const secondaryParts = [
+    place ? street : null,
+    p.district || p.locality || null,
+    p.city || p.county || null,
+    p.postcode || null,
+  ].filter(Boolean) as string[];
+  const secondary = secondaryParts.filter((x, i) => secondaryParts.indexOf(x) === i && x !== main).join(", ");
+  if (!secondary) return null;
+  return { main, secondary, full: `${main}, ${secondary}` };
 }
 
 function formatFeature(f: any): string | null {
@@ -109,8 +133,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const cached = resultCache.get(cacheKey);
   if (cached && Date.now() - cached.at < RESULT_TTL_MS) {
     res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
-    return res.status(200).json({ ok: true, suggestions: cached.suggestions });
+    return res.status(200).json({ ok: true, suggestions: cached.suggestions, items: cached.items });
   }
+  const typedNumber = (q.match(/^(\d+[a-z]?)\s+/i) || [])[1] || null;
 
   const params = new URLSearchParams({ q, limit: "6", lang: "en" });
   const bbox = BBOX_BY_CURRENCY[company.currency];
@@ -127,21 +152,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const json: any = await resp.json();
     const seen = new Set<string>();
     const suggestions: string[] = [];
+    const items: SuggestItem[] = [];
     for (const feature of Array.isArray(json?.features) ? json.features : []) {
-      const label = formatFeature(feature);
+      const item = toItem(feature, typedNumber);
+      const label = item ? item.full : formatFeature(feature);
       if (label && !seen.has(label)) {
         seen.add(label);
         suggestions.push(label);
+        if (item) items.push(item);
       }
     }
     const top = suggestions.slice(0, 6);
+    const topItems = items.slice(0, 6);
     if (top.length > 0) {
-      resultCache.set(cacheKey, { suggestions: top, at: Date.now() });
+      resultCache.set(cacheKey, { suggestions: top, items: topItems, at: Date.now() });
       if (resultCache.size > 2000) resultCache.clear();
       // Same query from many visitors (e.g. a popular venue) is cheap to cache.
       res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
     }
-    return res.status(200).json({ ok: true, suggestions: top });
+    return res.status(200).json({ ok: true, suggestions: top, items: topItems });
   } catch {
     return res.status(200).json({ ok: true, suggestions: [] });
   } finally {
