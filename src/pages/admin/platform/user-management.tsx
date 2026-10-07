@@ -641,10 +641,10 @@ export default function UserManagementPage() {
         />
         <PageWorkbench />
 
-        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-5">
           <StatTile label="Accounts" value={summary.total} hint="All platform-visible profiles" icon={Users} />
-          <StatTile label="Active" value={summary.active} hint="Signed in at least once" icon={CheckCircle2} />
-          <StatTile label="Invite pending" value={summary.pending} hint="Created but not accepted" icon={MailQuestion} />
+          <StatTile tone="good" label="Active" value={summary.active} hint="Signed in at least once" icon={CheckCircle2} />
+          <StatTile tone="info" label="Invite pending" value={summary.pending} hint="Created but not accepted" icon={MailQuestion} />
           <StatTile label="In a company" value={summary.tenantLinked} hint="Assigned to a company" icon={Building2} />
           <StatTile label="Platform admins" value={summary.platformAdmins} hint="Global admin access" icon={ShieldCheck} />
         </div>
@@ -735,16 +735,16 @@ export default function UserManagementPage() {
                     <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="user" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>User</SortHeader>
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <TableHead className="hidden md:table-cell text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="role" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Role</SortHeader>
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <TableHead className="hidden md:table-cell text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="company" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Company</SortHeader>
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <TableHead className="hidden md:table-cell text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="status" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Status</SortHeader>
                     </TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <TableHead className="hidden md:table-cell text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       <SortHeader sortKey="created" activeKey={sortedUsers.sortKey} activeDir={sortedUsers.sortDir} onToggle={sortedUsers.toggle}>Created</SortHeader>
                     </TableHead>
                     <TableHead className="text-right text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Actions</TableHead>
@@ -757,10 +757,17 @@ export default function UserManagementPage() {
                         <div>
                           <div className="font-medium text-slate-900 dark:text-white">{user.full_name}</div>
                           <div className="text-sm text-slate-500 dark:text-slate-400">{user.email}</div>
+                          {/* Phones: role, status and company under the name
+                              (their own columns are hidden below md). */}
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 md:hidden">
+                            {getRoleBadge(user.role)}
+                            {getStatusBadge(user as User)}
+                            {user.company_name && <span className="text-xs text-slate-500 dark:text-slate-400">{user.company_name}</span>}
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell>{getRoleBadge(user.role)}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">{getRoleBadge(user.role)}</TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {user.company_name ? (
                           <div className="flex items-center gap-2">
                             <Building2 className="w-4 h-4 text-slate-400" />
@@ -770,8 +777,8 @@ export default function UserManagementPage() {
                           <span className="text-sm text-slate-400">-</span>
                         )}
                       </TableCell>
-                      <TableCell>{getStatusBadge(user as User)}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">{getStatusBadge(user as User)}</TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <span className="text-sm text-slate-500 dark:text-slate-400">
                           {new Date(user.created_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
                         </span>

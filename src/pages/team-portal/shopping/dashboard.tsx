@@ -494,13 +494,13 @@ function ShoppingDashboardInner() {
               </PortalCard>
 
               <div className="grid grid-cols-2 gap-3 mb-6 sm:gap-4">
-                <StatTile
+                <StatTile tone="warn"
                   icon={AlertCircle}
                   label="Low stock"
                   value={peeksLoaded ? lowStockCount : "--"}
                   hint="At or below their minimum"
                 />
-                <StatTile
+                <StatTile tone="warn"
                   icon={Camera}
                   label="Receipts to file"
                   value={peeksLoaded ? pendingReceiptsCount : "--"}
@@ -510,11 +510,11 @@ function ShoppingDashboardInner() {
 
 
               {lowStockItems.length > 0 && (
-                <PortalCard className="mb-6 border-rose-200 dark:border-rose-900">
+                <PortalCard className="mb-6 border-amber-200 dark:border-amber-500/30">
                   <PortalCardHeader
                     title={
                       <span className="flex items-center gap-2 text-base sm:text-lg text-slate-900 dark:text-white">
-                        <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-500" />
+                        <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                         Low stock alerts
                       </span>
                     }
@@ -529,7 +529,7 @@ function ShoppingDashboardInner() {
                     {lowStockItems.map((item) => (
                       <div key={item.id} className="flex items-center justify-between gap-2 p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg flex-wrap">
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <Package className="w-5 h-5 text-rose-500 dark:text-rose-400 shrink-0" />
+                          <Package className={`w-5 h-5 shrink-0 ${(item.current_stock ?? 0) <= 0 ? "text-rose-500 dark:text-rose-400" : "text-amber-500 dark:text-amber-400"}`} />
                           <div className="min-w-0">
                             <p className="font-medium text-sm text-slate-900 dark:text-white truncate">{item.item_name || "Unnamed item"}</p>
                             <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -537,7 +537,12 @@ function ShoppingDashboardInner() {
                             </p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="shrink-0 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900">
+                        <Badge
+                          variant="outline"
+                          className={`shrink-0 ${(item.current_stock ?? 0) <= 0
+                            ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900"
+                            : "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30"}`}
+                        >
                           {(item.current_stock ?? 0) <= 0 ? "Out of stock" : "Low stock"}
                         </Badge>
                       </div>
@@ -659,13 +664,13 @@ function ShoppingDashboardInner() {
                   value={items.length}
                   hint="On your active list"
                 />
-                <StatTile
+                <StatTile tone="info"
                   icon={Clock}
                   label="Remaining"
                   value={remaining.length}
                   hint="Still to buy"
                 />
-                <StatTile
+                <StatTile tone="good"
                   icon={CheckCircle}
                   label="Bought"
                   value={bought.length}

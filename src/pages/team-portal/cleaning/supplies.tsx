@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Wrench, Search, AlertTriangle, Loader2, Minus, RefreshCw } from "lucide-react";
+import { Wrench, Search, AlertTriangle, Loader2, Minus, RefreshCw, Package, XCircle } from "lucide-react";
 import { CleaningPageShell, CLEANING_HERO_CHIP } from "@/components/cleaning/CleaningPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalCard, StatTile } from "@/components/portal/ui";
@@ -235,9 +235,9 @@ function CleaningSuppliesPageInner() {
         )}
 
         <div className="grid grid-cols-2 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-          <StatTile label="Total supplies" value={chipsReady ? stats.total : "--"} hint="On file" />
-          <StatTile label="Low stock" value={chipsReady ? stats.below : "--"} hint="At or below the minimum" />
-          <StatTile label="Out of stock" value={chipsReady ? stats.out : "--"} hint="Run out" />
+          <StatTile label="Total supplies" value={chipsReady ? stats.total : "--"} hint="On file" icon={Package} />
+          <StatTile tone="warn" label="Low stock" value={chipsReady ? stats.below : "--"} hint="At or below the minimum" icon={AlertTriangle} />
+          <StatTile tone="bad" label="Out of stock" value={chipsReady ? stats.out : "--"} hint="Run out" icon={XCircle} />
         </div>
 
         <PortalCard className="mb-6">

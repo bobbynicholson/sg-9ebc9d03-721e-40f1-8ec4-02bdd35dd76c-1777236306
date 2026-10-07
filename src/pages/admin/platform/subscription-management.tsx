@@ -443,7 +443,7 @@ function PlatformSubscriptionManagement() {
             hint="Every company on the platform"
             icon={Users}
           />
-          <StatTile
+          <StatTile tone="good"
             label={
               <span className="flex items-center gap-1.5">
                 Active
@@ -454,7 +454,7 @@ function PlatformSubscriptionManagement() {
             hint="On a paid plan"
             icon={CheckCircle}
           />
-          <StatTile
+          <StatTile tone="info"
             label={
               <span className="flex items-center gap-1.5">
                 On trial
@@ -465,7 +465,7 @@ function PlatformSubscriptionManagement() {
             hint="Free trial period"
             icon={TrendingUp}
           />
-          <StatTile
+          <StatTile tone="good"
             label={
               <span className="flex items-center gap-1.5">
                 Monthly revenue

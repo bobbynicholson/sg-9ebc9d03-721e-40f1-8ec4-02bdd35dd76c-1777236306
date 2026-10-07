@@ -197,7 +197,7 @@ function ShoppingInvoicesPageInner() {
       )}
 
       <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-6 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-        <StatTile
+        <StatTile tone="good"
           label={<span className="flex items-center gap-1">Completed runs <InfoTooltip content="Shopping lists where the buyer has finished the run." /></span>}
           icon={CheckCircle2}
           hint="Finished shopping runs"
@@ -209,7 +209,7 @@ function ShoppingInvoicesPageInner() {
           hint="Actual spend, all runs"
           value={chipsReady ? tenantCurrency.format(stats.totalSpend, 0) : "--"}
         />
-        <StatTile
+        <StatTile tone="info"
           label={<span className="flex items-center gap-1">Receipts on file <InfoTooltip content="Runs that have a receipt uploaded against them.\n\nIf the receipt rule is on in settings, you can't close a run without one." /></span>}
           icon={Receipt}
           hint="Runs with a slip attached"

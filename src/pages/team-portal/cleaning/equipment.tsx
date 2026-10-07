@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -274,7 +274,7 @@ function CleaningEquipmentPageInner() {
             value={chipsReady ? stats.total : "--"}
             hint="Lines on file for your company"
           />
-          <StatTile
+          <StatTile tone="warn"
             label="Damaged / poor"
             icon={AlertTriangle}
             value={chipsReady ? stats.damaged : "--"}
@@ -336,16 +336,29 @@ function CleaningEquipmentPageInner() {
             </div>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filtered.map((i) => (
-                // Stack name above the controls on mobile - on one line the
-                // condition badge + qty + SOP link + Verify button crowded the
-                // name so hard it truncated to "Stainl...". Full width on
-                // phones, single row from sm up.
-                <li key={i.id} className="p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+              {filtered.map((i, index) => (
+                <Fragment key={i.id}>
+                {/* Category heading whenever the category changes, so the
+                    list reads in groups (Bain-Marie, Crockery, ...). */}
+                {!search.trim() && (index === 0 || filtered[index - 1].category !== i.category) && (
+                  <li className="flex items-center justify-between bg-slate-50/80 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/40 dark:text-slate-400">
+                    <span>{i.category || "Other"}</span>
+                    <span className="font-medium normal-case tracking-normal">
+                      {(() => {
+                        const count = filtered.filter((x) => x.category === i.category).length;
+                        return `${count} ${count === 1 ? "item" : "items"}`;
+                      })()}
+                    </span>
+                  </li>
+                )}
+                {/* Stack name above the controls on mobile - on one line the
+                    condition badge + qty + SOP link + Verify button crowded the
+                    name so hard it truncated to "Stainl...". Full width on
+                    phones, single row from sm up. */}
+                <li className="p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-slate-900 dark:text-white truncate">{i.name}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3">
-                      <span>{i.category ?? "--"}</span>
                       {i.replacement_cost != null && <span className="tabular-nums">{formatZAR(i.replacement_cost, { decimals: 0 })} replacement</span>}
                       {i.cleaning_time_hours != null && <span className="tabular-nums">{Number(i.cleaning_time_hours)}h to clean</span>}
                     </div>
@@ -381,6 +394,7 @@ function CleaningEquipmentPageInner() {
                     </Button>
                   </div>
                 </li>
+                </Fragment>
               ))}
             </ul>
           )}

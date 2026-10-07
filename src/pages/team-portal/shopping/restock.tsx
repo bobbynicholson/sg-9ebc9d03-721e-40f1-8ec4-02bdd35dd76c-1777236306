@@ -291,8 +291,8 @@ function ShoppingRestockPageInner() {
         </PortalCard>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <StatTile
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <StatTile tone="warn"
               icon={AlertCircle}
               label="Low items"
               value={String(rows.length)}

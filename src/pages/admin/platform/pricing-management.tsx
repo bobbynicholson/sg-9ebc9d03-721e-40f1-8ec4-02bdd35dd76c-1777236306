@@ -208,7 +208,7 @@ function PricingManagementPage() {
         <PortalHeader
           variant="hero"
           title="Pricing"
-          subtitle="Subscription pricing across the SA, US, UK and EU markets"
+          subtitle="Set each plan's monthly price. Change the ZAR price; the other currencies follow unless you override them."
           icon={Tag}
           meta={
             <>
@@ -235,7 +235,7 @@ function PricingManagementPage() {
               href="/admin/platform/tech-costs"
               className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:border-white/40 hover:bg-white/20"
             >
-              See your COGS at this price
+              See costs and margin
             </a>
           }
         />
@@ -358,13 +358,10 @@ function PricingManagementPage() {
                     className="gap-2 h-10 text-sm"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    Auto-Calculate
+                    Recalculate from ZAR
                   </Button>
                 }
               />
-              <p className="-mt-2 mb-3 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                Monthly subscription pricing across all markets
-              </p>
               <div className="mb-5 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
                 <span className="text-3xl font-semibold tabular-nums text-slate-900 dark:text-white">
                   R{tier.zarPrice.toLocaleString("en-ZA")}
@@ -384,7 +381,7 @@ function PricingManagementPage() {
                       </Badge>
                     </div>
                     <Label htmlFor={`zar-${index}`} className="text-xs sm:text-sm font-semibold">
-                      ZAR Price (Primary)
+                      ZAR price (main)
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 font-bold text-sm sm:text-base">
@@ -399,7 +396,7 @@ function PricingManagementPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Base price for formula calculation
+                      The main price. Others are worked out from it.
                     </p>
                   </div>
 
@@ -426,7 +423,7 @@ function PricingManagementPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} x 3 / {EXCHANGE_RATES.USD} = USD {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)} (approximate; ZAR is authoritative)
+                      Suggested from ZAR: USD {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.USD)}
                     </p>
                   </div>
 
@@ -453,7 +450,7 @@ function PricingManagementPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} x 3 / {EXCHANGE_RATES.GBP} = GBP {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)} (approximate; ZAR is authoritative)
+                      Suggested from ZAR: GBP {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.GBP)}
                     </p>
                   </div>
 
@@ -480,7 +477,7 @@ function PricingManagementPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 break-words">
-                      Auto: ZAR {tier.zarPrice} x 3 / {EXCHANGE_RATES.EUR} = EUR {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)} (approximate; ZAR is authoritative)
+                      Suggested from ZAR: EUR {calculateForeignPrice(tier.zarPrice, EXCHANGE_RATES.EUR)}
                     </p>
                   </div>
                 </div>

@@ -268,7 +268,7 @@ function ShoppingSuppliersPageInner() {
             value={stats.total}
           />
           {/* Neutral value: the brand colour can be red, which read as a problem. */}
-          <StatTile
+          <StatTile tone="good"
             label={<span className="flex items-center gap-1">Active <InfoTooltip content="Suppliers you're currently using.\n\nThese are the ones that show up when you're picking who to buy from." /></span>}
             icon={CheckCircle2}
             hint="Shown when you buy"

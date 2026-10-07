@@ -222,13 +222,13 @@ function ShoppingKitchenDemandPageInner() {
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 [&>*:last-child:nth-child(odd)]:col-span-2 sm:[&>*:last-child:nth-child(odd)]:col-span-1 gap-3 mb-5 sm:grid-cols-3 sm:gap-4">
-        <StatTile
+        <StatTile tone="info"
           label="Ingredients in play"
           hint="From confirmed orders"
           value={stats.ingredients}
           icon={Boxes}
         />
-        <StatTile
+        <StatTile tone="warn"
           label="Short"
           value={
             <span className={stats.shortfall > 0 ? "text-rose-700 dark:text-rose-400" : undefined}>
@@ -238,7 +238,7 @@ function ShoppingKitchenDemandPageInner() {
           hint="Need to buy"
           icon={AlertTriangle}
         />
-        <StatTile
+        <StatTile tone="info"
           label="Orders feeding this"
           hint="Confirmed in this window"
           value={stats.orders}

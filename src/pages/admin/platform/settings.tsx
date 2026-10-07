@@ -38,18 +38,18 @@ interface KnownKey {
 const KNOWN_KEYS: KnownKey[] = [
   {
     key: "import_row_cap",
-    label: "Import row cap",
+    label: "Most rows per import",
     description:
-      "Maximum number of rows accepted per Excel / CSV import (clients, leads, onboarding wizard). Stops a company uploading thousands of customers in one go. To bring in a large existing customer list, raise it for that import, then set it back.",
+      "The most rows a company can upload in one spreadsheet (clients, leads, sign-up setup). Stops thousands of records arriving at once. For a big one-off import, raise it, then set it back.",
     type: "number",
     unit: "rows",
     example: "200",
   },
   {
     key: "public_origin",
-    label: "Public origin URL",
+    label: "Website address",
     description:
-      "Base URL emails and webhooks point at. Change this if you migrate domains.",
+      "The address links in emails and payment notifications point to. Only change it if CateringMS moves to a new domain.",
     type: "url",
     example: "https://cateringms.com",
   },

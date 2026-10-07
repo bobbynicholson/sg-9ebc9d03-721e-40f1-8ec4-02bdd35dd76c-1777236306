@@ -350,31 +350,31 @@ function TrialManagementPage() {
           <>
             {/* Stats Overview */}
             <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-              <StatTile
+              <StatTile tone="info"
                 label="On trial"
                 value={stats.totalTrials}
                 hint="In their free trial period"
                 icon={Calendar}
               />
-              <StatTile
+              <StatTile tone="info"
                 label="Within 7 days"
                 value={<span className={stats.expiringIn7Days > 0 ? "text-amber-600 dark:text-amber-400" : undefined}>{stats.expiringIn7Days}</span>}
                 hint="First reminder goes out"
                 icon={Clock}
               />
-              <StatTile
+              <StatTile tone="warn"
                 label="Within 3 days"
                 value={<span className={stats.expiringIn3Days > 0 ? "text-amber-600 dark:text-amber-400" : undefined}>{stats.expiringIn3Days}</span>}
                 hint="Second reminder due"
                 icon={Clock}
               />
-              <StatTile
+              <StatTile tone="bad"
                 label="Within 1 day"
                 value={<span className={stats.expiringIn1Day > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.expiringIn1Day}</span>}
                 hint="Final reminder"
                 icon={Clock}
               />
-              <StatTile
+              <StatTile tone="bad"
                 label="Expired"
                 value={<span className={stats.expired > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.expired}</span>}
                 hint="Convert or cancel"

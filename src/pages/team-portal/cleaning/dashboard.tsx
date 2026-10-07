@@ -413,25 +413,25 @@ function CleaningDashboardInner() {
           {/* Tile row hides on a failed first load - all-zero tiles
               over a broken read would tell the lead a lie. */}
           <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 ${loadError && !loaded ? "hidden" : ""}`}>
-            <StatTile
+            <StatTile tone="good"
               icon={CheckCircle}
               label="Available"
               value={equipment.filter(e => e.status === 'available').length}
               hint="Clean and ready to send out"
             />
-            <StatTile
+            <StatTile tone="info"
               icon={Truck}
               label="In Use"
               value={equipment.filter(e => e.status === 'in_use').length}
               hint="Currently out on a job"
             />
-            <StatTile
+            <StatTile tone="info"
               icon={Clock}
               label="Cleaning"
               value={equipment.filter(e => e.status === 'cleaning').length}
               hint="Waiting in the cleaning queue"
             />
-            <StatTile
+            <StatTile tone="warn"
               icon={AlertTriangle}
               label="Damaged"
               value={equipment.filter(e => e.status === 'damaged').length}

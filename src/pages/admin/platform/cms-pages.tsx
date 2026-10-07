@@ -746,11 +746,11 @@ function CMSPageManagement() {
 
               {scopeBanner}
 
-              <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatTile label="Pages" value={pageSummary.total} hint="All public CMS records" icon={FileText} />
-                <StatTile label="Published" value={pageSummary.published} hint="Visible on cateringms.com" icon={CheckCircle2} />
-                <StatTile label="Drafts" value={pageSummary.drafts} hint="Saved but hidden" icon={FileWarning} />
-                <StatTile label="With header image" value={pageSummary.withHeaderImage} hint="Ready for rich previews" icon={Image} />
+              <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <StatTile label="Pages" value={pageSummary.total} hint="Every website page" icon={FileText} />
+                <StatTile tone="good" label="Published" value={pageSummary.published} hint="Visible on cateringms.com" icon={CheckCircle2} />
+                <StatTile tone="info" label="Drafts" value={pageSummary.drafts} hint="Saved but hidden" icon={FileWarning} />
+                <StatTile label="With header image" value={pageSummary.withHeaderImage} hint="Show a picture when shared" icon={Image} />
               </div>
 
               {loading ? (

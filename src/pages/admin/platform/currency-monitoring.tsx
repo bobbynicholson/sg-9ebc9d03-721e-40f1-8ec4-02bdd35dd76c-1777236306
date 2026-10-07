@@ -280,14 +280,14 @@ function PlatformCurrencyMonitoringPage() {
             banner until a reload succeeds. */}
         {!loadError && (
         <>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <StatTile
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <StatTile tone="info"
             label="Current Rate"
             value={`ZAR ${currentRate.toFixed(2)}`}
             hint={`per USD${currentRateDate ? ` · as of ${new Date(currentRateDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : " · no rate stored yet"}`}
             icon={DollarSign}
           />
-          <StatTile
+          <StatTile tone="warn"
             label="90-Day Change"
             value={
               <span className={fluctuation.percentage >= 0 ? "text-rose-600 dark:text-rose-500" : "text-brand-primary dark:text-brand-primary"}>
@@ -297,7 +297,7 @@ function PlatformCurrencyMonitoringPage() {
             hint={<span className="capitalize">ZAR {fluctuation.trend}</span>}
             icon={fluctuation.percentage >= 0 ? TrendingUp : TrendingDown}
           />
-          <StatTile
+          <StatTile tone="warn"
             label="Active Alerts"
             value={
               <span className={alerts.length > 0 ? "text-amber-600 dark:text-amber-500" : undefined}>

@@ -414,10 +414,10 @@ function ShoppingBuyListPageInner() {
           {/* 2-up on phones: four short numbers stacked one per row
               pushed the list ~600px down. */}
           <div className="grid grid-cols-2 gap-3 mb-6 sm:gap-4 xl:grid-cols-4">
-            <StatTile label="To buy" value={statusCounts.toBuy} hint="Need buying now" icon={ListChecks} />
-            <StatTile label="Shortfall" value={statusCounts.shortfall} hint="Orders need more in 7 days" icon={AlertTriangle} />
-            <StatTile label="At minimum" value={statusCounts.belowPar} hint="At or below their minimum" icon={AlertCircle} />
-            <StatTile label="Low" value={statusCounts.low} hint="Running out within 14 days" icon={AlertCircle} />
+            <StatTile tone="warn" label="To buy" value={statusCounts.toBuy} hint="Need buying now" icon={ListChecks} />
+            <StatTile tone="warn" label="Shortfall" value={statusCounts.shortfall} hint="Orders need more in 7 days" icon={AlertTriangle} />
+            <StatTile tone="warn" label="At minimum" value={statusCounts.belowPar} hint="At or below their minimum" icon={AlertCircle} />
+            <StatTile tone="warn" label="Low" value={statusCounts.low} hint="Running out within 14 days" icon={AlertCircle} />
           </div>
 
           {/* Active list status */}

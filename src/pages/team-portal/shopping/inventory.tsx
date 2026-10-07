@@ -426,13 +426,13 @@ function ShoppingInventoryPageInner() {
             value={stats.total}
             icon={Package}
           />
-          <StatTile
+          <StatTile tone="warn"
             label={<span className="flex items-center gap-1">At minimum <InfoTooltip content="Items at or below their minimum stock level.\n\nThese are the things to put on the next shopping run." /></span>}
             hint="Put on the next run"
             value={stats.below}
             icon={AlertTriangle}
           />
-          <StatTile
+          <StatTile tone="bad"
             label={<span className="flex items-center gap-1">Out of stock <InfoTooltip content="Items that have run out completely.\n\nYou cannot fulfil orders that need these until they're restocked." /></span>}
             hint="Restock before orders need them"
             value={stats.out}

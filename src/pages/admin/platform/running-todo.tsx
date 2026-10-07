@@ -43,6 +43,7 @@ import {
   Layers,
   Shield,
   BookOpen,
+  ListTodo,
 } from "lucide-react";
 
 type Status = "shipped" | "in_progress" | "todo" | "blocked";
@@ -1686,21 +1687,27 @@ function AdminRunningTodoPage() {
           />
           <PageWorkbench />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-            <StatTile label="Total items" value={stats.total} />
-            <StatTile
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+            <StatTile label="Total items" value={stats.total} hint="Every card on the board" icon={Layers} />
+            <StatTile tone="good"
               label="Shipped"
               value={stats.shipped}
+              hint="Done and live"
+              icon={CheckCircle2}
             />
-            <StatTile
-              label="Todo"
+            <StatTile tone="info"
+              label="To do"
               value={stats.todo}
+              hint="Not started yet"
+              icon={ListTodo}
             />
-            <StatTile
+            <StatTile tone="bad"
               label="Blocked"
               value={<span className={stats.blocked > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.blocked}</span>}
+              hint="Waiting on something"
+              icon={AlertCircle}
             />
-            <StatTile label="Overall" value={`${overallPct}%`} />
+            <StatTile tone="brand" label="Overall" value={`${overallPct}%`} hint="Of all cards shipped" icon={Target} />
           </div>
 
           <PortalCard className="mb-6">

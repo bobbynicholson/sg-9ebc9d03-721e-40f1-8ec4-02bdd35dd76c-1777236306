@@ -154,27 +154,27 @@ function PlatformFinancialDashboard() {
           )}
 
           {/* Money row: shared analytics source, matches the platform dashboard. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <StatTile
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+            <StatTile tone="good"
               label="Monthly revenue"
               value={loading ? "-" : fmt(metrics?.monthlyRecurringRevenue)}
               hint="Active monthly subscriptions"
               icon={Repeat}
             />
-            <StatTile
+            <StatTile tone="good"
               label="Yearly revenue"
               value={loading ? "-" : fmt(metrics?.annualRecurringRevenue)}
               hint="Active annual subscriptions"
               icon={CalendarClock}
             />
-            <StatTile
+            <StatTile tone="good"
               label="All subscription revenue"
               value={loading ? "-" : fmt(metrics?.totalRevenue)}
               hint="Monthly and annual combined"
               icon={TrendingUp}
             />
             <div id="churn" data-chat-section="platform.financial-dashboard.churn">
-              <StatTile
+              <StatTile tone="bad"
                 label="Churn (30 days)"
                 value={loading ? "-" : pct(metrics?.churnRate)}
                 hint={loading ? undefined : `Trial to paid conversion ${pct(metrics?.conversionRate)}`}
@@ -184,11 +184,11 @@ function PlatformFinancialDashboard() {
           </div>
 
           {/* Tenant mix row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <StatTile label="Companies" value={loading ? "-" : stats.total} icon={Users} />
-            <StatTile label="Paying" value={loading ? "-" : stats.active} icon={Activity} />
-            <StatTile label="On trial" value={loading ? "-" : stats.trialing} icon={TrendingUp} />
-            <StatTile label="Cancelled" value={loading ? "-" : <span className={stats.cancelled > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.cancelled}</span>} icon={AlertTriangle} />
+            <StatTile tone="good" label="Paying" value={loading ? "-" : stats.active} icon={Activity} />
+            <StatTile tone="info" label="On trial" value={loading ? "-" : stats.trialing} icon={TrendingUp} />
+            <StatTile tone="bad" label="Cancelled" value={loading ? "-" : <span className={stats.cancelled > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.cancelled}</span>} icon={AlertTriangle} />
           </div>
 
           {/* Trial expiry alert */}

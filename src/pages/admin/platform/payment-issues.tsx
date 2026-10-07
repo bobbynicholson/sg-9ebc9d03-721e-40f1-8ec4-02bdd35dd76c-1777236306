@@ -113,9 +113,9 @@ function PaymentIssuesPage() {
             </Alert>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
-            <StatTile icon={AlertTriangle} label="Payment setup issues" value={loading ? "-" : issues.length} hint="Onboarded companies without an active payment connection." />
-            <StatTile icon={CheckCircle2} label="Payment setup ready" value={loading ? "-" : healthyCount} hint="Onboarded companies with an active payment connection." />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 mb-6">
+            <StatTile tone="warn" icon={AlertTriangle} label="Payment setup issues" value={loading ? "-" : issues.length} hint="Onboarded companies without an active payment connection." />
+            <StatTile tone="good" icon={CheckCircle2} label="Payment setup ready" value={loading ? "-" : healthyCount} hint="Onboarded companies with an active payment connection." />
             <StatTile icon={CreditCard} label="Onboarded companies" value={loading ? "-" : onboardedCount} hint="Companies included in this payment setup check." />
           </div>
 

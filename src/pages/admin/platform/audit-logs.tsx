@@ -22,7 +22,6 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -125,6 +124,21 @@ function applyAuditCategoryFilter(query: any, category: string): any {
   }
 }
 
+// "14:05" for the row; the full timestamp is the tooltip.
+const timeOfDay = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
+
+// Day heading for the feed: "Today", "Yesterday", else "Sat 4 Oct 2026".
+const dayHeading = (iso: string) => {
+  const d = new Date(iso);
+  const key = (x: Date) => `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  if (key(d) === key(today)) return "Today";
+  if (key(d) === key(yesterday)) return "Yesterday";
+  return d.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+};
+
 // Tone the row border by action class so eyes parse the stream
 // without reading every word. Refund + payment + cancel are the
 // expensive failure modes; default tone is neutral.
@@ -156,7 +170,7 @@ const toneFor = (action: string): string => {
   if (action.includes("delete") || action.includes("removed")) {
     return "border-l-rose-400 dark:border-l-rose-400 bg-rose-50/40 dark:bg-rose-500/10";
   }
-  return "border-l-slate-300 dark:border-l-slate-600 bg-white dark:bg-slate-900";
+  return "border-l-transparent";
 };
 
 function AuditLogsViewer() {
@@ -376,7 +390,7 @@ function AuditLogsViewer() {
           <PortalHeader
             variant="hero"
             title="Activity log"
-            subtitle="Who did what, across every company. Nothing here can be changed; open a row to act on the record itself."
+            subtitle="Who did what, across every company. Read-only: use Open to go to the record."
             icon={ScrollText}
             meta={
               <>
@@ -531,74 +545,80 @@ function AuditLogsViewer() {
               description="Loosen the filters or expand the window if you think something should be here."
             />
           ) : (
-            <div id="platform-audit-records" data-chat-section="platform.audit-logs.records" className="space-y-2">
-              {rows.map((r) => {
-                const tone = toneFor(r.action);
-                const href = entityHref(r.entity_type, r.entity_id);
-                const user = r.user_id ? profileMap[r.user_id] : null;
-                const company = r.company_id ? companyMap[r.company_id] : null;
-                return (
-                  <div
-                    key={r.id}
-                    id={`platform-audit-record-${r.id}`}
-                    className={`border border-slate-200 dark:border-slate-700 border-l-4 rounded-md p-3 ${tone}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">{fmtTs(r.created_at)}</span>
-                          <Badge variant="outline" className="text-[10px] font-semibold" title={r.action}>
-                            {actionLabel(r.action)}
-                          </Badge>
-                          {r.entity_type && r.entity_type !== "cron" && (
-                            <Badge variant="outline" className="text-[10px] bg-slate-100 dark:bg-slate-800 dark:text-slate-300">
-                              {entityLabel(r.entity_type)}
-                            </Badge>
-                          )}
-                          {company?.company_name && (
-                            <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30">
-                              {company.company_name}
-                            </Badge>
+            <div id="platform-audit-records" data-chat-section="platform.audit-logs.records" className="space-y-4">
+              {/* One feed grouped by day: each row reads as a sentence
+                  (time, who, what, where). Raw details stay one click away. */}
+              {rows.reduce<Array<{ day: string; items: AuditRow[] }>>((groups, row) => {
+                const day = dayHeading(row.created_at);
+                const last = groups[groups.length - 1];
+                if (last && last.day === day) last.items.push(row);
+                else groups.push({ day, items: [row] });
+                return groups;
+              }, []).map((group) => (
+                <section key={group.day}>
+                  <h3 className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    {group.day} <span className="font-normal normal-case tracking-normal">· {group.items.length}</span>
+                  </h3>
+                  <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+                    {group.items.map((r) => {
+                      const tone = toneFor(r.action);
+                      const href = entityHref(r.entity_type, r.entity_id);
+                      const user = r.user_id ? profileMap[r.user_id] : null;
+                      const company = r.company_id ? companyMap[r.company_id] : null;
+                      const actor = user?.full_name || user?.email || (r.user_id ? "Unknown user" : "System");
+                      const hasDetails = r.details && Object.keys(r.details).length > 0;
+                      return (
+                        <div
+                          key={r.id}
+                          id={`platform-audit-record-${r.id}`}
+                          className={`flex items-start gap-3 border-l-4 px-3 py-2.5 ${tone}`}
+                        >
+                          <time
+                            dateTime={r.created_at}
+                            title={fmtTs(r.created_at)}
+                            className="w-11 shrink-0 pt-0.5 text-xs tabular-nums text-slate-500 dark:text-slate-400"
+                          >
+                            {timeOfDay(r.created_at)}
+                          </time>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-slate-800 dark:text-slate-200">
+                              <span className="font-medium text-slate-950 dark:text-white">{actor}</span>
+                              <span className="text-slate-400"> · </span>
+                              <span title={r.action}>{actionLabel(r.action)}</span>
+                              {r.entity_type && r.entity_type !== "cron" && (
+                                <span className="text-slate-500 dark:text-slate-400"> on {entityLabel(r.entity_type).toLowerCase()}</span>
+                              )}
+                            </p>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                              {company?.company_name && <span>{company.company_name}</span>}
+                              {hasDetails && (
+                                <details className="group/details open:w-full">
+                                  <summary className="inline cursor-pointer list-none text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+                                    <span className="group-open/details:hidden">Show details</span>
+                                    <span className="hidden group-open/details:inline">Hide details</span>
+                                  </summary>
+                                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-all rounded border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                                    {JSON.stringify(
+                                      { ...(r.details || {}), ...(r.entity_id ? { record: r.entity_id } : {}), ...(r.ip_address ? { ip: r.ip_address } : {}) },
+                                      null,
+                                      2,
+                                    )}
+                                  </pre>
+                                </details>
+                              )}
+                            </div>
+                          </div>
+                          {href && (
+                            <Link href={href} className="inline-flex min-h-[32px] shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">
+                              Open <ExternalLink className="h-3 w-3" />
+                            </Link>
                           )}
                         </div>
-                        <div className="mt-1 text-xs text-slate-700 dark:text-slate-300 flex flex-wrap items-center gap-2">
-                          <span>
-                            <span className="text-slate-500 dark:text-slate-400">by</span>{" "}
-                            <span className="font-medium">
-                              {user?.full_name || user?.email || (r.user_id ? r.user_id.slice(0, 8) : "system")}
-                            </span>
-                          </span>
-                          {r.entity_id && (
-                            <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                              {r.entity_id.slice(0, 8)}
-                            </span>
-                          )}
-                          {r.ip_address && (
-                            <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
-                              {r.ip_address}
-                            </span>
-                          )}
-                        </div>
-                        {r.details && Object.keys(r.details).length > 0 && (
-                          <details className="mt-2">
-                            <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
-                              details
-                            </summary>
-                            <pre className="mt-1 text-[11px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
-                              {JSON.stringify(r.details, null, 2)}
-                            </pre>
-                          </details>
-                        )}
-                      </div>
-                      {href && (
-                        <Link href={href} className="shrink-0 text-xs text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white inline-flex items-center gap-1">
-                          Open <ExternalLink className="w-3 h-3" />
-                        </Link>
-                      )}
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </section>
+              ))}
 
               {/* Pagination */}
               <div className="flex items-center justify-between pt-3 text-xs text-slate-600 dark:text-slate-400">

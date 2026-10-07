@@ -176,16 +176,16 @@ function PlatformTemplatesPanel() {
             title={
               <span className="inline-flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-slate-700 dark:text-slate-300 shrink-0" />
-                Global defaults &middot; affects every tenant
+                Shared by every company
               </span>
             }
             className="mb-2 pb-2"
           />
           <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-            These are emails the platform sends to tenants on subscription events. Saving here writes a row at <code>email_templates.company_id IS NULL</code> - every tenant that hasn't customised the matching key sees the new wording. Reset to revert to the inline default in the registry.
+            CateringMS sends these to catering companies about their account and subscription. Your wording is used for every company that hasn't written its own. Reset puts the original wording back.
           </p>
         </PortalCard>
-        <StatTile
+        <StatTile tone="info"
           label="Customised"
           value={customisedCount}
           hint={`of ${rows.length} platform templates`}
@@ -251,7 +251,7 @@ function PlatformTemplatesPanel() {
                           <p className="text-sm font-semibold text-slate-900 dark:text-white">{row.label}</p>
                           {NOT_YET_WIRED_KEYS.has(row.key) ? (
                             <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-0 text-[10px] gap-1">
-                              <AlertCircle className="w-3 h-3" /> Not yet wired
+                              <AlertCircle className="w-3 h-3" /> Not sent yet
                             </Badge>
                           ) : (
                             <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-0 text-[10px] gap-1">
@@ -381,7 +381,7 @@ function EditorDrawer({
       });
       toast({
         title: "Global default saved",
-        description: "Every tenant that hasn't customised will see the new wording on the next platform send.",
+        description: "Every company that hasn't written its own will get the new wording from the next email.",
       });
       onSaved();
     } catch (err: unknown) {
@@ -398,7 +398,7 @@ function EditorDrawer({
   const handleReset = async () => {
     if (!template.isCustomised) return;
     const confirmed = window.confirm(
-      `Reset the global default for "${template.label}"? Every tenant that hasn't saved their own override will fall back to the inline default in the registry.`,
+      `Reset "${template.label}" to the original wording? Companies that wrote their own keep theirs.`,
     );
     if (!confirmed) return;
     setResetting(true);
@@ -453,7 +453,7 @@ function EditorDrawer({
             <div className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
               <p className="font-semibold mb-0.5">{template.trigger || "Fires automatically when the platform event occurs."}</p>
               <p>
-                Saving writes the global default. Every tenant that hasn't customised this key sees your wording immediately on the next platform send.
+                Saving changes this email for every company that hasn't written its own, from the next send.
               </p>
             </div>
           </CardContent>
@@ -545,14 +545,14 @@ function EditorDrawer({
         )}
 
         <p className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
-          Platform defaults affect every tenant. A tenant who has saved their own override at <code>/admin/email-templates</code> keeps using theirs.
+          These wordings are shared by every company. A company that wrote its own version in its email settings keeps using that one.
         </p>
 
         <Link
           href="/admin/email-templates?tab=templates"
           className="text-[11px] inline-flex items-center justify-center gap-1 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white w-full"
         >
-          See how tenants edit their own copy
+          See how companies edit their own
           <ExternalLink className="w-3 h-3" />
         </Link>
 

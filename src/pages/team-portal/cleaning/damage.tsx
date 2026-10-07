@@ -411,12 +411,13 @@ function CleaningDamagePageInner() {
         )}
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 mb-6">
-          <StatTile label="Open reports" value={chipsReady ? stats.open : "--"} hint="Still need fixing" />
-          <StatTile label="Resolved" value={chipsReady ? stats.resolved : "--"} hint="In the latest reports" />
-          <StatTile
+          <StatTile tone="warn" label="Open reports" value={chipsReady ? stats.open : "--"} hint="Still need fixing" icon={AlertTriangle} />
+          <StatTile tone="good" label="Resolved" value={chipsReady ? stats.resolved : "--"} hint="In the latest reports" icon={CheckCircle2} />
+          <StatTile tone="warn"
             label="Outstanding cost"
             value={chipsReady ? formatZAR(stats.cost, { decimals: 0 }) : "--"}
             hint="Across open reports"
+            icon={FileWarning}
             className="col-span-2 sm:col-span-1"
           />
         </div>

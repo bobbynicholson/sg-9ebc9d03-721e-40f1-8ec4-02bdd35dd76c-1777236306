@@ -1,6 +1,6 @@
 # Target: polished UI for every role portal
 
-**Status (2026-10-07): deep UX pass for platform owner, cleaning and shopping complete and committed.** One standard for every role: the company admin pages plus the kitchen and driver portals are the reference. Each portal below follows the same page standard and the same UI-only boundary.
+**Status (2026-10-07): deep UX pass committed (`fb1c4fe2`); clarity + look round for platform owner, cleaning and shopping complete, not yet committed.** One standard for every role: the company admin pages plus the kitchen and driver portals are the reference. Each portal below follows the same page standard and the same UI-only boundary.
 
 ## All role portals (categorised)
 
@@ -30,6 +30,50 @@ Out of scope (not role portals): marketing pages (/, /features*, /pricing, /eu, 
 5. Plain language: no database names, internal codes, "Wave" notes or developer wording.
 6. No sideways scroll at 1440 / 768 / 390; floating widgets never cover controls.
 7. UI only: no backend, API, schema, RLS, auth or business-rule changes; every save, status and permission behaves exactly as before.
+
+# Clarity + look round: platform owner, cleaning, shopping (2026-10-07, round 2)
+
+**Status: Complete (2026-10-07), not yet committed.** Asked for: every page more polished, easier to understand and more attractive. This round goes back over the pages the first deep pass marked "no change" and adds a visual layer shared by all three portals. Same UI-only boundary: no API, schema, RLS, auth or business-rule changes; every save and permission works as before.
+
+## Look (all three portals)
+
+- **Coloured stat tiles.** `StatTile` takes an optional `tone` (good / warn / bad / info / brand): tinted icon bubble + thin top accent. Neutral when unset, so other portals are unchanged. Applied to 60+ tiles by meaning: green = healthy (Active, Paying, Available, Resolved, Shipped), sky = info (Trial, Pending, In progress), amber = needs attention (Low, At minimum, Short, Open reports), red = urgent (Out of stock, Expired, Blocked, Cancelled).
+- **Every tile has an icon and a one-line hint** (Running to-do, Damages, Supplies, Task board were bare).
+- **Tiles two per row on phones** everywhere (Users, Dashboard, Revenue, Company health, Payment issues, Pages, Currency, Running to-do, Restock stacked one per row).
+
+## Platform owner
+
+| Page | Change |
+|---|---|
+| Activity log | rebuilt as a feed grouped by day ("Today", "Yesterday", "Sat 4 Oct 2026" + count); each event is one sentence (time · who · what · on what) with the company under it; raw details, record id and IP behind "Show details"; the 8-character record ids are gone from the row. Desktop 3025 -> ~2500px |
+| Pricing | the same caption ("Monthly subscription pricing across all markets") and the long helper ("Auto: ZAR 999 x 3 / 18.5 = USD 162 (approximate; ZAR is authoritative)") under every field -> "Suggested from ZAR: USD 162"; "Auto-Calculate" -> "Recalculate from ZAR"; "See your COGS at this price" -> "See costs and margin"; plain subtitle |
+| Platform emails | "writes a row at `email_templates.company_id IS NULL`", "tenant", "registry", "Not yet wired" replaced with plain words ("Shared by every company", "Not sent yet"); email descriptions say "company" not "tenant" |
+| Platform settings | "Import row cap" -> "Most rows per import"; "Public origin URL" -> "Website address", both with plain explanations |
+| Users | on phones, role, status and company show under each name (their columns were off-screen, so the phone list showed names only) |
+| Pages | tile hints in plain words ("Every website page", "Show a picture when shared") |
+| Running to-do | tiles with icons + hints; "Todo" -> "To do" |
+
+## Cleaning
+
+| Page | Change |
+|---|---|
+| Today | tiles toned (Available green, In use / Cleaning sky, Damaged amber) |
+| Equipment | list grouped under category headings with item counts ("1 item" / "N items") (Bain-Marie, Crockery, ...) instead of repeating the category on every row; flat list while searching |
+| Supplies, Damages, Task board | tile icons + tones |
+
+## Shopping
+
+| Page | Change |
+|---|---|
+| Today | low-stock alerts amber (red only for out of stock) - matched the Buy list; was all red |
+| Buy list, Restock, Inventory, Kitchen demand, Spend, Suppliers | tiles toned |
+
+## Checks
+
+- Full read-only check (`deep3-after.log`, `portals-deep3-after/`): shopping 12/12, cleaning 9/9 + manager 1/1, platform 19/19 load with 0 page errors and 0 sideways overflow at 1440 / 768 / 390. Platform API pages first showed 401s; re-run with a fresh session they were clean (`deep3-platform.log`, `r3/fresh-*`) - a stale cached sign-in in the check tooling, not the app. The dev server stalled near the end of that re-run; the last pages were re-checked separately, clean.
+- `tsc` 0 errors; ESLint 0 errors and no new warnings (per-file counts equal to `HEAD` for every changed file; caught and fixed a JSX comment that would have rendered as text in Equipment); Jest 793/793 tests (only the unrelated scratch suite `tmp/pdfs/render-payment-pdfs.test.ts` fails to parse); production build 199/199 pages (`NEXT_DIST_DIR=.next-verify`).
+- New helper: `tmp/ui-normalization/shot-pages.mjs <email> <out-prefix> <path...>` - fresh session, desktop + phone screenshots, non-GET requests blocked (so pages that read through RPCs show zeros in its shots; the full check doesn't block them).
+
 
 # Deep UX pass: platform owner, cleaning, shopping (2026-10-07)
 

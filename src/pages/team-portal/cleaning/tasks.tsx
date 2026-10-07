@@ -296,9 +296,9 @@ function CleaningTasksPageInner() {
           {/* Tile row hides on a failed first load - all-zero tiles
               over a broken read would look like a finished day. */}
           <div className={`grid grid-cols-3 gap-3 sm:gap-4 mb-6 ${loadError && !loaded ? "hidden" : ""}`}>
-            <StatTile label="Open tasks" value={stats.total} hint="Not finished yet in this view" />
-            <StatTile label="Pending" value={stats.pending} hint="Scheduled, not started" />
-            <StatTile label="In progress" value={stats.inProgress} hint="Started, not finished" />
+            <StatTile tone="warn" label="Open tasks" value={stats.total} hint="Not finished yet in this view" icon={ClipboardCheck} />
+            <StatTile tone="info" label="Pending" value={stats.pending} hint="Scheduled, not started" icon={Clock} />
+            <StatTile tone="info" label="In progress" value={stats.inProgress} hint="Started, not finished" icon={Play} />
           </div>
 
           <div className="flex gap-2 mb-4">

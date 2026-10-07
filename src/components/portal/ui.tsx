@@ -618,6 +618,16 @@ export function PortalCardHeader({
   );
 }
 
+export type StatTone = "good" | "warn" | "bad" | "info" | "brand";
+
+const STAT_TONES: Record<StatTone, { icon: string; bar: string }> = {
+  good: { icon: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400", bar: "bg-emerald-500/70" },
+  warn: { icon: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400", bar: "bg-amber-500/70" },
+  bad: { icon: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400", bar: "bg-rose-500/70" },
+  info: { icon: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400", bar: "bg-sky-500/70" },
+  brand: { icon: "bg-brand-primary/10 text-brand-primary", bar: "bg-brand-primary/70" },
+};
+
 /** Consistent KPI / stat block. Optional `trend` shows a small up/down chip. */
 export function StatTile({
   label,
@@ -625,6 +635,7 @@ export function StatTile({
   hint,
   icon: Icon,
   trend,
+  tone,
   className,
 }: {
   label: React.ReactNode;
@@ -633,9 +644,14 @@ export function StatTile({
   icon?: React.ComponentType<{ className?: string }>;
   /** Small trend chip, e.g. {label: "+12%", dir: "up"}. */
   trend?: { label: React.ReactNode; dir?: "up" | "down" | "flat" };
+  /** Optional colour for the icon bubble and a thin top accent. Leave
+   *  unset for the neutral tile. good = fine, warn = needs attention,
+   *  bad = urgent, info = informational, brand = the company colour. */
+  tone?: StatTone;
   className?: string;
 }) {
   const dir = trend?.dir ?? "up";
+  const toneStyle = tone ? STAT_TONES[tone] : null;
   return (
     <div
       className={cn(
@@ -644,10 +660,18 @@ export function StatTile({
         className,
       )}
     >
+      {toneStyle && <span aria-hidden="true" className={cn("absolute inset-x-0 top-0 h-0.5", toneStyle.bar)} />}
       <div className="flex items-center justify-between gap-2">
         <p className="text-[13px] font-medium leading-5 text-slate-500 dark:text-slate-400">{label}</p>
         {Icon && (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors group-hover:bg-brand-primary/10 group-hover:text-brand-primary dark:bg-slate-800 dark:text-slate-400">
+          <span
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+              toneStyle
+                ? toneStyle.icon
+                : "bg-slate-100 text-slate-500 group-hover:bg-brand-primary/10 group-hover:text-brand-primary dark:bg-slate-800 dark:text-slate-400",
+            )}
+          >
             <Icon className="h-4 w-4" />
           </span>
         )}

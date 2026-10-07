@@ -1163,7 +1163,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "staff",
     group: "Account",
     label: "Owner welcome email",
-    description: "First email a new tenant owner receives after signing up.",
+    description: "First email a new company owner receives after signing up.",
     defaultSubject: "Welcome to {{company_name}}, {{first_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
@@ -1454,7 +1454,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "staff",
     group: "Subscription",
     label: "Subscription started",
-    description: "Welcome email when a tenant first subscribes.",
+    description: "Welcome email when a company first subscribes.",
     defaultSubject: "Welcome to CateringMS! Your subscription is confirmed",
     defaultBody:
       `Hi {{user_name}},\n\n` +
@@ -1588,7 +1588,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "staff",
     group: "Subscription",
     label: "Subscription cancelled",
-    description: "Confirmation when the tenant cancels their subscription.",
+    description: "Confirmation when the company cancels their subscription.",
     defaultSubject: "Subscription cancellation confirmed",
     defaultBody:
       `Hi {{user_name}},\n\n` +
@@ -1643,7 +1643,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     category: "staff",
     group: "Subscription",
     label: "Account deletion scheduled",
-    description: "Sent when the tenant requests account deletion (30-day grace period).",
+    description: "Sent when the company requests account deletion (30-day grace period).",
     defaultSubject: "Account deletion scheduled - 30 day grace period",
     defaultBody:
       `Hi {{user_name}},\n\n` +
@@ -1728,16 +1728,16 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   staff_invite_login: { delivery: "automated", trigger: "Fires when a manager invites a new team member.", settingsLink: "/admin/users" },
 
   // --- AUTOMATED: subscription / billing (services/billingEmailService) ---
-  subscription_started:        { delivery: "automated", trigger: "Platform fires when a tenant first subscribes." },
-  payment_succeeded:           { delivery: "automated", trigger: "Platform fires after a successful subscription charge." },
-  payment_failed:              { delivery: "automated", trigger: "Platform fires when a subscription charge fails." },
-  trial_ending_soon:           { delivery: "automated", trigger: "Platform fires a few days before the free trial expires." },
-  subscription_expiring:       { delivery: "automated", trigger: "Platform fires before the next billing cycle." },
-  price_change_notification:   { delivery: "automated", trigger: "Platform fires ahead of a subscription price change." },
-  subscription_cancelled:      { delivery: "automated", trigger: "Platform fires when a tenant cancels their subscription." },
-  subscription_reactivated:    { delivery: "automated", trigger: "Platform fires on a subscription reactivation." },
-  staff_invitation:            { delivery: "automated", trigger: "Platform fires when a manager invites a team member." },
-  account_deletion_scheduled:  { delivery: "automated", trigger: "Platform fires the moment a tenant schedules account deletion." },
+  subscription_started:        { delivery: "automated", trigger: "Sent when a company first subscribes." },
+  payment_succeeded:           { delivery: "automated", trigger: "Sent after a successful subscription charge." },
+  payment_failed:              { delivery: "automated", trigger: "Sent when a subscription charge fails." },
+  trial_ending_soon:           { delivery: "automated", trigger: "Sent a few days before the free trial expires." },
+  subscription_expiring:       { delivery: "automated", trigger: "Sent before the next billing cycle." },
+  price_change_notification:   { delivery: "automated", trigger: "Sent ahead of a subscription price change." },
+  subscription_cancelled:      { delivery: "automated", trigger: "Sent when a company cancels their subscription." },
+  subscription_reactivated:    { delivery: "automated", trigger: "Sent on a subscription reactivation." },
+  staff_invitation:            { delivery: "automated", trigger: "Sent when a manager invites a team member." },
+  account_deletion_scheduled:  { delivery: "automated", trigger: "Sent the moment a company schedules account deletion." },
 
   // --- MANUAL: lead outreach (operator clicks Send on /admin/leads) ---
   email_lead_hot:        { delivery: "manual", trigger: "Click the Send button on a fresh enquiry in /admin/leads.", settingsLink: "/admin/leads" },

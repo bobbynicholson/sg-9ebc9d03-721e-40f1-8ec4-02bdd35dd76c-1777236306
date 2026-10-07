@@ -593,13 +593,13 @@ function CompanyDatabasePage() {
             hint="Every company on the platform"
             icon={Building2}
           />
-          <StatTile
+          <StatTile tone="good"
             label="Active"
             value={activeCompanyCount}
             hint="On a paid subscription now"
             icon={CheckCircle}
           />
-          <StatTile
+          <StatTile tone="info"
             label="On trial"
             value={companies.filter((c) => c.subscription_status === "trial").length}
             hint="Inside free trial window"

@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import { PlatformNav } from "@/components/admin/PlatformNav";
 import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
-  PageWorkbench,
+  PageWorkbench, type StatTone,
 } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ const StatCard = ({
   changeType,
   icon: Icon,
   subtitle,
+  tone,
 }: {
   title: string;
   value: string;
@@ -48,12 +49,14 @@ const StatCard = ({
   icon: any;
   subtitle?: string;
   tooltip?: string;
+  tone?: StatTone;
 }) => (
   <StatTile
     label={title}
     value={value}
     hint={subtitle}
     icon={Icon}
+    tone={tone}
     trend={change ? { label: change, dir: changeType === "negative" ? "down" : "up" } : undefined}
   />
 );
@@ -325,27 +328,31 @@ function PlatformDashboard() {
           );
         })()}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
           <StatCard
             title="Monthly revenue"
+            tone="good"
             value={analyticsService.formatCurrency(metrics?.monthlyRecurringRevenue || 0)}
             subtitle="Recurring, from monthly plans"
             icon={TrendingUp}
           />
           <StatCard
             title="Paying companies"
+            tone="good"
             value={analyticsService.formatNumber(metrics?.activeSubscriptions || 0)}
             subtitle={`${metrics?.totalCustomers || 0} signed up in total`}
             icon={Users}
           />
           <StatCard
             title="Trial to paid"
+            tone="info"
             value={analyticsService.formatPercentage(metrics?.conversionRate || 0)}
             subtitle="Share of sign-ups now paying"
             icon={CheckCircle2}
           />
           <StatCard
             title="Cancelled (30 days)"
+            tone="bad"
             value={analyticsService.formatPercentage(metrics?.churnRate || 0)}
             subtitle="Share of paying companies lost"
             icon={TrendingDown}
