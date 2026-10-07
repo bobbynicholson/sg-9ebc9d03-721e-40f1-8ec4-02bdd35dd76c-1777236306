@@ -189,3 +189,38 @@ describe("computeOrderTimeline post-event collection fallback", () => {
     expect(stageStatus(timeline, "post_event_cleaning")).not.toBe("completed");
   });
 });
+
+describe("computeOrderTimeline service-started step (waiter-only)", () => {
+  const base = {
+    id: "order-2",
+    status: "delivered",
+    created_at: "2026-06-01T08:00:00.000Z",
+    confirmed_at: "2026-06-01T08:05:00.000Z",
+    delivered_at: "2026-06-01T11:15:00.000Z",
+    setup_started_at: "2026-06-01T11:15:00.000Z",
+    departed_venue_at: "2026-06-01T15:00:00.000Z",
+    service_ended_at: "2026-06-01T15:00:00.000Z",
+    updated_at: "2026-06-01T15:00:00.000Z",
+    event_date: "2026-06-01",
+    event_time: "12:00:00",
+    deposit_amount: 0,
+    balance_amount: 0,
+  };
+  const run = (order: Record<string, unknown>) =>
+    computeOrderTimeline({ order, equipmentBookings: [], driverAssignments: [], invoices: [], emailLog: [] } as any);
+
+  it("leaves service started out on a driver-only job", () => {
+    const t = run(base);
+    expect(stageStatus(t, "service_started")).toBe("not_applicable");
+    expect(stageStatus(t, "departed_venue")).toBe("completed");
+  });
+
+  it("keeps service started as a pending step when waiters are booked", () => {
+    expect(["upcoming", "current"]).toContain(stageStatus(run({ ...base, requires_waiter: true }), "service_started"));
+  });
+
+  it("completes it from the waiter's stamp", () => {
+    const t = run({ ...base, requires_waiter: true, service_started_at: "2026-06-01T12:05:00.000Z" });
+    expect(stageStatus(t, "service_started")).toBe("completed");
+  });
+});

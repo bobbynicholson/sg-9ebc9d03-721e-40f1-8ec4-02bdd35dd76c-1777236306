@@ -212,7 +212,6 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
       | 'at_kitchen'
       | 'departed_kitchen'
       | 'at_venue'
-      | 'service_started'
       | 'departed_venue'
       | 'returned_to_base',
   ) => {
@@ -243,9 +242,6 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           break;
         case 'at_venue':
           result = await driverConfirmationService.confirmAtVenue(orderId, user.id, geoLocation || undefined);
-          break;
-        case 'service_started':
-          result = await (driverConfirmationService as any).markServiceStarted(orderId, user.id, geoLocation || undefined);
           break;
         case 'departed_venue':
           result = await (driverConfirmationService as any).markDepartedVenue(orderId, user.id, geoLocation || undefined);
@@ -454,32 +450,10 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           )}
         </div>
 
-        {/* Service started */}
-        <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
-          <div className="flex items-center gap-3">
-            <CheckCircle className={`h-5 w-5 ${isConfirmed('service_started') ? 'text-brand-primary' : 'text-gray-400'}`} />
-            <div>
-              <p className="font-medium">Service started</p>
-              {isConfirmed('service_started') && (
-                <p className="text-sm text-muted-foreground">Tapped at {getConfirmationTime('service_started')}</p>
-              )}
-            </div>
-          </div>
-          {isConfirmed('service_started') ? (
-            <Badge variant="default" className="bg-brand-primary">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Done
-            </Badge>
-          ) : (
-            <Button
-              onClick={() => handleConfirm('service_started')}
-              disabled={loading || !isConfirmed('setup_started')}
-              size="sm"
-            >
-              Tap when food service begins
-            </Button>
-          )}
-        </div>
+        {/* No "Service started" step here: food service is the waiter's
+            checkpoint (WaiterServicePanel -> event_attendance), and a
+            trigger copies the waiter's time onto orders.service_started_at.
+            The driver goes straight from setup to departing the venue. */}
 
         {/* Departed venue */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
@@ -500,7 +474,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           ) : (
             <Button
               onClick={() => handleConfirm('departed_venue')}
-              disabled={loading || !isConfirmed('service_started')}
+              disabled={loading || !isConfirmed('setup_started')}
               size="sm"
             >
               Tap when truck rolls home

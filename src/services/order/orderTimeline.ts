@@ -697,6 +697,15 @@ function resolveStage(
         o.event_complete_at
       );
       if (!onSite) return notApplicable();
+      // Food service is the waiter's checkpoint (the driver no longer taps
+      // it). With no waiter on the job nobody records it, so leave it out
+      // instead of showing a step that can never complete.
+      if (key === "service_started" && !(
+        input.hasOnSiteService ||
+        o.requires_waiter ||
+        o.waiter_service_required ||
+        o.service_started_at
+      )) return notApplicable();
       const at =
         key === "setup_started"   ? firstTs(o.setup_started_at) :
         key === "service_started" ? firstTs(o.service_started_at) :

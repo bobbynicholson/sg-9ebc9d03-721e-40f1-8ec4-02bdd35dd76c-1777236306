@@ -591,6 +591,14 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
     effServiceEnded ||
     effEventComplete
   );
+  // "Service started" is recorded by a waiter (copied onto the order
+  // from event_attendance); show it only when waiters are on the job.
+  const needsWaiterService = !!(
+    order.requires_waiter ||
+    order.waiter_service_required ||
+    hasAttendance ||
+    order.service_started_at
+  );
   // Equipment-return step shows if there's any equipment-return
   // signal (a method on the order, an attendance stamp, the
   // departed_venue_at field, or a cleaning_job exists for the order).
@@ -660,7 +668,8 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
     { key: "pod",           label: "POD captured",         Icon: FileSignature,  at: order.pod_captured_at,     lane: "driver" },
     { key: "delivered",     label: "Delivered",            Icon: PackageOpen,    at: order.delivered_at,        lane: "driver" },
     { key: "setup",         label: "Setup started",        Icon: Sparkles,       at: order.setup_started_at,    show: needsService, lane: "service" },
-    { key: "service_start", label: "Service started",     Icon: Users,          at: order.service_started_at,  show: needsService, lane: "service" },
+    // Waiter's checkpoint only: driver-only jobs have nobody to record it.
+    { key: "service_start", label: "Service started",     Icon: Users,          at: order.service_started_at,  show: needsWaiterService, lane: "service" },
     { key: "service_end",   label: "Service ended",        Icon: Clock,          at: effServiceEnded,           show: needsService, lane: "service" },
     { key: "event_done",    label: "Event complete",       Icon: PartyPopper,    at: effEventComplete,          show: needsService, lane: "service" },
     { key: "departed",      label: "Departed venue",       Icon: ArrowLeftRight, at: order.departed_venue_at,   lane: "closeout" },
