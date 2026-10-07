@@ -18,7 +18,8 @@
  * Same UX shape as ClientTypeahead so it feels native to the page --
  * arrow-key nav, debounced search, dietary/allergen badges per row.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Search, UtensilsCrossed, Sparkles } from "lucide-react";
@@ -107,13 +108,57 @@ export function MenuItemTypeahead({
   const [loading, setLoading] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The dropdown is portalled to <body> with fixed positioning: the quote
+  // builder's course cards (Starters, Mains...) are overflow-hidden, which
+  // clipped an absolutely positioned list and trapped its scroll.
+  const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
+
+  // Inside a Radix modal (OrderDetailsModal) a body portal sits outside the
+  // dialog's pointer-events/focus scope, so there we keep the inline list.
+  const [inDialog, setInDialog] = useState(false);
+
+  const updatePos = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (el.closest('[role="dialog"]')) {
+      setInDialog(true);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    const gap = 4;
+    const margin = 8;
+    const below = window.innerHeight - r.bottom - gap - margin;
+    const above = r.top - gap - margin;
+    // Flip upward only when there's clearly more room above.
+    if (below < 220 && above > below) {
+      setPos({ left: r.left, width: r.width, bottom: window.innerHeight - r.top + gap, maxHeight: Math.min(320, above) });
+    } else {
+      setPos({ left: r.left, width: r.width, top: r.bottom + gap, maxHeight: Math.min(320, Math.max(below, 120)) });
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePos();
+    if (containerRef.current?.closest('[role="dialog"]')) return;
+    window.addEventListener("resize", updatePos);
+    // Capture so scrolling any ancestor container keeps the list attached.
+    window.addEventListener("scroll", updatePos, true);
+    return () => {
+      window.removeEventListener("resize", updatePos);
+      window.removeEventListener("scroll", updatePos, true);
+    };
+  }, [open, updatePos]);
 
   // Click outside -> close. Standard typeahead UX.
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (containerRef.current.contains(t) || dropdownRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -164,6 +209,9 @@ export function MenuItemTypeahead({
       setLoading(false);
     }
   };
+
+  const renderDropdown = (node: React.ReactNode) =>
+    inDialog ? node : createPortal(node, document.body);
 
   const handlePick = (r: SearchHit) => {
     onPick({
@@ -222,8 +270,12 @@ export function MenuItemTypeahead({
         )}
       </div>
 
-      {open && (results.length > 0 || (value.trim().length >= 1 && !loading)) && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-80 overflow-y-auto">
+      {open && (inDialog || pos) && (results.length > 0 || (value.trim().length >= 1 && !loading)) && renderDropdown(
+        <div
+          ref={dropdownRef}
+          style={inDialog || !pos ? undefined : { position: "fixed", left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, maxHeight: pos.maxHeight }}
+          className={`${inDialog ? "absolute mt-1 w-full max-h-80" : ""} z-[60] bg-white border border-slate-200 rounded-lg shadow-lg overflow-y-auto overscroll-contain`}
+        >
           {results.length === 0 ? (
             <div className="px-3 py-3 text-xs text-slate-500 flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5" />
@@ -284,7 +336,7 @@ export function MenuItemTypeahead({
               ))}
             </>
           )}
-        </div>
+        </div>,
       )}
     </div>
   );
