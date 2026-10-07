@@ -586,28 +586,28 @@ function CompanyDatabasePage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mb-6">
           <StatTile
-            label="Total Companies"
+            label="Companies"
             value={companies.length}
-            hint="Every company; deleted ones excluded"
+            hint="Every company on the platform"
             icon={Building2}
           />
           <StatTile
             label="Active"
-            value={<span className="text-brand-primary dark:text-brand-primary">{activeCompanyCount}</span>}
+            value={activeCompanyCount}
             hint="On a paid subscription now"
             icon={CheckCircle}
           />
           <StatTile
-            label="On Trial"
-            value={<span className="text-orange-600 dark:text-orange-500">{companies.filter((c) => c.subscription_status === "trial").length}</span>}
+            label="On trial"
+            value={companies.filter((c) => c.subscription_status === "trial").length}
             hint="Inside free trial window"
             icon={Calendar}
           />
           <StatTile
-            label="Total Users"
-            value={<span className="text-slate-700 dark:text-slate-300">{companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}</span>}
+            label="Users"
+            value={companies.reduce((sum, c) => sum + (c.total_users || 0), 0)}
             hint="Across every company"
             icon={Users}
           />

@@ -224,7 +224,7 @@ function ShoppingInvoicesPageInner() {
           value={
             chipsReady ? (
               stats.varianceBasis > 0 ? (
-                <span className={stats.variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-brand-primary dark:text-brand-primary"}>
+                <span className={stats.variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}>
                   {stats.variance >= 0 ? "+" : ""}{tenantCurrency.format(stats.variance, 0)}
                 </span>
               ) : (
@@ -322,7 +322,13 @@ function ShoppingInvoicesPageInner() {
                         <span className="text-[11px] text-slate-500 dark:text-slate-400">{formatDistanceToNow(new Date(l.created_at), { addSuffix: true })}</span>
                       )}
                     </div>
-                    {l.notes && <p className="mb-1 text-xs text-slate-600 dark:text-slate-300">{l.notes}</p>}
+                    {l.notes && (
+                      <p className="mb-1 text-xs text-slate-600 dark:text-slate-300">
+                        {/^Auto-generated from aggregated kitchen demand/i.test(l.notes)
+                          ? "Made automatically from what the kitchen needs"
+                          : l.notes}
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                       {l.estimated_total != null && (
                         <span className="text-slate-500 dark:text-slate-400">Estimate: <span className="font-medium tabular-nums text-slate-700 dark:text-slate-200">{tenantCurrency.format(Number(l.estimated_total))}</span></span>
@@ -331,8 +337,8 @@ function ShoppingInvoicesPageInner() {
                         <span className="text-slate-500 dark:text-slate-400">Actual: <span className="font-semibold tabular-nums text-slate-900 dark:text-white">{tenantCurrency.format(Number(l.actual_total))}</span></span>
                       )}
                       {l.estimated_total != null && l.actual_total != null && (
-                        // Variance: over budget = rose, under/on = brand accent.
-                        <span className={`font-medium tabular-nums ${variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-brand-primary dark:text-brand-primary"}`}>
+                        // Variance: over budget = rose, under/on budget = green.
+                        <span className={`font-medium tabular-nums ${variance > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
                           {variance >= 0 ? "+" : ""}{tenantCurrency.format(variance)}
                         </span>
                       )}

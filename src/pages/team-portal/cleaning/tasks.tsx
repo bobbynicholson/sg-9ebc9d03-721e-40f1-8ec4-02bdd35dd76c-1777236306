@@ -252,8 +252,8 @@ function CleaningTasksPageInner() {
         heading="Task board"
         subheading={
           <>
-            Scheduled checklist work lives here. Equipment returns and washing queues stay on the Cleaning desk.{" "}
-            <a href={withSlug("/team-portal/cleaning/schedules")} className="underline">Open the schedule plan</a> if you need to add a new area checklist.
+            Your cleaning checklists: start one, tick it off, mark it done.{" "}
+            New area checklists go on the <a href={withSlug("/team-portal/cleaning/schedules")} className="underline">schedule plan</a>.
           </>
         }
         icon={ClipboardCheck}
@@ -330,7 +330,7 @@ function CleaningTasksPageInner() {
               </div>
             ) : tasks.length === 0 ? (
               <div className="text-center py-16 px-6 text-slate-500 dark:text-slate-400">
-                <Check className="h-10 w-10 mx-auto mb-3 text-brand-primary dark:text-brand-primary" />
+                <Check className="h-10 w-10 mx-auto mb-3 text-emerald-600 dark:text-emerald-400" />
                 <p className="font-medium text-slate-900 dark:text-white">No open cleaning tasks</p>
                 <p className="text-xs mt-1">
                   {filter === "today"

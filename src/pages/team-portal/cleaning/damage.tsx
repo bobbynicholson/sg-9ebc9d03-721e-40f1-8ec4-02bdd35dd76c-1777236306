@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, Plus, Loader2, Search, Check, FileWarning, Package, Calendar as CalendarIcon, User, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { AlertTriangle, Plus, Loader2, Search, Check, FileWarning, Package, Calendar as CalendarIcon, User, Image as ImageIcon, RefreshCw, CheckCircle2 } from "lucide-react";
 import { CleaningPageShell, CLEANING_HERO_CHIP } from "@/components/cleaning/CleaningPageShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { PortalCard, StatTile } from "@/components/portal/ui";
@@ -410,13 +410,14 @@ function CleaningDamagePageInner() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 mb-6">
           <StatTile label="Open reports" value={chipsReady ? stats.open : "--"} hint="Still need fixing" />
           <StatTile label="Resolved" value={chipsReady ? stats.resolved : "--"} hint="In the latest reports" />
           <StatTile
             label="Outstanding cost"
             value={chipsReady ? formatZAR(stats.cost, { decimals: 0 }) : "--"}
             hint="Across open reports"
+            className="col-span-2 sm:col-span-1"
           />
         </div>
 
@@ -426,7 +427,7 @@ function CleaningDamagePageInner() {
               {t}
             </Button>
           ))}
-          <div className="ml-auto relative max-w-xs flex-1 min-w-[160px]">
+          <div className="relative w-full sm:ml-auto sm:w-auto sm:max-w-xs sm:flex-1 sm:min-w-[160px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
             <Input className="pl-9 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500" placeholder="Search notes..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
@@ -445,13 +446,19 @@ function CleaningDamagePageInner() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 px-6 text-slate-500 dark:text-slate-400">
-              <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-              <p className="font-medium text-slate-700 dark:text-slate-200">No damage reports{tab !== "all" ? ` (${tab})` : ""}</p>
+              {tab === "open" && !search ? (
+                <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <AlertTriangle className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+              )}
+              <p className="font-medium text-slate-700 dark:text-slate-200">
+                {search ? "No matching reports" : tab === "open" ? "No open damage" : tab === "resolved" ? "Nothing resolved yet" : "No damage reports yet"}
+              </p>
               <p className="text-xs mt-1">
                 {search
                   ? "Nothing matches the search, clear it to see the full list"
                   : tab === "open"
-                    ? "Nothing is waiting on a fix. Log new damage with the button above."
+                    ? "Nothing is waiting on a fix. Spot something broken? Report it here."
                     : "Reports will show here as the team logs them"}
               </p>
               <Button variant="outline" size="sm" className="mt-4" onClick={openCreate}>

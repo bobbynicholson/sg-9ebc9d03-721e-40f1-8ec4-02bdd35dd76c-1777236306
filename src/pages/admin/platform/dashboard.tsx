@@ -10,23 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DollarSign,
   Users,
   TrendingUp,
   TrendingDown,
   Activity,
   MapPin,
-  Package,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  CreditCard,
+  Hourglass,
 } from "lucide-react";
 import { analyticsService } from "@/services/analyticsService";
 import { CompanySwitcher } from "@/components/admin/CompanySwitcher";
@@ -82,13 +80,64 @@ const monthLabel = (m: string) => {
   return new Date(Number(match[1]), Number(match[2]) - 1, 1).toLocaleDateString("en-ZA", { month: "short", year: "numeric" });
 };
 
+interface AttentionCounts {
+  stuckSetup: number;
+  noPayments: number;
+  trialsEnding: number;
+  overdue: number;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Read-only counts for the "Needs attention" card, using the same rules
+// as Company health, Payment issues, Trials and Subscriptions.
+async function loadAttentionCounts(): Promise<AttentionCounts> {
+  const { data, error } = await supabase
+    .from("companies")
+    .select("id, created_at, onboarding_completed_at, subscription_status, trial_ends_at")
+    .is("deleted_at", null);
+  if (error) throw error;
+  const companies = (data || []) as Array<{
+    id: string;
+    created_at: string | null;
+    onboarding_completed_at: string | null;
+    subscription_status: string | null;
+    trial_ends_at: string | null;
+  }>;
+  const onboardedIds = companies.filter((c) => c.onboarding_completed_at).map((c) => c.id);
+  const { data: gateways, error: gatewayError } = onboardedIds.length
+    ? await supabase
+        .from("payment_gateways")
+        .select("company_id, is_active")
+        .in("company_id", onboardedIds)
+        .is("deleted_at", null)
+    : { data: [], error: null };
+  if (gatewayError) throw gatewayError;
+  const connected = new Set(
+    ((gateways || []) as Array<{ company_id: string; is_active: boolean | null }>)
+      .filter((g) => g.is_active)
+      .map((g) => g.company_id),
+  );
+  const now = Date.now();
+  return {
+    stuckSetup: companies.filter(
+      (c) => !c.onboarding_completed_at && c.created_at && now - new Date(c.created_at).getTime() > 7 * DAY_MS,
+    ).length,
+    noPayments: onboardedIds.filter((id) => !connected.has(id)).length,
+    trialsEnding: companies.filter(
+      (c) => c.subscription_status === "trial" && c.trial_ends_at && new Date(c.trial_ends_at).getTime() - now <= 7 * DAY_MS,
+    ).length,
+    overdue: companies.filter((c) => c.subscription_status === "past_due").length,
+  };
+}
+
 function PlatformDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [dateRange, setDateRange] = useState("all");
+  const [attention, setAttention] = useState<AttentionCounts | null>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [customerGrowth, setCustomerGrowth] = useState<any[]>([]);
   const [planDistribution, setPlanDistribution] = useState<any[]>([]);
@@ -124,6 +173,12 @@ function PlatformDashboard() {
       setPlanDistribution(plansData);
       setGeoDistribution(geoData);
       setTopCustomers(customersData);
+      // The attention card is a helper: if it fails, the card stays
+      // hidden and the rest of the dashboard still shows.
+      loadAttentionCounts().then(setAttention).catch((attentionError) => {
+        console.error("Error loading attention counts:", attentionError);
+        setAttention(null);
+      });
     } catch (error: any) {
       console.error("Error loading dashboard data:", error);
       // Silent-failure audit: a failed load used to render an all-zero
@@ -151,7 +206,7 @@ function PlatformDashboard() {
           <PortalCard className="flex items-center justify-center py-16">
             <div className="text-center text-slate-500 dark:text-slate-400">
               <RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin" />
-              <p>Loading analytics dashboard...</p>
+              <p>Loading dashboard...</p>
             </div>
           </PortalCard>
         </PortalShell>
@@ -171,8 +226,8 @@ function PlatformDashboard() {
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
           variant="hero"
-          title="Platform analytics"
-          subtitle="Revenue, growth and company mix across the whole platform in one view."
+          title="Dashboard"
+          subtitle="How the platform is doing today, and which companies need you."
           icon={Activity}
           meta={
             metrics ? (
@@ -184,28 +239,12 @@ function PlatformDashboard() {
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                   {metrics?.totalCompanies ?? 0} companies in total
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {analyticsService.formatCurrency(metrics?.monthlyRecurringRevenue || 0)} MRR
-                </span>
               </>
             ) : undefined
           }
           actions={
             <>
               <CompanySwitcher />
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="w-[140px] sm:w-[170px]">
-                  <SelectValue placeholder="Select period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Time</SelectItem>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="quarter">This Quarter</SelectItem>
-                  <SelectItem value="year">This Year</SelectItem>
-                </SelectContent>
-              </Select>
               <Button
                 variant="outline"
                 size="sm"
@@ -234,65 +273,106 @@ function PlatformDashboard() {
           </Alert>
         )}
 
+        {attention && (() => {
+          const items = [
+            { key: "overdue", count: attention.overdue, label: "Overdue payments", hint: "Subscription failed or late", href: "/admin/platform/subscription-management", icon: AlertTriangle, urgent: true },
+            { key: "trials", count: attention.trialsEnding, label: "Trials ending", hint: "Within 7 days: convert or extend", href: "/admin/platform/trial-management", icon: Hourglass, urgent: false },
+            { key: "payments", count: attention.noPayments, label: "No card payments", hint: "Online payments not connected", href: "/admin/platform/payment-issues", icon: CreditCard, urgent: false },
+            { key: "setup", count: attention.stuckSetup, label: "Stuck in setup", hint: "Signed up 7+ days ago", href: "/admin/platform/tenant-health", icon: Users, urgent: false },
+          ];
+          const openCount = items.filter((item) => item.count > 0).length;
+          return (
+            <PortalCard id="platform-attention" className="mb-4">
+              <PortalCardHeader
+                title="Needs attention"
+                description={openCount ? `${openCount} ${openCount === 1 ? "thing" : "things"} to look at` : undefined}
+              />
+              {openCount === 0 ? (
+                <div className="flex items-center gap-3 text-sm text-emerald-700 dark:text-emerald-300">
+                  <CheckCircle2 className="h-5 w-5 shrink-0" />
+                  All clear: no overdue payments, ending trials, payment setup gaps or stuck sign-ups.
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    const active = item.count > 0;
+                    const tone = !active
+                      ? "border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40"
+                      : item.urgent
+                        ? "border-rose-200 bg-rose-50/70 hover:bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10"
+                        : "border-amber-200 bg-amber-50/70 hover:bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10";
+                    const iconTone = !active ? "text-slate-400" : item.urgent ? "text-rose-600 dark:text-rose-400" : "text-amber-600 dark:text-amber-400";
+                    return (
+                      <Link
+                        key={item.key}
+                        href={item.href}
+                        className={`group flex min-h-[44px] items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${tone}`}
+                      >
+                        <Icon className={`h-4 w-4 shrink-0 ${iconTone}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium text-slate-900 dark:text-white">{item.label}</span>
+                          <span className="block text-xs text-slate-500 dark:text-slate-400">{active ? item.hint : "None right now"}</span>
+                        </span>
+                        <span className={`text-lg font-semibold tabular-nums ${active ? "text-slate-900 dark:text-white" : "text-slate-400"}`}>{item.count}</span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </PortalCard>
+          );
+        })()}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <StatCard
-            title="SaaS Revenue (active)"
-            value={analyticsService.formatCurrency(metrics?.totalRevenue || 0)}
-            subtitle="Sum across active subscriptions"
-            icon={DollarSign}
-            tooltip="Total recurring revenue from every paying customer, monthly and annual combined.\n\nTrial accounts are excluded since they aren't paying yet."
-          />
-          <StatCard
-            title="Active Customers"
-            value={analyticsService.formatNumber(metrics?.activeSubscriptions || 0)}
-            subtitle={`${metrics?.totalCustomers || 0} total signups`}
-            icon={Users}
-            tooltip="Companies on a paid plan today. Trials, cancelled and paused accounts are not counted here.\n\nTotal signups underneath includes everyone who has ever created a tenant."
-          />
-          <StatCard
-            title="Monthly Recurring Revenue"
+            title="Monthly revenue"
             value={analyticsService.formatCurrency(metrics?.monthlyRecurringRevenue || 0)}
-            subtitle="MRR"
+            subtitle="Recurring, from monthly plans"
             icon={TrendingUp}
-            tooltip="Predictable monthly income from active subscriptions billed each month.\n\nAnnual plans are not included here, they roll into ARR instead."
           />
           <StatCard
-            title="Churn Rate"
+            title="Paying companies"
+            value={analyticsService.formatNumber(metrics?.activeSubscriptions || 0)}
+            subtitle={`${metrics?.totalCustomers || 0} signed up in total`}
+            icon={Users}
+          />
+          <StatCard
+            title="Trial to paid"
+            value={analyticsService.formatPercentage(metrics?.conversionRate || 0)}
+            subtitle="Share of sign-ups now paying"
+            icon={CheckCircle2}
+          />
+          <StatCard
+            title="Cancelled (30 days)"
             value={analyticsService.formatPercentage(metrics?.churnRate || 0)}
-            subtitle="Last 30 days"
-            icon={Activity}
-            tooltip="Share of paying customers who cancelled in the last 30 days.\n\nExpect this number to swing while the customer base is small. One cancellation can move it noticeably."
+            subtitle="Share of paying companies lost"
+            icon={TrendingDown}
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <StatCard
-            title="Avg Revenue Per User"
-            value={analyticsService.formatCurrency(metrics?.averageRevenuePerUser || 0)}
-            subtitle="Per active subscription"
-            icon={DollarSign}
-            tooltip="Average revenue earned per signed-up tenant, including trials and cancelled accounts.\n\nThis number runs low while trials dominate and rises as more accounts convert to paid."
-          />
-          <StatCard
-            title="Conversion Rate"
-            value={analyticsService.formatPercentage(metrics?.conversionRate || 0)}
-            subtitle="Trial to paid"
-            icon={TrendingUp}
-            tooltip="Share of all signups that have turned into a paying subscription.\n\nA healthy target is 30% or more once trials start converting reliably."
-          />
-          <StatCard
-            title="Lifetime Value"
-            value={analyticsService.formatCurrency(metrics?.lifetimeValue || 0)}
-            subtitle="Estimated LTV"
-            icon={Package}
-            tooltip="A rough estimate of how much revenue a customer brings in over their lifetime, based on a two-year average tenure.\n\nWorth replacing with a proper cohort-based figure once there's six months of churn history to work with."
-          />
+        {/* Secondary numbers: one quiet strip instead of three more tiles. */}
+        <div className="mb-6 grid grid-cols-1 gap-x-6 gap-y-2 rounded-xl border border-slate-200/90 bg-white px-4 py-3 text-sm sm:grid-cols-3 dark:border-slate-800 dark:bg-slate-900/95">
+          {[
+            { label: "Revenue from active plans", value: analyticsService.formatCurrency(metrics?.totalRevenue || 0), tip: "Total recurring revenue from every paying company, monthly and annual combined. Trials are excluded." },
+            { label: "Average per company", value: analyticsService.formatCurrency(metrics?.averageRevenuePerUser || 0), tip: "Average revenue per signed-up company, including trials and cancelled accounts." },
+            { label: "Lifetime value (estimate)", value: analyticsService.formatCurrency(metrics?.lifetimeValue || 0), tip: "Rough revenue per company over its lifetime, based on a two-year average stay." },
+          ].map((row) => (
+            <div key={row.label} className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                {row.label}
+                <InfoTooltip content={row.tip} />
+              </span>
+              <span className="font-semibold tabular-nums text-slate-900 dark:text-white">{row.value}</span>
+            </div>
+          ))}
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger id="platform-overview" data-chat-section="platform.dashboard.overview" data-chat-section-label="Platform overview" value="overview">Overview</TabsTrigger>
-            <TabsTrigger id="platform-customers" data-chat-section="platform.dashboard.customers" data-chat-section-label="Platform customers" value="customers">Customers</TabsTrigger>
+            <TabsTrigger id="platform-customers" data-chat-section="platform.dashboard.customers" data-chat-section-label="Platform customers" value="customers">Top companies</TabsTrigger>
             <TabsTrigger id="platform-plans" data-chat-section="platform.dashboard.plans" data-chat-section-label="Platform plans" value="plans">Plans</TabsTrigger>
             <TabsTrigger id="platform-geography" data-chat-section="platform.dashboard.geography" data-chat-section-label="Platform geography" value="geography">Geography</TabsTrigger>
           </TabsList>
@@ -303,12 +383,12 @@ function PlatformDashboard() {
                 <PortalCardHeader
                   title={
                     <span className="flex items-center gap-2">
-                      Customer Growth
+                      Sign-ups by month
                       <InfoTooltip content="New tenant signups each month next to the running platform total, with monthly revenue overlaid.\n\nGrouped by signup month from the companies table." />
                     </span>
                   }
                 />
-                <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">New customers and cumulative total over time</p>
+                <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">New companies each month and the running total</p>
                   {customerGrowth.length === 0 ? (
                     <p className="text-center text-slate-500 dark:text-slate-400 py-8">No growth data available yet</p>
                   ) : (
@@ -322,7 +402,7 @@ function PlatformDashboard() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold text-brand-primary">
+                            <p className="font-semibold tabular-nums text-slate-900 dark:text-white">
                               {analyticsService.formatCurrency(item.revenue)}
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400">revenue</p>
@@ -337,76 +417,50 @@ function PlatformDashboard() {
                 <PortalCardHeader
                   title={
                     <span className="flex items-center gap-2">
-                      Subscription Status
+                      Subscription mix
                       <InfoTooltip content="A breakdown of every tenant by subscription state, active, trial and cancelled.\n\nPercentages show each bucket as a share of the total customer base." />
                     </span>
                   }
                 />
-                <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Current subscription distribution</p>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-brand-primary/10 rounded-lg border border-brand-primary/20 dark:bg-brand-primary/15 dark:border-brand-primary/30">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-brand-primary flex items-center justify-center">
-                          <Users className="h-6 w-6 text-white" />
+                <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Where every company stands today</p>
+                  {(() => {
+                    const total = Number(metrics?.totalCustomers || 0);
+                    const rows = [
+                      { label: "Active", count: Number(metrics?.activeSubscriptions || 0), dot: "bg-emerald-500", icon: Users },
+                      { label: "Trial", count: Number(metrics?.trialSubscriptions || 0), dot: "bg-sky-500", icon: Calendar },
+                      { label: "Cancelled", count: Number(metrics?.cancelledSubscriptions || 0), dot: "bg-slate-400", icon: TrendingDown },
+                    ];
+                    const share = (n: number) => (total > 0 ? (n / total) * 100 : 0);
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                          {rows.map((row) => (
+                            <div key={row.label} className={row.dot} style={{ width: `${share(row.count)}%` }} />
+                          ))}
                         </div>
-                        <div>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Active</p>
-                          <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                            {metrics?.activeSubscriptions || 0}
-                          </p>
-                        </div>
+                        <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {rows.map((row) => {
+                            const Icon = row.icon;
+                            return (
+                              <li key={row.label} className="flex items-center justify-between gap-3 py-2.5">
+                                <span className="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300">
+                                  <span className={`h-2.5 w-2.5 rounded-full ${row.dot}`} />
+                                  <Icon className="h-4 w-4 text-slate-400" />
+                                  {row.label}
+                                </span>
+                                <span className="flex items-baseline gap-2">
+                                  <span className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white">{row.count}</span>
+                                  <span className="w-12 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                                    {analyticsService.formatPercentage(share(row.count))}
+                                  </span>
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       </div>
-                      <Badge className="bg-brand-primary">
-                        {analyticsService.formatPercentage(
-                          metrics?.totalCustomers > 0
-                            ? (metrics.activeSubscriptions / metrics.totalCustomers) * 100
-                            : 0
-                        )}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200 dark:bg-blue-950/40 dark:border-blue-900">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-blue-500 flex items-center justify-center">
-                          <Calendar className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Trial</p>
-                          <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                            {metrics?.trialSubscriptions || 0}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge className="bg-blue-500">
-                        {analyticsService.formatPercentage(
-                          metrics?.totalCustomers > 0
-                            ? (metrics.trialSubscriptions / metrics.totalCustomers) * 100
-                            : 0
-                        )}
-                      </Badge>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-rose-50 rounded-lg border border-rose-200 dark:bg-rose-950/40 dark:border-rose-900">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-rose-500 flex items-center justify-center">
-                          <TrendingDown className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Cancelled</p>
-                          <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                            {metrics?.cancelledSubscriptions || 0}
-                          </p>
-                        </div>
-                      </div>
-                      <Badge className="bg-rose-500">
-                        {analyticsService.formatPercentage(
-                          metrics?.totalCustomers > 0
-                            ? (metrics.cancelledSubscriptions / metrics.totalCustomers) * 100
-                            : 0
-                        )}
-                      </Badge>
-                    </div>
-                  </div>
+                    );
+                  })()}
               </PortalCard>
             </div>
           </TabsContent>
@@ -416,12 +470,12 @@ function PlatformDashboard() {
               <PortalCardHeader
                 title={
                   <span className="flex items-center gap-2">
-                    Top Customers by Revenue
+                    Top companies by revenue
                     <InfoTooltip content="The ten highest-spending tenants on the platform, ranked by lifetime payments.\n\nUseful for spotting who to look after and where to focus account management." />
                   </span>
                 }
               />
-              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Highest spending customers on the platform</p>
+              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Companies that have paid the most</p>
                 {topCustomers.length === 0 ? (
                   <p className="text-center text-slate-500 dark:text-slate-400 py-8">No customer data available yet</p>
                 ) : (
@@ -458,12 +512,12 @@ function PlatformDashboard() {
               <PortalCardHeader
                 title={
                   <span className="flex items-center gap-2">
-                    Plan Distribution
+                    Plans
                     <InfoTooltip content="How tenants and revenue are spread across each subscription plan, Starter, Growth, Scale and Enterprise.\n\nHelpful for seeing which tier is pulling its weight." />
                   </span>
                 }
               />
-              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Revenue and customer breakdown by subscription plan</p>
+              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Companies and revenue on each plan</p>
                 {planDistribution.length === 0 ? (
                   <p className="text-center text-slate-500 dark:text-slate-400 py-8">No plan data available yet</p>
                 ) : (
@@ -474,7 +528,7 @@ function PlatformDashboard() {
                           <div>
                             <p className="font-medium text-slate-900 dark:text-white">{plan.planName}</p>
                             <p className="text-sm text-slate-600 dark:text-slate-400">
-                              {plan.count} customers • {analyticsService.formatCurrency(plan.revenue)} revenue
+                              {plan.count} {plan.count === 1 ? "company" : "companies"} • {analyticsService.formatCurrency(plan.revenue)} revenue
                             </p>
                           </div>
                           <Badge variant="outline">{analyticsService.formatPercentage(plan.percentage)}</Badge>
@@ -497,12 +551,12 @@ function PlatformDashboard() {
               <PortalCardHeader
                 title={
                   <span className="flex items-center gap-2">
-                    Geographic Distribution
+                    Where companies are
                     <InfoTooltip content="Tenant count and revenue grouped by country and region.\n\nPulled from the country and state set on each company's profile." />
                   </span>
                 }
               />
-              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Customers and revenue by location</p>
+              <p className="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">Companies and revenue by country</p>
                 {geoDistribution.length === 0 ? (
                   <p className="text-center text-slate-500 dark:text-slate-400 py-8">No geographic data available yet</p>
                 ) : (
@@ -521,9 +575,9 @@ function PlatformDashboard() {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-slate-900 dark:text-white">
-                            {location.customerCount} customers
+                            {location.customerCount} {location.customerCount === 1 ? "company" : "companies"}
                           </p>
-                          <p className="text-sm text-brand-primary">
+                          <p className="text-sm tabular-nums text-slate-600 dark:text-slate-400">
                             {analyticsService.formatCurrency(location.revenue)}
                           </p>
                         </div>

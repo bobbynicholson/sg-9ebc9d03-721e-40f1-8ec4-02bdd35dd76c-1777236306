@@ -409,7 +409,7 @@ function CleaningNotificationsPageInner() {
                         <ChevronDown aria-hidden="true" className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
                         <span className="text-sm font-semibold text-slate-900 dark:text-white">{label}</span>
                         <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">{groupsOfType.length}</span>
-                        {unread > 0 && <span className="text-xs text-slate-500 dark:text-slate-400">{unread} unread</span>}
+                        {unread > 0 && <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30">{unread} new</span>}
                       </button>
                     )}
                     {open && <ul className="divide-y divide-slate-100 dark:divide-slate-800">{groupsOfType.map(renderRow)}</ul>}

@@ -317,7 +317,7 @@ export function ReceiptScanner({
           >
             <FileImage className={`w-10 h-10 mx-auto mb-2 ${accentIcon}`} />
             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              Click to pick files, or drop them here
+              Tap to take a photo or pick files
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {picked.length} of {MAX_FILES} selected
@@ -362,8 +362,8 @@ export function ReceiptScanner({
             )}
             <p className="text-[11px] text-slate-500 dark:text-slate-400 ml-2">
               {quota
-                ? <>Sequential extraction, ~3 s per slip. <strong className={quota.exceeded ? "text-rose-700 dark:text-rose-400" : quota.remaining <= 5 ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}>{quota.used} of {quota.limit}</strong> scans used this month.</>
-                : <>Sequential extraction, around 3 s per slip. Capped at 60 scans / month.</>}
+                ? <>About 3 seconds per slip. <strong className={quota.exceeded ? "text-rose-700 dark:text-rose-400" : quota.remaining <= 5 ? "text-amber-700 dark:text-amber-400" : "text-slate-700 dark:text-slate-300"}>{quota.used} of {quota.limit}</strong> scans used this month.</>
+                : <>About 3 seconds per slip. Up to 60 scans a month.</>}
             </p>
           </div>
         </CardContent>

@@ -76,9 +76,9 @@ export function MobileQuickActions({
                 <Icon className="w-4 h-4 text-white" />
               </div>
               <div className="min-w-0 w-full">
-                <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{a.label}</div>
+                <div className="line-clamp-2 break-words text-xs font-semibold leading-tight text-slate-900 dark:text-slate-100">{a.label}</div>
                 {a.sub && (
-                  <div className="text-[10px] text-slate-500 dark:text-white/60 truncate">{a.sub}</div>
+                  <div className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-slate-500 dark:text-white/60">{a.sub}</div>
                 )}
               </div>
             </Link>

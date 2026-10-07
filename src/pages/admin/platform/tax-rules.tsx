@@ -186,11 +186,11 @@ function TaxRulesAdmin() {
           <PageWorkbench />
 
           {/* Rule mix at a glance */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatTile label="Total rules" value={loading ? "-" : stats.total} icon={Tag} />
-            <StatTile label="Active" value={loading ? "-" : <span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>} icon={ShieldCheck} />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <StatTile label="Total rules" value={loading ? "-" : stats.total} hint="Every category rule" icon={Tag} />
+            <StatTile label="Active" hint="Used by the receipt scanner" value={loading ? "-" : stats.active} icon={ShieldCheck} />
             <StatTile label="Deductible" value={loading ? "-" : stats.deductible} hint="Fully claimable categories" icon={ShieldCheck} />
-            <StatTile label="Non-deductible" value={loading ? "-" : <span className="text-rose-600 dark:text-rose-500">{stats.nonDeductible}</span>} icon={ShieldX} />
+            <StatTile label="Non-deductible" value={loading ? "-" : stats.nonDeductible} hint="Never claimable" icon={ShieldX} />
           </div>
 
           {/* Toolbar: search, filters and add */}

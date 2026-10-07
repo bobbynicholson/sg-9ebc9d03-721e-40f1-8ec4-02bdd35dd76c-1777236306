@@ -1,6 +1,6 @@
 # Target: polished UI for every role portal
 
-**Status: Complete (2026-10-06): remaining-pages pass done, not yet committed.** One standard for every role: the company admin pages plus the kitchen and driver portals are the reference. Each portal below follows the same page standard and the same UI-only boundary.
+**Status (2026-10-07): deep UX pass for platform owner, cleaning and shopping complete and committed.** One standard for every role: the company admin pages plus the kitchen and driver portals are the reference. Each portal below follows the same page standard and the same UI-only boundary.
 
 ## All role portals (categorised)
 
@@ -9,13 +9,13 @@
 | Company admin | `/admin/*` (sidebar sections Today, Sales, Operations, Finance, Catalogue, Team, Settings + sub-pages) | ✅ complete, committed | Completed targets |
 | Kitchen (reference) | dashboard, duty, prep-list, production, stock, menu, calendar, notifications, settings, management; redirects: index, today, handovers, orders/[id]/ticket | ✅ reference (`49896478`) | - |
 | Driver (reference) | dashboard, routes, deliveries, calendar, earnings, notifications; redirects: index, schedule, tracking | ✅ reference (`5cb27b36`) | - |
-| Shopping | dashboard, buy-list, orders, kitchen-demand, restock, inventory, suppliers, invoices, receipts, notifications, settings; redirects: index, alerts | ✅ standard pass committed (`01cc70ab`); ⏳ deep UX pass in progress | Shopping portal; Shopping + Cleaning deep UX pass |
-| Cleaning | dashboard, management, tasks, equipment, damage, supplies, schedules, workflows, notifications, settings, handovers/[id]; redirect: index | ✅ standard pass committed (`6686e468`); ⏳ deep UX pass in progress | Cleaning portal; Shopping + Cleaning deep UX pass |
+| Shopping | dashboard, buy-list, orders, kitchen-demand, restock, inventory, suppliers, invoices, receipts, notifications, settings; redirects: index, alerts | ✅ standard pass committed (`01cc70ab`); ✅ deep UX pass (2026-10-07) | Deep UX pass: platform owner, cleaning, shopping |
+| Cleaning | dashboard, management, tasks, equipment, damage, supplies, schedules, workflows, notifications, settings, handovers/[id]; redirect: index | ✅ standard pass committed (`6686e468`); ✅ deep UX pass (2026-10-07) | Deep UX pass: platform owner, cleaning, shopping |
 | Waiter / server | dashboard, notifications; redirect: index | ✅ complete (2026-10-06) | Remaining pages pass, R2 |
 | Shared team page | /team-portal/general/job-progress | ✅ complete (2026-10-06) | Remaining pages pass, R3 |
 | Shared account pages | /account/settings (the "Profile" link in every sidebar), /account/achievements | ✅ complete (2026-10-06) | Remaining pages pass, R3 |
 | Client | /client-portal: dashboard, my-orders, quotes, billing, tracking, notifications, profile; redirects: index, feedback; plus /client/subscription-invoices | ✅ complete (2026-10-06) | Remaining pages pass, R4 |
-| Platform (super admin) | /admin/platform/* (17 pages + index redirect), /super-admin | ✅ complete (2026-10-06); /super-admin/admin/dashboard unreachable (open item) | Remaining pages pass, R5 |
+| Platform (super admin) | /admin/platform/* (17 pages + index redirect), /super-admin | ✅ standard pass (2026-10-06); ✅ deep UX pass (2026-10-07); /super-admin/admin/dashboard unreachable (open item) | Remaining pages pass, R5; Deep UX pass: platform owner, cleaning, shopping |
 | Customer-facing links (no sidebar) | /q/[token], /p/accept/[token], /pay/i/[token], /pay/invoice/[id], /order/[id], /c/account, /c/order/[id], /u/[token], /[company_slug]/order/[id] | ✅ complete (2026-10-06); proposal accept not checkable (no token) | Remaining pages pass, R6 |
 | Sidebar + header chrome (all portals) | PortalSidebar and every *Nav, PortalHeader hero, PageWorkbench breadcrumb, PortalRoleSwitchBar | ✅ complete (2026-10-06) | Remaining pages pass, R1 |
 
@@ -30,6 +30,78 @@ Out of scope (not role portals): marketing pages (/, /features*, /pricing, /eu, 
 5. Plain language: no database names, internal codes, "Wave" notes or developer wording.
 6. No sideways scroll at 1440 / 768 / 390; floating widgets never cover controls.
 7. UI only: no backend, API, schema, RLS, auth or business-rule changes; every save, status and permission behaves exactly as before.
+
+# Deep UX pass: platform owner, cleaning, shopping (2026-10-07)
+
+**Status: Complete and committed (2026-10-07).** Goal: the platform owner, cleaner and shopper portals feel as finished as the company admin, kitchen and driver portals. Every page should be easy to understand at a glance, clean and consistent, and quick to act on. This pass picks up the unfinished Shopping + Cleaning deep UX pass below and adds the platform owner portal to it.
+
+## Rules (same boundary as every pass)
+
+- UI only: no API, schema, migration, RLS, auth or business-rule changes. Every save, status, permission and data result behaves exactly as before.
+- Checks never change live records (the local app uses the live database): read-only page loads, no save/send/delete clicks.
+- Reference look: admin pages (`/admin/*`), kitchen (`49896478`) and driver (`5cb27b36`) portals.
+
+## Deep UX standard (D1-D6, applies to all three portals)
+
+1. **First screen answers "what do I do now?"**: the current state, today's numbers and one clear primary action. Nothing important below the fold on a phone.
+2. **One visual language**: hero header, stat tiles with icon + one-line hint, the same status colours everywhere (green = fine, amber = needs attention, red = urgent, slate = info), consistent chips and buttons.
+3. **Scannable lists**: what it is on the left, status chip, action on the right; readable dates ("Mon 6 Oct"), money as "R 1 234.50"; no raw codes, snake_case or lowercase status values.
+4. **Phone-first for staff** (cleaning, shopping): tap targets at least 40px, cards instead of wide tables at 390, nothing hidden behind the assistant button. Platform owner: desktop-first but fully usable at 390.
+5. **Fewer words, no repeats**: no heading that repeats the hero, no explanation that repeats an empty state; long or advanced parts fold away with a count.
+6. **Helpful empty and done states**: say what is fine and offer the next useful action.
+
+## Users
+
+- **Platform owner**: `bobby@skylight-digital.co.za` - runs CateringMS: companies, users, subscriptions, revenue, pricing, content, platform health.
+- **Shopping staff**: `shopping@spitbraaidelivery.co.za`.
+- **Cleaning staff**: `cleaning@spitbraaidelivery.co.za`; **cleaning manager**: `cleaning.manager.demo@spitbraaidelivery.co.za`.
+
+## How it is checked
+
+- Baseline + after: `node tmp/ui-normalization/check-portal-ui.mjs --only platform,shopping,cleaning,cleaning-manager --tag deep2-before|deep2-after` (1440 / 768 / 390; errors, failed requests, overflow, still-loading).
+- Desktop + phone screenshots reviewed against D1-D6; findings and fixes recorded in the tables.
+- `tsc` 0 errors, ESLint no new warnings, Jest all pass, production build passes.
+
+## Platform owner pages
+
+| Page | Route | Before | After | Findings / changes |
+|---|---|---|---|---|
+| Dashboard | /admin/platform/dashboard | ✅ | ✅ | title "Dashboard" (matches sidebar); new **Needs attention** card first (overdue payments, trials ending in 7 days, no card payments, stuck in setup), each a link with count, amber/rose only when > 0, green "All clear" otherwise - read-only queries using the same rules as those pages; 7 jargon tiles -> 4 plain tiles (Monthly revenue, Paying companies, Trial to paid, Cancelled (30 days)) + one quiet strip for the rest; period dropdown removed (it changed nothing); subscription mix is a compact bar + rows (green / sky / slate) instead of three big coloured cards; "customers" -> companies; revenue figures neutral, not brand orange |
+| Companies | /admin/platform/company-database | ✅ | ✅ | status pills: "ACTIVE" in brand orange -> shared chip (Active green, Trial sky, Past due amber, Suspended rose, Cancelled slate); tile numbers plain; tiles 2-up on phones (mobile 1660 -> 1404px); "Total Companies" -> "Companies" |
+| Users | /admin/platform/user-management | ✅ | ✅ | reviewed, already at standard (plain roles, status chips, filters in one bar) - no change |
+| Subscriptions | /admin/platform/subscription-management | ✅ | ✅ | shared status chip; Overdue + Cancelled cards moved above the list, and when both are empty one green line ("Nothing to chase today") replaces two empty cards; tile numbers plain, 2-up on phones (1758 -> 1510px); "MRR" -> "a month"; "N/A" -> "-"; "All Status" / "Past Due" / "Customer Subscriptions" wording fixed |
+| Trials | /admin/platform/trial-management | ✅ | ✅ | urgency + reminder badges -> shared chips with words ("5 days left", "3 days before", "Trial ended"); tile icons; numbers coloured only when > 0; helpful empty state; plain subtitle |
+| Company health | /admin/platform/tenant-health | ✅ | ✅ | reviewed, already at standard - no change |
+| Payment issues | /admin/platform/payment-issues | ✅ | ✅ | reviewed, already at standard - no change |
+| Revenue | /admin/platform/financial-dashboard | ✅ | ✅ | shared status chip (Active was amber); tile labels plain (Monthly / Yearly revenue, Paying, Cancelled); numbers coloured only when meaningful; one-line subtitle |
+| Pricing | /admin/platform/pricing-management | ✅ | ✅ | reviewed - no change (editing form, long by nature) |
+| Tech costs | /admin/platform/tech-costs | ✅ | ✅ | not changed: page was being edited in the same working tree by other work (tech-cost model) during this pass; loads clean |
+| Currency | /admin/platform/currency-monitoring | ✅ | ✅ | title "Currency"; 30-day history folds away with a count (desktop 2174 -> 1538px, phone 3304 -> 2512px); dates "Fri 3 Oct" not "03/10/2026"; all-clear tick green; policy note no longer quotes a page path; "Run check now" |
+| Tax rules | /admin/platform/tax-rules | ✅ | ✅ | tile numbers plain with hints, 2-up on phones; long table kept (filterable reference list) |
+| Activity log | /admin/platform/audit-logs | ✅ | ✅ | reviewed, already at standard - no change |
+| Pages | /admin/platform/cms-pages | ✅ | ✅ | reviewed - no change |
+| Blog | /admin/platform/cms-blog | ✅ | ✅ | reviewed - no change |
+| Platform emails | /admin/platform/messaging-templates | ✅ | ✅ | reviewed - no change |
+| Platform settings | /admin/platform/settings | ✅ | ✅ | reviewed - no change |
+| Running to-do | /admin/platform/running-todo | ✅ | ✅ | tile numbers plain; "Blocked" red only when > 0 |
+
+Shopping and cleaning pages: tracked in the tables of "Shopping + Cleaning deep UX pass" below (same pass, now continued here).
+
+Shared pieces added or changed: `src/components/admin/platform/PlatformStatusChip.tsx` (one status pill for every platform page: green Active, sky Trial, amber Past due, rose Suspended, slate Cancelled; `CompanyStatusBadge` now uses it); `MobileDrawerExtras` quick-action labels wrap to two lines instead of truncating (every portal drawer).
+
+## Completion checklist
+
+- [x] Baseline check + screenshots for all three portals (`portals-deep2-before/`, `deep2-before.log`): 41 pages load, 0 failed requests, 0 overflow. Revenue showed 4 page errors from hot reload during an edit; a clean re-probe had none. Platform shots partly include early edits (the true before is `portals-remaining-after/`).
+- [x] Every platform, shopping and cleaning page reviewed against D1-D6 and polished; findings recorded in the tables.
+- [x] After check (`portals-deep2-after/`, `deep2-after.log`): 41/41 pages load, 0 page errors, 0 failed requests, 0 overflow at 1440 / 768 / 390. Drawers re-probed after the label fix (`sidebar/clean3-*`), no errors.
+- [x] `tsc` 0 errors; ESLint 0 errors and no new warnings (per-file counts equal to `HEAD` for every changed file); Jest 785/785 tests pass (the only failing suite is `tmp/pdfs/render-payment-pdfs.test.ts`, a scratch file Jest can't parse - unrelated, unchanged); production build 199/199 pages (`NEXT_DIST_DIR=.next-verify`).
+- [x] UI only: the one new read is the dashboard "Needs attention" counts (SELECTs on `companies` and `payment_gateways`, the same ones Company health / Payment issues / Trials already run); no writes, API, schema, RLS or auth changes.
+
+## Open items (not UI)
+
+- Same working tree had unrelated work in progress (AI routing, imports, tech costs: `src/lib/ai/*`, `src/lib/import*`, `src/pages/api/imports/*`, `src/lib/techCosts/*`, `tech-costs.tsx`, `pageCatalog.ts`, `brain.ts`). Not touched by this pass; commit separately.
+- `/admin/platform/tech-costs` not polished in this pass for that reason.
+- Supplier "Checkers" phone is a placeholder (`000 000 0000`) - data.
 
 # Remaining pages pass (2026-10-06)
 
@@ -163,7 +235,7 @@ Check tooling changes: `check-portal-ui.mjs` now waits until loading text is gon
 
 # Shopping + Cleaning deep UX pass (2026-10-06)
 
-**Status: In progress.** The 2026-10-05 passes brought both portals up to the page standard. This pass goes further for the people who use them all day: every page should be easy to read at a glance, quick to act on (especially on a phone) and consistent and attractive, using the kitchen portal as the reference. Same UI-only boundary as everywhere: no API, schema, RLS, auth or business-rule changes; every save, status and permission behaves exactly as before; checks never change live records.
+**Status: Complete (2026-10-07) - finished in "Deep UX pass: platform owner, cleaning, shopping" above.** The 2026-10-05 passes brought both portals up to the page standard. This pass goes further for the people who use them all day: every page should be easy to read at a glance, quick to act on (especially on a phone) and consistent and attractive, using the kitchen portal as the reference. Same UI-only boundary as everywhere: no API, schema, RLS, auth or business-rule changes; every save, status and permission behaves exactly as before; checks never change live records.
 
 ## Users
 
@@ -190,43 +262,43 @@ Check tooling changes: `check-portal-ui.mjs` now waits until loading text is gon
 
 | Page | Route | Before | After | Findings / changes |
 |---|---|---|---|---|
-| Today | /team-portal/shopping/dashboard | ⏳ | ⏳ | |
-| Buy list | /team-portal/shopping/buy-list | ⏳ | ⏳ | |
-| Active shop | /team-portal/shopping/orders | ⏳ | ⏳ | |
-| Kitchen demand | /team-portal/shopping/kitchen-demand | ⏳ | ⏳ | |
-| Restock | /team-portal/shopping/restock | ⏳ | ⏳ | |
-| Inventory | /team-portal/shopping/inventory | ⏳ | ⏳ | |
-| Suppliers | /team-portal/shopping/suppliers | ⏳ | ⏳ | |
-| Spend | /team-portal/shopping/invoices | ⏳ | ⏳ | |
-| Receipts | /team-portal/shopping/receipts | ⏳ | ⏳ | |
-| Notifications | /team-portal/shopping/notifications | ⏳ | ⏳ | |
-| Settings | /team-portal/shopping/settings | ⏳ | ⏳ | |
-| Sidebar + phone drawer | ShoppingNav | ⏳ | ⏳ | |
+| Today | /team-portal/shopping/dashboard | ✅ | ✅ | done in the 2026-10-06 round ("Next up" card first); re-checked |
+| Buy list | /team-portal/shopping/buy-list | ✅ | ✅ | done in the 2026-10-06 round; re-checked |
+| Active shop | /team-portal/shopping/orders | ✅ | ✅ | done in the 2026-10-06 round; re-checked |
+| Kitchen demand | /team-portal/shopping/kitchen-demand | ✅ | ✅ | order dates "Tue 13 Oct" instead of "2026-10-13"; "Covered" chip green (was brand red) |
+| Restock | /team-portal/shopping/restock | ✅ | ✅ | done in the 2026-10-06 round; re-checked |
+| Inventory | /team-portal/shopping/inventory | ✅ | ✅ | done in the 2026-10-06 round; re-checked |
+| Suppliers | /team-portal/shopping/suppliers | ✅ | ✅ | phone and email are tap-to-call / tap-to-email links (32px rows) |
+| Spend | /team-portal/shopping/invoices | ✅ | ✅ | "Auto-generated from aggregated kitchen demand on 7/5/2026, 3:26:07 AM" -> "Made automatically from what the kitchen needs" (same as Active shop); under-budget variance green, not brand red |
+| Receipts | /team-portal/shopping/receipts | ✅ | ✅ | "Click to pick files" -> "Tap to take a photo or pick files"; "Sequential extraction, ~3 s per slip" -> "About 3 seconds per slip" |
+| Notifications | /team-portal/shopping/notifications | ✅ | ✅ | group rows no longer wrap on phones: amber "N new" pill, "Mark read" button (32px) at the right |
+| Settings | /team-portal/shopping/settings | ✅ | ✅ | reviewed - no change (view-only for staff, Live / Coming soon labelled) |
+| Sidebar + phone drawer | ShoppingNav | ✅ | ✅ | quick-action labels were cut off ("Build bu...", "Kitchen ...") - now wrap to two lines (shared `MobileQuickActions`, so kitchen and admin drawers benefit too) |
 
 ## Cleaning pages
 
 | Page | Route | Users | Before | After | Findings / changes |
 |---|---|---|---|---|---|
-| Dashboard | /team-portal/cleaning/dashboard | staff, manager | ⏳ | ⏳ | |
-| Tasks | /team-portal/cleaning/tasks | staff, manager | ⏳ | ⏳ | |
-| Schedules | /team-portal/cleaning/schedules | staff, manager | ⏳ | ⏳ | |
-| Supplies | /team-portal/cleaning/supplies | staff, manager | ⏳ | ⏳ | |
-| Equipment | /team-portal/cleaning/equipment | staff, manager | ⏳ | ⏳ | |
-| Damage | /team-portal/cleaning/damage | staff, manager | ⏳ | ⏳ | |
-| Workflows | /team-portal/cleaning/workflows | staff, manager | ⏳ | ⏳ | |
-| Notifications | /team-portal/cleaning/notifications | staff, manager | ⏳ | ⏳ | |
-| Settings | /team-portal/cleaning/settings | staff, manager | ⏳ | ⏳ | |
-| Team management | /team-portal/cleaning/management | manager | ⏳ | ⏳ | |
-| Sidebar + phone drawer | CleaningNav | staff, manager | ⏳ | ⏳ | |
+| Dashboard | /team-portal/cleaning/dashboard | staff, manager | ✅ | ✅ | reviewed (work-first already) - no change |
+| Tasks | /team-portal/cleaning/tasks | staff, manager | ✅ | ✅ | three-sentence intro -> one line; done state tick green (was brand red) |
+| Schedules | /team-portal/cleaning/schedules | staff, manager | ✅ | ✅ | reviewed - no change |
+| Supplies | /team-portal/cleaning/supplies | staff, manager | ✅ | ✅ | done in the 2026-10-06 round; re-checked |
+| Equipment | /team-portal/cleaning/equipment | staff, manager | ✅ | ✅ | done in the 2026-10-06 round; re-checked |
+| Damage | /team-portal/cleaning/damage | staff, manager | ✅ | ✅ | "No damage reports (open)" -> "No open damage" with a green tick; tiles 2-up + 1 wide on phones (3-up squeezed "Outstanding cost"); search box full width on phones (sat indented under the tabs) |
+| Workflows | /team-portal/cleaning/workflows | staff, manager | ✅ | ✅ | reviewed - no change |
+| Notifications | /team-portal/cleaning/notifications | staff, manager | ✅ | ✅ | unread shown as the same amber "N new" pill as shopping |
+| Settings | /team-portal/cleaning/settings | staff, manager | ✅ | ✅ | reviewed - no change |
+| Team management | /team-portal/cleaning/management | manager | ✅ | ✅ | done in the 2026-10-06 round; re-checked |
+| Sidebar + phone drawer | CleaningNav | staff, manager | ✅ | ✅ | quick-action labels wrap ("Open da...", "Stock ch..." were cut off); search hint fits one line |
 
 ## Completion checklist
 
-- [ ] Baseline screenshots for every page above (desktop + phone).
-- [ ] Every page reviewed against D1-D6 and polished; findings recorded.
-- [ ] After check: every page loads, 0 errors, 0 failed requests, 0 overflow at 1440 / 768 / 390.
-- [ ] `tsc` 0 errors, ESLint no new warnings, Jest all pass, production build passes.
+- [x] Baseline screenshots for every page above (desktop + phone).
+- [x] Every page reviewed against D1-D6 and polished; findings recorded.
+- [x] After check: every page loads, 0 errors, 0 failed requests, 0 overflow at 1440 / 768 / 390.
+- [x] `tsc` 0 errors, ESLint no new warnings, Jest all pass, production build passes.
 
-## Progress (2026-10-06, paused at usage limit)
+## Progress (2026-10-06 round)
 
 Baseline (`portals-deep-before/`): all 23 pages load, 0 errors, 0 failed requests, 0 overflow. Done so far (tsc clean, no new lint warnings, Jest 701/701):
 - Sidebar mode badge (shopping, cleaning, and kitchen - same bug) was red text on the red rail; now amber / sky / solid tones that read on any rail.

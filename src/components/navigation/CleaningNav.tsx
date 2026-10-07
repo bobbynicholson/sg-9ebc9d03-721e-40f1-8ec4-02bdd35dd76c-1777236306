@@ -105,7 +105,7 @@ export function CleaningNav(_: CleaningNavProps = {}) {
     // Match the company-admin rail: the cleaning portal should wear the
     // tenant's own white-label colours, not the neutral app sidebar.
     appearance: "brand",
-    searchHint: "Search handovers, equipment, supplies...",
+    searchHint: "Search equipment, supplies...",
     dashboardHref: "/team-portal/cleaning/dashboard",
     // Static fallback mobile quick actions - only used if the smart
     // renderer below somehow doesn't fire. Kept for safety.

@@ -381,7 +381,7 @@ function ShoppingKitchenDemandPageInner() {
                           </Badge>
                         )}
                         {!isShort && (
-                          <Badge variant="outline" className="bg-brand-primary/10 text-brand-primary border-brand-primary/20 dark:bg-brand-primary/15 dark:text-brand-primary dark:border-brand-primary/30 text-[10px]">
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 text-[10px]">
                             Covered
                           </Badge>
                         )}
@@ -416,7 +416,7 @@ function ShoppingKitchenDemandPageInner() {
                               title="Open this order's shopping shortfalls"
                             >
                               <Calendar className="w-2.5 h-2.5" />
-                              {u.event_date}, {u.client_name || "client"} ({u.qty} {d.unit})
+                              {dayLabel(u.event_date)}, {u.client_name || "client"} ({u.qty} {d.unit})
                             </Link>
                           ))}
                           {d.used_by.length > 3 && (
@@ -458,6 +458,14 @@ function ShoppingKitchenDemandPageInner() {
 // Route guard was missing on this page pre-restructure (the nav hid it
 // but the URL was open to any signed-in role). Same allow-list as the
 // shopping dashboard.
+
+// "2026-10-13" -> "Tue 13 Oct"; anything unparseable is shown as-is.
+function dayLabel(value: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || "");
+  if (!m) return value || "";
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
+}
+
 export default function ShoppingKitchenDemandPage() {
   return (
     <ProtectedRoute allowedRoles={[UserRole.SHOPPING_STAFF, UserRole.SUPER_ADMIN, UserRole.OWNER, UserRole.COMPANY_ADMIN, UserRole.REGION_ADMIN, UserRole.ADMIN]}>

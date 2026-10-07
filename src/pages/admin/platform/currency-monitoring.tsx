@@ -191,7 +191,7 @@ function PlatformCurrencyMonitoringPage() {
       <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
         <PortalHeader
           variant="hero"
-          title="Currency monitoring"
+          title="Currency"
           subtitle="Track USD/ZAR movement as a manual review trigger. Pricing pegs stay fixed until an admin changes them."
           icon={DollarSign}
           meta={
@@ -217,7 +217,7 @@ function PlatformCurrencyMonitoringPage() {
               className="gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-              Run Check Now
+              Run check now
             </Button>
           }
         />
@@ -284,7 +284,7 @@ function PlatformCurrencyMonitoringPage() {
           <StatTile
             label="Current Rate"
             value={`ZAR ${currentRate.toFixed(2)}`}
-            hint={`per USD${currentRateDate ? ` · as of ${new Date(currentRateDate).toLocaleDateString()}` : " · no rate stored yet"}`}
+            hint={`per USD${currentRateDate ? ` · as of ${new Date(currentRateDate).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}` : " · no rate stored yet"}`}
             icon={DollarSign}
           />
           <StatTile
@@ -345,7 +345,7 @@ function PlatformCurrencyMonitoringPage() {
         <PortalCard>
           <PortalCardHeader title="Latest exchange rates" />
           <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-            Latest stored rates from the platform currency monitor{latestRates.date ? ` · ${new Date(latestRates.date).toLocaleDateString()}` : ""}.
+            Latest stored rates from the platform currency monitor{latestRates.date ? ` · ${new Date(latestRates.date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}.
           </p>
           {latestRates.rates.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -370,14 +370,16 @@ function PlatformCurrencyMonitoringPage() {
           )}
         </PortalCard>
 
-        <PortalCard>
+        {/* History folds away: 30 daily rows used to fill most of the page. */}
+        <PortalCard collapsible defaultOpen={false} collapseLabel="Exchange rate history">
           <PortalCardHeader
             title={
               <span className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                Exchange rate history (last 90 days)
+                <Activity className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                Exchange rate history
               </span>
             }
+            description={historicalRates.length ? `Last ${Math.min(30, historicalRates.length)} daily USD rates` : undefined}
           />
             <div className="space-y-2">
               {historicalRates.length === 0 ? (
@@ -395,7 +397,7 @@ function PlatformCurrencyMonitoringPage() {
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                           <span className="text-sm font-medium text-slate-900 dark:text-white">
-                            {new Date(rate.date).toLocaleDateString()}
+                            {new Date(rate.date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
                           </span>
                         </div>
                         <span className="font-bold text-slate-900 dark:text-white">
@@ -421,7 +423,7 @@ function PlatformCurrencyMonitoringPage() {
             <div className="space-y-4">
               {alerts.length === 0 ? (
                 <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-brand-primary mx-auto mb-3" />
+                  <CheckCircle className="h-12 w-12 text-emerald-600 dark:text-emerald-400 mx-auto mb-3" />
                   <p className="text-slate-600 dark:text-slate-400">
                     No active alerts. Currency is within acceptable range.
                   </p>
@@ -472,8 +474,8 @@ function PlatformCurrencyMonitoringPage() {
         </>
         )}
 
-        <PortalCard collapsible defaultOpen={false} collapseLabel="Currency Policy Reminder" className="space-y-3">
-          <PortalCardHeader title="Currency Policy Reminder" />
+        <PortalCard collapsible defaultOpen={false} collapseLabel="Currency policy" className="space-y-3">
+          <PortalCardHeader title="Currency policy" />
             <div className="bg-slate-50 dark:bg-slate-800/60 rounded-lg p-4">
               <h4 className="font-semibold mb-2 text-slate-900 dark:text-white">Currency display</h4>
               <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -491,7 +493,7 @@ function PlatformCurrencyMonitoringPage() {
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
                 The 15% threshold is a <strong>manual review trigger</strong>, not an automated re-peg.
-                Pricing in /admin/platform/pricing-management uses fixed conversion rates and only
+                Prices on the Pricing page use fixed conversion rates and only
                 changes when an admin updates them.
               </p>
             </div>

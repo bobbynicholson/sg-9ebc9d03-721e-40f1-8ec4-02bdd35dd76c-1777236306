@@ -396,8 +396,8 @@ function ShoppingSuppliersPageInner() {
                   </Button>
                 </div>
                 <div className="space-y-1 text-sm text-slate-700 dark:text-slate-300">
-                  {s.phone && <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />{s.phone}</div>}
-                  {s.email && <div className="flex items-center gap-2 truncate"><Mail className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" /><span className="truncate">{s.email}</span></div>}
+                  {s.phone && <a href={`tel:${String(s.phone).replace(/\s+/g, "")}`} className="flex min-h-[32px] items-center gap-2 hover:text-brand-primary"><Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" />{s.phone}</a>}
+                  {s.email && <a href={`mailto:${s.email}`} className="flex min-h-[32px] items-center gap-2 truncate hover:text-brand-primary"><Mail className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" /><span className="truncate">{s.email}</span></a>}
                   {(s.city || s.address_line1) && <div className="flex items-center gap-2 truncate"><MapPin className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 flex-shrink-0" /><span className="truncate">{[s.address_line1, s.city].filter(Boolean).join(", ")}</span></div>}
                 </div>
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">

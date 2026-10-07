@@ -6,6 +6,7 @@ import { subscriptionService } from "@/services/subscriptionService";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PlatformChip, type PlatformTone } from "@/components/admin/platform/PlatformStatusChip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CheckCircle, CalendarPlus, Clock, RefreshCw, Crown, Calendar } from "lucide-react";
 import { PlatformNav } from "@/components/admin/PlatformNav";
@@ -211,17 +212,11 @@ function TrialManagementPage() {
   };
 
   const getUrgencyBadge = (daysRemaining: number) => {
-    if (daysRemaining === 0) {
-      return <Badge variant="destructive">Expired</Badge>;
-    } else if (daysRemaining <= 1) {
-      return <Badge variant="destructive">{daysRemaining} day</Badge>;
-    } else if (daysRemaining <= 3) {
-      return <Badge className="bg-orange-500">{daysRemaining} days</Badge>;
-    } else if (daysRemaining <= 7) {
-      return <Badge className="bg-yellow-500">{daysRemaining} days</Badge>;
-    } else {
-      return <Badge variant="secondary">{daysRemaining} days</Badge>;
-    }
+    if (daysRemaining === 0) return <PlatformChip tone="bad">Expired</PlatformChip>;
+    const label = `${daysRemaining} ${daysRemaining === 1 ? "day" : "days"} left`;
+    if (daysRemaining <= 1) return <PlatformChip tone="bad">{label}</PlatformChip>;
+    if (daysRemaining <= 7) return <PlatformChip tone="warn">{label}</PlatformChip>;
+    return <PlatformChip tone="info">{label}</PlatformChip>;
   };
 
   const handleExtendTrial = async (companyId: string, currentEndsAt: string, days: number) => {
@@ -284,17 +279,15 @@ function TrialManagementPage() {
   };
 
   const getNotificationBadge = (type: string | null) => {
-    if (!type) return <Badge variant="outline">None</Badge>;
-    
-    const typeMap: Record<string, { label: string; color: string }> = {
-      "7_days": { label: "7 Days", color: "bg-blue-500" },
-      "3_days": { label: "3 Days", color: "bg-yellow-500" },
-      "1_day": { label: "1 Day", color: "bg-orange-500" },
-      "expired": { label: "Expired", color: "bg-rose-500" }
+    if (!type) return <PlatformChip tone="muted">None sent</PlatformChip>;
+    const typeMap: Record<string, { label: string; tone: PlatformTone }> = {
+      "7_days": { label: "7 days before", tone: "info" },
+      "3_days": { label: "3 days before", tone: "warn" },
+      "1_day": { label: "1 day before", tone: "warn" },
+      expired: { label: "Trial ended", tone: "bad" },
     };
-
-    const config = typeMap[type] || { label: type, color: "bg-slate-500" };
-    return <Badge className={config.color}>{config.label}</Badge>;
+    const config = typeMap[type] || { label: type.replace(/_/g, " "), tone: "muted" as PlatformTone };
+    return <PlatformChip tone={config.tone}>{config.label}</PlatformChip>;
   };
 
   // Hero chips: live numbers from the loaded trial list. "Within 7
@@ -313,7 +306,7 @@ function TrialManagementPage() {
         <PortalHeader
           variant="hero"
           title="Trials"
-          subtitle="Monitor and manage trial expirations across all CateringMS companies"
+          subtitle="Companies in their free trial: who ends soon, and extend or convert them."
           icon={Calendar}
           meta={
             <>
@@ -358,39 +351,45 @@ function TrialManagementPage() {
             {/* Stats Overview */}
             <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
               <StatTile
-                label="Total Trials"
+                label="On trial"
                 value={stats.totalTrials}
                 hint="In their free trial period"
+                icon={Calendar}
               />
               <StatTile
                 label="Within 7 days"
-                value={<span className="text-yellow-600 dark:text-yellow-500">{stats.expiringIn7Days}</span>}
-                hint="First-nudge window"
+                value={<span className={stats.expiringIn7Days > 0 ? "text-amber-600 dark:text-amber-400" : undefined}>{stats.expiringIn7Days}</span>}
+                hint="First reminder goes out"
+                icon={Clock}
               />
               <StatTile
                 label="Within 3 days"
-                value={<span className="text-orange-600 dark:text-orange-500">{stats.expiringIn3Days}</span>}
-                hint="3-day reminder due"
+                value={<span className={stats.expiringIn3Days > 0 ? "text-amber-600 dark:text-amber-400" : undefined}>{stats.expiringIn3Days}</span>}
+                hint="Second reminder due"
+                icon={Clock}
               />
               <StatTile
                 label="Within 1 day"
-                value={<span className="text-rose-600 dark:text-rose-500">{stats.expiringIn1Day}</span>}
+                value={<span className={stats.expiringIn1Day > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.expiringIn1Day}</span>}
                 hint="Final reminder"
+                icon={Clock}
               />
               <StatTile
                 label="Expired"
-                value={<span className="text-rose-700 dark:text-rose-400">{stats.expired}</span>}
+                value={<span className={stats.expired > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.expired}</span>}
                 hint="Convert or cancel"
+                icon={CheckCircle}
               />
             </div>
 
             {/* Companies Table */}
             <PortalCard>
-              <PortalCardHeader title="Companies on Trial" />
+              <PortalCardHeader title="Companies on trial" />
               {companies.length === 0 ? (
                 <div className="py-8 text-center text-slate-500 dark:text-slate-400">
                   <Clock className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                  <p>No companies currently on trial</p>
+                  <p className="font-medium text-slate-700 dark:text-slate-200">No companies on trial right now</p>
+                  <p className="mt-1 text-xs">New sign-ups appear here while their free trial runs, with reminders and end dates.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">

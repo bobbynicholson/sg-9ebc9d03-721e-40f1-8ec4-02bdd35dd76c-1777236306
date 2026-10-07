@@ -20,7 +20,7 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { SubscriptionStatusChip } from "@/components/admin/platform/PlatformStatusChip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSortable, type ColumnDef } from "@/lib/useSortable";
 import { SortHeader } from "@/components/ui/sort-header";
@@ -116,7 +116,7 @@ function PlatformFinancialDashboard() {
           <PortalHeader
             variant="hero"
             title="Revenue"
-            subtitle="CateringMS's own recurring revenue across every catering company on the platform. Each company's own books live in its admin; this view is CateringMS's."
+            subtitle="What CateringMS earns from subscriptions. Each company's own sales stay in its own admin."
             icon={Crown}
             meta={
               <>
@@ -156,19 +156,19 @@ function PlatformFinancialDashboard() {
           {/* Money row: shared analytics source, matches the platform dashboard. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <StatTile
-              label="Monthly recurring revenue"
+              label="Monthly revenue"
               value={loading ? "-" : fmt(metrics?.monthlyRecurringRevenue)}
               hint="Active monthly subscriptions"
               icon={Repeat}
             />
             <StatTile
-              label="Annual recurring revenue"
+              label="Yearly revenue"
               value={loading ? "-" : fmt(metrics?.annualRecurringRevenue)}
               hint="Active annual subscriptions"
               icon={CalendarClock}
             />
             <StatTile
-              label="Total subscription revenue"
+              label="All subscription revenue"
               value={loading ? "-" : fmt(metrics?.totalRevenue)}
               hint="Monthly and annual combined"
               icon={TrendingUp}
@@ -185,10 +185,10 @@ function PlatformFinancialDashboard() {
 
           {/* Tenant mix row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatTile label="Total companies" value={loading ? "-" : stats.total} icon={Users} />
-            <StatTile label="Active subs" value={loading ? "-" : <span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>} icon={Activity} />
-            <StatTile label="On trial" value={loading ? "-" : <span className="text-amber-600 dark:text-amber-500">{stats.trialing}</span>} icon={TrendingUp} />
-            <StatTile label="Cancelled / churned" value={loading ? "-" : <span className="text-rose-600 dark:text-rose-500">{stats.cancelled}</span>} icon={AlertTriangle} />
+            <StatTile label="Companies" value={loading ? "-" : stats.total} icon={Users} />
+            <StatTile label="Paying" value={loading ? "-" : stats.active} icon={Activity} />
+            <StatTile label="On trial" value={loading ? "-" : stats.trialing} icon={TrendingUp} />
+            <StatTile label="Cancelled" value={loading ? "-" : <span className={stats.cancelled > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.cancelled}</span>} icon={AlertTriangle} />
           </div>
 
           {/* Trial expiry alert */}
@@ -263,19 +263,13 @@ function CompaniesSortableTable({ companies }: { companies: CompanyRow[] }) {
         <tbody>
           {rows.map((c) => {
             const status = (c.subscription_status || "").toLowerCase();
-            const tone =
-              status === "active"   ? "bg-brand-primary/15 text-brand-primary border-brand-primary/20" :
-              status === "trial"    ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30" :
-              status.includes("cancel") || status === "churned"
-                ? "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:border-rose-500/30"
-                : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
             return (
               <tr key={c.id} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                 <td className="py-2 pr-3 font-medium text-slate-900 dark:text-white">
                   {c.company_name || "(unnamed)"}
                 </td>
                 <td className="py-2 px-3">
-                  <Badge className={`border capitalize ${tone}`}>{(status || "unknown").replace(/_/g, " ")}</Badge>
+                  <SubscriptionStatusChip status={status} />
                 </td>
                 <td className="py-2 px-3 text-slate-600 dark:text-slate-400">
                   {c.trial_ends_at

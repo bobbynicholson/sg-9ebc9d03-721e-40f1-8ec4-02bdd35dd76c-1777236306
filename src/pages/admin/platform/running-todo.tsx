@@ -1690,15 +1690,15 @@ function AdminRunningTodoPage() {
             <StatTile label="Total items" value={stats.total} />
             <StatTile
               label="Shipped"
-              value={<span className="text-brand-primary">{stats.shipped}</span>}
+              value={stats.shipped}
             />
             <StatTile
               label="Todo"
-              value={<span className="text-slate-900 dark:text-white">{stats.todo}</span>}
+              value={stats.todo}
             />
             <StatTile
               label="Blocked"
-              value={<span className="text-rose-600">{stats.blocked}</span>}
+              value={<span className={stats.blocked > 0 ? "text-rose-600 dark:text-rose-400" : undefined}>{stats.blocked}</span>}
             />
             <StatTile label="Overall" value={`${overallPct}%`} />
           </div>

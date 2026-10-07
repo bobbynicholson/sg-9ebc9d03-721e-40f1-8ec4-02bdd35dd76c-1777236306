@@ -8,7 +8,7 @@ import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, StatTile,
 } from "@/components/portal/ui";
 import Head from "next/head";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { SubscriptionStatusChip } from "@/components/admin/platform/PlatformStatusChip";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
@@ -328,7 +328,7 @@ function PlatformSubscriptionManagement() {
   };
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return "N/A";
+    if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString("en-ZA", {
       year: "numeric",
       month: "short",
@@ -336,19 +336,7 @@ function PlatformSubscriptionManagement() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; className: string }> = {
-      active: { label: "Active", className: "bg-brand-primary" },
-      trial: { label: "Trial", className: "bg-blue-500" },
-      past_due: { label: "Past Due", className: "bg-yellow-500" },
-      cancelled: { label: "Cancelled", className: "bg-rose-500" },
-      expired: { label: "Expired", className: "bg-slate-500" },
-      suspended: { label: "Suspended", className: "bg-slate-500" },
-    };
-
-    const { label, className } = config[status] || { label: String(status || "Unknown").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()), className: "bg-slate-500" };
-    return <Badge className={className}>{label}</Badge>;
-  };
+  const getStatusBadge = (status: string) => <SubscriptionStatusChip status={status} />;
 
   if (loading) {
     return (
@@ -408,7 +396,7 @@ function PlatformSubscriptionManagement() {
                 {stats.trial} on trial
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                {formatCurrency(stats.totalMRR)} MRR
+                {formatCurrency(stats.totalMRR)} a month
               </span>
             </>
           }
@@ -443,16 +431,16 @@ function PlatformSubscriptionManagement() {
           </Alert>
         )}
 
-        <div id="active-plans" data-chat-section="platform.subscription-management.active-plans" className="grid gap-4 md:grid-cols-4 mb-6">
+        <div id="active-plans" data-chat-section="platform.subscription-management.active-plans" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mb-6">
           <StatTile
             label={
               <span className="flex items-center gap-1.5">
-                Total Subscriptions
+                Companies
                 <InfoTooltip content="Every tenant on the platform counted as one subscription each.\n\nIncludes active, trial and cancelled accounts together." />
               </span>
             }
             value={stats.total}
-            hint="All customers"
+            hint="Every company on the platform"
             icon={Users}
           />
           <StatTile
@@ -462,18 +450,18 @@ function PlatformSubscriptionManagement() {
                 <InfoTooltip content="Companies on a paid plan right now.\n\nThese are the customers actually generating recurring revenue." />
               </span>
             }
-            value={<span className="text-brand-primary dark:text-brand-primary">{stats.active}</span>}
-            hint="Paying customers"
+            value={stats.active}
+            hint="On a paid plan"
             icon={CheckCircle}
           />
           <StatTile
             label={
               <span className="flex items-center gap-1.5">
-                In Trial
+                On trial
                 <InfoTooltip content="Companies still inside their free trial period.\n\nThey don't add to MRR yet, conversion to paid is what matters here." />
               </span>
             }
-            value={<span className="text-blue-600 dark:text-blue-500">{stats.trial}</span>}
+            value={stats.trial}
             hint="Free trial period"
             icon={TrendingUp}
           />
@@ -484,7 +472,7 @@ function PlatformSubscriptionManagement() {
                 <InfoTooltip content="Recurring monthly revenue from every active subscription added together.\n\nPlan rates come from the live pricing plans (the same ones edited on Pricing Management), so a price change there updates this figure on the next load." />
               </span>
             }
-            value={<span className="text-brand-primary dark:text-brand-primary">{formatCurrency(stats.totalMRR)}</span>}
+            value={formatCurrency(stats.totalMRR)}
             hint="Recurring revenue"
             icon={DollarSign}
           />
@@ -496,7 +484,7 @@ function PlatformSubscriptionManagement() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
               <Input
-                placeholder="Search customers..."
+                placeholder="Search company or owner..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -507,21 +495,115 @@ function PlatformSubscriptionManagement() {
                 <SelectValue placeholder="Filter status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="trial">Trial</SelectItem>
-                <SelectItem value="past_due">Past Due</SelectItem>
+                <SelectItem value="past_due">Past due</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </PortalCard>
 
+        {/* Needs-attention first: overdue and cancelled companies sit above
+            the full list; when there are none, one calm line says so. */}
+        {stats.pastDue === 0 && stats.cancelled === 0 ? (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            No overdue or cancelled subscriptions. Nothing to chase today.
+          </div>
+        ) : (
+        <div className="grid gap-6 md:grid-cols-2 mb-6">
+          <PortalCard className="border-l-4 border-l-amber-400 bg-white dark:border-slate-800 dark:border-l-amber-400 dark:bg-slate-900">
+            <PortalCardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  Overdue ({stats.pastDue})
+                  <InfoTooltip content="Companies with a failed or overdue payment that need a personal nudge.\n\nReach out promptly, this is the window where churn usually happens." />
+                </span>
+              }
+            />
+            <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Payment failed or late. Contact the owner.</p>
+              {subscriptions.filter(s => s.status === "past_due").length === 0 ? (
+                <p className="text-sm text-slate-600 dark:text-slate-400 text-center py-4">No overdue subscriptions</p>
+              ) : (
+                <div className="space-y-3">
+                  {subscriptions.filter(s => s.status === "past_due").map((sub) => (
+                    <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border dark:bg-slate-900 dark:border-slate-700">
+                      <div>
+                        <p className="font-medium text-sm">{sub.company_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{sub.plan_name}</p>
+                      </div>
+                      {sub.owner_email ? (
+                        <Button variant="outline" size="sm" asChild>
+                          <a
+                            href={`mailto:${sub.owner_email}?subject=${encodeURIComponent(`Your CateringMS subscription for ${sub.company_name}`)}`}
+                            title={`Email ${sub.owner_email}`}
+                          >
+                            Contact
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          title="No owner email on record for this company"
+                        >
+                          Contact
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+          </PortalCard>
+
+          <PortalCard className="border-l-4 border-l-rose-400 bg-white dark:border-slate-800 dark:border-l-rose-400 dark:bg-slate-900">
+            <PortalCardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <Ban className="h-5 w-5 text-rose-600" />
+                  Cancelled ({stats.cancelled})
+                  <InfoTooltip content="Companies that have ended their subscription, with the most recent cancellations first.\n\nA good list to mine for win-back outreach." />
+                </span>
+              }
+            />
+            <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Latest cancellations, worth a win-back call.</p>
+              {subscriptions.filter(s => s.status === "cancelled").length === 0 ? (
+                <p className="text-sm text-slate-600 dark:text-slate-400 text-center py-4">No cancelled subscriptions</p>
+              ) : (
+                <div className="space-y-3">
+                  {subscriptions.filter(s => s.status === "cancelled").slice(0, 3).map((sub) => (
+                    <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border dark:bg-slate-900 dark:border-slate-700">
+                      <div>
+                        <p className="font-medium text-sm">{sub.company_name}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Ended {formatDate(sub.next_billing_date)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/admin/platform/company-database?company=${sub.company_id}`)}
+                        title="Open this company in the company database"
+                      >
+                        Review
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+          </PortalCard>
+        </div>
+        )}
+
         <PortalCard className="mb-6">
           <PortalCardHeader
             title={
               <span className="flex items-center gap-2">
-                Customer Subscriptions ({filteredSubscriptions.length})
+                Companies ({filteredSubscriptions.length})
                 <InfoTooltip content="Every tenant shown as a subscription row, with plan, status, amount and next billing date.\n\nFor trials the next billing date is the trial end. For paid customers it's the renewal date." />
               </span>
             }
@@ -645,91 +727,6 @@ function PlatformSubscriptionManagement() {
               </div>
             )}
         </PortalCard>
-
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
-          <PortalCard className="border-l-4 border-l-amber-400 bg-white dark:border-slate-800 dark:border-l-amber-400 dark:bg-slate-900">
-            <PortalCardHeader
-              title={
-                <span className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  At Risk ({stats.pastDue})
-                  <InfoTooltip content="Companies with a failed or overdue payment that need a personal nudge.\n\nReach out promptly, this is the window where churn usually happens." />
-                </span>
-              }
-            />
-            <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Subscriptions requiring attention</p>
-              {subscriptions.filter(s => s.status === "past_due").length === 0 ? (
-                <p className="text-sm text-slate-600 dark:text-slate-400 text-center py-4">No at-risk subscriptions</p>
-              ) : (
-                <div className="space-y-3">
-                  {subscriptions.filter(s => s.status === "past_due").map((sub) => (
-                    <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border dark:bg-slate-900 dark:border-slate-700">
-                      <div>
-                        <p className="font-medium text-sm">{sub.company_name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{sub.plan_name}</p>
-                      </div>
-                      {sub.owner_email ? (
-                        <Button variant="outline" size="sm" asChild>
-                          <a
-                            href={`mailto:${sub.owner_email}?subject=${encodeURIComponent(`Your CateringMS subscription for ${sub.company_name}`)}`}
-                            title={`Email ${sub.owner_email}`}
-                          >
-                            Contact
-                          </a>
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled
-                          title="No owner email on record for this company"
-                        >
-                          Contact
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-          </PortalCard>
-
-          <PortalCard className="border-l-4 border-l-rose-400 bg-white dark:border-slate-800 dark:border-l-rose-400 dark:bg-slate-900">
-            <PortalCardHeader
-              title={
-                <span className="flex items-center gap-2">
-                  <Ban className="h-5 w-5 text-rose-600" />
-                  Cancelled ({stats.cancelled})
-                  <InfoTooltip content="Companies that have ended their subscription, with the most recent cancellations first.\n\nA good list to mine for win-back outreach." />
-                </span>
-              }
-            />
-            <p className="-mt-2 mb-3 text-sm text-slate-600 dark:text-slate-400">Recently cancelled subscriptions</p>
-              {subscriptions.filter(s => s.status === "cancelled").length === 0 ? (
-                <p className="text-sm text-slate-600 dark:text-slate-400 text-center py-4">No cancelled subscriptions</p>
-              ) : (
-                <div className="space-y-3">
-                  {subscriptions.filter(s => s.status === "cancelled").slice(0, 3).map((sub) => (
-                    <div key={sub.id} className="flex items-center justify-between p-3 bg-white rounded-lg border dark:bg-slate-900 dark:border-slate-700">
-                      <div>
-                        <p className="font-medium text-sm">{sub.company_name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          Ended {formatDate(sub.next_billing_date)}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/admin/platform/company-database?company=${sub.company_id}`)}
-                        title="Open this company in the company database"
-                      >
-                        Review
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-          </PortalCard>
-        </div>
       </PortalShell>
     </div>
   );
