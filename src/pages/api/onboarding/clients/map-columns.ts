@@ -19,6 +19,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { mapColumnsViaAI } from "@/lib/importAi";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { isTextAiConfigured } from "@/lib/ai/textLlm";
+import { setAiUsageContext } from "@/lib/ai/usageLog";
 
 const ALLOWED_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
@@ -75,6 +76,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const role = String(profile?.active_role || profile?.role || "");
   if (!ALLOWED_ROLES.has(role)) return res.status(403).json({ error: "Owner or admin only" });
   if (!profile?.company_id) return res.status(403).json({ error: "Account isn't linked to a company" });
+  setAiUsageContext({ companyId: profile.company_id, userId: user.id });
 
   const rawHeaders = Array.isArray(req.body?.headers) ? (req.body.headers as unknown[]) : [];
   if (rawHeaders.length === 0) return res.status(400).json({ error: "headers[] is required" });

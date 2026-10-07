@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { chatCompletion, parseJsonLoose, visionModels, visionProviderOrder } from "@/lib/ai/textLlm";
+import { recordAiUsage } from "@/lib/ai/usageLog";
 
 export type EftProofFields = {
   document_type: "bank_transfer_confirmation" | "bank_statement" | "other" | "unclear";
@@ -148,6 +149,7 @@ export async function analyzeEftProof(args: {
       const r = await chatCompletion({
         provider,
         model,
+        feature: "eft_proof",
         maxTokens: 700,
         timeoutMs: 30_000,
         messages: [
@@ -187,6 +189,7 @@ export async function analyzeEftProof(args: {
           type: "image",
           source: { type: "base64", media_type: args.imageMime, data: args.imageBase64 },
         };
+    const started = Date.now();
     const response: any = await (client.messages.create as any)({
       model,
       max_tokens: 700,
@@ -218,6 +221,11 @@ export async function analyzeEftProof(args: {
           document,
         ],
       }],
+    });
+    recordAiUsage({
+      feature: "eft_proof", provider: "anthropic", model,
+      tokensIn: response?.usage?.input_tokens ?? 0, tokensOut: response?.usage?.output_tokens ?? 0,
+      success: true, latencyMs: Date.now() - started,
     });
     const fields = cleanFields(response.content?.find((block: any) => block.type === "tool_use")?.input);
     if (!fields) {

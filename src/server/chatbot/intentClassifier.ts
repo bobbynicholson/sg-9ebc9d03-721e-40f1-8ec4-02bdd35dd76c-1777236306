@@ -6,6 +6,7 @@ import { NAVIGATION_REFS } from "@/lib/chatbot/navigation";
 import { LIVE_TOOL_DEFINITIONS } from "./liveTools";
 import { WORKFLOW_DEFINITIONS } from "@/lib/chatbot/workflows";
 import { normalizeChatRole } from "@/lib/chatbot/roles";
+import { recordAiUsage } from "@/lib/ai/usageLog";
 
 const OPENAI_TIMEOUT_MS = 7_000;
 const INTENT_MODEL = process.env.OPENAI_INTENT_MODEL || "gpt-4o-mini";
@@ -62,6 +63,7 @@ export async function classifyChatIntentWithOpenAI(message: string, role: string
   ].join("\n");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+  const started = Date.now();
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -94,6 +96,11 @@ export async function classifyChatIntentWithOpenAI(message: string, role: string
     });
     if (!response.ok) throw new Error(`OpenAI intent classification failed: ${response.status}`);
     const payload = await response.json();
+    recordAiUsage({
+      feature: "chat_intent", provider: "openai", model: INTENT_MODEL,
+      tokensIn: payload?.usage?.input_tokens ?? 0, tokensOut: payload?.usage?.output_tokens ?? 0,
+      success: true, latencyMs: Date.now() - started,
+    });
     const parsed = JSON.parse(extractOutputText(payload));
     if (!intentIds.includes(String(parsed?.intent_id))) throw new Error("OpenAI returned an intent outside the allowlist");
     const match = matchChatIntentById(String(parsed.intent_id), message, role, registry);

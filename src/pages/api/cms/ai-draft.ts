@@ -23,6 +23,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { callTextJson, isTextAiConfigured, TEXT_AI_KEYS_HINT } from "@/lib/ai/textLlm";
+import { setAiUsageContext } from "@/lib/ai/usageLog";
 
 const SYSTEM_PROMPT = `You write blog posts for CateringMS, a multi-tenant SaaS for South African catering businesses (companies that run spit braais, weddings, corporate events). The CateringMS marketing site lives at cateringms.com. Posts you write get published there.
 
@@ -68,6 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (role !== "super_admin") {
       return res.status(403).json({ error: "Marketing CMS is super-admin only" });
     }
+    setAiUsageContext({ userId: user.id });
 
     const {
       topic,
@@ -105,7 +107,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     let lastErr: unknown = null;
     try {
       const r = await callTextJson({
-        label: "ai-draft",
+        label: "blog_draft",
         system: SYSTEM_PROMPT,
         user: userPayload,
         maxTokens: 4096,

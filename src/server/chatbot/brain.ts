@@ -14,6 +14,7 @@ import { normalizeChatRole } from "@/lib/chatbot/roles";
 import { normalizeChatMessage } from "@/lib/chatbot/intents/normalize";
 import { isPlatformOverviewQuestion, type ChatIntentRoute } from "./router";
 import { chatCompletion } from "@/lib/ai/textLlm";
+import { recordAiUsage } from "@/lib/ai/usageLog";
 
 type Db = any;
 
@@ -380,6 +381,11 @@ export async function createKnowledgeEmbeddings(texts: string[], options: Embedd
           throw embeddingError(config.provider, `temporary provider error ${response.status}`);
         }
         const payload: any = await response.json();
+        recordAiUsage({
+          feature: "embeddings", provider: config.provider, model: config.model,
+          tokensIn: Number(payload?.usage?.prompt_tokens ?? payload?.usage?.total_tokens) || Math.ceil(batch.join(" ").length / 4),
+          tokensOut: 0, success: true,
+        });
         const vectors = Array.isArray(payload?.data) ? payload.data : [];
         const batchVectors = batch.map((_, index) => {
           const vector = vectors.find((item: any) => Number(item?.index) === index)?.embedding || vectors[index]?.embedding;
@@ -2448,8 +2454,9 @@ function currentSubscriptionUnavailableReply(args: {
   return { text: rendered.text, provider: "grounded-fallback", retrievalCount: args.knowledge.length, rendered };
 }
 
-async function callOpenRouter(messages: Array<{ role: "system" | "user" | "assistant" } & { content: string }>): Promise<string> {
+async function callOpenRouter(messages: Array<{ role: "system" | "user" | "assistant" } & { content: string }>, feature = "chat_reply"): Promise<string> {
   if (!process.env.OPENROUTER_API_KEY) throw new Error("OpenRouter is not configured");
+  const started = Date.now();
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -2463,8 +2470,16 @@ async function callOpenRouter(messages: Array<{ role: "system" | "user" | "assis
     // answer without spending the whole completion budget on reasoning.
     body: JSON.stringify({ model: OPENROUTER_MODEL, messages, temperature: 0.2, top_p: 1, max_tokens: 400, reasoning: { effort: "low" } }),
   });
-  if (!response.ok) throw new Error(`OpenRouter returned ${response.status}`);
+  if (!response.ok) {
+    recordAiUsage({ feature, provider: "openrouter", model: OPENROUTER_MODEL, tokensIn: 0, tokensOut: 0, success: false, error: `HTTP ${response.status}`, latencyMs: Date.now() - started });
+    throw new Error(`OpenRouter returned ${response.status}`);
+  }
   const payload: any = await response.json();
+  recordAiUsage({
+    feature, provider: "openrouter", model: OPENROUTER_MODEL,
+    tokensIn: payload?.usage?.prompt_tokens ?? 0, tokensOut: payload?.usage?.completion_tokens ?? 0,
+    success: true, latencyMs: Date.now() - started,
+  });
   const message = payload?.choices?.[0]?.message;
   const content = extractChatContent(message);
   if (content) return content;
@@ -2507,7 +2522,7 @@ export async function reviewKnowledgeSource(input: KnowledgeReviewInput): Promis
         { role: "system" as const, content: system },
         { role: "user" as const, content: user },
       ];
-      raw = provider === "openrouter" ? await callOpenRouter(reviewMessages) : await callChatProvider(provider, reviewMessages);
+      raw = provider === "openrouter" ? await callOpenRouter(reviewMessages, "knowledge_review") : await callChatProvider(provider, reviewMessages, "knowledge_review");
       if (raw) break;
     } catch (error) {
       console.warn(`[chatbot] knowledge review via ${provider} failed`, error instanceof Error ? error.message : error);
@@ -2571,9 +2586,9 @@ function chatProviderOrder(): ChatProvider[] {
   return preferred ? [preferred, ...available.filter((p) => p !== preferred)] : available;
 }
 
-async function callChatProvider(provider: Exclude<ChatProvider, "openrouter">, messages: Array<{ role: "system" | "user" | "assistant"; content: string }>): Promise<string> {
+async function callChatProvider(provider: Exclude<ChatProvider, "openrouter">, messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, feature = "chat_reply"): Promise<string> {
   const model = provider === "groq" ? GROQ_CHAT_MODEL : provider === "openai" ? OPENAI_CHAT_MODEL : ANTHROPIC_CHAT_MODEL;
-  const result = await chatCompletion({ provider, model, messages, temperature: 0.2, maxTokens: 400, timeoutMs: 30_000 });
+  const result = await chatCompletion({ provider, model, messages, temperature: 0.2, maxTokens: 400, timeoutMs: 30_000, feature });
   return result.content;
 }
 

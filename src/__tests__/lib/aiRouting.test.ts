@@ -5,6 +5,9 @@
 import { callTextJson, parseJsonLoose, textProviderOrder, visionProviderOrder, isTextAiConfigured } from "@/lib/ai/textLlm";
 import { mapColumnsViaAI, repairRowViaAI, extractReceiptViaAI } from "@/lib/importAi";
 import { analyzeEftProof } from "@/lib/eftProofVision";
+import { recordAiUsage } from "@/lib/ai/usageLog";
+
+jest.mock("@/lib/ai/usageLog", () => ({ recordAiUsage: jest.fn(), setAiUsageContext: jest.fn() }));
 
 const AI_KEYS = ["OPENROUTER_API_KEY", "GROQ_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_MODEL", "OPENROUTER_TEXT_MODEL", "GROQ_TEXT_MODEL"];
 const saved: Record<string, string | undefined> = {};
@@ -67,6 +70,21 @@ describe("callTextJson", () => {
     expect(body.reasoning).toEqual({ effort: "low", exclude: true });
     expect(body.max_tokens).toBe(1124); // reasoning headroom
     expect(global.fetch).toHaveBeenCalledTimes(1); // Claude never touched
+  });
+
+  it("logs every call, success or failure, to the live AI usage ledger", async () => {
+    setKeys({ OPENROUTER_API_KEY: "r", OPENAI_API_KEY: "o" });
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+    (recordAiUsage as jest.Mock).mockClear();
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "down" })
+      .mockResolvedValueOnce(chatOk({ ok: 1 }, { prompt_tokens: 120, completion_tokens: 30 })) as any;
+    await callTextJson({ system: "s", user: "u", label: "column_matching" });
+    const events = (recordAiUsage as jest.Mock).mock.calls.map((c) => c[0]);
+    expect(events).toEqual([
+      expect.objectContaining({ feature: "column_matching", provider: "openrouter", model: "openai/gpt-oss-20b", success: false }),
+      expect.objectContaining({ feature: "column_matching", provider: "openai", model: "gpt-4o-mini", tokensIn: 120, tokensOut: 30, success: true }),
+    ]);
   });
 
   it("falls through to Groq, then OpenAI, when earlier providers fail", async () => {

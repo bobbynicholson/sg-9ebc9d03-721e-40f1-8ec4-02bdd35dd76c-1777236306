@@ -16,6 +16,7 @@ import { getChatAccessPolicy } from "@/server/chatbot/accessPolicy";
 import { routeChatQuestion } from "@/server/chatbot/router";
 import { loadDynamicTools, selectDynamicTools } from "@/server/chatbot/dynamicTools";
 import { classifyChatIntentWithOpenAI } from "@/server/chatbot/intentClassifier";
+import { setAiUsageContext } from "@/lib/ai/usageLog";
 
 const MAX_MESSAGE_LENGTH = 4_000;
 const MAX_GROUNDING_PASSES = 2;
@@ -105,6 +106,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!user) return chatError(res, 401, "UNAUTHENTICATED", "Please sign in before using the assistant.", false);
   const identity = localDevBypass ? devAuth?.identity || null : await resolveChatIdentity(db, user.id);
   if (!identity) return chatError(res, 403, "PROFILE_UNAVAILABLE", "Your account profile is not available yet. Please contact an administrator.", false);
+  setAiUsageContext({ companyId: identity.companyId, userId: user.id });
   const isPlatformAdmin = identity.role === "super_admin";
 
   if (req.method === "GET") {

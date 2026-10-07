@@ -10,6 +10,7 @@ import { createKnowledgeEmbeddings, getKnowledgeEmbeddingMetadata, reviewKnowled
 import { validateCompanyAdminKnowledgeScope, validateKnowledgeContent } from "@/server/chatbot/knowledgeSafety";
 import { ROLE_KNOWLEDGE_PACKS, type RoleKnowledgePack } from "@/lib/chatbot/roleKnowledge";
 import { fetchWebsiteSource } from "@/server/chatbot/websiteSource";
+import { setAiUsageContext } from "@/lib/ai/usageLog";
 
 const MANAGER_ROLES = new Set(["super_admin", "owner", "company_admin"]);
 const SOURCE_MANAGER_ROLES = new Set(["super_admin", "owner"]);
@@ -261,6 +262,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { data: { user } } = await db.auth.getUser();
   if (!user) return res.status(401).json({ error: "Sign in first" });
   const { data: profile } = await db.from("profiles").select("role, active_role, company_id").eq("id", user.id).maybeSingle();
+  setAiUsageContext({ companyId: profile?.company_id ?? null, userId: user.id });
   const callerRoles = [profile?.role, profile?.active_role].filter(Boolean).map(String);
   // Only the canonical profile role grants platform scope. An active/delegated
   // role must never elevate a company administrator to global knowledge.

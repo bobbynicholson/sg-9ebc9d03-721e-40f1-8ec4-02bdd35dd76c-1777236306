@@ -8,6 +8,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { getInvoicePublicAvailability } from "@/lib/invoicePublicPayment";
 import { analyzeEftProof } from "@/lib/eftProofVision";
 import { resolveCompanyEftDetails } from "@/lib/companyEftDetails";
+import { setAiUsageContext } from "@/lib/ai/usageLog";
 
 export const config = { api: { bodyParser: false } };
 
@@ -51,6 +52,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (publicPayment.availability.online_available) {
       return res.status(409).json({ error: "EFT confirmation is unavailable while online payment is enabled" });
     }
+    setAiUsageContext({ companyId: invoice.company_id });
     const { data: company } = await sb.from("companies")
       .select("company_name, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions")
       .eq("id", invoice.company_id)

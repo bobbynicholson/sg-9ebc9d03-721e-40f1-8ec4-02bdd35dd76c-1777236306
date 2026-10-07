@@ -28,6 +28,7 @@ import {
   VISION_AI_KEYS_HINT,
   type VisionProvider,
 } from "@/lib/ai/textLlm";
+import { recordAiUsage } from "@/lib/ai/usageLog";
 
 // Anthropic is a last-resort vision fallback only (receipt scans), so
 // the SDK is loaded lazily the first time that path actually fires.
@@ -149,7 +150,7 @@ export async function mapColumnsViaAI(args: MapColumnsArgs): Promise<{
     // off; bounded so one call stays cheap. A provider that returns no
     // mappings array falls through to the next one.
     const { data, tokens_in, tokens_out } = await callTextJson({
-      label: "mapColumnsViaAI",
+      label: "column_matching",
       // Mapping decides whether a whole file imports correctly, so it
       // gets the stronger model (gpt-oss-120b).
       tier: "smart",
@@ -274,7 +275,7 @@ ${args.errorMessage ? `- ERROR: ${args.errorMessage}\n` : ""}${args.warnings.map
 Return only the fields where you can improve on the current mapping, as the JSON object described.`;
 
   const { data, tokens_in, tokens_out } = await callTextJson({
-    label: "repairRowViaAI",
+    label: "import_row_repair",
     system: REPAIR_SYSTEM,
     user: userMessage,
     maxTokens: 1024,
@@ -422,6 +423,7 @@ async function callAnthropicForReceipt(args: {
   model: string;
 }): Promise<{ extraction: ReceiptExtraction; tokens_in: number; tokens_out: number; model_used: string }> {
   const systemText = RECEIPT_SYSTEM_BASE + buildTaxRulesPrompt(args.taxRules || []);
+  const started = Date.now();
   const response: any = await ((await client()).messages.create as any)({
     model: args.model,
     max_tokens: 8192,
@@ -490,6 +492,10 @@ async function callAnthropicForReceipt(args: {
   });
 
   const tokensIn = response?.usage?.input_tokens ?? 0;
+  recordAiUsage({
+    feature: "receipt_scan", provider: "anthropic", model: args.model,
+    tokensIn, tokensOut: response?.usage?.output_tokens ?? 0, success: true, latencyMs: Date.now() - started,
+  });
   const tokensOut = response?.usage?.output_tokens ?? 0;
   const truncated = response?.stop_reason === "max_tokens";
 
@@ -572,6 +578,7 @@ async function callOpenAiCompatibleForReceipt(args: {
   const r = await chatCompletion({
     provider: args.provider,
     model: args.model,
+    feature: "receipt_scan",
     maxTokens: 8192,
     timeoutMs: 55_000,
     messages: [

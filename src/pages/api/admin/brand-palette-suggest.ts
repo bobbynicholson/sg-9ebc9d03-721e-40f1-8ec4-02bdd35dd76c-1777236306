@@ -11,6 +11,7 @@ import {
   type BrandPalette,
   type PaletteSuggestion,
 } from "@/lib/branding/paletteAdvisor";
+import { setAiUsageContext } from "@/lib/ai/usageLog";
 
 const ADMIN_ROLES = new Set([
   "super_admin",
@@ -75,6 +76,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (!ADMIN_ROLES.has(role)) {
       return res.status(403).json({ error: "Only admins can request brand palette suggestions" });
     }
+    setAiUsageContext({ userId: user.id });
 
     const primary = normalizeHex(req.body?.primaryColor);
     const secondary = normalizeHex(req.body?.secondaryColor);
@@ -99,7 +101,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       try {
         // A palette that fails the contrast check moves on to the next provider.
         const r = await callTextJson({
-          label: "brand-palette-suggest",
+          label: "brand_palette",
           system: SYSTEM_PROMPT,
           user: JSON.stringify(payload),
           maxTokens: 512,

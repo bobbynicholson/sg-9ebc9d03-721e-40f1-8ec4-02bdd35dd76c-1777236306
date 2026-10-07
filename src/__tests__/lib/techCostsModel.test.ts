@@ -1,135 +1,157 @@
+/**
+ * @jest-environment node
+ */
 import {
+  aiCallCostUsd,
   ALL_PRICING_LINKS,
   computeTechCosts,
-  DEFAULT_ASSUMPTIONS,
-  GOOGLE_MAPS,
+  EMPTY_INPUTS,
+  priceForModel,
+  type TechCostInputs,
 } from "@/lib/techCosts/model";
-import { getPlatformTechnologyCostSummary } from "@/services/platformTechnologyCostService";
+import { getLiveTechCostData, getPlatformTechnologyCostSummary } from "@/services/platformTechnologyCostService";
+import { buildAiUsageRow } from "@/lib/ai/usageLog";
 
-const category = (r: ReturnType<typeof computeTechCosts>, key: string) => r.categories.find((c) => c.key === key)!;
+const today: TechCostInputs = {
+  ...EMPTY_INPUTS,
+  companies: 1, paying_companies: 0, revenue_zar: 0, users: 22, emails: 108, chat_messages: 105,
+};
+const category = (inputs: TechCostInputs, key: string) => computeTechCosts(inputs, 16.66).categories.find((c) => c.key === key)!;
 
 describe("tech-cost model", () => {
-  it("covers every vendor the platform uses", () => {
-    const r = computeTechCosts(DEFAULT_ASSUMPTIONS);
-    expect(r.categories.map((c) => c.key)).toEqual(["hosting", "database", "ai", "email", "maps", "payments", "accounting", "monitoring", "free", "fixed", "passthrough"]);
-    const total = r.categories.filter((c) => !c.informational).reduce((s, c) => s + c.subtotal_usd, 0);
-    expect(r.total_usd).toBeCloseTo(total, 8);
+  it("only models vendors the platform uses", () => {
+    const r = computeTechCosts(today, 16.66);
+    expect(r.categories.map((c) => c.key)).toEqual(["hosting", "database", "ai", "email", "maps", "payments", "fixed"]);
+    expect(r.total_usd).toBeCloseTo(r.categories.reduce((s, c) => s + c.subtotal_usd, 0), 10);
+    const text = JSON.stringify(r);
+    for (const gone of ["Xero", "QuickBooks", "Sage", "Sentry", "WhatsApp", "Stripe", "Yoco"]) expect(text).not.toContain(gone);
   });
 
-  it("links every paid line and every category to an official pricing page", () => {
-    const r = computeTechCosts(DEFAULT_ASSUMPTIONS);
-    for (const c of r.categories) {
-      for (const l of c.lines) {
-        if (l.usd_per_mo !== 0 && c.key !== "fixed") expect(l.link?.url).toMatch(/^https:\/\//);
-      }
-      if (c.key !== "fixed") expect(c.links.length).toBeGreaterThan(0);
-    }
+  it("prices today's platform from real records", () => {
+    const r = computeTechCosts(today, 16.66);
+    // Vercel US$20 seat (usage inside its credit) + Supabase US$25 + Small compute US$5 + domain US$1.50
+    expect(category(today, "hosting").subtotal_usd).toBe(20);
+    expect(category(today, "database").subtotal_usd).toBe(30);
+    expect(category(today, "email").subtotal_usd).toBe(0);      // 108 emails, 3,000 free
+    expect(category(today, "maps").subtotal_usd).toBe(0);       // inside every free allowance
+    expect(category(today, "payments").subtotal_usd).toBe(0);   // no paying companies yet
+    expect(r.ai_is_actual).toBe(false);
+    expect(r.ai_usd).toBeGreaterThan(0);
+    expect(r.ai_usd).toBeLessThan(1);
+    expect(r.total_usd).toBeCloseTo(51.5 + r.ai_usd, 8);
+  });
+
+  it("uses tracked AI spend once the ledger exists", () => {
+    const r = computeTechCosts({ ...today, ai_actual_usd: 0.4321, ai_actual_calls: 17 }, 16.66);
+    expect(r.ai_is_actual).toBe(true);
+    expect(r.ai_usd).toBe(0.4321);
+    expect(category({ ...today, ai_actual_usd: 0.4321, ai_actual_calls: 17 }, "ai").lines[0].formula).toContain("17 AI calls");
+  });
+
+  it("charges PayFast fees on real subscription revenue", () => {
+    const fees = category({ ...today, paying_companies: 2, revenue_zar: 3798 }, "payments");
+    // 3.2% × 3798 + 2 × R2 = R125.536 → US$ at 16.66
+    expect(fees.subtotal_usd).toBeCloseTo((3798 * 0.032 + 4) / 16.66, 8);
+  });
+
+  it("bills Resend Pro once emails pass the free tier", () => {
+    expect(category({ ...today, emails: 3_001 }, "email").subtotal_usd).toBe(20);
+    expect(category({ ...today, emails: 60_000 }, "email").subtotal_usd).toBeCloseTo(20 + 10 * 0.9, 8);
+  });
+
+  it("steps Supabase compute and Vercel usage with company count", () => {
+    expect(category({ ...today, companies: 250 }, "database").lines[1].usd_per_mo).toBe(50);   // Medium 60 - 10 credit
+    const vercel = category({ ...today, companies: 500 }, "hosting");
+    expect(vercel.lines[1].usd_per_mo).toBeGreaterThan(0);                                     // usage beyond the US$20 credit
+  });
+
+  it("links every category except the domain to an official pricing page", () => {
+    const r = computeTechCosts(today, 16.66);
+    for (const c of r.categories) if (c.key !== "fixed") expect(c.links.length).toBeGreaterThan(0);
     const urls = ALL_PRICING_LINKS.map((l) => l.url);
     expect(new Set(urls).size).toBe(urls.length);
-  });
-
-  it("nets the Vercel usage credit against metered usage only", () => {
-    const small = computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: 5 });
-    expect(small.categories[0].subtotal_usd).toBeCloseTo(20, 8); // usage below the US$20 credit
-    const big = computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: 500 });
-    const metered = big.categories[0].lines.slice(1, 4).reduce((s, l) => s + l.usd_per_mo, 0);
-    expect(metered).toBeGreaterThan(20);
-    expect(big.categories[0].subtotal_usd).toBeCloseTo(20 + metered - 20, 8);
-  });
-
-  it("steps Supabase compute and Xero tiers with company count", () => {
-    const line = (n: number, key: string, prefix: string) =>
-      computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: n }).categories.find((c) => c.key === key)!.lines.find((l) => l.label.startsWith(prefix))!;
-    expect(line(50, "database", "Database compute").usd_per_mo).toBe(5);    // Small 15 - 10 credit
-    expect(line(250, "database", "Database compute").usd_per_mo).toBe(50);  // Medium 60 - 10
-    expect(line(10, "accounting", "Xero").usd_per_mo).toBe(0);              // 3 connections: Starter
-    expect(line(100, "accounting", "Xero").usd_per_mo).toBe(22);            // 30: Core
-    expect(line(500, "accounting", "Xero").usd_per_mo).toBe(152);           // 150: Plus
-  });
-
-  it("keeps company-paid services out of the platform total", () => {
-    const r = computeTechCosts(DEFAULT_ASSUMPTIONS);
-    const pass = r.categories.find((c) => c.key === "passthrough")!;
-    expect(pass.informational).toBe(true);
-    expect(pass.lines.map((l) => l.label).join(" ")).toContain("WhatsApp");
-  });
-
-  it("lists every AI feature on gpt-oss-20b / Llama 4 by default", () => {
-    const ai = category(computeTechCosts(DEFAULT_ASSUMPTIONS), "ai");
-    const labels = ai.lines.map((l) => l.label).join("\n");
-    for (const feature of ["Receipt scans", "EFT proof", "Client / CSV import", "Import row repair", "Assistant replies", "Assistant intent routing", "Knowledge safety review", "embeddings", "Brand palette", "blog drafts"]) {
-      expect(labels).toContain(feature);
-    }
-    expect(labels).toContain("gpt-oss-20b");
-    expect(labels).toContain("Llama 4 Scout");
-    expect(labels).not.toContain("Claude");
-  });
-
-  it("is much cheaper than the previous Claude routing", () => {
-    const r = computeTechCosts(DEFAULT_ASSUMPTIONS);
-    expect(r.ai_usd).toBeGreaterThan(0);
-    expect(r.ai_previous_claude_usd).toBeGreaterThan(r.ai_usd * 4);
-  });
-
-  it("re-prices AI when Claude is picked in the selectors", () => {
-    const claude = computeTechCosts({ ...DEFAULT_ASSUMPTIONS, text_model: "claude-haiku-4-5", vision_model: "claude-haiku-sonnet" });
-    expect(claude.ai_usd).toBeCloseTo(claude.ai_previous_claude_usd, 8);
-  });
-
-  it("falls back to the default models on an unknown selector value", () => {
-    const a = computeTechCosts(DEFAULT_ASSUMPTIONS);
-    const b = computeTechCosts({ ...DEFAULT_ASSUMPTIONS, text_model: "nope", vision_model: "nope" });
-    expect(b.ai_usd).toBeCloseTo(a.ai_usd, 10);
-  });
-
-  it("applies the per-SKU Google Maps free caps", () => {
-    const small = category(computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: 10 }), "maps");
-    expect(small.subtotal_usd).toBe(0);
-    const big = category(computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: 100 }), "maps");
-    const matrix = big.lines.find((l) => l.label.startsWith("Distance Matrix"))!;
-    expect(matrix.usd_per_mo).toBeCloseTo(((100 * 200 - GOOGLE_MAPS.free_calls_per_sku) / 1000) * 5, 8);
-  });
-
-  it("charges PayFast card fees on subscription revenue", () => {
-    const r = computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: 10, subscription_zar_per_tenant: 1000, card_paying_share: 1 }, 20);
-    // 10 × (3.2% × 1000 + 2) = ZAR 340 = US$17 at 20
-    expect(category(r, "payments").subtotal_usd).toBeCloseTo(17, 8);
-    const stripe = computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: 10, subscription_zar_per_tenant: 1000, payment_gateway: "stripe" }, 20);
-    // 10 × (2.9% × 1000 / 20 + 0.30) = US$17.5
-    expect(category(stripe, "payments").subtotal_usd).toBeCloseTo(17.5, 8);
-  });
-
-  it("has no NaN with zero companies", () => {
-    const r = computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: 0 });
-    expect(Number.isFinite(r.total_usd)).toBe(true);
+    expect(urls.every((u) => u.startsWith("https://"))).toBe(true);
   });
 });
 
-describe("assistant tech-cost summary uses the same model", () => {
-  function fakeDb(companies: unknown[], plans: unknown[], rate: number) {
-    const chain = (data: unknown) => {
-      const q: Record<string, unknown> = {};
-      for (const m of ["select", "is", "not", "eq", "order", "limit"]) q[m] = () => q;
-      q.maybeSingle = async () => ({ data, error: null });
-      q.then = (resolve: (v: unknown) => void) => resolve({ data, error: null });
-      return q;
-    };
+describe("AI call pricing", () => {
+  it("prices each model the code calls", () => {
+    expect(aiCallCostUsd("openai/gpt-oss-20b", 1_000_000, 1_000_000, "openrouter")).toBeCloseTo(0.018 + 0.09, 10);
+    expect(aiCallCostUsd("openai/gpt-oss-20b", 1_000_000, 1_000_000, "groq")).toBeCloseTo(0.075 + 0.30, 10);
+    expect(aiCallCostUsd("meta-llama/llama-4-scout", 4_000, 1_500)).toBeCloseTo(0.0004 + 0.00045, 10);
+    expect(aiCallCostUsd("gpt-4.1-mini", 1_000_000, 0)).toBeCloseTo(0.4, 10);
+    expect(aiCallCostUsd("claude-haiku-4-5", 0, 1_000_000, "anthropic")).toBeCloseTo(5, 10);
+    expect(priceForModel("openai/text-embedding-3-small")).not.toBeNull();   // OpenRouter-prefixed embedding id
+    expect(aiCallCostUsd("some/unknown-model", 1000, 1000)).toBe(0);
+  });
+
+  it("builds a ledger row with cost and safe ids", () => {
+    const row = buildAiUsageRow(
+      { feature: "chat_reply", provider: "openrouter", model: "openai/gpt-oss-20b", tokensIn: 5000, tokensOut: 600, success: true, latencyMs: 812.4 },
+      { companyId: "11111111-1111-4111-8111-111111111111", userId: "not-a-uuid" },
+    );
+    expect(row).toMatchObject({ feature: "chat_reply", company_id: "11111111-1111-4111-8111-111111111111", user_id: null, tokens_in: 5000, tokens_out: 600, success: true, latency_ms: 812 });
+    expect(row.cost_usd).toBeCloseTo((5000 * 0.018 + 600 * 0.09) / 1_000_000, 8);
+  });
+});
+
+describe("live data from platform records", () => {
+  function fakeDb(tables: Record<string, { data?: unknown; count?: number; error?: unknown }>) {
     return {
-      from: (table: string) => table === "companies" ? chain(companies) : table === "platform_pricing_plans" ? chain(plans) : chain({ usd_to_zar_rate: rate }),
+      from: (table: string) => {
+        const t = tables[table] ?? { data: [], count: 0 };
+        const q: Record<string, unknown> = {};
+        for (const m of ["select", "is", "not", "eq", "gte", "in", "order", "limit"]) q[m] = () => q;
+        q.maybeSingle = async () => ({ data: t.data, error: t.error ?? null });
+        q.then = (resolve: (v: unknown) => void) => resolve({ data: t.data, count: t.count, error: t.error ?? null });
+        return q;
+      },
     };
   }
 
-  it("matches computeTechCosts for the live company count", async () => {
-    const companies = [
-      { id: "1", subscription_status: "active", subscription_plan: "pro" },
-      { id: "2", subscription_status: "active", subscription_plan: "pro" },
-      { id: "3", subscription_status: "trial", subscription_plan: "pro" },
-    ];
-    const summary = await getPlatformTechnologyCostSummary(fakeDb(companies, [{ slug: "pro", name: "Pro", zar_price: 2000 }], 18));
-    expect(summary).not.toBeNull();
-    const expected = computeTechCosts({ ...DEFAULT_ASSUMPTIONS, tenants: 3, subscription_zar_per_tenant: 2000, card_paying_share: 2 / 3 }, 18);
-    expect(summary!.monthlyCostUsd).toBeCloseTo(expected.total_usd, 8);
-    expect(summary!.subscriptionRevenueZar).toBe(4000);
-    expect(summary!.costByService.map((s) => s.service)).toContain("AI models");
+  const tables = {
+    companies: { data: [
+      { id: "c1", company_name: "Spit Braai Co", onboarding_completed_at: "2026-09-01", subscription_status: "active", subscription_plan: "pro" },
+      { id: "c2", company_name: "Trial Co", onboarding_completed_at: "2026-09-02", subscription_status: "trial", subscription_plan: "pro" },
+      { id: "c3", company_name: "Signup", onboarding_completed_at: null, subscription_status: "trial", subscription_plan: null },
+    ] },
+    platform_pricing_plans: { data: [{ slug: "pro", name: "Pro", zar_price: 1899 }] },
+    exchange_rates: { data: { usd_to_zar_rate: 16.66, date: "2026-10-03" } },
+    profiles: { count: 22 },
+    outgoing_email_queue: { count: 108 },
+    chat_messages: { count: 105 },
+    payments: { count: 0 },
+    import_jobs: { data: [] },
+    ai_usage_events: { data: [
+      { created_at: new Date().toISOString(), company_id: "c1", feature: "chat_reply", provider: "openrouter", model: "openai/gpt-oss-20b", tokens_in: 5000, tokens_out: 600, cost_usd: 0.000144, success: true },
+      { created_at: new Date().toISOString(), company_id: "c1", feature: "chat_intent", provider: "openai", model: "gpt-4o-mini", tokens_in: 2500, tokens_out: 40, cost_usd: 0.000399, success: true },
+      { created_at: new Date().toISOString(), company_id: null, feature: "chat_reply", provider: "openrouter", model: "openai/gpt-oss-20b", tokens_in: 0, tokens_out: 0, cost_usd: 0, success: false },
+    ] },
+  };
+
+  it("reads real counts, revenue, FX and live AI spend", async () => {
+    const live = (await getLiveTechCostData(fakeDb(tables)))!;
+    expect(live.inputs).toMatchObject({ companies: 2, paying_companies: 1, revenue_zar: 1899, users: 22, emails: 108, chat_messages: 105, receipt_scans: 0, eft_proofs: 0 });
+    expect(live.companiesTotal).toBe(3);
+    expect(live.usdToZar).toBe(16.66);
+    expect(live.ai).toMatchObject({ available: true, calls: 3, failed: 1 });
+    expect(live.ai.cost_usd).toBeCloseTo(0.000543, 9);
+    expect(live.ai.byFeature[0]).toMatchObject({ key: "chat_intent", calls: 1 });
+    expect(live.ai.recent[0].company).toBe("Spit Braai Co");
+    expect(live.costs.ai_is_actual).toBe(true);
+  });
+
+  it("falls back to an AI estimate when the ledger table is missing", async () => {
+    const live = (await getLiveTechCostData(fakeDb({ ...tables, ai_usage_events: { data: null, error: { message: "relation does not exist" } } })))!;
+    expect(live.ai.available).toBe(false);
+    expect(live.costs.ai_is_actual).toBe(false);
+  });
+
+  it("feeds the assistant the same numbers", async () => {
+    const summary = (await getPlatformTechnologyCostSummary(fakeDb(tables)))!;
+    const live = (await getLiveTechCostData(fakeDb(tables)))!;
+    expect(summary.monthlyCostUsd).toBeCloseTo(live.costs.total_usd, 10);
+    expect(summary.subscriptionRevenueZar).toBe(1899);
+    expect(summary.costByService.map((s) => s.service)).toContain("AI models");
   });
 });

@@ -23,6 +23,7 @@ import { getImportJob, listImportRows, logEvent } from "@/services/importService
 import { repairRowViaAI } from "@/lib/importAi";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { isTextAiConfigured, TEXT_AI_KEYS_HINT } from "@/lib/ai/textLlm";
+import { setAiUsageContext } from "@/lib/ai/usageLog";
 
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -49,6 +50,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const companyId = profile?.company_id as string | null;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
+    setAiUsageContext({ companyId, userId: user.id });
 
     if (!isTextAiConfigured()) {
       return res.status(500).json({

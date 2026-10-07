@@ -23,6 +23,7 @@ import { getReceiptScanQuota } from "@/lib/receiptScanQuota";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { isVisionAiConfigured, VISION_AI_KEYS_HINT } from "@/lib/ai/textLlm";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { setAiUsageContext } from "@/lib/ai/usageLog";
 
 
 const ALLOWED_CALLER_ROLES = new Set([
@@ -83,6 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const companyId = profile?.company_id as string | null;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
+    setAiUsageContext({ companyId, userId: user.id });
 
     if (!isVisionAiConfigured()) {
       return res.status(500).json({ error: `AI is not configured - ${VISION_AI_KEYS_HINT}.` });

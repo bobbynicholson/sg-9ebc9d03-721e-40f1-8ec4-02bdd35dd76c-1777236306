@@ -17,6 +17,8 @@
  * Every model id is env-overridable so a model swap needs no deploy.
  */
 
+import { recordAiUsage } from "@/lib/ai/usageLog";
+
 export type TextProvider = "openrouter" | "groq" | "openai" | "anthropic";
 export type VisionProvider = "groq" | "openrouter" | "openai";
 
@@ -204,7 +206,7 @@ async function anthropicCompletion(args: {
   }
 }
 
-export async function chatCompletion(args: {
+async function chatCompletionUnlogged(args: {
   provider: TextProvider | VisionProvider;
   model: string;
   messages: Array<{ role: "system" | "user" | "assistant"; content: any }>;
@@ -216,6 +218,8 @@ export async function chatCompletion(args: {
   reasoningEffort?: "low" | "medium" | "high";
   /** OpenRouter: route to the highest-throughput host (someone is waiting). */
   preferFast?: boolean;
+  /** Feature name for the live AI usage ledger (e.g. "chat_reply"). */
+  feature?: string;
 }): Promise<ChatCallResult> {
   if (args.provider === "anthropic") return anthropicCompletion(args);
   const { url, key, headers } = endpoint(args.provider);
@@ -271,6 +275,29 @@ export async function chatCompletion(args: {
 }
 
 /**
+ * Every AI call goes through here, so each one - success or failure -
+ * lands in the live usage ledger (src/lib/ai/usageLog.ts) with its tokens
+ * and cost. Logging is fire-and-forget and can't affect the call.
+ */
+export async function chatCompletion(args: Parameters<typeof chatCompletionUnlogged>[0]): Promise<ChatCallResult> {
+  const started = Date.now();
+  try {
+    const r = await chatCompletionUnlogged(args);
+    recordAiUsage({
+      feature: args.feature || "other", provider: args.provider, model: args.model,
+      tokensIn: r.tokens_in, tokensOut: r.tokens_out, success: true, latencyMs: Date.now() - started,
+    });
+    return r;
+  } catch (e) {
+    recordAiUsage({
+      feature: args.feature || "other", provider: args.provider, model: args.model,
+      tokensIn: 0, tokensOut: 0, success: false, error: e instanceof Error ? e.message : String(e), latencyMs: Date.now() - started,
+    });
+    throw e;
+  }
+}
+
+/**
  * Run a JSON text task across the configured providers (gpt-oss-20b
  * first). `accept` validates the parsed object; returning false moves on
  * to the next provider. Throws the last error when every provider fails.
@@ -303,6 +330,7 @@ export async function callTextJson<T = any>(args: {
           model,
           reasoningEffort: args.tier === "smart" ? ((process.env.SMART_TEXT_REASONING as "low" | "medium" | "high") || "low") : "low",
           preferFast: args.tier === "smart",
+          feature: args.label || "text_task",
           maxTokens: budget,
           temperature: args.temperature ?? 0,
           timeoutMs: args.timeoutMs,
