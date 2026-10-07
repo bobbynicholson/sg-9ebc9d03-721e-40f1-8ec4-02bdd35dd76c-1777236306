@@ -84,7 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // weeks later. Gate the acceptance on a fresh status check first.
   const { data: existing, error: existingErr } = await (supabase as any)
     .from("quotes")
-    .select("id, company_id, user_id, status, valid_until, converted_to_order_id, event_date, guest_count")
+    .select("id, company_id, user_id, status, valid_until, converted_to_order_id, event_date, guest_count, venue_address, client_email, quote_number, client_name")
     .eq("public_token", token)
     .is("deleted_at", null)
     .maybeSingle();
@@ -178,6 +178,38 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .eq("id", existing.id);
       return res.status(409).json({ ok: false, error: "This quote has expired. Please request a new one." });
     }
+  }
+
+  // Conversion to an order needs these; without them the quote used to
+  // flip to 'accepted' while convertQuoteToOrder refused, so the client
+  // saw success but never got the deposit invoice / payment email.
+  // Refuse up front, leave the quote acceptable, and tell the caterer.
+  const missingForOrder = [
+    !existing.event_date && "event date",
+    !(Number(existing.guest_count) > 0) && "guest count",
+    !String(existing.venue_address || "").trim() && "venue address",
+    !String(existing.client_email || "").trim() && "client email",
+  ].filter(Boolean) as string[];
+  if (missingForOrder.length > 0) {
+    try {
+      await (supabase as any).from("notifications").insert([{
+        company_id: existing.company_id,
+        user_id: existing.user_id,
+        recipient_id: existing.user_id,
+        notification_type: "quote_updated",
+        title: "Client tried to accept an incomplete quote",
+        message: `${existing.client_name || "A client"} tried to accept ${existing.quote_number || "a quote"}, but it has no ${missingForOrder.join(", ")}. Add it so they can accept and pay.`,
+        priority: "urgent",
+        link: `/admin/quotes/${existing.id}`,
+      }]);
+    } catch (notifyErr) {
+      console.warn("[public/quotes/accept] blocked-accept notif failed", notifyErr);
+    }
+    return res.status(409).json({
+      ok: false,
+      code: "quote_incomplete",
+      error: "This quote is missing a few event details. We've let the caterer know - you'll be able to accept it once they've updated it.",
+    });
   }
 
   if (existing.event_date && existing.company_id) {

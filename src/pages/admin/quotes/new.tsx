@@ -2306,6 +2306,24 @@ function NewQuotePage() {
       });
       return;
     }
+    // Acceptance converts the quote into an order, and orders require an
+    // event date, guest count and venue. Sending without them let the
+    // client accept, but conversion then refused - no order, no deposit
+    // invoice, no payment email.
+    const missingForOrder = [
+      !eventDate && "event date",
+      !(Number(guestCount) > 0) && "guest count",
+      !venueAddress.trim() && "venue address",
+    ].filter(Boolean) as string[];
+    if (missingForOrder.length > 0) {
+      revealSection(document.getElementById("quote-client-event"), true);
+      toast({
+        title: `Add the ${missingForOrder.join(", ")}`,
+        description: "The client can't accept and pay until the quote has an event date, guest count and venue address.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (computed.total <= 0) {
       revealSection(document.getElementById("quote-menu-items"), true);
       toast({ title: "Add at least one priced line", variant: "destructive" });
