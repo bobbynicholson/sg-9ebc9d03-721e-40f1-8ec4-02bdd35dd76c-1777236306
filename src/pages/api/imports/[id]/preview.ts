@@ -19,6 +19,7 @@ import {
 import { normaliseFieldValue } from "@/lib/importNormalise";
 import { composeImportedClient } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { loadClientIndex, loadLeadIndex } from "@/lib/importExistingIndex";
 
 
 // Preview also iterates every row - bump the per-route timeout for
@@ -73,59 +74,13 @@ async function buildExistingEmailIndex(
   clientByEmail: Map<string, string>;
   leadByEmail: Map<string, string>;
 }> {
-  const clientByEmail = new Map<string, string>();
-  const leadByEmail = new Map<string, string>();
-
-  if (clientEmails.size > 0) {
-    // Postgres `in.()` filter, lowercased emails. Supabase returns
-    // null for empty arrays so guard.
-    const list = Array.from(clientEmails);
-    const { data, error: error2 } = await supabase
-      .from("clients")
-      .select("id, email")
-      .eq("company_id", companyId)
-      .in("email", list)
-      .is("deleted_at", null);
-    if (error2) {
-      console.error("[imports/[id]/preview] clients fetch failed:", error2);
-    }
-    for (const row of (data || []) as Array<{ id: string; email: string | null }>) {
-      if (row.email) clientByEmail.set(row.email.toLowerCase().trim(), row.id);
-    }
-  }
-
-  if (leadEmails.size > 0) {
-    const list = Array.from(leadEmails);
-    // leads has both email + client_email - match on either.
-    const { data: a, error: aErr } = await supabase
-      .from("leads")
-      .select("id, email")
-      .eq("company_id", companyId)
-      .in("email", list)
-      .is("deleted_at", null);
-    if (aErr) {
-      console.error("[imports/[id]/preview] leads fetch failed:", aErr);
-    }
-    for (const row of (a || []) as Array<{ id: string; email: string | null }>) {
-      if (row.email) leadByEmail.set(row.email.toLowerCase().trim(), row.id);
-    }
-    const { data: b, error: bErr } = await supabase
-      .from("leads")
-      .select("id, client_email")
-      .eq("company_id", companyId)
-      .in("client_email", list)
-      .is("deleted_at", null);
-    if (bErr) {
-      console.error("[imports/[id]/preview] leads fetch failed:", bErr);
-    }
-    for (const row of (b || []) as Array<{ id: string; client_email: string | null }>) {
-      if (row.client_email && !leadByEmail.has(row.client_email.toLowerCase().trim())) {
-        leadByEmail.set(row.client_email.toLowerCase().trim(), row.id);
-      }
-    }
-  }
-
-  return { clientByEmail, leadByEmail };
+  // Same rule as the database's unique index: lower(trim(email)),
+  // deleted rows ignored. See src/lib/importExistingIndex.ts.
+  const [clients, leadByEmail] = await Promise.all([
+    clientEmails.size > 0 ? loadClientIndex(supabase, companyId) : null,
+    leadEmails.size > 0 ? loadLeadIndex(supabase, companyId) : new Map<string, string>(),
+  ]);
+  return { clientByEmail: clients?.clientByEmail ?? new Map<string, string>(), leadByEmail };
 }
 
 async function handler(req: NextApiRequest, res: NextApiResponse) {

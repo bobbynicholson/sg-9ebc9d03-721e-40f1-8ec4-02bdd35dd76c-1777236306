@@ -38,6 +38,7 @@ import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { loadClientIndex, loadLeadIndex } from "@/lib/importExistingIndex";
 
 
 // Vercel default per-route timeout is 60s (Hobby) / 60s (Pro). At ~50ms
@@ -162,60 +163,16 @@ async function buildDedupMaps(
   await Promise.all([
     (async () => {
       if (clientEmails.size === 0 && clientNames.size === 0) return;
-      // One scan through clients in this company keyed by email OR
-      // name. Most catering tenants have <10k clients so a single
-      // bounded scan is cheaper than two filtered queries; for larger
-      // tenants we'd want indexed prefix probes, but that's a future
-      // problem.
-      const orFilters: string[] = [];
-      if (clientEmails.size > 0) {
-        orFilters.push(`email.in.(${Array.from(clientEmails).map((e) => `"${e}"`).join(",")})`);
-      }
-      if (clientNames.size > 0) {
-        orFilters.push(`client_name.in.(${Array.from(clientNames).map((n) => `"${n}"`).join(",")})`);
-      }
-      if (orFilters.length === 0) return;
-      const { data, error: error2 } = await supabase
-        .from("clients")
-        .select("id, email, client_name")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .or(orFilters.join(","));
-      if (error2) {
-        console.error("[imports/[id]/commit] clients fetch failed:", error2);
-      }
-      for (const c of (data || []) as Array<{ id: string; email: string | null; client_name: string | null }>) {
-        if (c.email) clientByEmail.set(c.email.toLowerCase().trim(), c.id);
-        if (c.client_name) clientByName.set(c.client_name.toLowerCase().trim(), c.id);
-      }
+      // Every live client in the company, keyed like the unique index
+      // (lower(trim(email))) and by lowercased name for order linking.
+      // The old .in() filters were case-sensitive and grew with the file.
+      const idx = await loadClientIndex(supabase, companyId);
+      idx.clientByEmail.forEach((id, k) => clientByEmail.set(k, id));
+      idx.clientByName.forEach((id, k) => clientByName.set(k, id));
     })(),
     (async () => {
       if (leadEmails.size === 0) return;
-      const list = Array.from(leadEmails);
-      // leads dedupes on either email or client_email. Two queries +
-      // merge is simpler than a complex `.or()` filter.
-      const [byEmail, byClientEmail] = await Promise.all([
-        supabase
-          .from("leads")
-          .select("id, email")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .in("email", list),
-        supabase
-          .from("leads")
-          .select("id, client_email")
-          .eq("company_id", companyId)
-          .is("deleted_at", null)
-          .in("client_email", list),
-      ]);
-      for (const r of (byEmail.data || []) as Array<{ id: string; email: string | null }>) {
-        if (r.email) leadByEmail.set(r.email.toLowerCase().trim(), r.id);
-      }
-      for (const r of (byClientEmail.data || []) as Array<{ id: string; client_email: string | null }>) {
-        if (r.client_email && !leadByEmail.has(r.client_email.toLowerCase().trim())) {
-          leadByEmail.set(r.client_email.toLowerCase().trim(), r.id);
-        }
-      }
+      (await loadLeadIndex(supabase, companyId)).forEach((id, k) => leadByEmail.set(k, id));
     })(),
     (async () => {
       if (orderDates.size === 0 || orderNames.size === 0) return;

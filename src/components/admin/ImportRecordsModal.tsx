@@ -134,6 +134,50 @@ interface PreviewRow {
   dedup_decision: "skip" | "update" | "create_new" | null;
 }
 
+/** The existing record a duplicate row matched (from GET /api/imports/[id]). */
+type MatchInfo = Record<string, any> & {
+  table: "clients" | "leads";
+  name: string | null;
+  email: string | null;
+  created_at: string | null;
+  imported_filename: string | null;
+};
+
+/** Fields compared side by side for a duplicate: file value vs saved value. */
+const COMPARE_FIELDS: Array<{ label: string; file: string[]; saved: string }> = [
+  { label: "Name", file: ["client_name", "contact_name"], saved: "name" },
+  { label: "Email", file: ["email", "client_email"], saved: "email" },
+  { label: "Mobile", file: ["mobile_number"], saved: "mobile_number" },
+  { label: "Landline", file: ["landline_number"], saved: "landline_number" },
+  { label: "Address", file: ["billing_address_line1"], saved: "billing_address_line1" },
+  { label: "Suburb", file: ["billing_address_line2"], saved: "billing_address_line2" },
+  { label: "City", file: ["billing_city"], saved: "billing_city" },
+  { label: "Postal code", file: ["billing_postal_code"], saved: "billing_postal_code" },
+  { label: "VAT number", file: ["tax_number"], saved: "tax_number" },
+  { label: "Payment terms", file: ["payment_terms"], saved: "payment_terms" },
+  { label: "Credit limit", file: ["credit_limit"], saved: "credit_limit" },
+  { label: "Lifetime spend", file: ["historical_lifetime_spend"], saved: "historical_lifetime_spend" },
+  { label: "Last event", file: ["historical_last_event_date"], saved: "historical_last_event_date" },
+  { label: "Notes", file: ["notes"], saved: "notes" },
+];
+
+const shown = (v: unknown) => (v == null ? "" : String(v).trim());
+
+/** "5 minutes ago", "3 days ago", or a date for older records. */
+function timeAgo(iso: string | null): string {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "";
+  const mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" });
+}
+
 /** Rows the operator should look at: blocking errors or value warnings. */
 const needsAttention = (row: PreviewRow) =>
   row.status === "error" || (row.preview_warnings?.length ?? 0) > 0;
@@ -240,6 +284,10 @@ export function ImportRecordsModal({
   const [columnSamples, setColumnSamples] = useState<Record<string, Record<string, string[]>>>({});
   const [mappableFields, setMappableFields] = useState<Record<string, MappableField[]>>({});
   const [mappingNote, setMappingNote] = useState<string | null>(null);
+  // Existing records that duplicate rows matched, keyed by record id,
+  // and which duplicate rows have their side-by-side comparison open.
+  const [matches, setMatches] = useState<Record<string, MatchInfo>>({});
+  const [comparing, setComparing] = useState<Record<string, boolean>>({});
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   const reset = () => {
@@ -258,6 +306,8 @@ export function ImportRecordsModal({
     setColumnSamples({});
     setMappableFields({});
     setMappingNote(null);
+    setMatches({});
+    setComparing({});
     setEditingRowId(null);
     setEditForm({});
     setRowView("attention");
@@ -371,6 +421,8 @@ export function ImportRecordsModal({
       let rowsJson: any = {};
       if (rowsRes.ok) rowsJson = await rowsRes.json().catch(() => ({}));
       setPreviewRows((rowsJson.rows || []) as PreviewRow[]);
+      setMatches((rowsJson.matches || {}) as Record<string, MatchInfo>);
+      setComparing({});
       setPreviewSummary(pj.summary || null);
       setRowView("attention");
       setPreviewPage(0);
@@ -967,11 +1019,23 @@ export function ImportRecordsModal({
                   Or press <strong>Skip {errorCount.toLocaleString("en-ZA")} with errors</strong> to import the {canImportCount.toLocaleString("en-ZA")} good {canImportCount === 1 ? "row" : "rows"} now.
                 </AlertDescription>
               </Alert>
+            ) : canImportCount === 0 && duplicateCount > 0 ? (
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 text-xs leading-relaxed">
+                  <strong>
+                    {duplicateCount === previewSummary.total ? "All" : duplicateCount.toLocaleString("en-ZA")}{" "}
+                    {duplicateCount === 1 ? "row is" : "rows are"} already in your {recordLabelPlural}
+                  </strong>, so there is nothing new to import. Each row below shows the record it matched and when it was added.
+                  Press <strong>Compare</strong> to see your file next to what is saved, then set a row to <strong>Update existing</strong> to refresh it.
+                </AlertDescription>
+              </Alert>
             ) : (
               <Alert className="border-emerald-200 bg-emerald-50">
                 <Check className="h-4 w-4 text-emerald-600" />
                 <AlertDescription className="text-emerald-800 text-xs">
-                  <strong>No errors.</strong> Every row is ready to import.
+                  <strong>No errors.</strong> {canImportCount.toLocaleString("en-ZA")} {canImportCount === 1 ? "row is" : "rows are"} ready to import
+                  {duplicateCount > 0 ? <>; {duplicateCount.toLocaleString("en-ZA")} already on file {duplicateCount === 1 ? "is" : "are"} listed below.</> : "."}
                 </AlertDescription>
               </Alert>
             )}
@@ -1111,6 +1175,64 @@ export function ImportRecordsModal({
                                     {r.preview_warnings.slice(0, 2).join("; ")}
                                   </div>
                                 )}
+                                {isMatch && (() => {
+                                  const hit = r.dedup_match_id ? matches[r.dedup_match_id] : undefined;
+                                  if (!hit) return null;
+                                  const open = !!comparing[r.id];
+                                  const fileVal = (keys: string[]) => keys.map((k) => shown(m[k])).find(Boolean) || "";
+                                  const diffRows = COMPARE_FIELDS
+                                    .map((f) => ({ ...f, a: fileVal(f.file), b: shown(hit[f.saved]) }))
+                                    .filter((f) => f.a || f.b);
+                                  const changes = diffRows.filter((f) => f.a && f.a !== f.b).length;
+                                  return (
+                                    <div className="mt-1 rounded border border-amber-200 bg-amber-50/60 px-2 py-1 text-[11px] text-amber-900">
+                                      <div className="flex flex-wrap items-center gap-x-1">
+                                        <span>Matches</span>
+                                        <strong>{hit.name || "(no name)"}</strong>
+                                        <span>· {hit.email}</span>
+                                        {hit.created_at && <span>· added {timeAgo(hit.created_at)}</span>}
+                                        {hit.imported_filename && <span>from {hit.imported_filename}</span>}
+                                        <button
+                                          type="button"
+                                          className="ml-auto font-semibold underline underline-offset-2"
+                                          onClick={() => setComparing((c) => ({ ...c, [r.id]: !open }))}
+                                        >
+                                          {open ? "Hide" : `Compare${changes ? ` (${changes} different)` : ""}`}
+                                        </button>
+                                      </div>
+                                      {open && (
+                                        <table className="mt-1 w-full text-[11px]">
+                                          <thead>
+                                            <tr className="text-left text-amber-700">
+                                              <th className="py-0.5 pr-2 font-medium">Field</th>
+                                              <th className="py-0.5 pr-2 font-medium">In this file</th>
+                                              <th className="py-0.5 font-medium">Saved now</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {diffRows.map((f) => {
+                                              const differs = !!f.a && f.a !== f.b;
+                                              return (
+                                                <tr key={f.label} className={differs ? "bg-amber-100/70" : ""}>
+                                                  <td className="py-0.5 pr-2 text-amber-700">{f.label}</td>
+                                                  <td className="py-0.5 pr-2 break-words">{f.a || <span className="text-slate-400">(blank)</span>}</td>
+                                                  <td className="py-0.5 break-words">{f.b || <span className="text-slate-400">(blank)</span>}</td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      )}
+                                      {open && (
+                                        <p className="mt-1 text-amber-700">
+                                          {changes
+                                            ? <>Highlighted fields would change with <strong>Update existing</strong>. Blank cells in your file never overwrite saved values.</>
+                                            : <>Your file has nothing new for this record, so <strong>Skip</strong> is safe.</>}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                                 {isMatch && (
                                   <div className="mt-1 flex items-center gap-1 text-[11px]">
                                     <span className="text-amber-700">On file:</span>
@@ -1546,9 +1668,16 @@ function RowStatusBadge({
   }
   if (isDuplicate) {
     return (
-      <Badge className="text-[10px] bg-amber-100 text-amber-800 border border-amber-200">
-        Dupe
-      </Badge>
+      <span className="inline-flex flex-col gap-0.5">
+        <Badge className="text-[10px] bg-amber-100 text-amber-800 border border-amber-200">
+          Dupe
+        </Badge>
+        {warnings.length > 0 && (
+          <Badge className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200">
+            Warn
+          </Badge>
+        )}
+      </span>
     );
   }
   if (warnings.length > 0) {

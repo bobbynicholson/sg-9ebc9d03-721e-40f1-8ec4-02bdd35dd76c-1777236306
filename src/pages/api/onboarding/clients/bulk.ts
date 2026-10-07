@@ -24,6 +24,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { normaliseEmail, normalisePhoneZA, normaliseFieldValue } from "@/lib/importNormalise";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { loadClientIndex } from "@/lib/importExistingIndex";
 
 // Thousands of rows per request (dedupe scan + chunked inserts) need more
 // than the default function timeout.
@@ -104,21 +105,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Paged: a single select is capped at 1000 rows, so with a bigger
     // client book most existing emails were invisible here, the insert
     // then hit the unique-email index and the whole import failed.
-    const existingEmails = new Set<string>();
-    for (let from = 0; ; from += 1000) {
-      const { data: page, error: pageError } = await supabase
-        .from("clients")
-        .select("email")
-        .eq("company_id", companyId)
-        .range(from, from + 999);
-      if (pageError) {
-        return res.status(503).json({ error: "Could not check existing clients. Please retry." });
-      }
-      for (const r of page || []) {
-        const email = String((r as any).email || "").trim().toLowerCase();
-        if (email) existingEmails.add(email);
-      }
-      if (!page || page.length < 1000) break;
+    // Deleted clients don't count: the unique index ignores them, so a
+    // deleted client's email can be imported again.
+    let existingEmails: Set<string>;
+    try {
+      existingEmails = new Set((await loadClientIndex(supabase, companyId)).clientByEmail.keys());
+    } catch {
+      return res.status(503).json({ error: "Could not check existing clients. Please retry." });
     }
 
     // clients.region_id is NOT NULL with no default - resolve the tenant's

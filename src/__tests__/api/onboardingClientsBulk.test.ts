@@ -7,9 +7,12 @@ let inserted: any[] = [];
 function clientsTable() {
   let from = 0; let to = 0;
   const api: any = {
-    select: () => api, eq: () => api,
+    select: () => api, eq: () => api, is: () => api, order: () => api,
     range: (a: number, b: number) => { from = a; to = b; return api; },
-    then: (resolve: any) => resolve({ data: existingEmails.slice(from, to + 1).map((email) => ({ email })), error: null }),
+    then: (resolve: any) => resolve({
+      data: existingEmails.slice(from, to + 1).map((email, i) => ({ id: `c-${from + i}`, email, client_name: null })),
+      error: null,
+    }),
     insert: (payload: any) => {
       const rows = Array.isArray(payload) ? payload : [payload];
       const bad = rows.find((r) => r.email === failEmail);
@@ -85,4 +88,11 @@ test("rows without any name or email are rejected with a reason", async () => {
   const res = await post([{ email: "noname@x.co.za" }, { name: "No email" }]);
   expect(res.body.rejected).toBe(2);
   expect(res.body.outcomes.map((o: any) => o.reason)).toEqual(["Name is required", "Email is required"]);
+});
+
+test("a saved email with capitals still counts as the same client", async () => {
+  existingEmails = ["Thabo.Mokoena@Example.com"];
+  const res = await post([{ name: "Thabo", email: "thabo.mokoena@example.com" }]);
+  expect(res.body).toMatchObject({ imported: 0, skipped: 1 });
+  expect(inserted).toEqual([]);
 });

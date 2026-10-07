@@ -108,7 +108,58 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const includeRows = req.query.rows === "1";
     const rows = includeRows ? await listImportRows(jobId, { limit: 11000 }) : [];
 
-    return res.status(200).json({ ok: true, job, rows });
+    // The existing records duplicate rows matched, so the review screen
+    // can show what each row matched (name, email, when and from which
+    // file it was added) and compare values. Client details, so owners /
+    // admins only, and always scoped to the caller's company.
+    const matches: Record<string, Record<string, any>> = {};
+    if (includeRows && ALLOWED_CALLER_ROLES.has(role)) {
+      const idsByTable: Record<"clients" | "leads", string[]> = { clients: [], leads: [] };
+      for (const r of rows as any[]) {
+        const t = r.dedup_match_table as "clients" | "leads" | null;
+        if (r.dedup_match_id && (t === "clients" || t === "leads")) idsByTable[t].push(r.dedup_match_id);
+      }
+      const sb = (await import("@/lib/supabase/service")).getServiceSupabase() as any;
+      for (const table of ["clients", "leads"] as const) {
+        const ids = Array.from(new Set(idsByTable[table]));
+        for (let i = 0; i < ids.length; i += 200) {
+          const { data, error } = await sb
+            .from(table)
+            .select("*")
+            .eq("company_id", companyId)
+            .in("id", ids.slice(i, i + 200));
+          if (error) {
+            console.error(`[imports/[id]] ${table} match lookup failed:`, error.message);
+            continue;
+          }
+          for (const m of data || []) {
+            matches[m.id] = {
+              table,
+              name: m.client_name ?? m.contact_name ?? null,
+              email: m.email ?? m.client_email ?? null,
+              phone: m.mobile_number || m.phone || m.landline_number || m.client_phone || null,
+              mobile_number: m.mobile_number ?? null,
+              landline_number: m.landline_number ?? null,
+              billing_address_line1: m.billing_address_line1 ?? null,
+              billing_address_line2: m.billing_address_line2 ?? null,
+              billing_city: m.billing_city ?? null,
+              billing_postal_code: m.billing_postal_code ?? null,
+              tax_number: m.tax_number ?? null,
+              payment_terms: m.payment_terms ?? null,
+              credit_limit: m.credit_limit ?? null,
+              historical_lifetime_spend: m.historical_lifetime_spend ?? null,
+              historical_last_event_date: m.historical_last_event_date ?? null,
+              notes: m.notes ?? null,
+              created_at: m.created_at ?? null,
+              imported_at: m.imported_at ?? null,
+              imported_filename: m.imported_filename ?? null,
+            };
+          }
+        }
+      }
+    }
+
+    return res.status(200).json({ ok: true, job, rows, matches });
   } catch (outer: any) {
     console.error("imports/[id] GET crashed:", outer);
     return res.status(500).json({ error: dbErrorMessage(outer) || "Failed to load job" });
