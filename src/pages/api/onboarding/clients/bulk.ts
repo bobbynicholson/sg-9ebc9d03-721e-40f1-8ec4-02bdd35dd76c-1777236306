@@ -248,12 +248,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
       importJobId = job.id;
 
+      // No comms pause (switched off 2026-10-07): imported clients can
+      // be emailed straight away.
       const stampedAt = new Date().toISOString();
-      const pausedUntil = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString();
       for (const r of toInsert) {
         r.import_job_id = importJobId;
         r.imported_at = stampedAt;
-        r.comms_paused_until = pausedUntil;
       }
     }
 
@@ -287,7 +287,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // to "review this batch + green-light comms" without a follow-up
       // round trip.
       import_job_id: importJobId,
-      comms_paused_for_days: insertedCount > 0 ? 7 : 0,
+      comms_paused_for_days: 0,
       outcomes,
     });
   } catch (e: any) {

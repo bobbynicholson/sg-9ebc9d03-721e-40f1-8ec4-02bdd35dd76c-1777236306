@@ -205,6 +205,9 @@ export function InvoiceSendDialog({
           attachInvoicePdf: payload.attachPdf,
           cc: payload.cc,
           bcc: payload.bcc,
+          // The admin reviewed and pressed Send: not an automated blast,
+          // so the bulk-import pause on the client must not block it.
+          bypassQuarantine: true,
         });
         if (result.success) {
           toast({

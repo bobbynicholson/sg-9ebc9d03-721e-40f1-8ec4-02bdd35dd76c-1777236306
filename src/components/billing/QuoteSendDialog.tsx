@@ -525,6 +525,9 @@ export function QuoteSendDialog({
               quoteId: quote.id,
               quoteId2: secondQuote?.id || null,
               attachQuotePdf: payload.attachPdf,
+              // The admin reviewed and pressed Send: not an automated blast,
+              // so the bulk-import pause on the client must not block it.
+              bypassQuarantine: true,
               variables: {
                 clientName: quote.client_name || "there",
                 companyName: tn,

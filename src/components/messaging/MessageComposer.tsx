@@ -181,6 +181,9 @@ export function MessageComposer({
           body,
           ...(directEmail.quoteId ? { quoteId: directEmail.quoteId } : {}),
           ...(directEmail.orderId ? { orderId: directEmail.orderId } : {}),
+          // Staff wrote and sent this by hand, so the bulk-import pause
+          // (meant for automated sequences) must not block it.
+          bypassQuarantine: true,
         }),
       });
       const data = await response.json().catch(() => ({}));

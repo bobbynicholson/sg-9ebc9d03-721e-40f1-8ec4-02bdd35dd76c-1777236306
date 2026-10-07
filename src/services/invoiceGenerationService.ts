@@ -1862,6 +1862,10 @@ export async function sendInvoiceEmail(
     cc?: string;
     bcc?: string;
     attachInvoicePdf?: boolean;
+    /** Operator-reviewed send: reach the client even while their record
+     *  is in bulk-import quarantine (the pause exists to stop automated
+     *  blasts, not a payment request an admin deliberately sends). */
+    bypassQuarantine?: boolean;
   },
 ): Promise<SendInvoiceEmailResult> {
   try {
@@ -1996,6 +2000,7 @@ export async function sendInvoiceEmail(
           order_url: orderLink,
         },
         emailType: templateType,
+        ...(options.bypassQuarantine ? { bypassQuarantine: true } : {}),
         attachInvoicePdf: options.attachInvoicePdf !== false,
         invoiceId: options.invoiceId,
       }),

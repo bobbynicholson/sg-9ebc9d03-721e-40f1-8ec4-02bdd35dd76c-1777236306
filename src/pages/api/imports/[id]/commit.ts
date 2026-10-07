@@ -368,21 +368,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       dry_run: dryRun,
     };
 
-    // Quarantine stamp (mirrors /api/onboarding/clients/bulk). Every
-    // freshly INSERTED record carries imported_at + a 7-day
-    // comms_paused_until so automated sequences (welcome, lead
-    // auto-reply, after-sales, SLA/event reminders) don't fire on
-    // historical data the moment it lands. The owner green-lights the
-    // batch early from /admin/onboarding/imports, which calls
-    // enable_comms_for_import_job to clear the pause on
-    // clients/leads/orders/quotes for this job. Updates of existing
-    // records deliberately do NOT get re-paused - they were already
-    // live in the CRM.
-    const COMMS_PAUSE_DAYS = 7;
+    // Imported records are stamped with imported_at only. The 7-day
+    // comms quarantine (comms_paused_until) was switched off on
+    // 2026-10-07 at the owner's request: it blocked real invoice and
+    // quote emails to imported clients, and orphaned pauses (import
+    // job deleted) could not be lifted from the app. The column is
+    // still written as null so existing readers keep working.
+    const COMMS_PAUSE_DAYS = 0;
     const importedAtIso = new Date().toISOString();
-    const commsPausedUntilIso = new Date(
-      Date.now() + COMMS_PAUSE_DAYS * 24 * 3600 * 1000,
-    ).toISOString();
+    const commsPausedUntilIso: string | null = null;
 
     // Four passes in dependency order: clients first so orders +
     // quotes can resolve client_id; leads runs independently (no FK
