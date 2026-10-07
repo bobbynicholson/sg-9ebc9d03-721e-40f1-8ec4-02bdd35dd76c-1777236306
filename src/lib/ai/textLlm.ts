@@ -39,7 +39,7 @@ export const GPT_OSS_120B = "openai/gpt-oss-120b";
 
 export type TextTier = "default" | "smart";
 
-function textModel(provider: TextProvider, tier: TextTier = "default"): string {
+export function textModel(provider: TextProvider, tier: TextTier = "default"): string {
   if (tier === "smart") {
     if (provider === "openrouter") return process.env.OPENROUTER_SMART_TEXT_MODEL || GPT_OSS_120B;
     if (provider === "groq") return process.env.GROQ_SMART_TEXT_MODEL || GPT_OSS_120B;
@@ -128,6 +128,12 @@ function endpoint(provider: Exclude<TextProvider, "anthropic"> | VisionProvider)
 
 const isGptOss = (model: string) => /gpt-oss/i.test(model);
 
+/** OpenRouter's usage.cost: the exact US$ amount billed for one call. */
+export function billedCostUsd(usage: any): number | null {
+  const cost = Number(usage?.cost);
+  return Number.isFinite(cost) && cost >= 0 ? cost : null;
+}
+
 /** Strip markdown fences / surrounding prose and JSON.parse. Null when nothing parses. */
 export function parseJsonLoose(text: string): any | null {
   if (!text) return null;
@@ -158,6 +164,8 @@ export interface ChatCallResult {
   tokens_out: number;
   provider: string;
   model: string;
+  /** Cost the provider billed for this call (OpenRouter reports it); null when not reported. */
+  cost_usd?: number | null;
 }
 
 /**
@@ -234,6 +242,8 @@ async function chatCompletionUnlogged(args: {
     max_tokens: oss ? args.maxTokens + ((args.reasoningEffort ?? "low") === "low" ? 1024 : 4096) : args.maxTokens,
   };
   if (args.json) body.response_format = { type: "json_object" };
+  // Ask OpenRouter to report the exact billed cost of the call.
+  if (args.provider === "openrouter") body.usage = { include: true };
   if (oss && args.provider === "openrouter") {
     body.reasoning = { effort: args.reasoningEffort ?? "low", exclude: true };
     // Only route to hosts that honour JSON mode.
@@ -268,6 +278,7 @@ async function chatCompletionUnlogged(args: {
       tokens_out: json?.usage?.completion_tokens ?? 0,
       provider: args.provider,
       model: args.model,
+      cost_usd: billedCostUsd(json?.usage),
     };
   } finally {
     clearTimeout(timer);
@@ -285,7 +296,7 @@ export async function chatCompletion(args: Parameters<typeof chatCompletionUnlog
     const r = await chatCompletionUnlogged(args);
     recordAiUsage({
       feature: args.feature || "other", provider: args.provider, model: args.model,
-      tokensIn: r.tokens_in, tokensOut: r.tokens_out, success: true, latencyMs: Date.now() - started,
+      tokensIn: r.tokens_in, tokensOut: r.tokens_out, costUsd: r.cost_usd, success: true, latencyMs: Date.now() - started,
     });
     return r;
   } catch (e) {

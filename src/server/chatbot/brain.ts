@@ -13,7 +13,7 @@ import type { ChatIntentMatch } from "@/lib/chatbot/intents/types";
 import { normalizeChatRole } from "@/lib/chatbot/roles";
 import { normalizeChatMessage } from "@/lib/chatbot/intents/normalize";
 import { isPlatformOverviewQuestion, type ChatIntentRoute } from "./router";
-import { chatCompletion } from "@/lib/ai/textLlm";
+import { billedCostUsd, chatCompletion } from "@/lib/ai/textLlm";
 import { recordAiUsage } from "@/lib/ai/usageLog";
 
 type Db = any;
@@ -45,11 +45,6 @@ export interface ChatFrontendContext {
 const MAX_HISTORY = 8;
 const MAX_CONTEXT_CHARS = 18_000;
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-// Claude is a last-resort chat provider only; Haiku keeps that tail cheap.
-const ANTHROPIC_CHAT_MODEL = process.env.ANTHROPIC_CHAT_MODEL || "claude-haiku-4-5";
-const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b";
-const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || "openai/gpt-oss-20b";
 const EMBEDDING_DIMENSIONS = 1536;
 const EMBEDDING_BATCH_SIZE = 24;
 const EMBEDDING_MAX_ATTEMPTS = 3;
@@ -384,7 +379,7 @@ export async function createKnowledgeEmbeddings(texts: string[], options: Embedd
         recordAiUsage({
           feature: "embeddings", provider: config.provider, model: config.model,
           tokensIn: Number(payload?.usage?.prompt_tokens ?? payload?.usage?.total_tokens) || Math.ceil(batch.join(" ").length / 4),
-          tokensOut: 0, success: true,
+          tokensOut: 0, costUsd: billedCostUsd(payload?.usage), success: true,
         });
         const vectors = Array.isArray(payload?.data) ? payload.data : [];
         const batchVectors = batch.map((_, index) => {
@@ -2468,17 +2463,17 @@ async function callOpenRouter(messages: Array<{ role: "system" | "user" | "assis
     // gpt-oss requires reasoning to be enabled. Keep it at the lowest
     // supported effort so the approved live context still produces a visible
     // answer without spending the whole completion budget on reasoning.
-    body: JSON.stringify({ model: OPENROUTER_MODEL, messages, temperature: 0.2, top_p: 1, max_tokens: 400, reasoning: { effort: "low" } }),
+    body: JSON.stringify({ model: chatModelFor("openrouter"), messages, temperature: 0.2, top_p: 1, max_tokens: 400, reasoning: { effort: "low" }, usage: { include: true } }),
   });
   if (!response.ok) {
-    recordAiUsage({ feature, provider: "openrouter", model: OPENROUTER_MODEL, tokensIn: 0, tokensOut: 0, success: false, error: `HTTP ${response.status}`, latencyMs: Date.now() - started });
+    recordAiUsage({ feature, provider: "openrouter", model: chatModelFor("openrouter"), tokensIn: 0, tokensOut: 0, success: false, error: `HTTP ${response.status}`, latencyMs: Date.now() - started });
     throw new Error(`OpenRouter returned ${response.status}`);
   }
   const payload: any = await response.json();
   recordAiUsage({
-    feature, provider: "openrouter", model: OPENROUTER_MODEL,
+    feature, provider: "openrouter", model: chatModelFor("openrouter"),
     tokensIn: payload?.usage?.prompt_tokens ?? 0, tokensOut: payload?.usage?.completion_tokens ?? 0,
-    success: true, latencyMs: Date.now() - started,
+    costUsd: billedCostUsd(payload?.usage), success: true, latencyMs: Date.now() - started,
   });
   const message = payload?.choices?.[0]?.message;
   const content = extractChatContent(message);
@@ -2586,8 +2581,41 @@ function chatProviderOrder(): ChatProvider[] {
   return preferred ? [preferred, ...available.filter((p) => p !== preferred)] : available;
 }
 
+const CHAT_PROVIDER_KEYS: Record<ChatProvider, string> = {
+  openrouter: "OPENROUTER_API_KEY",
+  groq: "GROQ_API_KEY",
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+};
+
+/** Model per chat provider, read from env at call time. Claude is a last resort, so Haiku keeps that tail cheap. */
+function chatModelFor(provider: ChatProvider): string {
+  if (provider === "openrouter") return process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b";
+  if (provider === "groq") return process.env.GROQ_CHAT_MODEL || "openai/gpt-oss-20b";
+  if (provider === "openai") return process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini";
+  return process.env.ANTHROPIC_CHAT_MODEL || "claude-haiku-4-5";
+}
+
+/**
+ * Every provider the assistant can answer with, in the order it tries
+ * them, with the model each would use and whether its key is set. Shown
+ * on /admin/platform/tech-costs so the routing on the page is the real one.
+ */
+export function describeChatRoute(): Array<{ provider: ChatProvider; model: string; configured: boolean }> {
+  const preferred = (process.env.LLM_PROVIDER || "openrouter").toLowerCase();
+  const all: ChatProvider[] = ["openrouter", "groq", "openai", "anthropic"];
+  const ordered = all.includes(preferred as ChatProvider) ? [preferred as ChatProvider, ...all.filter((p) => p !== preferred)] : all;
+  return ordered.map((provider) => ({ provider, model: chatModelFor(provider), configured: !!process.env[CHAT_PROVIDER_KEYS[provider]] }));
+}
+
+/** The embedding provider and model knowledge search uses. */
+export function describeEmbeddingRoute(): { provider: string; model: string; configured: boolean } {
+  const config = embeddingConfig();
+  return { provider: config.provider || "none", model: config.model, configured: !!(config.provider && config.key) };
+}
+
 async function callChatProvider(provider: Exclude<ChatProvider, "openrouter">, messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, feature = "chat_reply"): Promise<string> {
-  const model = provider === "groq" ? GROQ_CHAT_MODEL : provider === "openai" ? OPENAI_CHAT_MODEL : ANTHROPIC_CHAT_MODEL;
+  const model = chatModelFor(provider);
   const result = await chatCompletion({ provider, model, messages, temperature: 0.2, maxTokens: 400, timeoutMs: 30_000, feature });
   return result.content;
 }

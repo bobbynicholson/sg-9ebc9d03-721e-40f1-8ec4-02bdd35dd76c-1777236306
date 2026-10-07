@@ -7,6 +7,8 @@
  *     last 30 days
  *   - this month's AI spend, logged per call in ai_usage_events and
  *     refreshed every 30 seconds while the page is open
+ *   - each AI feature's provider order, models and exact prices
+ *     (src/components/admin/platform/AiModelPrices.tsx)
  *
  * Vendor prices and the math live in src/lib/techCosts/model.ts (shared
  * with the assistant); the data comes from GET /api/platform/tech-costs.
@@ -31,6 +33,15 @@ import {
   type PricingLink,
 } from "@/lib/techCosts/model";
 import type { LiveTechCostData } from "@/services/platformTechnologyCostService";
+import type { AiRoute } from "@/server/ai/routes";
+import type { LivePrices } from "@/lib/techCosts/model";
+import { AiModelPrices } from "@/components/admin/platform/AiModelPrices";
+
+type TechCostsResponse = LiveTechCostData & {
+  aiRoutes: AiRoute[];
+  openrouterPrices: LivePrices;
+  openrouterPricesFetchedAt: string | null;
+};
 
 const REFRESH_MS = 30_000;
 
@@ -63,7 +74,7 @@ const zarWhole = (amount: number) => `ZAR ${amount.toLocaleString("en-ZA", { max
 const usd = (n: number) => `US$${n < 1 && n > 0 ? n.toFixed(4) : n.toFixed(2)}`;
 
 function TechCostsDashboard() {
-  const [data, setData] = useState<LiveTechCostData | null>(null);
+  const [data, setData] = useState<TechCostsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -73,7 +84,7 @@ function TechCostsDashboard() {
       const r = await fetch("/api/platform/tech-costs", { credentials: "include", cache: "no-store" });
       const body = await r.json().catch(() => null);
       if (!r.ok) throw new Error(body?.error || `Request failed (${r.status})`);
-      setData(body as LiveTechCostData);
+      setData(body as TechCostsResponse);
       setError(null);
       setUpdatedAt(new Date());
     } catch (e) {
@@ -247,6 +258,16 @@ function TechCostsDashboard() {
                   </>
                 )}
               </PortalCard>
+
+              <div id="ai-models" data-chat-section="platform.tech-costs.ai-models" data-chat-section-label="AI models and prices">
+                <AiModelPrices
+                  routes={data.aiRoutes ?? []}
+                  livePrices={data.openrouterPrices ?? {}}
+                  liveFetchedAt={data.openrouterPricesFetchedAt ?? null}
+                  featureLabel={featureLabel}
+                  usdToZar={fx}
+                />
+              </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                 {/* Cost breakdown */}

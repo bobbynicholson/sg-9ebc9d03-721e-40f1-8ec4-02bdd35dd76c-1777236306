@@ -30,6 +30,7 @@ export const PRICING_LINKS = {
   openrouterOss20b: { label: "OpenRouter · gpt-oss-20b", url: "https://openrouter.ai/openai/gpt-oss-20b" },
   openrouterOss120b: { label: "OpenRouter · gpt-oss-120b", url: "https://openrouter.ai/openai/gpt-oss-120b" },
   openrouterScout: { label: "OpenRouter · Llama 4 Scout", url: "https://openrouter.ai/meta-llama/llama-4-scout" },
+  openrouterMaverick: { label: "OpenRouter · Llama 4 Maverick", url: "https://openrouter.ai/meta-llama/llama-4-maverick" },
   groq: { label: "Groq model prices", url: "https://console.groq.com/docs/models" },
   openai: { label: "OpenAI API pricing", url: "https://developers.openai.com/api/docs/pricing" },
   anthropic: { label: "Claude API pricing", url: "https://claude.com/pricing#api" },
@@ -111,7 +112,7 @@ export const AI_MODEL_PRICES: AiModelPrice[] = [
   { id: "openai/gpt-oss-20b", label: "gpt-oss-20b", provider: "OpenRouter", input_usd_per_m: 0.018, output_usd_per_m: 0.09, link: PRICING_LINKS.openrouterOss20b },
   { id: "openai/gpt-oss-120b", label: "gpt-oss-120b", provider: "OpenRouter", input_usd_per_m: 0.037, output_usd_per_m: 0.17, link: PRICING_LINKS.openrouterOss120b },
   { id: "meta-llama/llama-4-scout", label: "Llama 4 Scout", provider: "OpenRouter", input_usd_per_m: 0.10, output_usd_per_m: 0.30, link: PRICING_LINKS.openrouterScout },
-  { id: "meta-llama/llama-4-maverick", label: "Llama 4 Maverick", provider: "OpenRouter", input_usd_per_m: 0.1875, output_usd_per_m: 0.6525, link: PRICING_LINKS.openrouterScout },
+  { id: "meta-llama/llama-4-maverick", label: "Llama 4 Maverick", provider: "OpenRouter", input_usd_per_m: 0.1875, output_usd_per_m: 0.6525, link: PRICING_LINKS.openrouterMaverick },
   { id: "qwen/qwen3.8-27b", label: "Qwen 3.8 27B", provider: "Groq", input_usd_per_m: 0.80, output_usd_per_m: 4.00, link: PRICING_LINKS.groq },
   { id: "gpt-4o-mini", label: "gpt-4o-mini", provider: "OpenAI", input_usd_per_m: 0.15, output_usd_per_m: 0.60, link: PRICING_LINKS.openai },
   { id: "gpt-4.1-mini", label: "gpt-4.1-mini", provider: "OpenAI", input_usd_per_m: 0.40, output_usd_per_m: 1.60, link: PRICING_LINKS.openai },
@@ -140,12 +141,47 @@ export function priceForModel(model: string, provider?: string): { input_usd_per
     ?? null;
 }
 
+/** OpenRouter's live per-model prices (US$ per 1M tokens), keyed by model id. */
+export type LivePrices = Record<string, { input_usd_per_m: number; output_usd_per_m: number }>;
+
+export interface ResolvedPrice {
+  input_usd_per_m: number;
+  output_usd_per_m: number;
+  source: "openrouter-live" | "published" | "unknown";
+}
+
+/** Price for a provider + model: OpenRouter's live list first, then the published rates above. */
+export function resolvePrice(provider: string, model: string, live: LivePrices = {}): ResolvedPrice {
+  if (provider === "openrouter" && live[model]) return { ...live[model], source: "openrouter-live" };
+  const p = priceForModel(model, provider);
+  return p ? { input_usd_per_m: p.input_usd_per_m, output_usd_per_m: p.output_usd_per_m, source: "published" } : { input_usd_per_m: 0, output_usd_per_m: 0, source: "unknown" };
+}
+
 /** Cost of one AI call in US$. Unknown models cost 0. */
 export function aiCallCostUsd(model: string, tokensIn: number, tokensOut: number, provider?: string): number {
   const p = priceForModel(model, provider);
   if (!p) return 0;
   return (Math.max(0, tokensIn) / 1_000_000) * p.input_usd_per_m + (Math.max(0, tokensOut) / 1_000_000) * p.output_usd_per_m;
 }
+
+/**
+ * Typical tokens for one call of each AI feature (output includes the
+ * model's reasoning where it has any). Used to show the cost of a single
+ * call next to each model on the tech-costs page; the live ledger records
+ * the real numbers.
+ */
+export const FEATURE_TOKEN_PROFILE: Record<string, { input: number; output: number }> = {
+  chat_reply: { input: 5_000, output: 650 },
+  chat_intent: { input: 2_500, output: 40 },
+  embeddings: { input: 40, output: 0 },
+  knowledge_review: { input: 6_000, output: 400 },
+  column_matching: { input: 1_500, output: 1_600 },
+  import_row_repair: { input: 900, output: 550 },
+  receipt_scan: { input: 4_000, output: 1_500 },
+  eft_proof: { input: 2_000, output: 300 },
+  blog_draft: { input: 600, output: 3_250 },
+  brand_palette: { input: 600, output: 400 },
+};
 
 /** Average tokens per call, used only to estimate AI spend before live tracking has data. */
 export const AI_CALL_PROFILE = {

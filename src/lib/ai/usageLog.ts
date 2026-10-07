@@ -29,6 +29,8 @@ export interface AiUsageEvent {
   model: string;
   tokensIn: number;
   tokensOut: number;
+  /** Exact cost the provider billed, when it reports one (OpenRouter). Otherwise tokens × published rate. */
+  costUsd?: number | null;
   success: boolean;
   error?: string | null;
   latencyMs?: number | null;
@@ -64,7 +66,9 @@ export function buildAiUsageRow(event: AiUsageEvent, ctx: AiUsageContext = getAi
     model: String(event.model || "unknown").slice(0, 120),
     tokens_in: tokensIn,
     tokens_out: tokensOut,
-    cost_usd: Number(aiCallCostUsd(event.model, tokensIn, tokensOut, event.provider).toFixed(8)),
+    cost_usd: Number((event.costUsd != null && Number.isFinite(event.costUsd) && event.costUsd >= 0
+      ? event.costUsd
+      : aiCallCostUsd(event.model, tokensIn, tokensOut, event.provider)).toFixed(8)),
     success: event.success,
     error: event.error ? String(event.error).slice(0, 300) : null,
     latency_ms: event.latencyMs == null ? null : Math.max(0, Math.round(event.latencyMs)),

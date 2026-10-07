@@ -72,6 +72,18 @@ describe("callTextJson", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1); // Claude never touched
   });
 
+  it("asks OpenRouter for the billed cost and records it", async () => {
+    setKeys({ OPENROUTER_API_KEY: "r" });
+    (recordAiUsage as jest.Mock).mockClear();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: '{"ok":1}' }, finish_reason: "stop" }], usage: { prompt_tokens: 100, completion_tokens: 20, cost: 0.0000042 } }),
+    }) as any;
+    await callTextJson({ system: "s", user: "u", label: "brand_palette" });
+    expect(bodyOf((global.fetch as jest.Mock).mock.calls[0]).usage).toEqual({ include: true });
+    expect((recordAiUsage as jest.Mock).mock.calls[0][0]).toMatchObject({ feature: "brand_palette", costUsd: 0.0000042, tokensIn: 100, tokensOut: 20 });
+  });
+
   it("logs every call, success or failure, to the live AI usage ledger", async () => {
     setKeys({ OPENROUTER_API_KEY: "r", OPENAI_API_KEY: "o" });
     jest.spyOn(console, "warn").mockImplementation(() => {});
