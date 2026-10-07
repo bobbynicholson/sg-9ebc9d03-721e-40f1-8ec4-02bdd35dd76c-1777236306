@@ -570,10 +570,22 @@ export function settleFieldClashes(
   schema: TemplateType,
 ): void {
   const claimed = (key: string) => headers.filter((h) => sheetMap[h]?.target === key);
+  const companyLike = /compan|organi[sz]ation|business|trading|account ?name|display ?name|firm|employer/i;
   if (schema === "clients") {
+    // "Name" + "Surname": the name column is a first name. Left on
+    // client_name, the client would be saved as just "Ayanda" with the
+    // surname pushed into notes.
+    const soleName = claimed("client_name");
+    if (soleName.length === 1 && !companyLike.test(soleName[0])
+      && claimed("last_name").length === 1 && claimed("first_name").length === 0) {
+      sheetMap[soleName[0]] = {
+        target: "first_name",
+        confidence: sheetMap[soleName[0]].confidence,
+        rationale: "First name; joined with the surname column into the client name",
+      };
+    }
     const names = claimed("client_name");
     if (names.length > 1 && claimed("first_name").length === 0 && claimed("last_name").length === 0) {
-      const companyLike = /compan|organi[sz]ation|business|trading|account ?name|display ?name|firm|employer/i;
       const company = names.find((h) => companyLike.test(h))
         || [...names].sort((x, y) => sheetMap[y].confidence - sheetMap[x].confidence)[0];
       const person = names.find((h) => h !== company)!;

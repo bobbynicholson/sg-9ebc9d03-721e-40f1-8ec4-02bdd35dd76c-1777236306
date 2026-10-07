@@ -412,6 +412,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
+    // ── Phase 1b: same email twice in this file. Commit inserts rows in
+    // parallel, so the second copy either failed on the unique index
+    // with a database error or was skipped, and preview never said so.
+    // Flag every later copy as an error naming the first row, so the
+    // operator fixes the email or skips the row knowingly. ──
+    const lineById = new Map(rows.map((r) => [r.id, r.source_row_index]));
+    const firstLineByEmail = new Map<string, number | null>();
+    for (const c of computed) {
+      if (c.status === "error" || (c.target !== "clients" && c.target !== "leads")) continue;
+      const email = ((c.mapped.email || c.mapped.client_email) ?? "").toString().trim().toLowerCase();
+      if (!email) continue;
+      const key = `${c.target}|${email}`;
+      if (!firstLineByEmail.has(key)) {
+        firstLineByEmail.set(key, lineById.get(c.id) ?? null);
+        continue;
+      }
+      const first = firstLineByEmail.get(key);
+      c.status = "error";
+      c.errorMessage = `Same email as row ${first ?? "?"} in this file. Change the email, or skip this row`;
+    }
+
     // ── Phase 2: bulk dedup lookup. Two queries total. ──
     const { clientByEmail, leadByEmail } = await buildExistingEmailIndex(
       supabase, companyId, clientEmailSet, leadEmailSet,

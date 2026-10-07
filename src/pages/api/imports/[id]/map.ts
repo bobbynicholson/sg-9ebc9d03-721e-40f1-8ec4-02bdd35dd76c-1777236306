@@ -146,7 +146,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           }
           // A field outside the list would be silently dropped later;
           // show it as skipped so the operator can pick the right one.
-          const valid = allowed.has(m.target);
+          // "skip" is a deliberate answer (ids, balances), not an invalid one.
+          const valid = allowed.has(m.target) || m.target === "skip";
           sheetMap[m.source_header] = {
             target: valid ? m.target : "skip",
             confidence: valid ? m.confidence : 0,

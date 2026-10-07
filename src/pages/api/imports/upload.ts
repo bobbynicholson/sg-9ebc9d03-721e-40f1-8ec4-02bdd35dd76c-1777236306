@@ -23,12 +23,12 @@ import formidable from "formidable";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { promises as fs } from "fs";
 import { randomUUID } from "node:crypto";
-import * as XLSX from "xlsx";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { createImportJob, setJobStatus } from "@/services/importService";
 import { recogniseHeaders, buildMappingFromTemplate } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { parseWorkbook, type ParsedSheet } from "@/lib/importParse";
 
 
 export const config = {
@@ -69,19 +69,6 @@ async function getImportRowCap(): Promise<number> {
   return FALLBACK_ROW_CAP;
 }
 
-/**
- * Strip leading characters that some spreadsheet apps interpret as
- * formula starts (=, +, -, @). Defensive against operators uploading
- * a CSV that, if later re-exported, would let an attacker inject a
- * payload. Only applied to string values; numbers / dates pass
- * through untouched.
- */
-function sanitiseCell(value: any): any {
-  if (typeof value !== "string") return value;
-  if (value.length === 0) return value;
-  if (/^[=+\-@]/.test(value)) return "'" + value;
-  return value;
-}
 const ALLOWED_MIMES = new Set([
   "text/csv",
   "application/vnd.ms-excel",
@@ -90,10 +77,6 @@ const ALLOWED_MIMES = new Set([
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
 
-interface ParsedSheet {
-  name: string;
-  rows: Array<{ rowIndex: number; data: Record<string, any> }>;
-}
 
 interface QuickValidationSummary {
   ok: number;
@@ -237,55 +220,6 @@ function quickValidateAllSheets(
     topIssues,
     fyAnalysis: { fyStart, ...fy },
   };
-}
-
-function parseWorkbook(buffer: Buffer, filename: string): ParsedSheet[] {
-  // Cast XLSX usage to any - SheetJS' BufferLike type widens between
-  // releases, and we don't want our build to chase that.
-  const X = XLSX as any;
-  const wb = X.read(buffer, { type: "buffer", cellDates: true, raw: false });
-  const sheets: ParsedSheet[] = [];
-  for (const sheetName of wb.SheetNames as string[]) {
-    const ws = wb.Sheets[sheetName];
-    if (!ws) continue;
-    // header: 1 returns rows as arrays so we can build a clean
-    // header-keyed dict ourselves. Avoids SheetJS auto-coercion
-    // that loses leading zeros in IDs.
-    const aoa: any[][] = X.utils.sheet_to_json(ws, { header: 1, defval: "", raw: false, blankrows: false });
-    if (aoa.length === 0) continue;
-    const headers = (aoa[0] as any[]).map((h) => String(h ?? "").trim());
-    if (headers.every((h) => !h)) continue; // empty header row
-    const rows: ParsedSheet["rows"] = [];
-    for (let i = 1; i < aoa.length; i++) {
-      const r = aoa[i] as any[];
-      // Skip rows that are entirely empty - common at the end of
-      // sheets that someone deleted contents but not the row.
-      if (r.every((v) => v == null || String(v).trim() === "")) continue;
-      const data: Record<string, any> = {};
-      headers.forEach((h, idx) => {
-        if (!h) return;
-        const v = r[idx];
-        if (v == null) {
-          data[h] = null;
-        } else if (typeof v === "string") {
-          // Sanitise then trim. Order matters - the formula-prefix
-          // check works on the raw value; trimming after preserves
-          // the leading apostrophe escape we may have added.
-          data[h] = sanitiseCell(v.trim());
-        } else {
-          data[h] = v;
-        }
-      });
-      rows.push({ rowIndex: i + 1, data });
-    }
-    sheets.push({ name: sheetName, rows });
-  }
-  // CSVs come back as a single sheet - if SheetJS decided to call
-  // it "Sheet1" but the upload was a .csv, rename to a tidier label.
-  if (filename.toLowerCase().endsWith(".csv") && sheets.length === 1 && sheets[0].name === "Sheet1") {
-    sheets[0].name = "Data";
-  }
-  return sheets;
 }
 
 async function uploadToStorage(args: {

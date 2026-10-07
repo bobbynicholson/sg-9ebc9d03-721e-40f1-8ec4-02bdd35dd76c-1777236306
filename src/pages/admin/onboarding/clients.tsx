@@ -104,7 +104,13 @@ const MAX_IMPORT_ROWS = 20000;
 /** Rows sent per request; large files go in several parts. */
 const IMPORT_CHUNK_ROWS = 1000;
 
-interface SheetTable { name: string; headers: string[]; rows: string[][] }
+interface SheetTable {
+  name: string;
+  headers: string[];
+  rows: string[][];
+  /** File line of each row (files only; pasted rows count from line 2). */
+  lines?: number[];
+}
 
 interface PendingBatch {
   /** Changes every time a new table is staged; stale AI replies are ignored. */
@@ -115,6 +121,8 @@ interface PendingBatch {
   sheetName?: string;
   headers: string[];
   rows: string[][];
+  /** File line of each row, when the reader knows it (title rows, blank rows). */
+  lines?: number[];
   /** Treat the first row as data instead of headers. */
   firstRowIsData: boolean;
   columns: ColumnChoice[];
@@ -240,7 +248,7 @@ function rowsFromBatch(batch: PendingBatch): PreviewRow[] {
     out.push({
       ...r,
       _key: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-      _line: firstLine + i,
+      _line: (!batch.firstRowIsData && batch.lines?.[i]) || firstLine + i,
       _source: batch.source,
       issues: rowIssues(r),
     });
@@ -382,7 +390,7 @@ function ClientImportPage() {
   useEffect(() => () => aiAbort.current?.abort(), []);
 
   /** Start column matching for a freshly loaded table. */
-  const stageTable = (source: string, headers: string[], body: string[][], sheets?: SheetTable[], sheetName?: string) => {
+  const stageTable = (source: string, headers: string[], body: string[][], sheets?: SheetTable[], sheetName?: string, lines?: number[]) => {
     aiAbort.current?.abort();
     const cleanHeaders = headers.map((h) => String(h ?? "").trim());
     const byName = columnsByName(cleanHeaders);
@@ -400,6 +408,7 @@ function ClientImportPage() {
       sheetName,
       headers: cleanHeaders,
       rows: body.map((r) => r.map((c) => String(c ?? ""))),
+      lines,
       firstRowIsData: noHeaderMatch,
       columns: noHeaderMatch ? columnsByPosition(cleanHeaders.length) : byName,
     };
@@ -450,28 +459,27 @@ function ClientImportPage() {
       if (file.size > MAX_FILE_MB * 1024 * 1024) {
         throw new Error(`That file is over ${MAX_FILE_MB} MB. Split it into smaller files and import them one at a time.`);
       }
-      if (ext === "csv" || ext === "tsv" || ext === "txt") {
+      if (ext === "txt") {
         const text = await file.text();
         const { headers, rows: body } = parseDelimited(text);
         if (headers.length === 0) throw new Error("The file is empty");
         stageTable(file.name, headers, body);
-      } else if (ext === "xlsx" || ext === "xls") {
-        const XLSX: any = await import("xlsx");
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, { type: "array" });
-        // Read every sheet that has data; start on the first one.
-        const sheets: SheetTable[] = (wb.SheetNames as string[])
-          .map((name) => {
-            const data: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "", raw: false });
-            const rowsOnly = data
-              .map((r) => (Array.isArray(r) ? r : []).map((c) => String(c ?? "")))
-              .filter((r) => r.some((c) => c.trim() !== ""));
-            const [headers = [], ...rows] = rowsOnly;
-            return { name, headers, rows };
-          })
-          .filter((t) => t.headers.length > 0);
-        if (sheets.length === 0) throw new Error("The spreadsheet has no data.");
-        stageTable(file.name, sheets[0].headers, sheets[0].rows, sheets.length > 1 ? sheets : undefined, sheets[0].name);
+      } else if (ext === "csv" || ext === "tsv" || ext === "xlsx" || ext === "xls") {
+        // Same reader as the server import (src/lib/importParse): real
+        // Excel dates as ISO, title rows skipped, repeated / unnamed
+        // columns kept, file line numbers preserved.
+        const { readSheetTables } = await import("@/lib/importParse");
+        const sheets: SheetTable[] = readSheetTables(await file.arrayBuffer())
+          .filter((t) => t.headers.length > 0)
+          .map((t) => ({
+            name: t.name,
+            headers: t.headers,
+            rows: t.rows.map((r) => r.map((c) => String(c ?? ""))),
+            lines: t.lines,
+          }));
+        if (sheets.length === 0) throw new Error("The file has no data.");
+        const first = sheets[0];
+        stageTable(file.name, first.headers, first.rows, sheets.length > 1 ? sheets : undefined, first.name, first.lines);
       } else {
         throw new Error("Unsupported file type. Use CSV, TSV or XLSX.");
       }
@@ -512,7 +520,7 @@ function ClientImportPage() {
   const switchSheet = (name: string) => {
     const t = pending?.sheets?.find((x) => x.name === name);
     if (!pending || !t) return;
-    stageTable(pending.source, t.headers, t.rows, pending.sheets, t.name);
+    stageTable(pending.source, t.headers, t.rows, pending.sheets, t.name, t.lines);
   };
 
   const toggleFirstRowIsData = () => {

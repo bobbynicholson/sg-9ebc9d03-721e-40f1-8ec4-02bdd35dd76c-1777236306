@@ -36,6 +36,10 @@ export function normalisePhoneZA(raw: any): NormaliseResult<string> {
     canonical = "+" + digits;
   } else if (digits.startsWith("0") && digits.length === 10) {
     canonical = "+27" + digits.slice(1);
+  } else if (/^[1-8]\d{8}$/.test(digits)) {
+    // 9 digits, no leading 0: an SA number typed into an Excel number
+    // cell, which drops the 0 (0821234567 -> 821234567).
+    canonical = "+27" + digits;
   } else {
     // Probably an international number we don't need to mangle.
     canonical = digits;
@@ -85,15 +89,49 @@ export function normaliseDate(raw: any): NormaliseResult<string> {
   return { value: null, warnings: [`"${s}" date doesn't parse`] };
 }
 
-/** Strip currency symbols and commas, return as a positive number. */
+/**
+ * Parse a money amount, returned as a positive number. Accepts currency
+ * prefixes (R, ZAR, $), space / apostrophe grouping, and both decimal
+ * styles: "12,000.50" and "12.000,50" / "5000,00" (Excel exports in
+ * comma-decimal locales). Stripping every comma used to turn "5000,00"
+ * into 500000 without a warning.
+ */
 export function normaliseAmount(raw: any): NormaliseResult<number> {
   if (raw == null || raw === "") return { value: null, warnings: [] };
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw)) return { value: null, warnings: [`"${raw}" is not a number`] };
+    return raw < 0 ? { value: 0, warnings: [`"${raw}" was negative, clamped to 0`] } : { value: raw, warnings: [] };
+  }
   const s = String(raw).trim();
-  // Strip "R", "ZAR", "$", thousand separators, space groupings.
-  const cleaned = s.replace(/[Rr]\s?|\bZAR\b|\$/g, "").replace(/[\s,]/g, "");
-  if (!cleaned) return { value: null, warnings: [`"${s}" has no number`] };
-  const n = parseFloat(cleaned);
+  let t = s
+    .replace(/^(ZAR|R|\$)\s*/i, "")
+    .replace(/\s*ZAR$/i, "")
+    .replace(/[\s ']/g, "");
+  if (!t) return { value: null, warnings: [`"${s}" has no number`] };
+  // Whole cell must be a number; "15 Jan 2025" or "lots" is not an amount.
+  if (!/^-?(\d[\d.,]*)$/.test(t)) return { value: null, warnings: [`"${s}" is not a number`] };
+  const warnings: string[] = [];
+  const lastDot = t.lastIndexOf(".");
+  const lastComma = t.lastIndexOf(",");
+  if (lastDot >= 0 && lastComma >= 0) {
+    // Both present: the later one is the decimal separator.
+    const decimal = lastDot > lastComma ? "." : ",";
+    t = t.split(decimal === "." ? "," : ".").join("");
+    if (decimal === ",") t = t.replace(",", ".");
+  } else if (lastComma >= 0) {
+    if (/^-?\d{1,3}(,\d{3})+$/.test(t)) t = t.replace(/,/g, ""); // 12,000
+    else if (/^-?\d+,\d{1,2}$/.test(t)) t = t.replace(",", "."); // 5000,00
+    else {
+      t = t.replace(/,/g, "");
+      warnings.push(`"${s}" has unclear separators, read as ${t}`);
+    }
+  } else if (lastDot >= 0 && /^-?\d{1,3}(\.\d{3}){2,}$/.test(t)) {
+    t = t.replace(/\./g, ""); // 1.200.000
+  }
+  if ((t.match(/\./g) || []).length > 1) return { value: null, warnings: [`"${s}" is not a number`] };
+  const n = Number(t);
   if (!Number.isFinite(n)) return { value: null, warnings: [`"${s}" is not a number`] };
+  if (warnings.length) return n < 0 ? { value: 0, warnings: [...warnings, `"${s}" was negative, clamped to 0`] } : { value: n, warnings };
   if (n < 0) return { value: 0, warnings: [`"${s}" was negative, clamped to 0`] };
   return { value: n, warnings: [] };
 }
@@ -181,6 +219,11 @@ export function normaliseFieldValue(
   targetKey: string,
   raw: any,
 ): NormaliseResult<any> {
+  // SA postal codes are 4 digits; an Excel number cell drops the
+  // leading zero ("0181" -> 181), so pad 3-digit codes back.
+  if (/postal_code$/.test(targetKey) && /^\d{3}$/.test(String(raw ?? "").trim())) {
+    return { value: String(raw).trim().padStart(4, "0"), warnings: [] };
+  }
   const t = FIELD_TYPE[targetKey] || "text";
   switch (t) {
     case "email":  return normaliseEmail(raw);

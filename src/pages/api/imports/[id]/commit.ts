@@ -244,16 +244,13 @@ async function buildDedupMaps(
   return { clientByEmail, clientByName, leadByEmail, orderByKey };
 }
 
+// Clients match on email only - it is the unique key, and preview's
+// duplicate check uses the same rule. A name fallback silently skipped
+// a new "Thabo Mokoena" with a different email as "Already on file"
+// while preview had shown the row as ready to import.
 const lookupExistingClient = (dedup: DedupMaps, mapped: any): string | null => {
-  if (mapped.email) {
-    const hit = dedup.clientByEmail.get(String(mapped.email).toLowerCase().trim());
-    if (hit) return hit;
-  }
-  if (mapped.client_name) {
-    const hit = dedup.clientByName.get(String(mapped.client_name).toLowerCase().trim());
-    if (hit) return hit;
-  }
-  return null;
+  if (!mapped.email) return null;
+  return dedup.clientByEmail.get(String(mapped.email).toLowerCase().trim()) ?? null;
 };
 
 const lookupExistingLead = (dedup: DedupMaps, mapped: any): string | null => {
