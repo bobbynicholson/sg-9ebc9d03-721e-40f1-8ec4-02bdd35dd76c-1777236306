@@ -33,6 +33,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useToast } from "@/hooks/use-toast";
 import { ChatBot } from "@/components/ChatBot";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { ImportWhatHappensNote } from "@/components/admin/ImportWhatHappensNote";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { useTenantHref } from "@/lib/tenantUrl";
@@ -522,6 +523,7 @@ function ImportPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <ImportWhatHappensNote className="mb-4" />
                 <div className="space-y-3">
                   {/* Template download buttons. Using one of these
                       auto-recognises every column on the upload step

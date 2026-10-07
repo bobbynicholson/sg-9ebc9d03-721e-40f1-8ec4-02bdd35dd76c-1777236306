@@ -21,6 +21,7 @@
  * the cap in /admin/platform/settings reflects here without a
  * redeploy.
  */
+import { ImportWhatHappensNote } from "@/components/admin/ImportWhatHappensNote";
 import { Fragment, useRef, useState } from "react";
 import {
   Dialog,
@@ -781,6 +782,8 @@ export function ImportRecordsModal({
             )}
           </DialogDescription>
         </DialogHeader>
+
+        <ImportWhatHappensNote />
 
         {error && (
           <Alert className="border-rose-200 bg-rose-50">

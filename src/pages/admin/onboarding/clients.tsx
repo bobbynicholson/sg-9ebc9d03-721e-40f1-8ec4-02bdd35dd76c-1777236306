@@ -16,6 +16,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Head from "next/head";
+import { ImportWhatHappensNote } from "@/components/admin/ImportWhatHappensNote";
 import Link from "next/link";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -893,6 +894,8 @@ function ClientImportPage() {
               </li>
             ))}
           </ol>
+
+          {!pending && <ImportWhatHappensNote className="mb-4" />}
 
           {!pending && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">

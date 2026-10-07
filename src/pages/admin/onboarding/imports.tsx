@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wand2, Upload, RotateCcw, ArrowRight, Clock, CheckCircle2,
-  AlertTriangle, FileSpreadsheet, Loader2, Trash2, BellOff, Bell,
+  AlertTriangle, FileSpreadsheet, Loader2, Trash2, BellOff,
 } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Footer } from "@/components/Footer";
@@ -122,38 +122,6 @@ function ImportsHistoryPage() {
   };
   useEffect(() => { load(); }, []);
 
-  const enableComms = async (job: ImportJobRow) => {
-    if (job.comms_enabled_at) return;
-    const counts = job.summary?.commit;
-    const inserted =
-      (counts?.clients?.inserted || 0) +
-      (counts?.orders?.inserted || 0) +
-      (counts?.leads?.inserted || 0) +
-      (counts?.quotes?.inserted || 0);
-    const msg = inserted > 0
-      ? `Allow automated emails on the ${inserted} record${inserted === 1 ? "" : "s"} from "${job.source_filename || "this batch"}"?\n\nThis does NOT send anything immediately. It just lifts the pause so the system's existing email sequences (welcome message, lead auto-reply, after-sales follow-up) can fire against these records when their normal schedule says so.\n\nThere is no undo button: once you allow it, those sequences will start running on their usual cadence.`
-      : `Allow automated emails on this batch?\n\nThis does NOT send anything immediately. It just lifts the pause so the system's existing email sequences (welcome message, lead auto-reply, after-sales follow-up) can fire on these records when their schedule says so.`;
-    if (!confirm(msg)) return;
-    setBusyId(job.id);
-    try {
-      const res = await fetch(`/api/imports/${job.id}/enable-comms`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Could not enable comms");
-      const cleared =
-        (json.clients || 0) + (json.leads || 0) + (json.orders || 0) + (json.quotes || 0);
-      toast({
-        title: "Auto-emails allowed",
-        description: cleared > 0
-          ? `Pause lifted on ${cleared} record${cleared === 1 ? "" : "s"}. Sequences will fire on their normal schedule from here.`
-          : "Batch is now green-lit. Sequences will fire on their normal schedule.",
-      });
-      load();
-    } catch (e: any) {
-      toast({ title: "Could not allow auto-emails", description: e?.message || "", variant: "destructive" });
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   const rollback = async (jobId: string) => {
     if (!confirm("Roll back this import? This deletes the rows it inserted, existing records you had before are untouched.")) return;
@@ -448,23 +416,6 @@ function ImportsHistoryPage() {
                       <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                         <FileSpreadsheet className="w-4 h-4 text-slate-400" />
                         <Badge className={`border ${meta.tone}`}>{meta.label}</Badge>
-                        {/* Comms quarantine badge. Only meaningful for
-                            completed jobs - in-flight ones haven't
-                            inserted real rows yet so the pause flag
-                            isn't a useful signal there. */}
-                        {j.status === "completed" && (
-                          j.comms_enabled_at ? (
-                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px] gap-1" title="Auto-emails (welcome, follow-ups, after-sales) can fire on these records as soon as the schedule says so.">
-                              <Bell className="w-2.5 h-2.5" />
-                              Auto-emails on
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800 text-[10px] gap-1" title="Records imported, but our automated email sequences (welcome, follow-ups, after-sales) are paused on them until you allow them.">
-                              <BellOff className="w-2.5 h-2.5" />
-                              Auto-emails paused
-                            </Badge>
-                          )
-                        )}
                       </div>
                       <div className="flex-1 min-w-[200px]">
                         <div className="font-semibold text-slate-900 truncate">
@@ -503,26 +454,6 @@ function ImportsHistoryPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        {/* Enable comms button - shown on completed
-                            batches that haven't been green-lit yet.
-                            One click clears the pause across every
-                            row from the batch via an atomic RPC. */}
-                        {j.status === "completed" && !j.comms_enabled_at && (
-                          <Button
-                            size="sm"
-                            onClick={() => enableComms(j)}
-                            disabled={busyId === j.id}
-                            className="bg-brand-primary hover:bg-brand-primary/90"
-                            title="Lets the system's automated email sequences (welcome, follow-ups, after-sales) fire on this batch on their normal schedule. Does NOT send anything right now."
-                          >
-                            {busyId === j.id ? (
-                              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                            ) : (
-                              <Bell className="w-3.5 h-3.5 mr-1.5" />
-                            )}
-                            Allow auto-emails
-                          </Button>
-                        )}
                         {canRollback && (
                           <Button
                             size="sm"
