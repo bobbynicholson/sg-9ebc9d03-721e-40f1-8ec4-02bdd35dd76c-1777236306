@@ -71,6 +71,8 @@ interface PrepTask {
 interface OrderItemRow {
   id: string;
   item_name: string;
+  /** What the line includes ("Plate, knife & fork."). */
+  description?: string | null;
   quantity: number;
   special_instructions: string | null;
   menu_item_id: string | null;
@@ -213,7 +215,7 @@ export function KitchenSection({
             .order("start_at", { ascending: true, nullsFirst: false }),
           (supabase as any)
             .from("order_items")
-            .select("id, item_name, quantity, special_instructions, menu_item_id, menu_item:menu_item_id(id, item_name, category, prep_time_minutes, cook_time_minutes, instructions, recipe_name, dietary_tags, allergen_codes, is_buy_and_sell, fulfilment_type)")
+            .select("id, item_name, description, quantity, special_instructions, menu_item_id, menu_item:menu_item_id(id, item_name, category, prep_time_minutes, cook_time_minutes, instructions, recipe_name, dietary_tags, allergen_codes, is_buy_and_sell, fulfilment_type)")
             .eq("order_id", orderId)
             .order("item_name", { ascending: true }),
           (supabase as any)
@@ -404,6 +406,9 @@ export function KitchenSection({
                             <span className="ml-2 text-[10px] uppercase tracking-wider text-slate-700 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5">Outsourced</span>
                           )}
                         </p>
+                        {it.description && (
+                          <p className="text-xs text-slate-600 mt-0.5">{it.description}</p>
+                        )}
                         {/* Tag strip - category + dietary + allergens */}
                         {(tagBits.length > 0 || (mi?.allergen_codes && mi.allergen_codes.length > 0)) && (
                           <div className="flex flex-wrap gap-1 mt-1">

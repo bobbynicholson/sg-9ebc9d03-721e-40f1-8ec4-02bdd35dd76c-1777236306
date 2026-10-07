@@ -168,7 +168,7 @@ function ClientTrackingInner() {
         const { data: collRows } = await supabase
           .from("driver_assignments")
           .select("order_id, driver_id, status")
-          .eq("assignment_type", "collection")
+          .eq("assignment_type", "collection").neq("status", "cancelled")
           .in("order_id", candidateIds)
           .in("status", ["en_route", "at_venue"]);
         const collectionAssignments = ((collRows as any[]) || []);

@@ -4,6 +4,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { runWaiterReturnReminders } from "@/services/waiterReturnReminders";
+import { EQUIPMENT_RETURN_ADMIN_ROLES } from "@/lib/equipmentReturn";
 
 
 const CRON_NAME = "equipment-collection-reminder";
@@ -40,13 +42,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const sb: any = getServiceSupabase();
   try {
     const now = new Date();
+    // Waiter-return jobs have no collection trip; remind on overdue ones
+    // first so the early "no collections" exit below never skips them.
+    let waiter: Awaited<ReturnType<typeof runWaiterReturnReminders>> | null = null;
+    try {
+      waiter = await runWaiterReturnReminders(sb, now);
+    } catch (e: any) {
+      console.warn("[equipment-collection-reminder] waiter returns failed:", e?.message || e);
+    }
     const tomorrowEnd = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
 
     const { data: assignments, error } = await (sb as any)
       .from("driver_assignments")
       .select("id, company_id, order_id, driver_id, scheduled_for, status")
       .eq("assignment_type", "collection")
-      .neq("status", "completed")
+      .not("status", "in", "(completed,cancelled)")
       .lte("scheduled_for", tomorrowEnd);
     if (error) {
       console.error("[equipment-collection-reminder] fetch failed:", error);
@@ -54,8 +64,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: error.message });
     }
     if (!assignments || assignments.length === 0) {
-      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, sent: 0 });
-      return res.status(200).json({ ok: true, sent: 0 });
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, sent: 0, waiter_returns: waiter });
+      return res.status(200).json({ ok: true, sent: 0, waiterReturns: waiter });
     }
 
     const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
@@ -151,7 +161,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               {
                 companyId: (order as any).company_id || a.company_id,
                 regionId: (order as any).region_id || null,
-                targetRoles: ["company_admin" as any, "admin" as any, "owner" as any],
+                targetRoles: [...EQUIPMENT_RETURN_ADMIN_ROLES] as any,
                 title: `${icon} ${headline}`,
                 message: adminMsg,
                 type: adminType,
@@ -243,6 +253,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       driverPings,
       adminPings,
       errors_count: errors.length,
+      waiter_returns: waiter,
     });
     return res.status(200).json({
       ok: true,
@@ -250,6 +261,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       sent,
       driverPings,
       adminPings,
+      waiterReturns: waiter,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (e: any) {

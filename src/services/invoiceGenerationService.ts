@@ -186,8 +186,13 @@ function menuInvoiceLine(row: any): NonNullable<InvoiceData["menuItems"]>[number
   const quantity = moneyNumber(row?.quantity, row?.qty, 1) || 1;
   const unitPrice = moneyNumber(row?.unitPrice, row?.unit_price, row?.price);
   const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
+  // Name + what it includes ("Cutlery & Crockery - Plate, knife & fork."),
+  // same as the order_items path. Using the description alone dropped the
+  // item name from the invoice line.
+  const name = row?.item_name || row?.menu_item_name || row?.name || "";
+  const detail = row?.description && row.description !== name ? row.description : "";
   return {
-    description: row?.description || row?.item_name || row?.menu_item_name || row?.name || "Menu item",
+    description: [name, detail].filter(Boolean).join(" - ") || "Menu item",
     quantity,
     unitPrice,
     total,
@@ -757,7 +762,14 @@ export async function ensureInvoiceForOrder(
   orderId: string,
   companyId: string,
   client?: SupabaseLike,
-  opts?: { origin?: string },
+  opts?: {
+    origin?: string;
+    /** An admin explicitly asked for this invoice (e.g. "Create payment
+     *  request" on the order). Imported orders are skipped by default on
+     *  the assumption they were settled in the old system - not true for
+     *  upcoming imported events that still owe money. */
+    force?: boolean;
+  },
 ): Promise<{ success: boolean; invoiceId?: string; alreadyExisted?: boolean; skipped?: string; error?: string }> {
   const supabase = resolveClient(client);
   try {
@@ -868,7 +880,7 @@ export async function ensureInvoiceForOrder(
     if (orderRowErr) {
       console.error("[invoiceGenerationService] orders fetch failed:", orderRowErr);
     }
-    if (orderRow) {
+    if (orderRow && !opts?.force) {
       const importedAt = (orderRow as any).imported_at;
       const paused = (orderRow as any).comms_paused_until;
       if (importedAt || (paused && new Date(paused) > new Date())) {

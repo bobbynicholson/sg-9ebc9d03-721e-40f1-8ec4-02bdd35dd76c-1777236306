@@ -19,6 +19,7 @@ import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 // region_admin are the people who actually run the day's logistics.
 const ADMIN_DISPATCH_ROLES: UserRole[] = [
   UserRole.COMPANY_ADMIN,
+  UserRole.OWNER,
   UserRole.ADMIN,
   UserRole.REGION_ADMIN,
 ];
@@ -797,6 +798,7 @@ export const driverConfirmationService = {
         .select("status, picked_up_at")
         .eq("order_id", orderId)
         .eq("assignment_type", "collection")
+        .neq("status", "cancelled")
         .maybeSingle();
       const pa = priorAssign as any;
       alreadyToldClient = !!pa && (pa.status === "picked_up" || !!pa.picked_up_at);
@@ -812,92 +814,24 @@ export const driverConfirmationService = {
         .update({ status: "completed", completed_at: new Date().toISOString() } as any)
         .eq("order_id", orderId)
         .eq("assignment_type", "collection")
-        .neq("status", "completed");
+        .not("status", "in", "(completed,cancelled)");
     } catch (e) {
       console.warn("[completeCollection] driver_assignments close failed (non-blocking):", e);
     }
 
-    // Flow audit Leg E P0-17: drivers used to drop damaged gear in
-    // the cleaning bay with no paper trail, so cleaning got blamed
-    // for breakages that happened at venue. Capture damage reports
-    // inline through equipmentTrackingService so the responsible
-    // party is the driver, not the cleaner, and the damage cost
-    // hits the right cost-centre.
-    if (options?.damages && options.damages.length > 0) {
-      try {
-        const { equipmentTrackingService } = await import("@/services/equipmentTrackingService");
-        for (const d of options.damages) {
-          try {
-            await (equipmentTrackingService as any).reportDamage({
-              orderId,
-              equipmentId: d.equipmentId,
-              quantityDamaged: d.quantityDamaged,
-              damageType: d.damageType,
-              damageStage: "return",
-              unitCost: d.unitCost,
-              responsibleUserId: driverId,
-              description: d.description,
-              photoUrl: d.photoUrl,
-            });
-          } catch (e) {
-            console.warn("[completeCollection] damage report failed for", d.equipmentId, e);
-          }
-        }
-      } catch (e) {
-        console.warn("[completeCollection] damage cascade crashed (non-blocking):", e);
-      }
-    }
-
-    // Walk equipment_bookings for this order and call returnEquipment
-    // on each. Status='returned' is the canonical signal for the
-    // availability calculator + the cleaning queue.
+    // Damage (charged to the driver, not cleaning), free the bookings
+    // (lost / stolen units excluded) and tell cleaning the gear is back.
+    // Shared with the waiter's "Equipment returned" so both paths do the
+    // same thing. Best-effort inside.
     try {
-      const { data: bookings } = await (supabase as any)
-        .from("equipment_bookings")
-        .select("id, status")
-        .eq("order_id", orderId);
-      const { equipmentService } = await import("@/services/equipmentService");
-      for (const b of (bookings || []) as any[]) {
-        if (b.status === "returned") continue;
-        try {
-          await (equipmentService as any).returnEquipment(b.id);
-        } catch (returnErr) {
-          console.warn("[completeCollection] returnEquipment failed for booking", b.id, returnErr);
-        }
-      }
+      const { equipmentReturnService } = await import("@/services/equipmentReturnService");
+      await equipmentReturnService.returnOrderEquipment({
+        orderId,
+        responsibleUserId: driverId,
+        damages: options?.damages,
+      });
     } catch (e) {
-      console.warn("[completeCollection] equipment return cascade crashed (non-blocking):", e);
-    }
-
-    // Communication: the gear is back at the hub - tell the cleaning team
-    // there's a return to process. returnEquipment only flips status to
-    // 'returned' (no cleaning_job is created on this path), so nothing
-    // else pings them and handovers relied on a verbal nudge. One ping
-    // per collection trip. Best-effort.
-    try {
-      const { data: orderRow2 } = await (supabase as any)
-        .from("orders")
-        .select("company_id, order_number")
-        .eq("id", orderId)
-        .maybeSingle();
-      const handoverCompanyId = (orderRow2 as any)?.company_id;
-      if (handoverCompanyId) {
-        await notificationService.broadcastNotification({
-          companyId: handoverCompanyId,
-          type: "equipment_returned",
-          title: "Equipment returned for cleaning",
-          message: `Gear from order ${(orderRow2 as any)?.order_number || orderId.slice(0, 8)} is back at the hub and ready for cleaning intake.`,
-          targetRoles: ["cleaning_manager" as any, "cleaning_staff" as any],
-          managerDispatch: true,
-          priority: "normal",
-          link: "/team-portal/cleaning",
-          relatedEntityType: "order",
-          relatedEntityId: orderId,
-          dedup: true,
-        });
-      }
-    } catch (notifyErr) {
-      console.warn("[completeCollection] cleaning handover notification failed (non-blocking):", notifyErr);
+      console.warn("[completeCollection] equipment return crashed (non-blocking):", e);
     }
 
     // Close the loop with the client. startCollection pings them "we're on

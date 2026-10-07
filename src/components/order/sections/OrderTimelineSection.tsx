@@ -25,6 +25,7 @@ import { UserRole } from "@/types/app";
 import { Button } from "@/components/ui/button";
 import { TimelineTrack } from "@/components/admin/orders/TimelineTrack";
 import { computeOrderTimeline } from "@/services/order/orderTimeline";
+import { resolveEquipmentReturn } from "@/lib/equipmentReturn";
 import {
   CheckCircle2, Circle, Clock, ChefHat, PackageCheck, Truck, MapPin,
   Sparkles, Users, PartyPopper, ArrowLeftRight, PackageOpen, Flag, Ban, Pause, FileSignature, Droplets,
@@ -536,7 +537,7 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
           .from("driver_assignments")
           .select("status, picked_up_at, completed_at")
           .eq("order_id", order.id)
-          .eq("assignment_type", "collection");
+          .eq("assignment_type", "collection").neq("status", "cancelled");
         if (cancelled) return;
         const rows = (data || []) as Array<{ status: string | null; picked_up_at: string | null; completed_at: string | null }>;
         // Done = collection physically picked up (or the whole trip
@@ -777,7 +778,9 @@ export function OrderTimelineSection({ order, defaultOpen, forceOpen, hideNowBan
       ...order,
       service_ended_at: effServiceEnded,
       event_complete_at: effEventComplete,
-      equipment_return_method: order.equipment_return_method || (hasEquipmentSignal ? "deliver_and_collect" : null),
+      // No saved choice: same inference the collection scheduler uses
+      // (waiter on the job -> waiter brings it back, else driver collects).
+      equipment_return_method: order.equipment_return_method || (hasEquipmentSignal ? resolveEquipmentReturn(order as any) : null),
     },
     equipmentBookings: hasEquipmentSignal
       ? Array.from({ length: Math.max(equipmentSignals.bookings, 1) }, (_, index) => ({

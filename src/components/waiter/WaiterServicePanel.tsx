@@ -37,6 +37,9 @@ import { useTenantHref } from "@/lib/tenantUrl";
 import { toLocalISO } from "@/lib/localDate";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { orderDisplayName } from "@/lib/orderDisplayName";
+import { EquipmentReturnDialog } from "@/components/equipment/EquipmentReturnDialog";
+import { EQUIPMENT_RETURN_ADMIN_ROLES, EQUIPMENT_RETURN_OPTIONS, resolveEquipmentReturn } from "@/lib/equipmentReturn";
+import type { ReturnDamage } from "@/services/equipmentReturnService";
 import {
   beginRoleClock,
   endCurrentRoleClock,
@@ -57,6 +60,10 @@ type Phase =
   | "equipment_returned_at";
 
 interface AssignedOrder {
+  equipment_return_method?: string | null;
+  collection_next_day?: boolean | null;
+  requires_waiter?: boolean | null;
+  waiter_service_required?: boolean | null;
   id: string;
   order_number: string | null;
   event_name: string | null;
@@ -108,6 +115,8 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
   // the waiter may actually have three events.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingPhase, setSavingPhase] = useState<{ orderId: string; phase: Phase } | null>(null);
+  // Order whose "Equipment returned" check is open (damage / missing items).
+  const [returnFor, setReturnFor] = useState<AssignedOrder | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [savingNote, setSavingNote] = useState<string | null>(null);
 
@@ -120,6 +129,12 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
       const horizon = new Date();
       horizon.setDate(horizon.getDate() + 2);
       const horizonIso = toLocalISO(horizon);
+      // Past events stay listed while this waiter still owes the
+      // equipment return (they may bring it back the next day, or come
+      // here from an overdue reminder). Filtered below.
+      const lookback = new Date();
+      lookback.setDate(lookback.getDate() - 7);
+      const lookbackIso = toLocalISO(lookback);
       const { data: attRows, error: attErr } = await (supabase as any)
         .from("event_attendance")
         .select("id, order_id, arrived_at, setup_started_at, guests_arrived_at, service_started_at, service_ended_at, event_complete_at, equipment_returned_at, notes")
@@ -138,10 +153,10 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
       if (attendanceOrderIds.size > 0) {
         const { data: assignedOrders, error: assignedErr } = await (supabase as any)
           .from("orders")
-          .select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, client_name, status")
+          .select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, client_name, status, equipment_return_method, collection_next_day, requires_waiter, waiter_service_required")
           .eq("company_id", user.company_id)
           .in("id", Array.from(attendanceOrderIds))
-          .gte("event_date", today)
+          .gte("event_date", lookbackIso)
           .lte("event_date", horizonIso)
           .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
           .order("event_date", { ascending: true });
@@ -154,10 +169,10 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
       // the canonical assignment table.
       const { data: legacyDriverServiceOrders } = await (supabase as any)
         .from("orders")
-        .select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, client_name, status")
+        .select("id, order_number, event_name, event_date, event_time, venue_name, venue_address, guest_count, client_name, status, equipment_return_method, collection_next_day, requires_waiter, waiter_service_required")
         .eq("company_id", user.company_id)
         .eq("assigned_driver_id", user.id)
-        .gte("event_date", today)
+        .gte("event_date", lookbackIso)
         .lte("event_date", horizonIso)
         .or("requires_waiter.eq.true,waiter_service_required.eq.true")
         .in("status", ["confirmed", "preparing", "ready", "in_transit", "delivered", "completed"])
@@ -169,6 +184,15 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
       const nextOrders = Array.from(orderMap.values()).sort((a, b) =>
         `${a.event_date} ${a.event_time || ""}`.localeCompare(`${b.event_date} ${b.event_time || ""}`),
       );
+      // Upcoming / today's events, plus past ones whose equipment the
+      // waiter still has to bring back.
+      const shownOrders = nextOrders.filter((o) =>
+        o.event_date >= today
+        || (resolveEquipmentReturn(o) === "waiter"
+          && !!attendanceByOrder[o.id]
+          && !attendanceByOrder[o.id].equipment_returned_at));
+      nextOrders.length = 0;
+      nextOrders.push(...shownOrders);
       const visibleIds = new Set(nextOrders.map((o) => o.id));
       const visibleAttendance: Record<string, Attendance> = {};
       for (const [orderId, row] of Object.entries(attendanceByOrder)) {
@@ -214,8 +238,9 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
     return () => { supabase.removeChannel(channel); };
   }, [user?.company_id, user?.id, load]);
 
-  const stampPhase = async (orderId: string, phase: Phase) => {
-    if (!user?.id || !user?.company_id) return;
+  /** Stamps one phase; resolves true when it saved. */
+  const stampPhase = async (orderId: string, phase: Phase): Promise<boolean> => {
+    if (!user?.id || !user?.company_id) return false;
     setSavingPhase({ orderId, phase });
     try {
       const existing = attendance[orderId];
@@ -272,8 +297,10 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
       // the driver flow) doesn't flip the order status. Broadcast the
       // milestone phases to admins/owner so they know service is
       // progressing / done. Best-effort + dedup; never fails the stamp.
+      // "Equipment returned" is announced by equipmentReturnService (with
+      // the count and who brought it back), so it is not repeated here.
       const MILESTONE_PHASES: Phase[] = [
-        "arrived_at", "service_started_at", "event_complete_at", "equipment_returned_at",
+        "arrived_at", "service_started_at", "event_complete_at",
       ];
       if (MILESTONE_PHASES.includes(phase)) {
         try {
@@ -281,13 +308,12 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
           const label = ord ? orderDisplayName(ord as any) : "an event";
           const who = (user as any)?.full_name || (user as any)?.email || "A waiter";
           const { notificationService } = await import("@/services/notificationService");
-          const { UserRole } = await import("@/types/app");
           await notificationService.broadcastNotification({
             companyId: user.company_id,
             type: "waiter_service_update",
             title: `${PHASE_LABELS[phase]} - ${label}`,
             message: `${who} marked "${PHASE_LABELS[phase]}" for ${label}.`,
-            targetRoles: [UserRole.COMPANY_ADMIN, UserRole.OWNER, UserRole.ADMIN],
+            targetRoles: [...EQUIPMENT_RETURN_ADMIN_ROLES] as any,
             priority: phase === "event_complete_at" ? "high" : "normal",
             relatedEntityType: "order",
             relatedEntityId: orderId,
@@ -300,12 +326,33 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
       }
 
       load();
+      return true;
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE, step: "stampPhase", phase, orderId, companyId: user.company_id } });
       toast({ title: "Could not save", description: e?.message ?? "Unknown error", variant: "destructive" });
+      return false;
     } finally {
       setSavingPhase(null);
     }
+  };
+
+  // Waiter-run jobs have no collection trip: the waiter brings the gear
+  // back, so this does what the driver's "Equipment back at base" does -
+  // records damage against the waiter, frees the bookings and tells
+  // cleaning. The time stamp is saved first; the return follows only if
+  // it saved.
+  const confirmEquipmentReturn = async (orderId: string, damages: ReturnDamage[]) => {
+    if (!user?.id) return;
+    const saved = await stampPhase(orderId, "equipment_returned_at");
+    if (!saved) throw new Error("Could not save the return. Try again.");
+    const { equipmentReturnService } = await import("@/services/equipmentReturnService");
+    const r = await equipmentReturnService.returnOrderEquipment({ orderId, responsibleUserId: user.id, damages });
+    toast({
+      title: "Equipment back at base",
+      description: damages.length
+        ? `${r.damagesRecorded} problem${r.damagesRecorded === 1 ? "" : "s"} recorded. Cleaning team notified.`
+        : "Everything returned. Cleaning team notified.",
+    });
   };
 
   const saveNote = async (orderId: string) => {
@@ -452,8 +499,16 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
                   <PhaseRow label="Event complete" iconKey="complete" stampedAt={a?.event_complete_at} disabled={!a?.service_ended_at || !!a?.event_complete_at} loading={savingPhase?.orderId === o.id && savingPhase.phase === "event_complete_at"} onStamp={() => stampPhase(o.id, "event_complete_at")} primary />
                 </div>
 
-                {/* Equipment return signal */}
-                {a?.event_complete_at && !a?.equipment_returned_at && (
+                {/* Who brings the equipment back on this job. */}
+                <p className="text-[11px] text-slate-600 flex items-center gap-1">
+                  <Package className="w-3 h-3" />
+                  <span><span className="font-semibold">Equipment return:</span> {EQUIPMENT_RETURN_OPTIONS[resolveEquipmentReturn(o)].responsible}</span>
+                </p>
+
+                {/* Equipment return signal - only when the waiter is the one
+                    bringing the gear back. A driver collection trip or a
+                    client return handles it otherwise. */}
+                {resolveEquipmentReturn(o) === "waiter" && a?.event_complete_at && !a?.equipment_returned_at && (
                   <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-amber-50 border border-amber-200">
                     <p className="text-xs text-amber-800 flex items-center gap-1">
                       <Package className="w-3 h-3" />
@@ -462,7 +517,7 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => stampPhase(o.id, "equipment_returned_at")}
+                      onClick={() => setReturnFor(o)}
                       disabled={savingPhase?.orderId === o.id && savingPhase.phase === "equipment_returned_at"}
                       className="h-7 text-xs border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
                     >
@@ -505,6 +560,15 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
           );
         })}
       </CardContent>
+      {returnFor && (
+        <EquipmentReturnDialog
+          open={!!returnFor}
+          onOpenChange={(o) => { if (!o) setReturnFor(null); }}
+          orderId={returnFor.id}
+          orderLabel={orderDisplayName(returnFor as any)}
+          onConfirm={(damages) => confirmEquipmentReturn(returnFor.id, damages)}
+        />
+      )}
     </Card>
   );
 }

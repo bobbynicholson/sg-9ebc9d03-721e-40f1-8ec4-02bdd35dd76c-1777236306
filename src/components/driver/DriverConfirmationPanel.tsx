@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatLocalTime } from "@/lib/localFormat";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
+import { EquipmentReturnDialog } from "@/components/equipment/EquipmentReturnDialog";
 import {
   hasFreshPendingPodCapture,
   readPendingPodCapture,
@@ -39,9 +40,13 @@ interface DriverConfirmationPanelProps {
   orderNumber: string;
   eventTime: string;
   venueAddress: string;
+  /** This driver only has the collection trip (an admin gave it to them;
+   *  someone else delivered). Hide the delivery stages and the arrival
+   *  geofence - they are not this driver's to tap. */
+  collectionOnly?: boolean;
 }
 
-export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venueAddress }: DriverConfirmationPanelProps) {
+export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venueAddress, collectionOnly = false }: DriverConfirmationPanelProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [confirmations, setConfirmations] = useState<any[]>([]);
@@ -73,6 +78,8 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   // completeSetupWithPod() so the setup stamp, the POD and the
   // delivered flip happen in one path.
   const [podOpen, setPodOpen] = useState(false);
+  // "Mark back at base" opens the equipment check (damage / missing).
+  const [returnOpen, setReturnOpen] = useState(false);
 
   // Interrupted-POD recovery: PodCaptureDialog leaves a localStorage
   // marker while a capture is in progress (cleared on explicit
@@ -128,7 +135,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         .from("driver_assignments")
         .select("id, status, scheduled_for, driver_id, en_route_at, picked_up_at, completed_at")
         .eq("order_id", orderId)
-        .eq("assignment_type", "collection")
+        .eq("assignment_type", "collection").neq("status", "cancelled")
         .eq("driver_id", user.id)
         .maybeSingle();
       setCollectionAssignment(data || null);
@@ -181,6 +188,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
   // browser geolocation. Re-evaluates whenever confirmations change so it
   // stops itself the moment "Arrived at venue" lands (auto OR manual).
   useEffect(() => {
+    if (collectionOnly) return; // not this driver's delivery
     if (!venueCoords) return;
     if (!navigator?.geolocation) return;
     if (!isConfirmed("departed_kitchen")) return; // not on the road yet
@@ -296,6 +304,13 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {collectionOnly && (
+          <p className="text-xs text-muted-foreground">
+            You're doing the equipment collection for this order. The delivery was done by another driver.
+          </p>
+        )}
+        {!collectionOnly && (
+        <>
         {/* En-Route to Kitchen */}
         <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
           <div className="flex items-center gap-3">
@@ -525,6 +540,9 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           )}
         </div>
 
+        </>
+        )}
+
         {/* Collection trip controls. Only render when this driver has
             a collection assignment for the order. The two buttons
             mirror the delivery-leg pattern so the UX is familiar.
@@ -662,19 +680,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
                 <Button
                   size="sm"
                   disabled={loading || collectionAssignment.status !== "picked_up"}
-                  onClick={async () => {
-                    if (!user) return;
-                    setLoading(true);
-                    try {
-                      await (driverConfirmationService as any).completeCollection(orderId, user.id);
-                      toast({ title: "Collection complete", description: "Equipment returned. Cleaning queue updated." });
-                      await loadCollectionAssignment();
-                    } catch (e: any) {
-                      toast({ title: "Could not complete collection", description: dbErrorMessage(e, { entity: "collection", fallback: "Try again" }), variant: "destructive" });
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
+                  onClick={() => setReturnOpen(true)}
                 >
                   Mark back at base
                 </Button>
@@ -694,6 +700,32 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           complete. The write routes through completeSetupWithPod so the
           setup_started confirmation (which stamps setup_started_at),
           the POD, and the delivered flip all happen together. */}
+      {user && returnOpen && (
+        <EquipmentReturnDialog
+          open={returnOpen}
+          onOpenChange={setReturnOpen}
+          orderId={orderId}
+          orderLabel={orderNumber}
+          onConfirm={async (damages) => {
+            setLoading(true);
+            try {
+              await (driverConfirmationService as any).completeCollection(orderId, user.id, { damages });
+              toast({
+                title: "Collection complete",
+                description: damages.length
+                  ? "Equipment returned with problems recorded. Cleaning team notified."
+                  : "Equipment returned. Cleaning queue updated.",
+              });
+              await loadCollectionAssignment();
+            } catch (e: any) {
+              throw new Error(dbErrorMessage(e, { entity: "collection", fallback: "Could not complete collection. Try again." }));
+            } finally {
+              setLoading(false);
+            }
+          }}
+        />
+      )}
+
       {user && (
         <PodCaptureDialog
           open={podOpen}

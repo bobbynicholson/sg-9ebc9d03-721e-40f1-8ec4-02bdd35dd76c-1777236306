@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
+import { isDriverCollection, resolveEquipmentReturn } from "@/lib/equipmentReturn";
 
 /**
  * Order Timeline - derives a richer 22-stage view of an order's
@@ -336,8 +337,10 @@ function deriveFlags(input: OrderTimelineInput): OrderTimelineFlags {
   // we don't miss collection on a real event. Reverse this default
   // once the column is reliably populated by the order builder.
   const returnMethod = String(o.equipment_return_method || "").toLowerCase();
+  // An explicit "Equipment return" choice decides it (driver options =
+  // collection trip); legacy values are mapped by resolveEquipmentReturn.
   const isDeliverAndCollect = returnMethod
-    ? returnMethod === "deliver_and_collect" || returnMethod === "collect"
+    ? isDriverCollection(resolveEquipmentReturn(o as any))
     : (input.equipmentBookings || []).length > 0 || activeCleaningJobs.length > 0 || activeHandovers.length > 0;
   const hasCleaningWork =
     (input.equipmentCleaningStatus || []).length > 0

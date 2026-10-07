@@ -968,6 +968,10 @@ export const quoteService = {
       // (orderWorkflow, on 'delivered') books the collection trip for the
       // next morning instead of the same evening.
       collection_next_day: (q as any).collection_next_day ?? false,
+      // Who brings the equipment back (quote "Equipment return" choice).
+      // Drives whether a collection trip is booked on delivery and who
+      // sees the return step. NULL on older quotes = inferred.
+      equipment_return_method: (q as any).equipment_return_method ?? null,
       // Quote-stage waiter service becomes an operational requirement on the
       // order. The admin still assigns the actual staff member separately.
       requires_waiter: !!q.waiter_service_required,

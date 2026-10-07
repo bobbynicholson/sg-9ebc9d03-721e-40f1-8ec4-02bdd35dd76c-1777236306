@@ -11,11 +11,13 @@ import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import { Wallet, Loader2, CheckCircle2, AlertCircle, Send } from "lucide-react";
+import { Wallet, Loader2, CheckCircle2, AlertCircle, Send, Banknote } from "lucide-react";
 import { SectionSkeleton } from "./SectionSkeleton";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { Button } from "@/components/ui/button";
 import { InvoiceSendDialog, type InvoiceSendDialogInvoice } from "@/components/billing/InvoiceSendDialog";
+import { MarkPaidDialog, type MarkPaidDialogInvoice } from "@/components/billing/MarkPaidDialog";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
 import { useToast } from "@/hooks/use-toast";
 
@@ -209,6 +211,46 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
     ? "Loading..."
     : `${fmtZAR.format(total)} total · ${fmtZAR.format(paid)} paid · ${paymentStatus}`;
 
+  // Record a payment received outside the platform (EFT, cash, card) -
+  // same dialog + RPC as Admin > Invoices "Mark paid", so the payments
+  // ledger, invoice and order payment status stay in step. Partial
+  // amounts are fine.
+  const [markPaid, setMarkPaid] = useState<MarkPaidDialogInvoice | null>(null);
+  const [preparingPayment, setPreparingPayment] = useState(false);
+  const openRecordPayment = async () => {
+    setPreparingPayment(true);
+    try {
+      let inv: any = invoice;
+      if (!inv) {
+        // Admin action: create the invoice even for an imported order.
+        const result = await ensureInvoiceForOrder(orderId, companyId, supabase as any, {
+          origin: typeof window !== "undefined" ? window.location.origin : undefined,
+          force: true,
+        });
+        if (!result.success || !result.invoiceId) throw new Error(result.error || "Could not prepare the invoice to record the payment against.");
+        const { data } = await (supabase as any)
+          .from("invoices")
+          .select("id, invoice_number, invoice_data, amount_paid, balance_due, total_amount, status, sent_at")
+          .eq("id", result.invoiceId)
+          .maybeSingle();
+        if (!data) throw new Error("Invoice was created but could not be loaded.");
+        inv = data;
+        setInvoice(data as InvoiceSendDialogInvoice);
+      }
+      setMarkPaid({
+        id: inv.id,
+        invoice_number: inv.invoice_number ?? null,
+        total_amount: Number(inv.total_amount ?? total) || 0,
+        balance_due: Number(inv.balance_due ?? outstanding) || 0,
+        order_id: orderId,
+      });
+    } catch (error: any) {
+      toast({ title: "Could not record a payment", description: error?.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setPreparingPayment(false);
+    }
+  };
+
   const openPaymentRequest = async () => {
     if (outstanding <= 0) return;
     if (invoice) {
@@ -217,14 +259,16 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
     }
     setCreatingRequest(true);
     try {
+      // force: an admin asked for this, so imported orders get their
+      // invoice too (they were skipped and the button just errored).
       const result = await ensureInvoiceForOrder(
         orderId,
         companyId,
         supabase as any,
-        { origin: typeof window !== "undefined" ? window.location.origin : undefined },
+        { origin: typeof window !== "undefined" ? window.location.origin : undefined, force: true },
       );
       if (!result.success || !result.invoiceId) {
-        throw new Error(result.error || "Could not create the payment request.");
+        throw new Error(result.error || (result.skipped ? `Invoice not created (${result.skipped}).` : "Could not create the payment request."));
       }
       const { data: createdInvoice, error } = await (supabase as any)
         .from("invoices")
@@ -339,10 +383,17 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
                   The client will see what they have paid, the remaining balance, and the current payment link.
                 </p>
               </div>
-              <Button type="button" size="sm" onClick={openPaymentRequest} disabled={creatingRequest} className="bg-brand-primary hover:opacity-90">
-                {creatingRequest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                {creatingRequest ? "Preparing…" : invoice ? "Send payment request" : "Create payment request"}
-              </Button>
+              <div className={`flex flex-col sm:flex-row gap-2 ${inSidePanel ? "lg:flex-col" : ""}`}>
+                <Button type="button" size="sm" onClick={openPaymentRequest} disabled={creatingRequest} className="bg-brand-primary hover:opacity-90">
+                  {creatingRequest ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                  {creatingRequest ? "Preparing…" : invoice ? "Send payment request" : "Create payment request"}
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={openRecordPayment} disabled={preparingPayment}
+                  title="Record money already received - EFT, cash or card. Part payments are fine.">
+                  {preparingPayment ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Banknote className="w-4 h-4 mr-2" />}
+                  Record payment
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -356,6 +407,17 @@ export function FinanceSection({ orderId, companyId, defaultOpen, forceOpen, hig
         onSent={() => {
           toast({ title: "Payment request sent", description: "The client received the latest paid and remaining amounts." });
         }}
+      />
+      <MarkPaidDialog
+        open={!!markPaid}
+        invoice={markPaid}
+        onOpenChange={(o) => { if (!o) setMarkPaid(null); }}
+        onPaid={() => {
+          setMarkPaid(null);
+          emitOrderUpdated(orderId, "finance-record-payment", ["payment"] as any);
+          toast({ title: "Payment recorded", description: "The order's paid and outstanding amounts are updated." });
+        }}
+        formatMoney={(n) => fmtZAR.format(n)}
       />
     </>
   );

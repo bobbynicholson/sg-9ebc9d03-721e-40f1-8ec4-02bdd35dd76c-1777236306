@@ -53,6 +53,7 @@ const QUOTE_TO_ORDER_MAP: Array<{ quoteKey: string; orderKey: string }> = [
   { quoteKey: "collection_distance_km", orderKey: "collection_distance_km" },
   { quoteKey: "collection_rate_per_km", orderKey: "collection_rate_per_km" },
   { quoteKey: "collection_next_day", orderKey: "collection_next_day" },
+  { quoteKey: "equipment_return_method", orderKey: "equipment_return_method" },
   { quoteKey: "waiter_service_required", orderKey: "waiter_service_required" },
   { quoteKey: "waiter_service_required", orderKey: "requires_waiter" },
   { quoteKey: "waiter_count", orderKey: "waiter_count" },

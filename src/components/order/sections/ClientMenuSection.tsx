@@ -35,6 +35,8 @@ interface Props {
 interface MenuItemRow {
   id: string;
   item_name: string;
+  /** What the line includes ("Plate, knife & fork."). */
+  description?: string | null;
   quantity: number | null;
   special_instructions: string | null;
   menu_item?: {
@@ -50,7 +52,7 @@ interface EquipmentRow {
 }
 
 const ITEMS_SELECT =
-  "id, item_name, quantity, special_instructions, menu_item:menu_item_id(category, dietary_tags)";
+  "id, item_name, description, quantity, special_instructions, menu_item:menu_item_id(category, dietary_tags)";
 const EQUIP_SELECT = "id, quantity, equipment:equipment_id(name, category)";
 
 export function ClientMenuSection({
@@ -182,6 +184,9 @@ export function ClientMenuSection({
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-slate-900">{it.item_name}</p>
+                          {it.description && (
+                            <p className="text-xs text-slate-600 mt-0.5">{it.description}</p>
+                          )}
                           {it.menu_item?.category && (
                             <p className="text-xs text-slate-500 capitalize mt-0.5">{it.menu_item.category}</p>
                           )}

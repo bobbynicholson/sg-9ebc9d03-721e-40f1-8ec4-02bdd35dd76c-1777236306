@@ -80,6 +80,10 @@ import { useCompanyKitchens, type KitchenOption } from "@/hooks/useCompanyKitche
 import { dispatchService } from "@/services/dispatchService";
 import { googleMapsService } from "@/services/googleMapsService";
 import { resolveDefaultRegionId } from "@/lib/defaultRegion";
+import {
+  DEFAULT_EQUIPMENT_RETURN, EQUIPMENT_RETURN_METHODS, EQUIPMENT_RETURN_OPTIONS,
+  isDriverCollection, resolveEquipmentReturn, type EquipmentReturnMethod,
+} from "@/lib/equipmentReturn";
 import { revealSection } from "@/lib/ui/revealSection";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
@@ -322,6 +326,9 @@ function quoteContentSignatureFromPayload(payload: any): string {
     collection_rate_per_km: money(payload.collection_rate_per_km),
     collection_fee: money(payload.collection_fee),
     collection_next_day: payload.collection_next_day === true,
+    equipment_return_method: (EQUIPMENT_RETURN_METHODS as string[]).includes(String(payload.equipment_return_method))
+      ? payload.equipment_return_method
+      : null,
     subtotal: money(payload.subtotal),
     discount_amount: money(payload.discount_amount),
     tax_amount: money(payload.tax_amount ?? payload.tax),
@@ -471,7 +478,10 @@ function NewQuotePage() {
   const [collectionFeeOverridden, setCollectionFeeOverridden] = useState(false);
   // Next-day collection: when on, the auto-scheduled collection trip is
   // booked for the morning after the event instead of the same evening.
-  const [collectionNextDay, setCollectionNextDay] = useState(false);
+  // Who brings the equipment back. Drives the collection trip (driver
+  // options only), the waiter's return step and the "Equipment return:"
+  // line on the quote, order and staff screens. See lib/equipmentReturn.
+  const [equipmentReturn, setEquipmentReturn] = useState<EquipmentReturnMethod>(DEFAULT_EQUIPMENT_RETURN);
   // On-site waiter service is a quoteable service, not just an
   // operational flag. These fields are carried into the accepted order so
   // the admin can assign the actual waiter without losing the agreed price.
@@ -1086,7 +1096,9 @@ function NewQuotePage() {
       const cRoundTrip = cDist * 2 * cRate;
       if (Math.abs(q.collection_fee - cRoundTrip) > 0.01) setCollectionFeeOverridden(true);
     }
-    if (typeof q.collection_next_day === "boolean") setCollectionNextDay(q.collection_next_day);
+    // Saved choice, or for quotes from before the field the old guess
+    // (waiter on the job -> waiter brings it back; else driver collects).
+    setEquipmentReturn(resolveEquipmentReturn(q));
     if (typeof q.waiter_service_required === "boolean") setWaiterServiceRequired(q.waiter_service_required);
     if (typeof q.waiter_count === "number") setWaiterCount(Math.max(1, Math.min(50, q.waiter_count)));
     if (typeof q.waiter_duration_hours === "number") setWaiterDurationHours(Math.max(0, q.waiter_duration_hours));
@@ -1725,7 +1737,8 @@ function NewQuotePage() {
       collection_distance_km: collectionDistance || null,
       collection_rate_per_km: collectionCostPerKm || null,
       collection_fee: collectionFee || 0,
-      collection_next_day: collectionNextDay,
+      collection_next_day: equipmentReturn === "driver_next_day",
+      equipment_return_method: equipmentReturn,
       waiter_service_required: waiterServiceRequired,
       waiter_count: Math.max(1, Math.min(50, waiterCount)),
       waiter_duration_hours: waiterServiceRequired ? waiterDurationHours : null,
@@ -1752,7 +1765,7 @@ function NewQuotePage() {
     venueAddress, venueLat, venueLng,
     deliveryDistance, deliveryCostPerKm, deliveryFee, depositPercent,
     firstPaymentAmount,
-    collectionDistance, collectionCostPerKm, collectionFee, collectionNextDay,
+    collectionDistance, collectionCostPerKm, collectionFee, equipmentReturn,
     waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, waiterTotalFee,
     computed.subtotal, computed.pctDiscount, computed.flatDiscount, computed.tax, computed.total,
     quoteCurrencyCode,
@@ -2215,7 +2228,7 @@ function NewQuotePage() {
   // quotes.notes) was missing from the dirty deps, so a note-only edit
   // never marked the form dirty and never autosaved - the note was
   // silently lost unless the operator clicked Save explicitly.
-  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientName, email, internalNotes]);
+  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, equipmentReturn, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientName, email, internalNotes]);
   useEffect(() => {
     if (status !== "draft") return;
     // Existing quotes are loaded asynchronously from ?fromQuoteId. A
@@ -2244,7 +2257,7 @@ function NewQuotePage() {
       clearTimeout(handle);
       if (autoSaveTimerRef.current === handle) autoSaveTimerRef.current = null;
     };
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId, distanceStatus]);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, equipmentReturn, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId, distanceStatus]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -3204,23 +3217,6 @@ function NewQuotePage() {
                             ? `Auto: ${collectionDistance.toFixed(1)}km × 2 (round-trip) × ${quoteCurrencySymbol}${collectionCostPerKm}/km = ${fmtR(collectionFee)}`
                             : `Type a distance to auto-calculate, or type a flat fee directly into the Fee box.`}
                       </p>
-                      {/* Next-day collection. When on, the collection trip
-                          auto-schedules for the morning after the event
-                          (09:00) instead of the same evening. */}
-                      <label className="mt-2 flex items-start gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={collectionNextDay}
-                          onChange={(e) => setCollectionNextDay(e.target.checked)}
-                          className="mt-0.5"
-                        />
-                        <span className="text-xs text-brand-primary">
-                          Collect equipment the <strong>next day</strong>
-                          <span className="block text-[11px] text-brand-primary/80">
-                            Books the collection trip for the morning after the event (09:00), not the same night.
-                          </span>
-                        </span>
-                      </label>
                     </div>
                   )}
 
@@ -3255,6 +3251,48 @@ function NewQuotePage() {
                     )}
                     {waiterServiceRequired && (
                       <p className="pl-6 text-[11px] font-medium text-amber-900">Waiter service fee: {fmtR(waiterTotalFee)}. The client must accept the updated quote before assignment.</p>
+                    )}
+                  </div>
+
+                  {/* Equipment return: who brings the equipment back. */}
+                  <div id="quote-equipment-return" className="rounded-lg border border-slate-200 bg-white p-3 space-y-2">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Equipment return - who brings it back?</p>
+                      <p className="text-[11px] text-slate-500">
+                        Shown on the quote, the order and the driver / waiter screens, so everyone knows who is responsible.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {EQUIPMENT_RETURN_METHODS.map((m) => (
+                        <label
+                          key={m}
+                          className={`flex items-start gap-2 rounded-md border p-2 cursor-pointer ${equipmentReturn === m ? "border-brand-primary bg-brand-primary/5" : "border-slate-200 hover:bg-slate-50"}`}
+                        >
+                          <input
+                            type="radio"
+                            name="equipment-return"
+                            value={m}
+                            checked={equipmentReturn === m}
+                            onChange={() => setEquipmentReturn(m)}
+                            className="mt-0.5"
+                          />
+                          <span>
+                            <span className="block text-xs font-semibold text-slate-900">{EQUIPMENT_RETURN_OPTIONS[m].label}</span>
+                            <span className="block text-[11px] leading-4 text-slate-500">{EQUIPMENT_RETURN_OPTIONS[m].detail}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    {equipmentReturn === "waiter" && !waiterServiceRequired && (
+                      <p className="text-[11px] font-medium text-amber-800">
+                        No waiter is on this quote. Tick "Include on-site waiter service" above, or choose a driver collection.
+                      </p>
+                    )}
+                    {!isDriverCollection(equipmentReturn) && collectionFee > 0 && (
+                      <p className="text-[11px] font-medium text-amber-800">
+                        A collection fee of {fmtR(collectionFee)} is charged, but no collection trip will be booked with this option.
+                        Clear the collection fee or choose a driver collection.
+                      </p>
                     )}
                   </div>
 

@@ -7,6 +7,7 @@ import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 import { staffOrderAbsoluteUrl } from "@/lib/orderUrls";
+import { collectionScheduledFor, isDriverCollection, resolveEquipmentReturn } from "@/lib/equipmentReturn";
 
 // Wave 24: orderWorkflow is called from BOTH the browser (admin pages
 // updating order status) AND the server (cron jobs, payment webhooks,
@@ -562,15 +563,38 @@ export async function updateOrderStatus(
     // before the scheduled time. Idempotent on (order_id, type).
     if (newStatus === "delivered" && order.company_id) {
       try {
-        // Flow audit Leg E P0-14: orders with a waiter on-site don't
-        // need a separate collection trip. The waiter stays through the
-        // event, packs the equipment down, and brings it back with
-        // them. Auto-scheduling a collection assignment in that case
-        // double-charged the driver run (pay was claimed twice) and
-        // confused dispatch ("why is there a 23:00 pickup when Mary's
-        // already on the truck?"). Skip when requires_waiter is true.
-        if (order.requires_waiter === true) {
-          // fall through to the cleaning-queue insert below
+        // Who brings the equipment back is the order's "Equipment return"
+        // choice (from the quote): only the two driver options book a
+        // collection trip. "Waiter brings it back" and "client returns /
+        // nothing to return" never do. Orders saved before the choice
+        // existed fall back to the old rule (waiter on the job -> no trip;
+        // Flow audit Leg E P0-14 - a trip on top of a returning waiter
+        // double-charged the driver run). The order passed in may be a
+        // partial select, so read the fields when they're missing.
+        let returnSrc: any = order;
+        if (!("equipment_return_method" in (order as any)) || !("requires_waiter" in (order as any))) {
+          try {
+            const { data: ordFields } = await (supabase as any)
+              .from("orders")
+              .select("equipment_return_method, collection_next_day, requires_waiter, waiter_service_required")
+              .eq("id", order.id)
+              .maybeSingle();
+            if (ordFields) returnSrc = { ...(order as any), ...(ordFields as any) };
+          } catch { /* keep what we have */ }
+        }
+        const returnMethod = resolveEquipmentReturn(returnSrc);
+        if (!isDriverCollection(returnMethod)) {
+          // No trip. When the waiter brings the gear back, tell them now
+          // (or alert the office if no waiter is assigned). Then fall
+          // through to the cleaning-queue insert below.
+          if (returnMethod === "waiter") {
+            try {
+              const { notifyWaitersResponsible } = await import("@/services/equipmentReturnOps");
+              await notifyWaitersResponsible(order.id, supabase);
+            } catch (e) {
+              console.warn("[orderWorkflow] waiter return notice failed (non-blocking):", e);
+            }
+          }
         } else {
         // Skip when no equipment was on this order - no collection
         // needed. Audit (May 2026, Wave 4): the count previously
@@ -608,40 +632,8 @@ export async function updateOrderStatus(
             const deliveryDriverId =
               (deliveryAssignment as any)?.driver_id || order.assigned_driver_id || null;
             if (deliveryDriverId) {
-              // Next-day collection flag. Read off the order if present;
-              // otherwise fetch it (the caller's select may be partial) so
-              // the schedule is always correct.
-              let collectNextDay = (order as any).collection_next_day;
-              if (collectNextDay === undefined || collectNextDay === null) {
-                try {
-                  const { data: ord } = await (supabase as any)
-                    .from("orders")
-                    .select("collection_next_day")
-                    .eq("id", order.id)
-                    .maybeSingle();
-                  collectNextDay = !!(ord as any)?.collection_next_day;
-                } catch { collectNextDay = false; }
-              }
-
-              // Collection time:
-              //   - next-day: the MORNING AFTER the event, 09:00.
-              //   - same-day + event_time: event start + 4hr duration + 1hr buffer.
-              //   - same-day, no event_time: 23:00 that night.
-              let scheduledFor: Date;
-              const evDate = order.event_date ? new Date(order.event_date) : new Date();
-              if (collectNextDay) {
-                evDate.setDate(evDate.getDate() + 1);
-                evDate.setHours(9, 0, 0, 0);
-                scheduledFor = evDate;
-              } else if (order.event_time) {
-                const [h, m] = String(order.event_time).split(":").map(Number);
-                evDate.setHours(h || 0, m || 0, 0, 0);
-                // Event start + 4hr assumed duration + 1hr collection buffer.
-                scheduledFor = new Date(evDate.getTime() + 5 * 60 * 60 * 1000);
-              } else {
-                evDate.setHours(23, 0, 0, 0);
-                scheduledFor = evDate;
-              }
+              // Same rule the office "Book collection" action uses.
+              const scheduledFor = collectionScheduledFor(order.event_date, order.event_time, returnMethod);
 
               const { error: insErr } = await (supabase as any)
                 .from("driver_assignments")
@@ -689,6 +681,15 @@ export async function updateOrderStatus(
                     notifErr,
                   );
                 }
+              }
+            } else {
+              // No driver on the order, so no trip can be booked (a trip
+              // needs a driver). Alert the office to book one on the order.
+              try {
+                const { alertNoCollectionDriver } = await import("@/services/equipmentReturnOps");
+                await alertNoCollectionDriver(order.id, supabase);
+              } catch (e) {
+                console.warn("[orderWorkflow] no-driver collection alert failed (non-blocking):", e);
               }
             }
           }

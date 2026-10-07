@@ -557,6 +557,9 @@ export default function ClientOrderPage() {
                           <div key={i} className="flex items-center justify-between gap-3 px-6 py-3 text-sm">
                             <div className="min-w-0">
                               <p className="font-medium text-slate-900">{it.item_name}</p>
+                              {it.description && (
+                                <p className="text-xs text-slate-600 mt-0.5">{it.description}</p>
+                              )}
                               {it.special_instructions && (
                                 <p className="text-xs text-slate-500 mt-0.5">{it.special_instructions}</p>
                               )}

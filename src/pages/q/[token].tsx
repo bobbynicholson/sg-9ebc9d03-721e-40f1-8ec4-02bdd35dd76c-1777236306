@@ -54,6 +54,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { QuoteProgress } from "@/components/quotes/QuoteProgress";
+import { EQUIPMENT_RETURN_OPTIONS, resolveEquipmentReturn } from "@/lib/equipmentReturn";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -982,11 +983,14 @@ export default function PublicQuotePage() {
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-stone-900">{name}</p>
                           <p className="text-xs text-stone-500 mt-0.5">
-                            {qty} x {fmtMoney(unitPrice)}
+                            {/* Items bundled into a priced line (e.g. the plates,
+                                knives and forks of "Cutlery & Crockery") show
+                                what they belong to instead of "x R0.00". */}
+                            {unitPrice > 0 ? <>{qty} x {fmtMoney(unitPrice)}</> : <>{qty} {item?.note ? `· ${item.note}` : "· included"}</>}
                           </p>
                         </div>
                         <p className="text-stone-900 font-semibold tabular-nums shrink-0">
-                          {fmtMoney(lineTotal)}
+                          {lineTotal > 0 ? fmtMoney(lineTotal) : "Included"}
                         </p>
                       </div>
                     );
@@ -1064,6 +1068,12 @@ export default function PublicQuotePage() {
                           <span className="text-stone-900 tabular-nums">{fmtMoney(waiterFee)}</span>
                         </div>
                       )}
+                      {/* Who brings the equipment back - so the client knows
+                          what happens after the event (and if it is on them). */}
+                      <p className="text-xs text-stone-600 pt-1">
+                        <span className="font-medium text-stone-800">Equipment return:</span>{" "}
+                        {EQUIPMENT_RETURN_OPTIONS[resolveEquipmentReturn(quote as any)].client}
+                      </p>
                     </>
                   ) : null}
 

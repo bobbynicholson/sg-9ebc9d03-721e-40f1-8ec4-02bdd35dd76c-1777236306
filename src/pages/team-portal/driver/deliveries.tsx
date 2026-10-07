@@ -35,12 +35,15 @@ import { DriverConfirmationPanel } from "@/components/driver/DriverConfirmationP
 import { OrderClientChatPanel } from "@/components/chat/OrderClientChatPanel";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { logPiiAccess } from "@/services/piiAccessLogService";
+import { equipmentReturnLine } from "@/lib/equipmentReturn";
 
 /** One line of the quote's menu_items jsonb - only the fields this
  *  page reads. Sales-entered data, so every field is best-effort. */
 interface MenuLine {
   item_name?: string | null;
   name?: string | null;
+  /** What the line includes ("Plate, knife & fork."). */
+  description?: string | null;
   quantity?: number | string | null;
 }
 
@@ -67,6 +70,13 @@ interface QuoteItemsJoin {
  *  we tolerate an array shape defensively. */
 interface RawOrderRow {
   id: string;
+  assigned_driver_id?: string | null;
+  driver_id?: string | null;
+  secondary_driver_id?: string | null;
+  equipment_return_method?: string | null;
+  collection_next_day?: boolean | null;
+  requires_waiter?: boolean | null;
+  waiter_service_required?: boolean | null;
   order_number: string | null;
   event_name: string | null;
   event_date: string;
@@ -93,6 +103,12 @@ interface DriverOrder {
   event_time: string | null;
   venue_address: string | null;
   guest_count: number | null;
+  /** "Equipment return: <who>" - who brings this order's gear back. */
+  equipment_return: string;
+  /** This driver only has the collection trip, not the delivery. */
+  collection_only: boolean;
+  /** This driver has a collection trip still to finish on the order. */
+  has_open_collection: boolean;
   status: string;
   delivery_status: string | null;
   client_name: string | null;
@@ -182,19 +198,30 @@ function DriverDeliveriesInner() {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      // Orders where an admin gave this driver only the equipment
+      // collection (someone else delivered) - include them so the
+      // collection can actually be run from here.
+      const { data: collectionRows } = await (supabase as any)
+        .from("driver_assignments")
+        .select("order_id")
+        .eq("driver_id", user.id)
+        .eq("assignment_type", "collection")
+        .not("status", "in", "(completed,cancelled)");
+      const collectionOrderIds = Array.from(new Set(((collectionRows || []) as any[]).map((r) => r.order_id).filter(Boolean)));
+      const idFilter = collectionOrderIds.length ? `,id.in.(${collectionOrderIds.join(",")})` : "";
       const { data, error: fetchError } = await supabase
         .from("orders")
         // Pull the load list (equipment_items) + menu headline so the
         // driver sees what's on the truck, not just where they're going.
         // Both live on the linked quote, not orders.
-        .select("id, order_number, event_name, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, quote:quotes!orders_quote_id_fkey(menu_items, equipment_items)")
+        .select("id, order_number, event_name, event_date, event_time, venue_address, guest_count, status, delivery_status, client_name, client_phone, client_email, equipment_return_method, collection_next_day, requires_waiter, waiter_service_required, assigned_driver_id, driver_id, secondary_driver_id, quote:quotes!orders_quote_id_fkey(menu_items, equipment_items)")
         // Include orders where this user is the PRIMARY (assigned_driver_id /
         // legacy driver_id) OR the SECONDARY (secondary_driver_id) - a
         // second driver on a two-driver job was getting an empty list
         // because secondary_driver_id wasn't in the filter.
         .eq("company_id", user.company_id)
         .is("deleted_at", null)
-        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}`)
+        .or(`assigned_driver_id.eq.${user.id},driver_id.eq.${user.id},secondary_driver_id.eq.${user.id}${idFilter}`)
         .order("event_date", { ascending: false });
       if (cancelled) return;
       if (fetchError) {
@@ -217,6 +244,9 @@ function DriverDeliveriesInner() {
           event_time: o.event_time ?? null,
           venue_address: o.venue_address ?? null,
           guest_count: o.guest_count ?? null,
+          equipment_return: equipmentReturnLine(o),
+          collection_only: ![o.assigned_driver_id, o.driver_id, o.secondary_driver_id].includes(user.id),
+          has_open_collection: collectionOrderIds.includes(o.id),
           status: o.status ?? "pending",
           delivery_status: o.delivery_status ?? null,
           client_name: o.client_name ?? null,
@@ -546,6 +576,11 @@ function DeliveryList({
                     </a>
                   )}
                 </div>
+                {/* Who brings the equipment back on this job. */}
+                <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                  {o.collection_only && <span className="font-semibold text-brand-primary">Collection only · </span>}
+                  {o.equipment_return}
+                </p>
                 {/* Driver -> client comms bridge. Tap-to-call + open
                     WhatsApp / email so the driver can reach the
                     client without copying numbers off another screen.
@@ -647,10 +682,13 @@ function DeliveryList({
                       {menu.map((m, i) => (
                         <li
                           key={`m_${i}`}
-                          className="flex items-center justify-between gap-2 text-sm bg-slate-50 border border-slate-200 rounded px-2 py-1.5 dark:bg-slate-800/50 dark:border-slate-700"
+                          className="flex items-start justify-between gap-2 text-sm bg-slate-50 border border-slate-200 rounded px-2 py-1.5 dark:bg-slate-800/50 dark:border-slate-700"
                         >
-                          <span className="text-slate-800 dark:text-slate-200 min-w-0 flex-1 truncate">
-                            {m.item_name || m.name || "(unnamed)"}
+                          <span className="text-slate-800 dark:text-slate-200 min-w-0 flex-1">
+                            <span className="block truncate">{m.item_name || m.name || "(unnamed)"}</span>
+                            {m.description && (
+                              <span className="block text-xs text-slate-600 dark:text-slate-400">{m.description}</span>
+                            )}
                           </span>
                           {m.quantity ? (
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex-shrink-0 tabular-nums">
@@ -700,7 +738,9 @@ function DeliveryList({
                 capture). Mounting one per row made long lists slow,
                 so it now sits behind a per-row expander and only the
                 expanded row mounts it. The panel itself is unchanged. */}
-            {ACTIVE_STATUSES_FOR_CONFIRMATION_PANEL.has(o.status) && (
+            {/* An open collection keeps the panel even once the order is
+                "completed" (auto-complete can run before a next-day pickup). */}
+            {(ACTIVE_STATUSES_FOR_CONFIRMATION_PANEL.has(o.status) || o.has_open_collection) && (
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
@@ -724,6 +764,7 @@ function DeliveryList({
                       orderNumber={o.order_number || o.id}
                       eventTime={o.event_time || ""}
                       venueAddress={o.venue_address || ""}
+                      collectionOnly={o.collection_only}
                     />
                   </div>
                 )}

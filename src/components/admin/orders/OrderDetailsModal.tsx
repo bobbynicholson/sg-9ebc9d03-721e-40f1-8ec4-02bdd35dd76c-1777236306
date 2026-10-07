@@ -1725,6 +1725,11 @@ return (
                             <li key={it.id} className="flex items-start gap-3 px-3 py-2.5">
                               <div className="min-w-0 flex-1">
                                 <div className="font-medium text-slate-900">{displayName(it)}</div>
+                                {/* What the line includes ("Plate, knife & fork."). Skip
+                                    legacy rows whose description is just a category. */}
+                                {it.description && String(it.description).length > 12 && String(it.description).toLowerCase() !== String(categoryFor(it) || "").toLowerCase() && (
+                                  <div className="text-xs text-slate-600">{String(it.description)}</div>
+                                )}
                                 <div className="mt-0.5 text-xs tabular-nums text-slate-500">
                                   {it.quantity ?? "-"} × {money(Number(it.unit_price || 0))}
                                 </div>

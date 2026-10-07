@@ -55,6 +55,10 @@ import { describeQuoteEditImpact } from "@/services/quote/propagateQuoteEdit";
 import { breakdownFromLineSum } from "@/lib/vatMath";
 import { usePricingMode } from "@/hooks/usePricingMode";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
+import {
+  DEFAULT_EQUIPMENT_RETURN, EQUIPMENT_RETURN_METHODS, EQUIPMENT_RETURN_OPTIONS,
+  isDriverCollection, resolveEquipmentReturn, type EquipmentReturnMethod,
+} from "@/lib/equipmentReturn";
 
 const STATUS_COLOURS: Record<string, string> = {
   draft: "bg-slate-100 text-slate-700",
@@ -195,6 +199,8 @@ function AdminQuoteDetailInner() {
   // Both fees are now editable here, mirroring the full builder.
   const [collectionFee, setCollectionFee] = useState<number>(0);
   const [waiterServiceRequired, setWaiterServiceRequired] = useState(false);
+  // Who brings the equipment back (see lib/equipmentReturn).
+  const [equipmentReturn, setEquipmentReturn] = useState<EquipmentReturnMethod>(DEFAULT_EQUIPMENT_RETURN);
   const [waiterCount, setWaiterCount] = useState(1);
   const [waiterDurationHours, setWaiterDurationHours] = useState(4);
   const [waiterHourlyRate, setWaiterHourlyRate] = useState(0);
@@ -261,6 +267,7 @@ function AdminQuoteDetailInner() {
       setDeliveryFee(safeNum((data as any)?.delivery_fee));
       setCollectionFee(safeNum((data as any)?.collection_fee));
       setWaiterServiceRequired(!!(data as any)?.waiter_service_required);
+      setEquipmentReturn(resolveEquipmentReturn(data as any));
       setWaiterCount(Math.max(1, Math.min(50, safeNum((data as any)?.waiter_count) || 1)));
       setWaiterDurationHours(Math.max(0, safeNum((data as any)?.waiter_duration_hours) || 4));
       setWaiterHourlyRate(Math.max(0, safeNum((data as any)?.waiter_hourly_rate)));
@@ -544,6 +551,8 @@ function AdminQuoteDetailInner() {
       // stale delivery_fee line - a breakdown that no longer summed.
       delivery_fee: deliveryFee,
       collection_fee: collectionFee,
+      equipment_return_method: equipmentReturn,
+      collection_next_day: equipmentReturn === "driver_next_day",
       waiter_service_required: waiterServiceRequired,
       waiter_count: Math.max(1, Math.min(50, waiterCount)),
       waiter_duration_hours: waiterServiceRequired ? waiterDurationHours : null,
@@ -1014,6 +1023,11 @@ function AdminQuoteDetailInner() {
                             <tr key={it.key} className="border-t border-slate-100 align-top">
                               <td className="py-3 pr-3">
                                 <div className="font-medium text-slate-900">{it.item_name}</div>
+                                {/* What the line actually includes, e.g. "Cutlery &
+                                    Crockery" -> "Plate, knife & fork." */}
+                                {it.raw?.description && (
+                                  <div className="text-xs text-slate-600 mt-0.5">{String(it.raw.description)}</div>
+                                )}
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1">
                                   {it.category && (
                                     <span className="text-[11px] text-slate-500">{it.category}</span>
@@ -1103,7 +1117,7 @@ function AdminQuoteDetailInner() {
                   whole priced scope and the totals below reconcile
                   with what the client sees on /q. */}
               {equipmentRows.length > 0 && (
-                <Card collapsible defaultOpen={false} collapseLabel="Equipment">
+                <Card collapsible defaultOpen={true} collapseLabel="Equipment">
                   <CardHeader>
                     <CardTitle className="text-lg">Equipment</CardTitle>
 <CardDescription>Optional equipment items and their quantities and prices.</CardDescription>
@@ -1114,7 +1128,9 @@ function AdminQuoteDetailInner() {
                         <li key={i} className="flex justify-between gap-2">
                           <span className="text-slate-700">{e.name || "Equipment"} × {safeNum(e.quantity)}</span>
                           <span className="font-medium text-slate-900 flex-shrink-0">
-                            {fmtMoney(safeNum(e.line_total) || safeNum(e.unit_price ?? e.rentalPrice) * safeNum(e.quantity))}
+                            {(safeNum(e.line_total) || safeNum(e.unit_price ?? e.rentalPrice) * safeNum(e.quantity)) > 0
+                              ? fmtMoney(safeNum(e.line_total) || safeNum(e.unit_price ?? e.rentalPrice) * safeNum(e.quantity))
+                              : <span className="text-xs font-normal text-slate-500">{e.note || "Included"}</span>}
                           </span>
                         </li>
                       ))}
@@ -1198,6 +1214,32 @@ function AdminQuoteDetailInner() {
                       {waiterServiceRequired && <p className="mt-2 pl-6 text-[11px] font-medium text-amber-900">Waiter service fee: {quoteCurrencySymbol}{waiterTotalFee.toFixed(2)}</p>}
                     </div>
                   )}
+                  {/* Equipment return: who brings the equipment back. Editable
+                      on drafts; always shown so the responsibility is clear. */}
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-1">
+                    <p className="text-xs text-slate-900">
+                      <span className="font-semibold">Equipment return:</span> {EQUIPMENT_RETURN_OPTIONS[equipmentReturn].responsible}
+                    </p>
+                    {isDraft ? (
+                      <select
+                        value={equipmentReturn}
+                        onChange={(e) => setEquipmentReturn(e.target.value as EquipmentReturnMethod)}
+                        aria-label="Who brings the equipment back"
+                        className="h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-xs"
+                      >
+                        {EQUIPMENT_RETURN_METHODS.map((m) => (
+                          <option key={m} value={m}>{EQUIPMENT_RETURN_OPTIONS[m].label}</option>
+                        ))}
+                      </select>
+                    ) : null}
+                    <p className="text-[11px] text-slate-500">{EQUIPMENT_RETURN_OPTIONS[equipmentReturn].detail}</p>
+                    {equipmentReturn === "waiter" && !waiterServiceRequired && (
+                      <p className="text-[11px] font-medium text-amber-800">No waiter is on this quote. Add waiter service or choose a driver collection.</p>
+                    )}
+                    {!isDriverCollection(equipmentReturn) && collectionFee > 0 && (
+                      <p className="text-[11px] font-medium text-amber-800">A collection fee is charged, but no collection trip will be booked with this option.</p>
+                    )}
+                  </div>
                   {/* Wave 12 audit: align the running-total panel with
                       what the customer sees on /q/[token] and the PDF.
                       Under inc-VAT mode the line items above are
