@@ -24,6 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBrandingRow } from "@/lib/branding/useBranding";
 import { getRoleLandingPage, ROLE_NAMES } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 
@@ -192,9 +193,23 @@ function RoleSelectionContent() {
   );
 }
 
+// AuthShell appends a hex alpha to the accent for its glow, so only a
+// full #rrggbb value is passed through; anything else keeps the default.
+const asHex = (c: string | null | undefined) =>
+  c && /^#[0-9a-f]{6}$/i.test(c) ? c : undefined;
+
 export default function SelectRolePage() {
+  // The user is signed in here, so TenantBrandingApplier has their
+  // company's branding: show its colours, name and logo in the frame
+  // instead of the generic CateringMS amber.
+  const brand = useBrandingRow();
   return (
-    <AuthShell>
+    <AuthShell
+      brandName={brand?.companyName || undefined}
+      brandLogoUrl={brand?.logoUrl || null}
+      accent={asHex(brand?.primaryColor)}
+      accentTo={asHex(brand?.secondaryColor) || asHex(brand?.primaryColor)}
+    >
       <ProtectedRoute>
         <RoleSelectionContent />
       </ProtectedRoute>
