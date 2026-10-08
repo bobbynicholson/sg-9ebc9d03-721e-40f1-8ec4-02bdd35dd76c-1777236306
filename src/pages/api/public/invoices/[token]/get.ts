@@ -33,6 +33,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { getPublicPaymentAvailability } from "@/lib/paymentService";
 import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
+import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
@@ -119,6 +120,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .select(`
       id, public_token, invoice_number, invoice_date, due_date, order_id, currency,
       total_amount, amount_paid, balance_due, status, invoice_data,
+      client:client_id ( tax_number, payment_terms ),
       companies:company_id (
         id, slug, company_name, logo_url, email, phone_number:phone, currency,
         vat_registered, vat_number, vat_rate, deposit_percent, registration_number,
@@ -145,6 +147,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const invoiceData = invoiceForResponse.invoice_data && typeof invoiceForResponse.invoice_data === "object"
     ? { ...invoiceForResponse.invoice_data }
     : {};
+  const client = invoiceForResponse.client || {};
+  // Keep customer tax data and terms in the same document snapshot the
+  // public page already consumes. The token is the capability for this
+  // invoice, and no extra client data is returned beyond these document
+  // fields.
+  if (!invoiceData.clientTaxNumber && client.tax_number) {
+    invoiceData.clientTaxNumber = client.tax_number;
+  }
+  invoiceData.paymentTerms = invoicePaymentTerms(
+    invoiceData.paymentTerms,
+    client.payment_terms,
+  );
   const snapshotItems = asArray(invoiceData.items);
   const hasMenuSnapshot = asArray(invoiceData.menuItems).length > 0 || asArray(invoiceData.menu_items).length > 0;
   const hasEquipmentSnapshot = asArray(invoiceData.equipmentItems).length > 0 || asArray(invoiceData.equipment_items).length > 0;
@@ -238,6 +252,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     ...invoiceForResponse,
     invoice_data: invoiceData,
   };
+  // Client details are represented by the invoice snapshot only; do not
+  // include the joined clients row in the public API response.
+  delete invoiceForResponse.client;
 
   // Completed payments against this invoice, so the page can show WHEN
   // the deposit (and any further payment) actually landed, not just the

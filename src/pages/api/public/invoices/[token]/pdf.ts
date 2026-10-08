@@ -25,6 +25,7 @@ import {
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
+import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 import { buildPdfPaymentInstructions } from "@/lib/pdfPaymentInstructions";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
@@ -52,7 +53,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         id, company_id, order_id, currency, invoice_number, invoice_date, due_date, status,
         subtotal, tax_amount, total_amount, amount_paid, balance_due,
         notes, invoice_data, updated_at,
-        client:client_id ( client_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code ),
+        client:client_id ( client_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms ),
         order:order_id ( id, order_number, event_name, event_date, deposit_amount, deposit_percentage, currency, updated_at ),
         company:company_id ( id, slug, company_name, legal_name, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
       `)
@@ -151,7 +152,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         invoice_date: (inv as any).invoice_date,
         due_date: (inv as any).due_date,
         status: (inv as any).status,
-        client: { name: client.client_name || "", email: client.email || null, phone: client.phone || null, address: clientAddress },
+        client: {
+          name: client.client_name || "",
+          email: client.email || null,
+          phone: client.phone || null,
+          address: clientAddress,
+          tax_number: idata.clientTaxNumber || client.tax_number || null,
+        },
         order_number: order.order_number || null,
         event_name: order.event_name || null,
         event_date: order.event_date || null,
@@ -163,7 +170,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         balance_due: (inv as any).balance_due,
         first_payment_amount: firstPaymentAmount > 0 ? firstPaymentAmount : null,
         notes: (inv as any).notes || null,
-        payment_terms: null,
+        payment_terms: invoicePaymentTerms(idata.paymentTerms, client.payment_terms),
         payment_instructions: paymentInstructions,
         company: {
           id: company.id, slug: company.slug,

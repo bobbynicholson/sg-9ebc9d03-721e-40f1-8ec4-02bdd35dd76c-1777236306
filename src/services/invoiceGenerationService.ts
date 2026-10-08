@@ -11,6 +11,7 @@ import {
   isInvoiceFullPaymentDueByDate,
   resolveInvoiceFirstPaymentAmount,
 } from "@/lib/invoiceClientView";
+import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 
 // Server-safe client injection. Browser callers pass nothing and get
 // the global anon-key client (RLS-gated). Server callers (the
@@ -56,6 +57,8 @@ interface InvoiceData {
   clientEmail: string;
   clientPhone?: string;
   clientAddress?: string;
+  /** Customer VAT / tax registration number shown in the Bill To block. */
+  clientTaxNumber?: string;
   
   // Order Details
   orderId: string;
@@ -249,6 +252,7 @@ export async function generateInvoiceData(
           billing_address_line2,
           billing_city,
           billing_postal_code,
+          tax_number,
           payment_terms,
           preferred_currency
         )
@@ -621,6 +625,7 @@ export async function generateInvoiceData(
       clientEmail: client.email,
       clientPhone: client.phone,
       clientAddress,
+      clientTaxNumber: client.tax_number || "",
       
       orderId: orderData.id,
       // Display-only fallback. The order_number column is now always
@@ -654,7 +659,9 @@ export async function generateInvoiceData(
       depositPaid,
       balanceDue,
       
-      paymentTerms: companyData.payment_terms || "Payment due within 30 days",
+      // This wording is a document snapshot: current invoices retain the
+      // payment agreement in force when they were issued.
+      paymentTerms: invoicePaymentTerms(null, client.payment_terms),
       bankDetails,
       
       notes: orderData.special_instructions,
@@ -1348,7 +1355,7 @@ async function renderInvoicePdfAttachment(
       client:client_id (
         client_name, email, phone,
         billing_address_line1, billing_address_line2,
-        billing_city, billing_postal_code
+        billing_city, billing_postal_code, tax_number, payment_terms
       ),
       order:order_id (
         id, order_number, event_name, event_date, deposit_amount, deposit_percentage, currency, updated_at
@@ -1358,7 +1365,7 @@ async function renderInvoicePdfAttachment(
         address_line1, address_line2, city, state_province,
         postal_code, country, primary_color,
         vat_registered, vat_number, vat_rate,
-        registration_number, tax_number, deposit_percent, payment_terms,
+        registration_number, tax_number, deposit_percent,
         currency, bank_name, bank_account_holder, bank_account_number,
         bank_branch_code, bank_account_type, eft_instructions,
         updated_at
@@ -1446,6 +1453,7 @@ async function renderInvoicePdfAttachment(
         email: client.email || fallbackData.clientEmail || null,
         phone: client.phone || fallbackData.clientPhone || null,
         address: clientAddress,
+        tax_number: fallbackData.clientTaxNumber || client.tax_number || null,
       },
       order_number: order.order_number || fallbackData.orderNumber || null,
       event_name: order.event_name || null,
@@ -1458,7 +1466,10 @@ async function renderInvoicePdfAttachment(
       balance_due: invAny.balance_due ?? fallbackData.balanceDue,
       first_payment_amount: firstPaymentAmount > 0 ? firstPaymentAmount : null,
       notes: invAny.notes || fallbackData.notes || null,
-      payment_terms: company.payment_terms || fallbackData.paymentTerms || null,
+      payment_terms: invoicePaymentTerms(
+        invAny.invoice_data?.paymentTerms || fallbackData.paymentTerms,
+        client.payment_terms,
+      ),
       payment_instructions: invoicePaymentInstructions,
       company: {
         id: company.id,

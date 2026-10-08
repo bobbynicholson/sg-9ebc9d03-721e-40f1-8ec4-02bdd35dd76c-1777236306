@@ -64,6 +64,7 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
 import { isAutomatedTestInvoice } from "@/lib/testDataDetection";
+import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 
 function formatInvoiceRowMoney(amount: number, currencyCode: string | null | undefined): string {
   const code = currencyCode && Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, currencyCode.toUpperCase())
@@ -832,7 +833,9 @@ function InvoicesPageInner() {
             clients (
               client_name,
               email,
-              phone
+              phone,
+              tax_number,
+              payment_terms
             )
           )
         `)
@@ -1022,6 +1025,17 @@ function InvoicesPageInner() {
         );
       }
     }
+
+    // The document snapshot is authoritative for newly-issued invoices.
+    // Backfill the two display-only fields from the linked client for older
+    // invoices that pre-date those snapshots, so the admin preview matches
+    // the public link and the PDF.
+    const linkedClient = invoice.orders?.clients || {};
+    invoiceData = {
+      ...invoiceData,
+      clientTaxNumber: invoiceData.clientTaxNumber || linkedClient.tax_number || "",
+      paymentTerms: invoicePaymentTerms(invoiceData.paymentTerms, linkedClient.payment_terms),
+    };
 
     setSelectedInvoice(invoiceData);
     setSelectedInvoiceId(invoiceId);

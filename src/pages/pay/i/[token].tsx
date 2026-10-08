@@ -1143,6 +1143,26 @@ export default function InvoicePaymentPage() {
           </Card>
 
           {/* PAYMENT SECTION - screen only */}
+          {invoice.invoice_data?.paymentTerms && (
+            <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
+              <CardContent className="py-4 px-5">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
+                  Payment terms
+                </p>
+                <p className="text-sm text-stone-700">{invoice.invoice_data.paymentTerms}</p>
+              </CardContent>
+            </Card>
+          )}
+          {invoice.invoice_data?.clientTaxNumber && (
+            <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
+              <CardContent className="py-4 px-5">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
+                  Customer VAT number
+                </p>
+                <p className="text-sm text-stone-700 font-mono">{invoice.invoice_data.clientTaxNumber}</p>
+              </CardContent>
+            </Card>
+          )}
           <div className="no-print">
             {isPaid ? (
               <Alert className="border-brand-primary/20 bg-brand-primary/10">

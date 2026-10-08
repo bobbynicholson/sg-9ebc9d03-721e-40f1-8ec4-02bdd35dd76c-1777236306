@@ -5,6 +5,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
+import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 import { buildPdfPaymentInstructions } from "@/lib/pdfPaymentInstructions";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
@@ -421,7 +422,7 @@ async function handler(
               client:client_id (
                 client_name, email, phone,
                 billing_address_line1, billing_address_line2,
-                billing_city, billing_postal_code
+                billing_city, billing_postal_code, tax_number, payment_terms
               ),
               order:order_id (
                 id, order_number, event_name, event_date, discount_amount, deposit_amount, deposit_percentage, currency, updated_at
@@ -431,7 +432,7 @@ async function handler(
                 address_line1, address_line2, city, state_province,
                 postal_code, country, primary_color,
                 vat_registered, vat_number, vat_rate,
-                registration_number, tax_number, deposit_percent, payment_terms,
+                registration_number, tax_number, deposit_percent,
                 currency, bank_name, bank_account_holder, bank_account_number,
                 bank_branch_code, bank_account_type, eft_instructions,
                 updated_at
@@ -501,6 +502,7 @@ async function handler(
                   email: client.email || null,
                   phone: client.phone || null,
                   address: clientAddress,
+                  tax_number: stashed.clientTaxNumber || client.tax_number || null,
                 },
                 order_number: order.order_number || stashed.orderNumber || null,
                 event_name: order.event_name || null,
@@ -530,7 +532,7 @@ async function handler(
                 // is null so existing tenants render unchanged.
                 currency: company.currency || null,
                 notes: invAny.notes || stashed.notes || null,
-                payment_terms: stashed.paymentTerms || company.payment_terms || null,
+                payment_terms: invoicePaymentTerms(stashed.paymentTerms, client.payment_terms),
                 payment_instructions: invoicePaymentInstructions,
                 company: {
                   id: company.id,

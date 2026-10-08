@@ -52,6 +52,8 @@ export interface InvoicePdfData {
     email?: string | null;
     phone?: string | null;
     address?: string | null;
+    /** Customer VAT / tax registration number, where supplied. */
+    tax_number?: string | null;
   };
 
   order_number?: string | null;
@@ -607,6 +609,11 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             ) : null}
             {data.client?.phone ? (
               <Text style={styles.smallText}>{data.client.phone}</Text>
+            ) : null}
+            {data.client?.tax_number ? (
+              <Text style={styles.smallText}>
+                Customer VAT No: {data.client.tax_number}
+              </Text>
             ) : null}
             {data.order_number ? (
               <Text style={[styles.smallText, { marginTop: 4 }]}>

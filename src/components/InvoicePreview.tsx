@@ -38,6 +38,7 @@ interface InvoicePreviewProps {
   clientEmail: string;
   clientPhone?: string;
   clientAddress?: string;
+  clientTaxNumber?: string;
   orderNumber: string;
   eventDate: string;
   eventTime: string;
@@ -182,6 +183,11 @@ export function InvoicePreview(props: InvoicePreviewProps) {
             {props.clientPhone && (
               <p className="text-xs text-stone-600">{props.clientPhone}</p>
             )}
+            {props.clientTaxNumber && (
+              <p className="text-xs text-stone-600">
+                Customer VAT No: <span className="font-mono">{props.clientTaxNumber}</span>
+              </p>
+            )}
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
@@ -313,49 +319,47 @@ export function InvoicePreview(props: InvoicePreviewProps) {
       </Card>
 
       {/* PAYMENT DETAILS */}
-      {props.bankDetails && (
+      {(props.bankDetails || props.paymentTerms) && (
         <Card className="mb-4 border border-stone-200 shadow-sm">
           <CardContent className="py-5 px-5">
-            <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
-              Payment details
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-xs text-stone-500">Bank</p>
-                <p className="font-semibold text-stone-900">
-                  {props.bankDetails.bankName}
+            {props.bankDetails && (
+              <>
+                <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
+                  Payment details
                 </p>
-              </div>
-              <div>
-                <p className="text-xs text-stone-500">Account name</p>
-                <p className="font-semibold text-stone-900">
-                  {props.bankDetails.accountName}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-stone-500">Account number</p>
-                <p className="font-semibold text-stone-900 tabular-nums">
-                  {props.bankDetails.accountNumber}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-stone-500">Branch code</p>
-                <p className="font-semibold text-stone-900 tabular-nums">
-                  {props.bankDetails.branchCode}
-                </p>
-              </div>
-            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-stone-500">Bank</p>
+                    <p className="font-semibold text-stone-900">{props.bankDetails.bankName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-stone-500">Account name</p>
+                    <p className="font-semibold text-stone-900">{props.bankDetails.accountName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-stone-500">Account number</p>
+                    <p className="font-semibold text-stone-900 tabular-nums">{props.bankDetails.accountNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-stone-500">Branch code</p>
+                    <p className="font-semibold text-stone-900 tabular-nums">{props.bankDetails.branchCode}</p>
+                  </div>
+                </div>
+              </>
+            )}
             {props.paymentTerms && (
-              <div className="mt-4 pt-4 border-t border-stone-100">
+              <div className={props.bankDetails ? "mt-4 pt-4 border-t border-stone-100" : ""}>
                 <p className="text-xs text-stone-500 mb-0.5">Payment terms</p>
                 <p className="text-xs text-stone-700">{props.paymentTerms}</p>
               </div>
             )}
-            <p className="text-xs text-stone-500 mt-3">
-              Use invoice number{" "}
-              <strong className="text-stone-700">{props.invoiceNumber}</strong>{" "}
-              as reference.
-            </p>
+            {props.bankDetails && (
+              <p className="text-xs text-stone-500 mt-3">
+                Use invoice number{" "}
+                <strong className="text-stone-700">{props.invoiceNumber}</strong>{" "}
+                as reference.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
