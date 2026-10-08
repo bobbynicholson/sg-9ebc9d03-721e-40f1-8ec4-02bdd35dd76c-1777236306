@@ -1,3 +1,13 @@
+# Working rules (apply to every item below - strictly)
+
+Full rules: `CLAUDE.md` (loaded automatically every session).
+
+1. **One item at a time.** Work only on the item asked for; don't change anything else. Note other problems and report them; don't fix them unasked.
+2. **Never break existing features.** Everything that works today must still work after the change. Check every place shared code is used; run the type check and tests before reporting done.
+3. **Frontend vs backend.** Frontend work changes the backend only when the item can't work without it (and says why); backend work changes the frontend only when needed (and says why).
+4. **Live data and releases.** Checks against the live database are read-only unless the user agrees. Code that needs a migration ships after the migration is applied. Commit only your own files.
+5. **Clear button names.** Every button and link says exactly what it does, in plain words ("Email client", "Record payment"); disabled buttons say why; two buttons side by side never sound alike.
+
 # Target: polished UI for every role portal
 
 **Status (2026-10-07): deep UX pass committed (`fb1c4fe2`); clarity + look round for platform owner, cleaning and shopping complete, not yet committed.** One standard for every role: the company admin pages plus the kitchen and driver portals are the reference. Each portal below follows the same page standard and the same UI-only boundary.
