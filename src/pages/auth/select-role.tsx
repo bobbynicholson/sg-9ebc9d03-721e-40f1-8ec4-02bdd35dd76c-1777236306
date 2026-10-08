@@ -31,22 +31,21 @@ const ROLE_OPTIONS: Array<{
   role: UserRole;
   icon: LucideIcon;
   description: string;
-  tone: string;
 }> = [
-  { role: UserRole.SUPER_ADMIN, icon: Shield, description: "Platform-wide administration and company support.", tone: "bg-slate-100 text-slate-700" },
-  { role: UserRole.OWNER, icon: Crown, description: "Full company control, finance, settings and operations.", tone: "bg-amber-100 text-amber-800" },
-  { role: UserRole.COMPANY_ADMIN, icon: UserCog, description: "Company administration, orders, reports and team access.", tone: "bg-blue-100 text-blue-700" },
-  { role: UserRole.REGION_ADMIN, icon: Shield, description: "Manage the regions and operational work assigned to you.", tone: "bg-rose-100 text-rose-700" },
-  { role: UserRole.SALES_ADMIN, icon: UserCircle, description: "Leads, quotes, client communication and sales work.", tone: "bg-rose-100 text-rose-700" },
-  { role: UserRole.ADMIN, icon: Shield, description: "Day-to-day admin, orders, calendar, dispatch and staff.", tone: "bg-slate-100 text-slate-700" },
-  { role: UserRole.KITCHEN_MANAGER, icon: ChefHat, description: "Kitchen team, prep control, handovers and cleaning visibility.", tone: "bg-amber-100 text-amber-800" },
-  { role: UserRole.KITCHEN_STAFF, icon: ChefHat, description: "Today’s prep tasks, kitchen clock-in and handover notes.", tone: "bg-orange-100 text-orange-700" },
-  { role: UserRole.DRIVER, icon: Truck, description: "Assigned routes, deliveries and proof of delivery.", tone: "bg-blue-100 text-blue-700" },
-  { role: UserRole.WAITER, icon: Users, description: "Event service tasks, attendance and service handover.", tone: "bg-cyan-100 text-cyan-700" },
-  { role: UserRole.SHOPPING_STAFF, icon: ShoppingCart, description: "Buy-now lists, receipts and supplier work.", tone: "bg-emerald-100 text-emerald-700" },
-  { role: UserRole.CLEANING_MANAGER, icon: Sparkles, description: "Cleaning queue, team availability and handovers.", tone: "bg-violet-100 text-violet-700" },
-  { role: UserRole.CLEANING_STAFF, icon: Sparkles, description: "Post-event cleaning tasks, damages and supplies.", tone: "bg-violet-100 text-violet-700" },
-  { role: UserRole.CLIENT, icon: Building2, description: "Your company bookings, quotes, payments and updates.", tone: "bg-slate-100 text-slate-700" },
+  { role: UserRole.SUPER_ADMIN, icon: Shield, description: "Platform-wide administration and company support." },
+  { role: UserRole.OWNER, icon: Crown, description: "Full company control, finance, settings and operations." },
+  { role: UserRole.COMPANY_ADMIN, icon: UserCog, description: "Company administration, orders, reports and team access." },
+  { role: UserRole.REGION_ADMIN, icon: Shield, description: "Manage the regions and operational work assigned to you." },
+  { role: UserRole.SALES_ADMIN, icon: UserCircle, description: "Leads, quotes, client communication and sales work." },
+  { role: UserRole.ADMIN, icon: Shield, description: "Day-to-day admin, orders, calendar, dispatch and staff." },
+  { role: UserRole.KITCHEN_MANAGER, icon: ChefHat, description: "Kitchen team, prep control, handovers and cleaning visibility." },
+  { role: UserRole.KITCHEN_STAFF, icon: ChefHat, description: "Today’s prep tasks, kitchen clock-in and handover notes." },
+  { role: UserRole.DRIVER, icon: Truck, description: "Assigned routes, deliveries and proof of delivery." },
+  { role: UserRole.WAITER, icon: Users, description: "Event service tasks, attendance and service handover." },
+  { role: UserRole.SHOPPING_STAFF, icon: ShoppingCart, description: "Buy-now lists, receipts and supplier work." },
+  { role: UserRole.CLEANING_MANAGER, icon: Sparkles, description: "Cleaning queue, team availability and handovers." },
+  { role: UserRole.CLEANING_STAFF, icon: Sparkles, description: "Post-event cleaning tasks, damages and supplies." },
+  { role: UserRole.CLIENT, icon: Building2, description: "Your company bookings, quotes, payments and updates." },
 ];
 
 function RoleSelectionContent() {
@@ -83,7 +82,7 @@ function RoleSelectionContent() {
     return (
       <div className="flex min-h-[320px] items-center justify-center">
         <div className="text-center text-slate-600">
-          <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-amber-600" />
+          <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-brand-primary" />
           <p className="text-sm">Loading your assigned portals...</p>
         </div>
       </div>
@@ -98,11 +97,16 @@ function RoleSelectionContent() {
       </Head>
       <div className="w-full max-w-4xl">
         <Card className="overflow-hidden rounded-2xl border border-stone-200/70 shadow-2xl shadow-stone-200/60">
-          <div className="bg-gradient-to-br from-amber-500 to-orange-600 px-6 py-7 text-white sm:px-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
+          {/* Same brand band as the admin portal header (PortalHeader
+              hero, appearance="brand") so the tenant colours carry
+              through instead of a fixed amber/orange. */}
+          <div className="relative overflow-hidden bg-[linear-gradient(130deg,rgb(var(--brand-primary-rgb)),rgb(var(--brand-secondary-rgb)))] px-6 py-7 text-white sm:px-8">
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.14),rgba(2,6,23,0.32))]" />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_150%_at_0%_0%,rgba(255,255,255,0.16),transparent_55%)]" />
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-white/80">Welcome back, {user.full_name || "there"}</p>
-                <p className="mt-1 text-xs text-white/75">Signed in as {user.email}</p>
+                <p className="mt-1 break-all text-xs text-white/75">Signed in as {user.email}</p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">Choose where you want to go</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">
                   This email has access to {availableRoles.length} portal{availableRoles.length === 1 ? "" : "s"}. Choose a workspace below; you can switch portals later from the role menu.
@@ -119,7 +123,7 @@ function RoleSelectionContent() {
               </Button>
             </div>
             {user.company_name && (
-              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/90">
+              <div className="relative mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/90">
                 <Building2 className="h-3.5 w-3.5" />
                 {user.company_name}
               </div>
@@ -153,13 +157,13 @@ function RoleSelectionContent() {
                   return (
                     <div
                       key={option.role}
-                      className={`flex min-h-[190px] flex-col rounded-xl border p-4 transition-shadow ${isCurrent ? "border-amber-400 bg-amber-50/60 shadow-sm" : "border-slate-200 bg-white hover:shadow-md"}`}
+                      className={`flex min-h-[190px] flex-col rounded-xl border p-4 transition-shadow ${isCurrent ? "border-brand-primary/50 bg-brand-primary/5 shadow-sm" : "border-slate-200 bg-white hover:shadow-md"}`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${option.tone}`}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-primary/10 text-brand-primary">
                           <Icon className="h-5 w-5" />
                         </div>
-                        {isCurrent && <Badge className="border-amber-200 bg-amber-100 text-amber-800">Current</Badge>}
+                        {isCurrent && <Badge className="border-brand-primary/20 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/10">Current</Badge>}
                       </div>
                       <h2 className="mt-4 text-base font-semibold text-slate-950">{ROLE_NAMES[option.role]}</h2>
                       <p className="mt-1 flex-1 text-sm leading-5 text-slate-600">{option.description}</p>
@@ -167,7 +171,7 @@ function RoleSelectionContent() {
                         type="button"
                         onClick={() => void handleRoleSelect(option.role)}
                         disabled={Boolean(selecting)}
-                        className="mt-4 w-full bg-brand-primary hover:bg-brand-primary/90"
+                        className="mt-4 h-auto min-h-10 w-full whitespace-normal break-words bg-brand-primary py-2 text-center leading-snug hover:bg-brand-primary/90"
                       >
                         {isSelecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         {isSelecting ? "Opening..." : isCurrent ? "Continue here" : `Open ${ROLE_NAMES[option.role]}`}
