@@ -36,6 +36,7 @@ import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
+import { formatClockBoth } from "@/lib/portalTime";
 import {
   getInitialInvoicePaymentAmount,
   getInvoiceDueState,
@@ -109,6 +110,8 @@ interface InvoiceView {
     company_name: string;
     /** Registered legal name - the "From" party on the tax invoice. */
     legal_name?: string | null;
+    /** Company time format ("24h" / "12h") - Company profile > Time format. */
+    time_format?: string | null;
     logo_url: string | null;
     email: string | null;
     phone_number: string | null;
@@ -1011,7 +1014,8 @@ export default function InvoicePaymentPage() {
                     event={{
                       reference: idata.orderNumber,
                       date: resolvedEventDateText,
-                      time: idata.eventTime || idata.event_time || null,
+                      // Client page: company format first, the other in brackets.
+                      time: formatClockBoth(idata.eventTime || idata.event_time, co?.time_format) || null,
                       venue: idata.venue || idata.venueAddress || null,
                       guests: idata.guestCount ?? idata.guest_count ?? null,
                     }}

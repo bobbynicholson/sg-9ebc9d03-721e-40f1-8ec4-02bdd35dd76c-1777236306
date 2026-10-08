@@ -122,7 +122,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       total_amount, amount_paid, balance_due, status, invoice_data,
       client:client_id ( tax_number, payment_terms ),
       companies:company_id (
-        id, slug, company_name, legal_name, logo_url, email, phone_number:phone, currency,
+        id, slug, company_name, legal_name, time_format, logo_url, email, phone_number:phone, currency,
         vat_registered, vat_number, vat_rate, deposit_percent, registration_number,
         bank_name, bank_account_holder, bank_account_number, bank_branch_code,
         bank_account_type, eft_instructions,
