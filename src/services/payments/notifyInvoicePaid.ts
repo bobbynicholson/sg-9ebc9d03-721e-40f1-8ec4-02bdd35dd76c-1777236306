@@ -59,7 +59,13 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const isDepositReceipt = !fullyPaid;
+  // An invoice can be paid in any number of instalments. Only the FIRST
+  // payment is the deposit that secures the booking; later part payments
+  // are plain "payment received" with the balance still outstanding.
+  // Decided below once the invoice's paid total (which already includes
+  // this payment - both callers notify after recording) is known.
+  let isDepositReceipt = !fullyPaid;
+  let balanceAfter: number | null = null;
 
   let orderId = input.orderId || null;
   let invoiceNumber = input.invoiceNumber || null;
@@ -70,7 +76,7 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
     try {
       const { data: invoice } = await admin
         .from("invoices")
-        .select("id, invoice_number, public_token, order_id, client_id, invoice_data")
+        .select("id, invoice_number, public_token, order_id, client_id, invoice_data, amount_paid, balance_due")
         .eq("id", invoiceId)
         .maybeSingle();
       if (invoice) {
@@ -80,6 +86,13 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
         invoiceData = (invoice as any).invoice_data && typeof (invoice as any).invoice_data === "object"
           ? (invoice as any).invoice_data
           : {};
+        const paidIncludingThis = Number((invoice as any).amount_paid);
+        if (Number.isFinite(paidIncludingThis)) {
+          const paidBefore = paidIncludingThis - Number(amount || 0);
+          isDepositReceipt = !fullyPaid && paidBefore <= 0.01;
+        }
+        const due = Number((invoice as any).balance_due);
+        if (Number.isFinite(due)) balanceAfter = Math.max(0, due);
         const token = (invoice as any).public_token;
         const origin = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
         if (token && origin) invoiceLink = `${origin}/pay/i/${token}`;
@@ -156,6 +169,10 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
     }
   }
 
+  const outstandingText = !fullyPaid && balanceAfter != null && balanceAfter > 0.009
+    ? ` ${formatMoney(balanceAfter, currency)} still outstanding.`
+    : "";
+
   const ref = invoiceNumber ? `invoice ${invoiceNumber}` : orderNumber ? `order ${orderNumber}` : "an invoice";
   const orderTail = orderNumber ? ` for order ${orderNumber}` : "";
 
@@ -194,7 +211,7 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
           recipient_id: ownerId,
           notification_type: "payment_received",
           title: `Payment received - ${ref}`,
-          message: `${amountFmt} recorded${fullyPaid ? " (invoice fully paid)" : " (deposit/part payment)"}${orderTail}.`,
+          message: `${amountFmt} recorded${fullyPaid ? " (invoice fully paid)" : isDepositReceipt ? " (deposit)" : " (part payment)"}${orderTail}.${outstandingText}`,
           priority: "high",
         }]);
       } else {
@@ -220,7 +237,7 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
             ? `We received your deposit of ${amountFmt}. Your booking is secure.`
             : fullyPaid
               ? `We received your payment of ${amountFmt}. Your booking is fully paid.`
-              : `We received your payment of ${amountFmt}. Thank you.`,
+              : `We received your payment of ${amountFmt}. Thank you.${outstandingText}`,
           priority: "high",
           link: orderId ? `/client-portal/billing?orderId=${orderId}` : null,
         }]);
@@ -246,7 +263,7 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
           `Thanks,\n{{tenant_name}}`
         : `Hi {{first_name}},\n\n` +
           `Thanks for your payment of {{amount_formatted}} against invoice {{invoice_number}}.\n\n` +
-          (fullyPaid ? `This invoice is now fully paid.\n\n` : ``) +
+          (fullyPaid ? `This invoice is now fully paid.\n\n` : outstandingText ? `${outstandingText.trim()}\n\n` : ``) +
           (invoiceLink ? `You can view the updated invoice here: {{invoice_link}}\n\n` : ``) +
           `Thanks,\n{{tenant_name}}`;
       await emailService.sendEmail({
@@ -292,7 +309,7 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
         ? "The booking is now secure."
         : fullyPaid
           ? "The invoice is now fully paid."
-          : "A part payment was recorded.";
+          : `A part payment was recorded.${outstandingText}`;
       const body =
         `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;line-height:1.5;max-width:560px;">` +
         `<h2 style="margin:0 0 12px;">${isDepositReceipt ? "Deposit received" : "Payment received"}</h2>` +

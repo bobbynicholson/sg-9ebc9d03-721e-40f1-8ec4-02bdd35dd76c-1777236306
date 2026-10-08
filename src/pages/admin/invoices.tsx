@@ -1036,6 +1036,16 @@ function InvoicesPageInner() {
       clientTaxNumber: invoiceData.clientTaxNumber || linkedClient.tax_number || "",
       paymentTerms: invoicePaymentTerms(invoiceData.paymentTerms, linkedClient.payment_terms),
     };
+    // Paid / balance come from the live invoice row, not the snapshot:
+    // an invoice can take any number of payments and the snapshot keeps
+    // the figures from when it was issued (e.g. only the deposit).
+    if (invoice.amount_paid != null && invoice.balance_due != null) {
+      invoiceData = {
+        ...invoiceData,
+        depositPaid: Number(invoice.amount_paid) || 0,
+        balanceDue: Number(invoice.balance_due) || 0,
+      };
+    }
 
     setSelectedInvoice(invoiceData);
     setSelectedInvoiceId(invoiceId);

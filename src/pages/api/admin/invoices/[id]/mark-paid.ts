@@ -84,6 +84,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const rawMethod = body.paymentMethod;
     const rawReference = body.reference;
     const rawNote = body.note;
+    const rawKey = body.idempotencyKey;
 
     const paymentMethod = (typeof rawMethod === "string" && ALLOWED_METHODS.has(rawMethod))
       ? rawMethod
@@ -94,6 +95,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const note = typeof rawNote === "string" && rawNote.trim().length > 0
       ? rawNote.trim().slice(0, 500)
       : null;
+    const attemptKey = typeof rawKey === "string" && /^[\w-]{8,80}$/.test(rawKey) ? rawKey : null;
 
     // Tenant-scoped read so we can surface a useful error if the id
     // is wrong or belongs to another company. RLS would already block
@@ -151,13 +153,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    // transaction_id doubles as the RPC's idempotency key. Use the
-    // operator's reference when provided; otherwise stamp a manual key
-    // that includes the user id + epoch so a double-click within a
-    // second collapses to one ledger row.
-    const transactionId = reference || `manual-${user.id.slice(0, 8)}-${Date.now()}`;
+    // transaction_id is the RPC's duplicate-protection key. It must NOT
+    // be the operator's reference: the dialog pre-fills the reference
+    // with the invoice number, so a second payment on the same invoice
+    // (deposit, then balance) matched the first and was silently
+    // dropped while the receipt emails still went out. Use the
+    // dialog's per-submission key; the reference is stamped onto the
+    // payment row afterwards.
+    const transactionId = attemptKey
+      ? `manual-${attemptKey}`
+      : `manual-${user.id.slice(0, 8)}-${Date.now()}`;
 
-    const { error: rpcErr } = await admin.rpc("record_invoice_payment", {
+    const { data: rpcData, error: rpcErr } = await admin.rpc("record_invoice_payment", {
       p_invoice_id: invoiceId,
       p_amount: amount,
       p_payment_method: paymentMethod,
@@ -172,13 +179,38 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(500).json({ error: dbErrorMessage(rpcErr) });
     }
 
-    // Read back the updated invoice so the client can refresh state
-    // optimistically without re-fetching the whole list.
-    const { data: updated } = await admin
+    const rpcResult = (rpcData || {}) as { idempotent?: boolean; payment_id?: string };
+    const { data: invoiceAfter } = await admin
       .from("invoices")
       .select("id, status, amount_paid, balance_due")
       .eq("id", invoiceId)
       .maybeSingle();
+
+    // Same submission arrived twice (double click / retry): it was
+    // recorded the first time. Don't audit or email it again.
+    if (rpcResult.idempotent) {
+      return res.status(200).json({
+        ok: true,
+        duplicate: true,
+        amountPaid: (invoiceAfter as any)?.amount_paid ?? 0,
+        balanceDue: (invoiceAfter as any)?.balance_due ?? 0,
+        invoiceStatus: (invoiceAfter as any)?.status ?? "partially_paid",
+      });
+    }
+
+    // Keep the operator's reference on the payment for bookkeeping.
+    if (reference && rpcResult.payment_id) {
+      const { error: refErr } = await admin
+        .from("payments")
+        .update({ payment_reference: reference })
+        .eq("id", rpcResult.payment_id)
+        .eq("company_id", companyId);
+      if (refErr) console.warn("[admin/invoices/mark-paid] reference stamp failed:", refErr);
+    }
+
+    // Read back the updated invoice so the client can refresh state
+    // optimistically without re-fetching the whole list.
+    const updated = invoiceAfter;
 
     // Audit row - single source of truth for the manual mark-paid
     // trail. The RPC already writes the payments row; this captures

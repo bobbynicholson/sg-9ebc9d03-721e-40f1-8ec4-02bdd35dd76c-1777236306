@@ -118,6 +118,12 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
   const [sendConfirmation, setSendConfirmation] = useState<boolean>(true);
   const [confirmChannel, setConfirmChannel] = useState<"email" | "whatsapp">("email");
   const [saving, setSaving] = useState<boolean>(false);
+  // One duplicate-protection key per opening of the dialog. A double
+  // click or retry of the same submission reuses it (recorded once);
+  // the next payment on the same invoice gets a fresh key. The
+  // reference used to be the key, and since it defaults to the invoice
+  // number every second payment on an invoice was silently dropped.
+  const [attemptKey, setAttemptKey] = useState<string>("");
 
   // Reset state every time a new invoice opens. Pre-Wave-66.5 stale
   // amount from the last opened invoice would prefill the next dialog.
@@ -128,6 +134,9 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
     setReference(invoice.invoice_number || "");
     setDateReceived(todayIso());
     setNote("");
+    setAttemptKey(typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
     // Bias default channel based on what we have. If only phone exists,
     // start on WhatsApp; otherwise email is the default because most
     // bookkeeping audit trails want it written.
@@ -194,6 +203,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           amount: amountNum,
           paymentMethod,
           reference: reference.trim() || null,
+          idempotencyKey: attemptKey || null,
           // Server uses processed_at=NOW(); the operator-chosen date
           // lands in the audit note for traceability when bookkeeping
           // backdates an EFT received last week.
@@ -369,7 +379,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
                 placeholder="Bank statement reference"
               />
               <p className="text-[10px] text-slate-500">
-                Doubles as idempotency key &middot; submitting the same reference twice records once.
+                Shown on the payment record. Several payments can share the same reference.
               </p>
             </div>
             <div className="space-y-1.5">

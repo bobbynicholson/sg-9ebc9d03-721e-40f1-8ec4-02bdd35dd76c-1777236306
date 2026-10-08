@@ -294,7 +294,11 @@ export function InvoicePreview(props: InvoicePreviewProps) {
           {props.depositPaid > 0 && (
             <>
               <div className="flex justify-between text-sm pt-2">
-                <span className="text-stone-600">{paymentSummary.label}</span>
+                {/* Any number of payments can be made, so a part-paid
+                    invoice shows the running total, not "Deposit Paid". */}
+                <span className="text-stone-600">
+                  {paymentSummary.state === "partial" ? "Paid to date" : paymentSummary.label}
+                </span>
                 <span className="text-brand-primary tabular-nums">
                   -{fmtMoney.format(props.depositPaid)}
                 </span>
