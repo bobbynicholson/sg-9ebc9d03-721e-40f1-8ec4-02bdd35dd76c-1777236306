@@ -67,6 +67,9 @@
       if (field.type === 'select' || field.type === 'radio' || field.type === 'tier') {
         return 'Please choose an option';
       }
+      if (field.id === 'menu_item_ids') {
+        return 'Please choose at least one dish from the menu';
+      }
       if (field.type === 'checkboxes' || field.type === 'multiselect') {
         return 'Please choose at least one option';
       }
@@ -257,6 +260,25 @@
       '12px';
     setVar('--brand-radius', resolvedRadius);
     setVar('--brand-font', t.fontFamily || t.font_family);
+    // Space between questions (form builder "Space between fields").
+    // The chosen value is the space you SEE between one question's box and
+    // the next question's label, so the empty error line under each input
+    // (kept by default so errors don't push the form down) is folded away
+    // and stacked rows stop adding their own gap. Unset -> none of this, so
+    // existing forms look exactly as before (about 36px visible).
+    var rawGap = t.field_spacing !== undefined ? t.field_spacing : t.fieldSpacing;
+    var gapMap = { compact: '16px', normal: '36px', roomy: '48px', extra: '64px' };
+    var gap = gapMap[rawGap] ||
+      (typeof rawGap === 'number' && rawGap >= 0 && rawGap <= 80 ? rawGap + 'px' : '');
+    if (gap) {
+      styleHost.style.setProperty('--field-gap', gap);
+      styleHost.style.setProperty('--field-error-pos', 'absolute');
+      styleHost.style.setProperty('--field-row-gap', '0px');
+    } else {
+      styleHost.style.removeProperty('--field-gap');
+      styleHost.style.removeProperty('--field-error-pos');
+      styleHost.style.removeProperty('--field-row-gap');
+    }
   }
 
   // Tiny safe-HTML helper -- never use innerHTML with untrusted data.
@@ -300,7 +322,7 @@
     '.cms-form::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;border-radius:20px 20px 0 0;background:linear-gradient(90deg,var(--brand-primary,#0F172A),var(--brand-secondary,#F59E0B))}',
     '.cms-title{font-size:22px!important;font-weight:800!important;letter-spacing:-.02em;line-height:1.25;margin:0 0 6px!important}',
     '.cms-sub{color:#64748B!important;font-size:14.5px!important;margin:0 0 20px!important}',
-    '.cms-field{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}',
+    '.cms-field{display:flex;flex-direction:column;gap:7px;margin-bottom:var(--field-gap,16px)}',
     '.cms-label{font-size:13.5px;font-weight:600;color:#334155;letter-spacing:.005em}',
     '.cms-help{font-size:12.5px;color:#64748B;margin-top:-3px}',
     '.cms-input,.cms-select,.cms-textarea{font:inherit;font-size:15px;color:inherit;width:100%;padding:12px 14px;border:1.5px solid #E2E8F0;border-radius:calc(var(--brand-radius,12px) - 2px);background:#F8FAFC;transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease;min-height:48px}',
@@ -312,6 +334,9 @@
     '.cms-input[aria-invalid="true"],.cms-select[aria-invalid="true"],.cms-textarea[aria-invalid="true"]{border-color:#DC2626}',
     '.cms-input[aria-invalid="true"]:focus,.cms-select[aria-invalid="true"]:focus,.cms-textarea[aria-invalid="true"]:focus{box-shadow:0 0 0 4px rgba(220,38,38,.18)}',
     '.cms-error{color:#B91C1C;font-size:13px;min-height:1em}',
+    // An empty error line takes no room when a field spacing is chosen
+    // (out of the flex flow, still in the page so aria-live announces).
+    '.cms-error:empty{position:var(--field-error-pos,static)}',
     '.cms-btn{font:inherit;font-size:15.5px;cursor:pointer;border:none;border-radius:calc(var(--brand-radius,12px) - 2px);padding:14px 24px;font-weight:700;letter-spacing:.01em;background:linear-gradient(135deg,var(--brand-primary,#0F172A),color-mix(in srgb,var(--brand-primary,#0F172A) 78%,#000));color:#fff;min-height:52px;transition:transform .12s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 1px 2px rgba(15,23,42,.08),0 4px 12px color-mix(in srgb,var(--brand-primary,#0F172A) 20%,transparent)}',
     '.cms-btn:hover{filter:brightness(1.06);box-shadow:0 2px 4px rgba(15,23,42,.10),0 6px 16px color-mix(in srgb,var(--brand-primary,#0F172A) 30%,transparent)}',
     '.cms-btn:active{transform:translateY(1px);filter:brightness(.96)}',
@@ -329,7 +354,7 @@
     '@keyframes cmsSuccessPulse{0%{transform:scale(.4)}60%{transform:scale(1.06)}100%{transform:scale(1)}}',
     '@keyframes cmsCheckDraw{to{stroke-dashoffset:0}}',
     '.cms-alert{background:#FEF2F2;color:#991B1B;padding:10px 12px;border-radius:8px;font-size:14px;margin-bottom:12px}',
-    '.cms-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}',
+    '.cms-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--field-row-gap,12px) 12px}',
     '@media(max-width:480px){.cms-row{grid-template-columns:1fr}}',
     '.cms-brandbar{display:flex;align-items:center;gap:10px;margin-bottom:14px}',
     '.cms-brandbar img{max-height:32px;max-width:140px;width:auto;height:auto}',
@@ -405,7 +430,13 @@
     '.cms-checkbox-single{align-self:flex-start}',
     '.cms-radio-group[aria-invalid="true"] .cms-radio-option,.cms-checkbox-group[aria-invalid="true"] .cms-checkbox-option,.cms-checkbox-single[aria-invalid="true"]{border-color:#DC2626}',
     '.cms-preview-note{font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:6px 10px;margin-bottom:12px}',
-    '.cms-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}'
+    '.cms-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}',
+    /* Toast: pop-up message for a blocked submit (e.g. no dish picked). */
+    '.cms-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;z-index:2147483000;width:max-content;max-width:min(92vw,420px);display:flex;align-items:flex-start;gap:10px;background:#991B1B;color:#fff;padding:12px 14px 12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.28);font-size:14px;line-height:1.4;transition:opacity .2s ease,transform .2s ease}',
+    '.cms-toast.cms-toast-show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}',
+    '.cms-toast-close{background:transparent;border:0;color:inherit;font-size:20px;line-height:1;cursor:pointer;padding:0 2px;opacity:.85}',
+    '.cms-toast-close:hover{opacity:1}',
+    '@media (prefers-reduced-motion:reduce){.cms-toast{transition:none}}'
   ].join('');
 
   // Helper: build an aria-live region appended to the shadow root once.
@@ -424,6 +455,34 @@
     var l = ensureLiveRegion(host);
     l.textContent = '';
     setTimeout(function () { l.textContent = msg; }, 30);
+  }
+
+  // Pop-up message near the bottom of the screen. One at a time (a new
+  // message replaces the old), closes itself after 6s or on the x.
+  function showToast(host, msg) {
+    if (!host || !msg) return;
+    var toast = host.querySelector('.cms-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.className = 'cms-toast';
+      toast.setAttribute('role', 'alert');
+      var text = document.createElement('span');
+      text.className = 'cms-toast-text';
+      var close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'cms-toast-close';
+      close.setAttribute('aria-label', 'Close message');
+      close.textContent = '×';
+      close.addEventListener('click', function () { toast.classList.remove('cms-toast-show'); });
+      toast.appendChild(text);
+      toast.appendChild(close);
+      host.appendChild(toast);
+    }
+    toast.querySelector('.cms-toast-text').textContent = msg;
+    if (toast.__cmsTimer) clearTimeout(toast.__cmsTimer);
+    // Next frame so the slide-in transition runs on first show.
+    setTimeout(function () { toast.classList.add('cms-toast-show'); }, 10);
+    toast.__cmsTimer = setTimeout(function () { toast.classList.remove('cms-toast-show'); }, 6000);
   }
 
   function injectStyles(host, extraCSS) {
@@ -577,6 +636,15 @@
       if (alertEl) alertEl.hidden = true;
       var v = validate();
       if (!v.ok) {
+        // Say what is missing right at the submit button too, e.g.
+        // "Please choose at least one dish from the menu", not only
+        // under a field the visitor may have scrolled past.
+        var firstMsg = v.firstBad && v.firstBad.errorEl ? v.firstBad.errorEl.textContent : '';
+        if (alertEl && firstMsg) {
+          alertEl.hidden = false;
+          alertEl.textContent = firstMsg;
+        }
+        showToast(host, firstMsg || 'Please fill in the highlighted fields.');
         showInvalid(v.firstBad);
         return;
       }
@@ -604,11 +672,13 @@
               }
             });
           }
+          var failMsg = (err && err.message) || 'Could not submit. Please try again.';
           if (alertEl) {
             alertEl.hidden = false;
-            alertEl.textContent = (err && err.message) || 'Could not submit. Please try again.';
+            alertEl.textContent = failMsg;
             announce(host, alertEl.textContent);
           }
+          showToast(host, failMsg);
           if (firstBad) showInvalid(firstBad);
           if (btn) { btn.disabled = false; btn.textContent = defaultLabel; }
         });
@@ -1212,6 +1282,7 @@
     injectStyles: injectStyles,
     buildHoneypot: buildHoneypot,
     announce: announce,
+    showToast: showToast,
     debounce: debounce
   };
 })(window);

@@ -20,6 +20,8 @@ import {
   buildRequestedCatalogueItems,
   EMBED_EQUIPMENT_FIELD_ID,
   EMBED_MENU_FIELD_ID,
+  MENU_REQUIRED_MESSAGE,
+  missingRequiredDish,
   EMBED_REQUEST_TYPE_FIELD_ID,
   EMBED_EQUIPMENT_PACKAGE_FIELD_ID,
   EMBED_WAITER_FIELD_ID,
@@ -417,6 +419,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Any template can carry menu / equipment picks (see addCatalogueFields).
   if (wantsDraftQuote) {
     const menuIds = selectedIds(payload[EMBED_MENU_FIELD_ID]);
+    // At least one dish: the form marks the menu required, and this stops a
+    // request that skips the form. Only when the business actually offers
+    // dishes on the form (same list as config.ts / addCatalogueFields).
+    {
+      const { data: menuRows } = await (supabase as any)
+        .from("menu_items")
+        .select("id, item_name, category")
+        .eq("company_id", company.id)
+        .is("deleted_at", null)
+        .or("is_available.is.null,is_available.eq.true")
+        .limit(100);
+      if (missingRequiredDish((menuRows || []) as any[], menuIds)) {
+        return res.status(400).json({
+          ok: false,
+          message: MENU_REQUIRED_MESSAGE,
+          errors: { [EMBED_MENU_FIELD_ID]: MENU_REQUIRED_MESSAGE },
+        });
+      }
+    }
     const pickedEquipmentIds = selectedIds(payload[EMBED_EQUIPMENT_FIELD_ID]);
     // A place-setting package expands into its pieces, one per guest.
     // Resolved from the live catalogue, never from client-sent ids.

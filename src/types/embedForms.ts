@@ -102,6 +102,9 @@ export interface EmbedField {
 
 export type EmbedButtonRadius = 'none' | 'small' | 'medium' | 'full';
 export type EmbedLayout = 'single-column' | 'two-column' | 'card';
+/** Visible space between questions on the public form ("normal" = 36px,
+ *  today's look). A number is a custom gap in pixels (0-80). */
+export type EmbedFieldSpacing = 'compact' | 'normal' | 'roomy' | 'extra' | number;
 
 export interface EmbedTheme {
   primary_color?: string;
@@ -109,6 +112,7 @@ export interface EmbedTheme {
   font_family?: string;
   button_radius?: EmbedButtonRadius;
   layout?: EmbedLayout;
+  field_spacing?: EmbedFieldSpacing;
 }
 
 export interface EmbedPricingTier {

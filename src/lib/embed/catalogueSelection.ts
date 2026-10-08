@@ -7,6 +7,8 @@ export const EMBED_EQUIPMENT_PACKAGE_FIELD_ID = "equipment_package";
 export const EMBED_WAITER_FIELD_ID = "waiter_service";
 export const EMBED_CHEF_FIELD_ID = "onsite_chef";
 export const EMBED_KIDS_FIELD_ID = "children_count";
+/** Shown (form + server) when a quote request has no dish picked. */
+export const MENU_REQUIRED_MESSAGE = "Please choose at least one dish from the menu";
 
 /** The tenant's children's meal ("Kiddies Meals", "Kids meal"...). */
 export const KIDS_MEAL_PATTERN = /\b(kid|kids|kiddie|kiddies|child|children)/i;
@@ -129,8 +131,10 @@ function menuField(
     type: "checkboxes",
     label: "Menu",
     helpText:
-      "Pick as many dishes as you like from each course. The team confirms portions, availability and pricing in your quote.",
-    required: false,
+      "Choose at least one dish - as many as you like from each course. The team confirms portions, availability and pricing in your quote.",
+    // At least one dish is required so every quote request says what is
+    // being ordered (submit.ts checks it again server-side).
+    required: true,
     visible: true,
     order,
     ...(conditional ? { conditional } : {}),
@@ -172,6 +176,33 @@ function equipmentField(
  * templates. The quick card intentionally stays short and remains a lead-only
  * form.
  */
+/**
+ * The dishes the public form offers in its menu: staffing ("Service" /
+ * "Staff") is asked with the service tick boxes and the children's meal
+ * with the kids count, so both stay out. submit.ts uses the same list to
+ * require at least one dish.
+ */
+export function publicMenuDishes<T extends { category?: string | null; item_name?: string | null }>(menu: T[]): T[] {
+  return menu.filter((item) =>
+    !/^(service|services|staff|staffing)$/i.test(String(item.category || "").trim())
+    && !KIDS_MEAL_PATTERN.test(String(item.item_name || "")));
+}
+
+/**
+ * True when a quote request must be refused for having no dish: the
+ * business offers dishes on the form and none of the picked ids is one
+ * of them.
+ */
+export function missingRequiredDish(
+  menu: Array<{ id: string; category?: string | null; item_name?: string | null }>,
+  pickedIds: string[],
+): boolean {
+  const dishes = publicMenuDishes(menu);
+  if (dishes.length === 0) return false;
+  const ids = new Set(dishes.map((d) => d.id));
+  return !pickedIds.some((id) => ids.has(id));
+}
+
 export function addCatalogueFields(
   fields: EmbedField[],
   templateId: string,
@@ -193,6 +224,8 @@ export function addCatalogueFields(
       const next: EmbedField = cond?.showIfFieldId === EMBED_REQUEST_TYPE_FIELD_ID
         ? { ...field, conditional: undefined }
         : { ...field };
+      // A saved menu question is required too: at least one dish.
+      if (field.id === EMBED_MENU_FIELD_ID) next.required = true;
       const isVenue =
         field.id === "venue" || field.id === "venue_address" || field.mapsTo === "venue";
       if (isVenue) {
@@ -206,9 +239,7 @@ export function addCatalogueFields(
   const extras: EmbedField[] = [];
   // Staffing (waiters, servers) is asked with the service tick boxes, so
   // "Service"/"Staff" categories stay out of the menu courses.
-  const dishes = menu.filter((item) =>
-    !/^(service|services|staff|staffing)$/i.test(String(item.category || "").trim())
-    && !KIDS_MEAL_PATTERN.test(String(item.item_name || "")));
+  const dishes = publicMenuDishes(menu);
   if (dishes.length > 0 && !plain.some((f) => f.id === EMBED_MENU_FIELD_ID)) {
     extras.push(menuField(dishes, nextOrder++, undefined));
   }

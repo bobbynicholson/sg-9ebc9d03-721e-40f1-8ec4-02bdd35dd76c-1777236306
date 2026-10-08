@@ -9,7 +9,7 @@
     '.cms-sub{margin:0 0 14px;font-size:14px;color:#6B7280}',
     '.cms-loadshed{display:flex;align-items:center;gap:8px;background:#FFFBEB;border:1px solid #FDE68A;color:#78350F;padding:8px 10px;border-radius:8px;font-size:13px;margin-bottom:14px}',
     '.cms-loadshed-icon{font-size:18px}',
-    '.cms-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}',
+    '.cms-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--field-row-gap,10px) 10px}',
     '@media(max-width:420px){.cms-row{grid-template-columns:1fr}}',
     '.cms-submit-row{display:flex;align-items:center;gap:10px;margin-top:10px}',
     '.cms-btn{flex:1}',

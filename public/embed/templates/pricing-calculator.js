@@ -6,7 +6,7 @@
 
   var CSS = [
     '.cms-form{padding:32px 32px 26px;max-width:var(--cms-form-max,760px);margin:0 auto;background:var(--brand-bg,#fff)}',
-    '.cms-calc{padding:20px;border-radius:16px;background:linear-gradient(160deg,color-mix(in srgb,var(--brand-primary,#0F172A) 7%,#fff),#F8FAFC);border:1px solid color-mix(in srgb,var(--brand-primary,#0F172A) 14%,#E2E8F0);margin-bottom:22px}',
+    '.cms-calc{padding:20px;border-radius:16px;background:linear-gradient(160deg,color-mix(in srgb,var(--brand-primary,#0F172A) 7%,#fff),#F8FAFC);border:1px solid color-mix(in srgb,var(--brand-primary,#0F172A) 14%,#E2E8F0);margin-bottom:var(--field-gap,22px)}',
     '.cms-btn[type=submit]{width:100%;margin-top:6px}',
     '@media(max-width:520px){.cms-form{padding:26px 18px 20px}.cms-calc{padding:16px}}',
     '.cms-slider-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}',

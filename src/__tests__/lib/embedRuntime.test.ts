@@ -446,3 +446,66 @@ describe("menu course picker", () => {
     expect(helpers.readFieldValue(field, picker)).toEqual([]);
   });
 });
+
+describe("menu: at least one dish on a quote request", () => {
+  it("the form says exactly what is missing", () => {
+    const { helpers } = loadRuntime();
+    const menu = { id: "menu_item_ids", type: "checkboxes", label: "Menu", required: true };
+    expect(helpers.validateField(menu, [])).toBe("Please choose at least one dish from the menu");
+    expect(helpers.validateField(menu, ["dish-1"])).toBeNull();
+  });
+});
+
+describe("toast on a blocked submit", () => {
+  it("pops up the message and replaces, not stacks, the next one", () => {
+    jest.useFakeTimers();
+    const { helpers } = loadRuntime();
+    const host = document.createElement("div");
+    helpers.showToast(host, "Please choose at least one dish from the menu");
+    jest.advanceTimersByTime(20);
+    const toast = host.querySelector(".cms-toast") as HTMLElement;
+    expect(toast.getAttribute("role")).toBe("alert");
+    expect(toast.textContent).toContain("Please choose at least one dish from the menu");
+    expect(toast.classList.contains("cms-toast-show")).toBe(true);
+    helpers.showToast(host, "Email is required");
+    expect(host.querySelectorAll(".cms-toast")).toHaveLength(1);
+    expect(toast.textContent).toContain("Email is required");
+    jest.advanceTimersByTime(6100);
+    expect(toast.classList.contains("cms-toast-show")).toBe(false);
+    jest.useRealTimers();
+  });
+});
+
+describe("space between fields (form builder setting)", () => {
+  it("sets the gap from the saved choice and leaves the 16px default when unset", () => {
+    const { helpers } = loadRuntime();
+    const host = document.createElement("div");
+    helpers.applyTheme(host, {}, { field_spacing: "roomy" });
+    expect(host.style.getPropertyValue("--field-gap")).toBe("48px");
+    helpers.applyTheme(host, {}, { field_spacing: "compact" });
+    expect(host.style.getPropertyValue("--field-gap")).toBe("16px");
+    // A chosen spacing folds the empty error line and stacked-row gaps away.
+    expect(host.style.getPropertyValue("--field-error-pos")).toBe("absolute");
+    expect(host.style.getPropertyValue("--field-row-gap")).toBe("0px");
+    const fresh = document.createElement("div");
+    helpers.applyTheme(fresh, {}, {});
+    expect(fresh.style.getPropertyValue("--field-gap")).toBe("");
+    expect(fresh.style.getPropertyValue("--field-error-pos")).toBe("");
+  });
+
+  it("uses a custom pixel gap (0 to 80) and ignores anything outside that range", () => {
+    const { helpers } = loadRuntime();
+    const host = document.createElement("div");
+    helpers.applyTheme(host, {}, { field_spacing: 20 });
+    expect(host.style.getPropertyValue("--field-gap")).toBe("20px");
+    helpers.applyTheme(host, {}, { field_spacing: 0 });
+    expect(host.style.getPropertyValue("--field-gap")).toBe("0px");
+    const tooBig = document.createElement("div");
+    helpers.applyTheme(tooBig, {}, { field_spacing: 81 });
+    expect(tooBig.style.getPropertyValue("--field-gap")).toBe("");
+    // Going back to no setting clears it on a re-render of the same host.
+    helpers.applyTheme(host, {}, {});
+    expect(host.style.getPropertyValue("--field-gap")).toBe("");
+    expect(host.style.getPropertyValue("--field-row-gap")).toBe("");
+  });
+});

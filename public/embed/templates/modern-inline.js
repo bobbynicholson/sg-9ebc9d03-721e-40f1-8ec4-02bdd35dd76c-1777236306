@@ -7,7 +7,7 @@
     '.cms-form{padding:24px;border:1px solid #E5E7EB;background:var(--brand-bg,#fff);max-width:880px;margin:0 auto}',
     '.cms-title{margin:0 0 4px;font-size:22px;font-weight:600;letter-spacing:-.01em}',
     '.cms-sub{margin:0 0 18px;font-size:14px;color:#6B7280}',
-    '.cms-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}',
+    '.cms-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--field-row-gap,14px) 14px}',
     '@media(max-width:600px){.cms-grid{grid-template-columns:1fr}}',
     '.cms-float{position:relative}',
     '.cms-float .cms-input,.cms-float .cms-select,.cms-float .cms-textarea{padding-top:18px;padding-bottom:8px}',

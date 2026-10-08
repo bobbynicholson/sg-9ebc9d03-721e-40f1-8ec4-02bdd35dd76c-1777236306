@@ -58,7 +58,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type {
   EmbedField, EmbedFieldType, EmbedFieldMapping, EmbedFormConfig,
-  EmbedPricingTier, EmbedButtonRadius, EmbedLayout,
+  EmbedPricingTier, EmbedButtonRadius, EmbedLayout, EmbedFieldSpacing,
 } from "@/types/embedForms";
 import { SnippetDialog } from "@/components/admin/embed/SnippetDialog";
 import { AnalyticsBlock } from "@/components/admin/embed/AnalyticsBlock";
@@ -831,6 +831,13 @@ function EmbedFormCustomiser() {
                         <SelectItem value="full">Full</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Space between fields</Label>
+                    <FieldSpacingControl
+                      value={form.theme?.field_spacing}
+                      onChange={(v) => { const t = { ...form.theme, field_spacing: v }; patchLocal({ theme: t }); saveForm({ theme: t }, { silent: true }); }}
+                    />
                   </div>
                   <div>
                     <Label className="text-xs">Layout</Label>
@@ -1704,5 +1711,63 @@ export default function ProtectedEmbedFormCustomiser() {
     ]}>
       <EmbedFormCustomiser />
     </ProtectedRoute>
+  );
+}
+
+// "Space between fields": a preset, or "Custom" with an exact gap in pixels.
+// Pixels are the space you see between one question and the next
+// (public/embed/helpers.js applyTheme uses the same numbers).
+const FIELD_SPACING_PX: Record<string, number> = { compact: 16, normal: 36, roomy: 48, extra: 64 };
+const FIELD_SPACING_MAX = 80;
+
+function FieldSpacingControl({ value, onChange }: { value: EmbedFieldSpacing | undefined; onChange: (v: EmbedFieldSpacing) => void }) {
+  const isCustom = typeof value === "number";
+  const currentPx = isCustom ? value : FIELD_SPACING_PX[value || "normal"] ?? 36;
+  const [draft, setDraft] = useState(String(currentPx));
+  useEffect(() => { setDraft(String(currentPx)); }, [currentPx]);
+
+  const commit = () => {
+    const n = Math.round(Number(draft));
+    if (draft.trim() === "" || !Number.isFinite(n)) { setDraft(String(currentPx)); return; }
+    const clamped = Math.min(FIELD_SPACING_MAX, Math.max(0, n));
+    setDraft(String(clamped));
+    if (clamped !== value) onChange(clamped);
+  };
+
+  return (
+    <>
+      <Select
+        value={isCustom ? "custom" : value || "normal"}
+        // Switching to Custom starts from the gap the form has now.
+        onValueChange={(v) => onChange(v === "custom" ? currentPx : (v as EmbedFieldSpacing))}
+      >
+        <SelectTrigger className="h-8 text-xs mt-1" aria-label="Space between fields"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="compact">Compact - fits more on screen</SelectItem>
+          <SelectItem value="normal">Normal</SelectItem>
+          <SelectItem value="roomy">Roomy</SelectItem>
+          <SelectItem value="extra">Extra roomy - easiest to read</SelectItem>
+          <SelectItem value="custom">Custom - set the exact space</SelectItem>
+        </SelectContent>
+      </Select>
+      {isCustom && (
+        <div className="mt-1.5 flex items-center gap-2">
+          <Input
+            type="number"
+            min={0}
+            max={FIELD_SPACING_MAX}
+            step={1}
+            inputMode="numeric"
+            aria-label="Space between fields in pixels"
+            className="h-8 w-20 text-xs"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } }}
+          />
+          <span className="text-xs text-slate-500">pixels (0 to {FIELD_SPACING_MAX})</span>
+        </div>
+      )}
+    </>
   );
 }
