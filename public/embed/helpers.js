@@ -468,20 +468,55 @@
   // the form, so the website's layout can't clip it (overflow / transform
   // on the form's column) and the website's fonts can't leak in.
   // opts.actionLabel + opts.onAction add a button such as "Show me".
+  // Every colour / font / corner below is copied from the form on the page
+  // (see formLook), so the pop-up matches whichever form style and brand
+  // the business picked. The values after the commas are only fallbacks.
   var TOAST_CSS = [
     ':host{all:initial}',
-    '.t{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));z-index:2147483000;box-sizing:border-box;width:min(calc(100vw - 32px),460px);display:flex;align-items:center;gap:12px;padding:12px 10px 12px 12px;background:#fff;color:#1E293B;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 24px 48px -12px rgba(15,23,42,.30),0 4px 12px rgba(15,23,42,.08);font:500 14.5px/1.45 var(--toast-font,"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif);opacity:0;transform:translate(-50%,16px);pointer-events:none;transition:opacity .2s ease,transform .2s ease}',
+    '.t{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));z-index:2147483000;box-sizing:border-box;width:min(calc(100vw - 32px),460px);display:flex;align-items:center;gap:12px;padding:12px 10px 12px 12px;background:var(--toast-bg,#fff);color:var(--toast-text,#1E293B);border:1px solid color-mix(in srgb,var(--toast-text,#1E293B) 12%,transparent);border-radius:var(--toast-radius,16px);box-shadow:0 24px 48px -12px rgba(15,23,42,.30),0 4px 12px rgba(15,23,42,.08);font-family:var(--toast-font,"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif);font-size:14.5px;font-weight:500;line-height:1.45;opacity:0;transform:translate(-50%,16px);pointer-events:none;transition:opacity .2s ease,transform .2s ease}',
     '.t.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}',
-    '.i{flex:none;width:34px;height:34px;border-radius:12px;background:#FEF3C7;color:#B45309;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px}',
+    '.i{flex:none;width:34px;height:34px;border-radius:min(12px,var(--toast-radius,16px));background:color-mix(in srgb,var(--toast-accent,#0F172A) 12%,var(--toast-bg,#fff));color:var(--toast-accent,#0F172A);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px}',
     '.m{flex:1;min-width:0}',
-    '.a{flex:none;border:0;border-radius:10px;background:var(--toast-accent,#0F172A);color:#fff;font:inherit;font-weight:700;font-size:13.5px;padding:9px 16px;cursor:pointer;transition:filter .15s}',
-    '.a:hover{filter:brightness(.9)}',
+    '.a{flex:none;border:0;border-radius:var(--toast-btn-radius,10px);background-color:var(--toast-accent,#0F172A);background-image:var(--toast-accent-image,none);color:var(--toast-accent-text,#fff);font:inherit;font-weight:700;font-size:13.5px;padding:9px 16px;cursor:pointer;transition:filter .15s}',
+    '.a:hover{filter:brightness(.92)}',
     '.a:focus-visible,.x:focus-visible{outline:2px solid var(--toast-accent,#0F172A);outline-offset:2px}',
     '.a[hidden]{display:none}',
-    '.x{flex:none;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#64748B;font:inherit;font-size:20px;line-height:1;cursor:pointer}',
-    '.x:hover{background:#F1F5F9;color:#0F172A}',
+    '.x{flex:none;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:inherit;opacity:.6;font:inherit;font-size:20px;line-height:1;cursor:pointer}',
+    '.x:hover{opacity:1;background:color-mix(in srgb,var(--toast-text,#1E293B) 8%,transparent)}',
     '@media (prefers-reduced-motion:reduce){.t{transition:none}}'
   ].join('');
+
+  // The look of the form that raised the pop-up: its font, text and
+  // background colours, corner rounding and its own submit button.
+  function formLook(host) {
+    var look = {};
+    try {
+      var root = host && host.querySelector ? host : null;
+      var styleHost = host && (host.host || host);
+      if (!root || !styleHost || styleHost.nodeType !== 1) return look;
+      var form = root.querySelector('.cms-form') || root.querySelector('form');
+      var btn = root.querySelector('.cms-form button[type="submit"]') || root.querySelector('.cms-btn');
+      var vars = getComputedStyle(styleHost);
+      look.accent = vars.getPropertyValue('--brand-primary').trim();
+      if (form) {
+        var fs = getComputedStyle(form);
+        look.font = fs.fontFamily;
+        look.text = fs.color;
+        if (fs.backgroundColor && fs.backgroundColor !== 'rgba(0, 0, 0, 0)' && fs.backgroundColor !== 'transparent') look.bg = fs.backgroundColor;
+        var r = parseFloat(fs.borderTopLeftRadius || fs.borderRadius);
+        if (!isNaN(r)) look.radius = Math.min(r, 20) + 'px';
+      }
+      if (btn) {
+        var bs = getComputedStyle(btn);
+        if (bs.backgroundColor && bs.backgroundColor !== 'rgba(0, 0, 0, 0)' && bs.backgroundColor !== 'transparent') look.accent = bs.backgroundColor;
+        if (bs.backgroundImage && bs.backgroundImage !== 'none') look.accentImage = bs.backgroundImage;
+        look.accentText = bs.color;
+        var br = parseFloat(bs.borderTopLeftRadius || bs.borderRadius);
+        if (!isNaN(br)) look.btnRadius = Math.min(br, 999) + 'px';
+      }
+    } catch (e) { /* ignore - fallbacks apply */ }
+    return look;
+  }
 
   function toastCard() {
     var doc = document;
@@ -529,22 +564,18 @@
     if (!msg) return;
     opts = opts || {};
     var t = toastCard();
-    // Same font and button colour as the form, never the website's.
-    var font = '';
-    try {
-      var styleHost = host && (host.host || host);
-      if (styleHost && styleHost.nodeType === 1) font = getComputedStyle(styleHost).getPropertyValue('--brand-font').trim();
-    } catch (e) { /* ignore */ }
-    var accent = '';
-    try {
-      var accentHost = host && (host.host || host);
-      if (accentHost && accentHost.nodeType === 1) accent = getComputedStyle(accentHost).getPropertyValue('--brand-primary').trim();
-    } catch (e) { /* ignore */ }
-    if (font) t.holder.style.setProperty('--toast-font', font);
-    else t.holder.style.removeProperty('--toast-font');
-    // "Show me" in the form's own button colour.
-    if (accent) t.holder.style.setProperty('--toast-accent', accent);
-    else t.holder.style.removeProperty('--toast-accent');
+    // Look like the form it belongs to, never like the website around it.
+    var look = formLook(host);
+    var map = {
+      '--toast-font': look.font, '--toast-text': look.text, '--toast-bg': look.bg,
+      '--toast-radius': look.radius, '--toast-accent': look.accent,
+      '--toast-accent-image': look.accentImage, '--toast-accent-text': look.accentText,
+      '--toast-btn-radius': look.btnRadius
+    };
+    Object.keys(map).forEach(function (k) {
+      if (map[k]) t.holder.style.setProperty(k, map[k]);
+      else t.holder.style.removeProperty(k);
+    });
     t.text.textContent = msg;
     t.onAction = opts.onAction || null;
     t.action.textContent = opts.actionLabel || '';

@@ -496,6 +496,26 @@ describe("toast on a blocked submit", () => {
     expect((card().querySelector(".a") as HTMLButtonElement).hidden).toBe(true);
     jest.useRealTimers();
   });
+
+  it("takes the look of the form that raised it (font, colours, button)", () => {
+    jest.useFakeTimers();
+    const { helpers } = loadRuntime();
+    const el = document.createElement("div");
+    document.body.appendChild(el);
+    const root = el.attachShadow({ mode: "open" });
+    root.innerHTML =
+      '<form class="cms-form" style="font-family: Georgia; color: rgb(10, 20, 30); background-color: rgb(250, 250, 240); border-radius: 18px">' +
+      '<button type="submit" style="background-color: rgb(124, 58, 237); color: rgb(255, 255, 255); border-radius: 999px">Send</button></form>';
+    helpers.showToast(root, "Name is required");
+    const holder = document.querySelector("[data-cms-toast]") as HTMLElement;
+    expect(holder.style.getPropertyValue("--toast-font")).toBe("Georgia");
+    expect(holder.style.getPropertyValue("--toast-text")).toBe("rgb(10, 20, 30)");
+    expect(holder.style.getPropertyValue("--toast-bg")).toBe("rgb(250, 250, 240)");
+    expect(holder.style.getPropertyValue("--toast-radius")).toBe("18px");
+    expect(holder.style.getPropertyValue("--toast-accent")).toBe("rgb(124, 58, 237)");
+    expect(holder.style.getPropertyValue("--toast-btn-radius")).toBe("999px");
+    jest.useRealTimers();
+  });
 });
 
 describe("space between fields (form builder setting)", () => {
