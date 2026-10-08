@@ -667,6 +667,20 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     variables: QUOTE_VARS,
   },
   {
+    key: "email_fully_booked",
+    channel: "email",
+    category: "client",
+    group: "Enquiry",
+    label: "Fully booked — polite decline",
+    description: "The date asked for is fully booked. Sent from the Email button on a lead, quote or order instead of quoting.",
+    defaultSubject: "Your enquiry for {{event_date}} - {{tenant_name}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Thank you so much for thinking of us for {{event_name}}. Unfortunately we are fully booked on {{event_date}} and can't take on another event that day.\n\n` +
+      `If your date is flexible, let me know and I'll gladly check another day for you. We'd love to cater for you another time.\n\nBest,\n{{from_name}}`,
+    variables: COMMON_CLIENT_VARS,
+  },
+  {
     key: "email_lead_winback",
     channel: "email",
     category: "client",
@@ -1749,6 +1763,7 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   email_lead_follow_up:  { delivery: "manual", trigger: "Click Follow up on a quiet lead in /admin/leads.",          settingsLink: "/admin/leads" },
   email_lead_chase_quote:{ delivery: "manual", trigger: "Click Chase quote on a quoted lead in /admin/leads.",      settingsLink: "/admin/leads" },
   email_lead_winback:    { delivery: "manual", trigger: "Click Win-back on a lost lead in /admin/leads.",            settingsLink: "/admin/leads" },
+  email_fully_booked:    { delivery: "manual", trigger: "Click Email on a lead, quote or order and pick \"We're fully booked\".", settingsLink: "/admin/leads" },
   email_lead_reopen:     { delivery: "manual", trigger: "Click Reopen on a lost lead in /admin/leads.",              settingsLink: "/admin/leads" },
 
   // --- MANUAL: quote outreach (operator clicks Send / Follow up in /admin/quotes) ---

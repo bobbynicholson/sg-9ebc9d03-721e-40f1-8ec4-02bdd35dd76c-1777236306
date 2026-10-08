@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer, type ContextRow } from "@/components/messaging/MessageComposer";
+import { ClientEmailDrawer } from "@/components/messaging/ClientEmailDrawer";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 import {
   AlertDialog,
@@ -389,6 +390,9 @@ function AdminQuotesInner() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [composeQuote, setComposeQuote] = useState<Quote | null>(null);
+  // "Email" button: email the client on any quote, drafts included (e.g.
+  // "We're fully booked" instead of sending the quote).
+  const [emailQuote, setEmailQuote] = useState<Quote | null>(null);
   // Phase 18 #1: record opened quote in the recently-viewed list
   // so the dashboard widget can offer a one-click jump back. Fires
   // when the compose drawer opens (which covers every Send / Edit
@@ -2575,7 +2579,7 @@ function AdminQuotesInner() {
                             <RowPrimaryAction
                               tone={intel.tone}
                               icon={<Mail className="w-4 h-4" />}
-                              label="Compose"
+                              label="Follow up on quote"
                               tooltip={composeHint}
                               disabled={!canCompose}
                               onClick={() => {
@@ -2584,6 +2588,19 @@ function AdminQuotesInner() {
                               }}
                             />
                           )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="w-full justify-center"
+                            disabled={!quote.client_email}
+                            title={quote.client_email
+                              ? "Write an email to the client - for example, to tell them we're fully booked"
+                              : "Add the client's email address to this quote to email them"}
+                            onClick={() => setEmailQuote(quote)}
+                          >
+                            <Mail className="w-4 h-4 mr-1.5" /> Email client
+                          </Button>
                           <WhatsAppButton
                             kind="client"
                             phone={(quote as any).client_phone}
@@ -3112,6 +3129,47 @@ function AdminQuotesInner() {
             onClose={() => setComposeQuote(null)}
           />
         )}
+      </ComposeDrawerHost>
+
+      {/* Email button drawer: "We're fully booked" / blank, any status. */}
+      <ComposeDrawerHost open={!!emailQuote} onClose={() => setEmailQuote(null)}>
+        {emailQuote && (() => {
+          const q: any = emailQuote;
+          const eventDateLabel = q.event_date
+            ? new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })
+            : "your date";
+          return (
+            <ClientEmailDrawer
+              title={`Email ${q.client_name || "the client"}`}
+              contextLabel="This quote"
+              contextRows={[
+                { label: "Quote", value: q.quote_number || "-" },
+                { label: "Email", value: q.client_email || "(none)" },
+                { label: "Status", value: q.status || "-" },
+                ...(q.event_date ? [{ label: "Event date", value: eventDateLabel }] : []),
+                ...(q.guest_count != null ? [{ label: "Guests", value: String(q.guest_count) }] : []),
+              ]}
+              recipient={{
+                name: q.client_name || "there",
+                email: q.client_email || null,
+                phone: q.client_phone || null,
+                clientId: q.client_id || null,
+              }}
+              companyId={profile?.company_id ?? null}
+              fromName={profile?.full_name || companyName || ""}
+              vars={{
+                first_name: String(q.client_name || "there").split(" ")[0],
+                client_name: q.client_name || "",
+                tenant_name: companyName || "",
+                event_name: q.event_name || q.quote_name || "your event",
+                event_date: eventDateLabel,
+                guest_count: q.guest_count ?? "",
+              }}
+              quoteId={q.id}
+              onClose={() => setEmailQuote(null)}
+            />
+          );
+        })()}
       </ComposeDrawerHost>
 
       {/* Pre-flight: shows the operator exactly what's about to fire

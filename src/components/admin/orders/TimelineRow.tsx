@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Calendar, Users, MapPin, ShoppingCart, Copy, Eye, ChevronRight,
-  AlertCircle, Pause, FileText, MoreVertical,
+  AlertCircle, Pause, FileText, MoreVertical, Mail,
 } from "lucide-react";
 import type { AppOrder } from "@/types/app";
 import type { OrderTimeline } from "@/services/order/orderTimeline";
@@ -42,6 +42,9 @@ interface Props {
   setSelectedOrder: (o: AppOrder | null) => void;
   setIsModalOpen: (open: boolean) => void;
   withSlug: (href: string) => string;
+  /** Optional: show an "Email" button that emails the client (e.g. "We're
+   *  fully booked"). Omitted -> no button, row unchanged. */
+  onEmail?: (o: AppOrder) => void;
 }
 
 /**
@@ -56,7 +59,7 @@ interface Props {
 export function TimelineRow({
   order, selectedIds, timelinesById, readinessById, allShiftsByOrder,
   staffProfilesById, currencySymbol, companyId, loadOrders, toggleSelected,
-  setSelectedOrder, setIsModalOpen, withSlug,
+  setSelectedOrder, setIsModalOpen, withSlug, onEmail,
 }: Props) {
   const { toast } = useToast();
   const router = useRouter();
@@ -237,6 +240,25 @@ export function TimelineRow({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2 pt-0.5">
+              {onEmail && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!(order as any).client_email}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEmail(order);
+                  }}
+                  className="gap-1.5"
+                  title={(order as any).client_email
+                    ? "Write an email to the client about this order"
+                    : "Add the client's email address to this order to email them"}
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  Email client
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"

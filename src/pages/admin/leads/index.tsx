@@ -27,6 +27,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { resolveTemplateSync } from "@/services/messageTemplateService";
 import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
 import { MessageComposer } from "@/components/messaging/MessageComposer";
+import { ClientEmailDrawer } from "@/components/messaging/ClientEmailDrawer";
 import { useToast } from "@/hooks/use-toast";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { RowPrimaryAction } from "@/components/admin/RowPrimaryAction";
@@ -541,6 +542,10 @@ function AdminLeadsInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query.leadId, loading]);
   const [composeKind, setComposeKind] = useState<LeadActionKind>("reply_email");
+  // "Email" button: always available next to the suggested action, so a
+  // lead can be emailed (e.g. "We're fully booked") without finishing the
+  // quote first.
+  const [emailLead, setEmailLead] = useState<any | null>(null);
 
   // Convert-to-order confirmation modal. Replaces the legacy
   // "/admin/quotes/new?fromQuoteId=..." redirect (which only cloned
@@ -1608,6 +1613,17 @@ function AdminLeadsInner() {
                             <Button
                               variant="outline"
                               size="sm"
+                              disabled={!(lead.client_email || lead.email)}
+                              title={(lead.client_email || lead.email)
+                                ? "Write an email to this lead - for example, to tell them we're fully booked"
+                                : "Add an email address to this lead to email them"}
+                              onClick={() => setEmailLead(lead)}
+                            >
+                              <Mail className="w-3.5 h-3.5 mr-1" /> Email lead
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => setExpandedLeadId(expandedLeadId === lead.id ? null : lead.id)}
                             >
                               {expandedLeadId === lead.id ? "Hide" : "Details"}
@@ -1921,6 +1937,61 @@ function AdminLeadsInner() {
             onClose={() => setComposeLead(null)}
           />
         )}
+      </ComposeDrawerHost>
+
+      {/* Email button drawer: template picker (the lead's usual reply,
+          "We're fully booked", blank). */}
+      <ComposeDrawerHost open={!!emailLead} onClose={() => setEmailLead(null)}>
+        {emailLead && (() => {
+          const first = String(emailLead.client_name || emailLead.contact_name || "there").split(" ")[0];
+          const eventDateLabel = emailLead.event_date
+            ? new Date(emailLead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })
+            : "your date";
+          const reply = templateForLeadAction("reply_email", emailLead, fromName, profile?.company_id ?? null);
+          return (
+            <ClientEmailDrawer
+              title={`Email ${emailLead.client_name || emailLead.contact_name || "this lead"}`}
+              contextLabel="This lead"
+              contextRows={[
+                { label: "Email", value: emailLead.client_email || emailLead.email || "(none)" },
+                { label: "Phone", value: emailLead.client_phone || emailLead.phone || "-" },
+                { label: "Status", value: emailLead.status || "new" },
+                ...(emailLead.event_type ? [{ label: "Event type", value: emailLead.event_type as string }] : []),
+                ...(emailLead.event_date ? [{ label: "Event date", value: eventDateLabel }] : []),
+                ...(emailLead.guest_count != null ? [{ label: "Guests", value: String(emailLead.guest_count) }] : []),
+              ]}
+              recipient={{
+                name: emailLead.client_name || emailLead.contact_name || "there",
+                email: emailLead.client_email || emailLead.email || null,
+                phone: emailLead.client_phone || emailLead.phone || null,
+                clientId: emailLead.converted_to_client_id || null,
+              }}
+              companyId={profile?.company_id ?? null}
+              fromName={fromName}
+              vars={{
+                first_name: first,
+                client_name: emailLead.client_name || emailLead.contact_name || "",
+                event_name: emailLead.event_type || "your event",
+                event_date: eventDateLabel,
+                guest_count: emailLead.guest_count ?? "",
+              }}
+              extraOptions={[{ id: "reply", label: "Reply to their enquiry", subject: reply.subject, body: reply.body }]}
+              onSent={async () => {
+                // Same contact stamp as the suggested-action drawer.
+                try {
+                  const patch: Record<string, any> = { last_contacted_at: new Date().toISOString() };
+                  const wasNew = (emailLead.status || "new") === "new";
+                  if (wasNew) patch.status = "contacted";
+                  await leadService.updateLead(emailLead.id, patch as any);
+                  setLeads((prev) => prev.map((l) => (l.id === emailLead.id
+                    ? { ...l, last_contacted_at: patch.last_contacted_at, status: wasNew ? "contacted" : l.status }
+                    : l)));
+                } catch { /* email already sent; stamp is best-effort */ }
+              }}
+              onClose={() => setEmailLead(null)}
+            />
+          );
+        })()}
       </ComposeDrawerHost>
 
       <AlertDialog

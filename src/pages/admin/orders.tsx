@@ -122,6 +122,8 @@ import { OrdersListEmptyState } from "@/components/admin/orders/OrdersListEmptyS
 import { OrderHistoryTimeline } from "@/components/admin/orders/OrderHistoryTimeline";
 import { OrderDetailsModal } from "@/components/admin/orders/OrderDetailsModal";
 import { TimelineRow } from "@/components/admin/orders/TimelineRow";
+import { ComposeDrawerHost } from "@/components/messaging/ComposeDrawerHost";
+import { ClientEmailDrawer } from "@/components/messaging/ClientEmailDrawer";
 import { KanbanColumn } from "@/components/admin/orders/KanbanBoard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
@@ -163,6 +165,8 @@ import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 
 function OrderProcessDashboard() {
   const { user } = useAuth();
+  // "Email" button on each order row (shared client email drawer).
+  const [emailOrder, setEmailOrder] = useState<any | null>(null);
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const router = useRouter();
@@ -2448,6 +2452,7 @@ function OrderProcessDashboard() {
                             setSelectedOrder={setSelectedOrder}
                             setIsModalOpen={setIsModalOpen}
                             withSlug={withSlug}
+                            onEmail={(o) => setEmailOrder(o)}
                           />
                         ))}
                       </>
@@ -2461,6 +2466,47 @@ function OrderProcessDashboard() {
             {promptDialog}
 
             {/* Order Details Modal */}
+            {/* Email button drawer: "We're fully booked" / blank. */}
+            <ComposeDrawerHost open={!!emailOrder} onClose={() => setEmailOrder(null)}>
+              {emailOrder && (() => {
+                const o: any = emailOrder;
+                const eventDateLabel = o.event_date
+                  ? new Date(o.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })
+                  : "your date";
+                const senderName = (user as any)?.full_name || "";
+                return (
+                  <ClientEmailDrawer
+                    title={`Email ${o.client_name || "the client"}`}
+                    contextLabel="This order"
+                    contextRows={[
+                      { label: "Order", value: o.order_number || "-" },
+                      { label: "Email", value: o.client_email || "(none)" },
+                      { label: "Status", value: o.status || "-" },
+                      ...(o.event_date ? [{ label: "Event date", value: eventDateLabel }] : []),
+                      ...(o.guest_count != null ? [{ label: "Guests", value: String(o.guest_count) }] : []),
+                    ]}
+                    recipient={{
+                      name: o.client_name || "there",
+                      email: o.client_email || null,
+                      phone: o.client_phone || null,
+                      clientId: o.client_id || null,
+                    }}
+                    companyId={user?.company_id || null}
+                    fromName={senderName}
+                    vars={{
+                      first_name: String(o.client_name || "there").split(" ")[0],
+                      client_name: o.client_name || "",
+                      event_name: o.event_name || "your event",
+                      event_date: eventDateLabel,
+                      guest_count: o.guest_count ?? "",
+                    }}
+                    orderId={o.id}
+                    onClose={() => setEmailOrder(null)}
+                  />
+                );
+              })()}
+            </ComposeDrawerHost>
+
             <OrderDetailsModal
               selectedOrder={selectedOrder}
               isModalOpen={isModalOpen}
