@@ -1,0 +1,25 @@
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "platform.dashboard.attention",
+    + ]
+
+    [0m [90m 75 |[39m
+     [90m 76 |[39m     console[33m.[39mlog([32m"[chatbot full coverage] explicit_tags="[39m [33m+[39m [36mnew[39m [33mSet[39m(taggedRefs)[33m.[39msize [33m+[39m [32m" unknown_tags="[39m [33m+[39m unknownTags[33m.[39mlength [33m+[39m [32m" duplicate_tags="[39m [33m+[39m duplicateTags[33m.[39mlength [33m+[39m [32m" role_counts="[39m [33m+[39m [33mJSON[39m[33m.[39mstringify(roleCounts))[33m;[39m
+    [31m[1m>[22m[39m[90m 77 |[39m     expect(unknownTags)[33m.[39mtoEqual([])[33m;[39m
+     [90m    |[39m                         [31m[1m^[22m[39m
+     [90m 78 |[39m     expect(duplicateTags)[33m.[39mtoEqual([])[33m;[39m
+     [90m 79 |[39m     expect([33mCHAT_ACCESS_ROLES[39m[33m.[39mevery((role) [33m=>[39m roleCounts[role] [33m>[39m [35m0[39m))[33m.[39mtoBe([36mtrue[39m)[33m;[39m
+     [90m 80 |[39m     expect(appSource)[33m.[39mtoContain([32m"indexChatPageSections"[39m)[33m;[39m[0m
+
+      at Object.toEqual (src/__tests__/chatbotPageCoverageAudit.test.ts:77:25)
+
+
+Test Suites: 2 failed, 95 passed, 97 total
+Tests:       1 failed, 784 passed, 785 total
+Snapshots:   0 total
+Time:        9.434 s

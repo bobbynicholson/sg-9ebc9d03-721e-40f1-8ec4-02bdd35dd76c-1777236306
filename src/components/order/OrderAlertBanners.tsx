@@ -17,6 +17,8 @@
  * The countdown updates client-side every minute (cheap setInterval)
  * so the urgency band tracks real time without re-fetches.
  */
+import { formatClock } from "@/lib/portalTime";
+import { tenantDateTime } from "@/lib/portalTime";
 import { useEffect, useState } from "react";
 import {
   Ban, Pause, Clock, BellOff, Snowflake, Users, CalendarClock, AlertCircle,
@@ -59,11 +61,8 @@ function fmtDate(d: string | null | undefined): string {
  */
 function combineDateTime(date: string, time: string | null): Date | null {
   if (!date) return null;
-  const t = time || "00:00:00";
-  // event_date is a calendar date - parse as local, not UTC.
-  const iso = `${date}T${t.length === 5 ? t + ":00" : t}`;
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? null : d;
+  // Clock time in the company's time zone (lib/portalTime).
+  return tenantDateTime(date, time || "00:00");
 }
 
 export function OrderAlertBanners({ order }: Props) {
@@ -173,7 +172,7 @@ export function OrderAlertBanners({ order }: Props) {
               {phrase}
               <span className="ml-2 text-xs font-normal opacity-75">
                 {eventStart.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
-                {order.event_time ? `, ${order.event_time.slice(0, 5)}` : ""}
+                {order.event_time ? `, ${formatClock(order.event_time)}` : ""}
               </span>
             </p>
           </div>

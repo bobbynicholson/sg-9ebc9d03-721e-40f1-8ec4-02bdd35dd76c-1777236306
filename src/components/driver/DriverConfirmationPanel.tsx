@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { formatLocalTime } from "@/lib/localFormat";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { PodCaptureDialog } from "@/components/driver/PodCaptureDialog";
-import { EquipmentReturnDialog } from "@/components/equipment/EquipmentReturnDialog";
+import { EquipmentReturnDialog } from "@/components/equipment/EquipmentReturnDialog";
+import { formatClock } from "@/lib/portalTime";
 import {
   hasFreshPendingPodCapture,
   readPendingPodCapture,
@@ -300,7 +301,7 @@ export function DriverConfirmationPanel({ orderId, orderNumber, eventTime, venue
           Delivery Checklist - Order #{orderNumber}
         </CardTitle>
         <CardDescription>
-          Event Time: {eventTime} | Venue: {venueAddress}
+          Event Time: {formatClock(eventTime)} | Venue: {venueAddress}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

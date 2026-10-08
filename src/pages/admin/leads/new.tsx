@@ -8,6 +8,7 @@
  * and surfacing as a generic toast. Keeps the existing visual
  * layout untouched; only the form plumbing changed.
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -223,7 +224,7 @@ function NewLeadInner() {
       // skip the suffix.
       const eventDateTimeISO = values.eventDate
         ? (values.eventTime
-            ? new Date(`${values.eventDate}T${values.eventTime}`).toISOString()
+            ? (tenantDateTime(values.eventDate, values.eventTime) ?? new Date(NaN)).toISOString()
             : new Date(values.eventDate).toISOString())
         : null;
 

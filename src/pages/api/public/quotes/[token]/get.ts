@@ -78,7 +78,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       valid_until, sent_at, viewed_at, accepted_at, updated_at,
       converted_to_order_id,
       company:company_id (
-        id, slug, company_name, legal_name, logo_url, email, phone, website,
+        id, slug, company_name, legal_name, time_format, logo_url, email, phone, website,
         address_line1, address_line2, city,
         bank_name, bank_account_holder, bank_account_number, bank_branch_code,
         bank_account_type, eft_instructions,

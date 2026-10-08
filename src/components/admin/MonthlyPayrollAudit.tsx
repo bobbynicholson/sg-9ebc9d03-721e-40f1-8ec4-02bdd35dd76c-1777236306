@@ -53,7 +53,7 @@ const duration = (start: string | null, end: string | null) => {
   return Number.isFinite(begin) && Number.isFinite(stop) ? Math.max(0, (stop - begin) / 3_600_000) : 0;
 };
 const hoursLabel = (hours: number) => `${hours.toFixed(1)}h`;
-const timeLabel = (value: string | null) => value ? new Date(value).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }) : "—";
+const timeLabel = (value: string | null) => value ? new Date(value).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : "—";
 
 function mergedHours(lines: AuditLine[]): number {
   const intervals = lines

@@ -1076,6 +1076,30 @@ function InvoicesPageInner() {
     });
   };
 
+  // The preview dialog is the safest place to verify the document before
+  // emailing it. Download the same React-PDF invoice that the client's
+  // public payment page and invoice email use; no client communication is
+  // triggered by this action.
+  const handleDownloadPreviewPdf = () => {
+    const invoice = invoices.find((row: any) => row.id === selectedInvoiceId);
+    const token = invoice?.public_token;
+    if (!token) {
+      toast({
+        title: "PDF unavailable",
+        description: "This invoice does not have a secure download link yet. Refresh the invoice list and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = `/api/public/invoices/${token}/pdf`;
+    link.download = `Invoice-${invoice.invoice_number || selectedInvoice?.invoiceNumber || "download"}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   // First click of the paper-plane icon opens the review-before-send
   // composer. The operator edits To / Subject / Body and clicks Send
   // inside the dialog - the actual /api/send-email POST happens in
@@ -2661,6 +2685,10 @@ function InvoicesPageInner() {
               <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
                 <Button variant="outline" onClick={() => setPreviewOpen(false)}>
                   Close
+                </Button>
+                <Button variant="outline" onClick={handleDownloadPreviewPdf}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
                 </Button>
                 <Button onClick={() => {
                   // Wave 61 - look up by id (set in handlePreviewInvoice).

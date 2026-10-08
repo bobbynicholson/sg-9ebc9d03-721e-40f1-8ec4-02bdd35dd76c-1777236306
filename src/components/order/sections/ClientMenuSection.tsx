@@ -19,7 +19,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
-import { Utensils, Box, Clock, Loader2 } from "lucide-react";
+import { Utensils, Box, Clock, Loader2 } from "lucide-react";
+import { formatClockWithAlt } from "@/lib/portalTime";
 
 interface Props {
   orderId: string;
@@ -120,7 +121,7 @@ export function ClientMenuSection({
 
   const serviceDisplay = collectionTime || eventTime;
   const serviceLabel = serviceDisplay
-    ? `${serviceDisplay.slice(0, 5)} on ${new Date(eventDate).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}`
+    ? `${formatClockWithAlt(serviceDisplay)} on ${new Date(eventDate).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}`
     : null;
 
   const summary = loading

@@ -332,6 +332,10 @@
     '.cms-textarea{min-height:88px;resize:vertical}',
     '.cms-input:focus,.cms-select:focus,.cms-textarea:focus{outline:none;background-color:#fff;border-color:var(--brand-primary,#0F172A);box-shadow:0 0 0 4px color-mix(in srgb,var(--brand-primary,#0F172A) 16%,transparent)}',
     '.cms-input[aria-invalid="true"],.cms-select[aria-invalid="true"],.cms-textarea[aria-invalid="true"]{border-color:#DC2626}',
+    '.cms-time-wrap{display:flex;flex-wrap:wrap;gap:8px}',
+    '.cms-time-wrap .cms-time-select{flex:1 1 160px;width:auto}',
+    '.cms-time-wrap .cms-time-format{flex:0 1 180px;width:auto}',
+    '.cms-time-wrap[aria-invalid="true"] .cms-time-select{border-color:#DC2626}',
     '.cms-input[aria-invalid="true"]:focus,.cms-select[aria-invalid="true"]:focus,.cms-textarea[aria-invalid="true"]:focus{box-shadow:0 0 0 4px rgba(220,38,38,.18)}',
     '.cms-error{color:#B91C1C;font-size:13px;min-height:1em}',
     // An empty error line takes no room when a field spacing is chosen
@@ -648,6 +652,11 @@
       var cb = inp.querySelector ? inp.querySelector('input[type="checkbox"]') : null;
       return cb ? cb.checked : false;
     }
+    if (field.type === 'time' && inp.tagName === 'DIV') {
+      // Time field = wrapper with the time list + a label-only format switch.
+      var timeSelect = inp.querySelector('select[name]');
+      return timeSelect ? String(timeSelect.value || '').trim() : '';
+    }
     if (field.type === 'number' || field.type === 'guests') {
       var raw = String(inp.value || '').trim();
       return raw === '' ? '' : raw;
@@ -900,13 +909,47 @@
       return cbWrap;
     }
     if (f.type === 'time') {
-      return el('input', {
-        class: 'cms-input',
-        type: 'time',
-        id: id,
-        name: f.id,
-        placeholder: f.placeholder || ''
+      // A plain list of times every 15 minutes ("12:30 pm (12:30)") instead of
+      // the browser's time picker, which made visitors scroll through
+      // 24-hour hours and single minutes. The submitted value stays
+      // "HH:MM" so leads, notes and the quote builder are unchanged.
+      // A small 12-hour / 24-hour switch beside it lets the visitor read
+      // the times the way they're used to; it only changes the labels
+      // (it has no name, so it is never submitted).
+      var timeWrap = el('div', { class: 'cms-time-wrap' });
+      var timeSel = el('select', { class: 'cms-select cms-time-select', id: id, name: f.id });
+      var fmtSel = el('select', { class: 'cms-select cms-time-format', 'aria-label': 'Time format' });
+      fmtSel.appendChild(el('option', { value: '12', text: '12-hour (am/pm)' }));
+      fmtSel.appendChild(el('option', { value: '24', text: '24-hour' }));
+      var paint = function (fmt) {
+        var current = timeSel.value;
+        timeSel.innerHTML = '';
+        timeSel.appendChild(el('option', { value: '', text: f.placeholder || 'Select a time' }));
+        for (var mins = 6 * 60; mins <= 23 * 60 + 45; mins += 15) {
+          var hh = Math.floor(mins / 60);
+          var mm = mins % 60;
+          var value = (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+          var h12 = hh % 12 === 0 ? 12 : hh % 12;
+          // Chosen format first, the other in brackets: "13:00 (1:00 pm)".
+          var label12 = h12 + ':' + (mm < 10 ? '0' : '') + mm + (hh < 12 ? ' am' : ' pm');
+          var label = fmt === '24' ? value + ' (' + label12 + ')' : label12 + ' (' + value + ')';
+          timeSel.appendChild(el('option', { value: value, text: label }));
+        }
+        timeSel.value = current;
+      };
+      // Start on the company's format (config sends timeFormat "24h"/"12h").
+      var startFmt = f.timeFormat === '24h' ? '24' : '12';
+      fmtSel.value = startFmt;
+      paint(startFmt);
+      fmtSel.addEventListener('change', function (e) {
+        // Relabelling is not an answer change - keep it away from the
+        // form's change listeners (conditional logic, estimates).
+        e.stopPropagation();
+        paint(fmtSel.value);
       });
+      timeWrap.appendChild(timeSel);
+      timeWrap.appendChild(fmtSel);
+      return timeWrap;
     }
     var typeMap = { phone: 'tel', guests: 'number' };
     var knownTypes = { text: 1, email: 1, tel: 1, number: 1, date: 1, url: 1 };

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Navigation, AlertCircle, CheckCircle, MapPin } from "lucide-react";
 import driverService from "@/services/driverService";
-import { format } from "date-fns";
+import { format } from "date-fns";
+import { formatClock } from "@/lib/portalTime";
 
 interface DriverDepartureCalculatorProps {
   assignmentId: string;
@@ -103,7 +104,7 @@ export function DriverDepartureCalculator({
             )}
           </div>
           <p className="text-2xl font-bold mb-1">
-            {format(leaveForKitchen, "HH:mm")}
+            {formatClock(format(leaveForKitchen, "HH:mm"))}
           </p>
           <p className="text-sm text-muted-foreground">
             {minutesUntilDeparture > 0 
@@ -119,7 +120,7 @@ export function DriverDepartureCalculator({
             <h4 className="font-semibold">Collect Food</h4>
           </div>
           <p className="text-lg font-bold mb-1">
-            {format(collectionTime, "HH:mm")}
+            {formatClock(format(collectionTime, "HH:mm"))}
           </p>
           <p className="text-sm text-muted-foreground">
             Be ready to collect from kitchen
@@ -133,7 +134,7 @@ export function DriverDepartureCalculator({
             <h4 className="font-semibold">Leave for Venue</h4>
           </div>
           <p className="text-lg font-bold mb-1">
-            {format(leaveForVenue, "HH:mm")}
+            {formatClock(format(leaveForVenue, "HH:mm"))}
           </p>
           <p className="text-sm text-muted-foreground">
             Depart from kitchen to venue

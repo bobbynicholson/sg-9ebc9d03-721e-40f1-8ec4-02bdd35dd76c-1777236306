@@ -19,6 +19,7 @@
  * (see /admin/orders) and feeds them in.
  */
 
+import { tenantDateTime } from "@/lib/portalTime";
 import type {
   OrderTimelineInput,
   OrderTimeline,
@@ -113,7 +114,7 @@ export function computeOrderReadiness(
   const evDate = o.event_date as string | null | undefined;
   const evTime = (o.event_time as string | null | undefined) || "12:00:00";
   const msToEvent = evDate
-    ? new Date(`${evDate}T${evTime}`).getTime() - now.getTime()
+    ? (tenantDateTime(evDate, evTime) ?? new Date(NaN)).getTime() - now.getTime()
     : null;
   const hoursToEvent = msToEvent != null ? msToEvent / 3_600_000 : null;
   const within48h = hoursToEvent != null && hoursToEvent <= RED_HOURS_WINDOW && hoursToEvent >= 0;

@@ -21,6 +21,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { tenantDateTime } from "@/lib/portalTime";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { estimateJobMinutes } from "./cleaningJobsService";
 
@@ -119,7 +120,7 @@ export async function createExpectedHandover(
     let expectedAtIso: string | null = null;
     if (args.eventDate) {
       const t = args.eventTime ? args.eventTime.slice(0, 8) : "12:00:00";
-      const dt = new Date(`${args.eventDate}T${t}`);
+      const dt = (tenantDateTime(args.eventDate, t) ?? new Date(NaN));
       if (!isNaN(dt.getTime())) {
         expectedAtIso = new Date(dt.getTime() + 4 * 60 * 60 * 1000).toISOString();
       }

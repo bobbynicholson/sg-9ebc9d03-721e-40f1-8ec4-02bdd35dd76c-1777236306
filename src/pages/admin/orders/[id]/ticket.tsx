@@ -30,6 +30,7 @@
  * it once and every future order's ticket inherits.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { tenantDateTime } from "@/lib/portalTime";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -143,7 +144,7 @@ function fmtClock(d: Date | null): string {
 function combineDateTime(date: string | null, time: string | null): Date | null {
   if (!date) return null;
   const t = time ? time.slice(0, 5) : "12:00";
-  const dt = new Date(`${date}T${t}:00`);
+  const dt = (tenantDateTime(date, t) ?? new Date(NaN));
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
@@ -154,7 +155,7 @@ function combineDateTime(date: string | null, time: string | null): Date | null 
  */
 function resolvePickupAt(order: OrderRow): Date | null {
   if (order.pickup_time) {
-    const dt = new Date(`${order.event_date}T${order.pickup_time.slice(0, 5)}:00`);
+    const dt = (tenantDateTime(order.event_date, order.pickup_time.slice(0, 5)) ?? new Date(NaN));
     if (!Number.isNaN(dt.getTime())) return dt;
   }
   return combineDateTime(order.event_date, order.event_time);

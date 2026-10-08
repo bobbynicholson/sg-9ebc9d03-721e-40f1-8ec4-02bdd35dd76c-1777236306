@@ -21,6 +21,7 @@
  * (quoteService.updateQuote) treats the return value as
  * informational.
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import { supabase } from "@/integrations/supabase/client";
 
 /** The 22 fields that propagate from quote -> order. Some have a
@@ -609,7 +610,7 @@ async function _restampCleaningHandover(orderId: string, quote: any): Promise<vo
 async function _restampOutsourceAssignments(orderId: string, quote: any): Promise<void> {
   if (!quote.event_date) return;
   const eventTime = quote.event_time ? String(quote.event_time).slice(0, 5) : "12:00";
-  const requiredOnSiteAt = new Date(`${quote.event_date}T${eventTime}:00`).toISOString();
+  const requiredOnSiteAt = (tenantDateTime(quote.event_date, eventTime) ?? new Date(NaN)).toISOString();
   await (supabase as any)
     .from("outsource_assignments")
     .update({ required_on_site_at: requiredOnSiteAt, updated_at: new Date().toISOString() })

@@ -1,3 +1,4 @@
+import { tenantDateTime } from "@/lib/portalTime";
 /**
  * Time math shared by workforce screens and dispatch gates.
  *
@@ -91,7 +92,7 @@ export function slidingWindow(
   bufferMinutes = 180,
 ): EpochInterval | null {
   if (!eventDate || !eventTime || !Number.isFinite(bufferMinutes) || bufferMinutes < 0) return null;
-  const event = new Date(`${eventDate}T${eventTime}`).getTime();
+  const event = (tenantDateTime(eventDate, eventTime) ?? new Date(NaN)).getTime();
   if (!Number.isFinite(event)) return null;
   const padding = bufferMinutes * 60_000;
   return { start: event - padding, end: event + padding };

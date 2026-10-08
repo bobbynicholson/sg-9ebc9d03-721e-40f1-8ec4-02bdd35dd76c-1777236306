@@ -1,0 +1,10 @@
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+const env = Object.fromEntries(fs.readFileSync('.env.local','utf8').split(/\r?\n/).filter(l=>l.includes('=')&&!l.startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i).trim(), l.slice(i+1).trim().replace(/^"|"$/g,'')]}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const { data: lead } = await sb.from('leads').select('id, guest_count, notes, created_at').eq('company_id','1417901f-2a08-4fd0-a264-29f47ce371cb').order('created_at',{ascending:false}).limit(1).single();
+console.log('LEAD notes:\n' + lead.notes, '\nguests', lead.guest_count);
+const { data: q } = await sb.from('quotes').select('quote_number, event_time, waiter_service_required, menu_items, equipment_items, total_amount').eq('lead_id', lead.id).single();
+console.log('QUOTE', q.quote_number, 'start', q.event_time, 'waiter', q.waiter_service_required, 'total', q.total_amount);
+console.log('MENU LINES:', q.menu_items.map((m) => `${m.category} | ${m.name} | ${m.pricing_mode} x${m.quantity} = ${m.line_total}`).join('\n  '));
+console.log('EQUIPMENT LINES:', q.equipment_items.map((e) => `${e.name} x${e.quantity} = ${e.line_total}`).join('\n  '));

@@ -1,0 +1,28 @@
+
+// Portal time zone check: viewer browsers in other zones must see company (Johannesburg) times.
+const { data: ord } = await admin.from('orders').select('id, order_number, event_date, event_time, pickup_time, company_id')
+  .eq('order_number', 'ORD-918898').maybeSingle();
+const { data: co } = await admin.from('companies').select('timezone').eq('id', ord.company_id).maybeSingle();
+console.log('order', ord.order_number, ord.event_date, ord.event_time, 'pickup', ord.pickup_time, 'company tz', co.timezone);
+const browser = await chromium.launch({ headless: true, executablePath: 'C:/Users/raj/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe' });
+const cookies = await sessionCookies('hello@spitbraaidelivery.co.za');
+for (const tz of ['Asia/Kolkata', 'America/New_York', 'Africa/Johannesburg']) {
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: tz });
+  await ctx.addCookies(cookies);
+  await ctx.route('**/*', (r) => (['GET', 'HEAD', 'OPTIONS'].includes(r.request().method()) || r.request().url().includes('/auth/v1/') ? r.continue() : r.abort()));
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', (e) => errs.push(e.message.slice(0, 160)));
+  await page.goto(`${BASE}/${SLUG}/admin/orders/${ord.id}/ticket`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await page.waitForTimeout(9000);
+  const r = await page.evaluate(() => ({
+    sample: new Date('2026-10-08T08:00:00Z').toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }),
+    sampleDate: new Date(2026, 9, 10).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }),
+    text: document.body.innerText,
+  }));
+  const times = [...new Set((r.text.match(/\b\d{1,2}:\d{2}\b/g) || []))].slice(0, 12);
+  console.log(tz.padEnd(20), '08:00Z ->', r.sample, '| 10 Oct local ->', r.sampleDate, '| times on ticket:', times.join(' '), errs.length ? 'ERR ' + errs.join(' | ') : '');
+  if (tz === 'Asia/Kolkata') await page.screenshot({ path: 'tmp/embedchk/tz-ticket-kolkata.png' });
+  await ctx.close();
+}
+await browser.close();

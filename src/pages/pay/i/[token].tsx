@@ -35,6 +35,7 @@ import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import {
   getInitialInvoicePaymentAmount,
   getInvoiceDueState,
@@ -848,7 +849,6 @@ export default function InvoicePaymentPage() {
   const invoiceStatusLabel = isPaid ? "Paid in Full" : isPartiallyPaid ? "Partially Paid" : "Awaiting Payment";
   const invoiceDateForDisplay = parseInvoiceCalendarDate(invoice.invoice_date);
   const dueDateForDisplay = parseInvoiceCalendarDate(invoice.due_date);
-  const eventDateForDisplay = parseInvoiceCalendarDate(eventDate);
   const headerIdentifiers = getInvoiceHeaderIdentifiers(company);
 
   // Live payment figures driven by the editable "amount to pay now"
@@ -985,10 +985,9 @@ export default function InvoicePaymentPage() {
             </div>
           </div>
 
-          {/* FROM / BILL TO - same two blocks, fields and order as the
-              invoice PDF (InvoiceDocument). Client details come from the
-              invoice's own snapshot; the public token already grants this
-              document, and nothing beyond what the PDF prints is shown. */}
+          {/* Customer-safe snapshot of parties and event facts. The event
+              row sits below the contacts so it cannot collapse into a
+              narrow, wrapped column. */}
           {(() => {
             const idata = invoice.invoice_data || {};
             const co = invoice.companies;
@@ -997,26 +996,31 @@ export default function InvoicePaymentPage() {
               const d = new Date(String(idata.eventDate).slice(0, 10) + "T00:00:00");
               return Number.isNaN(d.getTime()) ? String(idata.eventDate) : format(d, "d MMMM yyyy");
             })();
+            const resolvedEventDateText = eventDateText || (eventDate
+              ? (() => {
+                  const d = parseInvoiceCalendarDate(eventDate);
+                  return d ? format(d, "d MMMM yyyy") : eventDate;
+                })()
+              : null);
             return (
               <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
-                <CardContent className="py-4 px-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">From</p>
-                    <p className="text-sm font-semibold text-stone-900 break-words">{co?.legal_name || co?.company_name || idata.companyName || ""}</p>
-                    {idata.companyAddress && <p className="text-sm text-stone-600 break-words">{idata.companyAddress}</p>}
-                    {(co?.email || idata.companyEmail) && <p className="text-sm text-stone-600 break-all">{co?.email || idata.companyEmail}</p>}
-                    {(co?.phone_number || idata.companyPhone) && <p className="text-sm text-stone-600">{co?.phone_number || idata.companyPhone}</p>}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Bill to</p>
-                    {idata.clientName && <p className="text-sm font-semibold text-stone-900 break-words">{idata.clientName}</p>}
-                    {idata.clientAddress && <p className="text-sm text-stone-600 break-words">{idata.clientAddress}</p>}
-                    {idata.clientEmail && <p className="text-sm text-stone-600 break-all">{idata.clientEmail}</p>}
-                    {idata.clientPhone && <p className="text-sm text-stone-600">{idata.clientPhone}</p>}
-                    {idata.orderNumber && <p className="text-sm text-stone-600 mt-1">Order: {idata.orderNumber}</p>}
-                    {(idata.eventName || idata.event_name) && <p className="text-sm text-stone-600">Event: {idata.eventName || idata.event_name}</p>}
-                    {eventDateText && <p className="text-sm text-stone-600">Event date: {eventDateText}</p>}
-                  </div>
+                <CardContent className="px-5 py-5">
+                  <DocumentPartiesAndEvent
+                    from={{ name: co?.legal_name || co?.company_name || idata.companyName, address: idata.companyAddress, email: co?.email || idata.companyEmail, phone: co?.phone_number || idata.companyPhone }}
+                    billTo={{ name: idata.clientName, address: idata.clientAddress, email: idata.clientEmail, phone: idata.clientPhone, taxNumber: idata.clientTaxNumber }}
+                    event={{
+                      reference: idata.orderNumber,
+                      date: resolvedEventDateText,
+                      time: idata.eventTime || idata.event_time || null,
+                      venue: idata.venue || idata.venueAddress || null,
+                      guests: idata.guestCount ?? idata.guest_count ?? null,
+                    }}
+                  />
+                  {(idata.eventName || idata.event_name) && (
+                    <p className="mt-2.5 border-t border-stone-100 pt-2.5 text-xs text-stone-600">
+                      Event: <span className="font-semibold text-stone-900">{idata.eventName || idata.event_name}</span>
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -1173,15 +1177,6 @@ export default function InvoicePaymentPage() {
                 </div>
               )}
 
-              {/* Event details inherited from quote (when present) */}
-              {eventDate && (
-                <div className="rounded-lg bg-stone-50 p-4 text-sm text-stone-700 space-y-1">
-                  <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Event details</p>
-                  <p>Date: {eventDateForDisplay ? format(eventDateForDisplay, "d MMMM yyyy") : eventDate}</p>
-                  {invoice.invoice_data.venue && <p>Venue: {invoice.invoice_data.venue}</p>}
-                  {invoice.invoice_data.guestCount && <p>Guests: {invoice.invoice_data.guestCount}</p>}
-                </div>
-              )}
             </CardContent>
           </Card>
 

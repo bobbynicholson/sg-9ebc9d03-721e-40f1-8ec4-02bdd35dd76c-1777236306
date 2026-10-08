@@ -19,8 +19,9 @@
 import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, MapPin, FileText } from "lucide-react";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
+import { formatClock } from "@/lib/portalTime";
 
 interface InvoicePreviewProps {
   invoiceNumber: string;
@@ -168,79 +169,21 @@ export function InvoicePreview(props: InvoicePreviewProps) {
         </div>
       </div>
 
-      {/* FROM + BILL TO + EVENT DETAILS - From / Bill to as on the
-          invoice PDF (InvoiceDocument), so every copy reads the same. */}
+      {/* Shared document identity block. Event facts live below the party
+          details so dates and times never wrap through one another. */}
       <Card className="mb-4 border border-stone-200 shadow-sm">
-        <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
-              From
-            </p>
-            <p className="text-sm font-semibold text-stone-900 break-words">{props.companyName}</p>
-            {props.companyAddress && (
-              <p className="text-xs text-stone-600 mt-0.5 break-words">{props.companyAddress}</p>
-            )}
-            {props.companyEmail && (
-              <p className="text-xs text-stone-600 break-all">{props.companyEmail}</p>
-            )}
-            {props.companyPhone && (
-              <p className="text-xs text-stone-600">{props.companyPhone}</p>
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
-              Bill to
-            </p>
-            <p className="text-sm font-semibold text-stone-900">{props.clientName}</p>
-            {props.clientAddress && (
-              <p className="text-xs text-stone-600 mt-0.5">{props.clientAddress}</p>
-            )}
-            {props.clientEmail && (
-              <p className="text-xs text-stone-600">{props.clientEmail}</p>
-            )}
-            {props.clientPhone && (
-              <p className="text-xs text-stone-600">{props.clientPhone}</p>
-            )}
-            {props.clientTaxNumber && (
-              <p className="text-xs text-stone-600">
-                Customer VAT No: <span className="font-mono">{props.clientTaxNumber}</span>
-              </p>
-            )}
-          </div>
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
-              Event details
-            </p>
-            <div className="space-y-1 text-xs text-stone-700">
-              <div className="flex items-center gap-1.5">
-                <FileText className="w-3 h-3 text-stone-400" />
-                <span className="text-stone-500">Order:</span>
-                <span className="font-semibold text-stone-900">{props.orderNumber}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-3 h-3 text-stone-400" />
-                <span className="text-stone-500">Date:</span>
-                <span className="font-semibold text-stone-900">{safeDate(props.eventDate)}</span>
-                {props.eventTime && (
-                  <span className="text-stone-700"> - {props.eventTime}</span>
-                )}
-              </div>
-              {props.venue && (
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3 h-3 text-stone-400" />
-                  <span className="text-stone-500">Venue:</span>
-                  <span className="font-semibold text-stone-900">{props.venue}</span>
-                </div>
-              )}
-              {props.guestCount > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Users className="w-3 h-3 text-stone-400" />
-                  <span className="text-stone-500">Guests:</span>
-                  <span className="font-semibold text-stone-900">{props.guestCount}</span>
-                </div>
-              )}
-            </div>
-          </div>
+        <CardContent className="px-5 py-5">
+          <DocumentPartiesAndEvent
+            from={{ name: props.companyName, address: props.companyAddress, email: props.companyEmail, phone: props.companyPhone }}
+            billTo={{ name: props.clientName, address: props.clientAddress, email: props.clientEmail, phone: props.clientPhone, taxNumber: props.clientTaxNumber }}
+            event={{
+              reference: props.orderNumber,
+              date: safeDate(props.eventDate),
+              time: props.eventTime ? formatClock(props.eventTime) : null,
+              venue: props.venue,
+              guests: props.guestCount > 0 ? props.guestCount : null,
+            }}
+          />
         </CardContent>
       </Card>
 

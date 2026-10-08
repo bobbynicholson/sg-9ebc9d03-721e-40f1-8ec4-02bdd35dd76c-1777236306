@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: 'C:/Users/raj/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: ['--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessRespectPreflightResults'] });
+const page = await browser.newPage();
+page.on('console', m => console.log('console', m.type(), m.text()));
+page.on('pageerror', e => console.log('pageerror', String(e), e.stack));
+page.on('framenavigated', f => console.log('nav', f.url()));
+const slug = process.argv[2] || 'quick-card-3gg6';
+await page.route('http://127.0.0.1:8099/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html><html><body><div data-embed-form data-token="e877e365-d5b7-4839-b386-d5253f0c1141" data-slug="${slug}"></div><script async src="http://localhost:3001/embed/loader.js"></script></body></html>` }));
+await page.route('**/submit', r => r.abort());
+await page.goto('http://127.0.0.1:8099/quote');
+await page.waitForTimeout(6000);
+console.log(await page.evaluate(() => [...document.querySelector('[data-embed-form]').shadowRoot.querySelectorAll('[data-fid]')].map(e=>e.dataset.fid).join(',')));
+await page.locator('[data-embed-form] button[type=submit], [data-embed-form] button:has-text("Next")').first().click();
+await page.waitForTimeout(1500);
+await browser.close();

@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatClock } from "@/lib/portalTime";
+import { tenantDateTime } from "@/lib/portalTime";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -947,8 +949,8 @@ function KitchenDashboardInner() {
       // Fall back to event_time when pickup_time isn't set yet.
       const timeStr = o.pickup_time || o.event_time;
       const dt = timeStr
-        ? new Date(`${o.event_date}T${timeStr}`)
-        : new Date(`${o.event_date}T12:00`);
+        ? (tenantDateTime(o.event_date, timeStr) ?? new Date(NaN))
+        : (tenantDateTime(o.event_date, "12:00") ?? new Date(NaN));
       if (isNaN(dt.getTime())) continue;
       const minutesAway = (dt.getTime() - now.getTime()) / 60_000;
       // Skip stuck orders more than the grace window past pickup time.
@@ -978,15 +980,15 @@ function KitchenDashboardInner() {
         if (!["confirmed", "preparing"].includes(status)) return false;
         if (!o.event_date) return false;
         const dt = o.event_time
-          ? new Date(`${o.event_date}T${o.event_time}`)
-          : new Date(`${o.event_date}T12:00`);
+          ? (tenantDateTime(o.event_date, o.event_time) ?? new Date(NaN))
+          : (tenantDateTime(o.event_date, "12:00") ?? new Date(NaN));
         if (isNaN(dt.getTime())) return false;
         const minutesAway = (dt.getTime() - now.getTime()) / 60_000;
         return minutesAway < -PAST_PICKUP_GRACE_MIN;
       })
       .sort((a: any, b: any) => {
-        const aDt = new Date(`${a.event_date}T${a.event_time || "12:00"}`).getTime();
-        const bDt = new Date(`${b.event_date}T${b.event_time || "12:00"}`).getTime();
+        const aDt = (tenantDateTime(a.event_date, a.event_time || "12:00") ?? new Date(NaN)).getTime();
+        const bDt = (tenantDateTime(b.event_date, b.event_time || "12:00") ?? new Date(NaN)).getTime();
         return aDt - bDt;
       });
   }, [orders, now]);
@@ -1049,7 +1051,7 @@ function KitchenDashboardInner() {
     else if (dayDiff > 1 && dayDiff < 7) dayLabel = date.toLocaleDateString("en-ZA", { weekday: "long" });
     else dayLabel = date.toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" });
     const timeLabel = hasTime
-      ? date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false })
+      ? date.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })
       : "time TBC";
     return { dayLabel, timeLabel };
   };
@@ -1145,7 +1147,7 @@ function KitchenDashboardInner() {
     // Parse as a LOCAL datetime. `new Date("YYYY-MM-DD")` alone parses
     // as UTC midnight (02:00 SAST), which skewed the no-time case by
     // two hours - the same KIT2-G timezone trap, just at render time.
-    const eventDateTime = new Date(`${eventDate}T${eventTime || "12:00"}`);
+    const eventDateTime = (tenantDateTime(eventDate, eventTime || "12:00") ?? new Date(NaN));
     if (isNaN(eventDateTime.getTime())) {
       return { level: "low", color: "border-brand-primary/20 bg-brand-primary/10 dark:border-brand-primary/30 dark:bg-brand-primary/10", dot: "bg-brand-primary" };
     }
@@ -1391,7 +1393,7 @@ function KitchenDashboardInner() {
                 <div className="space-y-2 sm:space-y-3">
                   {imminentOrders.slice(0, 5).map((order, index) => {
                     const urgency = getUrgencyLevel(order.event_date, order.event_time);
-                    const eventTime = order.event_time || "TBC";
+                    const eventTime = formatClock(order.event_time) || "TBC";
 
                     return (
                       <div key={order.id} className={`p-2 sm:p-3 rounded-lg border ${urgency.color}`}>
@@ -1416,7 +1418,7 @@ function KitchenDashboardInner() {
                                 {order.guest_count} guests • Eat {eventTime}
                                 {(order as any).pickup_time && (
                                   <span className="ml-1 text-brand-primary font-medium">
-                                    · Collect {String((order as any).pickup_time).slice(0, 5)}
+                                    · Collect {formatClock(String((order as any).pickup_time))}
                                   </span>
                                 )}
                                 {(order as any).client_name && order.event_name && !/^untitled$/i.test(String(order.event_name).trim()) && (
@@ -1615,8 +1617,8 @@ function KitchenDashboardInner() {
                 ) : (
                   <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                     {selectedDayOrders.map((order) => {
-                      const eventTime = order.event_time?.slice(0, 5) || "TBC";
-                      const pickupTime = order.pickup_time?.slice(0, 5) || null;
+                      const eventTime = formatClock(order.event_time) || "TBC";
+                      const pickupTime = formatClock(order.pickup_time) || null;
                       return (
                         <li key={order.id} className="px-3 py-3">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2015,7 +2017,7 @@ function KitchenDashboardInner() {
               <div>
                 <ul className="space-y-2">
                   {needsClosureOrders.map((o: any) => {
-                    const dt = new Date(`${o.event_date}T${o.event_time || "12:00"}`);
+                    const dt = (tenantDateTime(o.event_date, o.event_time || "12:00") ?? new Date(NaN));
                     const ago = Math.floor((now.getTime() - dt.getTime()) / 3_600_000);
                     const label = `${orderDisplayName({ event_name: o.event_name, client_name: o.client_name })}${o.order_number ? ` (${o.order_number})` : ""}`;
                     return (
@@ -2026,7 +2028,7 @@ function KitchenDashboardInner() {
                           </p>
                           <p className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
                             {o.order_number && <span className="tabular-nums mr-1">{o.order_number}</span>}
-                            {o.event_date} {o.event_time?.slice(0, 5) || ""} &middot; {ago > 24 ? `${Math.floor(ago / 24)}d` : `${ago}h`} ago &middot; still {o.status}
+                            {o.event_date} {formatClock(o.event_time) || ""} &middot; {ago > 24 ? `${Math.floor(ago / 24)}d` : `${ago}h`} ago &middot; still {o.status}
                           </p>
                         </div>
                         <Button
@@ -2084,14 +2086,14 @@ function KitchenDashboardInner() {
                             <span className="inline-flex items-center gap-1"><Package className="w-3 h-3" />{day.orders}</span>
                             <span className="inline-flex items-center gap-1"><Users className="w-3 h-3" />{day.guests}</span>
                             {day.earliest_event_time && (
-                              <span className="inline-flex items-center gap-1 tabular-nums"><Clock className="w-3 h-3" />{day.earliest_event_time.slice(0, 5)}</span>
+                              <span className="inline-flex items-center gap-1 tabular-nums"><Clock className="w-3 h-3" />{formatClock(day.earliest_event_time)}</span>
                             )}
                           </div>
                         </div>
                         <ul className="space-y-1">
                           {day.items.slice(0, 4).map((it) => (
                             <li key={it.id} className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                              <span className="tabular-nums text-slate-400 dark:text-slate-500 w-10 shrink-0">{it.event_time?.slice(0, 5) || "--"}</span>
+                              <span className="tabular-nums text-slate-400 dark:text-slate-500 min-w-10 shrink-0">{formatClock(it.event_time) || "--"}</span>
                               <span className="font-medium text-slate-700 dark:text-slate-200 truncate flex-1 min-w-0">{orderDisplayName({ event_name: it.event_name, client_name: it.client_name, order_number: (it as any).order_number })}</span>
                               <span className="text-slate-500 dark:text-slate-400 tabular-nums shrink-0">{it.guest_count} pax</span>
                             </li>
@@ -2214,8 +2216,8 @@ function KitchenDashboardInner() {
                             </div>
                           ) : byStatus[col.key].map((order: any) => {
                             const eventDt = order.event_time
-                              ? new Date(`${order.event_date}T${order.event_time}`)
-                              : new Date(`${order.event_date}T12:00`);
+                              ? (tenantDateTime(order.event_date, order.event_time) ?? new Date(NaN))
+                              : (tenantDateTime(order.event_date, "12:00") ?? new Date(NaN));
                             const minsToEvent = isNaN(eventDt.getTime())
                               ? null
                               : (eventDt.getTime() - now.getTime()) / 60_000;
@@ -2617,10 +2619,10 @@ function KitchenDashboardInner() {
                       </td>
                       <td style={{ padding: "5pt 4pt", whiteSpace: "nowrap" }}>
                         {o.event_date}
-                        {o.event_time ? <span style={{ color: "#64748b" }}> {o.event_time}</span> : null}
+                        {o.event_time ? <span style={{ color: "#64748b" }}> {formatClock(o.event_time)}</span> : null}
                       </td>
                       <td style={{ padding: "5pt 4pt", whiteSpace: "nowrap" }}>
-                        {o.pickup_time ? <strong>{o.pickup_time}</strong> : <span style={{ color: "#dc2626", fontWeight: 700 }}>SET</span>}
+                        {o.pickup_time ? <strong>{formatClock(o.pickup_time)}</strong> : <span style={{ color: "#dc2626", fontWeight: 700 }}>SET</span>}
                       </td>
                       <td style={{ padding: "5pt 4pt", textAlign: "right" }}>{o.guest_count ?? ""}</td>
                       <td style={{ padding: "5pt 4pt", textTransform: "uppercase", fontSize: "8.5pt", letterSpacing: "0.5pt" }}>
@@ -2686,7 +2688,7 @@ function KitchenDashboardInner() {
                         : "#475569";
                       return (
                         <li key={item.id} style={{ marginBottom: "2pt" }}>
-                          <strong>{item.event_time || "TBD"}</strong>
+                          <strong>{formatClock(item.event_time, "TBD")}</strong>
                           {" - "}
                           {orderDisplayName(item)}
                           {item.client_name && orderDisplayName(item) !== item.client_name ? <span style={{ color: "#64748b" }}> ({item.client_name})</span> : null}

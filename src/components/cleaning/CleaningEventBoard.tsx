@@ -21,6 +21,7 @@
  * grinding through items individually.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { formatClock } from "@/lib/portalTime";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,7 +41,7 @@ function fmtTime(iso: string | null): string {
   if (!iso) return "--";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "--";
-  return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
 }
 
 function fmtDateDay(iso: string | null): string {
@@ -63,7 +64,7 @@ function HandoverCard({ h }: { h: HandoverWithOrderMeta }) {
   const expectedTime = h.expected_at
     ? fmtTime(h.expected_at)
     : h.event_time
-      ? String(h.event_time).slice(0, 5)
+      ? formatClock(String(h.event_time))
       : null;
 
   return (

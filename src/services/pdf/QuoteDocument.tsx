@@ -31,7 +31,8 @@ import {
   paymentProviderLabel,
   type PdfPaymentInstructions,
 } from "@/lib/pdfPaymentDetails";
-import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
+import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
+import { formatClockBoth } from "@/lib/portalTime";
 
 // --- Types -----------------------------------------------------------------
 
@@ -105,6 +106,8 @@ export interface QuotePdfData {
     address_line2?: string | null;
     city?: string | null;
     primary_color?: string | null;
+    /** Company time format ("24h" / "12h") - Company profile > Time format. */
+    time_format?: string | null;
     vat_registered?: boolean | null;
     vat_number?: string | null;
     vat_rate?: number | null;
@@ -462,8 +465,11 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
   const accepted = !!data.accepted_at;
   const eventDate = fmtDateZA(data.event_date);
   const validUntil = fmtDateZA(data.valid_until);
-  const eventTime = friendlyTime(data.event_time);
-  const setupTime = friendlyTime(data.setup_time);
+  // Company time format when set (every company has one, default 24h);
+  // the old friendly "1pm" only for data without it.
+  const tf = data.company?.time_format;
+  const eventTime = tf ? (formatClockBoth(data.event_time, tf) || null) : friendlyTime(data.event_time);
+  const setupTime = tf ? (formatClockBoth(data.setup_time, tf) || null) : friendlyTime(data.setup_time);
   const today = fmtDateZA(new Date().toISOString());
   const vatRegistered = !!company.vat_registered;
   const vatNumber = company.vat_number || null;

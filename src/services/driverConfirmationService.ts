@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { formatClockAs, tenantDateTime } from "@/lib/portalTime";
 import { supabase } from "@/integrations/supabase/client";
 import { notificationService } from "./notificationService";
 import { UserRole } from "@/types/app";
@@ -1129,7 +1130,7 @@ export const driverConfirmationService = {
     if (confirmation) return; // Already confirmed
 
     // Calculate time until function
-    const eventDateTime = new Date(`${order.event_date}T${order.event_time}`);
+    const eventDateTime = (tenantDateTime(order.event_date, order.event_time) ?? new Date(NaN));
     const now = new Date();
     const minutesUntilEvent = (eventDateTime.getTime() - now.getTime()) / (1000 * 60);
 
@@ -1354,10 +1355,16 @@ export const driverConfirmationService = {
         label: `driver-whatsapp-${templateKey}`,
       });
       let message = template.template_content;
+      // Company 12/24-hour choice for the time in the driver's message.
+      let companyTimeFormat: string | null = null;
+      try {
+        const { data: tfRow } = await (supabase as any).from('companies').select('time_format').eq('id', order.company_id).maybeSingle();
+        companyTimeFormat = (tfRow as any)?.time_format || null;
+      } catch { /* keep the default 24-hour */ }
       const variables: Record<string, string> = {
         driver_name: order.driver?.full_name || 'Your driver',
         order_number: order.order_number || '',
-        collection_time: order.event_time || '',
+        collection_time: formatClockAs(order.event_time, companyTimeFormat),
         tracking_link: trackingLink,
         venue_name: order.venue_address || ''
       };

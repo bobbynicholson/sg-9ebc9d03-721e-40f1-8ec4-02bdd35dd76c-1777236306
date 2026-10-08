@@ -32,6 +32,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { tenantDateTime } from "@/lib/portalTime";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface ResyncOrderScheduleReceipt {
@@ -208,9 +209,7 @@ export async function resyncOrderScheduleArtifacts(
       //    + service time (default 12:00). Only requested/accepted.
       try {
         const timeHm = effectiveTime ? effectiveTime.slice(0, 5) : "12:00";
-        const requiredOnSiteAt = new Date(
-          `${eventDate}T${timeHm}:00`,
-        ).toISOString();
+        const requiredOnSiteAt = (tenantDateTime(eventDate, timeHm) ?? new Date(NaN)).toISOString();
         const { error: osErr } = await (sb as any)
           .from("outsource_assignments")
           .update({

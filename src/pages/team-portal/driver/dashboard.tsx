@@ -61,7 +61,8 @@ import { driverPayService } from "@/services/driverPayService";
 import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { formatLocalTime } from "@/lib/localFormat";
 import { toLocalISO } from "@/lib/localDate";
-import { sumDriverShiftMilliseconds } from "@/lib/driverClock";
+import { sumDriverShiftMilliseconds } from "@/lib/driverClock";
+import { formatClock } from "@/lib/portalTime";
 
 type Order = Tables<"orders">;
 type DriverAssignment = Tables<"driver_assignments">;
@@ -1128,7 +1129,7 @@ function DriverDashboardInner() {
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 text-slate-400 dark:text-slate-500" />
-                              <span>Event: {job.event_time}</span>
+                              <span>Event: {formatClock(job.event_time)}</span>
                               <span>-</span>
                               <span className="tabular-nums">{job.guest_count} guests</span>
                               <span>-</span>
@@ -1420,11 +1421,11 @@ function DriverDashboardInner() {
               <tr key={job.id} style={{ borderBottom: "1px solid #cbd5e1", pageBreakInside: "avoid" }}>
                 <td style={{ padding: "6pt 4pt" }}>
                   <strong>{job.event_date}</strong>
-                  {job.event_time ? <span style={{ color: "#64748b" }}> {job.event_time}</span> : null}
+                  {job.event_time ? <span style={{ color: "#64748b" }}> {formatClock(job.event_time)}</span> : null}
                 </td>
                 <td style={{ padding: "6pt 4pt" }}>
                   {job.pickup_time
-                    ? <strong>{job.pickup_time}</strong>
+                    ? <strong>{formatClock(job.pickup_time)}</strong>
                     : <span style={{ color: "#dc2626", fontWeight: 700 }}>SET</span>}
                 </td>
                 <td style={{ padding: "6pt 4pt" }}>{job.client_name}</td>

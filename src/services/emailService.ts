@@ -765,6 +765,30 @@ export const emailService = {
     // Used for both the template resolve and the raw-body/subject pass.
     const normVars = normalizeEmailVariables(payload.variables || {});
 
+    // Clock times ({{event_time}}, {{pickup_time}}, {{setupTime}} ...)
+    // follow the company's time format (Company profile > Time format)
+    // in every email, whichever caller built the variables. Only plain
+    // stored clock values ("13:00" / "13:00:00") are touched.
+    try {
+      const timeKeys = Object.keys(normVars).filter((k) => /time$/i.test(k) && typeof normVars[k] === "string");
+      if (timeKeys.length > 0) {
+        const sbTf = payload._client || supabase;
+        const { data: tfRow } = await sbTf
+          .from("companies")
+          .select("time_format")
+          .eq("id", payload.companyId)
+          .maybeSingle();
+        const tf = (tfRow as any)?.time_format as string | null | undefined;
+        if (tf) {
+          // Chosen format first, the other in brackets: "13:00 (1:00 PM)".
+          const { formatClockBoth } = await import("@/lib/portalTime");
+          for (const k of timeKeys) normVars[k] = formatClockBoth(normVars[k], tf, normVars[k]);
+        }
+      }
+    } catch {
+      // Formatting is cosmetic - never block a send over it.
+    }
+
     if (payload.template) {
       // ODOC H.14: route through resolveEmailTemplate so the
       // tenant-override -> global-default -> caller-fallback ladder

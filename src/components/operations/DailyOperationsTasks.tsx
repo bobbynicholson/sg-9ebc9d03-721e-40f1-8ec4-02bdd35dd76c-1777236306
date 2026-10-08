@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { formatClock } from "@/lib/portalTime";
 import { useEffect, useState } from "react";
 import { Check, Clock3, Loader2, Play, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -142,7 +143,7 @@ export function DailyOperationsTasks({ audience }: { audience: Audience }) {
       <div className="space-y-3">
         {tasks.map((task) => (
           <div key={task.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-brand-primary/15 bg-white/70 p-3 dark:bg-slate-900/40">
-            <div className="min-w-0"><p className="font-medium text-slate-900 dark:text-white">{task.title}</p><p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Clock3 className="h-3 w-3" />Scheduled {task.scheduled_time.slice(0, 5)} · {task.status.replace("_", " ")}</p>{task.description && <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{task.description}</p>}</div>
+            <div className="min-w-0"><p className="font-medium text-slate-900 dark:text-white">{task.title}</p><p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Clock3 className="h-3 w-3" />Scheduled {formatClock(task.scheduled_time)} · {task.status.replace("_", " ")}</p>{task.description && <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{task.description}</p>}</div>
             <div className="flex gap-2">{task.status === "in_progress" ? <Button size="sm" onClick={() => requestComplete(task)} disabled={workingId !== null} className="bg-brand-primary text-white hover:bg-brand-primary/90"><Check className="mr-1 h-4 w-4" />Done</Button> : <Button size="sm" onClick={() => void start(task)} disabled={workingId !== null} className="bg-brand-primary text-white hover:bg-brand-primary/90">{workingId === task.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Play className="mr-1 h-4 w-4" />}Start</Button>}</div>
           </div>
         ))}

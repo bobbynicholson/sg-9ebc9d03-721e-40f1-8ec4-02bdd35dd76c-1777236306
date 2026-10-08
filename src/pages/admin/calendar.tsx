@@ -6,6 +6,7 @@
  * event to jump to its order page. Arrow keys navigate days, "T" jumps
  * to today, "[" / "]" flip months. Today's cell pulses subtly.
  */
+import { formatClock } from "@/lib/portalTime";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { PortalShell, PortalHeader,
@@ -1274,7 +1275,7 @@ function AdminCalendar() {
                                       )}
                                     >
                                       <span className="font-semibold tabular-nums">
-                                        {e.event_time?.slice(0, 5) || "TBC"}
+                                        {formatClock(e.event_time) || "TBC"}
                                       </span>
                                       <span className="flex-1 truncate">{e.client_name || "Event"}</span>
                                       {e.guest_count != null && (
@@ -1464,9 +1465,9 @@ function AdminCalendar() {
                                     tone,
                                     isMultiDay && "ring-1 ring-blue-200/60",
                                   )}
-                                  title={`${e.client_name || "Event"} - ${e.event_time || ""}${dayLabel}`}
+                                  title={`${e.client_name || "Event"} - ${formatClock(e.event_time)}${dayLabel}`}
                                 >
-                                  <span className="font-semibold">{e.event_time?.slice(0,5) || ""}</span>{" "}
+                                  <span className="font-semibold">{formatClock(e.event_time) || ""}</span>{" "}
                                   {e.client_name || "Event"}
                                   {dayLabel && <span className="text-blue-700">{dayLabel}</span>}
                                 </div>
@@ -1960,7 +1961,7 @@ function AdminCalendar() {
                                   {q.client_name || "Quote"}
                                 </p>
                                 <p className="text-xs text-slate-600 mt-0.5 capitalize">
-                                  Status: {q.status} {q.event_time ? `· ${q.event_time.slice(0, 5)} start` : ""}
+                                  Status: {q.status} {q.event_time ? `· ${formatClock(q.event_time)} start` : ""}
                                 </p>
                               </div>
                               <div className="text-right shrink-0">
@@ -2029,7 +2030,7 @@ function AdminCalendar() {
                             <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
                               <span className="flex items-center gap-1.5">
                                 <Clock className="w-3 h-3 text-slate-400" />
-                                {e.event_time || "TBD"}
+                                {formatClock(e.event_time, "TBD")}
                               </span>
                               <span className="flex items-center gap-1.5">
                                 <Users className="w-3 h-3 text-slate-400" />

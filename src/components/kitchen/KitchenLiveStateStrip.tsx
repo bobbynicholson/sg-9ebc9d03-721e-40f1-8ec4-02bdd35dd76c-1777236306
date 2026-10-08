@@ -16,6 +16,7 @@
  * Empty-state: when all counts are zero and no event today, the
  * whole strip collapses to a friendly "All quiet" status pill.
  */
+import { formatClock } from "@/lib/portalTime";
 import Link from "next/link";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useKitchenLiveCounts } from "@/hooks/useKitchenLiveCounts";
@@ -77,7 +78,7 @@ export function KitchenLiveStateStrip() {
   }
 
   const nextEventLabel = serviceMode.firstEventTime
-    ? serviceMode.firstEventTime.slice(0, 5)
+    ? formatClock(serviceMode.firstEventTime)
     : "--";
 
   const pills: Pill[] = [

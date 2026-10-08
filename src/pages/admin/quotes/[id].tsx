@@ -15,6 +15,7 @@
  * read-only view for already-sent / accepted / rejected quotes so
  * historical context is visible.
  */
+import { formatClock } from "@/lib/portalTime";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -938,13 +939,13 @@ function AdminQuoteDetailInner() {
                         <p className="text-slate-900 font-medium">
                           {formatLocalDate(quote.event_date, "-")}
                           {(quote as any).event_time
-                            ? ` · ${String((quote as any).event_time).slice(0, 5)} start`
+                            ? ` · ${formatClock(String((quote as any).event_time))} start`
                             : ""}
                         </p>
                         {(quote as any).setup_time
                           && String((quote as any).setup_time).slice(0, 5) !== String((quote as any).event_time || "").slice(0, 5) && (
                           <p className="text-xs text-slate-500 mt-0.5">
-                            Setup arrival: {String((quote as any).setup_time).slice(0, 5)}
+                            Setup arrival: {formatClock(String((quote as any).setup_time))}
                           </p>
                         )}
                       </div>

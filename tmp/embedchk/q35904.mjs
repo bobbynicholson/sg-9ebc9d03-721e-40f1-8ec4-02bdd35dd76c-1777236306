@@ -1,0 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+const env = Object.fromEntries(fs.readFileSync('.env.local','utf8').split(/\r?\n/).filter(l=>l.includes('=')&&!l.startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i).trim(), l.slice(i+1).trim().replace(/^"|"$/g,'')]}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const { data: q } = await sb.from('quotes').select('id, quote_number, lead_id, source, guest_count, menu_items, updated_at, created_at, status').eq('id','07b02262-fd0d-4e89-82e3-8e55d3b2e719').single();
+console.log(q.quote_number, q.source, 'guests', q.guest_count, 'status', q.status, 'created', q.created_at, 'updated', q.updated_at);
+console.log('SAVED MENU:', q.menu_items.map((m) => `${m.name || m.item_name} | ${m.pricing_mode || m.pricingMode} x${m.quantity}`).join(' ; '));
+const { data: l } = await sb.from('leads').select('notes, guest_count').eq('id', q.lead_id).single();
+console.log('LEAD guests', l.guest_count, '\nNOTES:', l.notes);
+const { data: s } = await sb.from('embed_form_submissions').select('payload').eq('lead_id', q.lead_id).single();
+console.log('PAYLOAD children_count:', s?.payload?.children_count, 'guest_count:', s?.payload?.guest_count, 'pkg:', s?.payload?.equipment_package);

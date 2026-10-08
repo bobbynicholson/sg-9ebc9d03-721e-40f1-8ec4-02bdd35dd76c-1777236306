@@ -16,6 +16,7 @@
  * once and render as chips. Each is best-effort (failures swallowed
  * to the chip just not rendering).
  */
+import { formatClock } from "@/lib/portalTime";
 import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { Badge } from "@/components/ui/badge";
@@ -195,9 +196,9 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
   const meaningfulEventName = !isJunkEventName ? rawEventName : "";
   const titleLine = meaningfulEventName || order.client_name || `Order ${order.order_number || ""}`.trim() || "Order";
   const subtitleLine = meaningfulEventName
-    ? `${order.client_name || "Client"} · ${dateRangeShort}${order.event_time ? ` · ${order.event_time.slice(0, 5)}` : ""}`
-    : `${dateRangeShort}${order.event_time ? ` · ${order.event_time.slice(0, 5)}` : ""}`;
-  const summary = `${order.client_name || "Client"} · ${dateRangeShort}${order.event_time ? ` ${order.event_time.slice(0, 5)}` : ""}`;
+    ? `${order.client_name || "Client"} · ${dateRangeShort}${order.event_time ? ` · ${formatClock(order.event_time)}` : ""}`
+    : `${dateRangeShort}${order.event_time ? ` · ${formatClock(order.event_time)}` : ""}`;
+  const summary = `${order.client_name || "Client"} · ${dateRangeShort}${order.event_time ? ` ${formatClock(order.event_time)}` : ""}`;
 
   return (
     <CollapsibleSection
@@ -296,7 +297,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
           {order.event_time && (
             <div className="flex items-center gap-2 text-sm text-slate-700">
               <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
-              <span>{order.event_time.slice(0, 5)}</span>
+              <span>{formatClock(order.event_time)}</span>
             </div>
           )}
           {order.guest_count != null && order.guest_count > 0 && (

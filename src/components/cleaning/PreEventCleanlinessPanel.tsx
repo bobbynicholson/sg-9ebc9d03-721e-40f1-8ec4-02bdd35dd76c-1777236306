@@ -15,6 +15,7 @@
  * now. Matches the dispatch screens pattern.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { formatClock } from "@/lib/portalTime";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +96,7 @@ function EventStrip({
             {order.event_time && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                {order.event_time.slice(0, 5)}
+                {formatClock(order.event_time)}
               </span>
             )}
             {order.guest_count ? <span>{order.guest_count} guests</span> : null}

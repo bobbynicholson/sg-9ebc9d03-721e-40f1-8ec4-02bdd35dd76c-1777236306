@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { tenantDateTime } from "@/lib/portalTime";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -44,7 +45,8 @@ import { VehiclePickerDialog } from "@/components/admin/dispatch/VehiclePickerDi
 import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
-import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { emitOrderUpdated } from "@/lib/events/orderEvents";
+import { formatClock } from "@/lib/portalTime";
 import {
   orderDriverInterestService,
   type DriverInterestSummary,
@@ -644,7 +646,7 @@ function DispatchQueuePage() {
         return;
       }
       const driverName = suggestions.find(s => s.driver.id === driverId)?.driver.full_name ?? "Driver";
-      const eventLabel = target.event_date + (target.event_time ? ` at ${target.event_time}` : "");
+      const eventLabel = target.event_date + (target.event_time ? ` at ${formatClock(target.event_time)}` : "");
       // Phase 2 #4: surface a double-booking warning on warn-and-allow.
       // The assignment landed but the dispatcher needs to know they
       // just put this driver on two overlapping events.
@@ -1251,8 +1253,8 @@ function DispatchQueuePage() {
                 const isUnassigned = !order.assigned_driver_id;
                 const interestedDrivers = interestByOrder[order.id] || [];
                 const eventDt = order.event_time
-                  ? new Date(`${order.event_date}T${order.event_time}`)
-                  : new Date(`${order.event_date}T12:00`);
+                  ? (tenantDateTime(order.event_date, order.event_time) ?? new Date(NaN))
+                  : (tenantDateTime(order.event_date, "12:00") ?? new Date(NaN));
                 const minsToEvent = (eventDt.getTime() - Date.now()) / 60_000;
                 const countdownTone =
                   isAtRisk        ? "text-rose-700 font-semibold" :
@@ -1605,7 +1607,7 @@ function DispatchQueuePage() {
                               </p>
                               <p className="text-[11px] text-slate-600 mt-0.5">
                                 {order.pickup_time
-                                  ? `Driver leaves the kitchen at ${order.pickup_time}.`
+                                  ? `Driver leaves the kitchen at ${formatClock(order.pickup_time)}.`
                                   : "Driver doesn't know when to leave the kitchen yet - set the time below."}
                               </p>
                             </div>
@@ -1814,7 +1816,7 @@ function DispatchQueuePage() {
                         )}
                         {s.scheduleConflict && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
-                            Schedule conflict: {s.scheduleConflict.orderNumber} at {s.scheduleConflict.eventTime}
+                            Schedule conflict: {s.scheduleConflict.orderNumber} at {formatClock(s.scheduleConflict.eventTime)}
                           </span>
                         )}
                           {s.vehicle.refrigerated && (
@@ -1961,11 +1963,11 @@ function DispatchQueuePage() {
                   </td>
                   <td style={{ padding: "6pt 4pt" }}>
                     <strong>{o.event_date}</strong>
-                    {o.event_time ? <span style={{ color: "#64748b" }}> {o.event_time}</span> : null}
+                    {o.event_time ? <span style={{ color: "#64748b" }}> {formatClock(o.event_time)}</span> : null}
                   </td>
                   <td style={{ padding: "6pt 4pt" }}>
                     {o.pickup_time
-                      ? <strong>{o.pickup_time}</strong>
+                      ? <strong>{formatClock(o.pickup_time)}</strong>
                       : <span style={{ color: "#dc2626", fontWeight: 700 }}>SET</span>}
                   </td>
                   <td style={{ padding: "6pt 4pt" }}>{o.client_name}</td>

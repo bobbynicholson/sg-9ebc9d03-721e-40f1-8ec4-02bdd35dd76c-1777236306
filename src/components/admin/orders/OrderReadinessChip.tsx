@@ -12,6 +12,7 @@
  * Callum feel held, not policed.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { tenantDateTime } from "@/lib/portalTime";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertCircle, ExternalLink, Loader2, Sparkles, Flag } from "lucide-react";
@@ -132,8 +133,8 @@ export function OrderReadinessChip({
     if (["completed", "cancelled", "refunded"].includes(s)) return false;
     if (!eventDate) return false;
     const dt = eventTime
-      ? new Date(`${eventDate}T${String(eventTime).slice(0, 8)}`)
-      : new Date(`${eventDate}T12:00:00`);
+      ? (tenantDateTime(eventDate, String(eventTime).slice(0, 8)) ?? new Date(NaN))
+      : (tenantDateTime(eventDate, "12:00") ?? new Date(NaN));
     if (isNaN(dt.getTime())) return false;
     return dt.getTime() < Date.now();
   })();

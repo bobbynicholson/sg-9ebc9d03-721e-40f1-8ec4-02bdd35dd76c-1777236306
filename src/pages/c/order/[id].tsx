@@ -42,7 +42,8 @@ import { CancellationWizard } from "@/components/cancellation/CancellationWizard
 // and the existing amendment cascade does the money / quote / notify work.
 import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 import { orderDisplayName } from "@/lib/orderDisplayName";
-import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { formatClockBoth } from "@/lib/portalTime";
 import {
   getInitialInvoicePaymentAmount,
   getInvoiceBalanceAfterFirstPayment,
@@ -455,7 +456,7 @@ export default function ClientOrderPage() {
                   ask "what time are you arriving to set up?". */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-5 pt-5 border-t border-slate-100">
                 <Stat icon={Calendar} label={daysOut > 0 ? `In ${daysOut} day${daysOut === 1 ? "" : "s"}` : daysOut === 0 ? "Today" : "Past"} value={eventDate.toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })} />
-                <Stat icon={Clock} label="Event start" value={order.event_time || "TBD"} />
+                <Stat icon={Clock} label="Event start" value={formatClockBoth(order.event_time, company?.time_format, "TBD")} />
                 {order.setup_time && (
                   <Stat icon={Clock} label="Setup arrives" value={String(order.setup_time)} />
                 )}

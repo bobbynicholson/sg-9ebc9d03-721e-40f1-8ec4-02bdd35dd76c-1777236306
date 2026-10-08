@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: 'C:/Users/raj/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe' });
+const page = await browser.newPage();
+page.on('console', (m) => console.log('console', m.type(), m.text().slice(0, 300)));
+page.on('pageerror', (e) => console.log('pageerror', String(e).slice(0, 300)));
+page.on('response', (r) => { if (r.status() >= 400) console.log('HTTP', r.status(), r.url()); });
+await page.goto('http://localhost:3002/quote/spit-braai-delivery/detailed-multi-step-qbvs');
+await page.waitForTimeout(8000);
+console.log(await page.evaluate(() => { const h = document.querySelector('[data-embed-form]'); return h ? (h.shadowRoot ? h.shadowRoot.innerHTML.slice(0, 300) : 'no shadow') : document.getElementById('hp-mount')?.innerHTML.slice(0, 300); }));
+await browser.close();

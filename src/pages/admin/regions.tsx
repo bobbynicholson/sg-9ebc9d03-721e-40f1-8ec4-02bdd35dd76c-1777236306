@@ -32,6 +32,7 @@ import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { COUNTRIES, getCountry, type CountryCode } from "@/lib/regionGeography";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { formatClock } from "@/lib/portalTime";
 
 interface Region {
   id: string;
@@ -1109,7 +1110,7 @@ function RegionsPage() {
                       {(region.operating_hours_start || region.operating_hours_end) && (
                         <div className="flex items-center gap-1">
                           <span className="font-medium text-slate-700">Hours:</span>
-                          <span>{region.operating_hours_start}, {region.operating_hours_end}</span>
+                          <span>{formatClock(region.operating_hours_start)}, {formatClock(region.operating_hours_end)}</span>
                           {/* REG-B (regions audit, REG-6): mark advisory
                               fields. The operating_hours columns are
                               stored + displayed but no downstream code

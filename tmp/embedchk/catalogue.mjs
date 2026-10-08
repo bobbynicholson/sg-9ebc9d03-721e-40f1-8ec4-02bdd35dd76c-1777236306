@@ -1,0 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+const env = Object.fromEntries(fs.readFileSync('.env.local','utf8').split(/\r?\n/).filter(l=>l.includes('=')&&!l.startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i).trim(), l.slice(i+1).trim().replace(/^"|"$/g,'')]}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const id = '0e139a19-6526-4e1f-9bf7-87d6adbee5f8';
+const { data: m } = await sb.from('menu_items').select('item_name, category, base_price, sold_as_package, base_servings, is_available').eq('company_id', id).is('deleted_at', null).order('category').order('item_name');
+const byCat = {};
+for (const r of m) (byCat[r.category || '(none)'] ||= []).push(`${r.item_name}${r.is_available === false ? ' [unavailable]' : ''}`);
+console.log('MENU', JSON.stringify(byCat, null, 1));
+const { data: e } = await sb.from('equipment').select('name, category, rental_price, is_available').eq('company_id', id).is('deleted_at', null).order('category').order('name');
+console.log('EQUIPMENT', JSON.stringify(e.map((r) => `${r.category} :: ${r.name} (R${r.rental_price})${r.is_available === false ? ' [unavailable]' : ''}`), null, 1));

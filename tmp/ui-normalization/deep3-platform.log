@@ -1,0 +1,27 @@
+platform/dashboard: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1277/2164
+platform/company-database: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1404
+platform/user-management: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=2278/3470
+platform/subscription-management: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1510
+platform/pricing-management: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=2207/3959
+platform/trial-management: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1214
+platform/currency-monitoring: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1538/2374
+platform/cms-blog: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1136/1816
+platform/cms-pages: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1319
+platform/tax-rules: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=3573/5537
+platform/audit-logs: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=2181/2777
+platform/financial-dashboard: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1492
+platform/messaging-templates: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1698/2385
+platform/payment-issues: 200 loaded=true denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/1138
+platform/running-todo: 200 loaded=true STILL-LOADING denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=2449/898
+platform/settings: 200 loaded=true STILL-LOADING denied=false errors=0 failed=0 overflow(d/t/m)=0/0/0 h=1074/898
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.allTextContents: Execution context was destroyed, most likely because of a navigation
+    at D:\sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306\tmp\ui-normalization\check-portal-ui.mjs:115:41 {
+  log: [],
+  name: 'Error'
+}
+
+Node.js v24.18.0

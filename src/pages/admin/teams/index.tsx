@@ -27,6 +27,7 @@
  *     the next 4h with no driver assigned, or kitchen prep ETA
  *     stamped after driver depart time
  */
+import { formatClock } from "@/lib/portalTime";
 import { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
@@ -138,7 +139,7 @@ function shortTime(iso: string | null): string {
   if (!iso) return "";
   try {
     const d = new Date(iso);
-    return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
   } catch { return ""; }
 }
 
@@ -973,7 +974,7 @@ function TeamsIndexPage() {
                             href={withSlug(staffOrderHref(r.orderId, "driver"))}
                             className="hover:underline"
                           >
-                            <span className="tabular-nums font-medium">{r.eventTime?.slice(0, 5) || "??:??"}</span>
+                            <span className="tabular-nums font-medium">{formatClock(r.eventTime) || "??:??"}</span>
                             <span className="mx-1.5 text-rose-400">·</span>
                             <span>{r.eventName || r.orderNumber || r.orderId.slice(0, 8)}</span>
                           </Link>

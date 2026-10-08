@@ -18,6 +18,7 @@
  * so cleaning knows when to expect items.
  */
 
+import { formatClock } from "@/lib/portalTime";
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -467,7 +468,7 @@ export function WaiterServicePanel({ onSummary }: { onSummary?: (summary: Waiter
                       <p className="flex items-center gap-1">
                         <CalendarIcon className="w-3 h-3 text-slate-400" />
                         {new Date(o.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })}
-                        {o.event_time && <span> · {o.event_time.slice(0, 5)}</span>}
+                        {o.event_time && <span> · {formatClock(o.event_time)}</span>}
                       </p>
                       {o.venue_name && (
                         <p className="flex items-center gap-1 truncate">

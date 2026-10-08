@@ -13,6 +13,7 @@
  *     (equipmentReturnOps.bookOrReassignCollection: new driver told, the
  *     previous one told it moved)
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import { useCallback, useEffect, useState } from "react";
 import { PackageCheck, Loader2, AlertTriangle, CheckCircle2, Clock, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -98,7 +99,7 @@ export function EquipmentReturnCard({
       }
 
       const start = order.event_date
-        ? new Date(`${order.event_date}T${String(order.event_time || "12:00").slice(0, 5)}:00`)
+        ? (tenantDateTime(order.event_date, String(order.event_time || "12:00").slice(0, 5)) ?? new Date(NaN))
         : null;
       setStatus(computeReturnStatus({
         method,

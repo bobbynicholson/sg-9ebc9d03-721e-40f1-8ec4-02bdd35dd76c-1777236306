@@ -21,6 +21,7 @@
  */
 import { ChefHat, Truck, Route, MapPin, Utensils } from "lucide-react";
 import { DEFAULT_DELIVERY_LEAD_MINUTES, formatOrderMinutes, getDisplayDeliveryMinutes, parseOrderTime } from "@/lib/orderTimeDisplay";
+import { formatClock } from "@/lib/portalTime";
 
 interface OrderTimesStripProps {
   /** Order row fields used to compute the times. All optional --
@@ -43,7 +44,8 @@ interface OrderTimesStripProps {
 /** Parse HH:mm[:ss] -> total minutes since midnight, or null. */
 /** Format total minutes -> "HH:mm". */
 function fmtTime(mins: number | null): string {
-  return formatOrderMinutes(mins) || "--";
+  // Company 12/24-hour choice (Company profile > Time format).
+  return formatClock(formatOrderMinutes(mins)) || "--";
 }
 
 /** Format duration in minutes -> "Xh Ym" or "Ym". */

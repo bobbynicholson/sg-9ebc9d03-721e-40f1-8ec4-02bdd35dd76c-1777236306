@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: 'C:/Users/raj/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe' });
+const page = await (await browser.newContext({ viewport: { width: 1440, height: 950 } })).newPage();
+page.on('response', async (r) => { if (r.url().includes('address-suggest')) console.log('suggest', r.status(), (await r.text()).slice(0, 200)); });
+await page.goto('http://localhost:3002/quote/spit-braai-delivery/quick-card-3gg6?preview=1');
+await page.waitForFunction(() => document.querySelector('[data-embed-form]')?.shadowRoot?.querySelector('form'));
+const venue = page.locator('[data-embed-form] input[name="venue"]');
+console.log('visible', await venue.isVisible(), 'attrs', await venue.evaluate((e) => [e.getAttribute('role'), e.getAttribute('autocomplete')].join(',')));
+await venue.click();
+await venue.pressSequentially('12 Long Street Cape Town', { delay: 40 });
+await page.waitForTimeout(6000);
+console.log(await page.evaluate(() => { const r = document.querySelector('[data-embed-form]').shadowRoot; const l = r.querySelector('[data-fid="venue"] .cms-suggest'); return l ? { hidden: l.hidden, items: l.children.length, text: l.textContent.slice(0, 120) } : 'no list'; }));
+await page.screenshot({ path: 'tmp/embedchk/shots2/venue-dropdown.png' });
+await browser.close();

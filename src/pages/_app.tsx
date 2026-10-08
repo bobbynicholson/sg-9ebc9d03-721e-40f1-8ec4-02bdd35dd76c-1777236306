@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { Fraunces, Inter } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { TenantBrandingApplier } from "@/components/TenantBrandingApplier";
+import { PortalTimeSync } from "@/components/PortalTimeSync";
 import type { InitialBranding } from "@/lib/branding/serverBrandingForSlug";
 import { RegionFilterProvider } from "@/contexts/RegionFilterContext";
 import { ThemeProvider } from "@/contexts/ThemeProvider";
@@ -330,6 +331,8 @@ export default function App({ Component, pageProps }: AppProps) {
       <ThemeProvider>
         <AuthProvider>
           <TenantBrandingApplier initialBranding={initialBranding} />
+          {/* Company time zone + 12/24-hour format for every page. */}
+          <PortalTimeSync />
           <RegionFilterProvider>
             <AppErrorBoundary>
               <Component {...pageProps} />

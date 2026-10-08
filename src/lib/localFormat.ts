@@ -20,6 +20,8 @@
  *   - null / undefined (returns the fallback)
  */
 
+import { formatClock } from "@/lib/portalTime";
+
 const LOCALE = "en-ZA";
 
 const DATE_OPTS: Intl.DateTimeFormatOptions = {
@@ -34,7 +36,6 @@ const DATETIME_OPTS: Intl.DateTimeFormatOptions = {
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
-  hour12: false,
 };
 
 function asDate(input: string | Date | number | null | undefined): Date | null {
@@ -80,12 +81,13 @@ export function formatLocalTime(
     if (!s) return fallback;
     // Bare clock-time pattern: HH or HH:MM or HH:MM:SS
     if (/^\d{1,2}(:\d{2})?(:\d{2})?$/.test(s)) {
-      return s.length >= 5 ? s.slice(0, 5) : s;
+      // Company 12/24-hour choice (Company profile > Time format).
+      return s.includes(":") ? formatClock(s) : s;
     }
   }
   const d = asDate(input);
   if (!d) return fallback;
-  return d.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" });
 }
 
 /**

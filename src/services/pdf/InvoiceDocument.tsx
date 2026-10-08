@@ -581,7 +581,9 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {/* BILL FROM / BILL TO */}
+        {/* Party details and event facts are deliberately separate. This
+            keeps a client's contact information readable and prevents
+            order/date text from being squeezed into the Bill to column. */}
         <View style={styles.columns} wrap={false}>
           <View style={styles.column}>
             <Text style={styles.sectionLabel}>From</Text>
@@ -615,19 +617,33 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 Customer VAT No: {data.client.tax_number}
               </Text>
             ) : null}
-            {data.order_number ? (
-              <Text style={[styles.smallText, { marginTop: 4 }]}>
-                Order: {data.order_number}
-              </Text>
-            ) : null}
-            {data.event_name ? (
-              <Text style={styles.smallText}>Event: {data.event_name}</Text>
-            ) : null}
-            {eventDate ? (
-              <Text style={styles.smallText}>Event date: {eventDate}</Text>
-            ) : null}
           </View>
         </View>
+
+        {(data.order_number || data.event_name || eventDate) ? (
+          <View style={styles.fullWidthCard} wrap={false}>
+            <Text style={styles.sectionLabel}>Event details</Text>
+            <View style={styles.metaRow}>
+              {data.order_number ? (
+                <View style={styles.metaCell}>
+                  <Text style={styles.metaLabel}>Order</Text>
+                  <Text style={styles.metaValue}>{data.order_number}</Text>
+                </View>
+              ) : null}
+              {eventDate ? (
+                <View style={styles.metaCell}>
+                  <Text style={styles.metaLabel}>Event date</Text>
+                  <Text style={styles.metaValue}>{eventDate}</Text>
+                </View>
+              ) : null}
+            </View>
+            {data.event_name ? (
+              <Text style={[styles.smallText, { marginTop: 4 }]}>
+                Event: {data.event_name}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* LINE ITEMS - mirrors QuoteDocument's "From the kitchen" block */}
         {lineItems.length > 0 ? (

@@ -26,6 +26,7 @@
  * Order money values stay OFF this page - drivers must not see the
  * client's invoice value, only their own payout (earnings page).
  */
+import { formatClock } from "@/lib/portalTime";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -537,13 +538,13 @@ function DriverCalendarInner() {
                               {o.event_time && (
                                 <span className="inline-flex items-center gap-1">
                                   <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                                  Event {o.event_time.slice(0, 5)}
+                                  Event {formatClock(o.event_time)}
                                 </span>
                               )}
                               {o.pickup_time && (
                                 <span className="inline-flex items-center gap-1 text-brand-primary font-medium">
                                   <Clock className="w-3 h-3" />
-                                  Collect {o.pickup_time.slice(0, 5)}
+                                  Collect {formatClock(o.pickup_time)}
                                 </span>
                               )}
                               {o.guest_count != null && (
@@ -685,12 +686,12 @@ function DriverCalendarInner() {
                                     <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 mt-1">
                                       <span className="flex items-center gap-1 tabular-nums">
                                         <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
-                                        {o.event_time ? o.event_time.slice(0, 5) : "TBD"}
+                                        {o.event_time ? formatClock(o.event_time) : "TBD"}
                                       </span>
                                       {o.pickup_time && (
                                         <span className="flex items-center gap-1 tabular-nums text-brand-primary font-medium">
                                           <Clock className="w-3 h-3" />
-                                          Collect {o.pickup_time.slice(0, 5)}
+                                          Collect {formatClock(o.pickup_time)}
                                         </span>
                                       )}
                                       {o.guest_count != null && (

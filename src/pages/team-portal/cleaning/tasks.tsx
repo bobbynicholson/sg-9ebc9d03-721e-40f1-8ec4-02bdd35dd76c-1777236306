@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatClock } from "@/lib/portalTime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -370,7 +371,7 @@ function CleaningTasksPageInner() {
                       {t.description && <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{t.description}</p>}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
                         {t.scheduled_date && <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-slate-400 dark:text-slate-500" />{t.scheduled_date}</span>}
-                        {t.scheduled_time && <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />{t.scheduled_time.slice(0, 5)}</span>}
+                        {t.scheduled_time && <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />{formatClock(t.scheduled_time)}</span>}
                       </div>
                       {/* Assignment: manager picks the team member; staff see
                           who the task is for. */}

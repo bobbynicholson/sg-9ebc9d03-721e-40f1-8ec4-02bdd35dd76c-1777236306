@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { formatClock } from "@/lib/portalTime";
+import { tenantDateTime } from "@/lib/portalTime";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { toLocalISO, tenantToday } from "@/lib/localDate";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +65,7 @@ const AVG_SPEED_KMH = 35;
 function parseEventDateTime(eventDate: string, eventTime: string): Date | null {
   if (!eventDate || !eventTime) return null;
   const time = String(eventTime).slice(0, 8); // HH:MM:SS or HH:MM
-  const dt = new Date(`${eventDate}T${time}`);
+  const dt = (tenantDateTime(eventDate, time) ?? new Date(NaN));
   if (isNaN(dt.getTime())) return null;
   return dt;
 }
@@ -1023,7 +1025,7 @@ function AdminTrackingInner() {
                                 </div>
                                 {order.event_time && (
                                   <p className="mb-2 text-[11px] text-slate-500 tabular-nums">
-                                    Event {String(order.event_time).slice(0, 5)}
+                                    Event {formatClock(String(order.event_time))}
                                   </p>
                                 )}
                                 <div className="flex items-center justify-between text-xs">
@@ -1149,8 +1151,8 @@ function AdminTrackingInner() {
                                   <Clock className="w-4 h-4 flex-shrink-0" />
                                   <span>
                                     {order.event_date || "No date"}
-                                    {order.event_time ? ` ${String(order.event_time).slice(0, 5)}` : ""}
-                                    {order.delivery_time ? ` - delivery ${order.delivery_time}` : ""}
+                                    {order.event_time ? ` ${formatClock(String(order.event_time))}` : ""}
+                                    {order.delivery_time ? ` - delivery ${formatClock(order.delivery_time)}` : ""}
                                   </span>
                                 </div>
 
@@ -1278,7 +1280,7 @@ function AdminTrackingInner() {
                   <td style={{ padding: "6pt 4pt" }}><strong>{o.client_name || ""}</strong></td>
                   <td style={{ padding: "6pt 4pt" }}>{o.venue_address || o.venue_name || ""}</td>
                   <td style={{ padding: "6pt 4pt" }}>
-                    {o.event_date || ""}{o.event_time ? <span style={{ color: "#64748b" }}> {o.event_time}</span> : null}
+                    {o.event_date || ""}{o.event_time ? <span style={{ color: "#64748b" }}> {formatClock(o.event_time)}</span> : null}
                   </td>
                   <td style={{ padding: "6pt 4pt" }}>
                     {o.driver_name || <span style={{ color: "#dc2626", fontWeight: 700 }}>UNASSIGNED</span>}

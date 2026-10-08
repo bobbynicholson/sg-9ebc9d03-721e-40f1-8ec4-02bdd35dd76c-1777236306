@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { tenantDateTime } from "@/lib/portalTime";
 import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 import { isDriverCollection, resolveEquipmentReturn } from "@/lib/equipmentReturn";
 
@@ -1207,7 +1208,7 @@ export function computeOrderTimeline(input: OrderTimelineInput): OrderTimeline {
     const tz = input.tenantTimezone || DEFAULT_TENANT_TIMEZONE;
     // msToEvent stays absolute UTC - pulse / countdown still uses
     // raw delta. Only the bucketing flips to calendar-day.
-    const evMs = new Date(`${evDate}T${evTime}`).getTime();
+    const evMs = (tenantDateTime(evDate, evTime, "12:00", tz) ?? new Date(NaN)).getTime();
     if (!Number.isNaN(evMs)) {
       msToEvent = evMs - Date.now();
       if (isFullyComplete) {

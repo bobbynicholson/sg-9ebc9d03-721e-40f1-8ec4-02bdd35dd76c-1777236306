@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { tenantDateTime } from "@/lib/portalTime";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +40,8 @@ import dynamic from "next/dynamic";
 import driverService from "@/services/driverService";
 import { dispatchService, formatMinutesAsCountdown, minutesUntilSlaBreach } from "@/services/dispatchService";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Download } from "lucide-react";
+import { Sparkles, Download } from "lucide-react";
+import { formatClock } from "@/lib/portalTime";
 
 const RouteMap = dynamic(
   () => import("@/components/tracking/RouteOptimizationMap"),
@@ -739,8 +741,8 @@ function RoutePlanningInner() {
                           : Number.POSITIVE_INFINITY;
                         const atRisk = slack <= 0;
                         const eventDt = o.event_date && o.event_time
-                          ? new Date(`${o.event_date}T${o.event_time}`)
-                          : o.event_date ? new Date(`${o.event_date}T12:00`) : null;
+                          ? (tenantDateTime(o.event_date, o.event_time) ?? new Date(NaN))
+                          : o.event_date ? (tenantDateTime(o.event_date, "12:00") ?? new Date(NaN)) : null;
                         const minsToEvent = eventDt && !isNaN(eventDt.getTime())
                           ? (eventDt.getTime() - Date.now()) / 60_000
                           : null;
@@ -767,7 +769,7 @@ function RoutePlanningInner() {
                                   minsToEvent && minsToEvent < 1440 ? "text-amber-700 font-medium" :
                                                                        "text-slate-500"
                                 }`}>
-                                  {o.event_date} {o.event_time || ""}
+                                  {o.event_date} {formatClock(o.event_time)}
                                   {minsToEvent != null && (
                                     <span> · {formatMinutesAsCountdown(minsToEvent).replace("-", "in ")}</span>
                                   )}

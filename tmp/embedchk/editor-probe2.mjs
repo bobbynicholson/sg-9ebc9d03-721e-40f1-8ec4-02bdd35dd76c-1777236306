@@ -1,0 +1,40 @@
+import { readFileSync } from 'node:fs';
+import { chromium } from 'playwright';
+const cache = JSON.parse(readFileSync('tmp/ui-normalization/.session-cache.json', 'utf8'));
+const browser = await chromium.launch({ executablePath: 'C:/Users/raj/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe' });
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
+await ctx.addCookies(cache['hello@spitbraaidelivery.co.za'].cookies);
+let blocked = 0;
+await ctx.route('**/*', (r) => (['GET', 'HEAD', 'OPTIONS'].includes(r.request().method()) || r.request().url().includes('/auth/v1/')) ? r.continue() : (blocked++, r.abort()));
+const page = await ctx.newPage();
+page.on('pageerror', (e) => console.log('PAGEERROR', e.message.slice(0, 300)));
+await page.goto('http://localhost:3001/spit-braai-delivery/admin/integrations/embed/cb5dda49-6ce3-4579-aebf-baa4c509b643', { waitUntil: 'domcontentloaded', timeout: 120000 });
+await page.waitForSelector('text=Set up your questions', { timeout: 120000 });
+await page.waitForTimeout(6000);
+await page.evaluate(() => document.querySelectorAll('nextjs-portal').forEach((n) => n.remove()));
+await page.locator('#section-fields').screenshot({ path: 'tmp/embedchk/shots2/questions-collapsed.png' });
+// Expand the event type question.
+await page.locator('#section-fields button:has-text("Event type")').first().click();
+await page.waitForTimeout(500);
+const card = page.locator('#section-fields [aria-expanded="true"]').locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]');
+// Add a choice with the button and type it, then Enter + another.
+await card.locator('button:has-text("Add choice")').click();
+await page.keyboard.type('Graduation party');
+await page.keyboard.press('Enter');
+await page.keyboard.type('Baby shower');
+await page.waitForTimeout(400);
+const choices = await card.locator('input[aria-label^="Choice"]').evaluateAll((els) => els.map((e) => e.value));
+console.log('CHOICES', JSON.stringify(choices));
+await card.screenshot({ path: 'tmp/embedchk/shots2/question-dropdown.png' });
+await page.locator('#section-fields h3').first().click({ force: true });
+await page.waitForTimeout(1200);
+const frame = page.frameLocator('#section-preview iframe');
+const opts = await frame.locator('[data-embed-form]').evaluate((h) => [...h.shadowRoot.querySelectorAll('select[name="event_type"] option')].map((o) => o.textContent)).catch((e) => 'ERR ' + e.message);
+console.log('PREVIEW_OPTIONS', JSON.stringify(opts));
+// Number question card.
+await page.locator('#section-fields button:has-text("Guest count")').first().click();
+await page.waitForTimeout(400);
+const ncard = page.locator('#section-fields button[aria-expanded="true"]:has-text("Guest count")').locator('xpath=ancestor::div[contains(@class,"rounded-xl")][1]');
+await ncard.screenshot({ path: 'tmp/embedchk/shots2/question-number.png' });
+console.log('BLOCKED_WRITES', blocked);
+await browser.close();

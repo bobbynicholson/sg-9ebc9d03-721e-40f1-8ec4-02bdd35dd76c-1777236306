@@ -140,6 +140,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     );
   }
 
+  // Time questions open in the company's chosen time format (Company
+  // profile > Time format: "24h" / "12h"). Read separately and best-effort
+  // so a database without the column never breaks the public form; the
+  // visitor can still switch format on the form itself.
+  try {
+    const { data: fmtRow } = await (supabase as any)
+      .from("companies")
+      .select("time_format")
+      .eq("id", company.id)
+      .maybeSingle();
+    const timeFormat = (fmtRow as any)?.time_format === "24h" ? "24h" : (fmtRow as any)?.time_format === "12h" ? "12h" : null;
+    if (timeFormat) {
+      publicFields = publicFields.map((f: any) => (f?.type === "time" ? { ...f, timeFormat } : f));
+    }
+  } catch {
+    // Column not there yet - the form keeps its own default.
+  }
+
   // Best-effort view counter - fire-and-forget so a slow update never blocks
   // the response. Use rpc-style increment to avoid lost updates under race.
   // Admin previews (?preview=1) are not visitor views, so they skip it.

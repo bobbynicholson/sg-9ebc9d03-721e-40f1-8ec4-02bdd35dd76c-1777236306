@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: 'C:/Users/raj/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe', args: ['--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessRespectPreflightResults'] });
+const page = await browser.newPage();
+page.on('console', m => console.log('console', m.type(), m.text()));
+page.on('pageerror', e => console.log('pageerror', String(e)));
+page.on('requestfailed', r => console.log('reqfail', r.url(), r.failure()?.errorText));
+page.on('response', r => { if (r.url().includes('3001')) console.log('resp', r.status(), r.url()); });
+await page.route('http://127.0.0.1:8099/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html><html><body><div data-embed-form data-token="e877e365-d5b7-4839-b386-d5253f0c1141" data-slug="quick-card-3gg6"></div><script async src="http://localhost:3001/embed/loader.js"></script></body></html>` }));
+await page.goto('http://127.0.0.1:8099/quote');
+await page.waitForTimeout(15000);
+console.log(await page.evaluate(() => document.querySelector('[data-embed-form]').shadowRoot?.innerHTML?.slice(0, 500)));
+await browser.close();

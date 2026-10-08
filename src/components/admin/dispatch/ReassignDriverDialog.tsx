@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sparkles, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { dispatchService, type DispatchSuggestion } from "@/services/dispatchService";
+import { dispatchService, type DispatchSuggestion } from "@/services/dispatchService";
+import { formatClock } from "@/lib/portalTime";
 
 interface Props {
   open: boolean;
@@ -288,7 +289,7 @@ export function ReassignDriverDialog({
                         )}
                         {s.scheduleConflict && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 font-medium">
-                            Schedule conflict: {s.scheduleConflict.orderNumber} at {s.scheduleConflict.eventTime}
+                            Schedule conflict: {s.scheduleConflict.orderNumber} at {formatClock(s.scheduleConflict.eventTime)}
                           </span>
                         )}
                         {s.feasibility.etaMinutes != null && s.feasibility.ok && (

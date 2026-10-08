@@ -38,6 +38,15 @@ import { useToast } from "@/hooks/use-toast";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { toLocalISO, TENANT_TIMEZONE_CHOICES, isValidTimezone } from "@/lib/localDate";
+
+// Every IANA zone the browser knows, for the "All time zones" list.
+const ALL_TIMEZONES: string[] = (() => {
+  try {
+    return ((Intl as any).supportedValuesOf?.("timeZone") as string[]) || [];
+  } catch {
+    return [];
+  }
+})();
 import { z } from "zod";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { captureException } from "@/lib/observability";
@@ -111,6 +120,9 @@ interface CompanyRow {
   /** Phase 4 #3: IANA timezone that drives report buckets, BCEA pay
    *  windows, kitchen lead-time gates, daily cron boundaries. */
   timezone: string | null;
+  /** How times are shown across the portal: "24h" (14:30) or "12h"
+   *  (2:30 PM). Absent until migration 20261008120000 is applied. */
+  time_format?: string | null;
   currency: string | null;
   /** Phase 5 #3: Google Business Profile place_id. Drives the
    *  after-sales review email to a proper write-review deeplink. */
@@ -312,6 +324,11 @@ function CompanyProfilePage() {
         bank_account_type: row.bank_account_type,
         eft_instructions: row.eft_instructions,
         timezone: row.timezone || null,
+        // Only sent once the column exists (loaded via select("*")), so
+        // saving the profile keeps working before the migration lands.
+        ...(Object.prototype.hasOwnProperty.call(row, "time_format")
+          ? { time_format: row.time_format === "12h" ? "12h" : "24h" }
+          : {}),
         currency: row.currency || null,
         google_place_id: row.google_place_id?.trim() || null,
         // FIN-D: peak-season months. Both stored as int 1-12 or NULL.
@@ -555,11 +572,11 @@ function CompanyProfilePage() {
                 <InfoTooltip content={"Sets the wall clock for every date bucket in the system. Reports, kitchen prep lead times, driver pay windows and the daily cron all key off this. Get it wrong on a UK or US deploy and reports will show events on the wrong day."} />
               </CardTitle>
               <CardDescription>
-                Timezone for date buckets (reports, kitchen lead time, pay windows). Currency tag on documents.
+                Time zone and time format for every date and time in the portal, plus the currency on documents.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field id="timezone" label="Timezone (IANA)">
+              <Field id="timezone" label="Time zone">
                 <select
                   id="timezone"
                   value={row.timezone || ""}
@@ -567,11 +584,33 @@ function CompanyProfilePage() {
                   className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
                 >
                   <option value="">- pick a timezone -</option>
-                  {TENANT_TIMEZONE_CHOICES.map((tz) => (
-                    <option key={tz.value} value={tz.value}>{tz.label}</option>
-                  ))}
+                  <optgroup label="Common">
+                    {TENANT_TIMEZONE_CHOICES.map((tz) => (
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="All time zones">
+                    {ALL_TIMEZONES.filter((tz) => !TENANT_TIMEZONE_CHOICES.some((c) => c.value === tz)).map((tz) => (
+                      <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+                    ))}
+                  </optgroup>
                 </select>
+                <p className="mt-1 text-xs text-slate-500">Every date and time in the portal is shown in this time zone, for everyone on your team.</p>
               </Field>
+              {Object.prototype.hasOwnProperty.call(row, "time_format") && (
+                <Field id="time_format" label="Time format">
+                  <select
+                    id="time_format"
+                    value={row.time_format === "12h" ? "12h" : "24h"}
+                    onChange={(e) => setRow({ ...row, time_format: e.target.value })}
+                    className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                  >
+                    <option value="24h">24-hour (14:30)</option>
+                    <option value="12h">12-hour (2:30 PM)</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">How times are shown everywhere in the portal.</p>
+                </Field>
+              )}
               <Field id="currency" label="Currency">
                 <select
                   id="currency"

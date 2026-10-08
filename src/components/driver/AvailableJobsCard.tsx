@@ -17,6 +17,8 @@
  *                       parent can re-pull active deliveries
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { formatClock } from "@/lib/portalTime";
+import { tenantDateTime } from "@/lib/portalTime";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -116,7 +118,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
       if (!o.event_time) return true; // no time set, can't time-filter
       const [h, m] = o.event_time.slice(0, 5).split(":").map(Number);
       if (!Number.isFinite(h) || !Number.isFinite(m)) return true;
-      const eventMs = new Date(o.event_date + "T" + o.event_time.slice(0, 5) + ":00").getTime();
+      const eventMs = (tenantDateTime(o.event_date, o.event_time.slice(0, 5)) ?? new Date(NaN)).getTime();
       if (!Number.isFinite(eventMs)) return true;
       return eventMs + GRACE_MIN * 60_000 >= nowMs;
     });
@@ -316,7 +318,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                     {o.event_time && (
                       <>
                         <Clock className="w-3 h-3 ml-1" />
-                        <span className="tabular-nums">{o.event_time.slice(0, 5)}</span>
+                        <span className="tabular-nums">{formatClock(o.event_time)}</span>
                       </>
                     )}
                   </span>
@@ -327,7 +329,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                   {o.pickup_time && (
                     <span className="inline-flex items-center gap-1 text-brand-primary font-medium">
                       <Clock className="w-3 h-3" />
-                      Collect {o.pickup_time.slice(0, 5)}
+                      Collect {formatClock(o.pickup_time)}
                     </span>
                   )}
                   {o.guest_count != null && (
@@ -424,7 +426,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                       {confirmRow.event_time && (
                         <>
                           <Clock className="w-3.5 h-3.5 ml-1" />
-                          <span className="tabular-nums">{confirmRow.event_time.slice(0, 5)}</span>
+                          <span className="tabular-nums">{formatClock(confirmRow.event_time)}</span>
                         </>
                       )}
                     </div>
@@ -434,7 +436,7 @@ export function AvailableJobsCard({ onClaimed }: Props) {
                         <span>
                           Collect from kitchen at{" "}
                           <span className="tabular-nums">
-                            {confirmRow.pickup_time.slice(0, 5)}
+                            {formatClock(confirmRow.pickup_time)}
                           </span>
                         </span>
                       </div>

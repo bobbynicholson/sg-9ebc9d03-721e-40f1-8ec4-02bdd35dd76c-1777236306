@@ -2,6 +2,7 @@
 // KIT3-E (task #248): @ts-nocheck removed; this file is type-checked.
 // Remaining `any` casts are isolated to supabase realtime payloads
 // and the `equipment_items` JSONB column shape.
+import { formatClock, tenantDateTime } from "@/lib/portalTime";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -392,15 +393,15 @@ function KitchenPrepListPageInner() {
   ) => {
     let eventTs: number;
     if (meta?.event_time) {
-      const composed = new Date(`${o.event_date}T${meta.event_time}`);
+      const composed = (tenantDateTime(o.event_date, meta.event_time) ?? new Date(NaN));
       eventTs = isNaN(composed.getTime())
-        ? new Date(o.event_date + "T12:00:00").getTime()
+        ? (tenantDateTime(o.event_date, "12:00") ?? new Date(NaN)).getTime()
         : composed.getTime();
     } else {
       // No stamped time -> assume midday for sort stability. The lead
       // window of 12h means a noon event still surfaces as urgent
       // overnight, which matches the chef's mental model.
-      eventTs = new Date(o.event_date + "T12:00:00").getTime();
+      eventTs = (tenantDateTime(o.event_date, "12:00") ?? new Date(NaN)).getTime();
     }
     const hoursUntilEvent = (eventTs - Date.now()) / 3_600_000;
     const guestPressure = Math.min(3, Math.max(1, Number(o.guest_count || 0) / 50));
@@ -1100,7 +1101,7 @@ function KitchenPrepListPageInner() {
                                   </span>
                                   {meta?.event_time && (
                                     <span className="flex items-center gap-1">
-                                      <Clock className="w-3 h-3" /> {meta.event_time}
+                                      <Clock className="w-3 h-3" /> {formatClock(meta.event_time)}
                                     </span>
                                   )}
                                   <span className="flex items-center gap-1">

@@ -35,7 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
-  CheckCircle2, MapPin, Calendar, Users, Loader2, AlertCircle,
+  CheckCircle2, Calendar, Loader2, AlertCircle,
   Printer, MessageSquare, ArrowRight, Pencil, X, Clock,
 } from "lucide-react";
 import {
@@ -55,6 +55,8 @@ import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { QuoteProgress } from "@/components/quotes/QuoteProgress";
 import { EQUIPMENT_RETURN_OPTIONS, resolveEquipmentReturn } from "@/lib/equipmentReturn";
+import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
+import { formatClockBoth } from "@/lib/portalTime";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -613,8 +615,14 @@ export default function PublicQuotePage() {
     const h12 = h % 12 === 0 ? 12 : h % 12;
     return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
   };
-  const eventTime = friendlyTime((quote as any).event_time);
-  const setupTime = friendlyTime((quote as any).setup_time);
+  // Company time format (Company profile > Time format) when known.
+  const quoteTimeFormat = (quote as any).company?.time_format as string | null | undefined;
+  const eventTime = quoteTimeFormat
+    ? (formatClockBoth((quote as any).event_time, quoteTimeFormat) || null)
+    : friendlyTime((quote as any).event_time);
+  const setupTime = quoteTimeFormat
+    ? (formatClockBoth((quote as any).setup_time, quoteTimeFormat) || null)
+    : friendlyTime((quote as any).setup_time);
   const validUntil = quote.valid_until
     ? new Date(quote.valid_until).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
     : null;
@@ -860,73 +868,26 @@ export default function PublicQuotePage() {
             </CardContent>
           </Card>
 
-          {/* FROM / BILL TO - same blocks as the quote and invoice PDFs,
-              so the quote, its invoice and their PDFs all read the same. */}
+          {/* One calm identity block: party details get breathing room and
+              event facts remain readable even inside a narrow document. */}
           <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none">
-            <CardContent className="py-4 px-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">From</p>
-                <p className="text-sm font-semibold text-stone-900 break-words">{company?.legal_name || company?.company_name || ""}</p>
-                {companyAddress && <p className="text-sm text-stone-600 break-words">{companyAddress}</p>}
-                {company?.email && <p className="text-sm text-stone-600 break-all">{company.email}</p>}
-                {company?.phone && <p className="text-sm text-stone-600">{company.phone}</p>}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Bill to</p>
-                {quote.client_name && <p className="text-sm font-semibold text-stone-900 break-words">{quote.client_name}</p>}
-                {quote.client_email && <p className="text-sm text-stone-600 break-all">{quote.client_email}</p>}
-                {quote.client_phone && <p className="text-sm text-stone-600">{quote.client_phone}</p>}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* EVENT DETAILS - icon tiles so the when / how many / where
-              scan in one glance. */}
-          <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none">
-            <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {eventDate && (
-                <div className="flex items-start gap-3 sm:col-span-3 rounded-xl bg-brand-primary/5 border border-brand-primary/15 p-3">
-                  <div className="w-11 h-11 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
-                    <Calendar className="w-5 h-5 text-brand-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold">Event date</p>
-                    <p className="text-2xl sm:text-3xl font-serif font-bold text-stone-900 leading-tight mt-0.5">
-                      {eventDate}
-                    </p>
-                    {eventTime && (
-                      <p className="text-sm font-semibold text-stone-700 mt-0.5">{eventTime} start</p>
-                    )}
-                    {setupTime && setupTime !== eventTime && (
-                      <p className="text-xs text-stone-600 mt-0.5 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-stone-400" />
-                        Setup / arrival: <span className="font-semibold text-stone-900">{setupTime}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {displayGuestCount != null && (
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
-                    <Users className="w-4 h-4 text-brand-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-bold">Guests</p>
-                    <p className="text-sm font-semibold text-stone-900 mt-0.5">{displayGuestCount}</p>
-                  </div>
-                </div>
-              )}
-              {quote.venue_address && (
-                <div className="flex items-start gap-3 sm:col-span-3">
-                  <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
-                    <MapPin className="w-4 h-4 text-brand-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-bold">Venue</p>
-                    <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.venue_address}</p>
-                  </div>
-                </div>
+            <CardContent className="px-5 py-5">
+              <DocumentPartiesAndEvent
+                from={{ name: company?.legal_name || company?.company_name, address: companyAddress, email: company?.email, phone: company?.phone }}
+                billTo={{ name: quote.client_name, email: quote.client_email, phone: quote.client_phone }}
+                event={{
+                  reference: quote.quote_number,
+                  referenceLabel: "Quote",
+                  date: eventDate,
+                  time: eventTime ? `${eventTime} start` : null,
+                  venue: quote.venue_address,
+                  guests: displayGuestCount,
+                }}
+              />
+              {setupTime && setupTime !== eventTime && (
+                <p className="mt-2.5 border-t border-stone-100 pt-2.5 text-xs text-stone-600">
+                  Setup / arrival: <span className="font-semibold text-stone-900">{setupTime}</span>
+                </p>
               )}
             </CardContent>
           </Card>

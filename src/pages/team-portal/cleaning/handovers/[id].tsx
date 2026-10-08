@@ -51,7 +51,7 @@ function fmtDateTime(iso: string | null): string {
   if (!iso) return "--";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "--";
-  return d.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 const PHASE_LABELS: Record<string, { label: string; tone: string }> = {

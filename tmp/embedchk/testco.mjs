@@ -1,0 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+const env = Object.fromEntries(fs.readFileSync('.env.local','utf8').split(/\r?\n/).filter(l=>l.includes('=')&&!l.startsWith('#')).map(l=>{const i=l.indexOf('=');return [l.slice(0,i).trim(), l.slice(i+1).trim().replace(/^"|"$/g,'')]}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const id = '1417901f-2a08-4fd0-a264-29f47ce371cb';
+const { data: co } = await sb.from('companies').select('company_name, slug, embed_token, owner_id, notification_email, currency').eq('id', id).single();
+const { data: owner } = await sb.from('profiles').select('email').eq('id', co.owner_id).maybeSingle();
+const { count: regions } = await sb.from('regions').select('id', { count: 'exact', head: true }).eq('company_id', id).eq('is_active', true);
+const { count: menu } = await sb.from('menu_items').select('id', { count: 'exact', head: true }).eq('company_id', id).is('deleted_at', null);
+const { count: eq } = await sb.from('equipment').select('id', { count: 'exact', head: true }).eq('company_id', id).is('deleted_at', null);
+console.log({ ...co, ownerEmail: owner?.email, regions, menu, equipment: eq });

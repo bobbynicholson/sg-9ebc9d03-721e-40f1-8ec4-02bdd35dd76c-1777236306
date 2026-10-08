@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { tenantDateTime } from "@/lib/portalTime";
 import { shiftService } from "./shiftService";
 /**
  * Dispatch service: the math layer behind the order-to-driver flywheel.
@@ -21,7 +22,8 @@ import { shiftService } from "./shiftService";
 import { supabase as browserSupabase } from "@/integrations/supabase/client";
 import { toLocalISO } from "@/lib/localDate";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
-import { notificationService } from "./notificationService";
+import { notificationService } from "./notificationService";
+import { formatClock } from "@/lib/portalTime";
 
 // Dispatch is used by browser pages and by the server-side order cascade.
 // The server path must use service role; the browser client has no session in
@@ -478,7 +480,7 @@ export const dispatchService = {
           conflictOrderId: row.id,
           conflictOrderNumber: row.order_number ?? row.id.slice(0, 8),
           conflictTime: row.event_time ?? undefined,
-          reason: `This driver is already assigned to order ${row.order_number ?? row.id.slice(0, 8)} at ${row.event_time}. The two jobs are scheduled too close together and may overlap.`,
+          reason: `This driver is already assigned to order ${row.order_number ?? row.id.slice(0, 8)} at ${formatClock(row.event_time)}. The two jobs are scheduled too close together and may overlap.`,
         };
       }
     }
@@ -505,7 +507,7 @@ export const dispatchService = {
     }
     const km = haversineKm(driverLatLng, { lat: order.venue_lat, lng: order.venue_lng });
     const etaMinutes = etaMinutesFromKm(km);
-    const eventDateTime = new Date(`${order.event_date}T${order.event_time}`);
+    const eventDateTime = (tenantDateTime(order.event_date, order.event_time) ?? new Date(NaN));
     if (isNaN(eventDateTime.getTime())) return { ok: true, etaMinutes, reason: "Bad event time" };
     const minutesUntilEvent = (eventDateTime.getTime() - Date.now()) / 60000;
     if (minutesUntilEvent <= 0) return { ok: false, etaMinutes, reason: "Event already started" };
@@ -576,7 +578,7 @@ export const dispatchService = {
           orderId: row.id,
           orderNumber: row.order_number ?? row.id.slice(0, 8),
           eventTime: row.event_time ?? "the scheduled time",
-          reason: `Already assigned to ${row.order_number ?? row.id.slice(0, 8)} at ${row.event_time}. The two jobs are scheduled too close together and may overlap.`,
+          reason: `Already assigned to ${row.order_number ?? row.id.slice(0, 8)} at ${formatClock(row.event_time)}. The two jobs are scheduled too close together and may overlap.`,
         };
       }
     }
@@ -708,7 +710,7 @@ export const dispatchService = {
       if (row.event_date && row.event_time && row.delivered_at) {
         if (!onTimeCounts[driverId]) onTimeCounts[driverId] = { total: 0, onTime: 0 };
         onTimeCounts[driverId].total += 1;
-        const eventDt = new Date(`${row.event_date}T${row.event_time}`);
+        const eventDt = (tenantDateTime(row.event_date, row.event_time) ?? new Date(NaN));
         const deadline = eventDt.getTime() + settings.arrivalBufferMinutes * 60_000;
         const delivered = new Date(row.delivered_at).getTime();
         if (!Number.isNaN(deadline) && !Number.isNaN(delivered) && delivered <= deadline) {
@@ -947,7 +949,7 @@ export const dispatchService = {
         recipient_id: payload.driverId,
         type: "driver_assigned",
         title: "New delivery assigned",
-        message: `You're assigned order ${(existing as any)?.order_number || payload.orderId.slice(0, 8)}${(existing as any)?.event_time ? ` at ${(existing as any).event_time}` : ""}.`,
+        message: `You're assigned order ${(existing as any)?.order_number || payload.orderId.slice(0, 8)}${(existing as any)?.event_time ? ` at ${formatClock((existing as any).event_time)}` : ""}.`,
         priority: "high",
         link: "/team-portal/driver/dashboard",
         related_entity_type: "order",
@@ -1248,8 +1250,8 @@ export const dispatchService = {
     let atRisk = 0;
     for (const o of unassigned || []) {
       const dt = (o as any).event_time
-        ? new Date(`${(o as any).event_date}T${(o as any).event_time}`)
-        : new Date(`${(o as any).event_date}T12:00`);
+        ? (tenantDateTime((o as any).event_date, (o as any).event_time) ?? new Date(NaN))
+        : (tenantDateTime((o as any).event_date, "12:00") ?? new Date(NaN));
       if (isNaN(dt.getTime())) continue;
       const diff = dt.getTime() - now;
       // Wave 70.59: at-risk now excludes past events. Previously
@@ -1480,7 +1482,7 @@ export const dispatchService = {
       // pay introduced in Phase 29 / Phase 30 #4.
       totalKm += Number((o as any).delivery_distance_km || 0) * 2;
       if ((o as any).event_date && (o as any).event_time && (o as any).delivered_at) {
-        const eventDt = new Date(`${(o as any).event_date}T${(o as any).event_time}`);
+        const eventDt = (tenantDateTime((o as any).event_date, (o as any).event_time) ?? new Date(NaN));
         const deadline = eventDt.getTime() + settings.arrivalBufferMinutes * 60_000;
         const delivered = new Date((o as any).delivered_at).getTime();
         if (!isNaN(deadline) && !isNaN(delivered) && delivered <= deadline) onTime += 1;
@@ -1606,7 +1608,7 @@ export function minutesUntilSlaBreach(
   eventTime: string | null | undefined,
   slaMinutes: number,
 ): number {
-  const dt = eventTime ? new Date(`${eventDate}T${eventTime}`) : new Date(`${eventDate}T12:00`);
+  const dt = eventTime ? (tenantDateTime(eventDate, eventTime) ?? new Date(NaN)) : (tenantDateTime(eventDate, "12:00") ?? new Date(NaN));
   if (isNaN(dt.getTime())) return Number.POSITIVE_INFINITY;
   const minsToEvent = (dt.getTime() - Date.now()) / 60_000;
   return minsToEvent - slaMinutes;

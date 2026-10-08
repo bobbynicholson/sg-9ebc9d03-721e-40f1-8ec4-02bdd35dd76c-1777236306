@@ -213,7 +213,7 @@ export function OrderHistoryTimeline({ orderId, orders }: Props) {
                               {formatDate(timestamp)}
                             </p>
                             <p className="text-xs text-slate-400">
-                              {timestamp.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                              {timestamp.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
                             </p>
                           </div>
                         </div>

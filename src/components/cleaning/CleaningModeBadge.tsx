@@ -77,7 +77,7 @@ function formatTimeShort(iso: string | null): string {
   if (!iso) return "--";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "--";
-  return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
 }
 
 export function CleaningModeBadge() {

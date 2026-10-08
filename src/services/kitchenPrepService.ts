@@ -16,6 +16,7 @@
  * fallback in inventoryDeductionService - this lets self-service menu
  * editing work today without breaking tenants on the legacy map.
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import { supabase } from "@/integrations/supabase/client";
 import { getRecipe as getLegacyRecipe } from "./inventoryDeductionService";
 import { toLocalISO } from "@/lib/localDate";
@@ -384,7 +385,7 @@ export const kitchenPrepService = {
       // the event start instead of the (earlier) collection time. Combine it
       // with event_date the same way the BEO ticket does.
       if (order.pickup_time && order.event_date) {
-        const dt = new Date(`${order.event_date}T${String(order.pickup_time).slice(0, 5)}:00`);
+        const dt = (tenantDateTime(order.event_date, String(order.pickup_time).slice(0, 5)) ?? new Date(NaN));
         if (!isNaN(dt.getTime())) return dt;
       }
       // delivery_time (also a `time` column) is the next-best anchor: food must
@@ -392,15 +393,15 @@ export const kitchenPrepService = {
       // delivery_time re-stamped the driver + cleaning but left the cook
       // backplan on the old event_time, so food wasn't ready when the truck left.
       if (order.delivery_time && order.event_date) {
-        const dt = new Date(`${order.event_date}T${String(order.delivery_time).slice(0, 5)}:00`);
+        const dt = (tenantDateTime(order.event_date, String(order.delivery_time).slice(0, 5)) ?? new Date(NaN));
         if (!isNaN(dt.getTime())) return dt;
       }
       if (order.event_date && order.event_time) {
-        const dt = new Date(`${order.event_date}T${order.event_time}`);
+        const dt = (tenantDateTime(order.event_date, order.event_time) ?? new Date(NaN));
         if (!isNaN(dt.getTime())) return dt;
       }
       if (order.event_date) {
-        const dt = new Date(`${order.event_date}T12:00`);
+        const dt = (tenantDateTime(order.event_date, "12:00") ?? new Date(NaN));
         if (!isNaN(dt.getTime())) return dt;
       }
       return null;

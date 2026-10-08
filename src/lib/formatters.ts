@@ -52,7 +52,6 @@ export function formatDate(
   const timePart = d.toLocaleTimeString(DEFAULT_LOCALE, {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
   });
   return `${datePart} ${timePart}`;
 }

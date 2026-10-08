@@ -10,6 +10,7 @@
  * minutes, payment state, prep state, driver assignment, POD state.
  * Cheap, deterministic, easy to extend.
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,10 +55,8 @@ interface Props {
 
 function combineDateTime(date: string, time: string | null): Date | null {
   if (!date) return null;
-  const t = time || "12:00:00";
-  const iso = `${date}T${t.length === 5 ? t + ":00" : t}`;
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? null : d;
+  // Clock time in the company's time zone (lib/portalTime).
+  return tenantDateTime(date, time || "12:00");
 }
 
 export function OrderSuggestedAction({ order, shoppingOutstanding }: Props) {

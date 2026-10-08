@@ -13,6 +13,7 @@
  * Deduped per order for 18h, so each overdue return is raised about
  * twice a day until it is done.
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import { notificationService } from "@/services/notificationService";
 import { EQUIPMENT_RETURN_ADMIN_ROLES, computeReturnStatus, resolveEquipmentReturn } from "@/lib/equipmentReturn";
 
@@ -50,7 +51,7 @@ export async function runWaiterReturnReminders(sb: any, now: Date = new Date()):
         sb.from("event_attendance").select("waiter_id, event_complete_at, equipment_returned_at").eq("order_id", o.id),
         sb.from("equipment_bookings").select("quantity, returned_quantity, status").eq("order_id", o.id),
       ]);
-      const start = new Date(`${o.event_date}T${String(o.event_time || "12:00").slice(0, 5)}:00`);
+      const start = (tenantDateTime(o.event_date, String(o.event_time || "12:00").slice(0, 5)) ?? new Date(NaN));
       const status = computeReturnStatus({
         method: "waiter",
         now,

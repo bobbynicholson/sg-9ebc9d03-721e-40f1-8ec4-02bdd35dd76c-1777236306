@@ -16,6 +16,7 @@
  * land in 70.42b - the data layer is already in place, the views
  * are next.
  */
+import { formatClock } from "@/lib/portalTime";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -268,15 +269,15 @@ function KitchenFacts({ facts }: { facts: BookingFactsKitchen }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">Event time</p>
-              <p className="text-lg font-bold tabular-nums text-slate-900">{facts.event_time?.slice(0, 5) || "--"}</p>
+              <p className="text-lg font-bold tabular-nums text-slate-900">{formatClock(facts.event_time) || "--"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">Setup</p>
-              <p className="text-lg font-bold tabular-nums text-slate-900">{facts.setup_time?.slice(0, 5) || "--"}</p>
+              <p className="text-lg font-bold tabular-nums text-slate-900">{formatClock(facts.setup_time) || "--"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">Driver collects</p>
-              <p className="text-lg font-bold tabular-nums text-orange-700">{facts.pickup_time?.slice(0, 5) || "--"}</p>
+              <p className="text-lg font-bold tabular-nums text-orange-700">{formatClock(facts.pickup_time) || "--"}</p>
             </div>
           </div>
         </CardContent>
@@ -328,15 +329,15 @@ function DriverFacts({ facts }: { facts: BookingFactsDriver }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">Pickup</p>
-              <p className="text-lg font-bold tabular-nums text-slate-900">{facts.pickup_time?.slice(0, 5) || "--"}</p>
+              <p className="text-lg font-bold tabular-nums text-slate-900">{formatClock(facts.pickup_time) || "--"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">Setup</p>
-              <p className="text-sm tabular-nums text-slate-700">{facts.setup_time?.slice(0, 5) || "--"}</p>
+              <p className="text-sm tabular-nums text-slate-700">{formatClock(facts.setup_time) || "--"}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">Delivery</p>
-              <p className="text-lg font-bold tabular-nums text-blue-700">{facts.event_time?.slice(0, 5) || "--"}</p>
+              <p className="text-lg font-bold tabular-nums text-blue-700">{formatClock(facts.event_time) || "--"}</p>
             </div>
           </div>
         </CardContent>
@@ -401,7 +402,7 @@ function CleaningFacts({ facts }: { facts: BookingFactsCleaning }) {
             </div>
             {facts.handover.expected_at && (
               <p className="text-xs text-brand-primary">
-                Expected back by {new Date(facts.handover.expected_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}
+                Expected back by {new Date(facts.handover.expected_at).toLocaleString("en-ZA", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
               </p>
             )}
             {handoverHref && (

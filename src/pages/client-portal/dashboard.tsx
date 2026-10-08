@@ -23,6 +23,7 @@
  * /[slug]/client-portal/dashboard via the rewrite in next.config.mjs --
  * the slug variant is the canonical URL post-Phase-2.
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -61,7 +62,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { onOrderUpdated } from "@/lib/events/orderEvents";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
-import { orderDisplayName } from "@/lib/orderDisplayName";
+import { orderDisplayName } from "@/lib/orderDisplayName";
+import { formatClockWithAlt } from "@/lib/portalTime";
 
 // Leaflet (used for live tracking) is SSR-hostile. Lazy-load on demand so
 // the bundle stays small and SSR doesn't crash.
@@ -264,7 +266,7 @@ function pickHeadlineEvent(orders: Order[]): Order | null {
 
 /** Days/hours from now to the event (negative if past). */
 function timeUntil(eventDate: string, eventTime?: string | null): { days: number; hours: number; minutes: number; isPast: boolean } {
-  const target = new Date(`${eventDate}T${(eventTime || "12:00").slice(0, 5)}:00`);
+  const target = (tenantDateTime(eventDate, (eventTime || "12:00").slice(0, 5)) ?? new Date(NaN));
   const diffMs = target.getTime() - Date.now();
   const isPast = diffMs < 0;
   const abs = Math.abs(diffMs);
@@ -1816,7 +1818,7 @@ function HeroCard({
                 month: "long",
                 year: "numeric",
               })}
-              {order.event_time && ` • ${order.event_time}`}
+              {order.event_time && ` • ${formatClockWithAlt(order.event_time)}`}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -1931,7 +1933,7 @@ function HeroCard({
             label="Date"
             value={new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
           />
-          <Stat icon={Clock} label="Start" value={order.event_time || "TBD"} />
+          <Stat icon={Clock} label="Start" value={formatClockWithAlt(order.event_time, "TBD")} />
           <Stat icon={Users} label="Guests" value={`${order.guest_count || 0}`} />
           <Stat icon={MapPin} label="Venue" value={order.venue_name || "TBD"} />
         </div>

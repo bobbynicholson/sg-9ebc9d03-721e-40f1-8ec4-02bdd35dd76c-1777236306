@@ -74,7 +74,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         collection_fee, collection_distance_km, collection_rate_per_km,
         valid_until, accepted_at, updated_at,
         company:company_id (
-          id, slug, company_name, legal_name, logo_url, email, phone, website,
+          id, slug, company_name, legal_name, time_format, logo_url, email, phone, website,
           address_line1, address_line2, city,
           primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
           registration_number, tax_number, currency,

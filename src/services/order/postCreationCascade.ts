@@ -30,6 +30,7 @@
  *     soft-delete + re-insert double-fire that the original flow
  *     would produce on a retry.
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
@@ -664,7 +665,7 @@ export async function postOrderCreationCascade(
         const eventIso = (ordRow as any)?.event_date as string | null;
         const eventTime = (ordRow as any)?.event_time as string | null;
         const requiredOnSiteAt = eventIso
-          ? new Date(`${eventIso}T${(eventTime || "12:00").slice(0, 5)}:00`).toISOString()
+          ? (tenantDateTime(eventIso, (eventTime || "12:00").slice(0, 5)) ?? new Date(NaN)).toISOString()
           : null;
         const expiresAt = eventIso
           ? new Date(new Date(eventIso).getTime() + 24 * 60 * 60 * 1000).toISOString()

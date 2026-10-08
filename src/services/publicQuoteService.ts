@@ -99,6 +99,8 @@ export interface PublicQuoteView {
     company_name: string | null;
     /** Registered legal name - the "From" party on the quote. */
     legal_name?: string | null;
+    /** Company time format ("24h" / "12h"). */
+    time_format?: string | null;
     logo_url: string | null;
     email: string | null;
     phone: string | null;

@@ -1,0 +1,194 @@
+[
+ {
+  "test": "clean link quick-card-3gg6 @1440",
+  "fields": 10,
+  "hasHowCanWeHelp": false,
+  "formWidth": "860/1440",
+  "picks": {
+   "venue": {
+    "suggestion": "Long Street, City Centre, Cape Town, 8001",
+    "count": 4,
+    "anyPrice": false
+   },
+   "menu": {
+    "suggestion": "Lamb Ribs Full Portion",
+    "count": 7,
+    "anyPrice": false
+   }
+  },
+  "submitted": 1,
+  "payloadMenu": [
+   "e478c27b-ddcd-4f83-baa8-a26f791e7e24"
+  ],
+  "payloadVenue": "Long Street, City Centre, Cape Town, 8001",
+  "result": "REDIRECTED https://spitbraaidelivery.co.za/thank-you",
+  "pageErrors": []
+ },
+ {
+  "test": "clean link quick-card-3gg6 @390",
+  "fields": 10,
+  "hasHowCanWeHelp": false,
+  "formWidth": "366/390",
+  "picks": {
+   "venue": {
+    "suggestion": "Long Street, City Centre, Cape Town, 8001",
+    "count": 4,
+    "anyPrice": false
+   },
+   "menu": {
+    "suggestion": "Lamb Ribs Full Portion",
+    "count": 7,
+    "anyPrice": false
+   }
+  },
+  "submitted": 1,
+  "payloadMenu": [
+   "e478c27b-ddcd-4f83-baa8-a26f791e7e24"
+  ],
+  "payloadVenue": "Long Street, City Centre, Cape Town, 8001",
+  "result": "REDIRECTED https://spitbraaidelivery.co.za/thank-you",
+  "pageErrors": []
+ },
+ {
+  "test": "clean link detailed-multi-step-qbvs @1440",
+  "fields": 14,
+  "hasHowCanWeHelp": false,
+  "formWidth": "860/1440",
+  "picks": {
+   "venue": {
+    "suggestion": "Long Street, City Centre, Cape Town, 8001",
+    "count": 4,
+    "anyPrice": false
+   },
+   "menu": {
+    "suggestion": "Lamb Ribs Full Portion",
+    "count": 7,
+    "anyPrice": false
+   }
+  },
+  "submitted": 1,
+  "payloadMenu": [
+   "e478c27b-ddcd-4f83-baa8-a26f791e7e24"
+  ],
+  "payloadVenue": "Long Street, City Centre, Cape Town, 8001",
+  "result": "Thank youINTERCEPTED",
+  "pageErrors": []
+ },
+ {
+  "test": "clean link detailed-multi-step-qbvs @390",
+  "fields": 14,
+  "hasHowCanWeHelp": false,
+  "formWidth": "366/390",
+  "picks": {
+   "venue": {
+    "suggestion": "Long Street, City Centre, Cape Town, 8001",
+    "count": 4,
+    "anyPrice": false
+   },
+   "menu": {
+    "suggestion": "Lamb Ribs Full Portion",
+    "count": 7,
+    "anyPrice": false
+   }
+  },
+  "submitted": 1,
+  "payloadMenu": [
+   "e478c27b-ddcd-4f83-baa8-a26f791e7e24"
+  ],
+  "payloadVenue": "Long Street, City Centre, Cape Town, 8001",
+  "result": "Thank youINTERCEPTED",
+  "pageErrors": []
+ },
+ {
+  "test": "clean link pricing-calculator-gozm @1440",
+  "fields": 9,
+  "hasHowCanWeHelp": false,
+  "formWidth": "860/1440",
+  "picks": {
+   "venue": {
+    "suggestion": "Long Street, City Centre, Cape Town, 8001",
+    "count": 4,
+    "anyPrice": false
+   },
+   "menu": {
+    "suggestion": "Lamb Ribs Full Portion",
+    "count": 7,
+    "anyPrice": false
+   }
+  },
+  "submitted": 1,
+  "payloadMenu": [
+   "e478c27b-ddcd-4f83-baa8-a26f791e7e24"
+  ],
+  "payloadVenue": "Long Street, City Centre, Cape Town, 8001",
+  "result": "Thank youINTERCEPTED",
+  "pageErrors": []
+ },
+ {
+  "test": "clean link pricing-calculator-gozm @390",
+  "fields": 9,
+  "hasHowCanWeHelp": false,
+  "formWidth": "366/390",
+  "picks": {
+   "venue": {
+    "suggestion": "Long Street, City Centre, Cape Town, 8001",
+    "count": 4,
+    "anyPrice": false
+   },
+   "menu": {
+    "suggestion": "Lamb Ribs Full Portion",
+    "count": 7,
+    "anyPrice": false
+   }
+  },
+  "submitted": 1,
+  "payloadMenu": [
+   "e478c27b-ddcd-4f83-baa8-a26f791e7e24"
+  ],
+  "payloadVenue": "Long Street, City Centre, Cape Town, 8001",
+  "result": "Thank youINTERCEPTED",
+  "pageErrors": []
+ },
+ {
+  "test": "snippet on third-party site",
+  "fields": 10,
+  "formWidth": "760/1280",
+  "submitted": 1,
+  "pageErrors": []
+ },
+ {
+  "test": "preview link",
+  "submitPosts": 0,
+  "result": "Thank youPreview only: everything checked out, but no lead w"
+ },
+ {
+  "test": "REAL submission (test company)",
+  "picks": {
+   "venue": {
+    "suggestion": "Long Street, City Centre, Cape Town, 8001",
+    "count": 4,
+    "anyPrice": false
+   },
+   "menu": {
+    "suggestion": "E2E Lamb Spit",
+    "count": 1,
+    "anyPrice": false
+   },
+   "eq": {
+    "suggestion": "E2E Chafing dish",
+    "count": 1,
+    "anyPrice": false
+   }
+  },
+  "response": {
+   "ok": true,
+   "leadId": "e47c9c36-e970-49e6-8f34-36b2d89d209a",
+   "draftQuoteId": "1212b947-d4f8-4816-9b15-291c142d2905",
+   "venueVerified": true,
+   "redirectUrl": null,
+   "message": "Thanks, we've received your quote request. The team will review your selections and send the final quote."
+  },
+  "result": "Thank youThanks, we've received your quote request. The team will review your selections and send the final quote.",
+  "pageErrors": []
+ }
+]

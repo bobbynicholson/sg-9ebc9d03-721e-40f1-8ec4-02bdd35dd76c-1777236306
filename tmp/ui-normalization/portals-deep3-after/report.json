@@ -1,0 +1,2439 @@
+[
+  {
+    "portal": "shopping",
+    "route": "dashboard",
+    "path": "/spit-braai-delivery/team-portal/shopping/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Today",
+          "Shopping list"
+        ],
+        "overflow": 0,
+        "height": 1202,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Today",
+          "Shopping list"
+        ],
+        "overflow": 0,
+        "height": 1314,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Today",
+          "Shopping list"
+        ],
+        "overflow": 0,
+        "height": 1387,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "buy-list",
+    "path": "/spit-braai-delivery/team-portal/shopping/buy-list",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 2565,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 2739,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 4159,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "orders",
+    "path": "/spit-braai-delivery/team-portal/shopping/orders",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Active shop"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Active shop"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/orders",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Active shop"
+        ],
+        "overflow": 0,
+        "height": 1155,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "kitchen-demand",
+    "path": "/spit-braai-delivery/team-portal/shopping/kitchen-demand",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/kitchen-demand",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Kitchen demand"
+        ],
+        "overflow": 0,
+        "height": 1704,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/kitchen-demand",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Kitchen demand"
+        ],
+        "overflow": 0,
+        "height": 1823,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/kitchen-demand",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Kitchen demand"
+        ],
+        "overflow": 0,
+        "height": 2391,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "restock",
+    "path": "/spit-braai-delivery/team-portal/shopping/restock",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/restock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Restock"
+        ],
+        "overflow": 0,
+        "height": 1479,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/restock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Restock"
+        ],
+        "overflow": 0,
+        "height": 1555,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/restock",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Restock"
+        ],
+        "overflow": 0,
+        "height": 2337,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "inventory",
+    "path": "/spit-braai-delivery/team-portal/shopping/inventory",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/inventory",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Inventory"
+        ],
+        "overflow": 0,
+        "height": 1207,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/inventory",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Inventory"
+        ],
+        "overflow": 0,
+        "height": 1417,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/inventory",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Inventory"
+        ],
+        "overflow": 0,
+        "height": 1590,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "suppliers",
+    "path": "/spit-braai-delivery/team-portal/shopping/suppliers",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/suppliers",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Suppliers"
+        ],
+        "overflow": 0,
+        "height": 1344,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/suppliers",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Suppliers"
+        ],
+        "overflow": 0,
+        "height": 1794,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/suppliers",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Suppliers"
+        ],
+        "overflow": 0,
+        "height": 2630,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "invoices",
+    "path": "/spit-braai-delivery/team-portal/shopping/invoices",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/invoices",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Spend"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/invoices",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Spend"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/invoices",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Spend"
+        ],
+        "overflow": 0,
+        "height": 1059,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "receipts",
+    "path": "/spit-braai-delivery/team-portal/shopping/receipts",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/receipts",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Receipts"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/receipts",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Receipts"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/receipts",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Receipts"
+        ],
+        "overflow": 0,
+        "height": 1112,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "notifications",
+    "path": "/spit-braai-delivery/team-portal/shopping/notifications",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 962,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "settings",
+    "path": "/spit-braai-delivery/team-portal/shopping/settings",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1420,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1428,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1878,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "shopping",
+    "route": "alerts",
+    "path": "/spit-braai-delivery/team-portal/shopping/alerts",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 2565,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 2739,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/shopping/buy-list",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Shopping Portal",
+          "Buy list"
+        ],
+        "overflow": 0,
+        "height": 4159,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "dashboard",
+    "path": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Today",
+          "Cleaning roster"
+        ],
+        "overflow": 0,
+        "height": 1898,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Today",
+          "Cleaning roster"
+        ],
+        "overflow": 0,
+        "height": 2030,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Today",
+          "Cleaning roster"
+        ],
+        "overflow": 0,
+        "height": 2400,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "tasks",
+    "path": "/spit-braai-delivery/team-portal/cleaning/tasks",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/tasks",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Task board"
+        ],
+        "overflow": 0,
+        "height": 963,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "schedules",
+    "path": "/spit-braai-delivery/team-portal/cleaning/schedules",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Schedule plan"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Schedule plan"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/schedules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Schedule plan"
+        ],
+        "overflow": 0,
+        "height": 962,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "supplies",
+    "path": "/spit-braai-delivery/team-portal/cleaning/supplies",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Supplies"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Supplies"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/supplies",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Supplies"
+        ],
+        "overflow": 0,
+        "height": 1293,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "equipment",
+    "path": "/spit-braai-delivery/team-portal/cleaning/equipment",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment"
+        ],
+        "overflow": 0,
+        "height": 2182,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment"
+        ],
+        "overflow": 0,
+        "height": 2222,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/equipment",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Equipment"
+        ],
+        "overflow": 0,
+        "height": 3236,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "damage",
+    "path": "/spit-braai-delivery/team-portal/cleaning/damage",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damages"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damages"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/damage",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Damages"
+        ],
+        "overflow": 0,
+        "height": 1145,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "workflows",
+    "path": "/spit-braai-delivery/team-portal/cleaning/workflows",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Workflows"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Workflows"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/workflows",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Workflows"
+        ],
+        "overflow": 0,
+        "height": 1009,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "notifications",
+    "path": "/spit-braai-delivery/team-portal/cleaning/notifications",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1122,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/notifications",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Notifications"
+        ],
+        "overflow": 0,
+        "height": 1126,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning",
+    "route": "settings",
+    "path": "/spit-braai-delivery/team-portal/cleaning/settings",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1403,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1459,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Settings"
+        ],
+        "overflow": 0,
+        "height": 1675,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "cleaning-manager",
+    "route": "management",
+    "path": "/spit-braai-delivery/team-portal/cleaning/management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Manage team"
+        ],
+        "overflow": 0,
+        "height": 1128,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Manage team"
+        ],
+        "overflow": 0,
+        "height": 1350,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/spit-braai-delivery/team-portal/cleaning/management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Cleaning Portal",
+          "Manage team"
+        ],
+        "overflow": 0,
+        "height": 1699,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "dashboard",
+    "path": "/admin/platform/dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Dashboard"
+        ],
+        "overflow": 0,
+        "height": 1187,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/auth/roles",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/auth/roles",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Dashboard"
+        ],
+        "overflow": 0,
+        "height": 1417,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Dashboard"
+        ],
+        "overflow": 0,
+        "height": 1800,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "company-database",
+    "path": "/admin/platform/company-database",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/company-database",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Companies"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/company-database",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Companies"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/company-database",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Companies"
+        ],
+        "overflow": 0,
+        "height": 1134,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "user-management",
+    "path": "/admin/platform/user-management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/user-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Users"
+        ],
+        "overflow": 0,
+        "height": 1125,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/admin/users-activity",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/admin/users-activity",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/user-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Users"
+        ],
+        "overflow": 0,
+        "height": 1605,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/admin/users-activity",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/admin/users-activity",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/user-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Users"
+        ],
+        "overflow": 0,
+        "height": 1703,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/admin/users-activity",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/admin/users-activity",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "subscription-management",
+    "path": "/admin/platform/subscription-management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/subscription-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Subscriptions"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/subscription-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Subscriptions"
+        ],
+        "overflow": 0,
+        "height": 1222,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/subscription-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Subscriptions"
+        ],
+        "overflow": 0,
+        "height": 1334,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "pricing-management",
+    "path": "/admin/platform/pricing-management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/pricing-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Pricing"
+        ],
+        "overflow": 0,
+        "height": 2207,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/pricing-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Pricing"
+        ],
+        "overflow": 0,
+        "height": 2731,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/pricing-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Pricing"
+        ],
+        "overflow": 0,
+        "height": 3959,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "trial-management",
+    "path": "/admin/platform/trial-management",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/trial-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Trials"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/trial-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Trials"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/trial-management",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Trials"
+        ],
+        "overflow": 0,
+        "height": 1214,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "currency-monitoring",
+    "path": "/admin/platform/currency-monitoring",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/currency-monitoring",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Currency"
+        ],
+        "overflow": 0,
+        "height": 1480,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/currency-monitoring",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Currency"
+        ],
+        "overflow": 0,
+        "height": 1796,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/currency-monitoring",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Currency"
+        ],
+        "overflow": 0,
+        "height": 2074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "cms-blog",
+    "path": "/admin/platform/cms-blog",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/cms-blog",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "AI Blog Writer"
+        ],
+        "overflow": 0,
+        "height": 1136,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/cms-blog",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "AI Blog Writer"
+        ],
+        "overflow": 0,
+        "height": 1706,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/cms-blog",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "AI Blog Writer"
+        ],
+        "overflow": 0,
+        "height": 1816,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "cms-pages",
+    "path": "/admin/platform/cms-pages",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/cms-pages",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Marketing pages"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/cms-pages",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Marketing pages"
+        ],
+        "overflow": 0,
+        "height": 1187,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/cms-pages",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Marketing pages"
+        ],
+        "overflow": 0,
+        "height": 1319,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "tax-rules",
+    "path": "/admin/platform/tax-rules",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tax-rules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Tax rules"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tax-rules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Tax rules"
+        ],
+        "overflow": 0,
+        "height": 1084,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tax-rules",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Tax rules"
+        ],
+        "overflow": 0,
+        "height": 1184,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "audit-logs",
+    "path": "/admin/platform/audit-logs",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/audit-logs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Activity log"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/audit-logs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Activity log"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/audit-logs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Activity log"
+        ],
+        "overflow": 0,
+        "height": 898,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "financial-dashboard",
+    "path": "/admin/platform/financial-dashboard",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/financial-dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Revenue"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/financial-dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Revenue"
+        ],
+        "overflow": 0,
+        "height": 1171,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/financial-dashboard",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Revenue"
+        ],
+        "overflow": 0,
+        "height": 1313,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/subscriptions",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "messaging-templates",
+    "path": "/admin/platform/messaging-templates",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/messaging-templates",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform emails"
+        ],
+        "overflow": 0,
+        "height": 1698,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/messaging-templates",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform emails"
+        ],
+        "overflow": 0,
+        "height": 1856,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/messaging-templates",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform emails"
+        ],
+        "overflow": 0,
+        "height": 2385,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "payment-issues",
+    "path": "/admin/platform/payment-issues",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/payment-issues",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Payment issues"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/payment-issues",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Payment issues"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/payment-issues",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Payment issues"
+        ],
+        "overflow": 0,
+        "height": 1138,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "running-todo",
+    "path": "/admin/platform/running-todo",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/running-todo",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Running to-do"
+        ],
+        "overflow": 0,
+        "height": 2449,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/running-todo",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Running to-do"
+        ],
+        "overflow": 0,
+        "height": 2985,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/running-todo",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Running to-do"
+        ],
+        "overflow": 0,
+        "height": 4299,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "settings",
+    "path": "/admin/platform/settings",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform settings"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/app-config",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/app-config",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform settings"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/app-config",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/app-config",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/settings",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Platform settings"
+        ],
+        "overflow": 0,
+        "height": 1039,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/app-config",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/app-config",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "tech-costs",
+    "path": "/admin/platform/tech-costs",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tech-costs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Tech-stack costs"
+        ],
+        "overflow": 0,
+        "height": 1074,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/tech-costs",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/tech-costs",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tech-costs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Tech-stack costs"
+        ],
+        "overflow": 0,
+        "height": 1058,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/tech-costs",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/tech-costs",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tech-costs",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Tech-stack costs"
+        ],
+        "overflow": 0,
+        "height": 898,
+        "pageErrors": [],
+        "failedRequests": [
+          {
+            "url": "http://localhost:3001/api/platform/tech-costs",
+            "status": 401
+          },
+          {
+            "url": "http://localhost:3001/api/platform/tech-costs",
+            "status": 401
+          }
+        ],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      }
+    }
+  },
+  {
+    "portal": "platform",
+    "route": "tenant-health",
+    "path": "/admin/platform/tenant-health",
+    "viewports": {
+      "desktop": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tenant-health",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Company health"
+        ],
+        "overflow": 0,
+        "height": 1115,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "tablet": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tenant-health",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Company health"
+        ],
+        "overflow": 0,
+        "height": 1819,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      },
+      "mobile": {
+        "status": 200,
+        "stillLoading": false,
+        "finalPath": "/admin/platform/tenant-health",
+        "loaded": true,
+        "denied": false,
+        "h1": [
+          "Platform Admin",
+          "Company health"
+        ],
+        "overflow": 0,
+        "height": 1973,
+        "pageErrors": [],
+        "failedRequests": [],
+        "consoleErrors": []
+      }
+    }
+  }
+]

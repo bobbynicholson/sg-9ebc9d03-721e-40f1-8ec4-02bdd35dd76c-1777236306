@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatClock } from "@/lib/portalTime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -292,7 +293,7 @@ function CleaningSchedulesPageInner() {
                           </div>
                           {s.scheduled_time && (
                             <span className="text-sm tabular-nums text-slate-500 dark:text-slate-400 flex items-center gap-1 flex-shrink-0">
-                              <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />{s.scheduled_time.slice(0, 5)}
+                              <Clock className="h-3 w-3 text-slate-400 dark:text-slate-500" />{formatClock(s.scheduled_time)}
                             </span>
                           )}
                         </li>

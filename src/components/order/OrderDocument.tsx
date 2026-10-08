@@ -16,6 +16,7 @@
  *   - print (?print=1): all sections forced open, print-friendly CSS
  *   - client (magic-link path): finance section gone at data layer
  */
+import { formatClock } from "@/lib/portalTime";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -202,7 +203,7 @@ function fmtEventWhen(order: OrderHead): string {
     day: "numeric",
     month: "short",
   });
-  return order.event_time ? `${date} at ${order.event_time.slice(0, 5)}` : date;
+  return order.event_time ? `${date} at ${formatClock(order.event_time)}` : date;
 }
 
 function latestStamp(order: OrderHead): string | null {

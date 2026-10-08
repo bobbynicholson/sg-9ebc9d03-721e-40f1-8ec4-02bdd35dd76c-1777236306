@@ -1,4 +1,5 @@
 import { supabase as browserSupabase } from "@/integrations/supabase/client";
+import { tenantDateTime } from "@/lib/portalTime";
 import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
 import { whatsappIntegrationService } from "@/services/whatsappIntegrationService";
@@ -154,7 +155,7 @@ export async function updateOrderStatus(
         const eventDate = (tempCheck as any)?.event_date as string | null;
         if (eventDate) {
           const eventTime = ((tempCheck as any)?.event_time as string | null) || "00:00";
-          const eventStart = new Date(`${eventDate}T${eventTime.slice(0, 5)}:00`);
+          const eventStart = (tenantDateTime(eventDate, eventTime.slice(0, 5)) ?? new Date(NaN));
           if (!isNaN(eventStart.getTime())) {
             const hoursUntilEvent = (eventStart.getTime() - Date.now()) / 3_600_000;
             if (hoursUntilEvent > 24) {
@@ -875,7 +876,7 @@ export async function updateOrderStatus(
           const eventDate = (order as any).event_date;
           let isOnTime = false;
           if (deliveryTime && eventDate) {
-            const scheduled = new Date(`${eventDate}T${deliveryTime.slice(0, 5)}:00`);
+            const scheduled = (tenantDateTime(eventDate, deliveryTime.slice(0, 5)) ?? new Date(NaN));
             isOnTime = !isNaN(scheduled.getTime()) && new Date() <= scheduled;
           }
           const action = isOnTime ? "on_time_delivery" : "order_completed";
@@ -2476,7 +2477,7 @@ async function ensureScheduledPreEventReminders(order: any): Promise<void> {
 async function ensureScheduledKitchenPreEventReminder(order: any): Promise<void> {
   if (!order?.id || !order?.company_id || !order?.event_date) return;
 
-  const eventStart = new Date(`${order.event_date}T${order.event_time || "09:00"}`);
+  const eventStart = (tenantDateTime(order.event_date, order.event_time || "09:00") ?? new Date(NaN));
   if (Number.isNaN(eventStart.getTime()) || eventStart.getTime() <= Date.now()) return;
 
   const { data: company, error: companyErr } = await (supabase as any)

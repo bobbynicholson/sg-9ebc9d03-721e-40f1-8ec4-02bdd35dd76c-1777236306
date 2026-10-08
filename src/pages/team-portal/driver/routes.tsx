@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatClock } from "@/lib/portalTime";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -854,7 +855,7 @@ function DriverRoutesInner() {
                         {currentStop.pickup_time && (
                           <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
                             <Clock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-                            <span>Collect: {currentStop.pickup_time.slice(0, 5)}</span>
+                            <span>Collect: {formatClock(currentStop.pickup_time)}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2">
@@ -1220,7 +1221,7 @@ function DriverRoutesInner() {
                                 {stop.pickup_time && (
                                   <span className="flex items-center gap-1 text-brand-primary font-medium">
                                     <Clock className="w-3 h-3" />
-                                    Collect {stop.pickup_time.slice(0, 5)}
+                                    Collect {formatClock(stop.pickup_time)}
                                   </span>
                                 )}
                                 <span className="flex items-center gap-1">

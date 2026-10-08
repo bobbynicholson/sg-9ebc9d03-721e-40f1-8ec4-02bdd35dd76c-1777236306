@@ -25,6 +25,7 @@ import {
   Snowflake, Flame, Car, Phone, Camera, Route, Loader2, PackageCheck,
 } from "lucide-react";
 import { getDisplayDeliveryTime } from "@/lib/orderTimeDisplay";
+import { formatClockWithAlt } from "@/lib/portalTime";
 
 interface Props {
   order: {
@@ -136,7 +137,7 @@ export function ClientDeliverySection({ order, defaultOpen, forceOpen, highlight
   const navUrl = order.venue_address
     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(order.venue_address)}`
     : null;
-  const deliveryDisplay = getDisplayDeliveryTime(order.delivery_time, order.event_time);
+  const deliveryDisplay = formatClockWithAlt(getDisplayDeliveryTime(order.delivery_time, order.event_time)) || null;
   const eventDateLabel = order.event_date
     ? new Date(order.event_date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short" })
     : null;

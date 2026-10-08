@@ -36,6 +36,7 @@
  *     - Per-driver hours-this-week chip strip with overtime tint
  *       (>45h rose + !, >38h amber).
  */
+import { tenantDateTime } from "@/lib/portalTime";
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
@@ -377,7 +378,7 @@ function DriversTeamPage() {
             && a.orders?.event_time
           ) {
             const [h, m] = String(a.orders.event_time).split(":");
-            const eventMs = new Date(`${todayISO}T${(h || "00").padStart(2, "0")}:${(m || "00").padStart(2, "0")}:00`).getTime();
+            const eventMs = (tenantDateTime(todayISO, `${(h || "00").padStart(2, "0")}:${(m || "00").padStart(2, "0")}`) ?? new Date(NaN)).getTime();
             if (eventMs < nowMs) asnOverdue += 1;
           }
         }
