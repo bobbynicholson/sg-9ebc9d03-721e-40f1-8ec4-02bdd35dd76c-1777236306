@@ -106,6 +106,8 @@ interface InvoiceView {
     /** Feeds the public /terms/[company] link (id is the fallback). */
     slug?: string | null;
     company_name: string;
+    /** Registered legal name - the "From" party on the tax invoice. */
+    legal_name?: string | null;
     logo_url: string | null;
     email: string | null;
     phone_number: string | null;
@@ -279,8 +281,12 @@ function buildInvoiceBreakdown(invoice: InvoiceView): {
     (sum, section) => sum + section.lines.reduce((lineSum, line) => lineSum + Number(line.total || 0), 0),
     0,
   ));
-  const reconDiff = r2(lineTarget - visibleLineSum);
-  if (sections.length > 0 && Math.abs(reconDiff) > 0.01) {
+  // Prices may include VAT, in which case the lines add up to the total,
+  // not the ex-VAT subtotal - that is reconciled, not an adjustment.
+  // A few cents either way is VAT-split rounding, not an adjustment.
+  const linesMatchTotal = invTotal > 0 && Math.abs(visibleLineSum - invTotal) <= 0.05;
+  const reconDiff = linesMatchTotal ? 0 : r2(lineTarget - visibleLineSum);
+  if (sections.length > 0 && Math.abs(reconDiff) > 0.05) {
     const adjustment: InvoiceLine = {
       description: "Invoice adjustment",
       quantity: 1,
@@ -978,6 +984,43 @@ export default function InvoicePaymentPage() {
               )}
             </div>
           </div>
+
+          {/* FROM / BILL TO - same two blocks, fields and order as the
+              invoice PDF (InvoiceDocument). Client details come from the
+              invoice's own snapshot; the public token already grants this
+              document, and nothing beyond what the PDF prints is shown. */}
+          {(() => {
+            const idata = invoice.invoice_data || {};
+            const co = invoice.companies;
+            const eventDateText = (() => {
+              if (!idata.eventDate) return null;
+              const d = new Date(String(idata.eventDate).slice(0, 10) + "T00:00:00");
+              return Number.isNaN(d.getTime()) ? String(idata.eventDate) : format(d, "d MMMM yyyy");
+            })();
+            return (
+              <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">
+                <CardContent className="py-4 px-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">From</p>
+                    <p className="text-sm font-semibold text-stone-900 break-words">{co?.legal_name || co?.company_name || idata.companyName || ""}</p>
+                    {idata.companyAddress && <p className="text-sm text-stone-600 break-words">{idata.companyAddress}</p>}
+                    {(co?.email || idata.companyEmail) && <p className="text-sm text-stone-600 break-all">{co?.email || idata.companyEmail}</p>}
+                    {(co?.phone_number || idata.companyPhone) && <p className="text-sm text-stone-600">{co?.phone_number || idata.companyPhone}</p>}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Bill to</p>
+                    {idata.clientName && <p className="text-sm font-semibold text-stone-900 break-words">{idata.clientName}</p>}
+                    {idata.clientAddress && <p className="text-sm text-stone-600 break-words">{idata.clientAddress}</p>}
+                    {idata.clientEmail && <p className="text-sm text-stone-600 break-all">{idata.clientEmail}</p>}
+                    {idata.clientPhone && <p className="text-sm text-stone-600">{idata.clientPhone}</p>}
+                    {idata.orderNumber && <p className="text-sm text-stone-600 mt-1">Order: {idata.orderNumber}</p>}
+                    {(idata.eventName || idata.event_name) && <p className="text-sm text-stone-600">Event: {idata.eventName || idata.event_name}</p>}
+                    {eventDateText && <p className="text-sm text-stone-600">Event date: {eventDateText}</p>}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* AMOUNT BREAKDOWN */}
           <Card className="mb-4 border border-stone-200 shadow-sm print-shadow-none">

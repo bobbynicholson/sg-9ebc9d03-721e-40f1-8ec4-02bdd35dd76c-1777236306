@@ -107,20 +107,46 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
     let line_items: any[] = [];
     if (Array.isArray(idata.menuItems) || Array.isArray(idata.equipmentItems)) {
-      line_items = [
+      // Delivery / collection / waiter etc. only live in the flat items
+      // list. Without them the lines came up short and the gap was shown
+      // as a fake "Discount / adjustment".
+      const CHARGE = /delivery|collection|waiter|service fee|damage|shortage|surcharge/i;
+      const lineName = (it: any) => String(it?.description || it?.name || it?.item_name || "");
+      const baseLines = [
         ...(Array.isArray(idata.menuItems) ? idata.menuItems.map(mapItem) : []),
         ...(Array.isArray(idata.equipmentItems) ? idata.equipmentItems.map(mapItem) : []),
       ];
+      // Some invoices (e.g. imported ones) already carry these charges
+      // inside the menu list - only add a charge kind that is missing.
+      const kindsPresent = new Set(
+        baseLines.map((l) => (lineName(l).match(CHARGE)?.[0] || "").toLowerCase()).filter(Boolean),
+      );
+      const chargeLines = (Array.isArray(idata.items) ? idata.items : []).filter((it: any) => {
+        const kind = (lineName(it).match(CHARGE)?.[0] || "").toLowerCase();
+        return !!kind && !kindsPresent.has(kind);
+      });
+      line_items = [...baseLines, ...chargeLines.map(mapItem)];
     } else {
       const raw = Array.isArray(idata.line_items) ? idata.line_items : Array.isArray(idata.items) ? idata.items : [];
       line_items = raw.map(mapItem);
     }
-    // Surge / discount adjustment: if the line totals don't reconcile to
-    // the subtotal, add a single adjustment line so the itemised list
-    // always sums to the total shown (the pay page does the same).
-    const itemsSum = line_items.reduce((s, l) => s + (Number(l.total) || 0), 0);
-    const subtotalNum = Number((inv as any).subtotal || 0);
-    const adjustment = Math.round((subtotalNum - itemsSum) * 100) / 100;
+    // Surge / discount adjustment: only when the lines reconcile to
+    // neither the ex-VAT subtotal nor the VAT-inclusive total. Tenants
+    // whose prices include VAT have lines that add up to the total, and
+    // comparing those against the ex-VAT subtotal invented a "discount"
+    // equal to the VAT. When an adjustment is needed, use the closer of
+    // the two as the target.
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const itemsSum = r2(line_items.reduce((s, l) => s + (Number(l.total) || 0), 0));
+    const subtotalNum = r2(Number((inv as any).subtotal || 0));
+    const totalNum = r2(Number((inv as any).total_amount || 0));
+    // A few cents either way is VAT-split rounding (e.g. imported
+    // invoices), not a real adjustment worth a line on the client PDF.
+    const ROUNDING = 0.05;
+    const matchesSubtotal = Math.abs(itemsSum - subtotalNum) <= ROUNDING;
+    const matchesTotal = totalNum > 0 && Math.abs(itemsSum - totalNum) <= ROUNDING;
+    const target = Math.abs(itemsSum - totalNum) < Math.abs(itemsSum - subtotalNum) ? totalNum : subtotalNum;
+    const adjustment = matchesSubtotal || matchesTotal ? 0 : r2(target - itemsSum);
     if (Math.abs(adjustment) >= 0.01) {
       line_items.push({
         name: adjustment < 0 ? "Discount / adjustment" : "Surge / adjustment",

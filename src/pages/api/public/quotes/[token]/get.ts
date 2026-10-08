@@ -66,7 +66,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { data, error } = await supabase
     .from("quotes")
     .select(`
-      id, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+      id, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
       region_id,
       venue_address, menu_items, equipment_items, notes, terms_and_conditions,
       subtotal, tax_amount, discount_amount, total, total_amount, currency, status,
@@ -78,7 +78,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       valid_until, sent_at, viewed_at, accepted_at, updated_at,
       converted_to_order_id,
       company:company_id (
-        id, slug, company_name, logo_url, email, phone, website,
+        id, slug, company_name, legal_name, logo_url, email, phone, website,
         address_line1, address_line2, city,
         bank_name, bank_account_holder, bank_account_number, bank_branch_code,
         bank_account_type, eft_instructions,

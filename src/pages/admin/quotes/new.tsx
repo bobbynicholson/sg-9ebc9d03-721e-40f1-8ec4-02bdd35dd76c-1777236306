@@ -936,12 +936,24 @@ function NewQuotePage() {
             : 0,
       );
       setContentSignatureAtLoad(quoteContentSignatureFromPayload(data));
-      setInitialPaymentAmountOverride(
-        (data as any).initial_payment_amount != null
-          && Number.isFinite(Number((data as any).initial_payment_amount))
-          ? Number((data as any).initial_payment_amount)
-          : null,
-      );
+      // Only treat the saved first payment as a deliberate override when
+      // it differs from the deposit % of the saved total. Otherwise keep
+      // following the deposit % as lines change - freezing it made the
+      // first payment silently become "pay in full" when the total
+      // dropped, and a saved 0 (website-request drafts) came back as R0.01.
+      {
+        const savedFirst = Number((data as any).initial_payment_amount);
+        const savedTotal = Number((data as any).total ?? (data as any).total_amount);
+        const savedPct = Number((data as any).deposit_percentage) > 0 ? Number((data as any).deposit_percentage) : 50;
+        const suggestedForSaved = Number.isFinite(savedTotal)
+          ? Math.round(Math.max(0, savedTotal) * Math.min(100, savedPct)) / 100
+          : NaN;
+        const isDeliberate = (data as any).initial_payment_amount != null
+          && Number.isFinite(savedFirst)
+          && savedFirst > 0.01
+          && !(Number.isFinite(suggestedForSaved) && Math.abs(savedFirst - suggestedForSaved) <= 0.01);
+        setInitialPaymentAmountOverride(isDeliberate ? savedFirst : null);
+      }
 
       // 2) Overlay the client's requested changes (same tick, so these win).
       if (cr) {
@@ -2572,6 +2584,31 @@ function NewQuotePage() {
                       className="h-9 w-24 sm:w-32 pl-6 text-sm font-semibold tabular-nums"
                     />
                   </span>
+                  {/* Show what share of the total this is, so a first
+                      payment that silently equals the whole total ("pay in
+                      full") is visible, with a one-click way back to the
+                      deposit %. */}
+                  {computed.total > 0 && (
+                    <span className="text-[11px] leading-tight whitespace-nowrap">
+                      <span className={`block font-semibold tabular-nums ${firstPaymentAmount >= computed.total - 0.01 ? "text-amber-700" : "text-slate-600"}`}>
+                        {firstPaymentAmount >= computed.total - 0.01
+                          ? "Full payment"
+                          : `${Math.round((firstPaymentAmount / computed.total) * 100)}% of total`}
+                      </span>
+                      {initialPaymentAmountOverride != null && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setInitialPaymentAmountOverride(null);
+                          }}
+                          className="block text-brand-primary hover:underline"
+                        >
+                          Reset to {depositPercent > 0 ? depositPercent : 50}%
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </label>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button

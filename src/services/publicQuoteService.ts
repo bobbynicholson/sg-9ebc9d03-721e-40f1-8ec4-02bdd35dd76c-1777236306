@@ -31,6 +31,8 @@ export interface PublicQuoteView {
   quote_number: string;
   quote_name: string;
   client_name: string | null;
+  client_email?: string | null;
+  client_phone?: string | null;
   event_date: string | null;
   guest_count: number | null;
   venue_address: string | null;
@@ -95,6 +97,8 @@ export interface PublicQuoteView {
     /** Feeds the public /terms/[company] link (id is the fallback). */
     slug?: string | null;
     company_name: string | null;
+    /** Registered legal name - the "From" party on the quote. */
+    legal_name?: string | null;
     logo_url: string | null;
     email: string | null;
     phone: string | null;

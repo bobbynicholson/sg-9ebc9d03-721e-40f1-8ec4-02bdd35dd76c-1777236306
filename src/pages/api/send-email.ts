@@ -265,7 +265,7 @@ async function handler(
           const { data: q } = await ssr
             .from("quotes")
             .select(`
-              id, public_token, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+              id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
               subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
               delivery_fee, delivery_distance_km, delivery_rate_per_km,
@@ -341,7 +341,7 @@ async function handler(
           const { data: q2 } = await ssr
             .from("quotes")
             .select(`
-              id, public_token, quote_number, quote_name, client_name, event_date, event_time, setup_time, guest_count,
+              id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
               subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
               delivery_fee, delivery_distance_km, delivery_rate_per_km,

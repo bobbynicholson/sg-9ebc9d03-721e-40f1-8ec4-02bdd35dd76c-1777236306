@@ -54,6 +54,8 @@ export interface QuotePdfData {
   quote_number: string;
   quote_name?: string | null;
   client_name?: string | null;
+  client_email?: string | null;
+  client_phone?: string | null;
   event_date?: string | null;
   event_time?: string | null;
   setup_time?: string | null;
@@ -541,15 +543,33 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
+        {/* FROM / BILL TO - same blocks as the invoice PDF so a quote and
+            its invoice read the same. */}
+        <View style={styles.card} wrap={false}>
+          <View style={styles.grid}>
+            <View style={[styles.gridCell, { width: "50%" }]}>
+              <Text style={styles.cellLabel}>From</Text>
+              <Text style={styles.cellValue}>{data.company.legal_name || data.company.company_name || ""}</Text>
+              {[data.company.address_line1, data.company.address_line2, data.company.city].filter(Boolean).length > 0 ? (
+                <Text style={styles.lineSub}>
+                  {[data.company.address_line1, data.company.address_line2, data.company.city].filter(Boolean).join(", ")}
+                </Text>
+              ) : null}
+              {data.company.email ? <Text style={styles.lineSub}>{data.company.email}</Text> : null}
+              {data.company.phone ? <Text style={styles.lineSub}>{data.company.phone}</Text> : null}
+            </View>
+            <View style={[styles.gridCell, { width: "50%" }]}>
+              <Text style={styles.cellLabel}>Bill to</Text>
+              <Text style={styles.cellValue}>{data.client_name || ""}</Text>
+              {data.client_email ? <Text style={styles.lineSub}>{data.client_email}</Text> : null}
+              {data.client_phone ? <Text style={styles.lineSub}>{data.client_phone}</Text> : null}
+            </View>
+          </View>
+        </View>
+
         {/* EVENT DETAILS */}
         <View style={styles.card} wrap={false}>
           <View style={styles.grid}>
-            {data.client_name ? (
-              <View style={styles.gridCell}>
-                <Text style={styles.cellLabel}>For</Text>
-                <Text style={styles.cellValue}>{data.client_name}</Text>
-              </View>
-            ) : null}
             {eventDate ? (
               <View style={styles.gridCell}>
                 <Text style={styles.cellLabel}>Event date</Text>

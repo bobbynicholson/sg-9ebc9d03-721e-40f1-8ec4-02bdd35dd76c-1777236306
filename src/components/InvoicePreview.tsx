@@ -168,10 +168,26 @@ export function InvoicePreview(props: InvoicePreviewProps) {
         </div>
       </div>
 
-      {/* BILL TO + EVENT DETAILS */}
+      {/* FROM + BILL TO + EVENT DETAILS - From / Bill to as on the
+          invoice PDF (InvoiceDocument), so every copy reads the same. */}
       <Card className="mb-4 border border-stone-200 shadow-sm">
-        <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+        <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
+              From
+            </p>
+            <p className="text-sm font-semibold text-stone-900 break-words">{props.companyName}</p>
+            {props.companyAddress && (
+              <p className="text-xs text-stone-600 mt-0.5 break-words">{props.companyAddress}</p>
+            )}
+            {props.companyEmail && (
+              <p className="text-xs text-stone-600 break-all">{props.companyEmail}</p>
+            )}
+            {props.companyPhone && (
+              <p className="text-xs text-stone-600">{props.companyPhone}</p>
+            )}
+          </div>
+          <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
               Bill to
             </p>

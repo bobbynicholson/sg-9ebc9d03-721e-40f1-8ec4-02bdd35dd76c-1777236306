@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, MapPin, Calendar, Users, Loader2, AlertCircle,
-  Printer, MessageSquare, ArrowRight, Pencil, X, User, Clock,
+  Printer, MessageSquare, ArrowRight, Pencil, X, Clock,
 } from "lucide-react";
 import {
   fetchByToken, recordView, recordAccept, submitChangeRequest,
@@ -860,21 +860,30 @@ export default function PublicQuotePage() {
             </CardContent>
           </Card>
 
-          {/* EVENT DETAILS - icon tiles so the who / when / how many /
-              where scan in one glance. */}
+          {/* FROM / BILL TO - same blocks as the quote and invoice PDFs,
+              so the quote, its invoice and their PDFs all read the same. */}
+          <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none">
+            <CardContent className="py-4 px-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">From</p>
+                <p className="text-sm font-semibold text-stone-900 break-words">{company?.legal_name || company?.company_name || ""}</p>
+                {companyAddress && <p className="text-sm text-stone-600 break-words">{companyAddress}</p>}
+                {company?.email && <p className="text-sm text-stone-600 break-all">{company.email}</p>}
+                {company?.phone && <p className="text-sm text-stone-600">{company.phone}</p>}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">Bill to</p>
+                {quote.client_name && <p className="text-sm font-semibold text-stone-900 break-words">{quote.client_name}</p>}
+                {quote.client_email && <p className="text-sm text-stone-600 break-all">{quote.client_email}</p>}
+                {quote.client_phone && <p className="text-sm text-stone-600">{quote.client_phone}</p>}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* EVENT DETAILS - icon tiles so the when / how many / where
+              scan in one glance. */}
           <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none">
             <CardContent className="py-5 px-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {quote.client_name && (
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4 text-brand-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.15em] text-stone-500 font-bold">Prepared for</p>
-                    <p className="text-sm font-semibold text-stone-900 mt-0.5">{quote.client_name}</p>
-                  </div>
-                </div>
-              )}
               {eventDate && (
                 <div className="flex items-start gap-3 sm:col-span-3 rounded-xl bg-brand-primary/5 border border-brand-primary/15 p-3">
                   <div className="w-11 h-11 rounded-lg bg-brand-primary/10 flex items-center justify-center shrink-0">

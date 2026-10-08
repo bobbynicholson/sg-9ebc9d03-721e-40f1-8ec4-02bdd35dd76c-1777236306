@@ -127,6 +127,8 @@ export function buildQuotePdfDataFromRow(row: any): QuotePdfData {
     quote_number: row?.quote_number || row?.id || "Quote",
     quote_name: row?.quote_name ?? null,
     client_name: row?.client_name ?? null,
+    client_email: row?.client_email ?? null,
+    client_phone: row?.client_phone ?? null,
     event_date: row?.event_date ?? null,
     event_time: row?.event_time ?? null,
     setup_time: row?.setup_time ?? null,
