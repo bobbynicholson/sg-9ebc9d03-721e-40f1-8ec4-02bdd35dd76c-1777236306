@@ -432,11 +432,15 @@
     '.cms-preview-note{font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:6px 10px;margin-bottom:12px}',
     '.cms-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}',
     /* Toast: pop-up message for a blocked submit (e.g. no dish picked). */
-    '.cms-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(16px);opacity:0;pointer-events:none;z-index:2147483000;width:max-content;max-width:min(92vw,420px);display:flex;align-items:flex-start;gap:10px;background:#991B1B;color:#fff;padding:12px 14px 12px 16px;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.28);font-size:14px;line-height:1.4;transition:opacity .2s ease,transform .2s ease}',
-    '.cms-toast.cms-toast-show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}',
-    '.cms-toast-close{background:transparent;border:0;color:inherit;font-size:20px;line-height:1;cursor:pointer;padding:0 2px;opacity:.85}',
-    '.cms-toast-close:hover{opacity:1}',
-    '@media (prefers-reduced-motion:reduce){.cms-toast{transition:none}}'
+    // Menu left empty on submit: red note at the top of the menu and red
+    // course boxes, so it is obvious where to look. The usual error line
+    // under the menu stays for screen readers only (it sits below every
+    // course, out of sight).
+    '.cms-course-alert{display:none;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;background:#FFFBEB;border:1px solid #FCD34D;color:#92400E;font-size:14px;font-weight:600;line-height:1.4}',
+    '.cms-course-picker[aria-invalid="true"] .cms-course-alert{display:flex}',
+    '.cms-course-alert-icon{flex:none;width:22px;height:22px;border-radius:999px;background:#F59E0B;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}',
+    '.cms-course-picker[aria-invalid="true"] .cms-course{border-color:#FCD34D;box-shadow:0 0 0 3px rgba(245,158,11,.12)}',
+    '.cms-course-picker[aria-invalid="true"]~.cms-error{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}'
   ].join('');
 
   // Helper: build an aria-live region appended to the shadow root once.
@@ -459,30 +463,105 @@
 
   // Pop-up message near the bottom of the screen. One at a time (a new
   // message replaces the old), closes itself after 6s or on the x.
-  function showToast(host, msg) {
-    if (!host || !msg) return;
-    var toast = host.querySelector('.cms-toast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.className = 'cms-toast';
-      toast.setAttribute('role', 'alert');
-      var text = document.createElement('span');
-      text.className = 'cms-toast-text';
-      var close = document.createElement('button');
-      close.type = 'button';
-      close.className = 'cms-toast-close';
-      close.setAttribute('aria-label', 'Close message');
-      close.textContent = '×';
-      close.addEventListener('click', function () { toast.classList.remove('cms-toast-show'); });
-      toast.appendChild(text);
-      toast.appendChild(close);
-      host.appendChild(toast);
-    }
-    toast.querySelector('.cms-toast-text').textContent = msg;
-    if (toast.__cmsTimer) clearTimeout(toast.__cmsTimer);
+  // Message card pinned to the bottom of the screen ("Please choose at
+  // least one dish"). It lives in its own shadow root on <body>, NOT inside
+  // the form, so the website's layout can't clip it (overflow / transform
+  // on the form's column) and the website's fonts can't leak in.
+  // opts.actionLabel + opts.onAction add a button such as "Show me".
+  var TOAST_CSS = [
+    ':host{all:initial}',
+    '.t{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));z-index:2147483000;box-sizing:border-box;width:min(calc(100vw - 32px),460px);display:flex;align-items:center;gap:12px;padding:12px 10px 12px 12px;background:#fff;color:#1E293B;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 24px 48px -12px rgba(15,23,42,.30),0 4px 12px rgba(15,23,42,.08);font:500 14.5px/1.45 var(--toast-font,"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif);opacity:0;transform:translate(-50%,16px);pointer-events:none;transition:opacity .2s ease,transform .2s ease}',
+    '.t.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}',
+    '.i{flex:none;width:34px;height:34px;border-radius:12px;background:#FEF3C7;color:#B45309;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px}',
+    '.m{flex:1;min-width:0}',
+    '.a{flex:none;border:0;border-radius:10px;background:var(--toast-accent,#0F172A);color:#fff;font:inherit;font-weight:700;font-size:13.5px;padding:9px 16px;cursor:pointer;transition:filter .15s}',
+    '.a:hover{filter:brightness(.9)}',
+    '.a:focus-visible,.x:focus-visible{outline:2px solid var(--toast-accent,#0F172A);outline-offset:2px}',
+    '.a[hidden]{display:none}',
+    '.x{flex:none;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#64748B;font:inherit;font-size:20px;line-height:1;cursor:pointer}',
+    '.x:hover{background:#F1F5F9;color:#0F172A}',
+    '@media (prefers-reduced-motion:reduce){.t{transition:none}}'
+  ].join('');
+
+  function toastCard() {
+    var doc = document;
+    var holder = doc.querySelector('[data-cms-toast]');
+    if (holder && holder.__cms) return holder.__cms;
+    holder = doc.createElement('div');
+    holder.setAttribute('data-cms-toast', '');
+    var root = holder.attachShadow ? holder.attachShadow({ mode: 'open' }) : holder;
+    var style = doc.createElement('style');
+    style.textContent = TOAST_CSS;
+    var card = doc.createElement('div');
+    card.className = 't';
+    card.setAttribute('role', 'alert');
+    var icon = doc.createElement('span');
+    icon.className = 'i';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = '!';
+    var text = doc.createElement('div');
+    text.className = 'm';
+    var action = doc.createElement('button');
+    action.type = 'button';
+    action.className = 'a';
+    action.hidden = true;
+    var close = doc.createElement('button');
+    close.type = 'button';
+    close.className = 'x';
+    close.setAttribute('aria-label', 'Close message');
+    close.textContent = '×';
+    card.appendChild(icon); card.appendChild(text); card.appendChild(action); card.appendChild(close);
+    root.appendChild(style);
+    root.appendChild(card);
+    (doc.body || doc.documentElement).appendChild(holder);
+    var api = { holder: holder, card: card, text: text, action: action, close: close, onAction: null, timer: null };
+    close.addEventListener('click', function () { hideToast(); });
+    action.addEventListener('click', function () {
+      var fn = api.onAction;
+      hideToast();
+      if (fn) fn();
+    });
+    holder.__cms = api;
+    return api;
+  }
+
+  function showToast(host, msg, opts) {
+    if (!msg) return;
+    opts = opts || {};
+    var t = toastCard();
+    // Same font and button colour as the form, never the website's.
+    var font = '';
+    try {
+      var styleHost = host && (host.host || host);
+      if (styleHost && styleHost.nodeType === 1) font = getComputedStyle(styleHost).getPropertyValue('--brand-font').trim();
+    } catch (e) { /* ignore */ }
+    var accent = '';
+    try {
+      var accentHost = host && (host.host || host);
+      if (accentHost && accentHost.nodeType === 1) accent = getComputedStyle(accentHost).getPropertyValue('--brand-primary').trim();
+    } catch (e) { /* ignore */ }
+    if (font) t.holder.style.setProperty('--toast-font', font);
+    else t.holder.style.removeProperty('--toast-font');
+    // "Show me" in the form's own button colour.
+    if (accent) t.holder.style.setProperty('--toast-accent', accent);
+    else t.holder.style.removeProperty('--toast-accent');
+    t.text.textContent = msg;
+    t.onAction = opts.onAction || null;
+    t.action.textContent = opts.actionLabel || '';
+    t.action.hidden = !(opts.onAction && opts.actionLabel);
+    if (t.timer) clearTimeout(t.timer);
     // Next frame so the slide-in transition runs on first show.
-    setTimeout(function () { toast.classList.add('cms-toast-show'); }, 10);
-    toast.__cmsTimer = setTimeout(function () { toast.classList.remove('cms-toast-show'); }, 6000);
+    setTimeout(function () { t.card.classList.add('show'); }, 10);
+    t.timer = setTimeout(hideToast, 7000);
+  }
+
+  function hideToast() {
+    var holder = document.querySelector('[data-cms-toast]');
+    var t = holder && holder.__cms;
+    if (!t) return;
+    if (t.timer) clearTimeout(t.timer);
+    t.timer = null;
+    t.card.classList.remove('show');
   }
 
   function injectStyles(host, extraCSS) {
@@ -580,6 +659,13 @@
     function setError(e, msg) {
       if (e.errorEl) e.errorEl.textContent = msg || '';
       if (!e.input) return;
+      // Menu (course picker): show the message at the top of the menu too,
+      // and drop the pop-up once a dish is picked.
+      var courseAlert = e.input.querySelector ? e.input.querySelector('.cms-course-alert-text') : null;
+      if (courseAlert) {
+        courseAlert.textContent = msg || '';
+        if (!msg) hideToast();
+      }
       if (msg) {
         e.input.setAttribute('aria-invalid', 'true');
         if (e.errorEl && e.errorEl.id) e.input.setAttribute('aria-describedby', e.errorEl.id);
@@ -644,7 +730,11 @@
           alertEl.hidden = false;
           alertEl.textContent = firstMsg;
         }
-        showToast(host, firstMsg || 'Please fill in the highlighted fields.');
+        var bad = v.firstBad;
+        showToast(host, firstMsg || 'Please fill in the highlighted fields.', {
+          actionLabel: 'Show me',
+          onAction: function () { if (bad) focusInput(bad.input); }
+        });
         showInvalid(v.firstBad);
         return;
       }
@@ -1051,6 +1141,11 @@
     var grid = el('div', { class: 'cms-course-grid' });
     var hidden = el('div', { class: 'cms-course-hidden' });
     var summary = el('div', { class: 'cms-course-summary', 'aria-live': 'polite' });
+    // Filled by the form runner when the menu is required and left empty.
+    wrap.appendChild(el('div', { class: 'cms-course-alert', 'aria-hidden': 'true' }, [
+      el('span', { class: 'cms-course-alert-icon', text: '!' }),
+      el('span', { class: 'cms-course-alert-text' })
+    ]));
     wrap.appendChild(grid);
     wrap.appendChild(summary);
     wrap.appendChild(hidden);
@@ -1283,6 +1378,7 @@
     buildHoneypot: buildHoneypot,
     announce: announce,
     showToast: showToast,
+    hideToast: hideToast,
     debounce: debounce
   };
 })(window);

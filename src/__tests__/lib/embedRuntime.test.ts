@@ -457,21 +457,43 @@ describe("menu: at least one dish on a quote request", () => {
 });
 
 describe("toast on a blocked submit", () => {
-  it("pops up the message and replaces, not stacks, the next one", () => {
+  // The pop-up sits on <body> in its own shadow root, outside the form, so
+  // the website's layout can't clip it.
+  const card = () => (document.querySelector("[data-cms-toast]") as any)?.shadowRoot?.querySelector(".t") as HTMLElement;
+
+  it("pops up the message on the page and replaces, not stacks, the next one", () => {
     jest.useFakeTimers();
     const { helpers } = loadRuntime();
     const host = document.createElement("div");
+    document.body.appendChild(host);
     helpers.showToast(host, "Please choose at least one dish from the menu");
     jest.advanceTimersByTime(20);
-    const toast = host.querySelector(".cms-toast") as HTMLElement;
-    expect(toast.getAttribute("role")).toBe("alert");
-    expect(toast.textContent).toContain("Please choose at least one dish from the menu");
-    expect(toast.classList.contains("cms-toast-show")).toBe(true);
+    expect(host.querySelector(".t")).toBeNull();
+    expect(card().getAttribute("role")).toBe("alert");
+    expect(card().textContent).toContain("Please choose at least one dish from the menu");
+    expect(card().classList.contains("show")).toBe(true);
     helpers.showToast(host, "Email is required");
-    expect(host.querySelectorAll(".cms-toast")).toHaveLength(1);
-    expect(toast.textContent).toContain("Email is required");
-    jest.advanceTimersByTime(6100);
-    expect(toast.classList.contains("cms-toast-show")).toBe(false);
+    expect(document.querySelectorAll("[data-cms-toast]")).toHaveLength(1);
+    expect(card().textContent).toContain("Email is required");
+    jest.advanceTimersByTime(7100);
+    expect(card().classList.contains("show")).toBe(false);
+    jest.useRealTimers();
+  });
+
+  it("\"Show me\" runs the action and closes the pop-up", () => {
+    jest.useFakeTimers();
+    const { helpers } = loadRuntime();
+    const onAction = jest.fn();
+    helpers.showToast(document.body, "Please choose at least one dish from the menu", { actionLabel: "Show me", onAction });
+    jest.advanceTimersByTime(20);
+    const btn = card().querySelector(".a") as HTMLButtonElement;
+    expect(btn.hidden).toBe(false);
+    expect(btn.textContent).toBe("Show me");
+    btn.click();
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(card().classList.contains("show")).toBe(false);
+    helpers.showToast(document.body, "Could not submit");
+    expect((card().querySelector(".a") as HTMLButtonElement).hidden).toBe(true);
     jest.useRealTimers();
   });
 });
