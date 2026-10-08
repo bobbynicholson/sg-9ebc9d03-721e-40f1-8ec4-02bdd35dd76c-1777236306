@@ -162,7 +162,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
             <Badge className="brand-print bg-brand-primary text-white border-0 px-3 py-1.5 text-sm">
               {/* Part-paid invoices (any number of payments) are not
                   "awaiting payment" - only the balance is. */}
-              {paymentSummary.state === "partial" ? "Part paid" : "Awaiting payment"}
+              {paymentSummary.state === "partial" ? "Partially paid" : "Awaiting payment"}
             </Badge>
           )}
         </div>
