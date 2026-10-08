@@ -839,6 +839,9 @@ def quote_payload(document: SourceDocument, company_id: str, region_id: str, cli
         "equipment_items": [],
         "subtotal": document.subtotal,
         "tax_amount": document.tax_amount,
+        # Older admin screens still read quotes.tax.  Keep the legacy mirror
+        # aligned with tax_amount so imported VAT is visible everywhere.
+        "tax": document.tax_amount,
         "total_amount": document.total_amount,
         "total": document.total_amount,
         "discount_amount": 0,
@@ -908,6 +911,10 @@ def order_payload(
         "deposit_amount": document.deposit_amount,
         "deposit_paid": bool(document.deposit_amount and amount_paid >= document.deposit_amount - MONEY_EPSILON),
         "amount_paid": amount_paid,
+        # The payment ledger intentionally remains empty when a legacy PDF
+        # lacks payment dates/methods.  Preserve the evidenced historic total
+        # in the opening balance so payment reconciliation cannot erase it.
+        "payment_opening_paid": amount_paid,
         "balance_amount": balance,
         "balance_paid": balance <= MONEY_EPSILON,
         "balance_due_date": balance_due_date,
@@ -1006,11 +1013,11 @@ def verify_import(api: SupabaseRest, company_id: str, job_id: str, documents: li
     errors: list[str] = []
     quotes = api.select_all(
         "quotes",
-        {"select": "id,quote_number,client_id,event_date,event_time,guest_count,subtotal,tax_amount,total_amount,total,valid_until,menu_items,converted_to_order_id", "company_id": f"eq.{company_id}", "import_job_id": f"eq.{job_id}"},
+        {"select": "id,quote_number,client_id,event_date,event_time,guest_count,subtotal,tax_amount,tax,total_amount,total,valid_until,menu_items,converted_to_order_id", "company_id": f"eq.{company_id}", "import_job_id": f"eq.{job_id}"},
     )
     orders = api.select_all(
         "orders",
-        {"select": "id,quote_id,client_id,order_number,event_name,event_date,event_time,guest_count,subtotal,tax_amount,total_amount,amount_paid,balance_amount,status,payment_status", "company_id": f"eq.{company_id}", "import_job_id": f"eq.{job_id}"},
+        {"select": "id,quote_id,client_id,order_number,event_name,event_date,event_time,guest_count,subtotal,tax_amount,tax,total_amount,amount_paid,payment_opening_paid,balance_amount,status,payment_status", "company_id": f"eq.{company_id}", "import_job_id": f"eq.{job_id}"},
     )
     if len(quotes) != len(documents):
         errors.append(f"Expected {len(documents)} imported quotes, found {len(quotes)}")
@@ -1042,12 +1049,15 @@ def verify_import(api: SupabaseRest, company_id: str, job_id: str, documents: li
         for label, row, field_name, expected in (
             ("quote", quote, "subtotal", document.subtotal),
             ("quote", quote, "tax_amount", document.tax_amount),
+            ("quote", quote, "tax", document.tax_amount),
             ("quote", quote, "total_amount", document.total_amount),
             ("quote", quote, "total", document.total_amount),
             ("order", order, "subtotal", document.subtotal),
             ("order", order, "tax_amount", document.tax_amount),
+            ("order", order, "tax", document.tax_amount),
             ("order", order, "total_amount", document.total_amount),
             ("order", order, "amount_paid", document.amount_paid),
+            ("order", order, "payment_opening_paid", document.amount_paid),
             ("order", order, "balance_amount", document.balance_amount),
         ):
             compare_money(row.get(field_name), expected, f"{document.quote_number}: {label}.{field_name}", errors)

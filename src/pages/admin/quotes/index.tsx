@@ -2533,7 +2533,7 @@ function AdminQuotesInner() {
                               </span>
                               <span className="flex flex-wrap items-center gap-x-3 text-slate-600 tabular-nums">
                                 <span>Subtotal <span className="font-medium text-slate-900">{formatQuoteMoney(quote.subtotal ?? 0, quote.currency, tenantCurrency.code)}</span></span>
-                                <span>VAT <span className="font-medium text-slate-900">{formatQuoteMoney(quote.tax ?? 0, quote.currency, tenantCurrency.code)}</span></span>
+                                <span>VAT <span className="font-medium text-slate-900">{formatQuoteMoney(quote.tax_amount ?? quote.tax ?? 0, quote.currency, tenantCurrency.code)}</span></span>
                                 <span className="font-bold text-slate-900">Total <span className="text-brand-primary">{formatQuoteMoney(quote.total ?? 0, quote.currency, tenantCurrency.code)}</span></span>
                               </span>
                             </div>
