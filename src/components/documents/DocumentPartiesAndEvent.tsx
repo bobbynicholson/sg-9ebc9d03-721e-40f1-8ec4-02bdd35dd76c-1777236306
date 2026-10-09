@@ -48,7 +48,7 @@ export function DocumentPartiesAndEvent({
 
       {hasEventDetails && (
         <section className="border-t border-stone-200 pt-4" aria-label="Event details">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-brand-primary">
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-brand-primary">
             Event details
           </p>
           <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -86,16 +86,16 @@ export function DocumentPartiesAndEvent({
 
 function PartyDetails({ label, party }: { label: string; party: Party }) {
   return (
-    <section className="min-w-0 rounded-xl border border-stone-100 bg-stone-50/60 px-4 py-3.5">
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-brand-primary">
+    <section className="min-w-0 rounded-xl border border-stone-100 bg-stone-50/60 px-4 py-4">
+      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-brand-primary">
         {label}
       </p>
-      {party.name && <p className="break-words text-sm font-semibold text-stone-900">{party.name}</p>}
-      {party.address && <p className="mt-0.5 break-words text-xs leading-relaxed text-stone-600">{party.address}</p>}
-      {party.email && <p className="break-all text-xs leading-relaxed text-stone-600">{party.email}</p>}
-      {party.phone && <p className="text-xs leading-relaxed text-stone-600">{party.phone}</p>}
+      {party.name && <p className="break-words text-[15px] font-semibold text-stone-900">{party.name}</p>}
+      {party.address && <p className="mt-0.5 break-words text-[13px] leading-relaxed text-stone-600">{party.address}</p>}
+      {party.email && <p className="break-all text-[13px] leading-relaxed text-stone-600">{party.email}</p>}
+      {party.phone && <p className="text-[13px] leading-relaxed text-stone-600">{party.phone}</p>}
       {party.taxNumber && (
-        <p className="text-xs leading-relaxed text-stone-600">
+        <p className="text-[13px] leading-relaxed text-stone-600">
           Customer VAT No: <span className="font-mono">{party.taxNumber}</span>
         </p>
       )}
@@ -118,8 +118,8 @@ function EventFact({
     <div className={`flex min-w-0 items-start gap-2.5 rounded-lg border border-stone-100 bg-stone-50/70 px-3 py-2.5 ${className}`}>
       <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-primary" aria-hidden="true" />
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">{label}</p>
-        <p className="mt-0.5 break-words text-xs font-semibold leading-snug text-stone-900">{value}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-stone-500">{label}</p>
+        <p className="mt-0.5 break-words text-[13px] font-semibold leading-snug text-stone-900">{value}</p>
       </div>
     </div>
   );

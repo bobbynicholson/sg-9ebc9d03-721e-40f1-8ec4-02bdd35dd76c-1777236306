@@ -908,7 +908,7 @@ export default function PublicQuotePage() {
                 <div className="space-y-4">
                   {groupByCourse(quote.menu_items, (item: any) => item?.category).map((group) => (
                     <section key={group.course}>
-                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500">
+                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-brand-primary">
                         {group.heading}
                       </p>
                       <div className="space-y-2">

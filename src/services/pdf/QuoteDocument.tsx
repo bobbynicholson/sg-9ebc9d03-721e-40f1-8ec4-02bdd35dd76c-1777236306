@@ -265,17 +265,17 @@ const buildStyles = (primary: string) =>
       textTransform: "uppercase",
     },
     title: {
-      fontSize: 22,
+      fontSize: 24,
       fontFamily: "Times-Bold",
       color: "#1c1917",
       marginBottom: 4,
     },
     referenceLine: {
-      fontSize: 9,
+      fontSize: 10,
       color: "#57534e",
     },
     vatLine: {
-      fontSize: 8,
+      fontSize: 9,
       color: "#78716c",
       marginTop: 2,
     },
@@ -296,11 +296,11 @@ const buildStyles = (primary: string) =>
       borderWidth: 1,
       borderColor: "#e7e5e4",
       borderRadius: 6,
-      padding: 12,
+      padding: 13,
       marginBottom: 10,
     },
     sectionLabel: {
-      fontSize: 8,
+      fontSize: 9,
       letterSpacing: 1.2,
       color: primary,
       fontFamily: "Helvetica-Bold",
@@ -308,31 +308,50 @@ const buildStyles = (primary: string) =>
       marginBottom: 6,
     },
 
-    grid: {
+    partyGrid: {
       flexDirection: "row",
-      flexWrap: "wrap",
+      gap: 12,
     },
-    gridCell: {
-      width: "33.33%",
-      paddingRight: 8,
-      marginBottom: 8,
-    },
-    gridCellWide: {
-      width: "100%",
-      marginBottom: 4,
+    partyCard: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: "#f5f5f4",
+      borderRadius: 8,
+      backgroundColor: "#fafaf9",
+      padding: 10,
+      minHeight: 86,
     },
     cellLabel: {
-      fontSize: 7,
+      fontSize: 8,
       letterSpacing: 1,
       color: primary,
       fontFamily: "Helvetica-Bold",
       textTransform: "uppercase",
-      marginBottom: 2,
+      marginBottom: 4,
     },
     cellValue: {
-      fontSize: 10,
+      fontSize: 11,
       fontFamily: "Helvetica-Bold",
       color: "#1c1917",
+      marginBottom: 2,
+    },
+    eventGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginTop: 8,
+      gap: 8,
+    },
+    eventCard: {
+      width: "48%",
+      borderWidth: 1,
+      borderColor: "#f5f5f4",
+      borderRadius: 8,
+      backgroundColor: "#fafaf9",
+      padding: 8,
+      minHeight: 52,
+    },
+    eventCardWide: {
+      width: "100%",
     },
 
     lineRow: {
@@ -350,22 +369,22 @@ const buildStyles = (primary: string) =>
       paddingRight: 8,
     },
     lineName: {
-      fontSize: 10,
+      fontSize: 11,
       fontFamily: "Helvetica-Bold",
       color: "#1c1917",
     },
     lineDescription: {
-      fontSize: 8,
+      fontSize: 9,
       color: "#78716c",
       marginTop: 1,
     },
     lineSub: {
-      fontSize: 8,
+      fontSize: 9,
       color: "#78716c",
       marginTop: 1,
     },
     lineTotal: {
-      fontSize: 10,
+      fontSize: 11,
       fontFamily: "Helvetica-Bold",
       color: "#1c1917",
       textAlign: "right",
@@ -552,11 +571,10 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {/* FROM / BILL TO - same blocks as the invoice PDF so a quote and
-            its invoice read the same. */}
+        {/* FROM / BILL TO - polished identity block matching the invoice PDF. */}
         <View style={styles.card} wrap={false}>
-          <View style={styles.grid}>
-            <View style={[styles.gridCell, { width: "50%" }]}>
+          <View style={styles.partyGrid}>
+            <View style={styles.partyCard}>
               <Text style={styles.cellLabel}>From</Text>
               <Text style={styles.cellValue}>{data.company.legal_name || data.company.company_name || ""}</Text>
               {[data.company.address_line1, data.company.address_line2, data.company.city].filter(Boolean).length > 0 ? (
@@ -567,7 +585,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
               {data.company.email ? <Text style={styles.lineSub}>{data.company.email}</Text> : null}
               {data.company.phone ? <Text style={styles.lineSub}>{data.company.phone}</Text> : null}
             </View>
-            <View style={[styles.gridCell, { width: "50%" }]}>
+            <View style={styles.partyCard}>
               <Text style={styles.cellLabel}>Bill to</Text>
               <Text style={styles.cellValue}>{data.client_name || ""}</Text>
               {data.client_email ? <Text style={styles.lineSub}>{data.client_email}</Text> : null}
@@ -576,37 +594,38 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {/* EVENT DETAILS */}
-        <View style={styles.card} wrap={false}>
-          <View style={styles.grid}>
-            {eventDate ? (
-              <View style={styles.gridCell}>
-                <Text style={styles.cellLabel}>Event date</Text>
-                <Text style={styles.cellValue}>
-                  {eventDate}
-                  {eventTime ? ` - ${eventTime} start` : ""}
-                </Text>
-                {setupTime && setupTime !== eventTime ? (
-                  <Text style={styles.lineSub}>
-                    Setup / arrival: {setupTime}
+        {/* EVENT DETAILS - tile-based layout keeps the date, venue, guests readable. */}
+        {(eventDate || data.guest_count != null || data.venue_address) && (
+          <View style={styles.card} wrap={false}>
+            <Text style={styles.sectionLabel}>Event details</Text>
+            <View style={styles.eventGrid}>
+              {eventDate ? (
+                <View style={styles.eventCard}>
+                  <Text style={styles.cellLabel}>When</Text>
+                  <Text style={styles.cellValue}>
+                    {eventDate}
+                    {eventTime ? ` · ${eventTime}` : ""}
                   </Text>
-                ) : null}
-              </View>
-            ) : null}
-            {data.guest_count != null ? (
-              <View style={styles.gridCell}>
-                <Text style={styles.cellLabel}>Guests</Text>
-                <Text style={styles.cellValue}>{String(data.guest_count)}</Text>
-              </View>
-            ) : null}
-            {data.venue_address ? (
-              <View style={styles.gridCellWide}>
-                <Text style={styles.cellLabel}>Venue</Text>
-                <Text style={styles.cellValue}>{data.venue_address}</Text>
-              </View>
-            ) : null}
+                  {setupTime && setupTime !== eventTime ? (
+                    <Text style={styles.lineSub}>Setup / arrival: {setupTime}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+              {data.guest_count != null ? (
+                <View style={styles.eventCard}>
+                  <Text style={styles.cellLabel}>Guests</Text>
+                  <Text style={styles.cellValue}>{String(data.guest_count)}</Text>
+                </View>
+              ) : null}
+              {data.venue_address ? (
+                <View style={[styles.eventCard, styles.eventCardWide]}>
+                  <Text style={styles.cellLabel}>Venue</Text>
+                  <Text style={styles.cellValue}>{data.venue_address}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* MENU ITEMS */}
         {menuItems.length > 0 ? (
@@ -616,7 +635,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             </Text>
             {menuGroups.map((group) => (
               <View key={group.course}>
-                <Text style={[styles.lineSub, { marginTop: 5, marginBottom: 2 }]}>
+                <Text style={[styles.sectionLabel, { marginTop: 5, marginBottom: 2 }]}>
                   {group.heading.toUpperCase()}
                 </Text>
                 {group.items.map((item: any, i) => {
