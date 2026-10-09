@@ -518,6 +518,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
   const discount = Number(data.discount_amount || 0);
   const total = Number(data.total_amount || 0);
   const amountPaid = Number(data.amount_paid || 0);
+  const paidAboveTotal = Math.max(0, amountPaid - total);
   const firstPaymentAmount = Number(data.first_payment_amount || 0);
   // Phase 9 #2: tenant currency. Closure binds the row's currency
   // (e.g. 'USD', 'GBP') so every money render below uses the
@@ -795,6 +796,12 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             <View style={[styles.totalsRow, { marginTop: 6 }]}>
               <Text style={styles.totalsLabel}>Paid to date</Text>
               <Text style={styles.paid}>{fmt(amountPaid)}</Text>
+            </View>
+          ) : null}
+          {paidAboveTotal > 0.005 ? (
+            <View style={[styles.totalsRow, { marginTop: 6 }]}>
+              <Text style={styles.totalsLabel}>Paid above invoice total</Text>
+              <Text style={styles.paid}>{fmt(paidAboveTotal)}</Text>
             </View>
           ) : null}
           {!showPaymentPlan ? (

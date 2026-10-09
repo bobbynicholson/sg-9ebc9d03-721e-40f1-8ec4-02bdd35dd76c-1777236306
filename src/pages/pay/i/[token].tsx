@@ -819,6 +819,7 @@ export default function InvoicePaymentPage() {
       ? Math.min(99, Math.max(1, rawRemainingPct))
       : rawRemainingPct;
   const amountPaidToDate = paymentSummary.amountPaid;
+  const paidAboveInvoiceTotal = Math.max(0, Number(invoice.amount_paid || 0) - Number(invoice.total_amount || 0));
   const vatRegistered = !!company.vat_registered;
   const docTitle = vatRegistered ? "Tax Invoice" : "Invoice";
   const today = format(nowForInvoice, "d MMMM yyyy");
@@ -1068,6 +1069,12 @@ export default function InvoicePaymentPage() {
                   )}
                 </div>
               </div>
+
+              {paidAboveInvoiceTotal > 0.005 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+                  Payments exceed the updated invoice total by <strong>{fmtMoney.format(paidAboveInvoiceTotal)}</strong>. Please contact the catering team about the excess payment.
+                </div>
+              )}
 
               {!isPartiallyPaid && !isPaid && !fullPaymentDue && (
                 <div className="grid grid-cols-2 gap-4 rounded-lg bg-stone-50 p-4">

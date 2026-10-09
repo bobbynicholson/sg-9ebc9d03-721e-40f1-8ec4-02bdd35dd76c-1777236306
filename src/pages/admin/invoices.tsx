@@ -18,6 +18,7 @@ import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { CashflowContextBanner } from "@/components/admin/financial/CashflowContextBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -345,6 +346,9 @@ function InvoicesPageInner() {
   // post-rehydrate the find returned undefined and the Send button
   // silently did nothing.
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [refreshingInvoiceId, setRefreshingInvoiceId] = useState<string | null>(null);
+  const [invoiceRefreshDialogOpen, setInvoiceRefreshDialogOpen] = useState(false);
+  const [invoiceRefreshReason, setInvoiceRefreshReason] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   // Phase 14 #10: bulk-mark-paid. Operators reconciling EFTs can
@@ -1116,6 +1120,63 @@ function InvoicesPageInner() {
       category: "financial",
       fields: "opened invoice preview: client name, billing address, invoice total, line items, payment ledger",
     });
+  };
+
+  const handleRefreshInvoiceFromOrder = async () => {
+    if (!selectedInvoiceId) return;
+    const invoice = invoices.find((row: any) => row.id === selectedInvoiceId);
+    if (!invoice?.order_id) return;
+    const reason = invoiceRefreshReason.trim();
+    if (!reason) return;
+    setRefreshingInvoiceId(selectedInvoiceId);
+    try {
+      const response = await fetch(`/api/admin/invoices/${selectedInvoiceId}/refresh-from-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result?.ok) throw new Error(result?.error || "Could not refresh this invoice");
+
+      await loadInvoices();
+      const refreshedInvoice = result.invoice || {};
+      const order = result.order || {};
+      const refreshedData = refreshedInvoice.invoice_data || {};
+      setSelectedInvoice((current: any) => ({
+        ...current,
+        ...refreshedData,
+        invoiceNumber: refreshedInvoice.invoice_number || current?.invoiceNumber,
+        clientName: order.client_name ?? current?.clientName,
+        clientEmail: order.client_email ?? current?.clientEmail,
+        clientPhone: order.client_phone ?? current?.clientPhone,
+        orderNumber: order.order_number ?? current?.orderNumber,
+        eventName: order.event_name ?? current?.eventName,
+        eventDate: order.event_date ?? current?.eventDate,
+        eventTime: order.event_time ?? current?.eventTime,
+        venue: order.venue_address ?? current?.venue,
+        guestCount: order.guest_count ?? current?.guestCount,
+        subtotal: refreshedInvoice.subtotal ?? current?.subtotal,
+        taxAmount: refreshedInvoice.tax_amount ?? current?.taxAmount,
+        total: refreshedInvoice.total_amount ?? current?.total,
+        depositPaid: refreshedInvoice.amount_paid ?? current?.depositPaid,
+        balanceDue: refreshedInvoice.balance_due ?? current?.balanceDue,
+      }));
+      setInvoiceRefreshDialogOpen(false);
+      setInvoiceRefreshReason("");
+      toast({
+        title: result.auditWarning ? "Invoice refreshed with an audit warning" : "Invoice refreshed",
+        description: result.auditWarning || "Current order values and payment balance are shown.",
+        variant: result.auditWarning ? "destructive" : undefined,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Could not refresh invoice",
+        description: error?.message || "Try again after checking the linked order.",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshingInvoiceId(null);
+    }
   };
 
   // The preview dialog is the safest place to verify the document before
@@ -2729,6 +2790,20 @@ function InvoicesPageInner() {
                   tenants. */}
               <InvoicePreview {...selectedInvoice} currencyCode={(selectedInvoice as any).currency || tenantMoney.code} />
               <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
+                {invoices.find((row: any) => row.id === selectedInvoiceId)?.order_id && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setInvoiceRefreshReason("");
+                      setInvoiceRefreshDialogOpen(true);
+                    }}
+                    disabled={refreshingInvoiceId === selectedInvoiceId}
+                    title="Review order changes and refresh this invoice"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh invoice from order
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => setPreviewOpen(false)}>
                   Close
                 </Button>
@@ -2749,6 +2824,76 @@ function InvoicesPageInner() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={invoiceRefreshDialogOpen}
+        onOpenChange={(open) => {
+          if (refreshingInvoiceId) return;
+          setInvoiceRefreshDialogOpen(open);
+          if (!open) setInvoiceRefreshReason("");
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refresh invoice from order</DialogTitle>
+            <DialogDescription>
+              This updates the invoice to the order’s current total and event details. Existing payments and item lines are preserved.
+            </DialogDescription>
+          </DialogHeader>
+          {(() => {
+            const invoice = invoices.find((row: any) => row.id === selectedInvoiceId);
+            const orderTotal = Number(invoice?.orders?.total_amount || 0);
+            const currentTotal = Number(invoice?.total_amount || 0);
+            const difference = Number((orderTotal - currentTotal).toFixed(2));
+            return (
+              <div className="space-y-4">
+                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                  <p>Current invoice: <strong>{formatInvoiceRowMoney(currentTotal, invoice?.currency || tenantMoney.code)}</strong></p>
+                  <p>Linked order: <strong>{formatInvoiceRowMoney(orderTotal, invoice?.currency || tenantMoney.code)}</strong></p>
+                  {Math.abs(difference) >= 0.01 && (
+                    <p className={difference > 0 ? "mt-1 font-semibold text-amber-800" : "mt-1 font-semibold text-sky-800"}>
+                      {difference > 0 ? "Increase" : "Decrease"}: {formatInvoiceRowMoney(Math.abs(difference), invoice?.currency || tenantMoney.code)}
+                    </p>
+                  )}
+                  {Number(invoice?.amount_paid || 0) > orderTotal && (
+                    <p className="mt-1 text-amber-800">
+                      Payments will exceed the refreshed total by {formatInvoiceRowMoney(Number(invoice?.amount_paid) - orderTotal, invoice?.currency || tenantMoney.code).trim()}.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="invoice-refresh-reason" className="text-sm font-medium text-slate-900">
+                    Reason for this invoice change <span className="text-rose-600">*</span>
+                  </label>
+                  <Textarea
+                    id="invoice-refresh-reason"
+                    value={invoiceRefreshReason}
+                    onChange={(event) => setInvoiceRefreshReason(event.target.value)}
+                    maxLength={1000}
+                    placeholder="For example: Client requested one extra guest on 9 October."
+                    rows={3}
+                  />
+                  {!invoiceRefreshReason.trim() && (
+                    <p className="text-xs text-slate-500">Enter why the invoice is changing to enable confirmation.</p>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setInvoiceRefreshDialogOpen(false)} disabled={!!refreshingInvoiceId}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleRefreshInvoiceFromOrder}
+                    disabled={!invoiceRefreshReason.trim() || !!refreshingInvoiceId}
+                  >
+                    <RefreshCw className={`mr-2 h-4 w-4 ${refreshingInvoiceId ? "animate-spin" : ""}`} />
+                    {refreshingInvoiceId ? "Refreshing invoice" : "Confirm invoice refresh"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

@@ -16,6 +16,94 @@ describe("applyOrderValueDelta", () => {
 });
 
 describe("syncInvoiceValuesFromOrder", () => {
+  it("reopens a fully paid invoice when the order total increases", async () => {
+    const order = {
+      subtotal: 8556.52,
+      tax_amount: 1283.48,
+      total_amount: 9840,
+      guest_count: 40,
+    };
+    const invoice = {
+      id: "invoice-1",
+      amount_paid: 9629.72,
+      status: "paid",
+      invoice_data: { items: [{ description: "Saved items" }] },
+    };
+    let invoicePatch: any;
+    const client = {
+      from: jest.fn((table: string) => {
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          is: () => builder,
+          maybeSingle: async () => ({ data: table === "orders" ? order : invoice, error: null }),
+          update: (patch: any) => {
+            invoicePatch = patch;
+            return { eq: async () => ({ error: null }) };
+          },
+        };
+        return builder;
+      }),
+    };
+
+    const result = await syncInvoiceValuesFromOrder("order-1", client);
+
+    expect(result.invoice_id).toBe("invoice-1");
+    expect(invoicePatch).toMatchObject({
+      subtotal: 8556.52,
+      tax_amount: 1283.48,
+      total_amount: 9840,
+      amount_paid: 9629.72,
+      balance_due: 210.28,
+      status: "partially_paid",
+      invoice_data: {
+        items: [{ description: "Saved items" }],
+        total: 9840,
+        balanceDue: 210.28,
+      },
+    });
+  });
+
+  it("keeps a reduced invoice paid and preserves the original payment amount", async () => {
+    const order = {
+      subtotal: 7826.09,
+      tax_amount: 1173.91,
+      total_amount: 9000,
+      guest_count: 36,
+    };
+    const invoice = {
+      id: "invoice-1",
+      amount_paid: 9629.72,
+      status: "paid",
+      invoice_data: { items: [{ description: "Saved items" }] },
+    };
+    let invoicePatch: any;
+    const client = {
+      from: jest.fn((table: string) => {
+        const builder: any = {
+          select: () => builder,
+          eq: () => builder,
+          is: () => builder,
+          maybeSingle: async () => ({ data: table === "orders" ? order : invoice, error: null }),
+          update: (patch: any) => {
+            invoicePatch = patch;
+            return { eq: async () => ({ error: null }) };
+          },
+        };
+        return builder;
+      }),
+    };
+
+    await syncInvoiceValuesFromOrder("order-1", client);
+
+    expect(invoicePatch).toMatchObject({
+      total_amount: 9000,
+      amount_paid: 9629.72,
+      balance_due: 0,
+      status: "paid",
+    });
+  });
+
   it("refreshes current order values and preserves invoice item snapshots", async () => {
     const items = [{ description: "Existing menu item", total: 500 }];
     const order = {
@@ -34,7 +122,7 @@ describe("syncInvoiceValuesFromOrder", () => {
     const invoice = {
       id: "invoice-1",
       amount_paid: 300,
-      status: "partially_paid",
+      status: "paid",
       invoice_data: { items, guestCount: 20, venue: "Old venue" },
     };
     let invoicePatch: any;
@@ -66,6 +154,7 @@ describe("syncInvoiceValuesFromOrder", () => {
       total_amount: 1380,
       amount_paid: 300,
       balance_due: 1080,
+      status: "partially_paid",
       invoice_data: {
         items,
         guestCount: 60,

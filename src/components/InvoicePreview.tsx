@@ -111,6 +111,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
   const today = format(new Date(), "d MMMM yyyy");
   const fmtMoney = buildFmtMoney(props.currencyCode || "ZAR");
   const visibleNotes = visibleDocumentNote(props.notes);
+  const paidAboveTotal = Math.max(0, Number(props.depositPaid || 0) - Number(props.total || 0));
 
   return (
     <div className="bg-stone-50 rounded-lg p-4 sm:p-6 max-w-3xl mx-auto">
@@ -281,6 +282,11 @@ export function InvoicePreview(props: InvoicePreviewProps) {
                 </span>
               </div>
             </>
+          )}
+          {paidAboveTotal > 0.005 && (
+            <p className="text-xs text-amber-800 border-t border-amber-200 pt-2">
+              Paid above invoice total: {fmtMoney.format(paidAboveTotal)}. Review whether to refund or apply this amount elsewhere.
+            </p>
           )}
         </CardContent>
       </Card>
