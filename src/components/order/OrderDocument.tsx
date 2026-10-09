@@ -452,6 +452,64 @@ function OrderTrackingOverview({
   );
 }
 
+/**
+ * A printable order is an operational document, not a screenshot of the
+ * interactive workspace.  Give the paper version a concise cover so the
+ * order can still be identified when its later pages are separated.
+ */
+function OrderPrintCover({ order }: { order: OrderHead }) {
+  const eventDate = new Date(order.event_date).toLocaleDateString("en-ZA", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+  const title = order.event_name || order.client_name || "Order";
+  const eventTime = order.event_time ? formatClock(order.event_time) : null;
+  const venue = [order.venue_name, order.venue_address].filter(Boolean).join(" - ");
+
+  return (
+    <section className="order-print-cover mb-4 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+      <div className="h-1 bg-brand-primary" aria-hidden="true" />
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-primary">Order document</p>
+            <h1 className="mt-1 text-2xl font-semibold leading-tight text-slate-950">{title}</h1>
+            {order.order_number ? <p className="mt-1 font-mono text-sm font-semibold text-slate-600">#{order.order_number}</p> : null}
+          </div>
+          <span className="shrink-0 rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold capitalize text-slate-700">
+            {cleanStatus(order.status)}
+          </span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-slate-200 pt-4 text-sm">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Event</p>
+            <p className="mt-0.5 font-medium text-slate-900">{eventDate}{eventTime ? ` at ${eventTime}` : ""}</p>
+          </div>
+          {order.guest_count ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Guests</p>
+              <p className="mt-0.5 font-medium text-slate-900">{order.guest_count}</p>
+            </div>
+          ) : null}
+          {venue ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Venue</p>
+              <p className="mt-0.5 text-slate-900">{venue}</p>
+            </div>
+          ) : null}
+          {order.client_name || order.client_email || order.client_phone ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Client</p>
+              <p className="mt-0.5 font-medium text-slate-900">{order.client_name || "-"}</p>
+              {order.client_email ? <p className="text-xs text-slate-600">{order.client_email}</p> : null}
+              {order.client_phone ? <p className="text-xs text-slate-600">{order.client_phone}</p> : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export interface OrderDocumentProps {
   orderId: string;
   /** "print" expands every section + hides toggles. "client" suppresses Finance entirely. */
@@ -732,7 +790,7 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
   const forceAll = mode === "print";
 
   return (
-    <div className={mode === "print" ? "max-w-5xl mx-auto px-4 py-8 print:px-0 print:py-0" : "mx-auto max-w-[90rem] px-3 sm:px-4 md:px-6 py-4 sm:py-6"}>
+    <div className={mode === "print" ? "order-print-document max-w-5xl mx-auto px-4 py-8 print:px-0 print:py-0" : "mx-auto max-w-[90rem] px-3 sm:px-4 md:px-6 py-4 sm:py-6"}>
       {/* Toolbar - hidden in print mode */}
       {mode !== "print" && (
         <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
@@ -843,6 +901,8 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
           scrollToSection={scrollToSection}
         />
       )}
+
+      {mode === "print" && <OrderPrintCover order={order} />}
 
 
       {/* Two-column workspace on desktop: the work on the left, a

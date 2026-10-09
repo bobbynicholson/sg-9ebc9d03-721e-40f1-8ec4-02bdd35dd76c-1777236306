@@ -91,9 +91,33 @@ function OrderDocumentInner({ id, print, forceSection }: {
         {/* ODOC: print-only CSS - hides chrome that doesn't belong on paper. */}
         <style jsx global>{`
           @media print {
-            @page { margin: 1.5cm; size: A4; }
+            @page { margin: 12mm; size: A4; }
             html, body { background: white !important; }
-            button[type="button"], .print\\:hidden { display: none !important; }
+            /* Keep each collapsible section's heading on paper. The old
+               blanket button rule removed every heading because a section
+               title is intentionally a button in the interactive view. */
+            .order-print-document button[type="button"]:not(.order-section-heading),
+            .print\\:hidden { display: none !important; }
+            .order-print-document .order-section-heading {
+              display: flex !important;
+              padding: 10px 12px !important;
+              pointer-events: none;
+            }
+            .order-print-document .order-print-cover,
+            .order-print-document section[id^="section-"] {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            .order-print-document section[id^="section-"] {
+              box-shadow: none !important;
+              border-color: #cbd5e1 !important;
+            }
+            .order-print-document h1,
+            .order-print-document h2,
+            .order-print-document h3 {
+              break-after: avoid;
+              page-break-after: avoid;
+            }
             /* Force every collapsible into expanded state when printed */
             [aria-expanded="false"] + div { display: block !important; }
           }

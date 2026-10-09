@@ -68,10 +68,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .from("quotes")
       .select(`
         id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
+        client:clients!quotes_client_id_fkey(billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number),
         venue_address, menu_items, equipment_items, notes, terms_and_conditions,
         subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
         delivery_fee, delivery_distance_km, delivery_rate_per_km,
         collection_fee, collection_distance_km, collection_rate_per_km,
+        waiter_service_required, waiter_count, waiter_duration_hours, waiter_hourly_rate, waiter_total_fee,
         valid_until, accepted_at, updated_at,
         company:company_id (
           id, slug, company_name, legal_name, time_format, logo_url, email, phone, website,

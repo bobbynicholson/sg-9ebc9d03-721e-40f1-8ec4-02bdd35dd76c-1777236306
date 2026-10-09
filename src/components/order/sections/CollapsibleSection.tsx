@@ -92,7 +92,7 @@ export function CollapsibleSection({
         type="button"
         onClick={() => { if (!forceOpen) setOpen((v) => !v); }}
         disabled={forceOpen}
-        className={`w-full text-left flex items-start justify-between gap-3 p-4 sm:p-5 ${forceOpen ? "cursor-default" : "hover:bg-slate-50/60"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1`}
+        className={`order-section-heading w-full text-left flex items-start justify-between gap-3 p-4 sm:p-5 ${forceOpen ? "cursor-default" : "hover:bg-slate-50/60"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1`}
         aria-expanded={isOpen}
         aria-controls={`${id}-body`}
       >

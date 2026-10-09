@@ -101,6 +101,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const mapItem = (it: any) => ({
       name: it.description || it.name || it.item_name || "Item",
       description: it.detail || null,
+      category: it.category || it.course || it.menu_item?.category || null,
       quantity: it.quantity ?? it.qty ?? null,
       unit_price: it.unitPrice ?? it.unit_price ?? null,
       total: Number(it.total ?? it.line_total ?? 0),

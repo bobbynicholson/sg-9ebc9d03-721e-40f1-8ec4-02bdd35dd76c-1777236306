@@ -30,6 +30,7 @@ import { canAccessDriverWidgets } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { OrderContributors } from "../OrderContributors";
+import { sortByCourse } from "@/lib/menuCourses";
 import { dedupeKitchenPrepTasks, formatKitchenPrepTaskType } from "@/lib/kitchen/prepTasks";
 import { RecipeDialog } from "./RecipeDialog";
 import { SectionSkeleton } from "./SectionSkeleton";
@@ -309,6 +310,10 @@ export function KitchenSection({
 
   const done = tasks.filter((t) => t.status === "done" || t.status === "completed").length;
   const itemsToPrep = items.filter((i) => !i.menu_item?.is_buy_and_sell).length;
+  const orderedItems = useMemo(
+    () => sortByCourse(items, (item) => item.menu_item?.category),
+    [items],
+  );
   const equipNeedsClean = equipment.filter((b) => b.equipment?.requires_cleaning && (b.status === "pending" || b.status === "booked" || !b.status)).length;
   const summary = loading
     ? "Loading..."
@@ -380,7 +385,7 @@ export function KitchenSection({
               <p className="text-sm text-slate-500 italic">No menu lines on this order.</p>
             ) : (
               <ul className="space-y-1.5">
-                {items.map((it) => {
+                {orderedItems.map((it) => {
                   const mi = it.menu_item;
                   const isBuyAndSell = !!mi?.is_buy_and_sell;
                   const hasRecipe = it.menu_item_id ? recipeIds.has(it.menu_item_id) : false;

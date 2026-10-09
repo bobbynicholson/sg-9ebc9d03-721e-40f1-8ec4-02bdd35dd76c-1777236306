@@ -130,6 +130,13 @@ export function buildQuotePdfDataFromRow(row: any): QuotePdfData {
     client_name: row?.client_name ?? null,
     client_email: row?.client_email ?? null,
     client_phone: row?.client_phone ?? null,
+    client_address: [
+      row?.client?.billing_address_line1,
+      row?.client?.billing_address_line2,
+      row?.client?.billing_city,
+      row?.client?.billing_postal_code,
+    ].filter(Boolean).join(", ") || null,
+    client_tax_number: row?.client?.tax_number ?? null,
     event_date: row?.event_date ?? null,
     event_time: row?.event_time ?? null,
     setup_time: row?.setup_time ?? null,

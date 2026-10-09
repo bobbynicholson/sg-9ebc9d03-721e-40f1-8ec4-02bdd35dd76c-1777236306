@@ -30,6 +30,7 @@ import {
   type PdfPaymentInstructions,
 } from "@/lib/pdfPaymentDetails";
 import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
+import { groupByCourse } from "@/lib/menuCourses";
 import { formatClockBoth } from "@/lib/portalTime";
 
 // --- Types -----------------------------------------------------------------
@@ -37,6 +38,8 @@ import { formatClockBoth } from "@/lib/portalTime";
 export interface InvoicePdfLineItem {
   name: string;
   description?: string | null;
+  /** Course category retained from the quote/order for deterministic PDFs. */
+  category?: string | null;
   quantity?: number | null;
   unit_price?: number | null;
   total?: number | null;
@@ -496,6 +499,17 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
     : null;
 
   const lineItems = Array.isArray(data.line_items) ? data.line_items : [];
+  // Older invoices did not snapshot categories. Preserve their existing flat
+  // layout, but whenever categories are present use the one canonical course
+  // sequence shared by quotes and order menus.
+  const hasCourseCategories = lineItems.some((item) =>
+    /starter|appeti[sz]er|canap|main|side|salad|dessert|pudding|sweet|beverage|drink|service|waiter|chef/i.test(
+      String(item?.category || ""),
+    ),
+  );
+  const lineItemGroups = hasCourseCategories
+    ? groupByCourse(lineItems, (item) => item?.category)
+    : [];
   const subtotal = Number(data.subtotal || 0);
   const tax = Number(data.tax_amount || 0);
   const discount = Number(data.discount_amount || 0);
@@ -688,17 +702,27 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             <Text style={styles.sectionLabel} minPresenceAhead={44}>
               From the kitchen
             </Text>
-            {lineItems.map((row, i) => {
+            {(lineItemGroups.length > 0 ? lineItemGroups.flatMap((group) => [
+              { kind: "heading" as const, group },
+              ...group.items.map((row, i) => ({ kind: "row" as const, row, key: `${group.course}-${i}`, isLast: i === group.items.length - 1 })),
+            ]) : lineItems.map((row, i) => ({ kind: "row" as const, row, key: `row-${i}`, isLast: i === lineItems.length - 1 }))).map((entry) => {
+              if (entry.kind === "heading") {
+                return (
+                  <Text key={`heading-${entry.group.course}`} style={[styles.sectionLabel, { marginTop: 5, marginBottom: 2 }]} minPresenceAhead={80}>
+                    {entry.group.heading.toUpperCase()}
+                  </Text>
+                );
+              }
+              const row = entry.row;
               const qty = Number(row?.quantity || 1);
               const unit = Number(row?.unit_price || 0);
               const lineTotal = Number(
                 row?.total != null ? row.total : qty * unit,
               );
-              const isLast = i === lineItems.length - 1;
               return (
                 <View
-                  key={`row-${i}`}
-                  style={[styles.lineRow, isLast ? styles.lineRowLast : {}]}
+                  key={entry.key}
+                  style={[styles.lineRow, entry.isLast ? styles.lineRowLast : {}]}
                   minPresenceAhead={32}
                 >
                   <View style={styles.lineLeft}>

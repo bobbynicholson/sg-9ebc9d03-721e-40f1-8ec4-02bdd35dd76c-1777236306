@@ -1421,6 +1421,7 @@ async function renderInvoicePdfAttachment(
     ? fallbackData.items.map((it) => ({
         name: it.description || "Item",
         description: null,
+        category: it.category ?? null,
         quantity: it.quantity ?? null,
         unit_price: it.unitPrice ?? null,
         total: it.total ?? null,

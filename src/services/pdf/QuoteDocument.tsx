@@ -3,10 +3,11 @@
 /**
  * QuoteDocument - React-PDF document mirroring /q/[token].tsx.
  *
- * Visual goal: when the client opens the attached PDF, it looks like
- * the same quote they see at the share link - branded header band
- * tinted with the tenant primary colour, serif title, event details
- * grid, menu items, equipment, totals card, terms.
+ * Visual goal: when the client opens the attached PDF, it reads as the
+ * same polished document family as the invoice: a clear document title
+ * and reference, an explicit status, readable party + event facts,
+ * itemised pricing, payment instructions, notes and terms.  It must not
+ * silently omit a field that was saved on the quote.
  *
  * React-PDF doesn't speak Tailwind, so we approximate the look using
  * its StyleSheet API. Pixel-perfect parity isn't the target - what
@@ -59,6 +60,9 @@ export interface QuotePdfData {
   client_name?: string | null;
   client_email?: string | null;
   client_phone?: string | null;
+  /** Billing identity comes from the linked client record when available. */
+  client_address?: string | null;
+  client_tax_number?: string | null;
   event_date?: string | null;
   event_time?: string | null;
   setup_time?: string | null;
@@ -265,10 +269,23 @@ const buildStyles = (primary: string) =>
       textTransform: "uppercase",
     },
     title: {
-      fontSize: 24,
+      fontSize: 22,
       fontFamily: "Times-Bold",
       color: "#1c1917",
-      marginBottom: 4,
+    },
+    quoteNumberUnderTitle: {
+      fontSize: 8,
+      fontFamily: "Helvetica-Bold",
+      color: primary,
+      marginTop: 3,
+      marginBottom: 2,
+      letterSpacing: 0.4,
+    },
+    quoteSubject: {
+      fontSize: 10,
+      fontFamily: "Helvetica-Bold",
+      color: "#1c1917",
+      marginTop: 5,
     },
     referenceLine: {
       fontSize: 10,
@@ -291,6 +308,26 @@ const buildStyles = (primary: string) =>
     badgeAccepted: {
       backgroundColor: primary,
     },
+    metaRow: {
+      flexDirection: "row",
+      marginTop: 7,
+    },
+    metaCell: {
+      marginRight: 18,
+    },
+    metaLabel: {
+      fontSize: 7,
+      letterSpacing: 0.5,
+      color: primary,
+      fontFamily: "Helvetica-Bold",
+      textTransform: "uppercase",
+      marginBottom: 2,
+    },
+    metaValue: {
+      fontSize: 10,
+      fontFamily: "Helvetica-Bold",
+      color: "#1c1917",
+    },
 
     card: {
       borderWidth: 1,
@@ -308,18 +345,24 @@ const buildStyles = (primary: string) =>
       marginBottom: 6,
     },
 
-    partyGrid: {
+    columns: {
       flexDirection: "row",
       gap: 12,
+      marginBottom: 10,
     },
-    partyCard: {
+    column: {
       flex: 1,
       borderWidth: 1,
-      borderColor: "#f5f5f4",
-      borderRadius: 8,
-      backgroundColor: "#fafaf9",
-      padding: 10,
-      minHeight: 86,
+      borderColor: "#e7e5e4",
+      borderRadius: 6,
+      padding: 12,
+    },
+    fullWidthCard: {
+      borderWidth: 1,
+      borderColor: "#e7e5e4",
+      borderRadius: 6,
+      padding: 12,
+      marginBottom: 10,
     },
     cellLabel: {
       fontSize: 8,
@@ -330,7 +373,7 @@ const buildStyles = (primary: string) =>
       marginBottom: 4,
     },
     cellValue: {
-      fontSize: 11,
+      fontSize: 10,
       fontFamily: "Helvetica-Bold",
       color: "#1c1917",
       marginBottom: 2,
@@ -433,6 +476,16 @@ const buildStyles = (primary: string) =>
       color: "#78716c",
       marginTop: 6,
     },
+    bodyText: {
+      fontSize: 10,
+      color: "#1c1917",
+      lineHeight: 1.4,
+    },
+    notes: {
+      fontSize: 9,
+      color: "#57534e",
+      lineHeight: 1.4,
+    },
     fixedFooter: {
       position: "absolute",
       left: 36,
@@ -483,7 +536,8 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
   // right symbol. Defaults to ZAR when company.currency is unset.
   const fmtZAR = buildFmtMoney(company.currency);
 
-  const accepted = !!data.accepted_at;
+  const status = String(data.status || "").toLowerCase();
+  const accepted = !!data.accepted_at || status === "accepted" || status === "converted";
   const eventDate = fmtDateZA(data.event_date);
   const validUntil = fmtDateZA(data.valid_until);
   // Company time format when set (every company has one, default 24h);
@@ -507,6 +561,11 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
   const discount = Number(data.discount_amount || 0);
   const tax = Number(data.tax_amount || 0);
   const total = Number(data.total || 0);
+  const billFromAddress = [
+    company.address_line1,
+    company.address_line2,
+    company.city,
+  ].filter(Boolean).join(", ");
   const footerLine = joinFooterParts([
     company.company_name,
     company.email,
@@ -543,20 +602,31 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
               <Text style={styles.companyTag}>
                 {company.company_name || "Your caterer"}
               </Text>
-              <Text style={styles.title}>
-                {data.quote_name ||
-                  `Quote for ${data.client_name || "your event"}`}
-              </Text>
-              <Text style={styles.referenceLine}>
-                Reference {data.quote_number}
-                {today ? `  |  prepared ${today}` : ""}
-              </Text>
+              <Text style={styles.title}>Quote</Text>
+              <Text style={styles.quoteNumberUnderTitle}>{data.quote_number}</Text>
+              {data.quote_name ? (
+                <Text style={styles.quoteSubject}>{data.quote_name}</Text>
+              ) : null}
               {company.registration_number ? (
                 <Text style={styles.vatLine}>Reg No: {company.registration_number}</Text>
               ) : null}
               {vatRegistered && vatNumber ? (
                 <Text style={styles.vatLine}>VAT Reg No: {vatNumber}</Text>
               ) : null}
+              <View style={styles.metaRow}>
+                {today ? (
+                  <View style={styles.metaCell}>
+                    <Text style={styles.metaLabel}>Prepared</Text>
+                    <Text style={styles.metaValue}>{today}</Text>
+                  </View>
+                ) : null}
+                {validUntil ? (
+                  <View style={styles.metaCell}>
+                    <Text style={styles.metaLabel}>Valid until</Text>
+                    <Text style={styles.metaValue}>{validUntil}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
             <View>
               <Text
@@ -565,38 +635,36 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                   accepted ? styles.badgeAccepted : {},
                 ]}
               >
-                {accepted ? "Accepted" : "Awaiting your response"}
+                {accepted ? "ACCEPTED" : status === "expired" ? "EXPIRED" : "AWAITING RESPONSE"}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* FROM / BILL TO - polished identity block matching the invoice PDF. */}
-        <View style={styles.card} wrap={false}>
-          <View style={styles.partyGrid}>
-            <View style={styles.partyCard}>
+        {/* Match the invoice layout exactly: two equal, self-contained
+            identity columns that leave room for real addresses to wrap. */}
+        <View style={styles.columns} wrap={false}>
+            <View style={styles.column}>
               <Text style={styles.cellLabel}>From</Text>
-              <Text style={styles.cellValue}>{data.company.legal_name || data.company.company_name || ""}</Text>
-              {[data.company.address_line1, data.company.address_line2, data.company.city].filter(Boolean).length > 0 ? (
-                <Text style={styles.lineSub}>
-                  {[data.company.address_line1, data.company.address_line2, data.company.city].filter(Boolean).join(", ")}
-                </Text>
-              ) : null}
-              {data.company.email ? <Text style={styles.lineSub}>{data.company.email}</Text> : null}
-              {data.company.phone ? <Text style={styles.lineSub}>{data.company.phone}</Text> : null}
+              <Text style={styles.bodyText}>{company.legal_name || company.company_name || ""}</Text>
+              {billFromAddress ? <Text style={styles.lineSub}>{billFromAddress}</Text> : null}
+              {company.email ? <Text style={styles.lineSub}>{company.email}</Text> : null}
+              {company.phone ? <Text style={styles.lineSub}>{company.phone}</Text> : null}
             </View>
-            <View style={styles.partyCard}>
+            <View style={styles.column}>
               <Text style={styles.cellLabel}>Bill to</Text>
-              <Text style={styles.cellValue}>{data.client_name || ""}</Text>
+              <Text style={styles.bodyText}>{data.client_name || ""}</Text>
+              {data.client_address ? <Text style={styles.lineSub}>{data.client_address}</Text> : null}
               {data.client_email ? <Text style={styles.lineSub}>{data.client_email}</Text> : null}
               {data.client_phone ? <Text style={styles.lineSub}>{data.client_phone}</Text> : null}
+              {data.client_tax_number ? <Text style={styles.lineSub}>Customer VAT No: {data.client_tax_number}</Text> : null}
             </View>
-          </View>
         </View>
 
-        {/* EVENT DETAILS - tile-based layout keeps the date, venue, guests readable. */}
+        {/* Event facts occupy a full-width panel, matching the invoice and
+            keeping address-length independent of dates and guest counts. */}
         {(eventDate || data.guest_count != null || data.venue_address) && (
-          <View style={styles.card} wrap={false}>
+          <View style={styles.fullWidthCard} wrap={false}>
             <Text style={styles.sectionLabel}>Event details</Text>
             <View style={styles.eventGrid}>
               {eventDate ? (
@@ -634,8 +702,8 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
               From the kitchen
             </Text>
             {menuGroups.map((group) => (
-              <View key={group.course}>
-                <Text style={[styles.sectionLabel, { marginTop: 5, marginBottom: 2 }]}>
+              <View key={group.course} wrap={false}>
+                <Text style={[styles.sectionLabel, { marginTop: 5, marginBottom: 2 }]} minPresenceAhead={180}>
                   {group.heading.toUpperCase()}
                 </Text>
                 {group.items.map((item: any, i) => {
@@ -845,19 +913,23 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         ) : null}
 
         {/* TERMS + valid until */}
-        {(data.terms_and_conditions || validUntil) ? (
+        {data.terms_and_conditions ? (
           <View style={styles.card}>
-            {data.terms_and_conditions ? (
-              <>
-                <Text style={styles.sectionLabel} minPresenceAhead={36}>
-                  Terms
-                </Text>
-                {renderPdfTerms(data.terms_and_conditions, styles)}
-              </>
-            ) : null}
-            {validUntil ? (
-              <Text style={styles.validUntil}>Valid until {validUntil}.</Text>
-            ) : null}
+            <Text style={styles.sectionLabel} minPresenceAhead={36}>
+              Terms
+            </Text>
+            {renderPdfTerms(data.terms_and_conditions, styles)}
+            {validUntil ? <Text style={styles.validUntil}>Valid until {validUntil}.</Text> : null}
+          </View>
+        ) : null}
+
+        {/* Notes were historically saved on the quote but silently dropped
+            from its PDF. Keep them distinct from contractual terms so a
+            customer can tell operational context from legal conditions. */}
+        {data.notes ? (
+          <View style={styles.card} minPresenceAhead={52}>
+            <Text style={styles.sectionLabel}>A note from us</Text>
+            <Text style={styles.notes}>{data.notes}</Text>
           </View>
         ) : null}
 
