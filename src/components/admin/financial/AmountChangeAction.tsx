@@ -30,11 +30,11 @@ export function AmountChangeAction({
   const content = (
     <>
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span className="truncate">{statusLabel} {formatAmount(Math.abs(change.changeAmount))}</span>
+      <span className="min-w-0 truncate">{statusLabel} {formatAmount(Math.abs(change.changeAmount))}</span>
       <span className="shrink-0 underline underline-offset-2">{actionLabel}</span>
     </>
   );
-  const className = `inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold ${
+  const className = `inline-flex max-w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md border px-2 py-1 text-left text-[11px] font-semibold ${
     isSettled
       ? "border-slate-200 bg-slate-50 text-slate-500 opacity-60 grayscale cursor-default"
       : increased

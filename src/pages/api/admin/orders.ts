@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
 
 export default async function handler(
   req: NextApiRequest,
@@ -51,7 +52,15 @@ export default async function handler(
       for (const row of rows) row.order_items = itemsByOrder.get(row.id) || [];
     }
 
-    return res.status(200).json({ orders: rows });
+    // The local admin page deliberately gets its order list through this
+    // service-backed route. Its amount-change badges must use the same
+    // authorized data path: querying audit_logs again from the browser can
+    // be blocked by RLS when a local role has no hydrated session yet.
+    const amountChanges = await loadLatestDocumentAmountChanges(db, companyId, ids);
+    return res.status(200).json({
+      orders: rows,
+      amount_changes: Object.fromEntries(amountChanges),
+    });
   } catch (error: any) {
     return res
       .status(500)

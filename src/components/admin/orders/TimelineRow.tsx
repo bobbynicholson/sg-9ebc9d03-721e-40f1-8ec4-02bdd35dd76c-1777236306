@@ -112,7 +112,7 @@ export function TimelineRow({
       <CardContent className="p-6">
         <div className="space-y-4">
           {/* Order Header */}
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             {/* Phase 7 #6: bulk-select checkbox. Click stops
                 propagation so we don't open the details modal. */}
             <div
@@ -125,7 +125,7 @@ export function TimelineRow({
                 aria-label={`Select order ${(order as any).order_number || order.client_name}`}
               />
             </div>
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h4 className="font-semibold text-slate-900 text-lg">{order.client_name}</h4>
                 {(order as any).order_number && (
@@ -214,7 +214,7 @@ export function TimelineRow({
                   );
                 })()}
               </div>
-              <div className="flex items-center gap-4 text-sm text-slate-600">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
                 <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
                   <Calendar className="w-4 h-4" />
                   <span>{formatDate(eventDate)}</span>
@@ -254,7 +254,7 @@ export function TimelineRow({
                 />
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2 pt-0.5">
+            <div className="flex shrink-0 items-center gap-2 self-end pt-0.5 sm:self-start">
               {onEmail && (
                 <Button
                   type="button"
@@ -266,12 +266,14 @@ export function TimelineRow({
                     onEmail(order);
                   }}
                   className="gap-1.5"
+                  aria-label="Tell client we're fully booked"
                   title={(order as any).client_email
                     ? "Open an email to tell the client we're fully booked"
                     : "Add the client's email address to this order to email them"}
                 >
                   <Mail className="w-3.5 h-3.5" />
-                  Tell client we're fully booked
+                  <span className="hidden sm:inline">Tell client we're fully booked</span>
+                  <span className="sm:hidden">Fully booked</span>
                 </Button>
               )}
               <Button

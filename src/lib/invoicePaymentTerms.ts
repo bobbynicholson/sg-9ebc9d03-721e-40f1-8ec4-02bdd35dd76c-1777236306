@@ -3,17 +3,19 @@ import { DEFAULT_PAYMENT_TERMS } from "@/lib/paymentTerms";
 /**
  * Returns the customer-facing payment-terms wording for an invoice.
  *
- * Precedence is: invoice snapshot, linked client's numeric override,
- * company-wide wording, then the shared default. This keeps issued invoices
- * stable while giving new documents one consistent company policy.
+ * Precedence is: current company-wide wording, linked client's numeric
+ * fallback, invoice snapshot for legacy callers without company settings,
+ * then the shared default. The company policy is the default shown on all
+ * documents, including legacy invoices whose clients still carry an old
+ * Net-X value.
  */
 export function invoicePaymentTerms(
   snapshotTerms: unknown,
   clientTermDays: unknown,
   companyTerms?: unknown,
 ): string {
-  if (typeof snapshotTerms === "string" && snapshotTerms.trim()) {
-    return snapshotTerms.trim();
+  if (typeof companyTerms === "string" && companyTerms.trim()) {
+    return companyTerms.trim();
   }
 
   const hasTermDays = clientTermDays !== null
@@ -25,9 +27,8 @@ export function invoicePaymentTerms(
     if (wholeDays === 0) return "Payment due on receipt";
     return `Payment due within ${wholeDays} day${wholeDays === 1 ? "" : "s"}`;
   }
-
-  if (typeof companyTerms === "string" && companyTerms.trim()) {
-    return companyTerms.trim();
+  if (typeof snapshotTerms === "string" && snapshotTerms.trim()) {
+    return snapshotTerms.trim();
   }
   return DEFAULT_PAYMENT_TERMS;
 }

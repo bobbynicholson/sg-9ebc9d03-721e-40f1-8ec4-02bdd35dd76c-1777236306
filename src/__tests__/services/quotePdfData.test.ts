@@ -20,13 +20,13 @@ describe("quote PDF payment terms", () => {
       .toBe(DEFAULT_PAYMENT_TERMS);
   });
 
-  it("preserves a client's numeric terms when building a quote PDF", () => {
+  it("uses the company default when a client has a legacy numeric term", () => {
     const data = buildQuotePdfDataFromRow({
       quote_number: "QUO-3",
       client: { payment_terms: 14 },
       company: { dispatch_settings: { paymentTermsText: "Company default" } },
     });
 
-    expect(data.payment_terms).toBe("Payment due within 14 days");
+    expect(data.payment_terms).toBe("Company default");
   });
 });

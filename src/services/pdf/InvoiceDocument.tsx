@@ -33,6 +33,7 @@ import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
 import { groupByCourse } from "@/lib/menuCourses";
 import { formatClockBoth } from "@/lib/portalTime";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
+import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
 
 // --- Types -----------------------------------------------------------------
 
@@ -838,7 +839,21 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         {data.payment_terms ? (
           <View style={styles.paymentTerms} minPresenceAhead={64}>
             <Text style={styles.sectionLabel}>Payment terms</Text>
-            <Text style={styles.paymentTermsText}>{data.payment_terms}</Text>
+            {parseClientTermsBlocks(data.payment_terms).map((block, blockIndex) => (
+              <Text
+                key={`payment-term-${blockIndex}`}
+                style={[styles.paymentTermsText, blockIndex > 0 ? { marginTop: 4 } : {}]}
+              >
+                {block.map((segment, segmentIndex) => (
+                  <Text
+                    key={`payment-term-${blockIndex}-${segmentIndex}`}
+                    style={segment.bold ? { fontFamily: "Helvetica-Bold", color: "#1c1917" } : undefined}
+                  >
+                    {segment.text}
+                  </Text>
+                ))}
+              </Text>
+            ))}
           </View>
         ) : null}
 

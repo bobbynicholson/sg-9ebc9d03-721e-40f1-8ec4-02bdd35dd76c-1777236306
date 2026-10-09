@@ -2,9 +2,19 @@ import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 import { DEFAULT_PAYMENT_TERMS } from "@/lib/paymentTerms";
 
 describe("invoice payment-term display", () => {
-  it("preserves the terms captured when an invoice was issued", () => {
-    expect(invoicePaymentTerms("Balance due 48 hours before the event", 30))
+  it("uses the current company wording instead of an outdated invoice snapshot", () => {
+    expect(invoicePaymentTerms("Old company wording", null, "Current company wording"))
+      .toBe("Current company wording");
+  });
+
+  it("uses the invoice snapshot when no current company wording is available", () => {
+    expect(invoicePaymentTerms("Balance due 48 hours before the event", null))
       .toBe("Balance due 48 hours before the event");
+  });
+
+  it("keeps the company default above a legacy linked-client term", () => {
+    expect(invoicePaymentTerms("Old snapshot", 30, "Current company wording"))
+      .toBe("Current company wording");
   });
 
   it("formats a linked customer's numeric terms for older invoices", () => {

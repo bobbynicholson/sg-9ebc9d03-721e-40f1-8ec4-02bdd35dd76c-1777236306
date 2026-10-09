@@ -173,6 +173,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   (data as any).deposit_percentage = effectivePct;
 
   const company = (data as any)?.company;
+  if (company) delete company.dispatch_settings;
   const quoteCurrency = String((data as any)?.currency || company?.currency || "ZAR").toUpperCase();
   const paymentAvailability = company?.id
     ? await getPublicPaymentAvailability(company.id, quoteCurrency)

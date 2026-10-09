@@ -983,6 +983,7 @@ function OrderProcessDashboard() {
     setLoadError(null);
     try {
       let allOrders: any[];
+      let localAmountChanges: Map<string, any> | null = null;
       if (localDev && tenantSlug) {
         const orderId =
           typeof router.query.orderId === "string" ? router.query.orderId : "";
@@ -993,20 +994,31 @@ function OrderProcessDashboard() {
         if (!response.ok)
           throw new Error(payload?.error || "Could not load local orders.");
         allOrders = payload.orders || [];
+        // Keep the list and its financial-change indicators on the same
+        // service-authorized local data path. A separate browser-side
+        // audit_logs read can be rejected by RLS before auth hydration,
+        // which previously made every increase/decrease action disappear.
+        if (payload.amount_changes && typeof payload.amount_changes === "object") {
+          localAmountChanges = new Map(Object.entries(payload.amount_changes));
+        }
       } else {
         allOrders = await orderService.getAllOrders(companyId);
       }
       setOrders(allOrders as unknown as AppOrder[]);
-      try {
-        const changes = await loadLatestDocumentAmountChanges(
-          supabase,
-          companyId,
-          allOrders.map((order: any) => order.id),
-        );
-        setAmountChangesByOrder(changes);
-      } catch (changeError) {
-        console.warn("[orders] amount change history could not be loaded:", changeError);
-        setAmountChangesByOrder(new Map());
+      if (localAmountChanges) {
+        setAmountChangesByOrder(localAmountChanges);
+      } else {
+        try {
+          const changes = await loadLatestDocumentAmountChanges(
+            supabase,
+            companyId,
+            allOrders.map((order: any) => order.id),
+          );
+          setAmountChangesByOrder(changes);
+        } catch (changeError) {
+          console.warn("[orders] amount change history could not be loaded:", changeError);
+          setAmountChangesByOrder(new Map());
+        }
       }
 
       // Local dev uses the service-role route above because the fake auth

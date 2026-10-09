@@ -426,6 +426,25 @@ export const quoteService = {
       }
     }
 
+    let previousAmountTotal: number | null = null;
+    let amountCompanyId: string | null = null;
+    if ("total" in updates || "total_amount" in updates) {
+      try {
+        const { data: currentAmountRow, error: currentAmountError } = await (supabase as any)
+          .from("quotes")
+          .select("company_id, total, total_amount")
+          .eq("id", quoteId)
+          .maybeSingle();
+        if (currentAmountError) throw currentAmountError;
+        if (currentAmountRow) {
+          amountCompanyId = String(currentAmountRow.company_id || "") || null;
+          previousAmountTotal = Number(currentAmountRow.total ?? currentAmountRow.total_amount ?? 0);
+        }
+      } catch (amountReadError) {
+        console.warn("[quoteService] previous total could not be loaded:", amountReadError);
+      }
+    }
+
     // Detect status transitions that need side-effects. The audit
     // (May 2026) found that quotes were sometimes flipped to 'sent' by
     // direct supabase calls in pages/admin/quotes/* that bypassed
@@ -490,6 +509,28 @@ export const quoteService = {
 
     if (propagationReceipt) {
       (data as any)._propagationReceipt = propagationReceipt;
+    }
+
+    // Linked quote edits are audited by the propagation cascade. Draft
+    // quotes without an order exit that cascade early, so record their
+    // amount change here instead.
+    if (propagationReceipt?.noLinkedOrder && amountCompanyId && previousAmountTotal != null) {
+      try {
+        const { recordDocumentAmountChange } = await import("@/services/documentAmountChanges");
+        const newTotal = Number((data as any).total ?? (data as any).total_amount ?? 0);
+        const amountAudit = await recordDocumentAmountChange(supabase, {
+          companyId: amountCompanyId,
+          previousTotal: previousAmountTotal,
+          newTotal,
+          reason: `Quote ${(data as any).quote_number || quoteId} updated.`,
+          quoteId,
+        });
+        if (amountAudit.error) {
+          console.warn("[quoteService] quote amount audit failed:", amountAudit.error);
+        }
+      } catch (amountAuditError) {
+        console.warn("[quoteService] quote amount audit failed:", amountAuditError);
+      }
     }
 
     void notifyQuoteUpdated({ quote: data as any, updates: updates as any });

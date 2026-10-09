@@ -125,7 +125,7 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
           </div>
 
           {/* Event Details */}
-          <div className="flex items-center gap-4 text-sm text-slate-600">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
             <div className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
               <span className={isToday ? "font-semibold text-blue-600" : ""}>
@@ -161,11 +161,11 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
             <span className="font-semibold text-slate-900">
               {C}{Number(order.total_amount || 0).toLocaleString()}
             </span>
-            <div className="flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-1">
               <ClientLinkButton orderId={order.id} companyId={(order as any).company_id} compact />
               <Button
                 variant="ghost"

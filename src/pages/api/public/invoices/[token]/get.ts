@@ -299,6 +299,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .limit(5);
 
   const company = invoiceForResponse.companies || {};
+  delete company.dispatch_settings;
   const snapshotBank = invoiceData.bankDetails || {};
   const paymentAvailability = company.id
     ? await getPublicPaymentAvailability(company.id, paymentCurrency)

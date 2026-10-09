@@ -2650,14 +2650,16 @@ function AdminQuotesInner() {
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="w-full justify-center"
+                            className="h-auto min-h-9 w-full justify-center gap-1.5 whitespace-normal break-words px-2 py-2 text-center leading-tight"
                             disabled={!quote.client_email}
                             title={quote.client_email
                               ? "Open an email to tell the client we're fully booked"
                               : "Add the client's email address to this quote to email them"}
                             onClick={() => setEmailQuote(quote)}
                           >
-                            <Mail className="w-4 h-4 mr-1.5" /> Tell client we're fully booked
+                            <Mail className="w-4 h-4 shrink-0" />
+                            <span className="sm:hidden">Fully booked</span>
+                            <span className="hidden sm:inline">Tell client we&apos;re fully booked</span>
                           </Button>
                           <WhatsAppButton
                             kind="client"

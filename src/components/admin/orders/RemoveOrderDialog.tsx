@@ -329,9 +329,9 @@ export function RemoveOrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-lg p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-rose-700">
+          <DialogTitle className="flex min-w-0 gap-2 break-words pr-7 text-base text-rose-700 sm:text-lg">
             {mode === "purge" ? <Trash2 className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
             {step === 1
               ? `What do you want to do with ${orderNumber ? `#${orderNumber}` : "this order"}?`
@@ -351,7 +351,7 @@ export function RemoveOrderDialog({
             >
               <div className="flex items-start gap-3">
                 <Ban className="w-5 h-5 text-rose-600 mt-0.5 flex-shrink-0" />
-                <div>
+                <div className="min-w-0">
                   <p className="font-semibold text-slate-900">Cancel order</p>
                   <p className="text-xs text-slate-600 mt-0.5">
                     The order stays on record as cancelled. Calculate refund or credit per your policy, void invoices, release equipment + kitchen + drivers, mark linked quote as lost. You choose whether to email the client.
@@ -395,20 +395,20 @@ export function RemoveOrderDialog({
               <div className="rounded-lg border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 space-y-2">
                 <div className="flex items-start gap-2">
                   <Calendar className="w-4 h-4 mt-0.5 text-slate-500" />
-                  <div className="text-sm flex-1">
+                  <div className="min-w-0 flex-1 text-sm">
                     Event in <strong>{snap.days_to_event} day{snap.days_to_event === 1 ? "" : "s"}</strong>
                     {" - "}policy tier: <strong className="capitalize">{snap.tier_label}</strong>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Receipt className="w-4 h-4 mt-0.5 text-brand-primary" />
-                  <div className="text-sm flex-1">
+                  <div className="min-w-0 flex-1 text-sm">
                     Paid by client so far: <strong>{fmt.format(Math.max(snap.deposit_paid_amount, snap.total_amount_paid))}</strong>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Receipt className="w-4 h-4 mt-0.5 text-rose-600" />
-                  <div className="text-sm flex-1">
+                  <div className="min-w-0 flex-1 text-sm">
                     Refund due: <strong className="text-rose-700">{fmt.format(snap.refund_amount)}</strong>
                     {" "}({snap.refund_pct}%)
                     {!Array.isArray(snap.policy_snapshot?.deposit_refund_tiers)
@@ -424,7 +424,7 @@ export function RemoveOrderDialog({
               {existingCredit > 0 ? (
                 <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/10 p-3 text-sm flex items-start gap-2">
                   <Wallet className="w-4 h-4 mt-0.5 text-brand-primary flex-shrink-0" />
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium text-brand-primary">
                       Client already holds {fmt.format(existingCredit)} in store credit.
                     </p>
@@ -440,7 +440,7 @@ export function RemoveOrderDialog({
               {/* Payout toggle */}
               <div className="rounded-lg border border-slate-200 p-3 space-y-2">
                 <Label className="text-xs text-slate-600">Payout method</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <button
                     type="button"
                     onClick={() => setPayoutChoice("refund")}
@@ -451,7 +451,7 @@ export function RemoveOrderDialog({
                     } ${snap.refund_amount === 0 ? "opacity-60" : ""}`}
                     disabled={snap.refund_amount === 0}
                   >
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="mb-1 flex items-center justify-between gap-2">
                       <CreditCard className="w-4 h-4 text-blue-600" />
                     </div>
                     <p className="text-sm font-bold text-slate-900 tabular-nums">{fmt.format(snap.refund_amount)}</p>
@@ -467,7 +467,7 @@ export function RemoveOrderDialog({
                         : "border-slate-200 hover:border-brand-primary/30"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="mb-1 flex items-center justify-between gap-2">
                       <Wallet className="w-4 h-4 text-brand-primary" />
                       {bonusPp > 0 && derivedCredit > snap.refund_amount && (
                         <span className="text-[10px] font-medium uppercase text-brand-primary bg-brand-primary/15 rounded px-1.5 py-0.5">
@@ -486,7 +486,7 @@ export function RemoveOrderDialog({
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm space-y-2">
                   <div className="flex gap-2 text-amber-900">
                     <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <div>
+                    <div className="min-w-0">
                       Late cancellation: less than {snap.late_cancel_override_days} day{snap.late_cancel_override_days === 1 ? "" : "s"} to event. This requires an owner-level override.
                     </div>
                   </div>
@@ -539,7 +539,7 @@ export function RemoveOrderDialog({
                     onChange={(e) => setNotifyClient(e.target.checked)}
                     className="rounded mt-0.5"
                   />
-                  <div className="flex-1">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium text-slate-900 flex items-center gap-1.5">
                       Email the client about this cancellation
                       {!notifyClient && <MailX className="w-3.5 h-3.5 text-amber-700" />}
@@ -657,13 +657,13 @@ export function RemoveOrderDialog({
               size="sm"
               onClick={() => { setStep(1); setError(""); }}
               disabled={submitting}
-              className="mr-auto"
+              className="mr-auto w-full sm:w-auto"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back
             </Button>
           ) : null}
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+          <Button className="w-full whitespace-normal sm:w-auto" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Keep the order
           </Button>
           {step === 2 && mode === "cancel" && (
@@ -671,6 +671,7 @@ export function RemoveOrderDialog({
               variant="destructive"
               onClick={handleSubmitCancel}
               disabled={submitting || loading || !snap || (snap.requires_owner_override && !bypassLateGuard)}
+              className="h-auto min-h-10 w-full whitespace-normal px-3 py-2 text-center leading-tight sm:w-auto"
             >
               {submitting
                 ? "Cancelling..."
@@ -688,7 +689,7 @@ export function RemoveOrderDialog({
               variant="destructive"
               onClick={handleSubmitPurge}
               disabled={submitting || loading || confirmText.trim() !== (orderNumber || "")}
-              className="bg-rose-700 hover:bg-rose-800"
+              className="h-auto min-h-10 w-full whitespace-normal bg-rose-700 px-3 py-2 text-center leading-tight hover:bg-rose-800 sm:w-auto"
             >
               {submitting ? "Deleting..." : "Permanently delete"}
             </Button>

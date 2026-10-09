@@ -660,6 +660,7 @@ function InvoicesPageInner() {
     if (!invoice) return;
     const data = invoice.invoice_data || {};
     const order = invoice.orders || {};
+    const linkedClient = order.clients || {};
     setSelectedInvoice((current: any) => ({
       ...current,
       ...data,
@@ -680,6 +681,15 @@ function InvoicesPageInner() {
       total: invoice.total_amount ?? data.total ?? current?.total,
       depositPaid: invoice.amount_paid ?? data.depositPaid ?? current?.depositPaid,
       balanceDue: invoice.balance_due ?? data.balanceDue ?? current?.balanceDue,
+      // The refresh effect used to spread the stored snapshot after the
+      // preview handler had resolved the company policy, putting a legacy
+      // "Payment due within 30 days" value back into an open preview.
+      // Always resolve the live company wording last.
+      paymentTerms: invoicePaymentTerms(
+        data.paymentTerms ?? current?.paymentTerms,
+        linkedClient.payment_terms,
+        invoice.companyPaymentTerms || configuredPaymentTerms(null),
+      ),
       items: Array.isArray(data.items) && data.items.length > 0
         ? data.items
         : current?.items || [],
@@ -893,11 +903,18 @@ function InvoicesPageInner() {
 
       if (error) throw error;
       const rows = (data || []) as any[];
+      // Never let a failed/blocked company-settings lookup re-enable a
+      // legacy client's Net-X payment term in the preview. The shared
+      // company default is always available locally; the lookup below can
+      // replace it with the tenant's saved custom wording.
+      const defaultTerms = configuredPaymentTerms(null);
+      for (const invoice of rows) invoice.companyPaymentTerms = defaultTerms;
       try {
-        const { data: companySettings } = await (supabase as any).from("companies")
+        const { data: companySettings, error: companySettingsError } = await (supabase as any).from("companies")
           .select("dispatch_settings")
           .eq("id", user.company_id)
           .maybeSingle();
+        if (companySettingsError) throw companySettingsError;
         const fallbackTerms = configuredPaymentTerms(companySettings?.dispatch_settings);
         for (const invoice of rows) invoice.companyPaymentTerms = fallbackTerms;
       } catch (termsError) {
@@ -1105,7 +1122,7 @@ function InvoicesPageInner() {
       paymentTerms: invoicePaymentTerms(
         invoiceData.paymentTerms,
         linkedClient.payment_terms,
-        invoice.companyPaymentTerms,
+        invoice.companyPaymentTerms || configuredPaymentTerms(null),
       ),
       eventTime: invoiceData.eventTime || invoiceData.event_time || invoice.orders?.event_time || "",
     };

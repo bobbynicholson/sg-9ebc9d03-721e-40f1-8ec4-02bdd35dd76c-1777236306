@@ -1212,7 +1212,7 @@ export default function InvoicePaymentPage() {
                 <p className="text-[10px] uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
                   Payment terms
                 </p>
-                <p className="text-sm text-stone-700">{invoice.invoice_data.paymentTerms}</p>
+                <p className="text-sm leading-6 text-stone-700 whitespace-pre-line">{invoice.invoice_data.paymentTerms}</p>
               </CardContent>
             </Card>
           )}

@@ -126,6 +126,13 @@ export function OrderDetailsModal({
 }: Props) {
   const { toast } = useToast();
   const router = useRouter();
+  // The removal flow is a sibling dialog. Close this dialog first, then
+  // open the sibling on the following frame; opening both in the same
+  // React event lets Radix's focus restoration close the new dialog too.
+  const openRemoveOrderDialog = () => {
+    setIsModalOpen(false);
+    requestAnimationFrame(() => setCancelDialogOpen(true));
+  };
   // In-app confirm dialog (replaces window.confirm, which is bare OS
   // chrome and is suppressed in some embedded webviews). confirmDialog
   // is rendered alongside the modal at the bottom of the return.
@@ -1038,10 +1045,7 @@ return (
                           mode picker - cancel for real cancellations,
                           purge for test data / mistakes. */}
                       <DropdownMenuItem
-                        onClick={() => {
-                          setIsModalOpen(false);
-                          setCancelDialogOpen(true);
-                        }}
+                        onClick={openRemoveOrderDialog}
                         className="text-rose-700 focus:text-rose-800 focus:bg-rose-50"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
@@ -1059,8 +1063,7 @@ return (
                   onClick={() => {
                     setEditedOrder(selectedOrder);
                     setEditMode(false);
-                    setIsModalOpen(false);
-                    setCancelDialogOpen(true);
+                    openRemoveOrderDialog();
                   }}
                   variant="outline"
                   size="sm"
