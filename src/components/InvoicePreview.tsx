@@ -284,47 +284,51 @@ export function InvoicePreview(props: InvoicePreviewProps) {
       </Card>
 
       {/* PAYMENT DETAILS */}
-      {(props.bankDetails || props.paymentTerms) && (
+      {props.bankDetails && (
         <Card className="mb-4 border border-stone-200 shadow-sm">
           <CardContent className="py-5 px-5">
-            {props.bankDetails && (
-              <>
-                <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
-                  Payment details
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-xs text-stone-500">Bank</p>
-                    <p className="font-semibold text-stone-900">{props.bankDetails.bankName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-stone-500">Account name</p>
-                    <p className="font-semibold text-stone-900">{props.bankDetails.accountName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-stone-500">Account number</p>
-                    <p className="font-semibold text-stone-900 tabular-nums">{props.bankDetails.accountNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-stone-500">Branch code</p>
-                    <p className="font-semibold text-stone-900 tabular-nums">{props.bankDetails.branchCode}</p>
-                  </div>
-                </div>
-              </>
-            )}
-            {props.paymentTerms && (
-              <div className={props.bankDetails ? "mt-4 pt-4 border-t border-stone-100" : ""}>
-                <p className="text-xs text-stone-500 mb-0.5">Payment terms</p>
-                <p className="text-xs text-stone-700">{props.paymentTerms}</p>
+            <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
+              Payment details
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-stone-500">Bank</p>
+                <p className="font-semibold text-stone-900">{props.bankDetails.bankName}</p>
               </div>
-            )}
-            {props.bankDetails && (
-              <p className="text-xs text-stone-500 mt-3">
-                Use invoice number{" "}
-                <strong className="text-stone-700">{props.invoiceNumber}</strong>{" "}
-                as reference.
-              </p>
-            )}
+              <div>
+                <p className="text-xs text-stone-500">Account name</p>
+                <p className="font-semibold text-stone-900">{props.bankDetails.accountName}</p>
+              </div>
+              <div>
+                <p className="text-xs text-stone-500">Account number</p>
+                <p className="font-semibold text-stone-900 tabular-nums">{props.bankDetails.accountNumber}</p>
+              </div>
+              <div>
+                <p className="text-xs text-stone-500">Branch code</p>
+                <p className="font-semibold text-stone-900 tabular-nums">{props.bankDetails.branchCode}</p>
+              </div>
+            </div>
+            <p className="text-xs text-stone-500 mt-3">
+              Use invoice number{" "}
+              <strong className="text-stone-700">{props.invoiceNumber}</strong>{" "}
+              as reference.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Terms need their own high-contrast card rather than being a small
+          line under bank details, so they remain readable in a preview and
+          mirror the PDF structure. */}
+      {props.paymentTerms && (
+        <Card className="mb-4 border border-stone-300 bg-stone-50 shadow-sm">
+          <CardContent className="py-4 px-5">
+            <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
+              Payment terms
+            </p>
+            <p className="text-sm leading-6 text-stone-800 whitespace-pre-wrap">
+              {props.paymentTerms}
+            </p>
           </CardContent>
         </Card>
       )}

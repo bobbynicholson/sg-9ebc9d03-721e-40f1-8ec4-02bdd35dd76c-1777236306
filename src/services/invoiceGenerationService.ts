@@ -71,12 +71,14 @@ interface InvoiceData {
   // Financial Details
   items: Array<{
     description: string;
+    category?: string | null;
     quantity: number;
     unitPrice: number;
     total: number;
   }>;
   menuItems?: Array<{
     description: string;
+    category?: string | null;
     quantity: number;
     unitPrice: number;
     total: number;
@@ -196,6 +198,7 @@ function menuInvoiceLine(row: any): NonNullable<InvoiceData["menuItems"]>[number
   const detail = row?.description && row.description !== name ? row.description : "";
   return {
     description: [name, detail].filter(Boolean).join(" - ") || "Menu item",
+    category: row?.category ?? null,
     quantity,
     unitPrice,
     total,
@@ -317,6 +320,7 @@ export async function generateInvoiceData(
     }
     let items: Array<{
       description: string;
+      category?: string | null;
       quantity: number;
       unitPrice: number;
       total: number;
@@ -333,6 +337,9 @@ export async function generateInvoiceData(
         "Item";
       return {
         description,
+        category: row?.category ?? quoteMenuRows.find((item: any) =>
+          String(item?.item_name ?? item?.name ?? "").trim().toLowerCase() === String(row?.item_name ?? "").trim().toLowerCase(),
+        )?.category ?? null,
         quantity,
         unitPrice,
         total: lineTotal,
@@ -352,6 +359,7 @@ export async function generateInvoiceData(
           item.total != null ? Number(item.total) : quantity * unitPrice;
         return {
           description: item.name || item.description || "Item",
+          category: item.category ?? null,
           quantity,
           unitPrice,
           total: lineTotal,
@@ -1358,10 +1366,10 @@ async function renderInvoicePdfAttachment(
         billing_city, billing_postal_code, tax_number, payment_terms
       ),
       order:order_id (
-        id, order_number, event_name, event_date, deposit_amount, deposit_percentage, currency, updated_at
+        id, order_number, event_name, event_date, event_time, deposit_amount, deposit_percentage, currency, updated_at
       ),
       company:company_id (
-        id, slug, company_name, legal_name, logo_url, email, phone,
+        id, slug, company_name, legal_name, time_format, logo_url, email, phone,
         address_line1, address_line2, city, state_province,
         postal_code, country, primary_color,
         vat_registered, vat_number, vat_rate,
@@ -1458,6 +1466,7 @@ async function renderInvoicePdfAttachment(
       order_number: order.order_number || fallbackData.orderNumber || null,
       event_name: order.event_name || null,
       event_date: order.event_date || fallbackData.eventDate || null,
+      event_time: order.event_time || fallbackData.eventTime || null,
       line_items: lineItems,
       subtotal: invAny.subtotal ?? fallbackData.subtotal,
       tax_amount: invAny.tax_amount ?? fallbackData.taxAmount,
@@ -1476,6 +1485,7 @@ async function renderInvoicePdfAttachment(
         slug: company.slug,
         company_name: company.company_name,
         legal_name: company.legal_name,
+        time_format: company.time_format,
         logo_url: company.logo_url,
         email: company.email,
         phone: company.phone,

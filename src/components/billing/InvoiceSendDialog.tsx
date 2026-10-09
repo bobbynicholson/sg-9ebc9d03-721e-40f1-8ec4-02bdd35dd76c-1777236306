@@ -17,6 +17,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
+import { formatClockWithAlt } from "@/lib/portalTime";
 
 export interface InvoiceSendDialogInvoice {
   id: string;
@@ -59,7 +60,10 @@ export function InvoiceSendDialog({
   const templateType = isBalance ? "balance_invoice_issued" : "deposit_invoice_issued";
   // Don't fall back to the order number for {{event_name}} - "deposit
   // invoice for ORD-003841" reads broken. Use a generic phrase.
-  const eventLabel = invoiceData.eventName || "your event";
+  const eventDateTime = invoiceData.eventDate
+    ? `${new Date(String(invoiceData.eventDate)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}${invoiceData.eventTime || invoiceData.event_time ? ` at ${formatClockWithAlt(invoiceData.eventTime || invoiceData.event_time)}` : ""}`
+    : null;
+  const eventLabel = [invoiceData.eventName || "your event", eventDateTime].filter(Boolean).join(" on ");
   const initialPaymentAmount = Number(invoiceData.initialPaymentAmount) || 0;
   const fullPaymentDue = isInvoiceFullPaymentDueByDate({
     eventDate: invoiceData.eventDate,

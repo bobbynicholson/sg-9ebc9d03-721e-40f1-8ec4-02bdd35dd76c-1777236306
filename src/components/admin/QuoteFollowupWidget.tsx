@@ -25,6 +25,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useReportWidgetError } from "@/components/dashboard/WidgetErrorBoundary";
 import { daysAgoIso, daysSince } from "@/lib/dashboardWindows";
+import { formatClock } from "@/lib/portalTime";
 
 interface StaleQuote {
   id: string;
@@ -33,6 +34,7 @@ interface StaleQuote {
   client_email: string | null;
   total: number | null;
   event_date: string | null;
+  event_time: string | null;
   sent_at: string | null;
 }
 
@@ -55,7 +57,7 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
         const threeDaysAgo = daysAgoIso(3);
         const { data, error } = await (supabase as any)
           .from("quotes")
-          .select("id, quote_number, client_name, client_email, total, event_date, sent_at")
+          .select("id, quote_number, client_name, client_email, total, event_date, event_time, sent_at")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           // TIGHTEN I.80: only 'sent' counts as awaiting-reply. A
@@ -131,7 +133,10 @@ export function QuoteFollowupWidget({ companyId }: { companyId: string | null })
                     </div>
                     <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 mt-0.5">
                       {q.event_date && (
-                        <span>Event: {new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}</span>
+                        <span>
+                          Event: {new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                          {q.event_time ? ` at ${formatClock(q.event_time)}` : ""}
+                        </span>
                       )}
                       {q.total != null && (
                         <span className="font-semibold text-slate-700 tabular-nums">

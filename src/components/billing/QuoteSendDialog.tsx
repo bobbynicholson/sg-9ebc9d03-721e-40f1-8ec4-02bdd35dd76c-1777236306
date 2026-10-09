@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { captureException } from "@/lib/observability";
 import { buildQuoteSentLifecyclePatch } from "@/lib/quotes/revisionLifecycle";
 import { completeQueuedQuoteEmail } from "@/lib/email/completeQueuedQuoteEmail";
+import { formatClockWithAlt } from "@/lib/portalTime";
 
 export interface QuoteSendDialogQuote {
   id: string;
@@ -61,6 +62,7 @@ export interface QuoteSendDialogQuote {
    *  changed. */
   guest_count?: number | null;
   event_date?: string | null;
+  event_time?: string | null;
   equipment_items?: Array<{
     name?: string | null;
     item_name?: string | null;
@@ -231,7 +233,7 @@ export function QuoteSendDialog({
   // 28-guest email body after he'd already saved at 30 guests.
   const guestCount = Number(quote?.guest_count ?? 0);
   const eventDateLabel = quote?.event_date
-    ? new Date(String(quote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    ? `${new Date(String(quote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}${quote.event_time ? ` at ${formatClockWithAlt(quote.event_time)}` : ""}`
     : null;
   const isConverted = !!quote?.is_converted;
   // "Revised" = already sent before (re-send after edits) OR converted
@@ -257,7 +259,7 @@ export function QuoteSendDialog({
     : "";
   const secondGuestCount = Number(secondQuote?.guest_count ?? 0);
   const secondEventDateLabel = secondQuote?.event_date
-    ? new Date(String(secondQuote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    ? `${new Date(String(secondQuote.event_date)).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}${secondQuote.event_time ? ` at ${formatClockWithAlt(secondQuote.event_time)}` : ""}`
     : null;
   const secondQuoteUrl =
     secondQuote?.public_token && typeof window !== "undefined"

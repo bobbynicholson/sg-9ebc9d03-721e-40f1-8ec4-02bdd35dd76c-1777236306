@@ -37,6 +37,7 @@ import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import { formatClockBoth } from "@/lib/portalTime";
+import { groupByCourse } from "@/lib/menuCourses";
 import {
   getInitialInvoicePaymentAmount,
   getInvoiceDueState,
@@ -163,6 +164,7 @@ function companyInitials(name: string | null | undefined): string {
 
 type InvoiceLine = {
   description: string;
+  category?: string | null;
   quantity: number;
   unitPrice: number;
   total: number;
@@ -216,6 +218,7 @@ function normaliseInvoiceLines(rows: any[]): InvoiceLine[] {
       const total = explicitTotal || Number((quantity * unitPrice).toFixed(2));
       return {
         description,
+        category: row?.category ?? null,
         quantity,
         unitPrice,
         total,
@@ -253,7 +256,16 @@ function buildInvoiceBreakdown(invoice: InvoiceView): {
   });
 
   const sections: InvoiceBreakdownSection[] = [];
-  if (menuLines.length > 0) sections.push({ key: "menu", title: "Menu and catering", lines: menuLines });
+  const hasMenuCategories = menuLines.some((line) => String(line.category || "").trim());
+  if (menuLines.length > 0) {
+    if (hasMenuCategories) {
+      for (const group of groupByCourse(menuLines, (line) => line.category)) {
+        sections.push({ key: `menu-${group.course}`, title: group.heading, lines: group.items });
+      }
+    } else {
+      sections.push({ key: "menu", title: "Menu and catering", lines: menuLines });
+    }
+  }
   if (equipmentLines.length > 0) sections.push({ key: "equipment", title: "Equipment and hire-in", lines: equipmentLines });
 
   const packageName = String(idata.packageName || idata.package_name || idata.package?.name || "").trim();

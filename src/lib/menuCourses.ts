@@ -43,13 +43,30 @@ export function courseOf(raw: string | null | undefined): CourseKey {
   return "other";
 }
 
+/**
+ * Put menu lines into the course sequence used when a quote is created.
+ * The original index is the tie-breaker, so dishes remain in the order the
+ * operator entered them inside a course.
+ */
+export function sortByCourse<T>(
+  items: T[],
+  categoryOf: (item: T) => string | null | undefined,
+): T[] {
+  const rank = new Map(COURSE_ORDER.map((course, index) => [course, index]));
+  return items
+    .map((item, index) => ({ item, index, rank: rank.get(courseOf(categoryOf(item))) ?? COURSE_ORDER.length }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map(({ item }) => item);
+}
+
 /** Group items by course, in serving order, skipping empty courses. */
 export function groupByCourse<T>(
   items: T[],
   categoryOf: (item: T) => string | null | undefined,
 ): { course: CourseKey; heading: string; items: T[] }[] {
+  const orderedItems = sortByCourse(items, categoryOf);
   const buckets = new Map<CourseKey, T[]>();
-  for (const item of items) {
+  for (const item of orderedItems) {
     const key = courseOf(categoryOf(item));
     const list = buckets.get(key) || [];
     list.push(item);

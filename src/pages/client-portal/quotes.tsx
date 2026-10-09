@@ -38,6 +38,7 @@ import { UserRole } from "@/types/app";
 // uses, mode='quote' so the payout step is skipped.
 import { CancellationWizard } from "@/components/cancellation/CancellationWizard";
 import { useToast } from "@/hooks/use-toast";
+import { formatClock } from "@/lib/portalTime";
 
 interface PortalQuote {
   id: string;
@@ -48,6 +49,7 @@ interface PortalQuote {
   total: number | null;
   total_amount: number | null;
   event_date: string | null;
+  event_time: string | null;
   sent_at: string | null;
   valid_until: string | null;
   created_at: string | null;
@@ -144,7 +146,7 @@ function ClientQuotesPageInner() {
         let q = supabase
           .from("quotes")
           .select(
-            "id, public_token, quote_number, quote_name, status, total, total_amount, event_date, sent_at, valid_until, created_at",
+            "id, public_token, quote_number, quote_name, status, total, total_amount, event_date, event_time, sent_at, valid_until, created_at",
           )
           .eq("company_id", company.id)
           .is("deleted_at", null)
@@ -411,6 +413,7 @@ function QuoteGroup({
                     {eventLabel && (
                       <span className="inline-flex items-center gap-1">
                         <Calendar className="w-3 h-3" /> Event {eventLabel}
+                        {q.event_time ? ` at ${formatClock(q.event_time)}` : ""}
                       </span>
                     )}
                     {sentLabel && (

@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { captureException } from "@/lib/observability";
 import { Utensils, Box, Clock, Loader2 } from "lucide-react";
 import { formatClockWithAlt } from "@/lib/portalTime";
+import { groupByCourse } from "@/lib/menuCourses";
 
 interface Props {
   orderId: string;
@@ -173,8 +174,12 @@ export function ClientMenuSection({
               {items.length === 0 ? (
                 <p className="text-sm text-slate-500">Your menu will appear here once it's confirmed.</p>
               ) : (
-                <ul className="space-y-2">
-                  {items.map((it) => {
+                <div className="space-y-4">
+                  {groupByCourse(items, (item) => item.menu_item?.category).map((group) => (
+                    <section key={group.course}>
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{group.heading}</p>
+                      <ul className="space-y-2">
+                  {group.items.map((it) => {
                     const tags = (it.menu_item?.dietary_tags || []).filter(Boolean);
                     return (
                       <li key={it.id} className="flex items-start gap-3 p-3 rounded-md border border-slate-200 bg-white">
@@ -207,7 +212,10 @@ export function ClientMenuSection({
                       </li>
                     );
                   })}
-                </ul>
+                      </ul>
+                    </section>
+                  ))}
+                </div>
               )}
             </div>
 

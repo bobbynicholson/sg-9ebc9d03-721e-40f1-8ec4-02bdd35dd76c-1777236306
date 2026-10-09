@@ -31,7 +31,8 @@ import {
   paymentProviderLabel,
   type PdfPaymentInstructions,
 } from "@/lib/pdfPaymentDetails";
-import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
+import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
+import { groupByCourse } from "@/lib/menuCourses";
 import { formatClockBoth } from "@/lib/portalTime";
 
 // --- Types -----------------------------------------------------------------
@@ -39,6 +40,7 @@ import { formatClockBoth } from "@/lib/portalTime";
 export interface QuotePdfMenuItem {
   name: string;
   description?: string | null;
+  category?: string | null;
   unit_price?: number | null;
   quantity?: number | null;
   total?: number | null;
@@ -475,6 +477,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
   const vatNumber = company.vat_number || null;
 
   const menuItems = Array.isArray(data.menu_items) ? data.menu_items : [];
+  const menuGroups = groupByCourse(menuItems, (item) => item?.category);
   const equipmentItems = Array.isArray(data.equipment_items) ? data.equipment_items : [];
 
   const deliveryFee = Number(data.delivery_fee || 0);
@@ -611,37 +614,30 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             <Text style={styles.sectionLabel} minPresenceAhead={44}>
               From the kitchen
             </Text>
-            {menuItems.map((item: any, i) => {
-              const name = item?.name || item?.item_name || item?.menu_item_name || `Item ${i + 1}`;
-              const unitPrice = Number(item?.unit_price ?? item?.unitPrice ?? item?.pricePerPerson ?? item?.base_price ?? 0);
-              const qty = Number(item?.quantity ?? item?.qty ?? 1);
-              const lineTotal = Number(
-                item?.total ?? item?.line_total ?? item?.lineTotal ?? unitPrice * qty,
-              );
-              const isLast = i === menuItems.length - 1;
-              return (
-                <View
-                  key={`menu-${i}`}
-                  style={[styles.lineRow, isLast ? styles.lineRowLast : {}]}
-                  minPresenceAhead={32}
-                >
-                  <View style={styles.lineLeft}>
-                    <Text style={styles.lineName}>{name}</Text>
-                    {item?.description ? (
-                      <Text style={styles.lineDescription}>
-                        {item.description}
-                      </Text>
-                    ) : null}
-                    {qty > 1 ? (
-                      <Text style={styles.lineSub}>
-                        {qty} x {fmtZAR(unitPrice)}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.lineTotal}>{fmtZAR(lineTotal)}</Text>
-                </View>
-              );
-            })}
+            {menuGroups.map((group) => (
+              <View key={group.course}>
+                <Text style={[styles.lineSub, { marginTop: 5, marginBottom: 2 }]}>
+                  {group.heading.toUpperCase()}
+                </Text>
+                {group.items.map((item: any, i) => {
+                  const name = item?.name || item?.item_name || item?.menu_item_name || `Item ${i + 1}`;
+                  const unitPrice = Number(item?.unit_price ?? item?.unitPrice ?? item?.pricePerPerson ?? item?.base_price ?? 0);
+                  const qty = Number(item?.quantity ?? item?.qty ?? 1);
+                  const lineTotal = Number(item?.total ?? item?.line_total ?? item?.lineTotal ?? unitPrice * qty);
+                  const isLast = i === group.items.length - 1;
+                  return (
+                    <View key={`menu-${group.course}-${i}`} style={[styles.lineRow, isLast ? styles.lineRowLast : {}]} minPresenceAhead={32}>
+                      <View style={styles.lineLeft}>
+                        <Text style={styles.lineName}>{name}</Text>
+                        {item?.description ? <Text style={styles.lineDescription}>{item.description}</Text> : null}
+                        {qty > 1 ? <Text style={styles.lineSub}>{qty} x {fmtZAR(unitPrice)}</Text> : null}
+                      </View>
+                      <Text style={styles.lineTotal}>{fmtZAR(lineTotal)}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
           </View>
         ) : null}
 

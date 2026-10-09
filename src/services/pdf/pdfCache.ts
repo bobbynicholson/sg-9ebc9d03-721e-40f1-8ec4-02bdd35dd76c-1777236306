@@ -27,6 +27,10 @@ interface CacheEntry {
 
 const TTL_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_ENTRIES = 50;
+// Bump when the invoice renderer changes in a way that affects visible
+// content. This prevents a warm server instance from returning a prior PDF
+// layout for up to the cache TTL after a deployment.
+const INVOICE_LAYOUT_CACHE_REVISION = "v2-payment-plan-event-time";
 
 // Map preserves insertion order, which gives us trivially correct
 // "drop the oldest" semantics on writes.
@@ -109,7 +113,7 @@ export function buildInvoiceCacheKey(
   companyUpdatedAt: string | null | undefined,
   paymentInstructionsFingerprint?: string | null,
 ): string {
-  return `invoice:${invoiceId}:${invoiceUpdatedAt || "0"}:${orderUpdatedAt || "0"}:${companyUpdatedAt || "0"}:${paymentInstructionsFingerprint || "0"}`;
+  return `invoice:${INVOICE_LAYOUT_CACHE_REVISION}:${invoiceId}:${invoiceUpdatedAt || "0"}:${orderUpdatedAt || "0"}:${companyUpdatedAt || "0"}:${paymentInstructionsFingerprint || "0"}`;
 }
 
 /**

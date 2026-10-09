@@ -54,8 +54,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         subtotal, tax_amount, total_amount, amount_paid, balance_due,
         notes, invoice_data, updated_at,
         client:client_id ( client_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms ),
-        order:order_id ( id, order_number, event_name, event_date, deposit_amount, deposit_percentage, currency, updated_at ),
-        company:company_id ( id, slug, company_name, legal_name, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
+        order:order_id ( id, order_number, event_name, event_date, event_time, deposit_amount, deposit_percentage, currency, updated_at ),
+        company:company_id ( id, slug, company_name, legal_name, time_format, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
       `)
       .eq("public_token", token)
       .is("deleted_at", null)
@@ -188,6 +188,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         order_number: order.order_number || null,
         event_name: order.event_name || null,
         event_date: order.event_date || null,
+        event_time: order.event_time || idata.eventTime || idata.event_time || null,
         line_items,
         subtotal: (inv as any).subtotal,
         tax_amount: (inv as any).tax_amount,
@@ -205,6 +206,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           address_line1: company.address_line1, address_line2: company.address_line2, city: company.city,
           state_province: company.state_province, postal_code: company.postal_code, country: company.country,
           primary_color: company.primary_color, vat_registered: company.vat_registered, vat_number: company.vat_number,
+          time_format: company.time_format,
           vat_rate: company.vat_rate, registration_number: company.registration_number, tax_number: company.tax_number,
           currency: company.currency,
         },

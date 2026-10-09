@@ -114,9 +114,9 @@ export interface MenuItemFull {
  */
 export const MENU_CATEGORIES = [
   "Starters",
-  "Salads",
   "Mains",
   "Sides",
+  "Salads",
   "Desserts",
   "Drinks",
   // MNU-B (menu deferred, 2026-05-24): added Equipment + Kids so

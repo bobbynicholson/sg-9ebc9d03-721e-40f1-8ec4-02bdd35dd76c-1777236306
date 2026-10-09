@@ -65,6 +65,7 @@ import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
 import { isAutomatedTestInvoice } from "@/lib/testDataDetection";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
+import { formatClock } from "@/lib/portalTime";
 
 function formatInvoiceRowMoney(amount: number, currencyCode: string | null | undefined): string {
   const code = currencyCode && Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, currencyCode.toUpperCase())
@@ -827,6 +828,7 @@ function InvoicesPageInner() {
             internal_notes,
             client_name,
             event_date,
+            event_time,
             client_id,
             quote_id,
             region_id,
@@ -1035,6 +1037,7 @@ function InvoicesPageInner() {
       ...invoiceData,
       clientTaxNumber: invoiceData.clientTaxNumber || linkedClient.tax_number || "",
       paymentTerms: invoicePaymentTerms(invoiceData.paymentTerms, linkedClient.payment_terms),
+      eventTime: invoiceData.eventTime || invoiceData.event_time || invoice.orders?.event_time || "",
     };
     // Paid / balance come from the live invoice row, not the snapshot:
     // an invoice can take any number of payments and the snapshot keeps
@@ -1851,6 +1854,7 @@ function InvoicesPageInner() {
                       </div>
                       <div className="text-sm text-slate-600">
                         Order #{order.order_number} • {order.event_date ? format(new Date(order.event_date), "dd MMM yyyy") : "No date"}
+                        {order.event_time ? ` at ${formatClock(order.event_time)}` : ""}
                       </div>
                     </div>
                     <Button
@@ -2443,6 +2447,9 @@ function InvoicesPageInner() {
                               <div className="text-sm text-slate-800 flex items-center gap-1.5">
                                 <CalendarIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                                 <span>{format(evt, "dd MMM yyyy")}</span>
+                                {(invoice as any).orders?.event_time ? (
+                                  <span className="text-[11px] text-slate-600">at {formatClock((invoice as any).orders.event_time)}</span>
+                                ) : null}
                                 <span className={`text-[11px] ${tone}`}>· {relative}</span>
                               </div>
                               {gapLine && (

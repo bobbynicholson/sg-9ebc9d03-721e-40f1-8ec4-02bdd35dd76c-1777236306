@@ -169,7 +169,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (invoiceForResponse.order_id) {
     const { data: orderMeta } = await supabase
       .from("orders")
-      .select("id, quote_id, package_id, event_date, deposit_amount, deposit_percentage, currency")
+      .select("id, quote_id, package_id, event_date, event_time, deposit_amount, deposit_percentage, currency")
       .eq("id", invoiceForResponse.order_id)
       .maybeSingle();
 
@@ -182,6 +182,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // event is today/past, so hydrate it from the canonical order row.
     if (!invoiceData.eventDate && !invoiceData.event_date && (orderMeta as any)?.event_date) {
       invoiceData.eventDate = (orderMeta as any).event_date;
+    }
+    if (!invoiceData.eventTime && !invoiceData.event_time && (orderMeta as any)?.event_time) {
+      invoiceData.eventTime = (orderMeta as any).event_time;
     }
     if (orderMeta) {
       const firstPaymentAmount = resolveInvoiceFirstPaymentAmount({

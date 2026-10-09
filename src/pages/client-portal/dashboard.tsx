@@ -364,6 +364,7 @@ function ClientPortalDashboardInner() {
     total: number | null;
     total_amount: number | null;
     event_date: string | null;
+    event_time: string | null;
     sent_at: string | null;
     valid_until: string | null;
   };
@@ -610,7 +611,7 @@ function ClientPortalDashboardInner() {
         const baseQuotes = supabase
           .from("quotes")
           .select(
-            "id, public_token, quote_number, quote_name, status, total, total_amount, event_date, sent_at, valid_until",
+            "id, public_token, quote_number, quote_name, status, total, total_amount, event_date, event_time, sent_at, valid_until",
           )
           .eq("company_id", tenantCompanyId)
           .is("deleted_at", null)
@@ -1200,7 +1201,7 @@ function ClientPortalDashboardInner() {
                                 </p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                   {q.quote_number}
-                                  {eventLabel && <span> · event {eventLabel}</span>}
+                                  {eventLabel && <span> · event {eventLabel}{q.event_time ? ` at ${formatClockWithAlt(q.event_time)}` : ""}</span>}
                                 </p>
                               </div>
                               <p className="text-base font-semibold tabular-nums text-slate-900 dark:text-white">

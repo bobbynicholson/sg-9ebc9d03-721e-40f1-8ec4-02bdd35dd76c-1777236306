@@ -30,6 +30,7 @@ import {
   type PdfPaymentInstructions,
 } from "@/lib/pdfPaymentDetails";
 import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
+import { formatClockBoth } from "@/lib/portalTime";
 
 // --- Types -----------------------------------------------------------------
 
@@ -59,6 +60,8 @@ export interface InvoicePdfData {
   order_number?: string | null;
   event_name?: string | null;
   event_date?: string | null;
+  /** Stored event clock time; a calendar date alone is not enough for a run sheet. */
+  event_time?: string | null;
 
   line_items: InvoicePdfLineItem[];
 
@@ -96,6 +99,8 @@ export interface InvoicePdfData {
     postal_code?: string | null;
     country?: string | null;
     primary_color?: string | null;
+    /** Company setting used to show the event time in a client-friendly form. */
+    time_format?: string | null;
     vat_registered?: boolean | null;
     vat_number?: string | null;
     vat_rate?: number | null;
@@ -257,7 +262,7 @@ const buildStyles = (primary: string) =>
     },
     metaLabel: {
       fontSize: 7,
-      letterSpacing: 1,
+      letterSpacing: 0.5,
       color: primary,
       fontFamily: "Helvetica-Bold",
       textTransform: "uppercase",
@@ -289,8 +294,8 @@ const buildStyles = (primary: string) =>
       marginBottom: 10,
     },
     sectionLabel: {
-      fontSize: 8,
-      letterSpacing: 1.2,
+      fontSize: 8.5,
+      letterSpacing: 0.5,
       color: primary,
       fontFamily: "Helvetica-Bold",
       textTransform: "uppercase",
@@ -355,6 +360,27 @@ const buildStyles = (primary: string) =>
       borderRadius: 6,
       padding: 12,
       marginBottom: 10,
+    },
+    paymentPlan: {
+      borderWidth: 1,
+      borderColor: primary,
+      borderRadius: 6,
+      padding: 12,
+      marginBottom: 10,
+      backgroundColor: `${primary}0D`,
+    },
+    paymentTerms: {
+      borderWidth: 1,
+      borderColor: "#d6d3d1",
+      borderRadius: 6,
+      padding: 12,
+      marginBottom: 10,
+      backgroundColor: "#fafaf9",
+    },
+    paymentTermsText: {
+      fontSize: 9.5,
+      color: "#44403c",
+      lineHeight: 1.45,
     },
     totalsRow: {
       flexDirection: "row",
@@ -465,6 +491,9 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
   const invoiceDate = fmtDateZA(data.invoice_date);
   const dueDate = fmtDateZA(data.due_date);
   const eventDate = fmtDateZA(data.event_date);
+  const eventTime = data.event_time
+    ? formatClockBoth(data.event_time, company.time_format || "24h")
+    : null;
 
   const lineItems = Array.isArray(data.line_items) ? data.line_items : [];
   const subtotal = Number(data.subtotal || 0);
@@ -484,7 +513,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
     eventDate: data.event_date,
     dueDate: data.due_date,
   });
-  const showPaymentSchedule =
+  const hasFirstPaymentPlan =
     firstPaymentAmount > 0 &&
     firstPaymentAmount < total - 0.01 &&
     !fullBalanceDueNow;
@@ -492,14 +521,16 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
     0,
     Math.round((firstPaymentAmount - amountPaid) * 100) / 100,
   );
-  const amountDueNow = showPaymentSchedule
-    ? fullBalanceDueNow
-      ? Math.max(0, balanceDue)
-      : Math.min(balanceDue, firstPaymentStillDue)
+  // Show a payment plan only while the first payment is genuinely still
+  // due. Once it has been paid, the client needs one simple balance-due
+  // figure - not a R0 "pay now" row plus a second competing total.
+  const showPaymentPlan = hasFirstPaymentPlan && firstPaymentStillDue > 0.005;
+  const amountDueNow = showPaymentPlan
+    ? Math.min(balanceDue, firstPaymentStillDue)
     : Math.max(0, balanceDue);
   const balanceAfterFirstPayment = Math.max(
     0,
-    Math.round((total - Math.max(firstPaymentAmount, amountPaid)) * 100) / 100,
+    Math.round((balanceDue - amountDueNow) * 100) / 100,
   );
 
   const billFromAddress = buildAddress(company);
@@ -620,7 +651,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {(data.order_number || data.event_name || eventDate) ? (
+        {(data.order_number || data.event_name || eventDate || eventTime) ? (
           <View style={styles.fullWidthCard} wrap={false}>
             <Text style={styles.sectionLabel}>Event details</Text>
             <View style={styles.metaRow}>
@@ -634,6 +665,12 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 <View style={styles.metaCell}>
                   <Text style={styles.metaLabel}>Event date</Text>
                   <Text style={styles.metaValue}>{eventDate}</Text>
+                </View>
+              ) : null}
+              {eventTime ? (
+                <View style={styles.metaCell}>
+                  <Text style={styles.metaLabel}>Event time</Text>
+                  <Text style={styles.metaValue}>{eventTime}</Text>
                 </View>
               ) : null}
             </View>
@@ -718,47 +755,49 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             </Text>
             <Text style={styles.grandTotalValue}>{fmt(total)}</Text>
           </View>
-          {showPaymentSchedule ? (
-            <View style={{ marginTop: 8, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#e7e5e4" }}>
-              <Text style={styles.sectionLabel}>Payment schedule</Text>
+          {!showPaymentPlan && amountPaid > 0.005 ? (
+            <View style={[styles.totalsRow, { marginTop: 6 }]}>
+              <Text style={styles.totalsLabel}>Paid to date</Text>
+              <Text style={styles.paid}>{fmt(amountPaid)}</Text>
+            </View>
+          ) : null}
+          {!showPaymentPlan ? (
+            <View style={[styles.totalsRow, { marginTop: 6 }]}>
+              <Text style={styles.totalsLabel}>
+                {balanceDue <= 0 ? "Balance" : "Balance due"}
+              </Text>
+              <Text style={balanceDue <= 0 ? styles.paid : styles.balanceDue}>
+                {fmt(Math.max(0, balanceDue))}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {showPaymentPlan ? (
+          <View style={styles.paymentPlan} wrap={false} minPresenceAhead={88}>
+              <Text style={styles.sectionLabel}>Payment plan</Text>
               <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>Amount payable now</Text>
+                <Text style={styles.totalsLabel}>Pay now to confirm booking</Text>
                 <Text style={styles.balanceDue}>{fmt(amountDueNow)}</Text>
               </View>
               <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>
-                  {firstPaymentStillDue > 0 ? "First payment due to confirm booking" : "First payment received"}
-                </Text>
-                <Text style={styles.totalsValue}>
-                  {fmt(firstPaymentStillDue > 0 ? firstPaymentStillDue : firstPaymentAmount)}
-                </Text>
-              </View>
-              <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>Remaining balance after first payment</Text>
+                <Text style={styles.totalsLabel}>Then due before the event</Text>
                 <Text style={styles.totalsValue}>{fmt(balanceAfterFirstPayment)}</Text>
               </View>
-              <Text style={[styles.notes, { marginTop: 3 }]}>The first payment is included in the invoice total.</Text>
-            </View>
-          ) : null}
-          <View style={[styles.totalsRow, { marginTop: 6 }]}>
-            <Text style={styles.totalsLabel}>Paid to date</Text>
-            <Text style={amountPaid > 0 ? styles.paid : styles.totalsValue}>
-              {amountPaid > 0 ? `-${fmt(amountPaid)}` : fmt(0)}
-            </Text>
+              <Text style={[styles.notes, { marginTop: 4 }]}>The two payments together equal the invoice total.</Text>
           </View>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>
-              {showPaymentSchedule
-                ? "Outstanding invoice balance"
-                : balanceDue <= 0
-                  ? "Balance"
-                  : "Balance due"}
-            </Text>
-            <Text style={balanceDue <= 0 ? styles.paid : styles.balanceDue}>
-              {fmt(Math.max(0, balanceDue))}
-            </Text>
+        ) : null}
+
+        {/* PAYMENT TERMS. This is intentionally its own pale, full-width
+            card. It used to share a final card with notes, below payment
+            instructions, which made it easy to miss and liable to split at
+            an awkward page boundary. */}
+        {data.payment_terms ? (
+          <View style={styles.paymentTerms} minPresenceAhead={64}>
+            <Text style={styles.sectionLabel}>Payment terms</Text>
+            <Text style={styles.paymentTermsText}>{data.payment_terms}</Text>
           </View>
-        </View>
+        ) : null}
 
         {/* PAYMENT INSTRUCTIONS. Keep this immediately beneath the amount
             due so a client can act without hunting through an email. EFT
@@ -801,25 +840,13 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
         ) : null}
 
-        {/* NOTES + PAYMENT TERMS */}
-        {(data.payment_terms || data.notes) ? (
+        {/* NOTES */}
+        {data.notes ? (
           <View style={[styles.column, { marginBottom: 10 }]}>
-            {data.payment_terms ? (
-              <>
-                <Text style={styles.sectionLabel} minPresenceAhead={36}>
-                  Payment terms
-                </Text>
-                <Text style={styles.notes}>{data.payment_terms}</Text>
-              </>
-            ) : null}
-            {data.notes ? (
-              <>
-                <Text style={[styles.sectionLabel, { marginTop: 8 }]} minPresenceAhead={36}>
-                  Notes
-                </Text>
-                <Text style={styles.notes}>{data.notes}</Text>
-              </>
-            ) : null}
+            <Text style={styles.sectionLabel} minPresenceAhead={36}>
+              Notes
+            </Text>
+            <Text style={styles.notes}>{data.notes}</Text>
           </View>
         ) : null}
 

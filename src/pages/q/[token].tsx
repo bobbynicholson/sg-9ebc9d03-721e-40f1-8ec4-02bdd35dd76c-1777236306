@@ -57,6 +57,7 @@ import { QuoteProgress } from "@/components/quotes/QuoteProgress";
 import { EQUIPMENT_RETURN_OPTIONS, resolveEquipmentReturn } from "@/lib/equipmentReturn";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import { formatClockBoth } from "@/lib/portalTime";
+import { groupByCourse } from "@/lib/menuCourses";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -904,32 +905,33 @@ export default function PublicQuotePage() {
                     {quote.menu_items.length} item{quote.menu_items.length === 1 ? "" : "s"}
                   </p>
                 </div>
-                <div className="space-y-2">
-                  {quote.menu_items.map((item: any, i: number) => {
-                    const name = item?.name || item?.menu_item_name || `Item ${i + 1}`;
-                    const description = item?.description || item?.notes || null;
-                    const unitPrice = Number(item?.unit_price ?? item?.price ?? 0);
-                    const qty = Number(item?.quantity ?? item?.qty ?? 1);
-                    const lineTotal = Number(item?.total ?? unitPrice * qty);
-                    return (
-                      <div key={i} className="print-row flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-stone-900">{name}</p>
-                          {description && (
-                            <p className="text-xs text-stone-500 mt-0.5">{description}</p>
-                          )}
-                          {qty > 1 && (
-                            <p className="text-xs text-stone-500 mt-0.5">
-                              {qty} x {fmtMoney(unitPrice)}
-                            </p>
-                          )}
-                        </div>
-                        <p className="text-stone-900 font-semibold tabular-nums shrink-0">
-                          {fmtMoney(lineTotal)}
-                        </p>
+                <div className="space-y-4">
+                  {groupByCourse(quote.menu_items, (item: any) => item?.category).map((group) => (
+                    <section key={group.course}>
+                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500">
+                        {group.heading}
+                      </p>
+                      <div className="space-y-2">
+                        {group.items.map((item: any, i: number) => {
+                          const name = item?.name || item?.menu_item_name || `Item ${i + 1}`;
+                          const description = item?.description || item?.notes || null;
+                          const unitPrice = Number(item?.unit_price ?? item?.price ?? 0);
+                          const qty = Number(item?.quantity ?? item?.qty ?? 1);
+                          const lineTotal = Number(item?.total ?? item?.line_total ?? unitPrice * qty);
+                          return (
+                            <div key={`${group.course}-${i}`} className="print-row flex justify-between gap-3 text-sm py-2 border-b border-stone-100 last:border-b-0">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-stone-900">{name}</p>
+                                {description && <p className="text-xs text-stone-500 mt-0.5">{description}</p>}
+                                {qty > 1 && <p className="text-xs text-stone-500 mt-0.5">{qty} x {fmtMoney(unitPrice)}</p>}
+                              </div>
+                              <p className="text-stone-900 font-semibold tabular-nums shrink-0">{fmtMoney(lineTotal)}</p>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    </section>
+                  ))}
                 </div>
               </CardContent>
             </Card>

@@ -1,11 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Download, Printer, Calendar, MapPin, FileText } from "lucide-react";
+import { Download, Printer, Calendar, Clock, MapPin, FileText } from "lucide-react";
 import { invoiceService } from "@/services/invoiceService";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { formatLocalDate } from "@/lib/localFormat";
+import { formatClock } from "@/lib/portalTime";
 
 interface Invoice {
   id: string;
@@ -20,6 +21,7 @@ interface Invoice {
   payment_method?: string;
   paid_at?: string;
   event_date: string;
+  event_time?: string | null;
   event_location: string;
   /** Line-item breakdown so the client sees WHAT the amount is for (catering
    *  lines + any damage charge), the full total, and a public link to view /
@@ -126,6 +128,13 @@ export function InvoiceDetailModal({ invoice, open, onClose, paymentAttemptId }:
                   {formatLocalDate(invoice.event_date)}
                 </span>
               </div>
+              {invoice.event_time && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-slate-500" />
+                  <span className="text-slate-600">Event Time:</span>
+                  <span className="font-medium text-slate-900">{formatClock(invoice.event_time)}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="w-4 h-4 text-slate-500" />
                 <span className="text-slate-600">Location:</span>

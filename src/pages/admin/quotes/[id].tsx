@@ -1692,6 +1692,7 @@ function AdminQuoteDetailInner() {
             // converted flag so the body reflects the live booking.
             guest_count: (quote as any).guest_count ?? null,
             event_date: (quote as any).event_date ?? null,
+            event_time: (quote as any).event_time ?? null,
             is_converted: !!(quote as any).converted_to_order_id,
           }}
           onSent={async () => {

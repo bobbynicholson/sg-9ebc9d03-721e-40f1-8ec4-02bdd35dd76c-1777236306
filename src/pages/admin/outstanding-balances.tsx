@@ -37,6 +37,7 @@ import { PortalShell, PortalHeader,
 import { UserRole } from "@/types/app";
 import { toLocalISO, toZonedISO } from "@/lib/localDate";
 import { formatLocalDate } from "@/lib/localFormat";
+import { formatClock } from "@/lib/portalTime";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
 import {
@@ -75,6 +76,7 @@ interface BalanceRow {
   clientEmail: string | null;
   clientPhone: string | null;
   eventDate: string | null;
+  eventTime: string | null;
 }
 
 export default function OutstandingBalancesRoute() {
@@ -158,7 +160,7 @@ function OutstandingBalancesPage() {
       if (orderIds.length > 0) {
         const { data: orders, error: ordersErr } = await (supabase as any)
           .from("orders")
-          .select("id, order_number, client_name, client_email, client_phone, event_date")
+          .select("id, order_number, client_name, client_email, client_phone, event_date, event_time")
           .in("id", orderIds);
         if (ordersErr) {
           // Balances are still correct without the order join - keep the
@@ -194,6 +196,7 @@ function OutstandingBalancesPage() {
           clientEmail: o?.client_email ?? null,
           clientPhone: o?.client_phone ?? null,
           eventDate: o?.event_date ?? null,
+          eventTime: o?.event_time ?? null,
         };
       });
       setRows(built);
@@ -267,7 +270,7 @@ function OutstandingBalancesPage() {
 
   const exportCsv = () => {
     if (filtered.length === 0) return;
-    const headers = ["Client", "Email", "Phone", "Order", "Invoice", "Event date", "Due date", "Total", "Paid", "Balance", "Status"];
+    const headers = ["Client", "Email", "Phone", "Order", "Invoice", "Event date", "Event time", "Due date", "Total", "Paid", "Balance", "Status"];
     const esc = (v: any) => {
       if (v == null) return "";
       const s = String(v).replace(/"/g, '""');
@@ -277,7 +280,7 @@ function OutstandingBalancesPage() {
     for (const r of filtered) {
       lines.push([
         esc(r.clientName), esc(r.clientEmail), esc(r.clientPhone), esc(r.orderNumber),
-        esc(r.invoiceNumber), esc(r.eventDate), esc(r.dueDate),
+        esc(r.invoiceNumber), esc(r.eventDate), esc(r.eventTime ? formatClock(r.eventTime) : null), esc(r.dueDate),
         esc(r.total.toFixed(2)), esc(r.paid.toFixed(2)), esc(r.balance.toFixed(2)), esc(r.status),
       ].join(","));
     }
@@ -492,7 +495,10 @@ function OutstandingBalancesPage() {
                               ) : <span className="text-slate-400">-</span>}
                               <p className="text-[11px] text-slate-500">{r.invoiceNumber || ""}</p>
                             </td>
-                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">{formatLocalDate(r.eventDate, "-")}</td>
+                            <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">
+                              {formatLocalDate(r.eventDate, "-")}
+                              {r.eventTime ? <span className="block text-[11px] text-slate-500">{formatClock(r.eventTime)}</span> : null}
+                            </td>
                             <td className="py-2.5 px-3">
                               <span className={overdue ? "text-rose-600 font-semibold" : "text-slate-600 dark:text-slate-300"}>
                                 {formatLocalDate(r.dueDate, "-")}

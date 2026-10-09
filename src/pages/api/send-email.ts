@@ -425,10 +425,10 @@ async function handler(
                 billing_city, billing_postal_code, tax_number, payment_terms
               ),
               order:order_id (
-                id, order_number, event_name, event_date, discount_amount, deposit_amount, deposit_percentage, currency, updated_at
+                id, order_number, event_name, event_date, event_time, discount_amount, deposit_amount, deposit_percentage, currency, updated_at
               ),
               company:company_id (
-                id, slug, company_name, legal_name, logo_url, email, phone,
+                id, slug, company_name, legal_name, time_format, logo_url, email, phone,
                 address_line1, address_line2, city, state_province,
                 postal_code, country, primary_color,
                 vat_registered, vat_number, vat_rate,
@@ -507,6 +507,7 @@ async function handler(
                 order_number: order.order_number || stashed.orderNumber || null,
                 event_name: order.event_name || null,
                 event_date: order.event_date || null,
+                event_time: order.event_time || stashed.eventTime || stashed.event_time || null,
                 line_items: Array.isArray(stashed.items)
                   ? stashed.items.map((it: any) => ({
                       name: it?.description || "Item",
@@ -539,6 +540,7 @@ async function handler(
                   slug: company.slug,
                   company_name: company.company_name,
                   legal_name: company.legal_name,
+                  time_format: company.time_format,
                   logo_url: company.logo_url,
                   email: company.email,
                   phone: company.phone,

@@ -10,7 +10,7 @@ ALTER TABLE public.payments
 CREATE OR REPLACE FUNCTION public.verify_eft_payment_claim(
   p_payment_id uuid, p_company_id uuid, p_action text, p_reason text DEFAULT NULL
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
+DECLAREhttps://www.payfast.co.za/eng/process  
   v_payment public.payments%ROWTYPE;
   v_invoice public.invoices%ROWTYPE;
   v_duplicate boolean;

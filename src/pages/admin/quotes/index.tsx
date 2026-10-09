@@ -74,6 +74,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currencyUtils";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { formatLocalDate } from "@/lib/localFormat";
+import { formatClock, formatClockWithAlt } from "@/lib/portalTime";
 import { composeEmail, templateForQuote, templateSweetener, type QuoteStatus } from "@/lib/composeEmail";
 import { buildPublicQuoteUrl } from "@/services/publicQuoteService";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
@@ -337,6 +338,7 @@ function PipelineBoard({
                             <span className="inline-flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               {new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                              {q.event_time ? ` at ${formatClock(q.event_time)}` : ""}
                             </span>
                           )}
                           {q.guest_count != null && (
@@ -561,6 +563,7 @@ function AdminQuotesInner() {
     sourceOrderId: string;
     orderNumber: string | null;
     eventDate: string | null;
+    eventTime: string | null;
     eventName: string | null;
     guestCount: number | null;
     totalAmount: number | null;
@@ -1024,7 +1027,7 @@ function AdminQuotesInner() {
           // word that's wrong when the order is still pending.
           // 2026-07-04: pull payment fields so "Won" means money received
           // (deposit paid), not just accepted - see rowStates override.
-          .select("id, order_number, event_date, event_name, guest_count, total_amount, amount_paid, balance_amount, deposit_amount, venue_name, status, deposit_paid, balance_paid, payment_status")
+          .select("id, order_number, event_date, event_time, event_name, guest_count, total_amount, amount_paid, balance_amount, deposit_amount, venue_name, status, deposit_paid, balance_paid, payment_status")
           .eq("company_id", companyId)
           .in("id", orderIds);
         const byOrderId = new Map<string, any>();
@@ -1050,6 +1053,7 @@ function AdminQuotesInner() {
             sourceOrderId: o.id,
             orderNumber: o.order_number ?? null,
             eventDate: o.event_date ?? null,
+            eventTime: o.event_time ?? null,
             eventName: o.event_name ?? null,
             guestCount: o.guest_count ?? null,
             totalAmount: o.total_amount ?? null,
@@ -2240,6 +2244,7 @@ function AdminQuotesInner() {
                         // quote row itself. `resolved` was set above for the
                         // diary signal - reuse it here.
                         const displayEventDate = resolved?.eventDate ?? quote.event_date ?? null;
+                        const displayEventTime = resolved?.eventTime ?? quote.event_time ?? null;
                         const displayGuestCount = resolved?.guestCount ?? quote.guest_count ?? null;
                         const displayTotal = resolved?.totalAmount ?? (quote.total ?? 0);
                         return (
@@ -2425,7 +2430,10 @@ function AdminQuotesInner() {
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Calendar className="w-4 h-4" />
-                              <span className="text-sm">{formatLocalDate(displayEventDate, "-")}</span>
+                              <span className="text-sm">
+                                {formatLocalDate(displayEventDate, "-")}
+                                {displayEventTime ? ` at ${formatClock(displayEventTime)}` : ""}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2 text-slate-600">
                               <Users className="w-4 h-4" />
@@ -2621,10 +2629,10 @@ function AdminQuotesInner() {
                               contactName: quote.client_name || "Client",
                               eventName: (quote as any).event_name ?? (quote as any).quote_name ?? null,
                               eventDate: quote.event_date
-                                ? new Date(quote.event_date).toLocaleDateString("en-ZA", {
+                                ? `${new Date(quote.event_date).toLocaleDateString("en-ZA", {
                                     day: "numeric",
                                     month: "short",
-                                  })
+                                  })}${quote.event_time ? ` at ${formatClockWithAlt(quote.event_time)}` : ""}`
                                 : null,
                               guestCount: quote.guest_count ?? null,
                               total: quote.total ?? null,
@@ -3136,7 +3144,7 @@ function AdminQuotesInner() {
         {emailQuote && (() => {
           const q: any = emailQuote;
           const eventDateLabel = q.event_date
-            ? new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })
+            ? `${new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long" })}${q.event_time ? ` at ${formatClockWithAlt(q.event_time)}` : ""}`
             : "your date";
           return (
             <ClientEmailDrawer
@@ -3146,7 +3154,7 @@ function AdminQuotesInner() {
                 { label: "Quote", value: q.quote_number || "-" },
                 { label: "Email", value: q.client_email || "(none)" },
                 { label: "Status", value: q.status || "-" },
-                ...(q.event_date ? [{ label: "Event date", value: eventDateLabel }] : []),
+                ...(q.event_date ? [{ label: q.event_time ? "Event date and time" : "Event date", value: eventDateLabel }] : []),
                 ...(q.guest_count != null ? [{ label: "Guests", value: String(q.guest_count) }] : []),
               ]}
               recipient={{
@@ -3532,7 +3540,7 @@ function QuoteComposeDrawer({
 }) {
   const derivedStatus = useMemo(() => deriveQuoteStatus(quote), [quote]);
   const eventDateLabel = quote.event_date
-    ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
+    ? `${new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })}${quote.event_time ? ` at ${formatClockWithAlt(quote.event_time)}` : ""}`
     : undefined;
   const quoteRef = (quote as any).quote_number || quote.id?.slice(0, 8).toUpperCase();
 
@@ -3696,8 +3704,8 @@ function QuoteComposeDrawer({
     { label: "Email", value: quote.client_email || "(none)", title: quote.client_email || "(none)" },
     { label: "Status", value: <span className="capitalize">{derivedStatus}</span> },
     ...(quote.event_date ? [{
-      label: "Event date",
-      value: new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" }),
+      label: quote.event_time ? "Event date and time" : "Event date",
+      value: eventDateLabel,
     } as ContextRow] : []),
     ...(quote.guest_count != null ? [{ label: "Guests", value: String(quote.guest_count) } as ContextRow] : []),
     { label: "Total", value: fmtMoney.format(quote.total ?? 0), divider: true, emphasis: true },
@@ -3733,7 +3741,7 @@ function QuoteComposeDrawer({
           contactName: quote.client_name,
           eventName: (quote as any).event_name ?? null,
           eventDate: quote.event_date
-            ? new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+            ? `${new Date(quote.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}${quote.event_time ? ` at ${formatClockWithAlt(quote.event_time)}` : ""}`
             : null,
           guestCount: quote.guest_count ?? null,
           total: quote.total ?? null,

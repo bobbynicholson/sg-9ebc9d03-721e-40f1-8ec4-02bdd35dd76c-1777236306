@@ -115,6 +115,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { formatClock } from "@/lib/portalTime";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { quoteService } from "@/services/quoteService";
 import { propagateQuoteEditToOrder } from "@/services/quote/propagateQuoteEdit";
@@ -3969,6 +3970,7 @@ function NewQuotePage() {
                         </div>
                         <p className="text-xs text-slate-500 mb-3">
                           {eventDate ? new Date(eventDate).toLocaleDateString("en-ZA") : "-"}
+                          {eventTime ? ` at ${formatClock(eventTime)}` : ""}
                           {guestCount ? ` • ${guestCount} guests` : ""}
                         </p>
                         <ul className="space-y-1 mb-3">

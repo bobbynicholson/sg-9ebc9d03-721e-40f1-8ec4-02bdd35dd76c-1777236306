@@ -27,6 +27,7 @@ import { ReceiptDialog } from "@/components/client-portal/ReceiptDialog";
 import { ChatBot } from "@/components/ChatBot";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { getInitialInvoicePaymentAmount, resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
+import { formatClock } from "@/lib/portalTime";
 
 interface Invoice {
   id: string;
@@ -44,6 +45,7 @@ interface Invoice {
   payment_method?: string;
   paid_at?: string;
   event_date: string;
+  event_time?: string | null;
   event_location: string;
   /** Set when the invoice has at least one completed payment, regardless
    *  of whether the balance is fully cleared. Drives the row-level
@@ -272,7 +274,7 @@ function ClientBillingPageInner() {
       const { data: rows, error } = await supabase
         .from("invoices")
         .select(
-          "id, invoice_number, order_id, invoice_date, due_date, total_amount, amount_paid, balance_due, status, paid_at, invoice_data, public_token, currency, orders:order_id ( order_number, event_date, venue_name, venue_address, deposit_amount, deposit_percentage, currency )",
+          "id, invoice_number, order_id, invoice_date, due_date, total_amount, amount_paid, balance_due, status, paid_at, invoice_data, public_token, currency, orders:order_id ( order_number, event_date, event_time, venue_name, venue_address, deposit_amount, deposit_percentage, currency )",
         )
         .eq("company_id", tenantCompanyId)
         .in("client_id", clientIds)
@@ -370,6 +372,7 @@ function ClientBillingPageInner() {
           status,
           paid_at: r.paid_at || undefined,
           event_date: orderEmbed.event_date || r.invoice_date,
+          event_time: orderEmbed.event_time || r.invoice_data?.eventTime || r.invoice_data?.event_time || null,
           event_location:
             orderEmbed.venue_name || orderEmbed.venue_address || "",
           has_completed_payment:
@@ -676,7 +679,10 @@ function ClientBillingPageInner() {
                                     portal. Was bare toLocaleDateString()
                                     which renders differently per browser
                                     locale. */}
-                                <span>Event: {new Date(invoice.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}</span>
+                                <span>
+                                  Event: {new Date(invoice.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}
+                                  {invoice.event_time ? ` at ${formatClock(invoice.event_time)}` : ""}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4" />
