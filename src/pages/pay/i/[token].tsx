@@ -94,6 +94,7 @@ interface InvoiceView {
     amount: number;
     processed_at: string;
     payment_status: string;
+    payment_type?: string | null;
     payment_method?: string | null;
     gateway_provider?: string | null;
   }[];
@@ -1061,7 +1062,8 @@ export default function InvoicePaymentPage() {
                     <div className="mt-1 space-y-0.5">
                       {invoice.payments.map((p, i) => (
                         <p key={i} className="text-[11px] text-stone-500">
-                          {fmtMoney.format(Number(p.amount) || 0)} paid on {format(new Date(p.processed_at), "d MMM yyyy")}
+                          {p.payment_type === "refund" ? "Refunded " : "Paid "}
+                          {fmtMoney.format(Number(p.amount) || 0)} on {format(new Date(p.processed_at), "d MMM yyyy")}
                           {paymentMethodWords(p.payment_method || p.gateway_provider) && ` via ${paymentMethodWords(p.payment_method || p.gateway_provider)}`}
                         </p>
                       ))}

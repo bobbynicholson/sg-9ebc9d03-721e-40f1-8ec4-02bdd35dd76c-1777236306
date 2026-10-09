@@ -285,7 +285,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
           )}
           {paidAboveTotal > 0.005 && (
             <p className="text-xs text-amber-800 border-t border-amber-200 pt-2">
-              Paid above invoice total: {fmtMoney.format(paidAboveTotal)}. Review whether to refund or apply this amount elsewhere.
+              Paid above invoice total: {fmtMoney.format(paidAboveTotal)}. Review the refund in Refunds &amp; Credits; the payout is not sent automatically.
             </p>
           )}
         </CardContent>

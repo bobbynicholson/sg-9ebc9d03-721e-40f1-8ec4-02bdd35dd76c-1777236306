@@ -39,9 +39,67 @@ export interface NotifyEmbedLeadInput {
 export function ensureLeadLinkInEmailBody(body: unknown, leadLink: string): string {
   const content = typeof body === "string" ? body : "";
   const safeLeadLink = escapeHtml(leadLink);
-  return content.includes(`href="${safeLeadLink}"`) || content.includes(`href='${safeLeadLink}'`)
-    ? content
-    : `${content}${content.trim() ? "\n\n" : ""}<p><a href="${safeLeadLink}">Open this lead</a></p>`;
+  const hasBlockMarkup = /<(p|div|table|h[1-6]|ul|ol|li|br|section)\b/i.test(content);
+  if (hasBlockMarkup) {
+    return content.includes(`href="${safeLeadLink}"`) || content.includes(`href='${safeLeadLink}'`)
+      ? content
+      : `${content}<p style="margin:24px 0 0;"><a href="${safeLeadLink}" style="display:inline-block;padding:12px 18px;background:#b91c1c;color:#fff;text-decoration:none;font-weight:700;border-radius:4px;">Open lead in CateringMS</a></p>`;
+  }
+
+  const plain = content
+    .replace(/<a\b[^>]*>(.*?)<\/a>/gi, "$1")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => Boolean(line) && !/^open (?:the )?lead\s*:/i.test(line));
+  const intro: string[] = [];
+  const groups = new Map<string, Array<{ label: string; value: string }>>();
+  for (const line of plain) {
+    const match = line.match(/^([^:]{1,60}):\s*(.*)$/);
+    if (!match) {
+      intro.push(line);
+      continue;
+    }
+    const label = match[1].trim();
+    const value = match[2].trim();
+    if (!value) continue;
+    const normalisedLabel = label.toLowerCase();
+    const notesPrefix = "other details from the form:";
+    if (normalisedLabel === "notes" && value.toLowerCase().startsWith(notesPrefix)) {
+      const remainder = value.slice(notesPrefix.length).trim();
+      if (!remainder) continue;
+      const rows = groups.get("Additional details") || [];
+      rows.push({ label: "Notes", value: remainder });
+      groups.set("Additional details", rows);
+      continue;
+    }
+    const group = /name|email|phone|mobile|whatsapp/.test(normalisedLabel)
+      ? "Contact"
+      : /event|date|time|guest|venue|attendee/.test(normalisedLabel)
+        ? "Event details"
+        : /menu|dish|equipment|children|kids|table|service|chef|dietary|meal/.test(normalisedLabel)
+          ? "Catering request"
+          : normalisedLabel === "budget"
+            ? "Budget"
+            : "Additional details";
+    const rows = groups.get(group) || [];
+    rows.push({ label, value });
+    groups.set(group, rows);
+  }
+
+  const introHtml = intro.length
+    ? `<p style="margin:0 0 18px;color:#475569;line-height:1.55;">${intro.map(escapeHtml).join("<br>")}</p>`
+    : "";
+  const groupsHtml = [...groups.entries()].map(([heading, rows]) =>
+    `<h2 style="margin:20px 0 8px;color:#991b1b;font-size:15px;line-height:1.3;">${escapeHtml(heading)}</h2>` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">` +
+    rows.map(({ label, value }) =>
+      `<tr><th align="left" valign="top" style="width:120px;padding:8px 12px 8px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:13px;font-weight:600;">${escapeHtml(label)}</th>` +
+      `<td valign="top" style="padding:8px 0;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:14px;line-height:1.5;overflow-wrap:anywhere;">${escapeHtml(value)}</td></tr>`,
+    ).join("") +
+    `</table>`,
+  ).join("");
+  return `<div>${introHtml}${groupsHtml}<p style="margin:22px 0 0;"><a href="${safeLeadLink}" style="display:inline-block;padding:12px 18px;background:#b91c1c;color:#fff;text-decoration:none;font-weight:700;border-radius:4px;">Open lead in CateringMS</a></p></div>`;
 }
 
 export function uniqueAdminEmails(candidates: unknown[]): string[] {

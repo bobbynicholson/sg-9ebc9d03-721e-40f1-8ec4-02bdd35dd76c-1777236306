@@ -4,6 +4,21 @@ import {
   applyOrderValueDelta,
   syncInvoiceValuesFromOrder,
 } from "@/services/order/orderSyncService";
+import { refundableExcessAmount } from "@/lib/invoiceRefunds";
+
+describe("refundableExcessAmount", () => {
+  it("calculates a refund after a paid invoice is reduced", () => {
+    expect(refundableExcessAmount(9000, 8000, 0)).toBe(1000);
+  });
+
+  it("subtracts pending refunds to avoid queueing the same excess twice", () => {
+    expect(refundableExcessAmount(9000, 8000, 400)).toBe(600);
+  });
+
+  it("returns zero when there is no paid excess", () => {
+    expect(refundableExcessAmount(7000, 8000, 0)).toBe(0);
+  });
+});
 
 describe("applyOrderValueDelta", () => {
   it("preserves fees and surge while applying menu changes and discount changes", () => {

@@ -1163,10 +1163,15 @@ function InvoicesPageInner() {
       }));
       setInvoiceRefreshDialogOpen(false);
       setInvoiceRefreshReason("");
+      const refreshWarning = [result.auditWarning, result.refundWarning].filter(Boolean).join(" ");
+      const refreshDescription = refreshWarning
+        || (Number(result.refundOutstandingAmount) > 0
+          ? `A refund of ${formatInvoiceRowMoney(Number(result.refundOutstandingAmount), invoice.currency || tenantMoney.code)} is queued in Refunds & Credits. Mark it paid only after sending the payout.`
+          : "Current order values and payment balance are shown.");
       toast({
-        title: result.auditWarning ? "Invoice refreshed with an audit warning" : "Invoice refreshed",
-        description: result.auditWarning || "Current order values and payment balance are shown.",
-        variant: result.auditWarning ? "destructive" : undefined,
+        title: refreshWarning ? "Invoice refreshed with a follow-up needed" : "Invoice refreshed",
+        description: refreshDescription,
+        variant: refreshWarning ? "destructive" : undefined,
       });
     } catch (error: any) {
       toast({
@@ -2858,9 +2863,14 @@ function InvoicesPageInner() {
                     </p>
                   )}
                   {Number(invoice?.amount_paid || 0) > orderTotal && (
-                    <p className="mt-1 text-amber-800">
-                      Payments will exceed the refreshed total by {formatInvoiceRowMoney(Number(invoice?.amount_paid) - orderTotal, invoice?.currency || tenantMoney.code).trim()}.
-                    </p>
+                    <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-amber-900">
+                      <p>
+                        Payments will exceed the refreshed total by <strong>{formatInvoiceRowMoney(Number(invoice?.amount_paid) - orderTotal, invoice?.currency || tenantMoney.code).trim()}</strong>.
+                      </p>
+                      <p className="mt-1 text-xs">
+                        A pending refund will be tracked in Refunds &amp; Credits. Send the payout outside CateringMS, then mark the refund paid. This action does not send money.
+                      </p>
+                    </div>
                   )}
                 </div>
                 <div className="space-y-2">

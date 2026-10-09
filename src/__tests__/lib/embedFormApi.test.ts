@@ -70,6 +70,21 @@ describe("embed submission rules", () => {
     expect(withExistingAnchor.match(/href=/g)).toHaveLength(1);
   });
 
+  it("formats a plain lead email into distinct, labelled sections", () => {
+    const body = ensureLeadLinkInEmailBody(
+      "New lead from your website form.\nName: Fiona Collins\nEmail: fiona@example.com\nPhone: 0655031989\nEvent: Confirmation\nDate: 7 February 2027\nGuests: 60\nVenue: Grotto Bay\nNotes: Other details from the form:\nEating time: 13:00\nEquipment: Plate, knife, fork, bowl and spoon\nChildren: 10 kids\nTable services requested: On-site chef",
+      "https://app.example.com/admin/leads?leadId=lead-1",
+    );
+    expect(body).toContain("Contact</h2>");
+    expect(body).toContain("Event details</h2>");
+    expect(body).toContain("Catering request</h2>");
+    expect(body).toContain("Equipment</th>");
+    expect(body).toContain("Children</th>");
+    expect(body).not.toContain("Other details from the form");
+    expect(body).toContain("Open lead in CateringMS");
+    expect(body).toContain("<table");
+  });
+
   it("sends once to each distinct admin email address", () => {
     expect(uniqueAdminEmails([
       "owner@example.com",
