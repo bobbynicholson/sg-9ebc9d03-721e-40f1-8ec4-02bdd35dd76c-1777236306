@@ -1,4 +1,6 @@
 import { mapPayloadToLead, validateSubmission, type EmbedField } from "@/lib/embedFormApi";
+import { LEAD_EVENT_TYPE_OPTIONS, normalizeLeadEventTypeOptions } from "@/lib/leadEventTypes";
+import { ensureLeadLinkInEmailBody, uniqueAdminEmails } from "@/lib/embed/notifyAdminOfEmbedLead";
 
 const eventType: EmbedField = {
   id: "event_type",
@@ -53,5 +55,27 @@ describe("embed submission rules", () => {
   it("never requires a field switched off in the customiser", () => {
     const hidden: EmbedField = { id: "budget", type: "number", label: "Budget", required: true, visible: false };
     expect(validateSubmission([hidden], {}).ok).toBe(true);
+  });
+
+  it.each(LEAD_EVENT_TYPE_OPTIONS)("stores the selected $label event title on the lead", ({ value, label }) => {
+    const [field] = normalizeLeadEventTypeOptions([eventType]);
+    const lead = mapPayloadToLead([field], { event_type: value });
+    expect(lead.event_type).toBe(label);
+  });
+
+  it("adds a direct lead link when a custom admin email template omits one", () => {
+    const link = "https://app.example.com/admin/leads?leadId=lead-1";
+    expect(ensureLeadLinkInEmailBody("A new enquiry arrived.", link)).toContain(`href="${link}"`);
+    const withExistingAnchor = ensureLeadLinkInEmailBody(`<a href="${link}">View lead</a>`, link);
+    expect(withExistingAnchor.match(/href=/g)).toHaveLength(1);
+  });
+
+  it("sends once to each distinct admin email address", () => {
+    expect(uniqueAdminEmails([
+      "owner@example.com",
+      "admin@example.com",
+      " ADMIN@example.com ",
+      null,
+    ])).toEqual(["owner@example.com", "admin@example.com"]);
   });
 });

@@ -406,6 +406,17 @@ export async function propagateQuoteEditToOrder(
       await _recalcInvoice(receipt.orderId!, companyId);
     }
 
+    // Keep invoice values and event facts aligned for every quote edit,
+    // including guest/date/venue-only changes. The helper merges these
+    // fields into invoice_data without replacing its item snapshots.
+    try {
+      const { syncInvoiceValuesFromOrder } = await import("@/services/order/orderSyncService");
+      const invoiceSync = await syncInvoiceValuesFromOrder(receipt.orderId!);
+      if (invoiceSync.error) receipt.errors.push(`invoice_values_sync_failed: ${invoiceSync.error}`);
+    } catch (e: any) {
+      receipt.errors.push(`invoice_values_sync_failed: ${e?.message || e}`);
+    }
+
     // 9b. Tell the working staff the order changed so they re-check their tasks
     //     against the new spec - the amendment path broadcasts this but the
     //     quote-edit path used to run the whole cascade silently, leaving

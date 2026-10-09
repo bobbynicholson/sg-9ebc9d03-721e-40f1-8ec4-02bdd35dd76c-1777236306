@@ -425,7 +425,7 @@ async function handler(
                 billing_city, billing_postal_code, tax_number, payment_terms
               ),
               order:order_id (
-                id, order_number, event_name, event_date, event_time, discount_amount, deposit_amount, deposit_percentage, currency, updated_at
+                id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, discount_amount, deposit_amount, deposit_percentage, currency, updated_at
               ),
               company:company_id (
                 id, slug, company_name, legal_name, time_format, logo_url, email, phone,
@@ -498,9 +498,9 @@ async function handler(
                 due_date: invAny.due_date,
                 status: invAny.status,
                 client: {
-                  name: client.client_name || stashed.clientName || "",
-                  email: client.email || null,
-                  phone: client.phone || null,
+                  name: order.client_name || client.client_name || stashed.clientName || "",
+                  email: order.client_email || client.email || null,
+                  phone: order.client_phone || client.phone || null,
                   address: clientAddress,
                   tax_number: stashed.clientTaxNumber || client.tax_number || null,
                 },
@@ -508,6 +508,8 @@ async function handler(
                 event_name: order.event_name || null,
                 event_date: order.event_date || null,
                 event_time: order.event_time || stashed.eventTime || stashed.event_time || null,
+                venue_address: order.venue_address || null,
+                guest_count: order.guest_count ?? null,
                 line_items: Array.isArray(stashed.items)
                   ? stashed.items.map((it: any) => ({
                       name: it?.description || "Item",

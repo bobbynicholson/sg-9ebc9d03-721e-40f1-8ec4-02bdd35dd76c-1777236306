@@ -9,6 +9,7 @@
 // Keep field ids snake_case and stable - they become payload keys.
 
 import type { EmbedField, EmbedTemplateId } from '@/types/embedForms';
+import { LEAD_EVENT_TYPE_OPTIONS } from '@/lib/leadEventTypes';
 
 const NAME_FIELD: EmbedField = {
   id: 'name',
@@ -118,13 +119,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
       visible: true,
       order: 55,
       mapsTo: 'event_type',
-      options: [
-        { value: 'wedding', label: 'Wedding' },
-        { value: 'corporate', label: 'Corporate' },
-        { value: 'birthday', label: 'Birthday' },
-        { value: 'private', label: 'Private function' },
-        { value: 'other', label: 'Other' },
-      ],
+      options: LEAD_EVENT_TYPE_OPTIONS,
     },
     clone(NOTES_FIELD),
   ],
@@ -192,14 +187,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
       visible: true,
       order: 35,
       mapsTo: 'event_type',
-      options: [
-        { value: 'wedding', label: 'Wedding' },
-        { value: 'corporate', label: 'Corporate' },
-        { value: 'birthday', label: 'Birthday' },
-        { value: 'anniversary', label: 'Anniversary' },
-        { value: 'funeral', label: 'Memorial' },
-        { value: 'other', label: 'Other' },
-      ],
+      options: LEAD_EVENT_TYPE_OPTIONS,
     },
     clone(EVENT_DATE_FIELD),
     {
@@ -399,14 +387,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
       visible: true,
       order: 35,
       mapsTo: 'event_type',
-      options: [
-        { value: 'meeting', label: 'Meeting / boardroom lunch' },
-        { value: 'conference', label: 'Conference' },
-        { value: 'launch', label: 'Product launch' },
-        { value: 'team-building', label: 'Team-building day' },
-        { value: 'year-end', label: 'Year-end function' },
-        { value: 'other', label: 'Other' },
-      ],
+      options: LEAD_EVENT_TYPE_OPTIONS,
     },
     clone(EVENT_DATE_FIELD, { order: 40 }),
     {
@@ -462,13 +443,7 @@ const TEMPLATE_FIELDS: Record<EmbedTemplateId, EmbedField[]> = {
       visible: true,
       order: 10,
       mapsTo: 'event_type',
-      options: [
-        { value: 'wedding', label: 'Wedding' },
-        { value: 'corporate', label: 'Corporate event' },
-        { value: 'birthday', label: 'Birthday' },
-        { value: 'private', label: 'Private function' },
-        { value: 'other', label: 'Other' },
-      ],
+      options: LEAD_EVENT_TYPE_OPTIONS,
     },
     clone(GUEST_COUNT_FIELD, { order: 20 }),
     clone(EVENT_DATE_FIELD, { order: 30, required: false }),

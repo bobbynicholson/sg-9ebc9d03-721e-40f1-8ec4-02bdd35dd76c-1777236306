@@ -10,6 +10,7 @@ import {
 } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { addCatalogueFields } from "@/lib/embed/catalogueSelection";
+import { normalizeLeadEventTypeOptions } from "@/lib/leadEventTypes";
 
 
 /**
@@ -105,7 +106,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // behind the "build my quote" choice, the rest as optional extras). Only
   // ids cross the boundary: no prices are shown, and submit.ts resolves
   // every selected id again server-side.
-  let publicFields = (form.fields || []) as any[];
+  let publicFields = normalizeLeadEventTypeOptions((form.fields || []) as any[]);
   {
     const [{ data: menuRows }, { data: equipmentRows }] = await Promise.all([
       (supabase as any)

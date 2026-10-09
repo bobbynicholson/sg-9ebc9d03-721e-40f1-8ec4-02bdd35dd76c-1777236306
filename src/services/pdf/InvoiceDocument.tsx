@@ -32,6 +32,7 @@ import {
 import { isInvoiceFullPaymentDueByDate } from "@/lib/invoiceClientView";
 import { groupByCourse } from "@/lib/menuCourses";
 import { formatClockBoth } from "@/lib/portalTime";
+import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
 
 // --- Types -----------------------------------------------------------------
 
@@ -65,6 +66,8 @@ export interface InvoicePdfData {
   event_date?: string | null;
   /** Stored event clock time; a calendar date alone is not enough for a run sheet. */
   event_time?: string | null;
+  venue_address?: string | null;
+  guest_count?: number | string | null;
 
   line_items: InvoicePdfLineItem[];
 
@@ -665,7 +668,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {(data.order_number || data.event_name || eventDate || eventTime) ? (
+        {(data.order_number || data.event_name || eventDate || eventTime || data.guest_count != null || data.venue_address) ? (
           <View style={styles.fullWidthCard} wrap={false}>
             <Text style={styles.sectionLabel}>Event details</Text>
             <View style={styles.metaRow}>
@@ -687,7 +690,16 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                   <Text style={styles.metaValue}>{eventTime}</Text>
                 </View>
               ) : null}
+              {data.guest_count != null ? (
+                <View style={styles.metaCell}>
+                  <Text style={styles.metaLabel}>Guests</Text>
+                  <Text style={styles.metaValue}>{String(data.guest_count)}</Text>
+                </View>
+              ) : null}
             </View>
+            {data.venue_address ? (
+              <Text style={[styles.smallText, { marginTop: 4 }]}>Venue: {data.venue_address}</Text>
+            ) : null}
             {data.event_name ? (
               <Text style={[styles.smallText, { marginTop: 4 }]}>
                 Event: {data.event_name}
@@ -865,12 +877,12 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         ) : null}
 
         {/* NOTES */}
-        {data.notes ? (
+        {visibleDocumentNote(data.notes) ? (
           <View style={[styles.column, { marginBottom: 10 }]}>
             <Text style={styles.sectionLabel} minPresenceAhead={36}>
               Notes
             </Text>
-            <Text style={styles.notes}>{data.notes}</Text>
+            <Text style={styles.notes}>{visibleDocumentNote(data.notes)}</Text>
           </View>
         ) : null}
 

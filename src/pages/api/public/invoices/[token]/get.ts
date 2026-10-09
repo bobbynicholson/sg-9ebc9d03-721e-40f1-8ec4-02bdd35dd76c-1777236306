@@ -169,7 +169,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (invoiceForResponse.order_id) {
     const { data: orderMeta } = await supabase
       .from("orders")
-      .select("id, quote_id, package_id, event_date, event_time, deposit_amount, deposit_percentage, currency")
+      .select("id, quote_id, package_id, event_date, event_time, event_name, venue_address, guest_count, client_name, client_email, client_phone, subtotal, tax_amount, total_amount, deposit_amount, deposit_percentage, currency")
       .eq("id", invoiceForResponse.order_id)
       .maybeSingle();
 
@@ -177,14 +177,28 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       paymentCurrency = String((orderMeta as any).currency).toUpperCase();
     }
 
-    // Older invoice snapshots did not consistently carry eventDate.
-    // The client view needs it to suppress the deposit offer once the
-    // event is today/past, so hydrate it from the canonical order row.
-    if (!invoiceData.eventDate && !invoiceData.event_date && (orderMeta as any)?.event_date) {
-      invoiceData.eventDate = (orderMeta as any).event_date;
-    }
-    if (!invoiceData.eventTime && !invoiceData.event_time && (orderMeta as any)?.event_time) {
-      invoiceData.eventTime = (orderMeta as any).event_time;
+    // The linked order is authoritative for current booking values. Always
+    // refresh these fields; item snapshots remain untouched below.
+    if (orderMeta) {
+      invoiceData.eventDate = (orderMeta as any).event_date ?? null;
+      invoiceData.eventTime = (orderMeta as any).event_time ?? null;
+      invoiceData.eventName = (orderMeta as any).event_name ?? null;
+      invoiceData.venue = (orderMeta as any).venue_address ?? null;
+      invoiceData.venueAddress = (orderMeta as any).venue_address ?? null;
+      invoiceData.guestCount = (orderMeta as any).guest_count ?? null;
+      invoiceData.clientName = (orderMeta as any).client_name ?? invoiceData.clientName ?? null;
+      invoiceData.clientEmail = (orderMeta as any).client_email ?? invoiceData.clientEmail ?? null;
+      invoiceData.clientPhone = (orderMeta as any).client_phone ?? invoiceData.clientPhone ?? null;
+      if ((orderMeta as any).subtotal != null) invoiceData.subtotal = (orderMeta as any).subtotal;
+      if ((orderMeta as any).tax_amount != null) invoiceData.taxAmount = (orderMeta as any).tax_amount;
+      if ((orderMeta as any).total_amount != null) {
+        invoiceData.total = (orderMeta as any).total_amount;
+        invoiceForResponse.total_amount = (orderMeta as any).total_amount;
+        invoiceForResponse.balance_due = Math.max(
+          0,
+          Number(((Number((orderMeta as any).total_amount) || 0) - (Number(invoiceForResponse.amount_paid) || 0)).toFixed(2)),
+        );
+      }
     }
     if (orderMeta) {
       const firstPaymentAmount = resolveInvoiceFirstPaymentAmount({

@@ -533,7 +533,7 @@ export async function generateInvoiceData(
 
     // 5. Format client details
     const client = (orderData.clients || {}) as any;
-    const clientName = client.client_name || "Unknown client";
+    const clientName = orderData.client_name || client.client_name || "Unknown client";
     const clientAddress = [
       client.billing_address_line1,
       client.billing_address_line2,
@@ -630,8 +630,8 @@ export async function generateInvoiceData(
       companyRegistration: companyData.registration_number || "",
       
       clientName,
-      clientEmail: client.email,
-      clientPhone: client.phone,
+      clientEmail: orderData.client_email || client.email,
+      clientPhone: orderData.client_phone || client.phone,
       clientAddress,
       clientTaxNumber: client.tax_number || "",
       
@@ -643,7 +643,7 @@ export async function generateInvoiceData(
       orderNumber: orderData.order_number || orderData.id,
       eventDate: orderData.event_date || "",
       eventTime: orderData.event_time || "",
-      venue: orderData.venue_name || "",
+      venue: orderData.venue_address || orderData.venue_name || "",
       guestCount: orderData.guest_count || 0,
       
       items,
@@ -1366,7 +1366,7 @@ async function renderInvoicePdfAttachment(
         billing_city, billing_postal_code, tax_number, payment_terms
       ),
       order:order_id (
-        id, order_number, event_name, event_date, event_time, deposit_amount, deposit_percentage, currency, updated_at
+        id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at
       ),
       company:company_id (
         id, slug, company_name, legal_name, time_format, logo_url, email, phone,
@@ -1458,9 +1458,9 @@ async function renderInvoicePdfAttachment(
       due_date: invAny.due_date,
       status: invAny.status,
       client: {
-        name: client.client_name || fallbackData.clientName || "",
-        email: client.email || fallbackData.clientEmail || null,
-        phone: client.phone || fallbackData.clientPhone || null,
+        name: order.client_name || client.client_name || fallbackData.clientName || "",
+        email: order.client_email || client.email || fallbackData.clientEmail || null,
+        phone: order.client_phone || client.phone || fallbackData.clientPhone || null,
         address: clientAddress,
         tax_number: fallbackData.clientTaxNumber || client.tax_number || null,
       },
@@ -1468,6 +1468,8 @@ async function renderInvoicePdfAttachment(
       event_name: order.event_name || null,
       event_date: order.event_date || fallbackData.eventDate || null,
       event_time: order.event_time || fallbackData.eventTime || null,
+      venue_address: order.venue_address || null,
+      guest_count: order.guest_count ?? null,
       line_items: lineItems,
       subtotal: invAny.subtotal ?? fallbackData.subtotal,
       tax_amount: invAny.tax_amount ?? fallbackData.taxAmount,

@@ -647,6 +647,38 @@ function InvoicesPageInner() {
     return () => { (supabase as any).removeChannel(channel); };
   }, [(user as any)?.company_id]);
 
+  useEffect(() => {
+    if (!previewOpen || !selectedInvoiceId) return;
+    const invoice = invoices.find((row: any) => row.id === selectedInvoiceId);
+    if (!invoice) return;
+    const data = invoice.invoice_data || {};
+    const order = invoice.orders || {};
+    setSelectedInvoice((current: any) => ({
+      ...current,
+      ...data,
+      invoiceNumber: invoice.invoice_number || current?.invoiceNumber,
+      invoiceDate: invoice.invoice_date || current?.invoiceDate,
+      dueDate: invoice.due_date || current?.dueDate,
+      clientName: order.client_name || data.clientName || current?.clientName,
+      clientEmail: order.client_email || data.clientEmail || current?.clientEmail,
+      clientPhone: order.client_phone || data.clientPhone || current?.clientPhone,
+      orderNumber: order.order_number || data.orderNumber || current?.orderNumber,
+      eventName: order.event_name || data.eventName || current?.eventName,
+      eventDate: order.event_date || data.eventDate || current?.eventDate,
+      eventTime: order.event_time || data.eventTime || current?.eventTime,
+      venue: order.venue_address || data.venue || data.venueAddress || current?.venue,
+      guestCount: order.guest_count ?? data.guestCount ?? current?.guestCount ?? 0,
+      subtotal: invoice.subtotal ?? data.subtotal ?? current?.subtotal,
+      taxAmount: invoice.tax_amount ?? data.taxAmount ?? current?.taxAmount,
+      total: invoice.total_amount ?? data.total ?? current?.total,
+      depositPaid: invoice.amount_paid ?? data.depositPaid ?? current?.depositPaid,
+      balanceDue: invoice.balance_due ?? data.balanceDue ?? current?.balanceDue,
+      items: Array.isArray(data.items) && data.items.length > 0
+        ? data.items
+        : current?.items || [],
+    }));
+  }, [invoices, previewOpen, selectedInvoiceId]);
+
   // Wave 65 - URL persistence of statusFilter, searchTerm,
   // dateFrom, dateTo, amountMin, amountMax. Pre-Wave-65 reload lost
   // every filter so a bookkeeper sharing a Slack link couldn't pass
@@ -827,8 +859,15 @@ function InvoicesPageInner() {
             event_name,
             internal_notes,
             client_name,
+            client_email,
+            client_phone,
             event_date,
             event_time,
+            venue_address,
+            guest_count,
+            subtotal,
+            tax_amount,
+            total_amount,
             client_id,
             quote_id,
             region_id,

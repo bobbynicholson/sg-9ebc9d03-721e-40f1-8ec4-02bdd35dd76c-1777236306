@@ -35,6 +35,7 @@ import {
 import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
 import { groupByCourse } from "@/lib/menuCourses";
 import { formatClockBoth } from "@/lib/portalTime";
+import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
 
 // --- Types -----------------------------------------------------------------
 
@@ -926,10 +927,10 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         {/* Notes were historically saved on the quote but silently dropped
             from its PDF. Keep them distinct from contractual terms so a
             customer can tell operational context from legal conditions. */}
-        {data.notes ? (
+        {visibleDocumentNote(data.notes) ? (
           <View style={styles.card} minPresenceAhead={52}>
             <Text style={styles.sectionLabel}>A note from us</Text>
-            <Text style={styles.notes}>{data.notes}</Text>
+            <Text style={styles.notes}>{visibleDocumentNote(data.notes)}</Text>
           </View>
         ) : null}
 

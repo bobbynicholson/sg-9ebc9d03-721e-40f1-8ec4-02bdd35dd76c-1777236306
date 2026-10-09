@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import { formatClock } from "@/lib/portalTime";
+import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
 
 interface InvoicePreviewProps {
   invoiceNumber: string;
@@ -109,6 +110,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
   const isPaid = paymentSummary.state === "paid";
   const today = format(new Date(), "d MMMM yyyy");
   const fmtMoney = buildFmtMoney(props.currencyCode || "ZAR");
+  const visibleNotes = visibleDocumentNote(props.notes);
 
   return (
     <div className="bg-stone-50 rounded-lg p-4 sm:p-6 max-w-3xl mx-auto">
@@ -334,13 +336,13 @@ export function InvoicePreview(props: InvoicePreviewProps) {
       )}
 
       {/* NOTES */}
-      {props.notes && (
+      {visibleNotes && (
         <Card className="mb-4 border border-stone-200 shadow-sm">
           <CardContent className="py-5 px-5">
             <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
               A note from us
             </p>
-            <p className="text-sm text-stone-700 whitespace-pre-wrap">{props.notes}</p>
+            <p className="text-sm text-stone-700 whitespace-pre-wrap">{visibleNotes}</p>
           </CardContent>
         </Card>
       )}

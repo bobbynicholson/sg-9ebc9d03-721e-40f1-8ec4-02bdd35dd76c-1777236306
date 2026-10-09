@@ -313,6 +313,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     receipt.errors.push(`equipment_bookings_resync_crashed: ${e?.message || e}`);
   }
 
+  try {
+    const { syncInvoiceValuesFromOrder } = await import("@/services/order/orderSyncService");
+    const invoiceSync = await syncInvoiceValuesFromOrder(receipt.orderId!, sb);
+    if (invoiceSync.error) receipt.errors.push(`invoice_values_sync_failed: ${invoiceSync.error}`);
+  } catch (e: any) {
+    receipt.errors.push(`invoice_values_sync_failed: ${e?.message || e}`);
+  }
+
   // Stamp a single audit row so we can trace which save triggered
   // this resync.
   try {

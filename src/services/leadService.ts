@@ -189,12 +189,20 @@ export const leadService = {
           const eventDateLabel = lead.event_date
             ? new Date(lead.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
             : "TBD";
+          const appOrigin = typeof window !== "undefined"
+            ? window.location.origin
+            : process.env.NEXT_PUBLIC_APP_URL || "";
+          const leadLink = `${appOrigin}/admin/leads?leadId=${encodeURIComponent(data.id)}`;
           const subject = `New Lead Captured: ${lead.client_name || lead.client_email}`;
           const body = `A new lead has been captured:
 Name: ${lead.client_name || lead.client_email}
 Email: ${lead.client_email}
+Event type: ${lead.event_type || "TBD"}
 Event Date: ${eventDateLabel}
-Guests: ${lead.guest_count ?? "TBD"}`;
+Guests: ${lead.guest_count ?? "TBD"}
+Venue: ${lead.venue_address || "TBD"}
+
+Open the lead: ${leadLink}`;
 
           await sendEmailViaAPI({
             companyId: lead.user_id,

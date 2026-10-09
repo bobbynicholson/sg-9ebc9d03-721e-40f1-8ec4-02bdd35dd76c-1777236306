@@ -370,9 +370,27 @@ const handleRemoveEquipment = async (bookingId: string) => {
 
 // Recompute totals + push to quote + invoice + reflect in modal
 // header. Called after every inline item / equipment add or remove.
+const currentBaseSubtotal = () => {
+  const itemSubtotal = orderItemsRaw.reduce((sum: number, item: any) => {
+    const lineTotal = Number(item.line_total || 0);
+    return sum + (lineTotal > 0 ? lineTotal : Number(item.quantity || 0) * Number(item.unit_price || 0));
+  }, 0);
+  const equipmentSubtotal = equipmentBookings.reduce((sum: number, booking: any) => {
+    const equipment = Array.isArray(booking.equipment) ? booking.equipment[0] : booking.equipment;
+    const days = booking.booked_from && booking.booked_until
+      ? Math.max(1, Math.round((new Date(booking.booked_until).getTime() - new Date(booking.booked_from).getTime()) / (24 * 60 * 60 * 1000)))
+      : 1;
+    return sum + Number(booking.quantity || 0) * Number(equipment?.rental_price || 0) * days;
+  }, 0);
+  return Number((itemSubtotal + equipmentSubtotal).toFixed(2));
+};
+
 const syncAndRefresh = async () => {
   if (!selectedOrder?.id) return;
-  const sync = await syncOrderArtifacts(selectedOrder.id);
+  const sync = await syncOrderArtifacts(selectedOrder.id, undefined, {
+    priorBaseSubtotal: currentBaseSubtotal(),
+    priorDiscountAmount: Number((selectedOrder as any).discount_amount || 0),
+  });
   if (!sync.ok) return;
   const merged: any = {
     ...selectedOrder,
@@ -690,7 +708,10 @@ const persistSave = async () => {
     }
 
     // Quote + invoice mirror so all three artifacts stay in sync.
-    const sync = await syncOrderArtifacts(editedOrder.id);
+    const sync = await syncOrderArtifacts(editedOrder.id, undefined, {
+      priorBaseSubtotal: currentBaseSubtotal(),
+      priorDiscountAmount: Number((selectedOrder as any)?.discount_amount || 0),
+    });
 
     toast({
       title: "Order Updated",

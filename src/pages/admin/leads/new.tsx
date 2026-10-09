@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChatBot } from "@/components/ChatBot";
 import { resolveDefaultRegionId } from "@/lib/defaultRegion";
 import { leadService } from "@/services/leadService";
+import { LEAD_EVENT_TYPE_LABELS } from "@/lib/leadEventTypes";
 import { useCompanyKitchens } from "@/hooks/useCompanyKitchens";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
@@ -102,11 +103,6 @@ const SOURCE_OPTIONS = [
   { value: "phone_enquiry",  label: "Phone enquiry" },
   { value: "walk_in",        label: "Walk-in" },
   { value: "other",          label: "Other" },
-];
-
-const EVENT_TYPE_SUGGESTIONS = [
-  "Wedding", "Corporate lunch", "Birthday party", "Anniversary",
-  "Year-end function", "Conference", "Funeral", "Other private event",
 ];
 
 // Audit fix (2026-07-02): this page previously had NO ProtectedRoute
@@ -448,7 +444,7 @@ function NewLeadInner() {
                         {...register("eventType")}
                       />
                       <datalist id="event-type-suggestions">
-                        {EVENT_TYPE_SUGGESTIONS.map((t) => (
+                        {LEAD_EVENT_TYPE_LABELS.map((t) => (
                           <option key={t} value={t} />
                         ))}
                       </datalist>

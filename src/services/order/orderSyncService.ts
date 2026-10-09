@@ -19,10 +19,91 @@ import { breakdownFromLineSum } from "@/lib/vatMath";
 
 const FALLBACK_TAX_RATE = 0.15; // SA VAT default
 
+export function applyOrderValueDelta(
+  priorComparableValue: number,
+  priorBaseValue: number,
+  currentBaseValue: number,
+  priorDiscount: number,
+  currentDiscount: number,
+): number {
+  return Number((
+    priorComparableValue + currentBaseValue - priorBaseValue + priorDiscount - currentDiscount
+  ).toFixed(2));
+}
+
+export async function syncInvoiceValuesFromOrder(
+  orderId: string,
+  client?: any,
+): Promise<{ invoice_id: string | null; error?: string }> {
+  const sb = client || defaultSb;
+  try {
+    const [{ data: order, error: orderErr }, { data: invoice, error: invoiceErr }] = await Promise.all([
+      sb.from("orders")
+        .select("subtotal, tax_amount, total_amount, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count")
+        .eq("id", orderId)
+        .maybeSingle(),
+      sb.from("invoices")
+        .select("id, invoice_data, amount_paid, status")
+        .eq("order_id", orderId)
+        .is("deleted_at", null)
+        .maybeSingle(),
+    ]);
+
+    if (orderErr) throw orderErr;
+    if (invoiceErr) throw invoiceErr;
+    if (!order || !invoice) return { invoice_id: null };
+
+    const amountPaid = Number((invoice as any).amount_paid || 0);
+    const totalAmount = Number((order as any).total_amount || 0);
+    const balanceDue = Math.max(0, Number((totalAmount - amountPaid).toFixed(2)));
+    const previousStatus = String((invoice as any).status || "sent");
+    const status = balanceDue < 0.01
+      ? "paid"
+      : previousStatus === "paid"
+        ? amountPaid > 0 ? "partially_paid" : "sent"
+        : previousStatus;
+    const existingInvoiceData = (invoice as any).invoice_data && typeof (invoice as any).invoice_data === "object"
+      ? (invoice as any).invoice_data
+      : {};
+    const updatedInvoiceData = {
+      ...existingInvoiceData,
+      subtotal: Number((order as any).subtotal || 0),
+      taxAmount: Number((order as any).tax_amount || 0),
+      total: totalAmount,
+      depositPaid: amountPaid,
+      balanceDue,
+      clientName: (order as any).client_name ?? null,
+      clientEmail: (order as any).client_email ?? null,
+      clientPhone: (order as any).client_phone ?? null,
+      eventName: (order as any).event_name ?? null,
+      eventDate: (order as any).event_date ?? null,
+      eventTime: (order as any).event_time ?? null,
+      venue: (order as any).venue_address ?? null,
+      venueAddress: (order as any).venue_address ?? null,
+      guestCount: (order as any).guest_count ?? null,
+    };
+    const { error: updateErr } = await sb.from("invoices").update({
+      subtotal: Number((order as any).subtotal || 0),
+      tax_amount: Number((order as any).tax_amount || 0),
+      total_amount: totalAmount,
+      amount_paid: amountPaid,
+      balance_due: balanceDue,
+      status,
+      invoice_data: updatedInvoiceData as any,
+      updated_at: new Date().toISOString(),
+    } as any).eq("id", (invoice as any).id);
+    if (updateErr) throw updateErr;
+
+    return { invoice_id: (invoice as any).id };
+  } catch (err: any) {
+    return { invoice_id: null, error: err?.message || "invoice_sync_failed" };
+  }
+}
+
 /**
- * Recompute totals from order_items + equipment_bookings, write them
- * back to the order, then push through to the linked quote (if any)
- * and the linked invoice (if any).
+ * Recompute totals from order_items + equipment_bookings using the
+ * pre-edit base when supplied, preserving the agreed fee/discount
+ * adjustment. Then update the order, linked quote, and invoice.
  *
  * Returns the freshly-computed totals so callers can update local
  * state without a refetch.
@@ -30,6 +111,7 @@ const FALLBACK_TAX_RATE = 0.15; // SA VAT default
 export async function syncOrderArtifacts(
   orderId: string,
   client?: any,
+  options?: { priorBaseSubtotal?: number; priorDiscountAmount?: number },
 ): Promise<{
   ok: boolean;
   subtotal: number;
@@ -44,7 +126,7 @@ export async function syncOrderArtifacts(
     // 1. Pull the order + its line + equipment data.
     const [{ data: order }, { data: items }, { data: bookings }] = await Promise.all([
       sb.from("orders")
-        .select("id, quote_id, company_id, subtotal, tax_amount, total_amount, client_name, venue_address, event_date, guest_count, companies:company_id(pricing_includes_vat)")
+        .select("id, quote_id, company_id, subtotal, tax_amount, total_amount, discount_amount, client_name, venue_address, event_name, event_date, event_time, guest_count, companies:company_id(pricing_includes_vat)")
         .eq("id", orderId)
         .maybeSingle(),
       sb.from("order_items")
@@ -85,7 +167,7 @@ export async function syncOrderArtifacts(
       return sum + Number(b.quantity || 0) * dailyRate * days;
     }, 0);
 
-    const computedSubtotal = Number((itemSubtotal + equipmentSubtotal).toFixed(2));
+    const computedBase = Number((itemSubtotal + equipmentSubtotal).toFixed(2));
 
     // 3. Derive tax rate from the order's existing tax_amount / subtotal
     //    so we preserve whatever was originally quoted (could be 0%
@@ -93,6 +175,18 @@ export async function syncOrderArtifacts(
     const priorSubtotal = Number((order as any).subtotal || 0);
     const priorTax = Number((order as any).tax_amount || 0);
     const priorTotal = Number((order as any).total_amount || 0);
+    const incVat = (order as any)?.companies?.pricing_includes_vat === true;
+    const priorBase = options?.priorBaseSubtotal ?? computedBase;
+    const priorDiscount = options?.priorDiscountAmount ?? Number((order as any).discount_amount || 0);
+    const currentDiscount = Number((order as any).discount_amount || 0);
+    const priorComparable = incVat ? priorTotal : priorSubtotal;
+    const computedSubtotal = applyOrderValueDelta(
+      priorComparable,
+      priorBase,
+      computedBase,
+      priorDiscount,
+      currentDiscount,
+    );
 
     let subtotal: number;
     let tax_amount: number;
@@ -107,7 +201,6 @@ export async function syncOrderArtifacts(
       // Honour the tenant's pricing convention. If they store prices
       // inc-VAT, computedSubtotal IS the gross and we derive ex-VAT
       // by dividing back. Otherwise VAT is added on top.
-      const incVat = (order as any)?.companies?.pricing_includes_vat === true;
       const breakdown = breakdownFromLineSum(
         computedSubtotal,
         priorRate,
@@ -128,11 +221,12 @@ export async function syncOrderArtifacts(
     }
 
     // 4. Update the order's totals.
-    await sb.from("orders").update({
+    const { error: totalsUpdateErr } = await sb.from("orders").update({
       subtotal,
       tax_amount,
       total_amount,
     } as any).eq("id", orderId);
+    if (totalsUpdateErr) throw totalsUpdateErr;
 
     // 5. Mirror to the source quote, if any - but only while the
     //    quote is still in flight. Once the client accepts, the quote
@@ -196,56 +290,11 @@ export async function syncOrderArtifacts(
       } as any).eq("id", quote_id);
     }
 
-    // 6. Mirror to the invoice, if one exists. Invoices reference the
-    //    order; we just push totals through.
-    const { data: invoice, error: invoiceErr } = await sb
-      .from("invoices")
-      .select("id")
-      .eq("order_id", orderId)
-      .maybeSingle();
-    if (invoiceErr) {
-      console.error("[order/orderSyncService] invoices fetch failed:", invoiceErr);
-    }
-
-    let invoice_id: string | null = null;
-    if (invoice) {
-      invoice_id = (invoice as any).id;
-      // Wave 70.39 - push the order's headline fields onto the
-      // invoice snapshot too. Previously only totals were synced,
-      // so when Bobby changed the order's event_date the invoice
-      // kept its stale snapshot (event_date / client_name /
-      // venue_address all drifted). The /admin/invoices list joins
-      // orders so the UI was OK, but anything that read invoices
-      // directly (accounting exports, PDF render, third-party API
-      // pulls via Sage/Xero/QuickBooks) would have shown the old
-      // values.
-      //
-      // We use a Best-effort update - if the invoices table doesn't
-      // carry one of these columns (older tenant schema), the failed
-      // column just drops silently rather than blocking the totals
-      // update. The .update() call below is wrapped in a try so we
-      // can fall back to totals-only when column-mismatch errors fire.
-      const headlinePatch = {
-        subtotal,
-        tax_amount,
-        total_amount,
-        event_date: (order as any).event_date ?? null,
-        client_name: (order as any).client_name ?? null,
-        venue_address: (order as any).venue_address ?? null,
-        guest_count: (order as any).guest_count ?? null,
-      } as any;
-      const { error: invUpdateErr } = await sb.from("invoices").update(headlinePatch).eq("id", invoice_id);
-      if (invUpdateErr) {
-        // Schema may not have the new columns yet; retry totals-only
-        // so we don't lose the financial sync over a column issue.
-        console.warn("[orderSyncService] full invoice patch failed, retrying totals-only:", invUpdateErr.message);
-        await sb.from("invoices").update({
-          subtotal,
-          tax_amount,
-          total_amount,
-        } as any).eq("id", invoice_id);
-      }
-    }
+    // 6. Mirror current financial + event values to the invoice while
+    // preserving every saved menu/equipment line in its invoice snapshot.
+    const invoiceSync = await syncInvoiceValuesFromOrder(orderId, sb);
+    if (invoiceSync.error) throw new Error(invoiceSync.error);
+    const invoice_id = invoiceSync.invoice_id;
 
     return { ok: true, subtotal, tax_amount, total_amount, quote_id, invoice_id };
   } catch (err: any) {

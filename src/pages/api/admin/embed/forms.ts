@@ -5,6 +5,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { validateRedirectUrl } from "@/lib/embedFormApi";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
+import { normalizeLeadEventTypeOptions } from "@/lib/leadEventTypes";
 
 
 /**
@@ -126,7 +127,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .order("created_at", { ascending: false });
 
       if (error) return res.status(500).json({ error: dbErrorMessage(error) });
-      return res.status(200).json({ ok: true, forms: data || [] });
+      const forms = (data || []).map((form: any) => ({
+        ...form,
+        fields: normalizeLeadEventTypeOptions(form.fields || []),
+      }));
+      return res.status(200).json({ ok: true, forms });
     }
 
     if (req.method === "POST") {

@@ -137,6 +137,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (force || !prior.invoice?.ok) {
       try {
         const { ensureInvoiceForOrder, recalcInvoiceForOrder } = await import("@/services/invoiceGenerationService");
+        const { syncInvoiceValuesFromOrder } = await import("@/services/order/orderSyncService");
         const recalc = await recalcInvoiceForOrder(orderId, companyId, ssr);
         if (recalc.success && recalc.updated) {
           cascade.invoice = { ok: true };
@@ -146,6 +147,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         } else {
           cascade.invoice = { ok: false, reason: recalc.error || recalc.reason || "invoice recalc returned no update" };
         }
+        const valueSync = await syncInvoiceValuesFromOrder(orderId, ssr);
+        if (valueSync.error) throw new Error(valueSync.error);
       } catch (e: any) {
         cascade.invoice = { ok: false, reason: e?.message || "invoice refresh failed" };
       }

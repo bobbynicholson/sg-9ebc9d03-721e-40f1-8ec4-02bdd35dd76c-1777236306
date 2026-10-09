@@ -15,6 +15,7 @@ import type {
   EmbedTemplateId,
   EmbedTheme,
 } from "@/types/embedForms";
+import { LEAD_EVENT_TYPE_OPTIONS } from "@/lib/leadEventTypes";
 
 export interface EmbedTemplateMeta {
   id: EmbedTemplateId;
@@ -60,14 +61,7 @@ const notes: EmbedField = {
 
 const eventTypeSelect: EmbedField = {
   id: "event_type", type: "select", label: "Type of event", required: true, visible: true, order: 4, mapsTo: "event_name",
-  options: [
-    { value: "wedding",   label: "Wedding"                  },
-    { value: "corporate", label: "Corporate / work function" },
-    { value: "birthday",  label: "Birthday / private party" },
-    { value: "year_end",  label: "Year-end function"        },
-    { value: "funeral",   label: "Funeral / memorial"       },
-    { value: "other",     label: "Other"                    },
-  ],
+  options: LEAD_EVENT_TYPE_OPTIONS,
 };
 
 // The full quote-ready set used as the default for general-purpose

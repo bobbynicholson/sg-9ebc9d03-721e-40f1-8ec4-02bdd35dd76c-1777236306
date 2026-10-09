@@ -42,7 +42,9 @@ import { CancellationWizard } from "@/components/cancellation/CancellationWizard
 // and the existing amendment cascade does the money / quote / notify work.
 import { OrderEditDialog } from "@/components/order/OrderEditDialog";
 import { orderDisplayName } from "@/lib/orderDisplayName";
-import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
+
 import { formatClockBoth } from "@/lib/portalTime";
 import {
   getInitialInvoicePaymentAmount,
@@ -712,16 +714,16 @@ export default function ClientOrderPage() {
               )}
 
               {/* Special / dietary */}
-              {(order.special_instructions || order.dietary_requirements) && (
+              {(visibleDocumentNote(order.special_instructions) || order.dietary_requirements) && (
                 <Card className="border-0 shadow-lg">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Special notes</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm text-slate-700">
-                    {order.special_instructions && (
+                    {visibleDocumentNote(order.special_instructions) && (
                       <div>
                         <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">Instructions</p>
-                        <p className="whitespace-pre-line">{order.special_instructions}</p>
+                        <p className="whitespace-pre-line">{visibleDocumentNote(order.special_instructions)}</p>
                       </div>
                     )}
                     {order.dietary_requirements && (

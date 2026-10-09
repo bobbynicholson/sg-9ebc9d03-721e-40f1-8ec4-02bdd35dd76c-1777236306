@@ -36,6 +36,25 @@ export interface NotifyEmbedLeadInput {
   appOrigin: string; // e.g. https://cateringms.com - for absolute links in the email
 }
 
+export function ensureLeadLinkInEmailBody(body: unknown, leadLink: string): string {
+  const content = typeof body === "string" ? body : "";
+  const safeLeadLink = escapeHtml(leadLink);
+  return content.includes(`href="${safeLeadLink}"`) || content.includes(`href='${safeLeadLink}'`)
+    ? content
+    : `${content}${content.trim() ? "\n\n" : ""}<p><a href="${safeLeadLink}">Open this lead</a></p>`;
+}
+
+export function uniqueAdminEmails(candidates: unknown[]): string[] {
+  const recipients = new Map<string, string>();
+  for (const candidate of candidates) {
+    const email = typeof candidate === "string" ? candidate.trim() : "";
+    if (email && !recipients.has(email.toLowerCase())) {
+      recipients.set(email.toLowerCase(), email);
+    }
+  }
+  return [...recipients.values()];
+}
+
 export async function notifyAdminOfEmbedLead(
   supabase: any,
   input: NotifyEmbedLeadInput,
@@ -71,6 +90,10 @@ export async function notifyAdminOfEmbedLead(
     (ownerProfile as any)?.company_name ||
     (ownerProfile as any)?.full_name ||
     "Your catering company";
+  const adminEmailCandidates: unknown[] = [
+    (company as any)?.notification_email,
+    (ownerProfile as any)?.email,
+  ];
 
   const clientName =
     leadInsert.client_name ||
@@ -98,12 +121,13 @@ export async function notifyAdminOfEmbedLead(
   try {
     const { data: adminProfiles } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id, email")
       .eq("company_id", companyId)
       .in("role", ["company_admin", "admin", "sales_admin", "region_admin"]);
     const recipientIds = new Set(
       ((adminProfiles || []) as Array<{ id: string }>).map((p) => p.id),
     );
+    adminEmailCandidates.push(...(adminProfiles || []).map((profile: any) => profile.email));
     if (ownerUserId) recipientIds.add(ownerUserId);
     const message = `${clientName} just enquired ${summary}` +
       (guestCount ? ` (${guestCount} guests` : "") +
@@ -193,9 +217,20 @@ export async function notifyAdminOfEmbedLead(
   // the email for noisy forms (newsletter signups etc.) while keeping
   // the in-portal bell.
   if (formNotifyAdminEmail) {
-    const adminTo =
-      (company as any)?.notification_email || (ownerProfile as any)?.email || null;
-    if (adminTo) {
+    if (uniqueAdminEmails(adminEmailCandidates).length === 0) {
+      try {
+        const { data: adminProfiles } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("company_id", companyId)
+          .in("role", ["company_admin", "admin", "sales_admin", "region_admin"]);
+        adminEmailCandidates.push(...(adminProfiles || []).map((profile: any) => profile.email));
+      } catch (err) {
+        console.warn("[embed/lead-notify] admin email fallback lookup failed", err);
+      }
+    }
+    const adminRecipients = uniqueAdminEmails(adminEmailCandidates);
+    if (adminRecipients.length > 0) {
       try {
         const { emailService } = await import("@/services/emailService");
         const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
@@ -216,7 +251,7 @@ export async function notifyAdminOfEmbedLead(
           `Budget: {{budget}}\n\n` +
           `Notes: {{notes}}\n\n` +
           `Reply quickly while the enquiry is hot.\n\n` +
-          `Open the lead: ${leadLink}`;
+          `Open the lead: <a href="${escapeHtml(leadLink)}">View lead</a>`;
 
         const resolved = await resolveEmailTemplate({
           companyId,
@@ -234,35 +269,35 @@ export async function notifyAdminOfEmbedLead(
         const safeForm = escapeHtml(formName || "embed form");
         const safeNotes = escapeHtml(leadInsert.notes || "");
 
-        await (emailService as any).sendEmail({
-          companyId,
-          to: adminTo,
-          // This is an internal transactional alert to the operator's
-          // own inbox. Allow the platform shared sender so a tenant who
-          // hasn't set up their own email domain still gets lead
-          // alerts (sends from noreply@send.cateringms.com when the
-          // platform Resend key exists; no-op otherwise).
-          allowPlatformFallback: true,
-          subject: resolved.subject,
-          body: resolved.bodyHtml,
-          variables: {
-            ...embedLeadVars,
-            // Legacy keys retained for any downstream readers.
-            clientName: safeName,
-            companyName: safeCompany,
-            formName: safeForm,
-            leadLink,
-            notes: safeNotes,
-          },
-          _client: supabase,
-        });
+        for (const to of adminRecipients) {
+          try {
+            await (emailService as any).sendEmail({
+              companyId,
+              to,
+              allowPlatformFallback: true,
+              subject: resolved.subject,
+              body: ensureLeadLinkInEmailBody(resolved.bodyHtml, leadLink),
+              variables: {
+                ...embedLeadVars,
+                clientName: safeName,
+                companyName: safeCompany,
+                formName: safeForm,
+                leadLink,
+                notes: safeNotes,
+              },
+              _client: supabase,
+            });
+          } catch (err) {
+            console.warn(`[embed/lead-notify] admin email failed for ${to}`, err);
+          }
+        }
       } catch (err) {
         console.warn("[embed/lead-notify] admin email failed", err);
       }
     } else {
       console.warn(
         `[embed/lead-notify] no admin email available for company ${companyId} ` +
-          `(notification_email + owner profile email both null) - skipped`,
+          `(no notification or admin profile email) - skipped`,
       );
     }
   }

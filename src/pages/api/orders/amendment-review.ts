@@ -528,6 +528,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         ensureInvoiceForOrder,
         recalcInvoiceForOrder,
       } = await import("@/services/invoiceGenerationService");
+      const { syncInvoiceValuesFromOrder } = await import("@/services/order/orderSyncService");
       // Flow audit Leg C P0-4: ensureInvoiceForOrder no-ops when an
       // invoice already exists, so previously the amendment shifted
       // the order total but left the invoice + balance_due frozen.
@@ -551,6 +552,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         cascade.invoice.ok = false;
         cascade.invoice.reason = recalc.error || recalc.reason || "invoice recalc returned no update";
       }
+      const valueSync = await syncInvoiceValuesFromOrder(
+        (request as any).order_id,
+        ssr,
+      );
+      if (valueSync.error) throw new Error(valueSync.error);
     } catch (e: any) {
       cascade.invoice.reason = e?.message || "invoice refresh failed";
       console.warn("[amendment-review] invoice refresh failed:", e);

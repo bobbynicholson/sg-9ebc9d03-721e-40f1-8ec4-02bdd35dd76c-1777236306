@@ -13,6 +13,7 @@ import {
   verifyTurnstile,
 } from "@/lib/embedFormApi";
 import { notifyAdminOfEmbedLead } from "@/lib/embed/notifyAdminOfEmbedLead";
+import { normalizeLeadEventTypeOptions } from "@/lib/leadEventTypes";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { getEventCapacityForDate } from "@/lib/eventCapacity";
 import { normalizeEmbedSubmitRequest } from "@/lib/embed/normalizeSubmitRequest";
@@ -320,7 +321,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(404).json({ ok: false, message: "Not found" });
   }
 
-  const fields = (form.fields || []) as any[];
+  const fields = normalizeLeadEventTypeOptions((form.fields || []) as any[]);
   const requestType = String(payload[EMBED_REQUEST_TYPE_FIELD_ID] || "");
   if (requestType && requestType !== "enquiry" && requestType !== "quote") {
     return res.status(400).json({
@@ -670,7 +671,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.NEXT_PUBLIC_VERCEL_URL
       ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-      : "");
+      : "") ||
+    (() => {
+      const host = req.headers["x-forwarded-host"] || req.headers.host;
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      return host ? `${protocol}://${host}` : "";
+    })();
   // MUST be awaited, not fire-and-forget. On Vercel the serverless
   // function is frozen the moment the response is returned, so a
   // `void notifyAdminOfEmbedLead(...)` promise left pending after

@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { canSeeOrderFinance } from "@/lib/authGuards";
+import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
 import { UserRole } from "@/types/app";
 import {
   Calendar as CalendarIcon, Clock, MapPin, Users, User, Mail, Phone, FileText,
@@ -103,6 +104,9 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
   const { user } = useAuth();
   const canSeeFinance = canSeeOrderFinance(user?.role as UserRole | undefined);
   const isAdminTier = canSeeFinance; // admin-tier roles see internal_notes
+  const specialInstructions = visibleDocumentNote(order.special_instructions);
+  const kitchenInstructions = visibleDocumentNote(order.kitchen_instructions);
+  const internalNotes = visibleDocumentNote(order.internal_notes);
 
   const [history, setHistory] = useState<ClientHistory | null>(null);
   const [quote, setQuote] = useState<QuoteLink | null>(null);
@@ -346,7 +350,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
         </div>
       </div>
 
-      {(order.dietary_requirements || order.special_instructions || order.kitchen_instructions || (isAdminTier && order.internal_notes)) && (
+      {(order.dietary_requirements || specialInstructions || kitchenInstructions || (isAdminTier && internalNotes)) && (
         <div className="mt-4 pt-4 border-t border-slate-200 space-y-3 text-sm">
           {order.dietary_requirements && (
             <div>
@@ -354,24 +358,24 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
               <p className="text-amber-900 bg-amber-50 border border-amber-200 rounded p-2 whitespace-pre-wrap">{order.dietary_requirements}</p>
             </div>
           )}
-          {order.special_instructions && (
+          {specialInstructions && (
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Special instructions</p>
-              <p className="text-slate-700 whitespace-pre-wrap">{order.special_instructions}</p>
+              <p className="text-slate-700 whitespace-pre-wrap">{specialInstructions}</p>
             </div>
           )}
-          {order.kitchen_instructions && (
+          {kitchenInstructions && (
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Kitchen notes</p>
-              <p className="text-slate-700 whitespace-pre-wrap">{order.kitchen_instructions}</p>
+              <p className="text-slate-700 whitespace-pre-wrap">{kitchenInstructions}</p>
             </div>
           )}
-          {isAdminTier && order.internal_notes && (
+          {isAdminTier && internalNotes && (
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wider mb-1 inline-flex items-center gap-1">
                 Internal notes <span className="text-[10px] bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">admin only</span>
               </p>
-              <p className="text-slate-700 whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded p-2">{order.internal_notes}</p>
+              <p className="text-slate-700 whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded p-2">{internalNotes}</p>
             </div>
           )}
         </div>

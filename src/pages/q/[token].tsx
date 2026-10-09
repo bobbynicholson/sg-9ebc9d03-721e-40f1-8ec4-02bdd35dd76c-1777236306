@@ -58,6 +58,7 @@ import { EQUIPMENT_RETURN_OPTIONS, resolveEquipmentReturn } from "@/lib/equipmen
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import { formatClockBoth } from "@/lib/portalTime";
 import { groupByCourse } from "@/lib/menuCourses";
+import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -1667,13 +1668,13 @@ export default function PublicQuotePage() {
           {/* A NOTE FROM US - sits below the address footer so it
               reads like a personal sign-off rather than competing with
               the totals + accept CTA above. */}
-          {quote.notes && (
+          {visibleDocumentNote(quote.notes) && (
             <Card className="mt-6 border border-stone-200 shadow-sm print-shadow-none">
               <CardContent className="py-5 px-5">
                 <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
                   A note from us
                 </p>
-                <p className="text-sm text-stone-700 whitespace-pre-wrap">{quote.notes}</p>
+                <p className="text-sm text-stone-700 whitespace-pre-wrap">{visibleDocumentNote(quote.notes)}</p>
               </CardContent>
             </Card>
           )}
