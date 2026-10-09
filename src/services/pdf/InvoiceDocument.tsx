@@ -286,6 +286,15 @@ const buildStyles = (primary: string) =>
       gap: 12,
       marginBottom: 10,
     },
+    // Match QuoteDocument's shared section card, paired party columns,
+    // and inset event tiles so both PDFs use the same visual grid.
+    card: {
+      borderWidth: 1,
+      borderColor: "#e7e5e4",
+      borderRadius: 6,
+      padding: 13,
+      marginBottom: 10,
+    },
     column: {
       flex: 1,
       borderWidth: 1,
@@ -293,20 +302,45 @@ const buildStyles = (primary: string) =>
       borderRadius: 6,
       padding: 12,
     },
-    fullWidthCard: {
-      borderWidth: 1,
-      borderColor: "#e7e5e4",
-      borderRadius: 6,
-      padding: 12,
-      marginBottom: 10,
-    },
     sectionLabel: {
-      fontSize: 8.5,
-      letterSpacing: 0.5,
+      fontSize: 9,
+      letterSpacing: 1.2,
       color: primary,
       fontFamily: "Helvetica-Bold",
       textTransform: "uppercase",
       marginBottom: 6,
+    },
+    cellLabel: {
+      fontSize: 8,
+      letterSpacing: 1,
+      color: primary,
+      fontFamily: "Helvetica-Bold",
+      textTransform: "uppercase",
+      marginBottom: 4,
+    },
+    cellValue: {
+      fontSize: 10,
+      fontFamily: "Helvetica-Bold",
+      color: "#1c1917",
+      marginBottom: 2,
+    },
+    eventGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      marginTop: 8,
+      gap: 8,
+    },
+    eventCard: {
+      width: "48%",
+      borderWidth: 1,
+      borderColor: "#f5f5f4",
+      borderRadius: 8,
+      backgroundColor: "#fafaf9",
+      padding: 8,
+      minHeight: 52,
+    },
+    eventCardWide: {
+      width: "100%",
     },
     bodyText: {
       fontSize: 10,
@@ -337,58 +371,28 @@ const buildStyles = (primary: string) =>
       paddingRight: 8,
     },
     lineName: {
-      fontSize: 10,
+      fontSize: 11,
       fontFamily: "Helvetica-Bold",
       color: "#1c1917",
     },
     lineDescription: {
-      fontSize: 8,
+      fontSize: 9,
       color: "#78716c",
       marginTop: 1,
     },
     lineSub: {
-      fontSize: 8,
+      fontSize: 9,
       color: "#78716c",
       marginTop: 1,
     },
     lineTotal: {
-      fontSize: 10,
+      fontSize: 11,
       fontFamily: "Helvetica-Bold",
       color: "#1c1917",
       textAlign: "right",
       width: 86,
     },
 
-    // Full-width totals card matches QuoteDocument so the totals
-    // section shares the same visual weight across both documents.
-    totalsBlock: {
-      borderWidth: 1,
-      borderColor: "#e7e5e4",
-      borderRadius: 6,
-      padding: 12,
-      marginBottom: 10,
-    },
-    paymentPlan: {
-      borderWidth: 1,
-      borderColor: primary,
-      borderRadius: 6,
-      padding: 12,
-      marginBottom: 10,
-      backgroundColor: `${primary}0D`,
-    },
-    paymentTerms: {
-      borderWidth: 1,
-      borderColor: "#d6d3d1",
-      borderRadius: 6,
-      padding: 12,
-      marginBottom: 10,
-      backgroundColor: "#fafaf9",
-    },
-    paymentTermsText: {
-      fontSize: 9.5,
-      color: "#44403c",
-      lineHeight: 1.45,
-    },
     totalsRow: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -466,6 +470,11 @@ const buildStyles = (primary: string) =>
     },
     notes: {
       fontSize: 9,
+      color: "#57534e",
+      lineHeight: 1.4,
+    },
+    terms: {
+      fontSize: 8,
       color: "#57534e",
       lineHeight: 1.4,
     },
@@ -636,7 +645,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             order/date text from being squeezed into the Bill to column. */}
         <View style={styles.columns} wrap={false}>
           <View style={styles.column}>
-            <Text style={styles.sectionLabel}>From</Text>
+            <Text style={styles.cellLabel}>From</Text>
             <Text style={styles.bodyText}>
               {company.legal_name || company.company_name || ""}
             </Text>
@@ -651,7 +660,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             ) : null}
           </View>
           <View style={styles.column}>
-            <Text style={styles.sectionLabel}>Bill to</Text>
+            <Text style={styles.cellLabel}>Bill to</Text>
             <Text style={styles.bodyText}>{data.client?.name || ""}</Text>
             {data.client?.address ? (
               <Text style={styles.smallText}>{data.client.address}</Text>
@@ -671,48 +680,47 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         </View>
 
         {(data.order_number || data.event_name || eventDate || eventTime || data.guest_count != null || data.venue_address) ? (
-          <View style={styles.fullWidthCard} wrap={false}>
+          <View style={styles.card} wrap={false}>
             <Text style={styles.sectionLabel}>Event details</Text>
-            <View style={styles.metaRow}>
+            <View style={styles.eventGrid}>
               {data.order_number ? (
-                <View style={styles.metaCell}>
-                  <Text style={styles.metaLabel}>Order</Text>
-                  <Text style={styles.metaValue}>{data.order_number}</Text>
+                <View style={styles.eventCard}>
+                  <Text style={styles.cellLabel}>Order</Text>
+                  <Text style={styles.cellValue}>{data.order_number}</Text>
                 </View>
               ) : null}
               {eventDate ? (
-                <View style={styles.metaCell}>
-                  <Text style={styles.metaLabel}>Event date</Text>
-                  <Text style={styles.metaValue}>{eventDate}</Text>
-                </View>
-              ) : null}
-              {eventTime ? (
-                <View style={styles.metaCell}>
-                  <Text style={styles.metaLabel}>Event time</Text>
-                  <Text style={styles.metaValue}>{eventTime}</Text>
+                <View style={styles.eventCard}>
+                  <Text style={styles.cellLabel}>When</Text>
+                  <Text style={styles.cellValue}>{eventDate}</Text>
+                  {eventTime ? <Text style={styles.lineSub}>{eventTime}</Text> : null}
                 </View>
               ) : null}
               {data.guest_count != null ? (
-                <View style={styles.metaCell}>
-                  <Text style={styles.metaLabel}>Guests</Text>
-                  <Text style={styles.metaValue}>{String(data.guest_count)}</Text>
+                <View style={styles.eventCard}>
+                  <Text style={styles.cellLabel}>Guests</Text>
+                  <Text style={styles.cellValue}>{String(data.guest_count)}</Text>
+                </View>
+              ) : null}
+              {data.venue_address ? (
+                <View style={[styles.eventCard, styles.eventCardWide]}>
+                  <Text style={styles.cellLabel}>Venue</Text>
+                  <Text style={styles.cellValue}>{data.venue_address}</Text>
+                </View>
+              ) : null}
+              {data.event_name ? (
+                <View style={[styles.eventCard, styles.eventCardWide]}>
+                  <Text style={styles.cellLabel}>Event</Text>
+                  <Text style={styles.cellValue}>{data.event_name}</Text>
                 </View>
               ) : null}
             </View>
-            {data.venue_address ? (
-              <Text style={[styles.smallText, { marginTop: 4 }]}>Venue: {data.venue_address}</Text>
-            ) : null}
-            {data.event_name ? (
-              <Text style={[styles.smallText, { marginTop: 4 }]}>
-                Event: {data.event_name}
-              </Text>
-            ) : null}
           </View>
         ) : null}
 
         {/* LINE ITEMS - mirrors QuoteDocument's "From the kitchen" block */}
         {lineItems.length > 0 ? (
-          <View style={[styles.column, { marginBottom: 10 }]}>
+          <View style={styles.card}>
             <Text style={styles.sectionLabel} minPresenceAhead={44}>
               From the kitchen
             </Text>
@@ -760,7 +768,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         ) : null}
 
         {/* TOTALS */}
-        <View style={styles.totalsBlock} wrap={false} minPresenceAhead={96}>
+        <View style={styles.card} wrap={false} minPresenceAhead={96}>
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>Subtotal</Text>
             <Text style={styles.totalsValue}>{fmt(subtotal)}</Text>
@@ -818,7 +826,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         </View>
 
         {showPaymentPlan ? (
-          <View style={styles.paymentPlan} wrap={false} minPresenceAhead={88}>
+          <View style={styles.card} wrap={false} minPresenceAhead={88}>
               <Text style={styles.sectionLabel}>Payment plan</Text>
               <View style={styles.totalsRow}>
                 <Text style={styles.totalsLabel}>Pay now to confirm booking</Text>
@@ -832,17 +840,16 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
         ) : null}
 
-        {/* PAYMENT TERMS. This is intentionally its own pale, full-width
-            card. It used to share a final card with notes, below payment
-            instructions, which made it easy to miss and liable to split at
-            an awkward page boundary. */}
+        {/* Payment terms use the same neutral card as the quote. This keeps
+            legal wording readable without making it look like a separate
+            document design. */}
         {data.payment_terms ? (
-          <View style={styles.paymentTerms} minPresenceAhead={64}>
+          <View style={styles.card} minPresenceAhead={64}>
             <Text style={styles.sectionLabel}>Payment terms</Text>
             {parseClientTermsBlocks(data.payment_terms).map((block, blockIndex) => (
               <Text
                 key={`payment-term-${blockIndex}`}
-                style={[styles.paymentTermsText, blockIndex > 0 ? { marginTop: 4 } : {}]}
+                style={[styles.terms, blockIndex > 0 ? { marginTop: 4 } : {}]}
               >
                 {block.map((segment, segmentIndex) => (
                   <Text
@@ -861,7 +868,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             due so a client can act without hunting through an email. EFT
             details are only supplied when no online gateway is available. */}
         {hasOutstandingBalance && (paymentProvider || eftDetails) ? (
-          <View style={styles.fullWidthCard} minPresenceAhead={120}>
+          <View style={styles.card} minPresenceAhead={120}>
             <Text style={styles.sectionLabel}>How to pay</Text>
             {paymentProvider ? (
               <>
@@ -900,9 +907,9 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
 
         {/* NOTES */}
         {visibleDocumentNote(data.notes) ? (
-          <View style={[styles.column, { marginBottom: 10 }]}>
+          <View style={styles.card} minPresenceAhead={52}>
             <Text style={styles.sectionLabel} minPresenceAhead={36}>
-              Notes
+              A note from us
             </Text>
             <Text style={styles.notes}>{visibleDocumentNote(data.notes)}</Text>
           </View>
