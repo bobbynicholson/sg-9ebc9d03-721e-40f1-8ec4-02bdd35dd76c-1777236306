@@ -34,6 +34,7 @@ import { getPublicPaymentAvailability } from "@/lib/paymentService";
 import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
@@ -67,6 +68,7 @@ function menuLineFromRow(row: any): any {
   const total = moneyNumber(row?.total, row?.line_total, row?.lineTotal, quantity * unitPrice);
   return {
     description: row?.description || row?.item_name || row?.menu_item_name || row?.name || "Menu item",
+    category: row?.category ?? null,
     quantity,
     unitPrice,
     total,
@@ -123,7 +125,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       client:client_id ( tax_number, payment_terms ),
       companies:company_id (
         id, slug, company_name, legal_name, time_format, logo_url, email, phone_number:phone, currency,
-        vat_registered, vat_number, vat_rate, deposit_percent, registration_number,
+        vat_registered, vat_number, vat_rate, deposit_percent, dispatch_settings, registration_number,
         bank_name, bank_account_holder, bank_account_number, bank_branch_code,
         bank_account_type, eft_instructions,
         primary_color, secondary_color, accent_color,
@@ -158,6 +160,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   invoiceData.paymentTerms = invoicePaymentTerms(
     invoiceData.paymentTerms,
     client.payment_terms,
+    configuredPaymentTerms(invoiceForResponse.companies?.dispatch_settings),
   );
   const snapshotItems = asArray(invoiceData.items);
   const hasMenuSnapshot = asArray(invoiceData.menuItems).length > 0 || asArray(invoiceData.menu_items).length > 0;

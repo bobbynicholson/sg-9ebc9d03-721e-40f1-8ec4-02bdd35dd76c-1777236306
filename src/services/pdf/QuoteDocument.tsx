@@ -91,6 +91,7 @@ export interface QuotePdfData {
   initial_payment_amount?: number | null;
 
   valid_until?: string | null;
+  payment_terms?: string | null;
   terms_and_conditions?: string | null;
   notes?: string | null;
   status?: string | null;
@@ -910,6 +911,15 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 {eftDetails.instructions ? <Text style={[styles.terms, { marginTop: 3 }]}>{eftDetails.instructions}</Text> : null}
               </>
             ) : null}
+          </View>
+        ) : null}
+
+        {data.payment_terms ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel} minPresenceAhead={36}>
+              Payment terms
+            </Text>
+            {renderPdfTerms(data.payment_terms, styles)}
           </View>
         ) : null}
 

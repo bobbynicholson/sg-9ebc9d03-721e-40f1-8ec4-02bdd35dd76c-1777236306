@@ -82,6 +82,7 @@ export interface FinancialSettings {
   taxRate: number;
   depositPercent: number;
   balanceDueDays: number;
+  paymentTermsText: string;
   finalOrderChangeDays: number;
   cancellationFeePercent: number;
   refundProcessDays: number;

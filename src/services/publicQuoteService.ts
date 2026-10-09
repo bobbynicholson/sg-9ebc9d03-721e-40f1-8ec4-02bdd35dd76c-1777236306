@@ -40,6 +40,7 @@ export interface PublicQuoteView {
   equipment_items: any[] | null;
   notes: string | null;
   terms_and_conditions: string | null;
+  payment_terms?: string | null;
   subtotal: number;
   tax_amount: number | null;
   discount_amount: number | null;

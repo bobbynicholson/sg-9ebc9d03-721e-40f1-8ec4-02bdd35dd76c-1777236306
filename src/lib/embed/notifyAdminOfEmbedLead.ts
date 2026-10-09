@@ -36,14 +36,82 @@ export interface NotifyEmbedLeadInput {
   appOrigin: string; // e.g. https://cateringms.com - for absolute links in the email
 }
 
-export function ensureLeadLinkInEmailBody(body: unknown, leadLink: string): string {
+interface LeadEmailSummary {
+  clientName?: string;
+  companyName?: string;
+  eventType?: string;
+  eventDate?: string;
+  guestCount?: string | number;
+}
+
+function requestedItemsSection(value: unknown): string {
+  if (!Array.isArray(value)) return "";
+  const items = value.filter((item) =>
+    item && typeof item === "object" &&
+    String((item as any).item_name || (item as any).name || "").trim(),
+  ) as Array<Record<string, any>>;
+  if (items.length === 0) return "";
+
+  const renderGroup = (label: string, group: Array<Record<string, any>>) => {
+    if (group.length === 0) return "";
+    const rows = group.map((item) => {
+      const name = String(item.item_name || item.name).trim();
+      const category = typeof item.category === "string" ? item.category.trim() : "";
+      const quantity = Number(item.quantity);
+      const quantityLabel = Number.isFinite(quantity) && quantity > 0
+        ? `Qty ${new Intl.NumberFormat("en-ZA", { maximumFractionDigits: 0 }).format(quantity)}`
+        : "-";
+      return `<tr><td valign="top" style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;font-size:14px;line-height:1.45;"><strong>${escapeHtml(name)}</strong>${category ? `<br><span style="color:#64748b;font-size:12px;">${escapeHtml(category)}</span>` : ""}</td><td align="right" valign="top" style="white-space:nowrap;padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:13px;">${escapeHtml(quantityLabel)}</td></tr>`;
+    }).join("");
+    return `<h3 style="margin:16px 0 4px;color:#334155;font-size:13px;line-height:1.3;">${label}</h3>` +
+      `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:#fff;">${rows}</table>`;
+  };
+  const menu = items.filter((item) => item.item_type === "menu");
+  const equipment = items.filter((item) => item.item_type === "equipment");
+  const other = items.filter((item) => item.item_type !== "menu" && item.item_type !== "equipment");
+
+  return `<h2 style="margin:24px 0 6px;color:#991b1b;font-size:16px;line-height:1.3;">Customer selections <span style="color:#64748b;font-size:12px;font-weight:400;">(${items.length})</span></h2>` +
+    `<p style="margin:0 0 10px;color:#64748b;font-size:12px;line-height:1.5;">Chosen on the form; confirm availability and pricing when preparing the quote.</p>` +
+    renderGroup("Menu", menu) + renderGroup("Equipment", equipment) + renderGroup("Other", other);
+}
+
+function emailShell(
+  content: string,
+  leadLink: string,
+  hasLeadLink: boolean,
+  summary: LeadEmailSummary,
+): string {
+  const safeLeadLink = escapeHtml(leadLink);
+  const eventLine = [
+    summary.eventType,
+    summary.eventDate,
+    summary.guestCount ? `${summary.guestCount} guests` : "",
+  ].filter(Boolean).map((value) => escapeHtml(String(value))).join(" <span style=\"color:#94a3b8;\">&bull;</span> ");
+  const brand = summary.companyName ? escapeHtml(summary.companyName) : "Website lead";
+  const heading = summary.clientName ? escapeHtml(summary.clientName) : "New enquiry received";
+  const button = hasLeadLink ? "" : `<p style="margin:26px 0 0;"><a href="${safeLeadLink}" style="display:inline-block;padding:12px 18px;background:#991b1b;color:#fff;text-decoration:none;font-weight:700;border-radius:5px;">Open lead in CateringMS</a></p>`;
+
+  return `<div style="margin:0 auto;max-width:680px;padding:20px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">` +
+    `<tr><td style="height:5px;padding:0;background:#b91c1c;font-size:0;line-height:0;">&nbsp;</td></tr>` +
+    `<tr><td style="padding:22px 24px;background:#1e293b;color:#fff;"><p style="margin:0 0 8px;color:#fca5a5;font-size:11px;font-weight:700;text-transform:uppercase;">${brand} &nbsp; / &nbsp; New website enquiry</p><h1 style="margin:0;color:#fff;font-size:24px;line-height:1.25;">${heading}</h1>${eventLine ? `<p style="margin:8px 0 0;color:#cbd5e1;font-size:13px;line-height:1.5;">${eventLine}</p>` : ""}</td></tr>` +
+    `<tr><td style="padding:22px 24px;color:#334155;font-size:14px;line-height:1.55;">${content}${button}</td></tr>` +
+    `</table></div>`;
+}
+
+export function ensureLeadLinkInEmailBody(
+  body: unknown,
+  leadLink: string,
+  requestedItems?: unknown,
+  summary: LeadEmailSummary = {},
+): string {
   const content = typeof body === "string" ? body : "";
   const safeLeadLink = escapeHtml(leadLink);
+  const selectionsHtml = requestedItemsSection(requestedItems);
   const hasBlockMarkup = /<(p|div|table|h[1-6]|ul|ol|li|br|section)\b/i.test(content);
   if (hasBlockMarkup) {
-    return content.includes(`href="${safeLeadLink}"`) || content.includes(`href='${safeLeadLink}'`)
-      ? content
-      : `${content}<p style="margin:24px 0 0;"><a href="${safeLeadLink}" style="display:inline-block;padding:12px 18px;background:#b91c1c;color:#fff;text-decoration:none;font-weight:700;border-radius:4px;">Open lead in CateringMS</a></p>`;
+    const hasLeadLink = content.includes(`href="${safeLeadLink}"`) || content.includes(`href='${safeLeadLink}'`);
+    return emailShell(`${content}${selectionsHtml}`, leadLink, hasLeadLink, summary);
   }
 
   const plain = content
@@ -51,7 +119,7 @@ export function ensureLeadLinkInEmailBody(body: unknown, leadLink: string): stri
     .replace(/<br\s*\/?>/gi, "\n")
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => Boolean(line) && !/^open (?:the )?lead\s*:/i.test(line));
+    .filter((line) => Boolean(line) && !/^open (?:the )?lead\s*:/i.test(line) && line.toLowerCase() !== "new lead from your website form.");
   const intro: string[] = [];
   const groups = new Map<string, Array<{ label: string; value: string }>>();
   for (const line of plain) {
@@ -99,7 +167,7 @@ export function ensureLeadLinkInEmailBody(body: unknown, leadLink: string): stri
     ).join("") +
     `</table>`,
   ).join("");
-  return `<div>${introHtml}${groupsHtml}<p style="margin:22px 0 0;"><a href="${safeLeadLink}" style="display:inline-block;padding:12px 18px;background:#b91c1c;color:#fff;text-decoration:none;font-weight:700;border-radius:4px;">Open lead in CateringMS</a></p></div>`;
+  return emailShell(`${introHtml}${groupsHtml}${selectionsHtml}`, leadLink, false, summary);
 }
 
 export function uniqueAdminEmails(candidates: unknown[]): string[] {
@@ -334,7 +402,13 @@ export async function notifyAdminOfEmbedLead(
               to,
               allowPlatformFallback: true,
               subject: resolved.subject,
-              body: ensureLeadLinkInEmailBody(resolved.bodyHtml, leadLink),
+              body: ensureLeadLinkInEmailBody(resolved.bodyHtml, leadLink, leadInsert.requested_items, {
+                clientName: String(clientName),
+                companyName: String(companyName),
+                eventType: String(leadInsert.event_type || ""),
+                eventDate: eventDate !== "TBD" ? eventDate : "",
+                guestCount: guestCount ? String(guestCount) : "",
+              }),
               variables: {
                 ...embedLeadVars,
                 clientName: safeName,

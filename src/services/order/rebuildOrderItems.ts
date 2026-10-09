@@ -14,6 +14,8 @@
 // NOTE: order_items has no soft-delete column on every tenant's schema, so
 // this hard-deletes then re-inserts (simpler + safer than a per-line diff).
 
+import { sortByCourse } from "@/lib/menuCourses";
+
 export interface RebuildOrderItemsResult {
   rebuilt: boolean;
   errors: string[];
@@ -48,7 +50,7 @@ export async function rebuildOrderItemsFromMenu(
   guestCount: number,
 ): Promise<RebuildOrderItemsResult> {
   const errors: string[] = [];
-  const items = coerceMenuItems(menuItemsRaw);
+  const items = sortByCourse(coerceMenuItems(menuItemsRaw), (it: any) => it?.category);
   const guests = Number(guestCount || 0);
 
   const { error: delErr } = await supabase

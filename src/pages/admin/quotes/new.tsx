@@ -116,6 +116,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { formatClock } from "@/lib/portalTime";
+import { sortByCourse } from "@/lib/menuCourses";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { quoteService } from "@/services/quoteService";
 import { propagateQuoteEditToOrder } from "@/services/quote/propagateQuoteEdit";
@@ -126,6 +127,17 @@ import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui
 import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
 import { savedQuantityWasOverridden } from "@/lib/quotes/revisionLifecycle";
 import { notifyQuoteUpdated } from "@/services/quote/quoteNotifications";
+import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
+
+function escapeEmailHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[char] || char);
+}
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -1646,8 +1658,7 @@ function NewQuotePage() {
 
   // ── Persistence ──────────────────────────────────────────────────
   const buildPayload = useCallback(() => {
-    const menuJson = menuItems
-      .filter((l) => l.name)
+    const menuJson = sortByCourse(menuItems.filter((l) => l.name), (l) => l.category)
       .map((l) => {
         // Audit (May 2026, Wave 3): the per-person branch previously
         // wrote q = guestCount unconditionally, but the displayed
@@ -1918,6 +1929,8 @@ function NewQuotePage() {
         }
       }
       if (quoteId) {
+        const previousQuoteTotal = Number(persistedTotalAtLoad || 0);
+        const updatedQuoteTotal = Number(payload.total ?? payload.total_amount ?? 0);
         // Read current status + converted_to_order_id BEFORE the
         // update so we can detect the draft -> sent transition AND
         // the cancel-order cascade for revised-after-acceptance.
@@ -2006,6 +2019,72 @@ function NewQuotePage() {
         if (updatePayload.client_id == null) delete updatePayload.client_id;
         const { error } = await supabase.from("quotes").update(updatePayload).eq("id", quoteId);
         if (error) throw error;
+        if (!isConvertedQuote && Math.abs(updatedQuoteTotal - previousQuoteTotal) > 0.009) {
+          const amountChange = await recordDocumentAmountChange(supabase, {
+            companyId,
+            quoteId,
+            previousTotal: previousQuoteTotal,
+            newTotal: updatedQuoteTotal,
+            reason: "Quote pricing was updated in the quote editor.",
+          });
+          if (amountChange.error) console.warn("[quotes/new] quote amount audit failed:", amountChange.error);
+        }
+
+        if (!isConvertedQuote && prevStatus === "sent" && updatedQuoteTotal > previousQuoteTotal + 0.009 && email) {
+          try {
+            const { data: updatedQuote } = await supabase
+              .from("quotes")
+              .select("public_token, quote_number, updated_at")
+              .eq("id", quoteId)
+              .maybeSingle();
+            const quoteNumberForEmail = (updatedQuote as any)?.quote_number || quoteNumber || quoteId;
+            const quoteUrl = (updatedQuote as any)?.public_token
+              ? `${window.location.origin}/q/${(updatedQuote as any).public_token}`
+              : "";
+            const currency = quoteCurrencyCode || "ZAR";
+            const formatAmount = (amount: number) => {
+              try {
+                return new Intl.NumberFormat("en-ZA", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+              } catch {
+                return `${currency} ${amount.toFixed(2)}`;
+              }
+            };
+            const subject = `Updated quote ${quoteNumberForEmail}: new total ${formatAmount(updatedQuoteTotal)}`;
+            const body = `<div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;">
+              <p>Hi ${escapeEmailHtml(clientName.split(/\s+/)[0] || clientName)},</p>
+              <p>We updated the price for <strong>${escapeEmailHtml(eventName || "your event")}</strong>.</p>
+              <table role="presentation" style="border-collapse:collapse;width:100%;max-width:480px;">
+                <tr><td style="padding:7px 12px 7px 0;color:#64748b;">Previous total</td><td style="padding:7px 0;text-align:right;">${escapeEmailHtml(formatAmount(previousQuoteTotal))}</td></tr>
+                <tr><td style="padding:7px 12px 7px 0;color:#64748b;">Updated total</td><td style="padding:7px 0;text-align:right;font-weight:700;">${escapeEmailHtml(formatAmount(updatedQuoteTotal))}</td></tr>
+                <tr><td style="padding:7px 12px 7px 0;color:#64748b;">Increase</td><td style="padding:7px 0;text-align:right;color:#047857;font-weight:700;">${escapeEmailHtml(formatAmount(updatedQuoteTotal - previousQuoteTotal))}</td></tr>
+              </table>
+              ${quoteUrl ? `<p><a href="${escapeEmailHtml(quoteUrl)}">Review the updated quote</a></p>` : "<p>The updated quote PDF is attached.</p>"}
+              <p>If anything doesn’t look right, reply to this email and we’ll help.</p>
+            </div>`;
+            const emailResponse = await fetch("/api/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                companyId,
+                to: email,
+                subject,
+                body,
+                quoteId,
+                attachQuotePdf: true,
+                idempotencyKey: `quote-price-update/${quoteId}/${String((updatedQuote as any)?.updated_at || updatedQuoteTotal).replace(/[^\w.-]/g, "")}`,
+              }),
+            });
+            const emailResult = await emailResponse.json().catch(() => ({} as any));
+            if (!emailResponse.ok || emailResult.success !== true) {
+              toast({ title: "Quote updated, but the client email failed", description: emailResult.error || "Review the quote and retry the email.", variant: "destructive" });
+            } else {
+              toast({ title: "Updated quote emailed", description: `The client was sent the increased total of ${formatAmount(updatedQuoteTotal)}.` });
+            }
+          } catch (emailError: any) {
+            console.warn("[quotes/new] updated quote email failed:", emailError);
+            toast({ title: "Quote updated, but the client email failed", description: emailError?.message || "Review the quote and retry the email.", variant: "destructive" });
+          }
+        }
         void notifyQuoteUpdated({
           quote: { ...payload, id: quoteId, quote_number: quoteNumber, company_id: companyId },
           updates: updatePayload as any,
@@ -2079,6 +2158,7 @@ function NewQuotePage() {
             const res = await fetch(`/api/quotes/${quoteId}/resync-order`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ previousTotal: propReceipt?.previousTotal }),
             });
             const json = await res.json();
             if (!res.ok || json?.ok === false) {

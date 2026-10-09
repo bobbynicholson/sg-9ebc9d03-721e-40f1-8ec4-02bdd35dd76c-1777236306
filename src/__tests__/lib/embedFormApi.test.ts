@@ -85,6 +85,39 @@ describe("embed submission rules", () => {
     expect(body).toContain("<table");
   });
 
+  it("includes selected menu and equipment with quantities, without unconfirmed prices", () => {
+    const body = ensureLeadLinkInEmailBody(
+      "New lead from your website form.\nName: Fiona Collins\nGuests: 25",
+      "https://app.example.com/admin/leads?leadId=lead-1",
+      [
+        { item_type: "menu", item_name: "Roast lamb", category: "Mains", quantity: 25, unit_price: 350 },
+        { item_type: "equipment", item_name: "Dinner plates", category: "Crockery", quantity: 25, unit_price: 8 },
+      ],
+      { clientName: "Fiona Collins", companyName: "Spit Braai Delivery", eventType: "Wedding", eventDate: "7 February 2027", guestCount: 25 },
+    );
+    expect(body).toContain("Customer selections <span");
+    expect(body).toContain("Fiona Collins</h1>");
+    expect(body).toContain("Wedding");
+    expect(body).toContain("Roast lamb");
+    expect(body).toContain("Dinner plates");
+    expect(body).toContain("Qty 25");
+    expect(body).toContain("confirm availability and pricing");
+    expect(body).not.toContain("350");
+    expect(body).not.toContain("unit_price");
+  });
+
+  it("adds selected items to a custom HTML admin email and escapes catalogue names", () => {
+    const body = ensureLeadLinkInEmailBody(
+      "<p>A new enquiry arrived.</p>",
+      "https://app.example.com/admin/leads?leadId=lead-1",
+      [{ item_type: "menu", item_name: "<script>alert(1)</script>", quantity: 1 }],
+    );
+    expect(body).toContain("Customer selections <span");
+    expect(body).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(body).not.toContain("<script>alert(1)</script>");
+    expect(body).toContain("Open lead in CateringMS");
+  });
+
   it("sends once to each distinct admin email address", () => {
     expect(uniqueAdminEmails([
       "owner@example.com",

@@ -14,6 +14,7 @@ import { formatDate } from "@/lib/formatters";
 import { RegionBadge } from "@/components/admin/RegionBadge";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { AmountChangeAction } from "@/components/admin/financial/AmountChangeAction";
 
 interface OrderCardProps {
   order: AppOrder;
@@ -37,6 +38,7 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
   // both so the catering team sees, at a glance, what's at risk.
   const intel = deriveOrderIntelligence(order);
   const auto = autoEmailMap.get((order as any).id) || { sent: 0, latest: null, postEventSent: false } as OrderAutoEmailSummary;
+  const amountChange = (order as any)._amountChange;
   // Wave 28.6: cancelled orders get a thicker red top strip + faint
   // wash so they're unmissable in the kanban / list. The left
   // border alone wasn't enough - a cancelled card sat among
@@ -196,6 +198,18 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
               </Button>
             </div>
           </div>
+          {amountChange && (
+            <AmountChangeAction
+              change={amountChange}
+              formatAmount={(amount) => `${C} ${Number(amount).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              settled={amountChange.direction === "increase" && Number((order as any).total_amount || 0) > 0 && Number((order as any).amount_paid || 0) >= Number((order as any).total_amount) - 0.01}
+              href={amountChange.direction === "decrease" && amountChange.refundPaymentId
+                ? withSlug(`/admin/refunds?paymentId=${amountChange.refundPaymentId}`)
+                : amountChange.invoiceId
+                  ? withSlug(`/admin/invoices?invoiceId=${amountChange.invoiceId}`)
+                  : withSlug(`/admin/orders?orderId=${(order as any).id}`)}
+            />
+          )}
         </div>
       </CardContent>
     </Card>

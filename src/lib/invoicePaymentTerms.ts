@@ -1,14 +1,16 @@
+import { DEFAULT_PAYMENT_TERMS } from "@/lib/paymentTerms";
+
 /**
  * Returns the customer-facing payment-terms wording for an invoice.
  *
- * The invoice snapshot wins so a later change to a customer's account
- * terms cannot rewrite an already-issued document. Older invoices did not
- * keep that snapshot, so their linked client's numeric terms provide the
- * backwards-compatible fallback.
+ * Precedence is: invoice snapshot, linked client's numeric override,
+ * company-wide wording, then the shared default. This keeps issued invoices
+ * stable while giving new documents one consistent company policy.
  */
 export function invoicePaymentTerms(
   snapshotTerms: unknown,
   clientTermDays: unknown,
+  companyTerms?: unknown,
 ): string {
   if (typeof snapshotTerms === "string" && snapshotTerms.trim()) {
     return snapshotTerms.trim();
@@ -24,5 +26,8 @@ export function invoicePaymentTerms(
     return `Payment due within ${wholeDays} day${wholeDays === 1 ? "" : "s"}`;
   }
 
-  return "Payment due within 30 days";
+  if (typeof companyTerms === "string" && companyTerms.trim()) {
+    return companyTerms.trim();
+  }
+  return DEFAULT_PAYMENT_TERMS;
 }

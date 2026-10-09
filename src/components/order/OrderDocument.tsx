@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserRole } from "@/types/app";
 import { canSeeOrderFinance } from "@/lib/authGuards";
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { captureException } from "@/lib/observability";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +91,7 @@ function resolvePrimarySection(
 interface OrderHead {
   id: string;
   company_id: string;
+  payment_terms_text: string;
   order_number: string | null;
   event_name: string | null;
   event_date: string;
@@ -605,7 +607,22 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
         .maybeSingle();
       if (error) throw error;
       if (!data) { setNotFound(true); setOrder(null); }
-      else { setOrder(data as unknown as OrderHead); }
+      else {
+        let paymentTermsText = configuredPaymentTerms(null);
+        try {
+          const { data: companySettings } = await (supabase as any).from("companies")
+            .select("dispatch_settings")
+            .eq("id", (data as any).company_id)
+            .maybeSingle();
+          paymentTermsText = configuredPaymentTerms(companySettings?.dispatch_settings);
+        } catch (settingsError) {
+          console.warn("[order-document] company payment terms could not be loaded:", settingsError);
+        }
+        setOrder({
+          ...(data as any),
+          payment_terms_text: paymentTermsText,
+        } as unknown as OrderHead);
+      }
       setLastLoadedAt(new Date());
     } catch (e: any) {
       captureException(e, { tags: { route: ROUTE_TAG, step: "loadOrderHead", orderId } });
@@ -1063,6 +1080,13 @@ export function OrderDocument({ orderId, mode = "interactive", forceSection = nu
                 forceOpen={forceAll}
                 defaultOpen={false}
               />
+            )}
+
+            {(isClient || mode === "print") && order.payment_terms_text && (
+              <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4 print-keep">
+                <h2 className="text-xs font-semibold uppercase text-slate-500">Payment terms</h2>
+                <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{order.payment_terms_text}</p>
+              </section>
             )}
 
             {/* POPIA/CPA: every client-facing document links the caterer's

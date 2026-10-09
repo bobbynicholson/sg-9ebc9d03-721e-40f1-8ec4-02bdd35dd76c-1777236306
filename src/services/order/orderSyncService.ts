@@ -16,6 +16,8 @@
  */
 import { supabase as defaultSb } from "@/integrations/supabase/client";
 import { breakdownFromLineSum } from "@/lib/vatMath";
+import { fetchMenuCategories, sortByCourse } from "@/lib/menuCourses";
+import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 
 const FALLBACK_TAX_RATE = 0.15; // SA VAT default
 
@@ -111,7 +113,7 @@ export async function syncInvoiceValuesFromOrder(
 export async function syncOrderArtifacts(
   orderId: string,
   client?: any,
-  options?: { priorBaseSubtotal?: number; priorDiscountAmount?: number },
+  options?: { priorBaseSubtotal?: number; priorDiscountAmount?: number; reason?: string },
 ): Promise<{
   ok: boolean;
   subtotal: number;
@@ -130,7 +132,7 @@ export async function syncOrderArtifacts(
         .eq("id", orderId)
         .maybeSingle(),
       sb.from("order_items")
-        .select("id, item_name, description, quantity, unit_price, line_total")
+        .select("id, menu_item_id, item_name, description, quantity, unit_price, line_total")
         .eq("order_id", orderId)
         .order("created_at", { ascending: true }),
       sb.from("equipment_bookings")
@@ -252,15 +254,19 @@ export async function syncOrderArtifacts(
         !!(quoteRow as any)?.accepted_at;
     }
     if (quote_id && !quoteIsAccepted) {
-      const menuItemsJsonb = (items || []).map((it: any) => ({
+      const categoryById = await fetchMenuCategories(sb, (items || []).map((it: any) => it.menu_item_id));
+      const menuItemsJsonb = sortByCourse((items || []).map((it: any) => ({
         id: it.id,
+        menu_item_id: it.menu_item_id ?? null,
+        category: (it.menu_item_id && categoryById.get(it.menu_item_id)) || null,
+        item_name: it.item_name,
         name: it.item_name,
         description: it.description || null,
         quantity: Number(it.quantity || 0),
         pricePerPerson: Number(it.unit_price || 0),
         unit_price: Number(it.unit_price || 0),
         line_total: Number(it.line_total || (Number(it.quantity || 0) * Number(it.unit_price || 0))),
-      }));
+      })), (it: any) => it.category);
       const equipmentItemsJsonb = (bookings || []).map((b: any) => {
         const eq = Array.isArray(b.equipment) ? b.equipment[0] : b.equipment;
         return {
@@ -295,6 +301,18 @@ export async function syncOrderArtifacts(
     const invoiceSync = await syncInvoiceValuesFromOrder(orderId, sb);
     if (invoiceSync.error) throw new Error(invoiceSync.error);
     const invoice_id = invoiceSync.invoice_id;
+    const amountChange = await recordDocumentAmountChange(sb, {
+      companyId: String((order as any).company_id),
+      previousTotal: priorTotal,
+      newTotal: total_amount,
+      reason: options?.reason || "Order details were updated.",
+      orderId,
+      quoteId: quote_id,
+      invoiceId: invoice_id,
+    });
+    if (amountChange.error) {
+      console.warn("[order/orderSyncService] amount change audit failed:", amountChange.error);
+    }
 
     return { ok: true, subtotal, tax_amount, total_amount, quote_id, invoice_id };
   } catch (err: any) {

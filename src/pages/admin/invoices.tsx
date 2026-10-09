@@ -64,8 +64,11 @@ import {
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { PendingClaimsBanner } from "@/components/billing/PendingClaimsBanner";
 import { InvoiceAgingCard } from "@/components/admin/InvoiceAgingCard";
+import { AmountChangeAction } from "@/components/admin/financial/AmountChangeAction";
+import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
 import { isAutomatedTestInvoice } from "@/lib/testDataDetection";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { formatClock } from "@/lib/portalTime";
 
 function formatInvoiceRowMoney(amount: number, currencyCode: string | null | undefined): string {
@@ -889,7 +892,27 @@ function InvoicesPageInner() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setAllInvoices(data || []);
+      const rows = (data || []) as any[];
+      try {
+        const { data: companySettings } = await (supabase as any).from("companies")
+          .select("dispatch_settings")
+          .eq("id", user.company_id)
+          .maybeSingle();
+        const fallbackTerms = configuredPaymentTerms(companySettings?.dispatch_settings);
+        for (const invoice of rows) invoice.companyPaymentTerms = fallbackTerms;
+      } catch (termsError) {
+        console.warn("[invoices] company payment terms could not be loaded:", termsError);
+      }
+      try {
+        const changeIds = rows.flatMap((invoice) => [invoice.id, invoice.order_id].filter(Boolean));
+        const changes = await loadLatestDocumentAmountChanges(supabase, user.company_id, changeIds);
+        for (const invoice of rows) {
+          invoice.amountChange = changes.get(invoice.id) || changes.get(invoice.order_id) || null;
+        }
+      } catch (changeError) {
+        console.warn("[invoices] amount change history could not be loaded:", changeError);
+      }
+      setAllInvoices(rows);
       setLoadError(null);
     } catch (error: any) {
       setLoadError(dbErrorMessage(error, { entity: "invoice" }));
@@ -1079,7 +1102,11 @@ function InvoicesPageInner() {
     invoiceData = {
       ...invoiceData,
       clientTaxNumber: invoiceData.clientTaxNumber || linkedClient.tax_number || "",
-      paymentTerms: invoicePaymentTerms(invoiceData.paymentTerms, linkedClient.payment_terms),
+      paymentTerms: invoicePaymentTerms(
+        invoiceData.paymentTerms,
+        linkedClient.payment_terms,
+        invoice.companyPaymentTerms,
+      ),
       eventTime: invoiceData.eventTime || invoiceData.event_time || invoice.orders?.event_time || "",
     };
     // Paid / balance come from the live invoice row, not the snapshot:
@@ -2465,6 +2492,18 @@ function InvoicesPageInner() {
                             </span>
                           )}
                         </div>
+                        {invoice.amountChange && (
+                          <div className="mt-1">
+                            <AmountChangeAction
+                              change={invoice.amountChange}
+                              formatAmount={(amount) => formatInvoiceRowMoney(amount, invoice.currency || tenantMoney.code)}
+                              settled={invoice.amountChange.direction === "increase" && Number(invoice.total_amount || 0) > 0 && Number(invoice.amount_paid || 0) >= Number(invoice.total_amount) - 0.01}
+                              href={invoice.amountChange.direction === "decrease" && invoice.amountChange.refundPaymentId
+                                ? withSlug(`/admin/refunds?paymentId=${invoice.amountChange.refundPaymentId}`)
+                                : withSlug(`/admin/invoices?invoiceId=${invoice.id}`)}
+                            />
+                          </div>
+                        )}
                         {/* Wave 70.41a - intelligent date display.
                             Bobby flagged: showing invoice_date + event_
                             date stacked with equal weight is confusing.

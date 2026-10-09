@@ -59,6 +59,19 @@ export function sortByCourse<T>(
     .map(({ item }) => item);
 }
 
+/** Look up the catalogue category for menu lines that only store a menu_item_id (order_items). */
+export async function fetchMenuCategories(
+  sb: any,
+  menuItemIds: Array<string | null | undefined>,
+): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(menuItemIds.filter((id): id is string => !!id)));
+  const out = new Map<string, string>();
+  if (ids.length === 0) return out;
+  const { data } = await sb.from("menu_items").select("id, category").in("id", ids);
+  for (const row of (data || []) as any[]) if (row?.category) out.set(row.id, row.category);
+  return out;
+}
+
 /** Group items by course, in serving order, skipping empty courses. */
 export function groupByCourse<T>(
   items: T[],

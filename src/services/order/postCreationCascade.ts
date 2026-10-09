@@ -31,6 +31,7 @@
  *     would produce on a retry.
  */
 import { tenantDateTime } from "@/lib/portalTime";
+import { sortByCourse } from "@/lib/menuCourses";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { ensureInvoiceForOrder } from "@/services/invoiceGenerationService";
@@ -196,7 +197,7 @@ export async function postOrderCreationCascade(
           }
         }
 
-        const rows = items
+        const rows = sortByCourse(items, (it: any) => it?.category)
           .map((it: any) => {
             const name = it.item_name || it.name || "";
             if (!name) return null;

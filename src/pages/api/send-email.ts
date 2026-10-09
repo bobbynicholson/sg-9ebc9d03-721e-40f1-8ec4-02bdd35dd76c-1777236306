@@ -6,6 +6,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { buildPdfPaymentInstructions } from "@/lib/pdfPaymentInstructions";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
@@ -266,6 +267,7 @@ async function handler(
             .from("quotes")
             .select(`
               id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
+              client:clients!quotes_client_id_fkey(payment_terms),
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
               subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
               delivery_fee, delivery_distance_km, delivery_rate_per_km,
@@ -274,7 +276,7 @@ async function handler(
                 id, slug, company_name, legal_name, time_format, logo_url, email, phone, website,
                 address_line1, address_line2, city,
                 primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
-                registration_number, tax_number, currency,
+                registration_number, tax_number, currency, dispatch_settings,
                 bank_name, bank_account_holder, bank_account_number, bank_branch_code,
                 bank_account_type, eft_instructions,
                 updated_at
@@ -342,6 +344,7 @@ async function handler(
             .from("quotes")
             .select(`
               id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
+              client:clients!quotes_client_id_fkey(payment_terms),
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
               subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
               delivery_fee, delivery_distance_km, delivery_rate_per_km,
@@ -350,7 +353,7 @@ async function handler(
                 id, slug, company_name, legal_name, time_format, logo_url, email, phone, website,
                 address_line1, address_line2, city,
                 primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
-                registration_number, tax_number, currency,
+                registration_number, tax_number, currency, dispatch_settings,
                 bank_name, bank_account_holder, bank_account_number, bank_branch_code,
                 bank_account_type, eft_instructions,
                 updated_at
@@ -433,7 +436,7 @@ async function handler(
                 postal_code, country, primary_color,
                 vat_registered, vat_number, vat_rate,
                 registration_number, tax_number, deposit_percent,
-                currency, bank_name, bank_account_holder, bank_account_number,
+                currency, dispatch_settings, bank_name, bank_account_holder, bank_account_number,
                 bank_branch_code, bank_account_type, eft_instructions,
                 updated_at
               )
@@ -535,7 +538,11 @@ async function handler(
                 // is null so existing tenants render unchanged.
                 currency: company.currency || null,
                 notes: invAny.notes || stashed.notes || null,
-                payment_terms: invoicePaymentTerms(stashed.paymentTerms, client.payment_terms),
+                payment_terms: invoicePaymentTerms(
+                  stashed.paymentTerms,
+                  client.payment_terms,
+                  configuredPaymentTerms(company.dispatch_settings),
+                ),
                 payment_instructions: invoicePaymentInstructions,
                 company: {
                   id: company.id,

@@ -28,6 +28,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { textMentionsWaiterService } from "@/lib/waiterRequest";
 import { ensureVenueCoords } from "@/lib/geo/ensureVenueCoords";
+import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 
 
 /**
@@ -44,12 +45,13 @@ async function sendAmendmentEmail(opts: {
   changeSummary: string;
   partial: boolean;
   reviewNotes: string | null;
+  previousTotal?: number | null;
 }): Promise<void> {
   try {
     const admin = getServiceSupabase();
     const { data: orderRow } = await (admin as any)
       .from("orders")
-      .select("client_email, client_name, order_number, event_name, event_date, venue_address")
+      .select("client_email, client_name, order_number, event_name, event_date, venue_address, total_amount, amount_paid, balance_amount, currency")
       .eq("id", opts.orderId)
       .maybeSingle();
     if (!orderRow || !(orderRow as any).client_email) return;
@@ -78,6 +80,19 @@ async function sendAmendmentEmail(opts: {
     const reviewNotesParagraph = opts.reviewNotes && opts.reviewNotes.trim()
       ? `Reason from the team: ${opts.reviewNotes.trim()}\n\n`
       : "";
+    const currentTotal = Number((orderRow as any).total_amount || 0);
+    const amountChanged = opts.previousTotal != null && Math.abs(currentTotal - Number(opts.previousTotal)) > 0.009;
+    const currency = String((orderRow as any).currency || "ZAR");
+    const formatMoney = (amount: number) => {
+      try {
+        return new Intl.NumberFormat("en-ZA", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+      } catch {
+        return `${currency} ${amount.toFixed(2)}`;
+      }
+    };
+    const amountSummary = amountChanged
+      ? `\nPrevious total: ${formatMoney(Number(opts.previousTotal))}\nUpdated total: ${formatMoney(currentTotal)}\nPaid to date: ${formatMoney(Number((orderRow as any).amount_paid || 0))}\nBalance due: ${formatMoney(Number((orderRow as any).balance_amount || 0))}\n`
+      : "";
 
     const variables: Record<string, string> = {
       first_name: firstName,
@@ -94,6 +109,7 @@ async function sendAmendmentEmail(opts: {
       partial: opts.partial ? "1" : "",
       review_notes_paragraph: reviewNotesParagraph,
       review_notes: opts.reviewNotes || "",
+      amount_summary: amountSummary,
     };
 
     const fallback = opts.templateType === "order_changed"
@@ -103,6 +119,7 @@ async function sendAmendmentEmail(opts: {
             `Hi ${firstName},\n\n` +
             `We've updated your order ${orderNumber}${eventDateLabel ? ` for ${eventDateLabel}` : ""}.\n\n` +
             `What changed: ${opts.changeSummary}\n\n` +
+            amountSummary +
             `Open your order to see the latest details: ${orderLink}\n\n` +
             `Reply to this email if anything looks off.\n\n` +
             `Thanks,\n${tenantName}`,
@@ -323,7 +340,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // columns come from orders; menu_items/equipment_items live on the quote.
     const { data: orderBefore, error: orderBeforeErr } = await ssr
       .from("orders")
-      .select([...Array.from(ORDER_COLUMN_FIELDS), "quote_id", "requires_waiter", "waiter_service_required"].join(", "))
+      .select([...Array.from(ORDER_COLUMN_FIELDS), "quote_id", "requires_waiter", "waiter_service_required", "total_amount", "amount_paid", "balance_amount"].join(", "))
       .eq("id", (request as any).order_id)
       .maybeSingle();
     if (orderBeforeErr) {
@@ -557,6 +574,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         ssr,
       );
       if (valueSync.error) throw new Error(valueSync.error);
+      const { data: updatedOrder } = await ssr.from("orders")
+        .select("total_amount, amount_paid, balance_amount, quote_id")
+        .eq("id", (request as any).order_id)
+        .maybeSingle();
+      const amountAudit = await recordDocumentAmountChange(ssr, {
+        companyId: (request as any).company_id,
+        previousTotal: Number((orderBefore as any)?.total_amount || 0),
+        newTotal: Number((updatedOrder as any)?.total_amount || 0),
+        reason: review_notes || `Approved client amendment: ${Object.keys(toApply).map(friendlyAppliedKey).join(", ") || "order details changed"}.`,
+        orderId: (request as any).order_id,
+        quoteId: (updatedOrder as any)?.quote_id || linkedQuoteId,
+        invoiceId: valueSync.invoice_id,
+        amountPaid: (updatedOrder as any)?.amount_paid,
+        balanceDue: (updatedOrder as any)?.balance_amount,
+      });
+      if (amountAudit.error) console.warn("[amendment-review] amount-change audit failed:", amountAudit.error);
     } catch (e: any) {
       cascade.invoice.reason = e?.message || "invoice refresh failed";
       console.warn("[amendment-review] invoice refresh failed:", e);
@@ -865,6 +898,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         changeSummary: appliedHuman,
         partial: action === "approve_partial",
         reviewNotes: review_notes || null,
+        previousTotal: Number((orderBefore as any)?.total_amount || 0),
       });
     }
 

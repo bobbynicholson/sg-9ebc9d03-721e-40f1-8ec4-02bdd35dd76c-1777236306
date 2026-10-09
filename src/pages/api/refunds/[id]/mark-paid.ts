@@ -11,6 +11,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createPagesServerClient } from "@/lib/supabase/server";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { sendRefundPaidEmail } from "@/services/email/cancellationEmails";
 
 
 const ADMIN_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -109,6 +110,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } as any);
     } catch (e) {
       console.warn("[refunds/mark-paid] audit insert failed", e);
+    }
+
+    if ((payment as any).order_id) {
+      try {
+        await sendRefundPaidEmail((payment as any).order_id, amount);
+      } catch (emailError) {
+        console.warn("[refunds/mark-paid] client refund email failed:", emailError);
+      }
     }
 
     // The database trigger queues the refund receipt in this same commit.

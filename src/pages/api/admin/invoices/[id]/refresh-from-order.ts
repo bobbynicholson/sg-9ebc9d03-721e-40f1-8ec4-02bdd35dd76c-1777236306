@@ -5,6 +5,8 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { refundableExcessAmount } from "@/lib/invoiceRefunds";
+import { recordDocumentRefundQueued } from "@/services/documentAmountChanges";
+import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 import { syncInvoiceValuesFromOrder } from "@/services/order/orderSyncService";
 
 const ALLOWED_ROLES = new Set([
@@ -67,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .eq("id", invoiceId)
         .maybeSingle(),
       admin.from("orders")
-        .select("id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, currency")
+        .select("id, quote_id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, currency")
         .eq("id", (invoice as any).order_id)
         .maybeSingle(),
     ]);
@@ -93,6 +95,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (openRefundsError) {
         refundWarning = "The invoice was refreshed, but the existing refund queue could not be checked. Review Refunds & Credits before sending a payout.";
       } else {
+        refundPaymentId = (openRefunds || [])[0]?.id || null;
         const openRefundAmount = (openRefunds || []).reduce(
           (sum: number, row: any) => sum + Number(row.amount || 0),
           0,
@@ -148,6 +151,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           }
         }
       }
+    }
+    if (refundPaymentId && refundOutstandingAmount > 0.005) {
+      const refundAudit = await recordDocumentRefundQueued(admin, {
+        companyId,
+        reason,
+        quoteId: order?.quote_id || null,
+        orderId: (invoice as any).order_id,
+        invoiceId,
+        refundPaymentId,
+        amount: refundOutstandingAmount,
+        currentTotal: newTotal,
+        amountPaid,
+        balanceDue: Number((refreshedInvoice as any)?.balance_due || 0),
+      });
+      if (refundAudit.error) console.warn("[admin/invoices/refresh-from-order] refund badge audit failed:", refundAudit.error);
+    }
+    const amountChangeAudit = await recordDocumentAmountChange(admin, {
+      companyId,
+      previousTotal,
+      newTotal,
+      reason,
+      quoteId: order?.quote_id || null,
+      orderId: (invoice as any).order_id,
+      invoiceId,
+      refundPaymentId,
+      amountPaid,
+      balanceDue: Number((refreshedInvoice as any)?.balance_due || 0),
+    });
+    if (amountChangeAudit.error) {
+      console.warn("[admin/invoices/refresh-from-order] linked amount audit failed:", amountChangeAudit.error);
     }
     const { error: auditError } = await admin.from("audit_logs").insert({
       company_id: companyId,

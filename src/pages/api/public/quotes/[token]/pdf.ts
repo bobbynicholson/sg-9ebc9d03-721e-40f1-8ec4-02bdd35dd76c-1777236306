@@ -61,7 +61,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       .from("quotes")
       .select(`
         id, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
-        client:clients!quotes_client_id_fkey(billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number),
+        client:clients!quotes_client_id_fkey(billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms),
         venue_address, menu_items, equipment_items, notes, terms_and_conditions,
         subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
         delivery_fee, delivery_distance_km, delivery_rate_per_km,
@@ -72,7 +72,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           id, slug, company_name, legal_name, time_format, logo_url, email, phone, website,
           address_line1, address_line2, city,
           primary_color, vat_registered, vat_number, vat_rate, pricing_includes_vat,
-          registration_number, tax_number, currency,
+          registration_number, tax_number, currency, dispatch_settings,
           bank_name, bank_account_holder, bank_account_number, bank_branch_code,
           bank_account_type, eft_instructions,
           updated_at

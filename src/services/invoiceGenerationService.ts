@@ -12,6 +12,8 @@ import {
   resolveInvoiceFirstPaymentAmount,
 } from "@/lib/invoiceClientView";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
+import { fetchMenuCategories } from "@/lib/menuCourses";
 
 // Server-safe client injection. Browser callers pass nothing and get
 // the global anon-key client (RLS-gated). Server callers (the
@@ -293,7 +295,7 @@ export async function generateInvoiceData(
     // column on the off-chance an old order pre-dates the migration.
     const { data: orderItemsRows, error: orderItemsError } = await supabase
       .from("order_items")
-      .select("item_name, description, quantity, unit_price, line_total")
+      .select("menu_item_id, item_name, description, quantity, unit_price, line_total")
       .eq("order_id", orderId);
     if (orderItemsError) {
       console.warn(
@@ -302,6 +304,7 @@ export async function generateInvoiceData(
       );
     }
     const orderItems = (orderItemsRows || []) as any[];
+    const categoryById = await fetchMenuCategories(supabase, orderItems.map((r: any) => r.menu_item_id));
     let quoteMenuRows: any[] = [];
     let quoteEquipmentRows: any[] = [];
     let quoteCurrency: string | null = null;
@@ -337,7 +340,7 @@ export async function generateInvoiceData(
         "Item";
       return {
         description,
-        category: row?.category ?? quoteMenuRows.find((item: any) =>
+        category: row?.category ?? (row?.menu_item_id ? categoryById.get(row.menu_item_id) : null) ?? quoteMenuRows.find((item: any) =>
           String(item?.item_name ?? item?.name ?? "").trim().toLowerCase() === String(row?.item_name ?? "").trim().toLowerCase(),
         )?.category ?? null,
         quantity,
@@ -669,7 +672,11 @@ export async function generateInvoiceData(
       
       // This wording is a document snapshot: current invoices retain the
       // payment agreement in force when they were issued.
-      paymentTerms: invoicePaymentTerms(null, client.payment_terms),
+      paymentTerms: invoicePaymentTerms(
+        null,
+        client.payment_terms,
+        configuredPaymentTerms((companyData as any).dispatch_settings),
+      ),
       bankDetails,
       
       notes: orderData.special_instructions,
@@ -1374,7 +1381,7 @@ async function renderInvoicePdfAttachment(
         postal_code, country, primary_color,
         vat_registered, vat_number, vat_rate,
         registration_number, tax_number, deposit_percent,
-        currency, bank_name, bank_account_holder, bank_account_number,
+        currency, dispatch_settings, bank_name, bank_account_holder, bank_account_number,
         bank_branch_code, bank_account_type, eft_instructions,
         updated_at
       )
@@ -1481,6 +1488,7 @@ async function renderInvoicePdfAttachment(
       payment_terms: invoicePaymentTerms(
         invAny.invoice_data?.paymentTerms || fallbackData.paymentTerms,
         client.payment_terms,
+        configuredPaymentTerms(company.dispatch_settings),
       ),
       payment_instructions: invoicePaymentInstructions,
       company: {

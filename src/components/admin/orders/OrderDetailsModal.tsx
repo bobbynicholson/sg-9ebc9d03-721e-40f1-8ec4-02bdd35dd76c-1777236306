@@ -385,13 +385,51 @@ const currentBaseSubtotal = () => {
   return Number((itemSubtotal + equipmentSubtotal).toFixed(2));
 };
 
+const notifyClientOfPriceIncrease = async (
+  orderId: string,
+  previousTotal: number,
+  newTotal: number,
+  reason: string,
+): Promise<{ sent?: boolean; skipped?: string; error?: string }> => {
+  if (newTotal <= previousTotal + 0.005) return { skipped: "no_increase" };
+  try {
+    const response = await fetch(`/api/admin/orders/${orderId}/notify-price-increase`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ previousTotal, reason }),
+    });
+    const result = await response.json().catch(() => ({} as any));
+    if (!response.ok || !result?.ok) return { error: result?.error || "Email could not be sent" };
+    return result;
+  } catch (error: any) {
+    return { error: error?.message || "Email could not be sent" };
+  }
+};
+
 const syncAndRefresh = async () => {
   if (!selectedOrder?.id) return;
+  const previousTotal = Number((selectedOrder as any).total_amount || 0);
   const sync = await syncOrderArtifacts(selectedOrder.id, undefined, {
     priorBaseSubtotal: currentBaseSubtotal(),
     priorDiscountAmount: Number((selectedOrder as any).discount_amount || 0),
+    reason: "Menu or equipment details changed.",
   });
   if (!sync.ok) return;
+  const emailResult = await notifyClientOfPriceIncrease(
+    selectedOrder.id,
+    previousTotal,
+    sync.total_amount,
+    "The menu or equipment total changed.",
+  );
+  if (emailResult.error) {
+    toast({
+      title: "Order updated, client email not sent",
+      description: emailResult.error,
+      variant: "destructive",
+    });
+  } else if (emailResult.sent) {
+    toast({ title: "Client emailed", description: "The updated order total and balance were sent." });
+  }
   const merged: any = {
     ...selectedOrder,
     subtotal: sync.subtotal,
@@ -711,13 +749,24 @@ const persistSave = async () => {
     const sync = await syncOrderArtifacts(editedOrder.id, undefined, {
       priorBaseSubtotal: currentBaseSubtotal(),
       priorDiscountAmount: Number((selectedOrder as any)?.discount_amount || 0),
+      reason: "Order details changed in the admin order editor.",
     });
+
+    const emailResult = sync.ok
+      ? await notifyClientOfPriceIncrease(
+          editedOrder.id,
+          oldTotal,
+          sync.total_amount,
+          "The order details were updated by the catering team.",
+        )
+      : { skipped: "order_sync_failed" };
 
     toast({
       title: "Order Updated",
       description: sync.ok
-        ? `Saved. Quote${sync.quote_id ? "" : " (none)"} and invoice${sync.invoice_id ? "" : " (none)"} synced.`
+        ? `Saved. Quote${sync.quote_id ? "" : " (none)"} and invoice${sync.invoice_id ? "" : " (none)"} synced.${emailResult.sent ? " Client emailed with the updated amount." : emailResult.error ? ` Client email failed: ${emailResult.error}` : ""}`
         : "Saved, but the quote/invoice sync hit an issue. Check the totals.",
+      variant: emailResult.error ? "destructive" : undefined,
     });
 
     const merged: any = {

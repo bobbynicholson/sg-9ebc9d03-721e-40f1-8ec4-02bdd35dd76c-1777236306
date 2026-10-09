@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
 import {
@@ -185,6 +186,23 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
               <li>4. After deadline → Order locked, balance must be settled</li>
             </ul>
           </div>
+        </div>
+
+        <div className="space-y-2 border-t pt-4">
+          <Label htmlFor="default-payment-terms" className="text-sm md:text-base">
+            Default payment terms
+          </Label>
+          <Textarea
+            id="default-payment-terms"
+            value={settings.paymentTermsText}
+            onChange={(e) => onUpdate("paymentTermsText", e.target.value)}
+            rows={3}
+            maxLength={1200}
+            placeholder="50% Deposit to secure booking.\nBalance due 48 hours prior to the event."
+          />
+          <p className="text-xs text-slate-600">
+            Used as the company-wide default wording on new quotes and invoices.
+          </p>
         </div>
 
         <div className="space-y-2 border-t pt-4">

@@ -1112,6 +1112,17 @@ export default function PublicQuotePage() {
             );
           })()}
 
+          {quote.payment_terms && (
+            <Card className="print-keep mb-4 border border-stone-200 shadow-sm print-shadow-none">
+              <CardContent className="py-4 px-5">
+                <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1">
+                  Payment terms
+                </p>
+                <p className="text-sm text-stone-700 whitespace-pre-line">{quote.payment_terms}</p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="mb-4 border border-stone-200 shadow-sm print:hidden">
             <CardContent className="py-4 px-5 space-y-3">
               <div>

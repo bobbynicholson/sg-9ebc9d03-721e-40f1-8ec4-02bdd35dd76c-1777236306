@@ -48,15 +48,17 @@ test("manual confirmation loses safely if a provider retry claims the row first"
   expect(res.status).toHaveBeenCalledWith(409); expect(update.eq).toHaveBeenCalledWith("payment_status", "pending");
   expect(from).toHaveBeenCalledTimes(3); expect(sendRefundPaidEmail).not.toHaveBeenCalled();
 });
-test("one manual confirmation preserves the prior reason and leaves durable receipt delivery to the database", async () => {
+test("one manual confirmation preserves the prior reason and emails the client once", async () => {
   const { update } = setup(); const res = response(); await paidHandler(req as never, res as never);
   expect(res.status).toHaveBeenCalledWith(200);
   expect(update.update).toHaveBeenCalledWith(expect.objectContaining({ payment_status: "completed", reason: "Original reason" }));
-  expect(sendRefundPaidEmail).not.toHaveBeenCalled();
+  expect(sendRefundPaidEmail).toHaveBeenCalledTimes(1);
+  expect(sendRefundPaidEmail).toHaveBeenCalledWith("order-1", 100);
 });
 test("definitively failed legacy refund can be recorded after finance pays it", async () => {
   const { update } = setup("failed"); const res = response(); await paidHandler(req as never, res as never);
   expect(res.status).toHaveBeenCalledWith(200); expect(update.eq).toHaveBeenCalledWith("payment_status", "failed");
+  expect(sendRefundPaidEmail).toHaveBeenCalledTimes(1);
 });
 test("invalid payment date is a client error rather than a server crash", async () => {
   const { from } = setup(); const res = response(); await paidHandler({ ...req, body: { paid_at: "not a date" } } as never, res as never);

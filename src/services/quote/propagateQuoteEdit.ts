@@ -23,6 +23,7 @@
  */
 import { tenantDateTime } from "@/lib/portalTime";
 import { supabase } from "@/integrations/supabase/client";
+import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 
 /** The 22 fields that propagate from quote -> order. Some have a
  *  different name on the orders side; the mapping is explicit. */
@@ -118,6 +119,8 @@ export interface PropagateQuoteEditReceipt {
   refusedPostDispatch?: boolean;
   amendmentRequestId?: string;
   orderId?: string;
+  previousTotal?: number;
+  updatedTotal?: number;
   fieldsChanged: string[];
   balanceDueDateRecalculated: boolean;
   prepTasksRescheduled: boolean;
@@ -181,7 +184,10 @@ export async function propagateQuoteEditToOrder(
     }
 
     receipt.orderId = (linkedOrder as any).id;
+    receipt.previousTotal = Number((linkedOrder as any).total_amount || 0);
+    receipt.updatedTotal = Number((quote as any).total ?? (quote as any).total_amount ?? receipt.previousTotal);
     const companyId = (linkedOrder as any).company_id || (quote as any).company_id;
+    const previousOrderTotal = Number((linkedOrder as any).total_amount || 0);
 
     // 3. Hard refusal when the order is past dispatch - we do NOT
     //    silently mutate event_date on a truck that's already rolling.
@@ -413,6 +419,17 @@ export async function propagateQuoteEditToOrder(
       const { syncInvoiceValuesFromOrder } = await import("@/services/order/orderSyncService");
       const invoiceSync = await syncInvoiceValuesFromOrder(receipt.orderId!);
       if (invoiceSync.error) receipt.errors.push(`invoice_values_sync_failed: ${invoiceSync.error}`);
+      const updatedOrderTotal = Number((quote as any).total ?? (quote as any).total_amount ?? previousOrderTotal);
+      const amountChange = await recordDocumentAmountChange(supabase, {
+        companyId,
+        previousTotal: previousOrderTotal,
+        newTotal: updatedOrderTotal,
+        reason: `Quote ${(quote as any).quote_number || quoteId} updated.`,
+        quoteId,
+        orderId: receipt.orderId!,
+        invoiceId: invoiceSync.invoice_id,
+      });
+      if (amountChange.error) receipt.errors.push(`amount_change_audit_failed: ${amountChange.error}`);
     } catch (e: any) {
       receipt.errors.push(`invoice_values_sync_failed: ${e?.message || e}`);
     }

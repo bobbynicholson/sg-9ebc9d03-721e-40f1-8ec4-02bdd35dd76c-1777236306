@@ -23,6 +23,7 @@ import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import { formatClock } from "@/lib/portalTime";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
+import { sortByCourse } from "@/lib/menuCourses";
 
 interface InvoicePreviewProps {
   invoiceNumber: string;
@@ -48,6 +49,7 @@ interface InvoicePreviewProps {
   guestCount: number;
   items: Array<{
     description: string;
+    category?: string | null;
     quantity: number;
     unitPrice: number;
     total: number;
@@ -198,7 +200,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
               From the kitchen
             </p>
             <div className="space-y-2">
-              {props.items.map((item, i) => {
+              {sortByCourse(props.items, (item) => item.category).map((item, i) => {
                 const qty = Number(item.quantity || 1);
                 const unitPrice = Number(item.unitPrice || 0);
                 const lineTotal = Number(

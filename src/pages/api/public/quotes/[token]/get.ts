@@ -30,6 +30,8 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
 import { getPublicPaymentAvailability } from "@/lib/paymentService";
 import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
+import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 
 
 export const config = {
@@ -67,6 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .from("quotes")
     .select(`
       id, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
+      client:client_id ( payment_terms ),
       region_id,
       venue_address, menu_items, equipment_items, notes, terms_and_conditions,
       subtotal, tax_amount, discount_amount, total, total_amount, currency, status,
@@ -86,7 +89,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         registration_number, tax_number,
         primary_color, secondary_color, accent_color,
         brand_font_body, brand_font_display,
-        currency, deposit_percent
+        currency, deposit_percent, dispatch_settings
       )
     `)
     .eq("public_token", token)
@@ -101,6 +104,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!data) {
     return res.status(404).json({ ok: false, error: "Not found" });
   }
+  (data as any).payment_terms = invoicePaymentTerms(
+    null,
+    (data as any).client?.payment_terms,
+    configuredPaymentTerms((data as any).company?.dispatch_settings),
+  );
 
   // Resolve the deposit % the same way the admin accept dialog does
   // (resolveDepositPct in admin/quotes): prefer the company's CURRENT

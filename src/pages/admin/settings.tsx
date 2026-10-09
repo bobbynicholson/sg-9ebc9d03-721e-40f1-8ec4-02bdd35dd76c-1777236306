@@ -43,6 +43,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { UserRole } from "@/types/app";
+import { DEFAULT_PAYMENT_TERMS } from "@/lib/paymentTerms";
 
 const DEFAULT_SETTINGS: AdminSettings = {
   automation: {
@@ -80,6 +81,7 @@ const DEFAULT_SETTINGS: AdminSettings = {
     taxRate: 15,
     depositPercent: 50,
     balanceDueDays: 7,
+    paymentTermsText: DEFAULT_PAYMENT_TERMS,
     finalOrderChangeDays: 7,
     cancellationFeePercent: 25,
     refundProcessDays: 7,
@@ -327,6 +329,7 @@ function SettingsPage() {
           refund_process_days: numberOr(settings.financial.refundProcessDays, 7),
           dispatch_settings: {
             ...priorDispatch,
+            paymentTermsText: settings.financial.paymentTermsText.trim() || DEFAULT_PAYMENT_TERMS,
             deliveryCostPerKm: numberOr(settings.operations.deliveryCostPerKm, 0),
             deliveryBufferMinutes: numberOr(settings.operations.deliveryBufferMinutes, 30),
             driverRadius: numberOr(settings.operations.driverRadius, 50),
@@ -667,6 +670,9 @@ function companyToSettings(company: Record<string, any>, fallback: AdminSettings
       taxRate: numberOr(company.vat_rate, fallback.financial.taxRate),
       depositPercent: numberOr(company.deposit_percent, fallback.financial.depositPercent),
       balanceDueDays: numberOr(company.balance_due_days, fallback.financial.balanceDueDays),
+      paymentTermsText: typeof dispatch.paymentTermsText === "string" && dispatch.paymentTermsText.trim()
+        ? dispatch.paymentTermsText
+        : fallback.financial.paymentTermsText,
       finalOrderChangeDays: numberOr(company.amendment_cutoff_days, fallback.financial.finalOrderChangeDays),
       cancellationFeePercent: numberOr(company.cancellation_fee_percent, fallback.financial.cancellationFeePercent),
       refundProcessDays: numberOr(company.refund_process_days, fallback.financial.refundProcessDays),

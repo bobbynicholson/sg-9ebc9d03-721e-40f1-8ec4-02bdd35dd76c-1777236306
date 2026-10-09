@@ -39,6 +39,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { ensureVenueCoords } from "@/lib/geo/ensureVenueCoords";
+import { sortByCourse } from "@/lib/menuCourses";
 
 
 const POST_DISPATCH_STATUSES = new Set([
@@ -70,6 +71,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const quoteId = String(req.query.id || "");
   if (!quoteId) return res.status(400).json({ error: "Quote id required" });
+  const requestBody = (typeof req.body === "string" ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : req.body) || {};
 
   // Auth: any admin / sales role for this tenant. Reuse the standard
   // SSR client to verify identity.
@@ -156,6 +158,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (((quote as any).venue_address || null) !== ((linkedOrder as any).venue_address || null)) clientChangedFields.push("venue");
     if (((quote as any).event_date || null) !== ((linkedOrder as any).event_date || null)) clientChangedFields.push("event date");
     if (((quote as any).event_time || null) !== ((linkedOrder as any).event_time || null)) clientChangedFields.push("event time");
+    const previousTotalFromPropagation = Number(requestBody.previousTotal);
+    const currentQuoteTotal = Number((quote as any).total ?? (quote as any).total_amount);
+    if (
+      Number.isFinite(previousTotalFromPropagation) &&
+      Number.isFinite(currentQuoteTotal) &&
+      Math.abs(previousTotalFromPropagation - currentQuoteTotal) > 0.009 &&
+      !clientChangedFields.includes("price")
+    ) {
+      clientChangedFields.push("price");
+    }
     // A menu edit (add/remove/swap dish) almost always moves the total, so
     // the "price" check above catches it; orders has no menu_items column
     // to diff directly, and order_items is rebuilt unconditionally here.
@@ -244,7 +256,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           ? (() => { try { const p = JSON.parse(rawMenu); return Array.isArray(p) ? p : []; } catch { return []; } })()
           : [];
       const guestCount = Number((quote as any).guest_count || 0);
-      const rows = items
+      const rows = sortByCourse(items, (it: any) => it?.category)
         .map((it: any) => {
           const name = it.item_name || it.name || "";
           if (!name) return null;

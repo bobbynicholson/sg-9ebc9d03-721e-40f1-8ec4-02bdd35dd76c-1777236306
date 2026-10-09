@@ -111,6 +111,9 @@ import { cn } from "@/lib/utils";
 import { toLocalISO } from "@/lib/localDate";
 import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
 import { notifyQuoteUpdated } from "@/services/quote/quoteNotifications";
+import { AmountChangeAction } from "@/components/admin/financial/AmountChangeAction";
+import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
+import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 
 // TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for any
 // sibling helpers / dialogs that reference it from outside the main
@@ -259,6 +262,9 @@ function PipelineBoard({
   rows,
   onOpen,
   currencyCode = "ZAR",
+  amountChangesByQuoteId,
+  resolvedByQuoteId,
+  withSlug,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rows: any[];
@@ -267,6 +273,9 @@ function PipelineBoard({
    *  + per-column rollup. Defaults to R so existing ZAR tenants
    *  see no behaviour change. */
   currencyCode?: string;
+  amountChangesByQuoteId: Map<string, any>;
+  resolvedByQuoteId: Map<string, { paymentLabel?: string }>;
+  withSlug: (href: string) => string;
 }) {
   // Pre-bucket once so each column doesn't re-filter the whole list.
   const grouped = (() => {
@@ -319,41 +328,46 @@ function PipelineBoard({
                   list.map((r: any) => {
                     const q = r.quote;
                     const intel = r.intelligence;
+                    const change = amountChangesByQuoteId.get(q.id);
+                    const changeHref = change?.direction === "decrease" && change.refundPaymentId
+                      ? withSlug(`/admin/refunds?paymentId=${change.refundPaymentId}`)
+                      : change?.invoiceId
+                        ? withSlug(`/admin/invoices?invoiceId=${change.invoiceId}`)
+                        : change?.orderId
+                          ? withSlug(`/admin/orders?orderId=${change.orderId}`)
+                          : withSlug(`/admin/quotes/${q.id}`);
                     return (
-                      <button
-                        key={q.id}
-                        type="button"
-                        onClick={() => onOpen(q.id)}
-                        className="w-full text-left rounded-lg bg-white border border-slate-200 hover:border-slate-300 hover:shadow-sm transition p-2.5"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <span className="text-sm font-medium text-slate-900 truncate">{q.client_name || "Unknown"}</span>
-                          <span className="text-xs font-semibold text-slate-700 tabular-nums shrink-0">
-                            {/* Exact cents + dot-decimal like formatZAR (Callum 2026-07-08), no rounding. */}
-                            {formatQuoteMoney(Number(q.total || 0), q.currency, currencyCode)}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
-                          {q.event_date && (
-                            <span className="inline-flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
-                              {q.event_time ? ` at ${formatClock(q.event_time)}` : ""}
+                      <div key={q.id} className="w-full rounded-lg bg-white border border-slate-200 hover:border-slate-300 hover:shadow-sm transition p-2.5">
+                        <button type="button" onClick={() => onOpen(q.id)} className="w-full text-left">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <span className="text-sm font-medium text-slate-900 truncate">{q.client_name || "Unknown"}</span>
+                            <span className="text-xs font-semibold text-slate-700 tabular-nums shrink-0">
+                              {formatQuoteMoney(Number(q.total || 0), q.currency, currencyCode)}
                             </span>
+                          </div>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+                            {q.event_date && (
+                              <span className="inline-flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(q.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                                {q.event_time ? ` at ${formatClock(q.event_time)}` : ""}
+                              </span>
+                            )}
+                            {q.guest_count != null && (
+                              <span className="inline-flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {q.guest_count}
+                              </span>
+                            )}
+                          </div>
+                          {intel?.label && (
+                            <p className={`text-[11px] mt-1.5 ${intel.tone === "urgent" ? "text-rose-700 font-medium" : "text-slate-600"}`}>
+                              {intel.label}
+                            </p>
                           )}
-                          {q.guest_count != null && (
-                            <span className="inline-flex items-center gap-1">
-                              <Users className="w-3 h-3" />
-                              {q.guest_count}
-                            </span>
-                          )}
-                        </div>
-                        {intel?.label && (
-                          <p className={`text-[11px] mt-1.5 ${intel.tone === "urgent" ? "text-rose-700 font-medium" : "text-slate-600"}`}>
-                            {intel.label}
-                          </p>
-                        )}
-                      </button>
+                        </button>
+                        {change && <div className="mt-2"><AmountChangeAction change={change} href={changeHref} settled={change.direction === "increase" && resolvedByQuoteId.get(q.id)?.paymentLabel === "Paid in Full"} actionLabel={change.direction === "increase" && !change.invoiceId ? "Review quote" : undefined} formatAmount={(amount) => formatQuoteMoney(amount, q.currency, currencyCode)} /></div>}
+                      </div>
                     );
                   })
                 )}
@@ -567,6 +581,8 @@ function AdminQuotesInner() {
     eventName: string | null;
     guestCount: number | null;
     totalAmount: number | null;
+    amountPaid: number | null;
+    balanceAmount: number | null;
     venueName: string | null;
     /** Wave 70.32: actual order status so badge + caption tell the
      *  truth instead of saying a blanket "booked". */
@@ -576,6 +592,7 @@ function AdminQuotesInner() {
     depositReceived: boolean;
     paymentLabel: "Awaiting Payment" | "Deposit Paid" | "Paid in Full";
   }>>(new Map());
+  const [amountChangeByQuoteId, setAmountChangeByQuoteId] = useState<Map<string, any>>(new Map());
 
   // Deep-link target from notifications + email links: clicking a
   // "Client wants changes on a quote" notification lands here with
@@ -1016,6 +1033,18 @@ function AdminQuotesInner() {
             .map((q: any) => q.converted_to_order_id)
             .filter((id: string | null | undefined): id is string => !!id),
         ));
+        const changeIds = [...quotes.map((quote: any) => quote.id), ...orderIds];
+        try {
+          const changes = await loadLatestDocumentAmountChanges(supabase, companyId, changeIds);
+          const changesByQuote = new Map<string, any>();
+          for (const quote of quotes as any[]) {
+            const change = changes.get(quote.id) || changes.get(quote.converted_to_order_id);
+            if (change) changesByQuote.set(quote.id, change);
+          }
+          if (!cancelled) setAmountChangeByQuoteId(changesByQuote);
+        } catch (err) {
+          console.warn("[quotes] amount-change history failed", err);
+        }
         if (orderIds.length === 0) {
           if (!cancelled) setResolvedByQuoteId(new Map());
           return;
@@ -1057,6 +1086,8 @@ function AdminQuotesInner() {
             eventName: o.event_name ?? null,
             guestCount: o.guest_count ?? null,
             totalAmount: o.total_amount ?? null,
+            amountPaid: o.amount_paid ?? null,
+            balanceAmount: o.balance_amount ?? null,
             venueName: o.venue_name ?? null,
             status: o.status ?? null,
             depositReceived,
@@ -2116,6 +2147,9 @@ function AdminQuotesInner() {
             <PipelineBoard
               rows={filteredRows}
               currencyCode={tenantCurrency.code}
+              amountChangesByQuoteId={amountChangeByQuoteId}
+              resolvedByQuoteId={resolvedByQuoteId}
+              withSlug={withSlug}
               onOpen={(quoteId) => {
                 setFocusedQuoteId(quoteId);
                 setBucket("all");
@@ -2247,6 +2281,7 @@ function AdminQuotesInner() {
                         const displayEventTime = resolved?.eventTime ?? quote.event_time ?? null;
                         const displayGuestCount = resolved?.guestCount ?? quote.guest_count ?? null;
                         const displayTotal = resolved?.totalAmount ?? (quote.total ?? 0);
+                        const amountChange = amountChangeByQuoteId.get(quote.id);
                         return (
                           <Card
                             key={quote.id}
@@ -2300,6 +2335,21 @@ function AdminQuotesInner() {
                             <Badge className={`${getStatusColor(quote.status)} border`}>
                               {quote.status}
                             </Badge>
+                            {amountChange && (
+                              <AmountChangeAction
+                                change={amountChange}
+                                settled={amountChange.direction === "increase" && resolved?.paymentLabel === "Paid in Full"}
+                                formatAmount={(amount) => formatQuoteMoney(amount, quote.currency, tenantCurrency.code)}
+                                actionLabel={amountChange.direction === "increase" && !amountChange.invoiceId ? "Review quote" : undefined}
+                                href={amountChange.direction === "decrease" && amountChange.refundPaymentId
+                                  ? withSlug(`/admin/refunds?paymentId=${amountChange.refundPaymentId}`)
+                                  : amountChange.invoiceId
+                                    ? withSlug(`/admin/invoices?invoiceId=${amountChange.invoiceId}`)
+                                    : amountChange.orderId
+                                      ? withSlug(`/admin/orders?orderId=${amountChange.orderId}`)
+                                      : withSlug(`/admin/quotes/${quote.id}`)}
+                              />
+                            )}
                             {/*
                               "New client request" pill, shown when
                               the quote was submitted by the client via
@@ -2603,11 +2653,11 @@ function AdminQuotesInner() {
                             className="w-full justify-center"
                             disabled={!quote.client_email}
                             title={quote.client_email
-                              ? "Write an email to the client - for example, to tell them we're fully booked"
+                              ? "Open an email to tell the client we're fully booked"
                               : "Add the client's email address to this quote to email them"}
                             onClick={() => setEmailQuote(quote)}
                           >
-                            <Mail className="w-4 h-4 mr-1.5" /> Email client
+                            <Mail className="w-4 h-4 mr-1.5" /> Tell client we're fully booked
                           </Button>
                           <WhatsAppButton
                             kind="client"
@@ -3021,6 +3071,14 @@ function AdminQuotesInner() {
                 const { error: sweetenerUpdateError } = await (supabase as any)
                   .from("quotes").update(patch).eq("id", composeQuote.id);
                 if (sweetenerUpdateError) throw sweetenerUpdateError;
+                const amountAudit = await recordDocumentAmountChange(supabase, {
+                  companyId: String((composeQuote as any).company_id || profile?.company_id || ""),
+                  quoteId: composeQuote.id,
+                  previousTotal: oldTotal,
+                  newTotal,
+                  reason: "A client discount offer was applied to the quote.",
+                });
+                if (amountAudit.error) console.warn("[quotes] sweetener amount audit failed:", amountAudit.error);
                 void notifyQuoteUpdated({ quote: composeQuote as any, updates: patch });
                 setQuotes((prev) => prev.map((q) =>
                   q.id === composeQuote.id ? ({ ...q, ...patch } as Quote) : q,

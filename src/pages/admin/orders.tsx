@@ -158,6 +158,7 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { formatDate } from "@/lib/formatters";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
+import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
 
 // OrderStats type + STATUS_CONFIG + WORKFLOW_STAGES + helpers
 // extracted to sibling files in the P2-13 Phase B split. Imported
@@ -187,6 +188,7 @@ function OrderProcessDashboard() {
   const tenantCurrency = useTenantCurrency(user?.company_id);
   const C = tenantCurrency.symbol;
   const [orders, setOrders] = useState<AppOrder[]>([]);
+  const [amountChangesByOrder, setAmountChangesByOrder] = useState<Map<string, any>>(new Map());
   // Per-order summary of email_automation_log entries: count of sent
   // automations, latest event, and a "post-event review automation
   // already fired" flag. Surfaced on each OrderCard so the team sees
@@ -995,6 +997,17 @@ function OrderProcessDashboard() {
         allOrders = await orderService.getAllOrders(companyId);
       }
       setOrders(allOrders as unknown as AppOrder[]);
+      try {
+        const changes = await loadLatestDocumentAmountChanges(
+          supabase,
+          companyId,
+          allOrders.map((order: any) => order.id),
+        );
+        setAmountChangesByOrder(changes);
+      } catch (changeError) {
+        console.warn("[orders] amount change history could not be loaded:", changeError);
+        setAmountChangesByOrder(new Map());
+      }
 
       // Local dev uses the service-role route above because the fake auth
       // identity has no Supabase session. The remaining list enrichments
@@ -1918,7 +1931,10 @@ function OrderProcessDashboard() {
   }, [fuzzyOrders]);
 
   const getOrdersByStatus = (status: string) => {
-    return ordersByStatus[status] || [];
+    return (ordersByStatus[status] || []).map((order: any) => ({
+      ...order,
+      _amountChange: amountChangesByOrder.get(order.id) || null,
+    }));
   };
 
   // Wave 64.2 - deeplink flicker fix. When a sibling page (e.g. the
@@ -2440,6 +2456,7 @@ function OrderProcessDashboard() {
                           <TimelineRow
                             key={order.id}
                             order={order}
+                            amountChange={amountChangesByOrder.get((order as any).id) || null}
                             selectedIds={selectedIds}
                             timelinesById={timelinesById}
                             readinessById={readinessById}

@@ -3,6 +3,8 @@ import type {
   QuotePdfEquipmentItem,
   QuotePdfMenuItem,
 } from "./QuoteDocument";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
+import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 
 const asArray = (value: unknown): any[] => {
   if (Array.isArray(value)) return value;
@@ -161,6 +163,11 @@ export function buildQuotePdfDataFromRow(row: any): QuotePdfData {
     total: firstNumber(row?.total, row?.total_amount) ?? 0,
     initial_payment_amount: firstNumber(row?.initial_payment_amount),
     valid_until: row?.valid_until ?? null,
+    payment_terms: invoicePaymentTerms(
+      null,
+      row?.client?.payment_terms,
+      configuredPaymentTerms(row?.company?.dispatch_settings),
+    ),
     terms_and_conditions: row?.terms_and_conditions ?? null,
     notes: row?.notes ?? null,
     status: row?.status ?? null,

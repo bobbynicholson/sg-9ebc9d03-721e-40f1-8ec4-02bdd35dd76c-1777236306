@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { describeQuoteEditImpact } from "@/services/quote/propagateQuoteEdit";
 import { breakdownFromLineSum } from "@/lib/vatMath";
+import { sortByCourse } from "@/lib/menuCourses";
 import { usePricingMode } from "@/hooks/usePricingMode";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 import {
@@ -522,7 +523,7 @@ function AdminQuoteDetailInner() {
     // Edits merge OVER the original jsonb row so builder-only fields
     // (pricing_mode, description, allergen stamps) survive a save
     // from this simpler editor instead of being dropped.
-    const menuItemsJson = items.map((it) => {
+    const menuItemsJson = sortByCourse(items, (it) => it.category).map((it) => {
       const net = it.quantity * it.unit_price * (1 - (it.discount_pct || 0) / 100);
       const base = it.raw && typeof it.raw === "object" ? { ...it.raw } : {};
       if ((base as any).pricePerPerson !== undefined) (base as any).pricePerPerson = it.unit_price;

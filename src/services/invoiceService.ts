@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toLocalISO } from "@/lib/localDate";
@@ -360,6 +361,14 @@ export const invoiceService = {
     if (savedInvErr) {
       console.error("[invoiceService] invoices fetch failed:", savedInvErr);
     }
+    const { data: companyTermsRow, error: companyTermsErr } = await (supabase as any)
+      .from("companies")
+      .select("dispatch_settings")
+      .eq("id", (order as any).company_id)
+      .maybeSingle();
+    if (companyTermsErr) {
+      console.error("[invoiceService] company payment terms fetch failed:", companyTermsErr);
+    }
     const computedSubtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
     let subtotal: number;
     let vatAmount: number;
@@ -439,7 +448,7 @@ export const invoiceService = {
       total: edits?.total || total,
       currency: order.currency || "R",
       notes: edits?.notes,
-      paymentTerms: edits?.paymentTerms || "Payment due on event date"
+      paymentTerms: edits?.paymentTerms || configuredPaymentTerms(companyTermsRow?.dispatch_settings)
     };
 
     return await this.generateInvoicePDF(invoiceData);

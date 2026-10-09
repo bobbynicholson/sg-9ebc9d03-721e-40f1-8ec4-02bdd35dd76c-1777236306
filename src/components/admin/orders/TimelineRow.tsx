@@ -22,9 +22,12 @@ import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { RegionBadge } from "@/components/admin/RegionBadge";
 import { formatDate } from "@/lib/formatters";
 import { useToast } from "@/hooks/use-toast";
+import { AmountChangeAction } from "@/components/admin/financial/AmountChangeAction";
+import type { DocumentAmountChangeSummary } from "@/services/documentAmountChanges";
 
 interface Props {
   order: AppOrder;
+  amountChange?: DocumentAmountChangeSummary | null;
   /** Set of order ids currently bulk-selected. */
   selectedIds: Set<string>;
   /** Pre-computed timeline per order (parent useMemo). */
@@ -57,7 +60,7 @@ interface Props {
  * Phase D3 remnant).
  */
 export function TimelineRow({
-  order, selectedIds, timelinesById, readinessById, allShiftsByOrder,
+  order, amountChange, selectedIds, timelinesById, readinessById, allShiftsByOrder,
   staffProfilesById, currencySymbol, companyId, loadOrders, toggleSelected,
   setSelectedOrder, setIsModalOpen, withSlug, onEmail,
 }: Props) {
@@ -150,6 +153,18 @@ export function TimelineRow({
                   </button>
                 )}
                 <RegionBadge regionId={(order as any).region_id} />
+                {amountChange && (
+                  <AmountChangeAction
+                    change={amountChange}
+                    formatAmount={(amount) => `${C} ${Number(amount).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    settled={amountChange.direction === "increase" && Number((order as any).total_amount || 0) > 0 && Number((order as any).amount_paid || 0) >= Number((order as any).total_amount) - 0.01}
+                    href={amountChange.direction === "decrease" && amountChange.refundPaymentId
+                      ? withSlug(`/admin/refunds?paymentId=${amountChange.refundPaymentId}`)
+                      : amountChange.invoiceId
+                        ? withSlug(`/admin/invoices?invoiceId=${amountChange.invoiceId}`)
+                        : withSlug(`/admin/orders?orderId=${(order as any).id}`)}
+                  />
+                )}
                 {isToday && (
                   <Badge className="bg-blue-500">Today</Badge>
                 )}
@@ -252,11 +267,11 @@ export function TimelineRow({
                   }}
                   className="gap-1.5"
                   title={(order as any).client_email
-                    ? "Write an email to the client about this order"
+                    ? "Open an email to tell the client we're fully booked"
                     : "Add the client's email address to this order to email them"}
                 >
                   <Mail className="w-3.5 h-3.5" />
-                  Email client
+                  Tell client we're fully booked
                 </Button>
               )}
               <Button

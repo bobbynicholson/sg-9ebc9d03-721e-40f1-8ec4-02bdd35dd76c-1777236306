@@ -247,20 +247,37 @@ export default function ClientOrderPage() {
   // and the deposit flags, instead of the raw enum ("partial"). Prefer the
   // invoice's paid/balance figures; fall back to the order's deposit flag.
   const invoiceAmountPaid = (invoice as any)?.amount_paid;
-  const paidToDate = Number(invoiceAmountPaid ?? 0);
+  const rawPayments: Array<{ payment_type: string | null; status: string | null; processed_at: string | null; amount: number | null }> =
+    Array.isArray((view as any)?.payments) ? (view as any).payments : [];
+  const settledLedgerPayments = rawPayments.filter(
+    (payment) => String(payment?.status || "").toLowerCase() === "completed",
+  );
+  const settledAmountFromHistory = settledLedgerPayments.reduce((sum, payment) => {
+    const amount = Math.abs(Number(payment.amount) || 0);
+    const type = String(payment.payment_type || "").toLowerCase();
+    if (type === "credit_issue") return sum;
+    return sum + (type === "refund" ? -amount : amount);
+  }, 0);
+  const paidToDate = Number(invoiceAmountPaid ?? order.amount_paid ?? settledAmountFromHistory);
   const balanceDue = Number((invoice as any)?.balance_due ?? 0);
   // Payment history (deposits / balance). Populated by client_view_order,
   // which now also pulls payments tied to the order's invoice (not just
   // order_id), so a recorded deposit actually shows here.
-  const paymentsArr: Array<{ payment_type: string | null; status: string | null; processed_at: string | null; amount: number | null }> =
-    Array.isArray((view as any)?.payments) ? (view as any).payments : [];
-  const settledPayments = paymentsArr.filter(
-    (p) => String(p?.status || "").toLowerCase() === "completed" && Number(p?.amount) > 0,
+  const settledPayments = settledLedgerPayments.filter(
+    (payment) => String(payment?.payment_type || "").toLowerCase() !== "refund" && Number(payment?.amount) > 0,
   );
-  const settledAmountFromHistory = settledPayments.reduce(
-    (sum, p) => sum + (Number(p.amount) || 0),
+  const settledRefunds = settledLedgerPayments.filter(
+    (payment) => String(payment?.payment_type || "").toLowerCase() === "refund" && Number(payment?.amount) > 0,
+  );
+  const pendingRefunds = rawPayments.filter(
+    (payment) => String(payment?.payment_type || "").toLowerCase() === "refund"
+      && ["pending", "processing", "failed"].includes(String(payment?.status || "").toLowerCase()),
+  );
+  const pendingRefundAmount = pendingRefunds.reduce(
+    (sum, payment) => sum + Math.abs(Number(payment.amount) || 0),
     0,
   );
+  const paidAboveTotal = Math.max(0, Number((paidToDate - Number((invoice as any)?.total_amount ?? order.total_amount ?? 0)).toFixed(2)));
   const paymentSummary = getOrderPaymentSummary({
     totalAmount: (invoice as any)?.total_amount ?? order.total_amount,
     amountPaid: invoice ? invoiceAmountPaid : (order.amount_paid ?? settledAmountFromHistory),
@@ -739,7 +756,7 @@ export default function ClientOrderPage() {
             </div>
             <aside className="space-y-6 lg:sticky lg:top-6" aria-label="Payment and help">
               {/* Payment summary */}
-              {(depositAmount > 0 || hasBalanceLine || settledPayments.length > 0) && (
+              {(depositAmount > 0 || hasBalanceLine || settledPayments.length > 0 || settledRefunds.length > 0 || pendingRefunds.length > 0) && (
                 <Card className="border-0 shadow-lg">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
@@ -748,18 +765,30 @@ export default function ClientOrderPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-sm space-y-2">
-                    {depositAmount > 0 && (
+                    {paymentSummary.state === "paid" ? (
+                      <Row label="Paid in full" value={fmtMoney.format(invoiceTotal)} paid />
+                    ) : depositAmount > 0 ? (
                       <Row label={`Deposit ${depositReceived ? "(paid)" : "(due)"}`} value={fmtMoney.format(depositAmount)} paid={depositReceived} />
-                    )}
+                    ) : null}
                     {hasBalanceLine && (
                       <Row label={`${depositReceived || fullPaymentDue ? "Balance" : "Balance after first payment"} ${balanceSettled ? "(paid)" : order.balance_due_date ? `(due ${new Date(order.balance_due_date).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })})` : "(due)"}`} value={fmtMoney.format(balanceSettled ? 0 : scheduledBalanceDue)} paid={balanceSettled} />
+                    )}
+                    {paidAboveTotal > 0.005 && (
+                      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                        <p>Paid above the revised total: <strong>{fmtMoney.format(paidAboveTotal)}</strong>.</p>
+                        {pendingRefundAmount > 0.005 ? (
+                          <p className="mt-1">Refund pending: {fmtMoney.format(pendingRefundAmount)}. The catering team will confirm when the payout is sent.</p>
+                        ) : (
+                          <p className="mt-1">The excess refund has not been recorded yet. Please contact the catering team.</p>
+                        )}
+                      </div>
                     )}
                     {/* Itemised payment history - what landed and when. Each
                         line is one settled payment (deposit / balance), pulled
                         via the order's invoice so a recorded deposit shows. */}
-                    {settledPayments.length > 0 && (
+                    {(settledPayments.length > 0 || settledRefunds.length > 0) && (
                       <div className="pt-2 mt-1 border-t border-slate-100 space-y-1">
-                        <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Payments received</p>
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">Payment history</p>
                         {settledPayments.map((p, i) => {
                           const kind = String(p.payment_type || "").toLowerCase();
                           const label = kind === "deposit" ? "Deposit" : kind === "balance" || kind === "order" ? "Balance" : "Payment";
@@ -772,6 +801,24 @@ export default function ClientOrderPage() {
                             </div>
                           );
                         })}
+                        {settledRefunds.map((p, i) => (
+                          <div key={`refund-${i}`} className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600">
+                              Refund paid{p.processed_at ? ` · ${new Date(p.processed_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+                            </span>
+                            <span className="font-semibold text-amber-800 tabular-nums">-{fmtMoney.format(Math.abs(Number(p.amount) || 0))}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {pendingRefunds.length > 0 && paidAboveTotal <= 0.005 && (
+                      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                        <p className="font-semibold">Refund being processed</p>
+                        {pendingRefunds.map((p, i) => (
+                          <p key={`pending-refund-${i}`} className="mt-1">
+                            {String(p.status).toLowerCase() === "failed" ? "Refund needs review" : "Refund pending"}: {fmtMoney.format(Math.abs(Number(p.amount) || 0))}
+                          </p>
+                        ))}
                       </div>
                     )}
                     {/* Wave 19: Pay button when there's an outstanding invoice.

@@ -26,6 +26,7 @@ import { withApiLogging } from "@/lib/withApiLogging";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { resolveInvoiceFirstPaymentAmount } from "@/lib/invoiceClientView";
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
+import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { buildPdfPaymentInstructions } from "@/lib/pdfPaymentInstructions";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
@@ -55,7 +56,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         notes, invoice_data, updated_at,
         client:client_id ( client_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms ),
         order:order_id ( id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at ),
-        company:company_id ( id, slug, company_name, legal_name, time_format, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
+        company:company_id ( id, slug, company_name, legal_name, time_format, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, dispatch_settings, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
       `)
       .eq("public_token", token)
       .is("deleted_at", null)
@@ -200,7 +201,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         balance_due: (inv as any).balance_due,
         first_payment_amount: firstPaymentAmount > 0 ? firstPaymentAmount : null,
         notes: (inv as any).notes || null,
-        payment_terms: invoicePaymentTerms(idata.paymentTerms, client.payment_terms),
+        payment_terms: invoicePaymentTerms(
+          idata.paymentTerms,
+          client.payment_terms,
+          configuredPaymentTerms(company.dispatch_settings),
+        ),
         payment_instructions: paymentInstructions,
         company: {
           id: company.id, slug: company.slug,
