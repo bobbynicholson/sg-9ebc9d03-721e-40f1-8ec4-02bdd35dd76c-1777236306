@@ -212,7 +212,25 @@ export function EmailDeliverabilityPanel({ companyId }: Props) {
           <div>
             <h4 className="text-sm font-semibold text-slate-900 mb-2">Recent issues</h4>
             <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <table className="w-full text-xs">
+              {/* Long email addresses and provider reasons make a four-column
+                  table unreadable on phones. Keep the compact table for
+                  desktop, and expose the same information as stacked cards
+                  on small screens. */}
+              <div className="space-y-2 p-2 sm:hidden">
+                {stats.recentIssues.map((r, i) => (
+                  <div key={i} className="rounded-md border border-slate-100 bg-slate-50 p-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <EventBadge type={r.event_type} bounceType={r.bounce_type} />
+                      <span className="shrink-0 text-[11px] text-slate-500">
+                        {new Date(r.event_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                      </span>
+                    </div>
+                    <p className="mt-2 break-all font-mono text-[11px] text-slate-800">{r.to_email || "No recipient recorded"}</p>
+                    {r.reason && <p className="mt-1 break-words text-[11px] leading-relaxed text-slate-600">{r.reason}</p>}
+                  </div>
+                ))}
+              </div>
+              <table className="hidden w-full text-xs sm:table">
                 <thead className="bg-slate-50 text-left text-slate-500">
                   <tr>
                     <th className="px-3 py-2 font-semibold">When</th>
