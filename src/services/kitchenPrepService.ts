@@ -537,7 +537,7 @@ export const kitchenPrepService = {
     orderId: string,
     performedBy?: string,
     client?: typeof supabase,
-    opts: { force?: boolean } = {},
+    opts: { force?: boolean; allowActiveImportedOrder?: boolean } = {},
   ): Promise<{ created: number; skippedReason?: string }> {
     // Server-safe injection. Browser callers pass nothing and get the
     // global anon client (RLS-gated). Server callers (post-order
@@ -570,7 +570,16 @@ export const kitchenPrepService = {
       const importedAt = (orderMeta as any).imported_at;
       const paused = (orderMeta as any).comms_paused_until;
       const isPaused = paused && new Date(paused) > new Date();
-      if (importedAt || isPaused) {
+      const eventDateIso = (orderMeta as any).event_date
+        ? String((orderMeta as any).event_date).slice(0, 10)
+        : null;
+      const todayIso = toLocalISO(new Date());
+      // Imported orders retain their audit marker. A deliberate kitchen
+      // recovery action may create a plan only for a live booking today or
+      // later; historical imports remain quarantined.
+      const activeImportedOrderOverride = !!opts.allowActiveImportedOrder &&
+        !!eventDateIso && eventDateIso >= todayIso;
+      if ((importedAt || isPaused) && !activeImportedOrderOverride) {
         console.log(`[kitchenPrep] order ${orderId} is in import quarantine - skipping prep generation`);
         return { created: 0, skippedReason: importedAt ? "import_quarantine" : "comms_paused" };
       }
@@ -588,9 +597,7 @@ export const kitchenPrepService = {
       // override; auto-cascades still respect the date check via
       // force=false.
       if ((orderMeta as any).event_date && !opts.force) {
-        const eventDateIso = String((orderMeta as any).event_date).slice(0, 10);
-        const todayIso = toLocalISO(new Date());
-        if (eventDateIso < todayIso) {
+        if (eventDateIso && eventDateIso < todayIso) {
           console.log(`[kitchenPrep] order ${orderId} event_date ${eventDateIso} < today ${todayIso} - skipping prep generation (pass force=true to override)`);
           return { created: 0, skippedReason: "event_in_past" };
         }

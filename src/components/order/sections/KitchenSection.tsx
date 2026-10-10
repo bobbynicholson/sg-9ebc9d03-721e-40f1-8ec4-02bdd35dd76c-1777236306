@@ -134,6 +134,7 @@ export function KitchenSection({
   const [equipment, setEquipment] = useState<EquipmentBookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
   // ODOC: open inline recipe popover. Keeps the chef in the doc
   // rather than punting them to /admin/menu and losing context.
   const [recipeFor, setRecipeFor] = useState<{ menuItemId: string; itemName: string; quantity: number } | null>(null);
@@ -194,6 +195,44 @@ export function KitchenSection({
       toast({ title: "Could not complete", description: e?.message, variant: "destructive" });
     } finally {
       setActing(null);
+    }
+  };
+
+  const handleGeneratePrepPlan = async () => {
+    if (!user?.id || generatingPlan) return;
+    setGeneratingPlan(true);
+    try {
+      const result = await kitchenPrepService.ensurePrepTasksForOrder(
+        companyId,
+        orderId,
+        user.id,
+        undefined,
+        { allowActiveImportedOrder: true },
+      );
+      if (result.created > 0) {
+        const { data } = await (supabase as any)
+          .from("kitchen_prep_tasks")
+          .select("id, task_type, status, start_at, started_at, completed_at, station_id, duration_min, notes, menu_item_name, assigned_chef_id, completed_by, station:station_id(name)")
+          .eq("order_id", orderId)
+          .is("deleted_at", null)
+          .order("start_at", { ascending: true, nullsFirst: false });
+        setTasks(dedupeKitchenPrepTasks((data || []) as PrepTask[]));
+        toast({ title: "Prep plan ready", description: `${result.created} task${result.created === 1 ? "" : "s"} created and the kitchen team notified.` });
+      } else {
+        const description = result.skippedReason === "event_in_past"
+          ? "This order's event date is in the past."
+          : result.skippedReason === "auto_generate_disabled"
+            ? "Automatic prep planning is disabled in Kitchen settings."
+            : result.skippedReason === "no_menu_items_or_no_pickup_time"
+              ? "Add menu items and a collection or event time first."
+              : "No prep tasks could be created for this order.";
+        toast({ title: "Prep plan not created", description, variant: "destructive" });
+      }
+    } catch (e: any) {
+      captureException(e, { tags: { route: "/order/[id]", step: "generatePrepPlan", orderId, companyId } });
+      toast({ title: "Could not generate prep plan", description: e?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setGeneratingPlan(false);
     }
   };
 
@@ -549,12 +588,20 @@ export function KitchenSection({
               <h3 className="text-xs font-semibold uppercase tracking-wider text-orange-800">Prep tasks</h3>
             </div>
             {tasks.length === 0 ? (
-              <div className="flex items-start gap-2 p-3 rounded-md bg-amber-50 border border-amber-200">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md bg-amber-50 border border-amber-200">
+                <div className="flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-amber-900">No prep tasks yet</p>
-                  <p className="text-xs text-amber-800 mt-0.5">Prep tasks auto-cascade once the order is confirmed. If they're still missing, kitchen settings may need attention.</p>
+                  <p className="text-xs text-amber-800 mt-0.5">Create the prep plan from this order's menu, then assign, start and complete the work.</p>
                 </div>
+                </div>
+                {canAct && (
+                  <Button size="sm" onClick={handleGeneratePrepPlan} disabled={generatingPlan} className="bg-brand-primary hover:bg-brand-primary/90 text-white">
+                    {generatingPlan ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                    Generate prep plan
+                  </Button>
+                )}
               </div>
             ) : (
               <ul className="space-y-2">

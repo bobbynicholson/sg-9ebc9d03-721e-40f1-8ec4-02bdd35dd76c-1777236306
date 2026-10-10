@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Play, Loader2, Clock, UserCheck } from "lucide-react";
+import { CheckCircle2, Play, Loader2, Clock, UserCheck, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -57,6 +57,7 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [team, setTeam] = useState<Array<{ id: string; full_name: string }>>([]);
   const [mineOnly, setMineOnly] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const canAssign = ASSIGNER_ROLES.has(String((user as any)?.role || ""));
 
@@ -160,7 +161,60 @@ export function KitchenPrepTasksCard({ orderId, companyId: companyIdProp }: { or
     }
   };
 
-  if (loading || tasks.length === 0) return null;
+  const onGeneratePlan = async () => {
+    if (!companyId || !user?.id || generating) return;
+    setGenerating(true);
+    try {
+      // This is an explicit operator recovery action. It can release a
+      // today/future imported booking into kitchen work, while the service
+      // still refuses historical imported orders.
+      const result = await kitchenPrepService.ensurePrepTasksForOrder(
+        companyId,
+        orderId,
+        user.id,
+        undefined,
+        { allowActiveImportedOrder: true },
+      );
+      if (result.created > 0) {
+        toast({
+          title: "Prep plan ready",
+          description: `${result.created} task${result.created === 1 ? "" : "s"} created and the kitchen team notified.`,
+        });
+        await load();
+      } else {
+        const reason = result.skippedReason === "event_in_past"
+          ? "This order's event date is in the past."
+          : result.skippedReason === "auto_generate_disabled"
+            ? "Automatic prep planning is disabled in Kitchen settings."
+            : result.skippedReason === "no_menu_items_or_no_pickup_time"
+              ? "Add menu items and a collection or event time first."
+              : "No prep tasks could be created for this order.";
+        toast({ title: "Prep plan not created", description: reason, variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Could not generate prep plan", description: e?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  if (loading) return null;
+  if (tasks.length === 0) {
+    return (
+      <div className="no-print rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-amber-950">No prep tasks yet</p>
+            <p className="mt-0.5 text-xs text-amber-800">Create the kitchen plan from this order's menu, then assign, start and complete each task.</p>
+          </div>
+          <Button size="sm" onClick={onGeneratePlan} disabled={!companyId || !user?.id || generating} className="bg-brand-primary hover:bg-brand-primary/90 text-white">
+            {generating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Wand2 className="mr-1.5 h-3.5 w-3.5" />}
+            Generate prep plan
+          </Button>
+        </div>
+      </div>
+    );
+  }
   const doneCount = tasks.filter((t) => t.status === "done" || t.status === "completed").length;
   const allDone = doneCount === tasks.length;
   const myCount = tasks.filter((t) => t.assigned_chef_id === user?.id).length;
