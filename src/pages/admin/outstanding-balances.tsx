@@ -40,9 +40,10 @@ import { formatLocalDate } from "@/lib/localFormat";
 import { formatClock } from "@/lib/portalTime";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { captureException } from "@/lib/observability";
+import { PageLoader } from "@/components/ui/loading-skeleton";
 import {
   Wallet, Search, Download, AlertTriangle, User as UserIcon,
-  ExternalLink, Loader2, X, RefreshCw, AlertCircle,
+  ExternalLink, X, RefreshCw, AlertCircle,
 } from "lucide-react";
 
 // Statuses that are NOT outstanding - exclude them even if a stale
@@ -368,7 +369,7 @@ function OutstandingBalancesPage() {
               StatTile primitive, live aggregates off the filtered view.
               Semantic colours stay semantic: rose = overdue, amber =
               falling due this week. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatTile
               label="Total outstanding"
               value={fmt(summary.totalOwed)}
@@ -397,8 +398,8 @@ function OutstandingBalancesPage() {
 
           {/* Filters */}
           <Card className="mb-4">
-            <CardContent className="py-3 px-4 flex flex-wrap items-end gap-3">
-              <div className="flex-1 min-w-[200px]">
+            <CardContent className="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2 lg:grid-cols-[minmax(15rem,1fr)_11rem_11rem_auto_auto] lg:items-end">
+              <div>
                 <label className="text-[11px] text-slate-500 font-medium">Search</label>
                 <div className="relative mt-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -407,22 +408,22 @@ function OutstandingBalancesPage() {
               </div>
               <div>
                 <label className="text-[11px] text-slate-500 font-medium">Due from</label>
-                <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} className="mt-1" />
+                <Input type="date" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} className="mt-1 w-full" />
               </div>
               <div>
                 <label className="text-[11px] text-slate-500 font-medium">Due to</label>
-                <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} className="mt-1" />
+                <Input type="date" value={dueTo} onChange={(e) => setDueTo(e.target.value)} className="mt-1 w-full" />
               </div>
               <Button
                 variant={overdueOnly ? "default" : "outline"}
                 onClick={() => setOverdueOnly((v) => !v)}
-                className={`gap-1.5 ${overdueOnly ? "bg-rose-600 hover:bg-rose-700" : ""}`}
+                className={`w-full gap-1.5 sm:w-auto ${overdueOnly ? "bg-rose-600 hover:bg-rose-700" : ""}`}
               >
                 <AlertTriangle className="w-4 h-4" />
                 Overdue only
               </Button>
               {hasFilters && (
-                <Button variant="ghost" onClick={clearFilters} className="gap-1.5 text-slate-500">
+                <Button variant="ghost" onClick={clearFilters} className="w-full gap-1.5 text-slate-500 sm:w-auto">
                   <X className="w-4 h-4" /> Clear
                 </Button>
               )}
@@ -433,9 +434,11 @@ function OutstandingBalancesPage() {
           <Card>
             <CardContent className="p-0">
               {loading ? (
-                <div className="flex items-center justify-center py-16 text-slate-500">
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading outstanding balances...
-                </div>
+                <PageLoader
+                  label="Loading outstanding balances"
+                  detail="Gathering unpaid invoices and their payment status."
+                  className="m-4 min-h-[14rem] border-0 bg-transparent shadow-none"
+                />
               ) : filtered.length === 0 ? (
                 <div className="text-center py-16 text-slate-500">
                   <Wallet className="w-10 h-10 mx-auto mb-2 text-slate-300" />
@@ -454,7 +457,76 @@ function OutstandingBalancesPage() {
                   )}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 md:hidden">
+                  {filtered.map((r) => {
+                    const overdue = !!(r.dueDate && r.dueDate < todayIso);
+                    const mismatch = toCents(r.paid) + toCents(r.balance) !== toCents(r.total);
+                    return (
+                      <article key={r.invoiceId} className="space-y-3 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800">
+                              <UserIcon className="h-4 w-4" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{r.clientName || "Client"}</p>
+                              {r.clientEmail ? <p className="truncate text-xs text-slate-500">{r.clientEmail}</p> : null}
+                            </div>
+                          </div>
+                          {overdue ? <Badge className="shrink-0 border border-rose-200 bg-rose-100 text-[10px] text-rose-700">overdue</Badge> : null}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                          {r.orderId ? (
+                            <Link href={withSlug(staffOrderHref(r.orderId, "admin"))} className="inline-flex items-center gap-1 font-medium text-blue-600 hover:underline">
+                              {r.orderNumber || "Order"} <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          ) : <span className="text-slate-400">No linked order</span>}
+                          {r.invoiceNumber ? <span className="text-slate-500">{r.invoiceNumber}</span> : null}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 rounded-lg bg-slate-50 p-3 text-right dark:bg-slate-900/70">
+                          <div>
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Total</p>
+                            <p className="mt-0.5 text-xs font-medium tabular-nums text-slate-700 dark:text-slate-200">{fmt(r.total)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Paid</p>
+                            <p className="mt-0.5 text-xs font-medium tabular-nums text-brand-primary">{fmt(r.paid)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Balance</p>
+                            <p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900 dark:text-white">{fmt(r.balance)}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <p className="text-slate-500">Event</p>
+                            <p className="mt-0.5 font-medium text-slate-700 dark:text-slate-200">{formatLocalDate(r.eventDate, "-")}</p>
+                            {r.eventTime ? <p className="text-slate-500">{formatClock(r.eventTime)}</p> : null}
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Due date</p>
+                            <p className={`mt-0.5 font-medium ${overdue ? "text-rose-600" : "text-slate-700 dark:text-slate-200"}`}>{formatLocalDate(r.dueDate, "-")}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          {mismatch ? <Badge className="border border-amber-300 bg-amber-100 text-[10px] text-amber-800">Check totals</Badge> : <span />}
+                          {r.publicToken ? (
+                            <Link href={`/pay/i/${r.publicToken}`} target="_blank" className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline">
+                              Open pay link <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-800">
@@ -531,6 +603,7 @@ function OutstandingBalancesPage() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </CardContent>
           </Card>

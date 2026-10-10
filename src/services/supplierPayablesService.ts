@@ -136,6 +136,46 @@ async function markPaid(id: string, userId: string | null): Promise<SupplierPaya
   return data as SupplierPayable;
 }
 
+/**
+ * Move a payable between its open ledger states. Paid remains a dedicated
+ * operation because it stamps the settlement time and actor; reopening or
+ * disputing explicitly clears that settlement evidence.
+ */
+async function setStatus(
+  id: string,
+  status: Exclude<PayableStatus, "paid">,
+  userId: string | null,
+): Promise<SupplierPayable | null> {
+  const { data, error } = await (supabase as any)
+    .from("supplier_payables")
+    .update({
+      status,
+      paid_at: null,
+      paid_by: null,
+    })
+    .eq("id", id)
+    .select("*, supplier:supplier_id(supplier_name)")
+    .single();
+  if (error) {
+    console.error("[supplierPayablesService.setStatus] failed:", error);
+    return null;
+  }
+
+  try {
+    await (supabase as any).from("audit_logs").insert({
+      action: "financial.supplier_payable.status_changed",
+      entity_type: "supplier_payable",
+      entity_id: id,
+      company_id: (data as any)?.company_id,
+      user_id: userId,
+      details: { status },
+    });
+  } catch (auditError) {
+    console.warn("[supplierPayablesService.setStatus] audit log insert failed:", auditError);
+  }
+  return data as SupplierPayable;
+}
+
 async function softDelete(id: string): Promise<boolean> {
   const { error } = await (supabase as any)
     .from("supplier_payables")
@@ -153,5 +193,6 @@ export const supplierPayablesService = {
   create,
   update,
   markPaid,
+  setStatus,
   softDelete,
 };

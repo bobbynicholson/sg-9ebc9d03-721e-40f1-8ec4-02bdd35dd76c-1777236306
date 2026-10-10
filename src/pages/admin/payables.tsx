@@ -31,7 +31,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet, Search, CalendarClock } from "lucide-react";
+import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet, Search, CalendarClock, Undo2 } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -379,6 +379,24 @@ function PayablesPage() {
     }
   };
 
+  const handleStatusChange = async (
+    id: string,
+    status: Exclude<PayableStatus, "paid">,
+  ) => {
+    const row = await supplierPayablesService.setStatus(id, status, userId);
+    if (row) {
+      toast({
+        title: status === "disputed" ? "Marked as disputed" : "Reopened as pending",
+        description: status === "disputed"
+          ? "This payable is excluded from the cashflow forecast until resolved."
+          : "This payable is included in the cashflow forecast again.",
+      });
+      void load();
+    } else {
+      toast({ title: "Couldn't update status", description: "The change didn't save. Try again.", variant: "destructive" });
+    }
+  };
+
   const openBulk = () => {
     setBulkCsv("");
     setBulkPreview(null);
@@ -468,6 +486,12 @@ function PayablesPage() {
       .filter((r) => r.due_date >= todayISO && r.due_date <= horizonISO)
       .reduce((s, r) => s + r.amount_cents, 0);
   }, [pendingRows, todayISO]);
+  const statusCounts = useMemo(() => ({
+    pending: rows.filter((r) => r.status === "pending").length,
+    paid: rows.filter((r) => r.status === "paid").length,
+    disputed: rows.filter((r) => r.status === "disputed").length,
+    written_off: rows.filter((r) => r.status === "written_off").length,
+  }), [rows]);
 
   return (
     <>
@@ -610,11 +634,11 @@ function PayablesPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="disputed">Disputed</SelectItem>
-                  <SelectItem value="written_off">Written off</SelectItem>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="pending">Pending ({statusCounts.pending})</SelectItem>
+                  <SelectItem value="paid">Paid ({statusCounts.paid})</SelectItem>
+                  <SelectItem value="disputed">Disputed ({statusCounts.disputed})</SelectItem>
+                  <SelectItem value="written_off">Written off ({statusCounts.written_off})</SelectItem>
+                  <SelectItem value="all">All ({rows.length})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -691,14 +715,37 @@ function PayablesPage() {
                           </div>
                         </div>
                         {r.status === "pending" && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMarkPaid(r.id)}
+                              title="Mark this payable as paid"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                              Mark paid
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => void handleStatusChange(r.id, "disputed")}
+                              title="Mark this payable as disputed"
+                              className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                              Dispute
+                            </Button>
+                          </>
+                        )}
+                        {r.status === "disputed" && (
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleMarkPaid(r.id)}
-                            title="Mark this payable as paid"
+                            onClick={() => void handleStatusChange(r.id, "pending")}
+                            title="Resolve the dispute and return this payable to pending"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                            Mark paid
+                            <Undo2 className="w-3.5 h-3.5 mr-1" />
+                            Reopen
                           </Button>
                         )}
                         <Button
