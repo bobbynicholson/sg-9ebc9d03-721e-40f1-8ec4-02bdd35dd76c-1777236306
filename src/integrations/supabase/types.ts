@@ -5381,7 +5381,8 @@ export type Database = {
           shift_date: string
           shift_type: string
           source: string
-          staff_id: string
+          staff_id: string | null
+          staff_member_id: string | null
           status: string
           updated_at: string
         }
@@ -5403,7 +5404,8 @@ export type Database = {
           shift_date: string
           shift_type?: string
           source?: string
-          staff_id: string
+          staff_id?: string | null
+          staff_member_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -5425,7 +5427,8 @@ export type Database = {
           shift_date?: string
           shift_type?: string
           source?: string
-          staff_id?: string
+          staff_id?: string | null
+          staff_member_id?: string | null
           status?: string
           updated_at?: string
         }
@@ -5449,6 +5452,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kitchen_shifts_staff_member_id_fkey"
+            columns: ["staff_member_id"]
+            isOneToOne: false
+            referencedRelation: "kitchen_staff_members"
             referencedColumns: ["id"]
           },
         ]

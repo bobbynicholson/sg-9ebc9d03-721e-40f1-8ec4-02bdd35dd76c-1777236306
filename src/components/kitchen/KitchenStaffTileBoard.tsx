@@ -107,27 +107,34 @@ function fromLocalInput(local: string): string | null {
 async function syncKitchenRosterAttendance({
   companyId,
   profileId,
+  staffMemberId,
   at,
   action,
 }: {
   companyId: string;
   profileId: string | null;
+  staffMemberId: string;
   at: Date;
   action: "start" | "end";
 }): Promise<void> {
-  if (!profileId) return;
   try {
     const shiftDate = toLocalISO(at);
     let query = (supabase as any)
       .from("kitchen_shifts")
       .select("id")
       .eq("company_id", companyId)
-      .eq("staff_id", profileId)
       .eq("shift_date", shiftDate)
       .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
       .is("deleted_at", null)
       .order("planned_start", { ascending: true })
       .limit(1);
+
+    // A roster may be for a login-backed profile or a tablet-only staff
+    // directory member. Match either identity so both clock-in styles are
+    // reflected on the schedule.
+    query = profileId
+      ? query.or(`staff_id.eq.${profileId},staff_member_id.eq.${staffMemberId}`)
+      : query.eq("staff_member_id", staffMemberId);
 
     query = action === "start"
       ? query.is("actual_start", null)
@@ -363,6 +370,7 @@ export function KitchenStaffTileBoard({
         await syncKitchenRosterAttendance({
           companyId,
           profileId: s.linked_profile_id,
+          staffMemberId: s.id,
           at: capturedAt,
           action: "start",
         });
@@ -402,6 +410,7 @@ export function KitchenStaffTileBoard({
         await syncKitchenRosterAttendance({
           companyId,
           profileId: s.linked_profile_id,
+          staffMemberId: s.id,
           at: new Date(),
           action: "end",
         });

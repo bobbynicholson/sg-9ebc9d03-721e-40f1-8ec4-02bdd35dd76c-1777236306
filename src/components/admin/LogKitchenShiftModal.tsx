@@ -53,7 +53,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   companyId: string;
-  staffId: string;
+  /** Profile-backed login, if this team member has one. */
+  staffId: string | null;
+  /** Kitchen tablet/directory identity, if this is a tablet-only worker. */
+  staffMemberId?: string | null;
   staffName: string;
   /** Pre-fill the date when the operator clicks a specific cell. ISO YYYY-MM-DD. */
   defaultDate: string;
@@ -80,6 +83,7 @@ export function LogKitchenShiftModal({
   onOpenChange,
   companyId,
   staffId,
+  staffMemberId = null,
   staffName,
   defaultDate,
   onCreated,
@@ -202,6 +206,7 @@ export function LogKitchenShiftModal({
         .insert({
           company_id: companyId,
           staff_id: staffId,
+          staff_member_id: staffMemberId,
           shift_date: shiftDate,
           shift_type: shiftType,
           planned_start: plannedStart,

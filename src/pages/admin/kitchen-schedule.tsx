@@ -60,11 +60,16 @@ interface Staffer {
   email: string;
   role: string;
   active_role: string | null;
+  /** Login-backed staff keep their profile id here. Tablet-only staff do not. */
+  profile_id: string | null;
+  /** Kitchen staff-directory id. Present for tablet-only staff. */
+  staff_member_id: string | null;
 }
 
 interface ShiftRow {
   id: string;
-  staff_id: string;
+  staff_id: string | null;
+  staff_member_id: string | null;
   shift_date: string;
   planned_start: string | null;
   planned_end: string | null;
@@ -96,6 +101,45 @@ interface StaffMemberLinkRow {
   id: string;
   linked_profile_id: string | null;
   email: string | null;
+  full_name: string | null;
+  role_title: string | null;
+}
+
+function staffRosterKey(profileId: string | null | undefined, staffMemberId: string | null | undefined): string {
+  return profileId || (staffMemberId ? `member:${staffMemberId}` : "");
+}
+
+async function loadKitchenShifts(
+  companyId: string,
+  fromIso: string,
+  toIso: string,
+): Promise<{ data: ShiftRow[] | null; error: any }> {
+  const base = () => (supabase as any)
+    .from("kitchen_shifts")
+    .eq("company_id", companyId)
+    .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
+    .gte("shift_date", fromIso)
+    .lte("shift_date", toIso)
+    .is("deleted_at", null);
+
+  const current = await base()
+    .select("id, staff_id, staff_member_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, order_id");
+  if (!current.error) return current as { data: ShiftRow[] | null; error: any };
+
+  // Deploys can reach the web app before the Supabase migration is applied.
+  // Fall back to the legacy query instead of blanking the entire schedule in
+  // that short window. The new staff-member capability becomes active as
+  // soon as the migration is present.
+  const legacy = await base()
+    .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, order_id");
+  if (legacy.error) return legacy as { data: ShiftRow[] | null; error: any };
+  return {
+    data: ((legacy.data || []) as Omit<ShiftRow, "staff_member_id">[]).map((shift) => ({
+      ...shift,
+      staff_member_id: null,
+    })),
+    error: null,
+  };
 }
 
 // Wave 66.2 - event overlay rows. The schedule needs to surface the
@@ -203,10 +247,10 @@ function KitchenScheduleGrid() {
   // detection, so a travelling operator's browser timezone can't
   // shift the roster day (same pattern as the admin dashboard).
   const [tenantTimezone, setTenantTimezone] = useState<string | null>(null);
-  const [logTarget, setLogTarget] = useState<{ staffId: string; staffName: string; date: string } | null>(null);
+  const [logTarget, setLogTarget] = useState<{ staffId: string | null; staffMemberId: string | null; staffName: string; date: string } | null>(null);
   // Audit fix (2026-07-05): edit / remove an existing rostered shift.
   // Before this the page could only create; a wrong roster was stuck.
-  const [editTarget, setEditTarget] = useState<{ staffId: string; staffName: string; date: string; shift: EditableShift } | null>(null);
+  const [editTarget, setEditTarget] = useState<{ staffId: string | null; staffMemberId: string | null; staffName: string; date: string; shift: EditableShift } | null>(null);
   // Wave 41 Phase 3: per-shift task chips (kitchen / cleaning /
   // delivery / shopping / waitering / setup / breakdown / admin).
   // Indexed by shift_id for O(1) cell render lookup.
@@ -268,14 +312,7 @@ function KitchenScheduleGrid() {
         // rosters via the shift_type column. This page stays
         // kitchen-only via the IN filter; the cleaning equivalent
         // lives at /admin/cleaning-schedule.
-        (supabase as any)
-          .from("kitchen_shifts")
-          .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, order_id")
-          .eq("company_id", companyId)
-          .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
-          .gte("shift_date", fromIso)
-          .lte("shift_date", toIso)
-          .is("deleted_at", null),
+        loadKitchenShifts(companyId, fromIso, toIso),
         // Wave 66.2 - pull orders within the range so the calendar
         // shows the demand side (events booked) alongside the supply
         // side (chefs rostered). Excludes cancelled so the overlay
@@ -311,7 +348,7 @@ function KitchenScheduleGrid() {
         // them disappear from the shift planner.
         (supabase as any)
           .from("kitchen_staff_members")
-          .select("id, linked_profile_id, email")
+          .select("id, linked_profile_id, email, full_name, role_title")
           .eq("company_id", companyId)
           .eq("is_active", true)
           .contains("departments", ["kitchen"])
@@ -326,7 +363,11 @@ function KitchenScheduleGrid() {
       if (dutyAttendanceRes.error) console.warn("Could not load legacy kitchen duty attendance:", dutyAttendanceRes.error);
       if (tileAttendanceRes.error) console.warn("Could not load kitchen tablet attendance:", tileAttendanceRes.error);
       if (kitchenMembersRes.error) console.warn("Could not load kitchen staff directory:", kitchenMembersRes.error);
-      const staffRows = (staffRes.data || []) as Staffer[];
+      const staffRows = ((staffRes.data || []) as Array<Omit<Staffer, "profile_id" | "staff_member_id">>).map((row) => ({
+        ...row,
+        profile_id: row.id,
+        staff_member_id: null,
+      }));
       let departmentRows: RosterDepartmentRow[] = [];
       if (staffRows.length > 0) {
         const departmentRes = await (supabase as any)
@@ -352,28 +393,50 @@ function KitchenScheduleGrid() {
       const kitchenProfileIds = new Set(
         filterRosterStaff(staffRows, departmentRows, "kitchen").map((row) => row.id),
       );
+      const rosterStaff = new Map<string, Staffer>();
+      for (const profile of staffRows) {
+        if (kitchenProfileIds.has(profile.id)) rosterStaff.set(profile.id, profile);
+      }
       for (const member of staffMemberLinks) {
         const profileId = member.linked_profile_id ||
           (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
-        if (profileId) kitchenProfileIds.add(profileId);
+        if (profileId) {
+          const profile = staffRows.find((row) => row.id === profileId);
+          if (profile) rosterStaff.set(profile.id, profile);
+        } else {
+          // Kitchen tablet staff do not need their own application login.
+          // Keep them in the roster as first-class people, keyed by their
+          // staff-directory id, so their planned hours and live tile clock
+          // are visible instead of disappearing simply because no profile
+          // exists for them.
+          rosterStaff.set(`member:${member.id}`, {
+            id: `member:${member.id}`,
+            profile_id: null,
+            staff_member_id: member.id,
+            full_name: member.full_name || member.email || "Kitchen team member",
+            email: member.email || "",
+            role: member.role_title || "kitchen staff",
+            active_role: null,
+          });
+        }
       }
-      setStaff(staffRows.filter((row) => kitchenProfileIds.has(row.id)));
+      setStaff(Array.from(rosterStaff.values()).sort((a, b) => a.full_name.localeCompare(b.full_name)));
       const shiftRows = (shiftsRes.data || []) as ShiftRow[];
       const tileAttendance = (tileAttendanceRes.data || []) as TileAttendanceRow[];
 
       // Keep the earliest live start if a person has entries in both clock-in
       // systems. This avoids double-counting while preserving their real
       // on-duty time.
-      const activeStartByProfile = new Map<string, string>();
-      const recordActiveStart = (profileId: string | null, start: string | null) => {
-        if (!profileId || !start || Number.isNaN(new Date(start).getTime())) return;
-        const current = activeStartByProfile.get(profileId);
+      const activeStartByStaff = new Map<string, string>();
+      const recordActiveStart = (staffKey: string, start: string | null) => {
+        if (!staffKey || !start || Number.isNaN(new Date(start).getTime())) return;
+        const current = activeStartByStaff.get(staffKey);
         if (!current || new Date(start).getTime() < new Date(current).getTime()) {
-          activeStartByProfile.set(profileId, start);
+          activeStartByStaff.set(staffKey, start);
         }
       };
       for (const row of (dutyAttendanceRes.data || []) as DutyAttendanceRow[]) {
-        recordActiveStart(row.staff_id, row.shift_start);
+        recordActiveStart(staffRosterKey(row.staff_id, null), row.shift_start);
       }
       const profileByStaffMember = new Map(
         staffMemberLinks.map((row) => [row.id, row]),
@@ -385,11 +448,15 @@ function KitchenScheduleGrid() {
         const profileId = staffMember?.linked_profile_id ||
           (staffMember?.email ? profileByEmail.get(staffMember.email.trim().toLowerCase()) : null) ||
           null;
-        recordActiveStart(profileId, row.shift_start);
+        // Keep both identities when they exist. Older shifts may be keyed
+        // to the profile while new tablet-only roster rows are keyed to the
+        // staff-directory member id.
+        recordActiveStart(staffRosterKey(profileId, null), row.shift_start);
+        recordActiveStart(staffRosterKey(null, row.staff_member_id), row.shift_start);
       }
 
       const scheduleRows = shiftRows.map((shift) => {
-        const liveStart = activeStartByProfile.get(shift.staff_id);
+        const liveStart = activeStartByStaff.get(staffRosterKey(shift.staff_id, shift.staff_member_id));
         // Attendance only belongs on the roster shift for the date on which
         // it started; otherwise an overnight/open clock would incorrectly
         // mark a future shift as active.
@@ -400,6 +467,31 @@ function KitchenScheduleGrid() {
           status: shift.actual_end ? shift.status : "active",
         };
       });
+      // If someone used the tablet clock before a roster row was created,
+      // show the real on-duty session rather than hiding them. This is also
+      // the safe fallback during the short period before the staff-member
+      // migration reaches the database; these synthetic rows are read-only.
+      const scheduledKeys = new Set(scheduleRows.map((shift) => `${staffRosterKey(shift.staff_id, shift.staff_member_id)}|${shift.shift_date}`));
+      for (const [key, liveStart] of activeStartByStaff) {
+        const shiftDate = toLocalISO(new Date(liveStart));
+        if (shiftDate < fromIso || shiftDate > toIso || scheduledKeys.has(`${key}|${shiftDate}`)) continue;
+        const person = rosterStaff.get(key);
+        if (!person) continue;
+        scheduleRows.push({
+          id: `live:${key}:${shiftDate}`,
+          staff_id: person.profile_id,
+          staff_member_id: person.staff_member_id,
+          shift_date: shiftDate,
+          planned_start: null,
+          planned_end: null,
+          actual_start: liveStart,
+          actual_end: null,
+          status: "active",
+          rate_multiplier: null,
+          notes: null,
+          order_id: null,
+        });
+      }
       setShifts(scheduleRows);
       setOrders((ordersRes.data || []) as OrderForCal[]);
       // Phase 3: pull tasks for every shift in this week in one
@@ -501,7 +593,7 @@ function KitchenScheduleGrid() {
   const shiftIndex = useMemo(() => {
     const map: Record<string, ShiftRow[]> = {};
     for (const s of shifts) {
-      const key = `${s.staff_id}|${s.shift_date}`;
+      const key = `${staffRosterKey(s.staff_id, s.staff_member_id)}|${s.shift_date}`;
       if (!map[key]) map[key] = [];
       map[key].push(s);
     }
@@ -767,11 +859,11 @@ function KitchenScheduleGrid() {
                 <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Events</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : selectedDayOrders.length}</p></div>
                   <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Shifts</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : selectedDayShifts.length}</p></div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Chefs</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : new Set(selectedDayShifts.map((shift) => shift.staff_id)).size}</p></div>
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Chefs</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : new Set(selectedDayShifts.map((shift) => staffRosterKey(shift.staff_id, shift.staff_member_id))).size}</p></div>
                   <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"><p className="text-[11px] text-slate-500">Planned hours</p><p className="mt-1 text-xl font-semibold tabular-nums">{loading ? "…" : `${selectedDayShifts.reduce((sum, shift) => sum + plannedHours(shift.planned_start, shift.planned_end), 0).toFixed(1)}h`}</p></div>
                 </div>
                 {selectedDayOrders.length > 0 && <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/70 p-3 dark:border-blue-900 dark:bg-blue-950/20"><p className="text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-200">Booked events</p><div className="mt-2 flex flex-wrap gap-2">{selectedDayOrders.map((order) => <Link key={order.id} href={withSlug(`/admin/orders/${order.id}`)} className="rounded-md bg-white px-2 py-1 text-xs font-medium text-blue-800 shadow-sm hover:underline dark:bg-slate-900 dark:text-blue-200">{order.order_number || order.client_name || "Event"} · {order.guest_count ?? "?"} guests</Link>)}</div></div>}
-                {selectedDayShifts.length === 0 ? <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700">No kitchen shifts planned for this day. Open the full schedule to add coverage.</div> : <div className="grid gap-2 sm:grid-cols-2">{selectedDayShifts.map((shift) => { const chef = staff.find((person) => person.id === shift.staff_id); return <div key={shift.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{chef?.full_name || chef?.email || "Kitchen team member"}</p><p className="text-xs text-slate-500">{fmtTime(shift.planned_start)} - {fmtTime(shift.planned_end)}</p></div><Badge variant="outline" className="shrink-0 capitalize">{(shift.status || "scheduled").replace(/_/g, " ")}</Badge></div>; })}</div>}
+                {selectedDayShifts.length === 0 ? <div className="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700">No kitchen shifts planned for this day. Open the full schedule to add coverage.</div> : <div className="grid gap-2 sm:grid-cols-2">{selectedDayShifts.map((shift) => { const chef = staff.find((person) => person.id === staffRosterKey(shift.staff_id, shift.staff_member_id)); return <div key={shift.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{chef?.full_name || chef?.email || "Kitchen team member"}</p><p className="text-xs text-slate-500">{fmtTime(shift.planned_start)} - {fmtTime(shift.planned_end)}</p></div><Badge variant="outline" className="shrink-0 capitalize">{(shift.status || "scheduled").replace(/_/g, " ")}</Badge></div>; })}</div>}
               </CardContent>
             </Card>
 
@@ -1025,19 +1117,23 @@ function KitchenScheduleGrid() {
                                             >
                                               <button
                                                 type="button"
-                                                onClick={() => setEditTarget({
-                                                  staffId: p.id,
-                                                  staffName: p.full_name || p.email,
-                                                  date: iso,
-                                                  shift: {
-                                                    id: s.id,
-                                                    planned_start: s.planned_start,
-                                                    planned_end: s.planned_end,
-                                                    rate_multiplier: s.rate_multiplier,
-                                                    notes: s.notes,
-                                                  },
-                                                })}
-                                                title="Edit or remove this shift"
+                                                onClick={() => {
+                                                  if (s.id.startsWith("live:")) return;
+                                                  setEditTarget({
+                                                    staffId: p.profile_id,
+                                                    staffMemberId: p.staff_member_id,
+                                                    staffName: p.full_name || p.email,
+                                                    date: iso,
+                                                    shift: {
+                                                      id: s.id,
+                                                      planned_start: s.planned_start,
+                                                      planned_end: s.planned_end,
+                                                      rate_multiplier: s.rate_multiplier,
+                                                      notes: s.notes,
+                                                    },
+                                                  });
+                                                }}
+                                                title={s.id.startsWith("live:") ? "Live tablet attendance - add a rostered shift after the database migration" : "Edit or remove this shift"}
                                                 className="flex w-full items-center justify-between gap-1 hover:opacity-80"
                                               >
                                                 <span className={`text-xs font-semibold tabular-nums ${
@@ -1045,7 +1141,9 @@ function KitchenScheduleGrid() {
                                                   hasActual ? "text-brand-primary" :
                                                               "text-slate-900"
                                                 }`}>
-                                                  {fmtTime(s.planned_start)}-{fmtTime(s.planned_end)}
+                                                  {s.planned_start && s.planned_end
+                                                    ? `${fmtTime(s.planned_start)}-${fmtTime(s.planned_end)}`
+                                                    : "Live attendance"}
                                                 </span>
                                                 {(s.rate_multiplier ?? 1) > 1 && (
                                                   <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1 py-0">
@@ -1067,11 +1165,13 @@ function KitchenScheduleGrid() {
                                                 </div>
                                               )}
                                               {/* Wave 41 Phase 3: typed task chips. */}
-                                              <ShiftTasksChips
-                                                tasks={tasksByShift.get(s.id) || []}
-                                                onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.staff_id })}
-                                                onChanged={refreshTasks}
-                                              />
+                                              {!s.id.startsWith("live:") && (
+                                                <ShiftTasksChips
+                                                  tasks={tasksByShift.get(s.id) || []}
+                                                  onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.staff_id })}
+                                                  onChanged={refreshTasks}
+                                                />
+                                              )}
                                             </div>
                                           );
                                         })}
@@ -1079,7 +1179,7 @@ function KitchenScheduleGrid() {
                                     ) : (
                                       <button
                                         type="button"
-                                        onClick={() => setLogTarget({ staffId: p.id, staffName: p.full_name || p.email, date: iso })}
+                                        onClick={() => setLogTarget({ staffId: p.profile_id, staffMemberId: p.staff_member_id, staffName: p.full_name || p.email, date: iso })}
                                         className="w-full text-slate-300 hover:text-brand-primary hover:bg-brand-primary/10 rounded-md py-2 transition-colors"
                                         title="Roster a shift on this day"
                                       >
@@ -1151,7 +1251,7 @@ function KitchenScheduleGrid() {
                             const inMonth = d.getMonth() === monthCursor.getMonth();
                             const dayOrders = ordersByDate.get(iso) || [];
                             const dayShifts = shiftsByDate.get(iso) || [];
-                            const distinctChefs = new Set(dayShifts.map((s) => s.staff_id)).size;
+                            const distinctChefs = new Set(dayShifts.map((s) => staffRosterKey(s.staff_id, s.staff_member_id))).size;
                             const needsCover = dayOrders.length > 0 && distinctChefs === 0;
                             return (
                               <button
@@ -1260,6 +1360,7 @@ function KitchenScheduleGrid() {
           onOpenChange={(o) => !o && setLogTarget(null)}
           companyId={companyId}
           staffId={logTarget.staffId}
+          staffMemberId={logTarget.staffMemberId}
           staffName={logTarget.staffName}
           defaultDate={logTarget.date}
           actorUserId={user?.id ?? null}
@@ -1274,6 +1375,7 @@ function KitchenScheduleGrid() {
           onOpenChange={(o) => !o && setEditTarget(null)}
           companyId={companyId}
           staffId={editTarget.staffId}
+          staffMemberId={editTarget.staffMemberId}
           staffName={editTarget.staffName}
           defaultDate={editTarget.date}
           existingShift={editTarget.shift}
