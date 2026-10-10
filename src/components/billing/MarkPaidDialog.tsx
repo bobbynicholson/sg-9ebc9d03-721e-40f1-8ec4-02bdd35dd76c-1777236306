@@ -258,9 +258,9 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-lg gap-3 overflow-y-auto p-4 sm:max-h-[90vh] sm:gap-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-start gap-2 pr-7 text-base sm:items-center sm:text-lg">
             <CheckCircle2 className="w-5 h-5 text-brand-primary" />
             Record payment for {invoiceNumber || "invoice"}
           </DialogTitle>
@@ -272,14 +272,11 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           </DialogDescription>
         </DialogHeader>
 
-        {/* Cross-system context block. Lets the bookkeeper sanity-check
-            they have the right invoice before recording the payment,
-            with one click to the related artifact in each pillar. */}
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
-          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
-            Linked records
-          </div>
-          <div className="flex flex-wrap gap-1.5">
+        {/* Secondary record links stay available, but do not crowd the
+            payment form on a phone. */}
+        <details className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs">
+          <summary className="cursor-pointer font-semibold text-slate-600">Linked records</summary>
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {quoteId && (
               <Link
                 href={withSlug(`/admin/quotes/${quoteId}`)}
@@ -328,10 +325,10 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
               </button>
             )}
           </div>
-        </div>
+        </details>
 
         <div className="space-y-3 py-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="mp-amount">Amount received</Label>
               <Input
@@ -369,7 +366,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="mp-reference">Reference</Label>
               <Input
@@ -394,7 +391,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="mp-note">Internal note <span className="text-xs text-slate-400">(optional)</span></Label>
+            <Label htmlFor="mp-note">Payment note <span className="text-xs text-slate-400">(optional)</span></Label>
             <Textarea
               id="mp-note"
               value={note}
@@ -408,7 +405,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
               operator's mail or WhatsApp with the body pre-filled --
               they review and send. No server-side template plumbing,
               same pattern as Wave 58 contact strip. */}
-          <div className="rounded-md border border-slate-200 p-3 space-y-2">
+          <div className="rounded-md border border-slate-200 p-3 space-y-2 sm:p-4">
             <div className="flex items-center gap-2">
               <Checkbox
                 id="mp-confirm"
@@ -427,8 +424,8 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
             )}
             {(canSendEmail || canSendWa) && sendConfirmation && (
               <>
-                <div className="flex items-center gap-3">
-                  <label className={`inline-flex items-center gap-1.5 text-xs cursor-pointer ${!canSendEmail ? "opacity-50" : ""}`}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                  <label className={`inline-flex min-w-0 items-center gap-1.5 text-xs cursor-pointer ${!canSendEmail ? "opacity-50" : ""}`}>
                     <input
                       type="radio"
                       name="mp-channel"
@@ -439,9 +436,9 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
                     />
                     <Mail className="w-3.5 h-3.5" />
                     Email
-                    {clientEmail && <span className="text-slate-500 truncate max-w-[180px]">{clientEmail}</span>}
+                    {clientEmail && <span className="max-w-[180px] truncate text-slate-500">{clientEmail}</span>}
                   </label>
-                  <label className={`inline-flex items-center gap-1.5 text-xs cursor-pointer ${!canSendWa ? "opacity-50" : ""}`}>
+                  <label className={`inline-flex min-w-0 items-center gap-1.5 text-xs cursor-pointer ${!canSendWa ? "opacity-50" : ""}`}>
                     <input
                       type="radio"
                       name="mp-channel"
@@ -455,7 +452,7 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
                     {clientPhone && <span className="text-slate-500">{clientPhone}</span>}
                   </label>
                 </div>
-                <div className="rounded bg-slate-50 border border-slate-200 p-2">
+                <div className="hidden rounded border border-slate-200 bg-slate-50 p-2 sm:block">
                   <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Preview</p>
                   <p className="text-[11px] text-slate-700 whitespace-pre-wrap">{composedMessage}</p>
                   <button
@@ -474,11 +471,11 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+        <DialogFooter className="gap-2 border-t pt-3 sm:gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving} className="w-full sm:w-auto">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={saving || !amountValid} className="bg-brand-primary hover:bg-brand-primary/90">
+          <Button onClick={handleSubmit} disabled={saving || !amountValid} className="w-full bg-brand-primary hover:bg-brand-primary/90 sm:w-auto">
             {saving ? "Recording..." : partialPayment ? "Record partial payment" : "Record payment"}
           </Button>
         </DialogFooter>

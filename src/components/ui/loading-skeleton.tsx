@@ -13,10 +13,50 @@
  * so swap-in feels jitter-free.
  */
 import * as React from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BaseProps {
   className?: string;
+}
+
+/**
+ * The single standard loading treatment for page and report data.
+ *
+ * Keep a page mounted while background data refreshes; use this only while
+ * there is no usable data to show yet. That avoids a page repeatedly
+ * disappearing into competing spinners on focus or realtime updates.
+ */
+export function PageLoader({
+  label = "Loading…",
+  detail,
+  className,
+}: BaseProps & { label?: string; detail?: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      className={cn(
+        "grid min-h-[15rem] place-items-center rounded-xl border border-slate-200/80 bg-white/80 px-6 py-10 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900/80",
+        className,
+      )}
+    >
+      <div>
+        <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-brand-primary/10 text-brand-primary">
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+        </span>
+        <p className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+          {label}
+        </p>
+        {detail ? (
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {detail}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export function SkeletonBlock({ className, ...rest }: BaseProps & React.HTMLAttributes<HTMLDivElement>) {

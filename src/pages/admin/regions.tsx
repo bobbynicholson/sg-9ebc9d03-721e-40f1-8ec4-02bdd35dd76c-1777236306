@@ -799,19 +799,6 @@ function RegionsPage() {
                     {stats.openQuotes} open quote{stats.openQuotes === 1 ? "" : "s"}
                   </span>
                 )}
-                {/* Phase 17 #6: HQ defaults chips. Each per-region
-                    chip surfaces a 'differs from HQ' warning
-                    (Phase 12 #10) when the value diverges; these
-                    surface the HQ baseline so the operator can see
-                    what the diff is anchored to without opening
-                    /admin/company-profile. */}
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
-                  <Clock className="h-3 w-3" />
-                  HQ <span className="font-mono">{companyDefaults.timezone}</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
-                  <span className="font-mono">{companyDefaults.currency}</span>
-                </span>
               </>
             }
             actions={
@@ -824,9 +811,11 @@ function RegionsPage() {
                 variant="outline"
                 onClick={() => void loadRegions()}
                 disabled={loading}
+                className="px-2.5 sm:px-3"
+                title="Refresh branches"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
+                <RefreshCw className={`w-4 h-4 sm:mr-2 ${loading ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
               {/* Phase 21 #4: per-branch performance CSV. Multi-
                   branch operators run quarterly reviews comparing
@@ -874,18 +863,18 @@ function RegionsPage() {
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
                 }}
-                className="gap-2"
+                className="gap-0 px-2.5 sm:gap-2 sm:px-3"
               >
                 <Download className="w-4 h-4" />
-                Export CSV
+                <span className="hidden sm:inline">Export CSV</span>
               </Button>
               {/* REG-D (regions follow-ups): role gating. Hide the
                   "Add Branch" affordance for REGION_ADMIN since they
                   can only edit branches they already manage. */}
               {canCreateBranch && (
-                <Button onClick={openCreateDialog} className="bg-brand-primary hover:opacity-90 gap-2">
+                <Button onClick={openCreateDialog} className="bg-brand-primary gap-0 px-2.5 hover:opacity-90 sm:gap-2 sm:px-3">
                   <Plus className="w-4 h-4" />
-                  Add Branch
+                  <span className="hidden sm:inline">Add Branch</span>
                 </Button>
               )}
             </>
@@ -1016,14 +1005,14 @@ function RegionsPage() {
             </Card>
             )
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {regions.map((region) => (
-                <Card key={region.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
+                <Card key={region.id} className="group overflow-hidden border-slate-200/90 bg-gradient-to-br from-white via-white to-slate-50/80 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+                  <CardHeader className="border-b border-slate-100 bg-white/80 pb-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <CardTitle className="text-xl">{region.name}</CardTitle>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
+                          <CardTitle className="text-lg text-slate-900 sm:text-xl">{region.name}</CardTitle>
                           <Badge variant="outline" className="font-mono text-xs">{region.code}</Badge>
                           {region.is_active ? (
                             <Badge className="bg-brand-primary/15 text-brand-primary border-brand-primary/20 gap-1">
@@ -1056,8 +1045,8 @@ function RegionsPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4 gap-3 mb-3">
+                  <CardContent className="pt-4">
+                    <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4">
                       <MiniStat icon={Truck} label="Events this month" value={region.mtd_order_count || 0} tooltip={"Orders for this branch with an event_date in the current calendar month. Cancelled excluded."} />
                       <MiniStat
                         icon={Users}
@@ -1074,12 +1063,18 @@ function RegionsPage() {
                       <button
                         type="button"
                         onClick={() => setAssignStaffRegion(region)}
-                        className="text-left rounded-md transition hover:ring-2 hover:ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        className="rounded-xl text-left transition hover:ring-2 hover:ring-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300"
                       >
                         <MiniStat icon={Users} label="Staff" value={region.staff_count || 0} tooltip={"Staff members linked to this branch. Click to assign."} />
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 mb-4 text-xs text-slate-500">
+                    <details className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70">
+                      <summary className="flex cursor-pointer items-center justify-between gap-3 bg-white/80 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100">
+                        <span>Branch details and settings</span>
+                        <span className="text-xs font-medium text-slate-400">Manager, hours &amp; delivery</span>
+                      </summary>
+                      <div className="border-t border-slate-200 px-3 pb-3 pt-3">
+                    <div className="grid grid-cols-1 gap-2 mb-3 text-xs text-slate-500 sm:grid-cols-2">
                       <div>All-time orders: <span className="font-semibold text-slate-700">{region.order_count || 0}</span></div>
                       <div className="flex items-center gap-1">
                         Assignment: <span className="font-semibold text-slate-700">Manual</span>
@@ -1223,6 +1218,8 @@ function RegionsPage() {
                         </div>
                       );
                     })()}
+                      </div>
+                    </details>
                   </CardContent>
                 </Card>
               ))}
@@ -1574,13 +1571,13 @@ function StatTile({ label, value, tooltip, icon }: { label: string; value: numbe
 
 function MiniStat({ icon: Icon, label, value, tooltip }: { icon: any; label: string; value: number | string; tooltip?: string }) {
   return (
-    <div className="rounded-lg bg-slate-50 px-3 py-2">
-      <div className="flex items-center gap-1 text-xs text-slate-500 mb-0.5">
-        <Icon className="w-3 h-3" />
+    <div className="rounded-xl border border-slate-100 bg-white px-3 py-2.5 shadow-sm">
+      <div className="mb-1 flex items-center gap-1 text-[11px] font-medium text-slate-500">
+        <Icon className="h-3.5 w-3.5 text-brand-primary" />
         {label}
         {tooltip && <InfoTooltip content={tooltip} />}
       </div>
-      <div className="font-semibold text-slate-900">{value}</div>
+      <div className="text-base font-semibold tabular-nums text-slate-900">{value}</div>
     </div>
   );
 }

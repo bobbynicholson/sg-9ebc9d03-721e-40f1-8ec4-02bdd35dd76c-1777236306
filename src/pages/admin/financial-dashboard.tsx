@@ -37,6 +37,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { canAccessFinance } from "@/lib/authGuards";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { PageLoader } from "@/components/ui/loading-skeleton";
 
 interface FinancialMetrics {
   currentCashFlow: number;
@@ -623,10 +624,11 @@ function FinancialDashboardInner() {
         <NoIndexMeta />
         <AdminNav />
         <div className="admin-page-shell admin-page-shell--center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto mb-4"></div>
-            <p>Loading financial data...</p>
-          </div>
+          <PageLoader
+            label="Loading financial dashboard"
+            detail="Preparing your latest financial figures."
+            className="mx-auto w-full max-w-md"
+          />
         </div>
       </>
     );

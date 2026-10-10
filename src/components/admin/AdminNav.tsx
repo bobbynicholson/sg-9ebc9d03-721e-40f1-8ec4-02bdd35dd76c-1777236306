@@ -70,7 +70,6 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/router";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { canAccessFinance, canManagePayroll } from "@/lib/authGuards";
 import { UserRole } from "@/types/app";
@@ -125,12 +124,6 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
             <span className="truncate text-sm font-semibold text-white">
               {companyName}
             </span>
-            <Badge
-              variant="outline"
-              className="h-4 flex-shrink-0 border-white/25 bg-white/10 px-1 text-[9px] text-white"
-            >
-              Admin
-            </Badge>
           </div>
           <div className="truncate text-[11px] leading-tight text-white/65">
             {profile?.full_name || profile?.email || ""}

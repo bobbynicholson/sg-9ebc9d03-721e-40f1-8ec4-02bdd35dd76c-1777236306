@@ -12,7 +12,7 @@
  * rule (canAccessFinance; plain admin is deliberately excluded).
  * Gated via ProtectedRoute below.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
@@ -47,6 +47,7 @@ import { BulkRemindDialog } from "@/components/admin/financial/BulkRemindDialog"
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { PageLoader } from "@/components/ui/loading-skeleton";
 
 interface CashflowMetrics {
   /** Cash received from orders flagged paid_in_full. */
@@ -133,6 +134,10 @@ function CashflowDashboardInner() {
   // write-offs / deposit-only orders without a matching invoice row,
   // making the subtitle promise a number the action couldn't deliver.
   const [invoicesOutstanding, setInvoicesOutstanding] = useState<number | null>(null);
+  // Order, quote and finance feeds can all notify at nearly the same time.
+  // One in-flight request is sufficient: it reads the latest state once and
+  // prevents a stack of duplicate report loads/spinners.
+  const loadInFlightRef = useRef(false);
 
   const currency = (user as any)?.currency || "ZAR";
   // Audit 2026-07-02: display goes through formatZAR (thousand
@@ -142,6 +147,8 @@ function CashflowDashboardInner() {
 
   const load = useCallback(async () => {
     if (!user?.company_id) return;
+    if (loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
     try {
       setLoading(true);
       setLoadError(null);
@@ -402,6 +409,7 @@ function CashflowDashboardInner() {
       });
       setLoadError(e?.message || "Couldn't load the cashflow figures. Try again.");
     } finally {
+      loadInFlightRef.current = false;
       setLoading(false);
     }
   }, [user, regionFilterId]);
@@ -422,11 +430,6 @@ function CashflowDashboardInner() {
     const channelKey = `admin-cashflow-dashboard:${companyId}`;
     const channel = (supabase as any)
       .channel(channelKey)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
-        () => { void load(); },
-      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "payments", filter: `company_id=eq.${companyId}` },
@@ -474,10 +477,11 @@ function CashflowDashboardInner() {
         <NoIndexMeta />
         <AdminNav />
         <div className="admin-page-shell admin-page-shell--center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary/80 mx-auto mb-4" />
-            <p>Loading cashflow data...</p>
-          </div>
+          <PageLoader
+            label="Loading cashflow"
+            detail="Preparing your latest income, costs and forecast."
+            className="mx-auto w-full max-w-md"
+          />
         </div>
       </>
     );

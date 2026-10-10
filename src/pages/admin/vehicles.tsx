@@ -756,7 +756,7 @@ function VehiclesPage() {
           ) : (
             <>
           {/* Filter pills + search - one toolbar card */}
-          <PortalCard className="mb-4 flex flex-col sm:flex-row gap-3 p-3" padded={false}>
+          <PortalCard className="mb-4 grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_190px_auto] sm:items-center" padded={false}>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -780,28 +780,21 @@ function VehiclesPage() {
                 </button>
               )}
             </div>
-            <div className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1 text-xs">
-              {([
-                { id: "all", label: "All" },
-                { id: "company", label: "Company" },
-                { id: "driver", label: "Driver-owned" },
-                { id: "fridge", label: "Fridge" },
-                { id: "warmer", label: "Warmer" },
-              ] as const).map(p => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setFilter(p.id)}
-                  className={`px-3 py-1.5 rounded-md ${
-                    filter === p.id
-                      ? "bg-brand-primary/10 text-brand-primary font-medium"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            <select
+              value={filter}
+              onChange={(event) => setFilter(event.target.value as typeof filter)}
+              aria-label="Filter vehicles"
+              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20"
+            >
+              <option value="all">All vehicles</option>
+              <option value="company">Company vehicles</option>
+              <option value="driver">Driver-owned vehicles</option>
+              <option value="fridge">Refrigerated vehicles</option>
+              <option value="warmer">Vehicles with warmer</option>
+            </select>
+            <p className="text-xs text-slate-500 sm:whitespace-nowrap sm:text-right">
+              Showing <span className="font-semibold text-slate-700">{filtered.length}</span> of {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"}
+            </p>
           </PortalCard>
 
           {/* List */}
@@ -832,7 +825,7 @@ function VehiclesPage() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {filtered.map(v => (
-                  <div key={v.id} className="px-4 py-3 flex items-center justify-between hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                  <div key={v.id} className="flex flex-col gap-3 px-3 py-3 hover:bg-slate-50/70 sm:flex-row sm:items-center sm:justify-between sm:px-4 dark:hover:bg-slate-800/40">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                         v.refrigerated ? "bg-blue-100" : v.has_warmer ? "bg-orange-100" : "bg-slate-100"
@@ -890,7 +883,7 @@ function VehiclesPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 self-end sm:self-auto">
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(v)} title="Edit">
                         <Edit className="w-4 h-4" />
                       </Button>

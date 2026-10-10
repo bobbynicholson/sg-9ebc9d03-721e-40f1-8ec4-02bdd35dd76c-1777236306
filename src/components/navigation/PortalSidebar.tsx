@@ -630,12 +630,12 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 </div>
               </SheetContent>
             </Sheet>
-            <Link href={withSlug(config.dashboardHref)} className="flex items-center gap-2 min-w-0">
+            <Link href={withSlug(config.dashboardHref)} className="flex min-w-0 items-center gap-2" aria-label={`${config.title} home`}>
               <LogoTile size="sm" />
-              <span className={cn("font-bold truncate", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{config.title}</span>
+              <span className={cn("truncate font-bold", forceBrand ? "text-white" : "text-slate-900 dark:text-white")}>{companyName}</span>
             </Link>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <RoleSwitcher variant="compact" showLabel={false} />
             <NotificationBell />
             <ThemeSwitch />

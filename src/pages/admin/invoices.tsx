@@ -2488,7 +2488,7 @@ function InvoicesPageInner() {
                           aria-label={`Select invoice ${invoice.invoice_number}`}
                         />
                       )}
-                    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
                       <div>
                         <div className="font-medium flex items-center gap-1.5">
                           {/* Phase 21 #2: row-level click-to-copy
@@ -2523,7 +2523,7 @@ function InvoicesPageInner() {
                               attribute previews the note on hover. */}
                           {invoice.notes && String(invoice.notes).trim() && (
                             <span
-                              className="text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200"
+                              className="hidden text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded border bg-blue-50 text-blue-700 border-blue-200"
                               title={String(invoice.notes).slice(0, 200)}
                             >
                               Note
@@ -2531,7 +2531,7 @@ function InvoicesPageInner() {
                           )}
                         </div>
                         {invoice.amountChange && (
-                          <div className="mt-1">
+                          <div className="hidden mt-1">
                             <AmountChangeAction
                               change={invoice.amountChange}
                               formatAmount={(amount) => formatInvoiceRowMoney(amount, invoice.currency || tenantMoney.code)}
@@ -2560,6 +2560,7 @@ function InvoicesPageInner() {
                                             (relationship between the
                                             two dates - the actually
                                             meaningful signal). */}
+                        <div className="hidden">
                         {(() => {
                           const evt = (invoice as any).orders?.event_date
                             ? new Date((invoice as any).orders.event_date)
@@ -2642,6 +2643,14 @@ function InvoicesPageInner() {
                             </>
                           );
                         })()}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {(invoice as any).orders?.event_date
+                            ? `Event ${format(new Date((invoice as any).orders.event_date), "dd MMM yyyy")}${(invoice as any).orders?.event_time ? ` · ${formatClock((invoice as any).orders.event_time)}` : ""}`
+                            : invoice.invoice_date
+                              ? `Issued ${format(new Date(invoice.invoice_date), "dd MMM yyyy")}`
+                              : "No date"}
+                        </p>
                       </div>
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-slate-900 truncate" title={invoice.orders?.clients?.client_name || "Unknown client"}>
@@ -2651,7 +2660,7 @@ function InvoicesPageInner() {
                             click-to-WhatsApp, click-to-email so the
                             bookkeeper can chase money without copy-
                             pasting numbers into another app. */}
-                        <div className="flex items-center gap-1.5 mt-0.5 text-xs">
+                        <div className="hidden flex items-center gap-1.5 mt-0.5 text-xs">
                           {invoice.orders?.clients?.email && (
                             <a
                               href={`mailto:${invoice.orders.clients.email}?subject=${encodeURIComponent(`Invoice ${invoice.invoice_number || ""}`)}`}
@@ -2692,7 +2701,7 @@ function InvoicesPageInner() {
                           <a
                             href={withSlug(staffOrderHref(invoice.order_id, "admin"))}
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-0.5 text-[11px] text-blue-700 hover:text-blue-900 mt-0.5"
+                            className="hidden inline-flex items-center gap-0.5 text-[11px] text-blue-700 hover:text-blue-900 mt-0.5"
                             title="Open the order this invoice belongs to"
                           >
                             <ExternalLink className="w-2.5 h-2.5" />
@@ -2703,7 +2712,7 @@ function InvoicesPageInner() {
                       <div>
                         <div className="font-medium">{formatInvoiceRowMoney(invoice.total_amount || 0, invoice.currency || tenantMoney.code)}</div>
                         {Number(invoice.amount_paid || 0) > 0 && (
-                          <div className="text-sm text-emerald-700">
+                          <div className="hidden text-sm text-emerald-700">
                             Paid to date: {formatInvoiceRowMoney(invoice.amount_paid, invoice.currency || tenantMoney.code)}
                           </div>
                         )}
@@ -2737,14 +2746,14 @@ function InvoicesPageInner() {
                             this. Pulses to draw the eye. */}
                         {eventIsToday && (
                           <span
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-800 border border-orange-300 animate-pulse"
+                            className="hidden inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-800 border border-orange-300 animate-pulse"
                             title="The event is today and the balance is still outstanding. Highest-priority chase target."
                           >
                             Event today, unpaid
                           </span>
                         )}
                         {invoice.due_date && (isOverdue || isDueSoon) && (
-                          <div className="text-[10px] text-slate-500 tabular-nums">
+                          <div className="hidden text-[10px] text-slate-500 tabular-nums">
                             Was due {format(new Date(invoice.due_date), "dd MMM")}
                           </div>
                         )}
@@ -2833,9 +2842,9 @@ function InvoicesPageInner() {
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] max-w-5xl gap-3 overflow-y-auto p-4 sm:max-h-[90vh] sm:gap-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 flex-wrap">
+            <DialogTitle className="flex items-center gap-2 flex-wrap pr-7 text-base sm:text-lg">
               Invoice Preview
               {selectedInvoice?.invoiceNumber && (
                 <button
@@ -2866,12 +2875,12 @@ function InvoicesPageInner() {
             </DialogDescription>
           </DialogHeader>
           {selectedInvoice && (
-            <div className="mt-4">
+            <div className="mt-2 sm:mt-4">
               {/* TIGHTEN I.82: pass tenant currency so the customer-
                   facing document shows the right symbol on non-ZAR
                   tenants. */}
               <InvoicePreview {...selectedInvoice} currencyCode={(selectedInvoice as any).currency || tenantMoney.code} />
-              <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
+              <div className="mt-4 flex flex-col-reverse gap-2 border-t pt-4 sm:mt-6 sm:flex-row sm:flex-wrap sm:justify-end sm:pt-6">
                 {invoices.find((row: any) => row.id === selectedInvoiceId)?.order_id && (
                   <Button
                     variant="outline"
@@ -2881,19 +2890,20 @@ function InvoicesPageInner() {
                     }}
                     disabled={refreshingInvoiceId === selectedInvoiceId}
                     title="Review order changes and refresh this invoice"
+                    className="w-full sm:w-auto"
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Refresh invoice from order
                   </Button>
                 )}
-                <Button variant="outline" onClick={() => setPreviewOpen(false)}>
+                <Button variant="outline" onClick={() => setPreviewOpen(false)} className="w-full sm:w-auto">
                   Close
                 </Button>
-                <Button variant="outline" onClick={handleDownloadPreviewPdf}>
+                <Button variant="outline" onClick={handleDownloadPreviewPdf} className="w-full sm:w-auto">
                   <Download className="h-4 w-4 mr-2" />
                   Download PDF
                 </Button>
-                <Button onClick={() => {
+                <Button className="w-full sm:w-auto" onClick={() => {
                   // Wave 61 - look up by id (set in handlePreviewInvoice).
                   // Pre-Wave-61 used reference equality on a rehydrated
                   // object - find returned undefined, button did nothing.

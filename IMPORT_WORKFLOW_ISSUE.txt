@@ -1,0 +1,60 @@
+IMPORT WORKFLOW ISSUE - ACTIVE ORDERS
+=====================================
+
+Observed on 10 October 2026
+Example: ORD-918896 / Tiffany Africa
+
+Problem
+-------
+Orders brought in through the legacy/import route can have:
+  - status = confirmed
+  - imported_at populated
+  - comms_paused_until set far in the future (observed: 01 Jan 2100)
+
+"Confirmed" is the correct status for an accepted booking before kitchen
+work begins. It is NOT an error by itself.
+
+The fault is that kitchenPrepService.ensurePrepTasksForOrder currently
+treats every imported_at order, or every order with a future
+comms_paused_until value, as historical/quarantined. It refuses to create
+kitchen_prep_tasks for those orders.
+
+Impact
+------
+For an imported order scheduled today or in the future:
+  1. The order remains Confirmed.
+  2. The normal confirm-time prep-task cascade is skipped.
+  3. Kitchen sees menu items but "No prep tasks yet".
+  4. Kitchen cannot use Start / Done to track cooking.
+  5. The order can incorrectly be handed over to a driver without prep
+     completion being recorded.
+  6. The normal "prep plan ready" kitchen notification is never sent.
+
+Correct workflow
+----------------
+Confirmed -> prep tasks auto-created -> kitchen Start -> Preparing ->
+all tasks Done -> Ready -> kitchen handover -> driver departs.
+
+Required permanent fix
+----------------------
+1. Keep imported_at as audit history; do not use it alone as a permanent
+   operational block.
+2. Quarantine only imported orders whose event_date is in the past.
+3. Today and future imported orders must be operational:
+   - allow prep-task generation;
+   - allow kitchen notifications;
+   - show them in kitchen production/roster views.
+4. Add an explicit admin "Generate prep plan" recovery action on the
+   order kitchen page. It should allow an active imported order to create
+   tasks after a deliberate operator action.
+5. Prevent a new kitchen-to-driver handover unless at least one prep task
+   exists and every non-skipped task is complete. Do not remove or alter
+   handovers already recorded without an explicit operator action/audit.
+6. Keep completed, cancelled and genuinely historical imports unchanged.
+
+Temporary operational recovery
+------------------------------
+For active imported orders only, clear imported_at and
+comms_paused_until (scoped to the tenant and event_date >= CURRENT_DATE),
+then open Kitchen Production and use "Generate prep plan". This should
+not be used for historical orders.

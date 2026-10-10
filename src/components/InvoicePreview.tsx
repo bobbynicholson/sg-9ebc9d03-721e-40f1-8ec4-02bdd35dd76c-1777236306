@@ -116,9 +116,9 @@ export function InvoicePreview(props: InvoicePreviewProps) {
   const paidAboveTotal = Math.max(0, Number(props.depositPaid || 0) - Number(props.total || 0));
 
   return (
-    <div className="bg-stone-50 rounded-lg p-4 sm:p-6 max-w-3xl mx-auto">
+    <div className="mx-auto max-w-3xl rounded-lg bg-stone-50 p-3 sm:p-6">
       {/* BRANDED HEADER - mirrors /q/[token] and /pay/i/[token] */}
-      <div className="brand-print bg-brand-primary/10 border border-brand-primary/30 rounded-xl p-6 sm:p-8 mb-4">
+      <div className="brand-print mb-3 rounded-xl border border-brand-primary/30 bg-brand-primary/10 p-4 sm:mb-4 sm:p-8">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-3">
@@ -138,7 +138,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
                 {props.companyName}
               </p>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-900 leading-tight">
+            <h1 className="text-2xl font-serif font-bold leading-tight text-stone-900 sm:text-4xl">
               {docTitle}
             </h1>
             {/* Invoice number: bold, small, on its own line under the
@@ -177,7 +177,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
       {/* Shared document identity block. Event facts live below the party
           details so dates and times never wrap through one another. */}
       <Card className="mb-4 border border-stone-200 shadow-sm">
-        <CardContent className="px-5 py-5">
+        <CardContent className="px-3 py-4 sm:px-5 sm:py-5">
           <DocumentPartiesAndEvent
             from={{ name: props.companyName, address: props.companyAddress, email: props.companyEmail, phone: props.companyPhone }}
             billTo={{ name: props.clientName, address: props.clientAddress, email: props.clientEmail, phone: props.clientPhone, taxNumber: props.clientTaxNumber }}
@@ -195,7 +195,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
       {/* ITEMS */}
       {Array.isArray(props.items) && props.items.length > 0 && (
         <Card className="mb-4 border border-stone-200 shadow-sm">
-          <CardContent className="py-5 px-5">
+          <CardContent className="px-3 py-4 sm:px-5 sm:py-5">
             <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
               From the kitchen
             </p>
@@ -232,7 +232,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
 
       {/* TOTALS */}
       <Card className="mb-4 border border-stone-200 shadow-sm">
-        <CardContent className="py-5 px-5 space-y-2">
+        <CardContent className="space-y-2 px-3 py-4 sm:px-5 sm:py-5">
           <div className="flex justify-between text-sm">
             <span className="text-stone-600">Subtotal</span>
             <span className="text-stone-900 tabular-nums">
@@ -296,7 +296,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
       {/* PAYMENT DETAILS */}
       {props.bankDetails && (
         <Card className="mb-4 border border-stone-200 shadow-sm">
-          <CardContent className="py-5 px-5">
+          <CardContent className="px-3 py-4 sm:px-5 sm:py-5">
             <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-3">
               Payment details
             </p>
@@ -332,7 +332,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
           mirror the PDF structure. */}
       {props.paymentTerms && (
         <Card className="mb-4 border border-stone-300 bg-stone-50 shadow-sm">
-          <CardContent className="py-4 px-5">
+          <CardContent className="px-3 py-4 sm:px-5">
             <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
               Payment terms
             </p>
@@ -346,7 +346,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
       {/* NOTES */}
       {visibleNotes && (
         <Card className="mb-4 border border-stone-200 shadow-sm">
-          <CardContent className="py-5 px-5">
+          <CardContent className="px-3 py-4 sm:px-5 sm:py-5">
             <p className="text-xs uppercase tracking-[0.15em] text-brand-primary font-bold mb-1.5">
               A note from us
             </p>
