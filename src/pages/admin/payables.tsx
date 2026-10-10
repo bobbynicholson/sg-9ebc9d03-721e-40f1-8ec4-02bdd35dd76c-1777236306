@@ -31,7 +31,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet, Search, CalendarClock, Undo2 } from "lucide-react";
+import { Plus, CheckCircle2, AlertTriangle, Trash2, Upload, Wallet, Search, CalendarClock } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -46,7 +46,6 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   supplierPayablesService,
   type SupplierPayable,
-  type PayableStatus,
 } from "@/services/supplierPayablesService";
 import { formatZAR } from "@/lib/formatters";
 import { DEFAULT_TENANT_TIMEZONE, parseLocalDay, toLocalISO, toZonedISO } from "@/lib/localDate";
@@ -239,7 +238,8 @@ function PayablesPage() {
   const [rows, setRows] = useState<SupplierPayable[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<PayableStatus | "all">("pending");
+  // Only expose statuses that are supported by the live payable workflow.
+  const [filter, setFilter] = useState<"pending" | "paid">("pending");
   const [suppliers, setSuppliers] = useState<Array<{ id: string; supplier_name: string }>>([]);
   // Overdue is judged against the TENANT's calendar day, not the
   // operator's browser clock - a payable shouldn't flip overdue early
@@ -326,7 +326,7 @@ function PayablesPage() {
   // chips always compute off the full set so they stay truthful under
   // any filter.
   const visibleRows = useMemo(() => {
-    const byStatus = filter === "all" ? rows : rows.filter((r) => r.status === filter);
+    const byStatus = rows.filter((r) => r.status === filter);
     const q = search.trim().toLowerCase();
     if (!q) return byStatus;
     return byStatus.filter((r) =>
@@ -376,24 +376,6 @@ function PayablesPage() {
       // Pre-audit this failed in silence - the button did nothing and
       // the operator assumed the payable was settled.
       toast({ title: "Couldn't mark paid", description: "The update didn't save. Try again.", variant: "destructive" });
-    }
-  };
-
-  const handleStatusChange = async (
-    id: string,
-    status: Exclude<PayableStatus, "paid">,
-  ) => {
-    const row = await supplierPayablesService.setStatus(id, status, userId);
-    if (row) {
-      toast({
-        title: status === "disputed" ? "Marked as disputed" : "Reopened as pending",
-        description: status === "disputed"
-          ? "This payable is excluded from the cashflow forecast until resolved."
-          : "This payable is included in the cashflow forecast again.",
-      });
-      void load();
-    } else {
-      toast({ title: "Couldn't update status", description: "The change didn't save. Try again.", variant: "destructive" });
     }
   };
 
@@ -489,8 +471,6 @@ function PayablesPage() {
   const statusCounts = useMemo(() => ({
     pending: rows.filter((r) => r.status === "pending").length,
     paid: rows.filter((r) => r.status === "paid").length,
-    disputed: rows.filter((r) => r.status === "disputed").length,
-    written_off: rows.filter((r) => r.status === "written_off").length,
   }), [rows]);
 
   return (
@@ -629,16 +609,13 @@ function PayablesPage() {
                   aria-label="Search payables"
                 />
               </div>
-              <Select value={filter} onValueChange={(v) => setFilter(v as PayableStatus | "all")}>
+              <Select value={filter} onValueChange={(v) => setFilter(v as "pending" | "paid")}>
                 <SelectTrigger className="w-full sm:w-44" aria-label="Filter by status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pending">Pending ({statusCounts.pending})</SelectItem>
                   <SelectItem value="paid">Paid ({statusCounts.paid})</SelectItem>
-                  <SelectItem value="disputed">Disputed ({statusCounts.disputed})</SelectItem>
-                  <SelectItem value="written_off">Written off ({statusCounts.written_off})</SelectItem>
-                  <SelectItem value="all">All ({rows.length})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -653,7 +630,7 @@ function PayablesPage() {
                   <p className="text-sm text-slate-500">
                     {search.trim()
                       ? `No payables match "${search.trim()}".`
-                      : `No ${filter === "all" ? "" : filter.replace("_", " ") + " "}payables${rows.length > 0 && filter !== "all" ? ` (${rows.length} in All)` : ""}.`}
+                      : `No ${filter} payables.`}
                   </p>
                   {search.trim() && (
                     <Button onClick={() => setSearch("")} variant="outline" size="sm" className="mt-3">
@@ -691,19 +668,6 @@ function PayablesPage() {
                                 Paid
                               </Badge>
                             )}
-                            {r.status === "disputed" && (
-                              <Badge variant="secondary" className="bg-rose-100 text-rose-800 border border-rose-200">
-                                Disputed
-                              </Badge>
-                            )}
-                            {/* Audit fix (2026-07-02): written_off had
-                                no badge, so in the All view those rows
-                                were indistinguishable from pending. */}
-                            {r.status === "written_off" && (
-                              <Badge variant="secondary" className="bg-slate-100 text-slate-600 border border-slate-200">
-                                Written off
-                              </Badge>
-                            )}
                           </div>
                           <div className="text-xs text-slate-500 mt-0.5">
                             Due {r.due_date}{r.notes ? ` - ${r.notes}` : ""}
@@ -725,28 +689,7 @@ function PayablesPage() {
                               <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                               Mark paid
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => void handleStatusChange(r.id, "disputed")}
-                              title="Mark this payable as disputed"
-                              className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
-                            >
-                              <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                              Dispute
-                            </Button>
                           </>
-                        )}
-                        {r.status === "disputed" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void handleStatusChange(r.id, "pending")}
-                            title="Resolve the dispute and return this payable to pending"
-                          >
-                            <Undo2 className="w-3.5 h-3.5 mr-1" />
-                            Reopen
-                          </Button>
                         )}
                         <Button
                           size="sm"

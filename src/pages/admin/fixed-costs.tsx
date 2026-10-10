@@ -41,7 +41,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Repeat, Pencil, AlertCircle, ChevronDown, ChevronRight, TrendingUp, Calendar, Upload, Tag, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Repeat, Pencil, AlertCircle, ChevronDown, ChevronRight, Upload, Tag, RefreshCw } from "lucide-react";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminNav } from "@/components/admin/AdminNav";
@@ -518,38 +518,7 @@ function FixedCostsPage() {
     return activeRows.reduce((sum, r) => sum + toMonthlyCents(r.amount_cents, r.cadence), 0);
   }, [activeRows]);
   const monthlyEquivalent = monthlyEquivalentCents / 100;
-  const annualEquivalent = monthlyEquivalent * 12;
-
-  // FXC-A intel: cadence mix counts.
-  const cadenceMix = useMemo(() => {
-    const counts: Record<Cadence, number> = { weekly: 0, monthly: 0, quarterly: 0, annual: 0 };
-    for (const r of activeRows) counts[r.cadence] += 1;
-    return counts;
-  }, [activeRows]);
-
-  // FXC-A intel: 30 / 60 / 90 day buckets. Walks every active row's
-  // occurrences via the service helper (the same code the
-  // CashflowForecastCard uses for the chart, so the page agrees
-  // with the chart on what's actually projected).
-  const occurrenceBuckets = useMemo(() => {
-    const occ = fixedCostsService.expandOccurrences(activeRows, 90);
-    const today = todayAnchor;
-    const b: { d30: number; d60: number; d90: number } = { d30: 0, d60: 0, d90: 0 };
-    for (const o of occ) {
-      // parseLocalDay pins the bare occurrence date to local midnight
-      // so the day-diff against the local todayAnchor is exact; the
-      // UTC-midnight parse pushed boundary occurrences into the wrong
-      // bucket for timezones far from UTC.
-      const occDay = parseLocalDay(o.date);
-      if (!occDay) continue;
-      const days = daysBetween(today, occDay);
-      if (days < 0 || days > 90) continue;
-      if (days <= 30) b.d30 += o.amount_cents;
-      else if (days <= 60) b.d60 += o.amount_cents;
-      else b.d90 += o.amount_cents;
-    }
-    return { d30: b.d30 / 100, d60: b.d60 / 100, d90: b.d90 / 100 };
-  }, [activeRows, todayAnchor]);
+  const nextScheduledCost = activeRows[0] || null;
 
   // FXC-B intel: group active rows by category for the toggle view.
   // Categories with NULL fall under "Uncategorised". Sorts groups
@@ -618,9 +587,6 @@ function FixedCostsPage() {
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     {activeRows.length} active cost{activeRows.length === 1 ? "" : "s"}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    {fmt(monthlyEquivalent, currency)} / month
-                  </span>
                   {pausedRows.length > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white/90">
                       {pausedRows.length} paused
@@ -659,10 +625,8 @@ function FixedCostsPage() {
 
           {!loadError && (
           <>
-          {/* FXC-A: three summary tiles. Active + Monthly were the
-              pre-FXC-A pair; Annual is new. Bobby's prompt called
-              out the annualised burn explicitly - R8,600/mo = R103k
-              of fixed obligations a year. */}
+          {/* Only facts saved on a fixed-cost record appear in these cards.
+              Forecast-style estimates belong on the cashflow dashboard. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <Card className="border-2">
               <CardHeader className="pb-2">
@@ -677,84 +641,31 @@ function FixedCostsPage() {
             </Card>
             <Card className="border-2">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-slate-600">Monthly equivalent</CardTitle>
+                <CardTitle className="text-sm text-slate-600">Paused</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold tabular-nums text-slate-900">
-                  {fmt(monthlyEquivalent, currency)}
+                  {pausedRows.length}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">All active costs normalised to monthly</p>
+                <p className="text-xs text-slate-500 mt-1">Not included in the active list</p>
               </CardContent>
             </Card>
-            <Card className="border-2 bg-amber-50/40">
+            <Card className="border-2">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-amber-900 flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  Annual burn
-                </CardTitle>
+                <CardTitle className="text-sm text-slate-600">Next scheduled cost</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold tabular-nums text-amber-900">
-                  {fmt(annualEquivalent, currency)}
-                </div>
-                <p className="text-xs text-amber-800/80 mt-1">Locked-in obligations over 12 months</p>
+                {nextScheduledCost ? (
+                  <>
+                    <div className="truncate text-lg font-bold text-slate-900">{nextScheduledCost.label}</div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {nextScheduledCost.next_due_date} · {fmt(nextScheduledCost.amount_cents / 100, currency)} · {nextScheduledCost.cadence}
+                    </p>
+                  </>
+                ) : <p className="text-sm text-slate-500">No active fixed cost scheduled.</p>}
               </CardContent>
             </Card>
           </div>
-
-          {/* FXC-A: cadence mix + 30/60/90 strips. Both compute from
-              data already loaded so they're cheap. Hidden when the
-              page has no active rows so first-run doesn't show a
-              wall of zeros. */}
-          {activeRows.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs text-slate-600 flex items-center gap-1.5">
-                    <Repeat className="w-3.5 h-3.5" />
-                    Cadence mix
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    {(["weekly", "monthly", "quarterly", "annual"] as Cadence[]).map((c) => (
-                      <span
-                        key={c}
-                        className={`px-2 py-0.5 rounded-md ${
-                          cadenceMix[c] > 0
-                            ? "bg-slate-100 text-slate-700"
-                            : "bg-slate-50 text-slate-400"
-                        }`}
-                      >
-                        {cadenceMix[c]} {c}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-2">
-                    A high annual count means lumpier cash drains on the renewal months.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs text-slate-600 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" />
-                    Hitting the bank
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="grid grid-cols-3 gap-2 text-xs">
-                    <Bucket label="Next 30d" amount={fmt(occurrenceBuckets.d30, currency)} />
-                    <Bucket label="31 to 60d" amount={fmt(occurrenceBuckets.d60, currency)} />
-                    <Bucket label="61 to 90d" amount={fmt(occurrenceBuckets.d90, currency)} />
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-2">
-                    Real occurrences from each row&apos;s next-due date, walked forward by cadence.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
 
           {/* FXC-B: group-by-category toggle. Off by default - flat
               list is the long-standing shape. Toggle on when the
