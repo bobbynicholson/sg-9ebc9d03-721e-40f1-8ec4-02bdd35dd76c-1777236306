@@ -68,7 +68,6 @@ import { EquipmentTypeahead, type EquipmentPick } from "@/components/admin/Equip
 import { MenuItemTypeahead, type MenuItemPick } from "@/components/admin/MenuItemTypeahead";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { OrderNotesThread } from "@/components/admin/OrderNotesThread";
 import { OutsourcedFulfilmentPanel } from "@/components/admin/orders/OutsourcedFulfilmentPanel";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import {
@@ -735,7 +734,6 @@ const persistSave = async () => {
       // Wave 31: omit status here - the dispatch above owns the
       // status transition + cascades. Passing it again would
       // raw-update over the orderWorkflow stamp.
-      internal_notes: (editedOrder as any).internal_notes,
       // Phase 14 #5: discount carries through to the orders
       // row + downstream invoice via the syncOrderArtifacts
       // call below. null = clear the discount.
@@ -1208,10 +1206,10 @@ return (
               href={withSlug(`/admin/orders/${selectedOrder.id}/ticket`)}
               onClick={() => setIsModalOpen(false)}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-900 bg-orange-50 border border-orange-200 rounded-md px-2 py-1 hover:bg-orange-100 transition"
-              title="Choose kitchen team members for this order's prep tasks"
+              title="Open the kitchen working screen to start, complete and hand over this order"
             >
               <ChefHat className="w-3.5 h-3.5" />
-              {(selectedOrder as any).assigned_chef_id ? "Change kitchen" : "Assign kitchen"}
+              Open kitchen
             </Link>
           </div>
         )}
@@ -1468,17 +1466,6 @@ return (
               </div>
             </div>
 
-            <div className="space-y-2 col-span-2">
-              <Label>Internal notes (admin only)</Label>
-              <Textarea
-                value={(editedOrder as any).internal_notes || ""}
-                onChange={(e) => setEditedOrder({ ...editedOrder, internal_notes: e.target.value } as any)}
-                disabled={!editMode}
-                rows={3}
-                placeholder="Internal notes for the team. Not shown to the client."
-              />
-            </div>
-
             {/* Wave 67 Phase D - outsourced fulfilment panel.
                 Lists every outsource_assignments row for this
                 order with inline actions: send request via
@@ -1496,21 +1483,6 @@ return (
                 guestCount={(selectedOrder as any).guest_count ?? null}
               />
             )}
-
-            {/* Phase 9 #6: chronological notes thread. The
-                single-string internal_notes above is the
-                'sticky note' on the order; this thread is
-                'who said what when' so context survives shift
-                changes. Backed by audit_logs so it inherits
-                the existing RLS + shows up in /admin/audit-logs. */}
-            <div className="col-span-2">
-              {selectedOrder?.id && (
-                <OrderNotesThread
-                  orderId={selectedOrder.id}
-                  companyId={(selectedOrder as any).company_id || null}
-                />
-              )}
-            </div>
 
             {(selectedOrder as any).special_instructions && (
               <div className="space-y-2 col-span-2">

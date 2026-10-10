@@ -37,7 +37,6 @@ interface OrderRow {
   guest_count: number | null;
   venue_address: string | null;
   status: string | null;
-  internal_notes: string | null;
   special_instructions: string | null;
   assigned_driver: { full_name: string | null } | null;
   assigned_vehicle: { plate: string | null; nickname: string | null } | null;
@@ -65,7 +64,7 @@ function DeliverySheet() {
             id, order_number, client_name, client_phone,
             event_date, event_time, setup_time, pickup_time,
             guest_count, venue_address, status,
-            internal_notes, special_instructions,
+            special_instructions,
             assigned_driver:profiles!orders_assigned_driver_id_fkey ( full_name ),
             assigned_vehicle:vehicles!orders_assigned_vehicle_id_fkey ( plate, nickname )
           `)
@@ -182,9 +181,9 @@ function DeliverySheet() {
                             {vehicle && <span>Vehicle: {vehicle}</span>}
                             {o.client_phone && <span className="tabular-nums">{o.client_phone}</span>}
                           </div>
-                          {(o.special_instructions || o.internal_notes) && (
+                          {o.special_instructions && (
                             <div className="mt-1 text-[11px] text-slate-700 italic border-l-2 border-slate-200 pl-2">
-                              {o.special_instructions || o.internal_notes}
+                              {o.special_instructions}
                             </div>
                           )}
                         </div>

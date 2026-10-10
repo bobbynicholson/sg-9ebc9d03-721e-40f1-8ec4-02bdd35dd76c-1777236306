@@ -45,6 +45,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { staffOrderHref } from "@/lib/orderUrls";
 import { KitchenPrepTasksCard } from "@/components/kitchen/KitchenPrepTasksCard";
+import { HandoverToDriverPanel } from "@/components/kitchen/HandoverToDriverPanel";
 import { PageWorkbench } from "@/components/portal/ui";
 
 interface OrderRow {
@@ -62,7 +63,6 @@ interface OrderRow {
   guest_count: number | null;
   venue_address: string | null;
   special_instructions: string | null;
-  internal_notes: string | null;
   setup_time: string | null;
   pickup_time: string | null;
   status: string | null;
@@ -260,7 +260,7 @@ function KitchenTicketPage() {
           // silently null-rendered as "Order not found". Same trap as
           // Wave 43. Use guest_count alone; if the column ever ships,
           // re-add it here AND read it in the BackplannedItem helper.
-          .select("id, company_id, order_number, event_name, client_name, client_phone, event_date, event_time, guest_count, venue_address, special_instructions, internal_notes, setup_time, pickup_time, status")
+          .select("id, company_id, order_number, event_name, client_name, client_phone, event_date, event_time, guest_count, venue_address, special_instructions, setup_time, pickup_time, status")
           .eq("id", orderId)
           .is("deleted_at", null);
         if (callerCompanyId) q = q.eq("company_id", callerCompanyId);
@@ -356,14 +356,19 @@ function KitchenTicketPage() {
     return () => { cancelled = true; };
   }, [orderId, callerCompanyId]);
 
+  // This route is also the operational screen used to assign prep tasks.
+  // It used to open the browser print dialog on every visit, which meant
+  // selecting “Assign kitchen” prevented staff from completing the kitchen
+  // and driver-handover workflow. Printing is now intentional: use the
+  // visible Print button, or explicitly open this route with `?print=1`.
+  const printRequested = router.isReady && router.query.print === "1";
   useEffect(() => {
-    if (!loading && order) {
-      const t = setTimeout(() => {
-        try { window.print(); } catch { /* noop */ }
-      }, 500);
-      return () => clearTimeout(t);
-    }
-  }, [loading, order]);
+    if (!printRequested || loading || !order) return;
+    const t = setTimeout(() => {
+      try { window.print(); } catch { /* noop */ }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [printRequested, loading, order]);
 
   // Backplan all items + compute the global "kitchen starts at" /
   // "kitchen ends at" envelope so the header timeline ribbon reads
@@ -444,13 +449,42 @@ function KitchenTicketPage() {
       <Head><title>Kitchen ticket - {order.order_number}</title></Head>
       <style jsx global>{`
         @media print {
+          @page { size: A4 portrait; margin: 6mm; }
           .no-print { display: none !important; }
           body { background: white !important; }
+
+          /* A kitchen ticket is meant to be a quick one-page working sheet.
+             Use a compact print-only scale and spacing; screen reading stays
+             unchanged. Chromium (the browser used for Save as PDF) honours
+             zoom during pagination, so the full sheet shrinks rather than
+             being clipped at a page break. */
+          .kitchen-ticket-print {
+            zoom: 0.72;
+            max-width: none !important;
+            padding: 0 !important;
+          }
+          .kitchen-ticket-print > .bg-white {
+            gap: 0.5rem !important;
+            padding: 0.65rem !important;
+            border: 0 !important;
+          }
+          .kitchen-ticket-print .print-row {
+            padding-top: 0.25rem !important;
+            padding-bottom: 0.25rem !important;
+          }
+          .kitchen-ticket-print .text-2xl {
+            width: 2.25rem !important;
+            font-size: 1rem !important;
+            line-height: 1.15 !important;
+          }
+          .kitchen-ticket-print .text-base { font-size: 0.78rem !important; }
+          .kitchen-ticket-print .text-sm { font-size: 0.7rem !important; }
+          .kitchen-ticket-print .text-xs { font-size: 0.64rem !important; }
         }
       `}</style>
       <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--document admin-page-shell--print">
-        <div className="no-print bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-          <div className="flex items-center gap-2">
+        <div className="no-print bg-white border-b border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-10">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => router.back()}>
               <ArrowLeft className="w-4 h-4 mr-2" /> Back
             </Button>
@@ -471,7 +505,7 @@ function KitchenTicketPage() {
         <div className="no-print mx-auto max-w-3xl px-6 pt-6">
           <PageWorkbench />
         </div>
-        <div className="max-w-3xl mx-auto px-6 py-8 print:px-4 print:py-0">
+        <div className="kitchen-ticket-print max-w-3xl mx-auto px-6 py-8 print:px-4 print:py-0">
           <div className="bg-white border border-slate-300 rounded-lg p-6 print:border-0 print:rounded-none print:p-0 space-y-4">
             {/* Wave 70.45c - canonical BookingHeader (kitchen variant).
                 Replaces the bespoke header band so this surface inherits
@@ -506,6 +540,17 @@ function KitchenTicketPage() {
                 so prep_started_at + order-ready + dispatch notifications all
                 fire. */}
             <KitchenPrepTasksCard orderId={order.id} companyId={order.company_id} />
+
+            {/* This is the operational kitchen screen reached from the order
+                action bar. Keep the driver handover here with Start/Done so
+                the kitchen can finish the order without bouncing to another
+                page. The panel also makes a missing driver assignment clear
+                and provides the dispatch route instead of hiding the next
+                step altogether. */}
+            <div className="no-print rounded-xl border border-slate-200 bg-white p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Hand over to driver</p>
+              <HandoverToDriverPanel orderId={order.id} orderNumber={order.order_number || order.id} />
+            </div>
 
             {/* Wave 66.9 - backplanned timeline ribbon. Single line so
                 the chef sees the day's choreography at the top of the
@@ -767,27 +812,14 @@ function KitchenTicketPage() {
               </div>
             )}
 
-            {(order.special_instructions || order.internal_notes) && (
+            {order.special_instructions && (
               <div className="pt-3 border-t border-slate-200 space-y-2">
-                {order.special_instructions && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Client special instructions</p>
-                    <p className="text-sm text-slate-900 whitespace-pre-wrap leading-snug">{order.special_instructions}</p>
-                  </div>
-                )}
-                {order.internal_notes && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Internal notes</p>
-                    <p className="text-sm text-slate-900 whitespace-pre-wrap leading-snug">{order.internal_notes}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Client special instructions</p>
+                  <p className="text-sm text-slate-900 whitespace-pre-wrap leading-snug">{order.special_instructions}</p>
+                </div>
               </div>
             )}
-
-            <div className="pt-3 border-t-2 border-slate-900 text-[10px] text-slate-400 flex items-center justify-between">
-              <span>Backplan computed live. Parallelism cap {PARALLELISM_CAP}. Safety buffer {SAFETY_BUFFER_MIN}m</span>
-              <span>Printed {new Date().toLocaleString("en-ZA")}</span>
-            </div>
           </div>
         </div>
       </div>

@@ -254,7 +254,7 @@ function AdminDashboardPage() {
       const [ordersRes, quotesRes, quotesCirculatingRes, usersRes, invRes, conversionRes, draftsRes, shortfallRes] = await Promise.all([
         supabase
           .from("orders")
-          .select("id, order_number, event_name, internal_notes, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancelled_at, cancellation_reason_category")
+          .select("id, order_number, event_name, status, payment_status, total_amount, tax_amount, deposit_paid, deposit_amount, balance_paid, balance_amount, amount_paid, event_date, confirmed_at, cancelled_at, cancellation_reason_category")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", fromISO)
@@ -531,7 +531,7 @@ function AdminDashboardPage() {
       // Phase 4B: read payment_status (enum) instead of legacy status text mirror.
       const { data: refundRows, error: refundRowsError } = await supabase
         .from("payments")
-        .select("amount, payment_status, order:order_id ( order_number, event_name, internal_notes, client_name )")
+        .select("amount, payment_status, order:order_id ( order_number, event_name, client_name )")
         .eq("company_id", companyId)
         .eq("payment_type", "refund")
         .in("payment_status", OPEN_REFUND_STATUSES);
@@ -667,22 +667,24 @@ function AdminDashboardPage() {
               </>
             }
             actions={
-              <>
-                <DashboardDateRange range={range} onChange={setRange} anchorDate={tenantDateAnchor} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadMetrics}
-                  disabled={loading}
-                  className="gap-2"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
-                  Refresh
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadMetrics}
+                disabled={loading}
+                className="gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
+                Refresh
+              </Button>
             }
           />
           <PageWorkbench />
+
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Dashboard period</span>
+            <DashboardDateRange range={range} onChange={setRange} anchorDate={tenantDateAnchor} />
+          </div>
 
           {/* Operator safety net: if no email provider is wired up,
               every send silently fails. Show the banner directly under
@@ -815,7 +817,7 @@ function AdminDashboardPage() {
               ================================================================ */}
 
           {/* Key revenue metrics, all bound to the date range */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 sm:gap-4 md:gap-6 mb-6">
             {/* Wave 70.52a - every MetricCard now carries an href so
                 clicking drills to the dedicated surface for that
                 number. Previously hover:shadow-lg made tiles look
@@ -873,7 +875,7 @@ function AdminDashboardPage() {
               least one tile has data. */}
           {/* Secondary row: VAT, quote conversion and the live quote
               pipeline share one tile grid instead of a full-width tile. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 sm:gap-4 md:gap-6 mb-6">
               {stats.vatCollected > 0 && (
                 <MetricCard
                   label="VAT in range"
@@ -923,7 +925,7 @@ function AdminDashboardPage() {
           </div>
 
           {/* Performance metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 sm:gap-4 md:gap-6 mb-6">
             <MetricCard
               label="Avg Order Value"
               value={fmt.format(stats.averageOrderValue)}
@@ -1275,7 +1277,7 @@ function AdminDashboardPage() {
 <CardDescription>Shortcuts to create work or open the related working page.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4">
                 <Link
                   href={withSlug("/admin/orders")}
                   className="flex items-center gap-3 p-4 bg-gradient-to-br from-brand-primary/10 to-brand-secondary/10 rounded-lg hover:shadow-md transition-all"

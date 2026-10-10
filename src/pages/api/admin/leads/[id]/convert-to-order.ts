@@ -298,7 +298,6 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       delivery_rate_per_km: q.delivery_rate_per_km ?? null,
       delivery_duration_minutes: null,
       delivery_route_optimized: false,
-      internal_notes: q.notes ?? null,
       status: "confirmed",
       // Stamp confirmed_at so Booked-revenue tile and every other
       // gate keyed on this column counts the order from creation.

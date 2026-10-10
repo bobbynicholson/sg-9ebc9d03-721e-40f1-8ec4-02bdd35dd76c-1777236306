@@ -1021,8 +1021,6 @@ export const quoteService = {
       waiter_duration_hours: q.waiter_duration_hours ?? null,
       waiter_hourly_rate: q.waiter_hourly_rate ?? null,
       waiter_total_fee: q.waiter_total_fee ?? 0,
-      // Notes - quote.notes maps to internal_notes on orders
-      internal_notes: q.notes ?? null,
       // Lifecycle
       status: "confirmed",
       // Stamp confirmed_at here so downstream tiles (Booked revenue,

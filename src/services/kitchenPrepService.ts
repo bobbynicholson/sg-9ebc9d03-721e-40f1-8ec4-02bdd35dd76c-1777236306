@@ -847,6 +847,29 @@ export const kitchenPrepService = {
   // ── Tick-off ──────────────────────────────────────────────────────────────
 
   async startTask(taskId: string, performedBy: string): Promise<boolean> {
+    // Planning and execution are deliberately separate.  An admin may assign
+    // a chef or build the prep list well before an event, but no one should be
+    // able to mark real cooking as started until the order has an event date.
+    // This is particularly important for imported bookings, where a draft may
+    // have tasks but not yet have its event details completed.
+    const { data: taskBeforeStart, error: taskLookupError } = await (supabase as any)
+      .from("kitchen_prep_tasks")
+      .select("order_id")
+      .eq("id", taskId)
+      .maybeSingle();
+    if (taskLookupError) throw taskLookupError;
+    if (!taskBeforeStart?.order_id) throw new Error("This prep task is not linked to an order.");
+
+    const { data: orderBeforeStart, error: orderLookupError } = await (supabase as any)
+      .from("orders")
+      .select("event_date")
+      .eq("id", taskBeforeStart.order_id)
+      .maybeSingle();
+    if (orderLookupError) throw orderLookupError;
+    if (!orderBeforeStart?.event_date) {
+      throw new Error("Set the event date before starting kitchen preparation.");
+    }
+
     const nowIso = new Date().toISOString();
     const { data: updated, error } = await (supabase as any)
       .from("kitchen_prep_tasks")
@@ -924,6 +947,18 @@ export const kitchenPrepService = {
           .select("id, company_id, order_number");
         const ord = Array.isArray(stamped) && stamped.length > 0 ? stamped[0] : null;
         const wasFirstStart = !!ord;
+        // The first real kitchen action is the lifecycle transition from a
+        // booked/confirmed order into active preparation. Previously this
+        // only set prep_started_at, leaving status='confirmed' even while
+        // the team was cooking. That in turn hid operational controls that
+        // were keyed to the status and made the live workflow look stalled.
+        if (wasFirstStart) {
+          const { updateOrderStatus } = await import("./order/orderWorkflow");
+          const transition = await (updateOrderStatus as any)(orderId, "preparing", performedBy);
+          if (transition?.success === false) {
+            console.warn("[kitchenPrepService] could not transition order to preparing:", transition.error);
+          }
+        }
         // Cross-role hand-off: when a NON-kitchen user (an admin/owner)
         // kicks off prep, ping the kitchen team to actually cook it -
         // "admin can start but the kitchen must be told". Only on the FIRST

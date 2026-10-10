@@ -563,15 +563,6 @@ function NewLeadInner() {
                       {...register("specialRequests")}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="notes">Internal notes</Label>
-                    <Textarea
-                      id="notes"
-                      rows={4}
-                      placeholder="Anything else you want to remember: how they sounded on the phone, who referred them, follow-up timing..."
-                      {...register("notes")}
-                    />
-                  </div>
                 </section>
 
                 {kitchens.length > 1 && (

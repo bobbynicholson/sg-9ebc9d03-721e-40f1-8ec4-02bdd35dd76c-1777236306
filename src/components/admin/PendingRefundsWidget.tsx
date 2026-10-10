@@ -29,7 +29,6 @@ interface RefundRow {
   order: {
     order_number: string | null;
     event_name: string | null;
-    internal_notes: string | null;
     client_name: string | null;
   } | null;
 }
@@ -52,7 +51,7 @@ export function PendingRefundsWidget({ companyId }: { companyId: string | null }
           .from("payments")
           .select(`
             id, amount, payment_status, payment_method, created_at,
-            order:order_id ( order_number, event_name, internal_notes, client_name )
+            order:order_id ( order_number, event_name, client_name )
           `)
           .eq("company_id", companyId)
           .eq("payment_type", "refund")

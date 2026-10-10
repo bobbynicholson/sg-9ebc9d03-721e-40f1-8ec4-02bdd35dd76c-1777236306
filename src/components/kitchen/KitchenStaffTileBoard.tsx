@@ -41,6 +41,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { useToast } from "@/hooks/use-toast";
 import { canManageCleaningTeam, canManageKitchenTeam } from "@/lib/authGuards";
+import { toLocalISO } from "@/lib/localDate";
+import { supabase } from "@/integrations/supabase/client";
 import { UserRole } from "@/types/app";
 import {
   kitchenStaffService,
@@ -96,6 +98,60 @@ function fromLocalInput(local: string): string | null {
   const d = new Date(local);
   if (isNaN(d.getTime())) return null;
   return d.toISOString();
+}
+
+// The tablet clock is the primary attendance flow, whereas the roster uses
+// kitchen_shifts. Mirror the attendance marker into the matching planned
+// kitchen shift as a best effort. A roster gap must never prevent a valid
+// clock-in/out, so callers deliberately do not await an error as a failure.
+async function syncKitchenRosterAttendance({
+  companyId,
+  profileId,
+  at,
+  action,
+}: {
+  companyId: string;
+  profileId: string | null;
+  at: Date;
+  action: "start" | "end";
+}): Promise<void> {
+  if (!profileId) return;
+  try {
+    const shiftDate = toLocalISO(at);
+    let query = (supabase as any)
+      .from("kitchen_shifts")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("staff_id", profileId)
+      .eq("shift_date", shiftDate)
+      .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
+      .is("deleted_at", null)
+      .order("planned_start", { ascending: true })
+      .limit(1);
+
+    query = action === "start"
+      ? query.is("actual_start", null)
+      : query.not("actual_start", "is", null).is("actual_end", null);
+    const { data, error } = await query;
+    if (error) {
+      console.warn("Could not find matching kitchen roster shift (non-blocking):", error);
+      return;
+    }
+    const rosterShift = data?.[0];
+    if (!rosterShift?.id) return;
+
+    const update = action === "start"
+      ? { actual_start: at.toISOString(), status: "active" }
+      : { actual_end: at.toISOString(), status: "completed" };
+    const { error: updateError } = await (supabase as any)
+      .from("kitchen_shifts")
+      .update(update)
+      .eq("id", rosterShift.id)
+      .eq("company_id", companyId);
+    if (updateError) console.warn("Could not sync kitchen roster attendance (non-blocking):", updateError);
+  } catch (error) {
+    console.warn("Could not sync kitchen roster attendance (non-blocking):", error);
+  }
 }
 
 export function KitchenStaffTileBoard({
@@ -303,6 +359,14 @@ export function KitchenStaffTileBoard({
         department,
         overrideStartAt: capturedAt.toISOString(),
       });
+      if (department === "kitchen") {
+        await syncKitchenRosterAttendance({
+          companyId,
+          profileId: s.linked_profile_id,
+          at: capturedAt,
+          action: "start",
+        });
+      }
       setOpeningTarget(null);
       toast({
         title: `${s.full_name} is on shift`,
@@ -334,6 +398,14 @@ export function KitchenStaffTileBoard({
         clockedOutBy: user?.id || null,
         notes: note,
       });
+      if (department === "kitchen" && companyId) {
+        await syncKitchenRosterAttendance({
+          companyId,
+          profileId: s.linked_profile_id,
+          at: new Date(),
+          action: "end",
+        });
+      }
       const sharedUserId = s.linked_profile_id ||
         ((s.email && user?.email && s.email.toLowerCase() === user.email.toLowerCase()) ? user?.id : null) ||
         ((!s.linked_profile_id && isLegacySharedTeamLogin) ? user?.id : null);

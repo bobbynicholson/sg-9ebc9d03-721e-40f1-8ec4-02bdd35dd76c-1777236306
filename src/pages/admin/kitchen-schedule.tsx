@@ -78,6 +78,26 @@ interface ShiftRow {
   order_id: string | null;
 }
 
+// The kitchen tablet and the legacy self-service duty page record live
+// attendance in separate tables.  The roster remains the source of planned
+// coverage, but the schedule must project either live clock into the matching
+// roster row so an on-duty person is never shown as missed.
+interface DutyAttendanceRow {
+  staff_id: string | null;
+  shift_start: string | null;
+}
+
+interface TileAttendanceRow {
+  staff_member_id: string | null;
+  shift_start: string | null;
+}
+
+interface StaffMemberLinkRow {
+  id: string;
+  linked_profile_id: string | null;
+  email: string | null;
+}
+
 // Wave 66.2 - event overlay rows. The schedule needs to surface the
 // demand side (orders booked for the day) alongside the supply side
 // (chefs rostered) so the operator can see "16 May has a 43-guest
@@ -234,7 +254,7 @@ function KitchenScheduleGrid() {
     try {
       const fromIso = toLocalISO(fetchRange.from);
       const toIso = toLocalISO(fetchRange.to);
-      const [staffRes, shiftsRes, ordersRes] = await Promise.all([
+      const [staffRes, shiftsRes, ordersRes, dutyAttendanceRes, tileAttendanceRes, kitchenMembersRes] = await Promise.all([
         // Kitchen roster eligibility is department-specific. Admins
         // can manage the page, but they should not appear as chefs
         // unless their profile/active role or department says kitchen.
@@ -269,10 +289,43 @@ function KitchenScheduleGrid() {
           .lte("event_date", toIso)
           .neq("status", "cancelled")
           .order("event_date", { ascending: true }),
+        // Legacy per-login duty clock-ins.
+        (supabase as any)
+          .from("kitchen_duty_shifts")
+          .select("staff_id, shift_start")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .is("shift_end", null),
+        // The primary kitchen tablet clock-in flow. Its staff_member_id is
+        // resolved to a profile below before it is joined to the roster.
+        (supabase as any)
+          .from("kitchen_staff_shifts")
+          .select("staff_member_id, shift_start")
+          .eq("company_id", companyId)
+          .eq("department", "kitchen")
+          .is("shift_end", null)
+          .is("deleted_at", null),
+        // The kitchen staff directory is another valid source of roster
+        // eligibility. Some older staff accounts were added here but never
+        // received a matching user_departments row, which previously made
+        // them disappear from the shift planner.
+        (supabase as any)
+          .from("kitchen_staff_members")
+          .select("id, linked_profile_id, email")
+          .eq("company_id", companyId)
+          .eq("is_active", true)
+          .contains("departments", ["kitchen"])
+          .is("deleted_at", null),
       ]);
       if (staffRes.error) throw staffRes.error;
       if (shiftsRes.error) throw shiftsRes.error;
       if (ordersRes.error) throw ordersRes.error;
+      // Attendance is an enhancement to the roster, not a reason to hide
+      // the roster. Keep the planned schedule visible if an older tenant's
+      // row-level policy does not expose one of the live-clock tables yet.
+      if (dutyAttendanceRes.error) console.warn("Could not load legacy kitchen duty attendance:", dutyAttendanceRes.error);
+      if (tileAttendanceRes.error) console.warn("Could not load kitchen tablet attendance:", tileAttendanceRes.error);
+      if (kitchenMembersRes.error) console.warn("Could not load kitchen staff directory:", kitchenMembersRes.error);
       const staffRows = (staffRes.data || []) as Staffer[];
       let departmentRows: RosterDepartmentRow[] = [];
       if (staffRows.length > 0) {
@@ -281,14 +334,73 @@ function KitchenScheduleGrid() {
           .select("user_id, department")
           .in("user_id", staffRows.map((row) => row.id))
           .in("department", rosterDepartmentAliases("kitchen"));
-        // A failed department fetch silently hid every staffer whose
-        // kitchen eligibility comes via user_departments. Surface it.
-        if (departmentRes.error) throw departmentRes.error;
-        departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
+        // Do not blank the full roster if this supporting mapping is
+        // temporarily unavailable: direct kitchen roles and the kitchen
+        // staff directory below remain valid eligibility sources.
+        if (departmentRes.error) {
+          console.warn("Could not load kitchen department assignments:", departmentRes.error);
+        } else {
+          departmentRows = (departmentRes.data || []) as RosterDepartmentRow[];
+        }
       }
-      setStaff(filterRosterStaff(staffRows, departmentRows, "kitchen"));
+      const staffMemberLinks = (kitchenMembersRes.data || []) as StaffMemberLinkRow[];
+      const profileByEmail = new Map(
+        staffRows
+          .filter((row) => !!row.email)
+          .map((row) => [row.email.trim().toLowerCase(), row.id]),
+      );
+      const kitchenProfileIds = new Set(
+        filterRosterStaff(staffRows, departmentRows, "kitchen").map((row) => row.id),
+      );
+      for (const member of staffMemberLinks) {
+        const profileId = member.linked_profile_id ||
+          (member.email ? profileByEmail.get(member.email.trim().toLowerCase()) : null);
+        if (profileId) kitchenProfileIds.add(profileId);
+      }
+      setStaff(staffRows.filter((row) => kitchenProfileIds.has(row.id)));
       const shiftRows = (shiftsRes.data || []) as ShiftRow[];
-      setShifts(shiftRows);
+      const tileAttendance = (tileAttendanceRes.data || []) as TileAttendanceRow[];
+
+      // Keep the earliest live start if a person has entries in both clock-in
+      // systems. This avoids double-counting while preserving their real
+      // on-duty time.
+      const activeStartByProfile = new Map<string, string>();
+      const recordActiveStart = (profileId: string | null, start: string | null) => {
+        if (!profileId || !start || Number.isNaN(new Date(start).getTime())) return;
+        const current = activeStartByProfile.get(profileId);
+        if (!current || new Date(start).getTime() < new Date(current).getTime()) {
+          activeStartByProfile.set(profileId, start);
+        }
+      };
+      for (const row of (dutyAttendanceRes.data || []) as DutyAttendanceRow[]) {
+        recordActiveStart(row.staff_id, row.shift_start);
+      }
+      const profileByStaffMember = new Map(
+        staffMemberLinks.map((row) => [row.id, row]),
+      );
+      for (const row of tileAttendance) {
+        const staffMember = profileByStaffMember.get(row.staff_member_id || "");
+        // Older staff tiles may predate linked_profile_id. An exact email
+        // match is a safe backwards-compatible bridge to the roster profile.
+        const profileId = staffMember?.linked_profile_id ||
+          (staffMember?.email ? profileByEmail.get(staffMember.email.trim().toLowerCase()) : null) ||
+          null;
+        recordActiveStart(profileId, row.shift_start);
+      }
+
+      const scheduleRows = shiftRows.map((shift) => {
+        const liveStart = activeStartByProfile.get(shift.staff_id);
+        // Attendance only belongs on the roster shift for the date on which
+        // it started; otherwise an overnight/open clock would incorrectly
+        // mark a future shift as active.
+        if (!liveStart || toLocalISO(new Date(liveStart)) !== shift.shift_date) return shift;
+        return {
+          ...shift,
+          actual_start: shift.actual_start || liveStart,
+          status: shift.actual_end ? shift.status : "active",
+        };
+      });
+      setShifts(scheduleRows);
       setOrders((ordersRes.data || []) as OrderForCal[]);
       // Phase 3: pull tasks for every shift in this week in one
       // batch. Empty map until shifts exist, no extra round-trip.
@@ -349,6 +461,18 @@ function KitchenScheduleGrid() {
         event: "*",
         schema: "public",
         table: "kitchen_shifts",
+        filter: `company_id=eq.${companyId}`,
+      }, refresh)
+      .on("postgres_changes" as any, {
+        event: "*",
+        schema: "public",
+        table: "kitchen_duty_shifts",
+        filter: `company_id=eq.${companyId}`,
+      }, refresh)
+      .on("postgres_changes" as any, {
+        event: "*",
+        schema: "public",
+        table: "kitchen_staff_shifts",
         filter: `company_id=eq.${companyId}`,
       }, refresh)
       .on("postgres_changes" as any, {
@@ -440,7 +564,7 @@ function KitchenScheduleGrid() {
     for (const s of shifts) {
       plannedH += plannedHours(s.planned_start, s.planned_end);
       const isPast = s.shift_date < todayIso;
-      if (s.status === "missed" || (isPast && !s.actual_start && s.status === "scheduled")) missed += 1;
+      if (!s.actual_start && (s.status === "missed" || (isPast && s.status === "scheduled"))) missed += 1;
     }
     return { plannedH, missed };
   }, [shifts, todayIso]);
@@ -887,7 +1011,7 @@ function KitchenScheduleGrid() {
                                         {cellShifts.map((s) => {
                                           const aHours = actualHours(s.actual_start, s.actual_end);
                                           const hasActual = !!s.actual_start;
-                                          const isMissed = s.status === "missed" || (isPastDay && !s.actual_start && s.status === "scheduled");
+                                          const isMissed = !hasActual && (s.status === "missed" || (isPastDay && s.status === "scheduled"));
                                           return (
                                             <div
                                               key={s.id}
@@ -931,7 +1055,7 @@ function KitchenScheduleGrid() {
                                               </button>
                                               {hasActual ? (
                                                 <div className="text-[10px] text-brand-primary mt-0.5 tabular-nums">
-                                                  Actual {aHours.toFixed(1)}h
+                                                  {s.actual_end ? `Actual ${aHours.toFixed(1)}h` : "On duty"}
                                                 </div>
                                               ) : isMissed ? (
                                                 <div className="text-[10px] text-rose-700 font-medium mt-0.5 inline-flex items-center gap-0.5">

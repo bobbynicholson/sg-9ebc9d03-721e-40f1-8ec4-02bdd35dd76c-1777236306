@@ -53,7 +53,7 @@ export function TopClientsWidget({ companyId }: { companyId: string | null }) {
         // excluded them. Top Clients and dashboard now agree.
         const { data, error } = await (supabase as any)
           .from("orders")
-          .select("order_number, event_name, internal_notes, client_name, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, event_date")
+          .select("order_number, event_name, client_name, total_amount, status, payment_status, deposit_paid, confirmed_at, cancelled_at, event_date")
           .eq("company_id", companyId)
           .gte("event_date", since);
         if (error) throw error;

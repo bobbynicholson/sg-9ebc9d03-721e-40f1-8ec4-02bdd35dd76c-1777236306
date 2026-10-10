@@ -9,8 +9,8 @@
  *   2. Event + Client detail grid (mostly unchanged).
  *   3. Intel chips: region branch, repeat-customer, linked quote,
  *      linked package, lead source, allergen rollup.
- *   4. Notes block: special_instructions, kitchen_instructions,
- *      dietary_requirements, internal_notes (admin only).
+ *   4. Notes block: special_instructions, kitchen_instructions and
+ *      dietary_requirements.
  *
  * Linked-entity + repeat-customer + allergen lookups happen here
  * once and render as chips. Each is best-effort (failures swallowed
@@ -21,10 +21,7 @@ import { useEffect, useState } from "react";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { canSeeOrderFinance } from "@/lib/authGuards";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
-import { UserRole } from "@/types/app";
 import {
   Calendar as CalendarIcon, Clock, MapPin, Users, User, Mail, Phone, FileText,
   Building2, History as HistoryIcon, FileSignature, Package as PackageIcon, Sparkles, AlertTriangle, Repeat,
@@ -49,7 +46,6 @@ interface Props {
     client_phone: string | null;
     special_instructions: string | null;
     kitchen_instructions: string | null;
-    internal_notes: string | null;
     dietary_requirements: string | null;
     region_id: string | null;
     quote_id: string | null;
@@ -101,12 +97,8 @@ interface RegionLink {
 }
 
 export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumentHeader = false, inSidePanel = false }: Props) {
-  const { user } = useAuth();
-  const canSeeFinance = canSeeOrderFinance(user?.role as UserRole | undefined);
-  const isAdminTier = canSeeFinance; // admin-tier roles see internal_notes
   const specialInstructions = visibleDocumentNote(order.special_instructions);
   const kitchenInstructions = visibleDocumentNote(order.kitchen_instructions);
-  const internalNotes = visibleDocumentNote(order.internal_notes);
 
   const [history, setHistory] = useState<ClientHistory | null>(null);
   const [quote, setQuote] = useState<QuoteLink | null>(null);
@@ -350,7 +342,7 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
         </div>
       </div>
 
-      {(order.dietary_requirements || specialInstructions || kitchenInstructions || (isAdminTier && internalNotes)) && (
+      {(order.dietary_requirements || specialInstructions || kitchenInstructions) && (
         <div className="mt-4 pt-4 border-t border-slate-200 space-y-3 text-sm">
           {order.dietary_requirements && (
             <div>
@@ -368,14 +360,6 @@ export function OrderHeaderSection({ order, defaultOpen, forceOpen, underDocumen
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Kitchen notes</p>
               <p className="text-slate-700 whitespace-pre-wrap">{kitchenInstructions}</p>
-            </div>
-          )}
-          {isAdminTier && internalNotes && (
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wider mb-1 inline-flex items-center gap-1">
-                Internal notes <span className="text-[10px] bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">admin only</span>
-              </p>
-              <p className="text-slate-700 whitespace-pre-wrap bg-slate-50 border border-slate-200 rounded p-2">{internalNotes}</p>
             </div>
           )}
         </div>

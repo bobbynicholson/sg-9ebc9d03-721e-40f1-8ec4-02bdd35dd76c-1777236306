@@ -120,9 +120,9 @@ export function OrderQuickActions({ order }: Props) {
           <Truck className="h-3.5 w-3.5 text-blue-600" />
           {order.assigned_driver_id ? "Change driver" : "Assign driver"}
         </Link>
-        <Link href={withSlug(`/admin/orders/${order.id}/ticket`)} className={chip} title="Choose kitchen team members for this order's prep tasks">
+        <Link href={withSlug(`/admin/orders/${order.id}/ticket`)} className={chip} title="Open the kitchen working screen to start, complete and hand over this order">
           <ChefHat className="h-3.5 w-3.5 text-orange-600" />
-          {order.assigned_chef_id ? "Change kitchen" : "Assign kitchen"}
+          Open kitchen
         </Link>
         <Link href={withSlug(`${staffOrderHref(order.id, "admin")}#section-waiter`)} className={chip} title="Open the Service team section to assign or remove waiters">
           <UserPlus className="h-3.5 w-3.5 text-amber-600" />

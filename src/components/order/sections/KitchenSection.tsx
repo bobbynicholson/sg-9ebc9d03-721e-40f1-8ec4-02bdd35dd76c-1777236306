@@ -44,7 +44,6 @@ interface Props {
   orderId: string;
   companyId: string;
   orderNumber?: string | null;
-  orderStatus?: string | null;
   pickupTime: string | null;
   eventDate: string;
   eventTime: string | null;
@@ -119,7 +118,7 @@ const TASK_STATUS_TONES: Record<string, string> = {
 };
 
 export function KitchenSection({
-  orderId, companyId, orderNumber, orderStatus, pickupTime, eventDate, eventTime,
+  orderId, companyId, orderNumber, pickupTime, eventDate, eventTime,
   defaultOpen, forceOpen, highlight,
 }: Props) {
   const { user, userRoles } = useAuth();
@@ -635,12 +634,12 @@ export function KitchenSection({
         </div>
       )}
 
-      {/* Kitchen -> driver handover. Same "Sign over to driver" control
-          that's on the kitchen dashboard, surfaced here so the kitchen can
-          do the handover straight from the open order. Only for kitchen /
-          admin actors, and only once the order is ready / in prep (nothing
-          to hand over earlier). The panel renders its own signed state. */}
-      {canAct && (orderStatus === "ready" || orderStatus === "preparing") && (
+      {/* Kitchen -> driver handover. Keep this available to kitchen and
+          admin actors on every active order: an order can be cooked and
+          ready while its broader status still reads "confirmed", and the
+          old status gate hid the only handover control in that case. The
+          panel itself shows whether dispatch still needs a driver. */}
+      {canAct && (
         <div className="mt-3 pt-3 border-t border-slate-200">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Hand over to driver</p>
           <HandoverToDriverPanel orderId={orderId} orderNumber={orderNumber || orderId} />

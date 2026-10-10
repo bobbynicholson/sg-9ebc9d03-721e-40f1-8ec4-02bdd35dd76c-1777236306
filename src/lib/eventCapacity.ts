@@ -133,7 +133,7 @@ export async function getEventCapacityForDate(
   const candidateGuests = Math.max(0, Math.round(Number(candidateGuestCount || 0)));
   const ordersQuery = db
     .from("orders")
-    .select("id, status, guest_count, order_number, event_name, internal_notes, client_name")
+    .select("id, status, guest_count, order_number, event_name, client_name")
     .eq("company_id", companyId)
     .eq("event_date", eventDate)
     .is("deleted_at", null)

@@ -25,7 +25,6 @@ interface OrderForIcs {
   guest_count: number | null;
   venue_address: string | null;
   special_instructions?: string | null;
-  internal_notes?: string | null;
 }
 
 // RFC 5545 escape - backslash, semicolon, comma and newline.
@@ -86,7 +85,6 @@ export function orderToIcs(order: OrderForIcs): string {
     order.setup_time && `Setup at: ${order.setup_time.slice(0, 5)}`,
     order.pickup_time && `Pickup at: ${order.pickup_time.slice(0, 5)}`,
     order.special_instructions && `Client note: ${order.special_instructions}`,
-    order.internal_notes && `Internal: ${order.internal_notes}`,
   ].filter(Boolean).join("\n");
 
   // TIGHTEN I.59 (2026-06-01): UID must be stable across

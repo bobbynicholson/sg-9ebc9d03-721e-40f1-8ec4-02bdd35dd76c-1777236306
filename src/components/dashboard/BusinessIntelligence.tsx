@@ -152,7 +152,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
       try {
         const ordersBase = supabase
           .from("orders")
-          .select("id, order_number, event_name, internal_notes, client_name, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id, cancelled_at, cancellation_reason")
+          .select("id, order_number, event_name, client_name, status, payment_status, total_amount, amount_paid, deposit_paid, deposit_amount, balance_paid, balance_amount, event_date, region_id, client_id, cancelled_at, cancellation_reason")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .gte("event_date", startISO)
@@ -198,7 +198,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         // No date floor - old debts are exactly what we want to surface.
         const invoicesBase = supabase
           .from("invoices")
-          .select("id, invoice_number, status, due_date, balance_due, total_amount, client_id, order:order_id(order_number, event_name, internal_notes, client_name)")
+          .select("id, invoice_number, status, due_date, balance_due, total_amount, client_id, order:order_id(order_number, event_name, client_name)")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .neq("status", "paid")
@@ -209,7 +209,7 @@ export function BusinessIntelligence({ companyId, dateRange }: Props) {
         // explicit filter for index hits.
         const orderItemsBase = supabase
           .from("order_items")
-          .select("id, order_id, menu_item_id, item_name, quantity, line_total, orders!inner(company_id, event_date, region_id, status, deleted_at, order_number, event_name, internal_notes, client_name)")
+          .select("id, order_id, menu_item_id, item_name, quantity, line_total, orders!inner(company_id, event_date, region_id, status, deleted_at, order_number, event_name, client_name)")
           .eq("orders.company_id", companyId)
           .is("orders.deleted_at", null)
           .gte("orders.event_date", startISO)

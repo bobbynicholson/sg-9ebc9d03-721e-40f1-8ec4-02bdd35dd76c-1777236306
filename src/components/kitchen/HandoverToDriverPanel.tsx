@@ -82,6 +82,17 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
         .limit(1)
         .maybeSingle();
 
+      // `orders.assigned_driver_id` is the normal dispatch source of truth.
+      // A driver_assignments row can be created later (or be absent on older
+      // orders), so relying on that secondary table alone incorrectly hid
+      // the kitchen handover even though the driver already had the job.
+      const { data: orderDriver } = await (supabase as any)
+        .from("orders")
+        .select("assigned_driver_id, assigned_driver:assigned_driver_id(full_name)")
+        .eq("id", orderId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+
       let signedByName: string | undefined;
       if (handover?.handed_over_by) {
         const { data: signer } = await (supabase as any)
@@ -97,8 +108,8 @@ export function HandoverToDriverPanel({ orderId, orderNumber }: HandoverToDriver
         signed: !!handover,
         signedAt: handover?.handover_time,
         signedByName,
-        driverId: (assignment as any)?.driver_id,
-        driverName: (assignment as any)?.profiles?.full_name,
+        driverId: (assignment as any)?.driver_id || (orderDriver as any)?.assigned_driver_id,
+        driverName: (assignment as any)?.profiles?.full_name || (orderDriver as any)?.assigned_driver?.full_name,
         notes: handover?.notes,
       });
     } catch (e) {

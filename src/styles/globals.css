@@ -159,6 +159,12 @@
 @media print {
   .no-print { display: none !important; }
 
+  /* The assistant is application chrome, never part of a business
+     document. This applies to every printed page (orders, quotes,
+     invoices and forms), including legacy pages that mount their own
+     assistant rather than the global launcher. */
+  [data-chatbot-root] { display: none !important; }
+
   /* Honour brand colours + tinted header bands in the PDF. Without
      this Chrome/Edge strip backgrounds on print and a branded
      letterhead comes out plain white. */

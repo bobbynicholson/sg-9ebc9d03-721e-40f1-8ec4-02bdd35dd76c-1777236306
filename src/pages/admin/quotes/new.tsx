@@ -122,7 +122,6 @@ import { quoteService } from "@/services/quoteService";
 import { propagateQuoteEditToOrder } from "@/services/quote/propagateQuoteEdit";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
 import { toLocalISO } from "@/lib/localDate";
-import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
 import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCapacity";
 import { savedQuantityWasOverridden } from "@/lib/quotes/revisionLifecycle";
@@ -559,10 +558,7 @@ function NewQuotePage() {
   const [discountFlat, setDiscountFlat] = useState(0);
 
   const [validUntil, setValidUntil] = useState(futureISO(DEFAULT_VALIDITY_DAYS));
-  // Maps to quotes.notes - CLIENT-VISIBLE on /q/[token] ("A note from
-  // us") and copied to the order's internal_notes at conversion. The
-  // separate never-persisted clientNotes field was removed 2026-07-02
-  // (see the Notes card comment below).
+  // Maps to quotes.notes - CLIENT-VISIBLE on /q/[token] as "A note from us".
   const [internalNotes, setInternalNotes] = useState("");
 
   // ── Persistence state ─────────────────────────────────────────────
@@ -3910,14 +3906,13 @@ function NewQuotePage() {
                   client" textarea was never persisted anywhere (no
                   column, no email path) and silently vanished on
                   reload. Fixed by collapsing to ONE honestly-labelled
-                  client-visible note (bound to quotes.notes, hydrates
-                  on edit) and pointing operators at the audit-logged
-                  notes thread below for genuinely internal notes. */}
+                  client-visible note (bound to quotes.notes and hydrated
+                  on edit). */}
               <Card collapsible defaultOpen={false} collapseLabel="Notes">
                 <CardHeader>
                   <CardTitle className="text-base">Notes</CardTitle>
                   <CardDescription>
-                    The note below is client-visible. Keep internal-only context in the team thread underneath.
+                    This note is client-visible on the quote.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -3929,24 +3924,8 @@ function NewQuotePage() {
                       onChange={(e) => setInternalNotes(e.target.value)}
                       placeholder="Optional message that goes out with the quote."
                     />
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Also copied into the order's internal notes when the quote converts. Do not put private kitchen or account context here.
-                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">Do not include private kitchen or account information.</p>
                   </div>
-                  {/* Phase 16 #1: chronological notes thread for the
-                      quote - only renders once the quote has been
-                      saved (we need a quoteId to thread off). Mirrors
-                      the order notes thread for cross-team context. */}
-                  {quoteId && companyId && (
-                    <div className="pt-2 border-t border-slate-200">
-                      <EntityNotesThread
-                        entityType="quote"
-                        entityId={quoteId}
-                        companyId={companyId}
-                        placeholder="Add an internal note for this quote - audit logged."
-                      />
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </div>

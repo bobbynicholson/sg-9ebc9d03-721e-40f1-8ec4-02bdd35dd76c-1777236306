@@ -874,7 +874,6 @@ function InvoicesPageInner() {
           orders (
             order_number,
             event_name,
-            internal_notes,
             client_name,
             client_email,
             client_phone,
