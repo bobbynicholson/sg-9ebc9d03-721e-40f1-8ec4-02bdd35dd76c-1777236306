@@ -22,12 +22,15 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { formatZAR } from "@/lib/formatters";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { Activity, AlertTriangle, CheckCircle2, ClipboardCheck, Loader2, Mail, MailX, RefreshCw, Send, Banknote } from "lucide-react";
 
 function MoneyHealthPage() {
   const { toast } = useToast();
+  const { user } = useAuth() as any;
+  const tenantCurrency = useTenantCurrency(user?.company_id ?? null);
   // Tenant-slug wrapper so the per-issue "open order" links keep the
   // company slug in the URL (a bare /admin/orders link drops it).
   const { withSlug } = useTenantHref();
@@ -100,11 +103,12 @@ function MoneyHealthPage() {
     }
   };
 
-  // Display source of truth for money: formatZAR. The API returns
-  // rand figures (r2-rounded), never cents.
-  const fmtR = (n: number) => formatZAR(Number(n || 0));
+  const fmtMoney = (n: number) => tenantCurrency.format(Number(n || 0));
   const issues = (money?.issues || []) as any[];
   const errorCount = issues.filter((i) => i.severity === "error").length;
+  const scanLabel = money?.truncated
+    ? `Latest ${money.scanned} orders scanned`
+    : `${money?.scanned ?? 0} orders reconcile`;
 
   return (
     <>
@@ -128,7 +132,7 @@ function MoneyHealthPage() {
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
                     <span className={`h-1.5 w-1.5 rounded-full ${issues.length === 0 ? "bg-emerald-400" : "bg-rose-400"}`} />
                     {issues.length === 0
-                      ? `${money.scanned} orders reconcile`
+                      ? scanLabel
                       : `${money.affectedOrders} order${money.affectedOrders === 1 ? "" : "s"} drifting`}
                   </span>
                 )}
@@ -164,7 +168,7 @@ function MoneyHealthPage() {
               <StatTile
                 label="Orders scanned"
                 value={money ? money.scanned : "-"}
-                hint={money ? "Order, invoice and payment figures compared" : "Scan did not run"}
+                hint={money ? (money.truncated ? "Latest records only — refine the scan before calling all books clean" : "Order, invoice and payment figures compared") : "Scan did not run"}
                 icon={ClipboardCheck}
               />
               <StatTile
@@ -242,7 +246,7 @@ function MoneyHealthPage() {
               title={<><Banknote className="w-4 h-4" /> Money reconciliation</>}
               action={money ? (
                 issues.length === 0
-                  ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1"><CheckCircle2 className="w-3 h-3" /> {money.scanned} orders reconcile</Badge>
+                  ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1"><CheckCircle2 className="w-3 h-3" /> {scanLabel}</Badge>
                   : <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 gap-1"><AlertTriangle className="w-3 h-3" /> {money.affectedOrders} order{money.affectedOrders === 1 ? "" : "s"} need a look</Badge>
               ) : undefined}
             />
@@ -261,7 +265,7 @@ function MoneyHealthPage() {
               ) : issues.length === 0 ? (
                 <div className="py-8 text-center text-slate-500">
                   <CheckCircle2 className="w-10 h-10 mx-auto mb-2 text-emerald-500" />
-                  <p className="text-sm">Every order's order / invoice / payment figures agree. {errorCount === 0 ? "No drift." : ""}</p>
+                  <p className="text-sm">{money.truncated ? `The latest ${money.scanned} orders'` : "Every order's"} order / invoice / payment figures agree. {errorCount === 0 ? "No drift in this scan." : ""}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -276,8 +280,8 @@ function MoneyHealthPage() {
                         <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{i.detail}</p>
                       </div>
                       <div className="text-right text-xs text-slate-500 whitespace-nowrap">
-                        <p>Order {fmtR(i.orderTotal)}</p>
-                        <p>Invoice {fmtR(i.invoiceTotal)}</p>
+                        <p>Order {fmtMoney(i.orderTotal)}</p>
+                        <p>Invoice {fmtMoney(i.invoiceTotal)}</p>
                       </div>
                     </div>
                   ))}

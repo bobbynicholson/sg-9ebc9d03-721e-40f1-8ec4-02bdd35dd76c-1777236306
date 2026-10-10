@@ -153,6 +153,14 @@ const dateFmt = (iso: string) => {
   } catch { return iso; }
 };
 
+/** Keep stock quantities compact and human-readable: no floating-point tails
+ * such as 18.8000000003, while preserving useful partial-unit quantities. */
+const qtyFmt = (value: number) => {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return "0";
+  return number.toLocaleString("en-ZA", { maximumFractionDigits: 2 });
+};
+
 /**
  * STK-B: map raw hire-in status enum to operator-language. Pre-STK-B
  * the page rendered "(draft)" with no legend; ops had no clue what
@@ -1202,37 +1210,49 @@ function StockPage() {
           {/* STK-B: stockout risk forecast (next 7 days). */}
           {stockouts.length > 0 && (
             <Card className="mb-6 border-l-4 border-l-red-500 bg-rose-50/40">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                  <ZapOff className="w-4 h-4 sm:w-5 sm:h-5 text-rose-600" />
-                  Stockout risk - next 7 days
-                </CardTitle>
-                <p className="text-xs text-slate-600 mt-1">
-                  Items where projected demand from confirmed orders exceeds current stock. Order now or sub before the day-of-prep panic.
-                </p>
+              <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
+                    <ZapOff className="w-4 h-4 shrink-0 text-rose-600 sm:w-5 sm:h-5" />
+                    Stockout risk - next 7 days
+                    <Badge variant="destructive" className="tabular-nums">{stockouts.length} short</Badge>
+                  </CardTitle>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    Confirmed orders need more than is on hand. Add these to the buy list before prep starts.
+                  </p>
+                </div>
+                <Link href={withSlug("/admin/shopping?tab=buy_now")} className="shrink-0">
+                  <Button size="sm" className="w-full gap-1.5 sm:w-auto">
+                    <ShoppingBag className="h-3.5 w-3.5" /> Open buy list
+                  </Button>
+                </Link>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-1.5">
+                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {stockouts.slice(0, 10).map((s) => (
-                    <li key={s.inventory_item_id} className="flex items-center justify-between gap-3 text-sm">
-                      <Link href={withSlug(`/admin/inventory?id=${s.inventory_item_id}`)} className="flex-1 min-w-0 hover:underline">
-                        <span className="font-medium text-slate-900 truncate">{s.item_name}</span>
+                    <li key={s.inventory_item_id} className="min-w-0">
+                      <Link
+                        href={withSlug(`/admin/inventory?id=${s.inventory_item_id}`)}
+                        className="block rounded-lg border border-rose-100 bg-white/80 p-3 transition-colors hover:border-rose-300 hover:bg-white"
+                      >
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <span className="min-w-0 truncate text-sm font-semibold text-slate-900">{s.item_name}</span>
+                          <Badge variant="destructive" className="shrink-0 tabular-nums">
+                            short {qtyFmt(s.shortfall_next_7_days)} {s.unit_of_measure || "units"}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                          <span>Have <strong className="font-semibold text-slate-800 tabular-nums">{qtyFmt(s.current_stock)} {s.unit_of_measure || "units"}</strong></span>
+                          <span>Need <strong className="font-semibold text-slate-800 tabular-nums">{qtyFmt(s.demand_next_7_days)} {s.unit_of_measure || "units"}</strong></span>
+                        </div>
                       </Link>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs text-slate-500 tabular-nums">
-                          have {s.current_stock} {s.unit_of_measure || ""}, need {s.demand_next_7_days}
-                        </span>
-                        <Badge variant="destructive" className="tabular-nums">
-                          short {s.shortfall_next_7_days} {s.unit_of_measure || ""}
-                        </Badge>
-                      </div>
                     </li>
                   ))}
                 </ul>
                 {stockouts.length > 10 && (
-                  <p className="text-[10px] text-slate-500 italic mt-2">
-                    + {stockouts.length - 10} more shortfall{stockouts.length - 10 === 1 ? "" : "s"}
-                  </p>
+                  <Link href={withSlug("/admin/shopping?tab=buy_now")} className="mt-3 inline-flex text-xs font-medium text-brand-primary hover:underline">
+                    View {stockouts.length - 10} more shortfall{stockouts.length - 10 === 1 ? "" : "s"} in the buy list <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Link>
                 )}
               </CardContent>
             </Card>

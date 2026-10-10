@@ -159,10 +159,11 @@ function PublicHolidaysAdmin() {
 
   useEffect(() => { reload(); }, [reload]);
 
-  // PHO-A (public-holidays audit, PHO-2): supabase realtime sub on
-  // public_holidays. Catches a concurrent admin's add / delete so the
-  // list stays current without a manual refresh. Filter is just
-  // company-scope; gazetted (company_id IS NULL) changes are rare.
+  // Keep both the tenant's own holidays and shared gazetted rows live.
+  // Realtime filters cannot express `company_id is null OR company_id = x`,
+  // so subscribe to rows readable under RLS and ignore unrelated payloads.
+  // The matching RLS policy also ensures that tenant-custom rows from another
+  // company are never delivered to this client.
   useEffect(() => {
     if (!companyId) return;
     // Random suffix so two open tabs never collide on the channel
@@ -170,7 +171,10 @@ function PublicHolidaysAdmin() {
     const channelSuffix = Math.random().toString(36).slice(2, 10);
     const sub = supabase
       .channel(`public-holidays-${companyId}-${channelSuffix}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "public_holidays", filter: `company_id=eq.${companyId}` }, () => { reload(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "public_holidays" }, (payload: any) => {
+        const changedCompanyId = payload.new?.company_id ?? payload.old?.company_id ?? null;
+        if (changedCompanyId === null || changedCompanyId === companyId) void reload();
+      })
       .subscribe();
     return () => { sub.unsubscribe(); };
   }, [companyId, reload]);
@@ -723,8 +727,8 @@ function AddHolidayDialog({
       toast({ title: "Date invalid", description: "Pick a calendar date.", variant: "destructive" });
       return;
     }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayParts = isoParts(tenantTodayISO());
+    const today = new Date(todayParts.year, todayParts.month - 1, todayParts.day);
     const ms = parsed.getTime() - today.getTime();
     const days = Math.round(ms / (1000 * 60 * 60 * 24));
     if (!recurring && days < -30) {
@@ -771,7 +775,13 @@ function AddHolidayDialog({
       }
       onSaved();
     } catch (e: any) {
-      toast({ title: "Couldn't save", description: e?.message, variant: "destructive" });
+      toast({
+        title: e?.code === "23505" ? "Holiday already exists" : "Couldn't save",
+        description: e?.code === "23505"
+          ? "A company holiday already exists on this date."
+          : e?.message,
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }

@@ -420,7 +420,7 @@ function DriverScheduleGrid() {
                   {drivers.length} driver{drivers.length === 1 ? "" : "s"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Cells show planned times, with actual hours once logged. Totals use planned hours where set, otherwise actual. Click an empty cell to log a shift for that driver / day.
+                  Planned times and actual hours appear for every driver/day. Totals use planned hours where set, otherwise actual. Tap an empty day to log a shift.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -446,7 +446,150 @@ function DriverScheduleGrid() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                    {/* A seven-day timesheet table cannot be legible on a phone.
+                        Keep the dense grid for tablet/desktop, but present each
+                        driver's full week as tap-friendly day cards on mobile. */}
+                    <div className="space-y-4 md:hidden">
+                      <p className="text-xs text-slate-500">
+                        Tap a scheduled shift to edit it, or an empty day to add one.
+                      </p>
+                      {drivers.map((d) => {
+                        const driverTotal = weekDays.reduce((total, day) => (
+                          total + (shiftIndex[`${d.id}|${toLocalISO(day)}`] || []).reduce(
+                            (dayTotal, shift) => dayTotal + shiftHours(shift),
+                            0,
+                          )
+                        ), 0);
+                        return (
+                          <div key={d.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-3 py-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-slate-900">{d.full_name || d.email}</p>
+                                <p className="truncate text-xs text-slate-500">{d.email}</p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Week</p>
+                                <p className="text-sm font-bold tabular-nums text-slate-900">{driverTotal > 0 ? `${driverTotal.toFixed(1)}h` : "-"}</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 p-2 min-[390px]:grid-cols-2">
+                              {weekDays.map((day, i) => {
+                                const iso = toLocalISO(day);
+                                const cellShifts = shiftIndex[`${d.id}|${iso}`] || [];
+                                const isPastDay = iso < todayIso;
+                                const dayHours = cellShifts.reduce((total, shift) => total + shiftHours(shift), 0);
+                                return (
+                                  <div key={iso} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                      <div>
+                                        <p className="text-xs font-semibold text-slate-800">{DAY_LABELS[i]}</p>
+                                        <p className="text-[11px] text-slate-500">
+                                          {day.toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                                        </p>
+                                      </div>
+                                      {dayHours > 0 && (
+                                        <span className="text-xs font-semibold tabular-nums text-slate-700">{dayHours.toFixed(1)}h</span>
+                                      )}
+                                    </div>
+                                    {cellShifts.length > 0 ? (
+                                      <div className="space-y-2">
+                                        {cellShifts.map((s) => {
+                                          const actualHours = fmtHours(s.actual_start, s.actual_end).hours;
+                                          const hasActual = !!s.actual_start;
+                                          const isMissed = s.status === "missed" || (isPastDay && !s.actual_start && s.status === "scheduled");
+                                          const plannedHours = plannedHoursFromTime(s.planned_start, s.planned_end);
+                                          return (
+                                            <div
+                                              key={s.id}
+                                              role="button"
+                                              tabIndex={0}
+                                              onClick={() => setEditTarget({
+                                                driverId: d.id,
+                                                driverName: d.full_name || d.email,
+                                                shift: {
+                                                  id: s.id,
+                                                  actual_start: s.actual_start,
+                                                  actual_end: s.actual_end,
+                                                  notes: s.notes,
+                                                  rate_multiplier: s.rate_multiplier,
+                                                },
+                                              })}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                  e.preventDefault();
+                                                  setEditTarget({
+                                                    driverId: d.id,
+                                                    driverName: d.full_name || d.email,
+                                                    shift: {
+                                                      id: s.id,
+                                                      actual_start: s.actual_start,
+                                                      actual_end: s.actual_end,
+                                                      notes: s.notes,
+                                                      rate_multiplier: s.rate_multiplier,
+                                                    },
+                                                  });
+                                                }
+                                              }}
+                                              title="Tap to edit or delete this shift"
+                                              className={`cursor-pointer rounded-md border px-2.5 py-2 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-brand-primary/50 ${
+                                                isMissed
+                                                  ? "border-rose-200 bg-rose-50"
+                                                  : "border-brand-primary/20 bg-brand-primary/10"
+                                              }`}
+                                            >
+                                              <div className="flex items-center justify-between gap-2">
+                                                <span className={`min-w-0 break-words text-xs font-semibold tabular-nums ${isMissed ? "text-rose-900" : "text-brand-primary"}`}>
+                                                  {s.planned_start
+                                                    ? `${fmtTime(s.planned_start)}-${fmtTime(s.planned_end)}`
+                                                    : `${actualHours.toFixed(1)}h`}
+                                                </span>
+                                                {(s.rate_multiplier ?? 1) > 1 && (
+                                                  <Badge className="shrink-0 border-amber-200 bg-amber-100 px-1 py-0 text-[10px] text-amber-800">
+                                                    x{Number(s.rate_multiplier ?? 1)}
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                              {hasActual ? (
+                                                <p className="mt-0.5 text-[10px] tabular-nums text-brand-primary">Actual {actualHours.toFixed(1)}h</p>
+                                              ) : isMissed ? (
+                                                <p className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-medium text-rose-700">
+                                                  <AlertTriangle className="h-2.5 w-2.5" /> Missed
+                                                </p>
+                                              ) : (
+                                                <p className="mt-0.5 text-[10px] tabular-nums text-brand-primary">{plannedHours.toFixed(1)}h planned</p>
+                                              )}
+                                              <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                                <ShiftTasksChips
+                                                  tasks={tasksByShift.get(s.id) || []}
+                                                  onAddClick={() => setAddTaskTarget({ shiftId: s.id, assignedUserId: s.driver_id })}
+                                                  onChanged={refreshTasks}
+                                                />
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setLogTarget({ driverId: d.id, driverName: d.full_name || d.email })}
+                                        className="flex min-h-10 w-full items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 bg-white px-2 text-xs font-medium text-slate-500 transition-colors hover:border-brand-primary/40 hover:bg-brand-primary/5 hover:text-brand-primary"
+                                        title="Log a shift on this day"
+                                      >
+                                        <Plus className="h-3.5 w-3.5" /> Add shift
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="hidden overflow-x-auto md:block">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left">
@@ -612,7 +755,8 @@ function DriverScheduleGrid() {
                         </tr>
                       </tfoot>
                     </table>
-                  </div>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

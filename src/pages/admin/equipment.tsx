@@ -281,12 +281,12 @@ function EquipmentPage() {
           <CatalogueOperationsStrip active={tab === "damages" ? "damages" : "equipment"} />
 
           <Tabs value={tab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full md:w-auto h-auto">
-              <TabsTrigger id="equipment-catalog" data-chat-section="admin.equipment.catalog" data-chat-section-label="Equipment catalogue" value="catalog" className="text-xs md:text-sm">Catalog</TabsTrigger>
-              <TabsTrigger id="equipment-availability" data-chat-section="admin.equipment.availability" data-chat-section-label="Equipment availability" value="availability" className="text-xs md:text-sm">Availability</TabsTrigger>
-              <TabsTrigger id="equipment-shortages" data-chat-section="admin.equipment.shortages" data-chat-section-label="Equipment shortages" value="shortages" className="text-xs md:text-sm">Shortages</TabsTrigger>
-              <TabsTrigger id="equipment-hire-in" data-chat-section="admin.equipment.hire-in" data-chat-section-label="Equipment hire-in" value="hire-in" className="text-xs md:text-sm">Hire-in orders</TabsTrigger>
-              <TabsTrigger id="equipment-damages" data-chat-section="admin.equipment.damages" data-chat-section-label="Equipment damages" value="damages" className="text-xs md:text-sm">Damages</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-3 lg:inline-grid lg:w-auto lg:grid-cols-5">
+              <TabsTrigger id="equipment-catalog" data-chat-section="admin.equipment.catalog" data-chat-section-label="Equipment catalogue" value="catalog" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Catalog</TabsTrigger>
+              <TabsTrigger id="equipment-availability" data-chat-section="admin.equipment.availability" data-chat-section-label="Equipment availability" value="availability" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Availability</TabsTrigger>
+              <TabsTrigger id="equipment-shortages" data-chat-section="admin.equipment.shortages" data-chat-section-label="Equipment shortages" value="shortages" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Shortages</TabsTrigger>
+              <TabsTrigger id="equipment-hire-in" data-chat-section="admin.equipment.hire-in" data-chat-section-label="Equipment hire-in" value="hire-in" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Hire-in orders</TabsTrigger>
+              <TabsTrigger id="equipment-damages" data-chat-section="admin.equipment.damages" data-chat-section-label="Equipment damages" value="damages" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Damages</TabsTrigger>
             </TabsList>
 
             <TabsContent value="catalog" className="mt-6">

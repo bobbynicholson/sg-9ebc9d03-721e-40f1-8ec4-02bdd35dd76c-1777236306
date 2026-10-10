@@ -247,7 +247,10 @@ export const menuService = {
     const { data, error } = await q;
     if (error) {
       console.error("menuService.list failed:", error);
-      return [];
+      // An empty array is a valid catalogue. Do not use it to mask a failed
+      // request: callers need to show an error instead of claiming that every
+      // menu item disappeared.
+      throw error;
     }
     return (data || []).map((row: any) => {
       const recipe = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
@@ -359,10 +362,9 @@ export const menuService = {
   },
 
   /**
-   * Save the recipe + ingredients for a menu item. Idempotent:
-   *   - Upserts the recipe row keyed by menu_item_id (UNIQUE locks the 1:1)
-   *   - Wipes existing recipe_ingredients for that recipe and inserts the
-   *     new set in one go
+   * Save the recipe + ingredients for a menu item. The database function
+   * locks the parent menu row, validates ownership, and replaces the recipe
+   * set atomically so a partial browser request cannot erase ingredients.
    *
    * Pass an empty `ingredients` array to wipe the recipe of all rows but
    * keep it. Pass `null` to delete the recipe entirely.
@@ -381,62 +383,43 @@ export const menuService = {
   }): Promise<void> {
     const { companyId, menuItemId, menuItemName, recipe, ingredients } = args;
 
-    // No recipe wanted -> drop any existing recipe (cascade clears
-    // ingredients).
+    // No recipe wanted -> atomically drop any existing recipe (its ingredient
+    // rows cascade). Use the same guarded RPC, not a loose client delete.
     if (!recipe) {
-      const { error: dErr } = await supabase
-        .from("recipes")
-        .delete()
-        .eq("menu_item_id", menuItemId);
-      if (dErr) throw dErr;
+      const { error } = await (supabase as any).rpc("replace_menu_recipe", {
+        p_company_id: companyId,
+        p_menu_item_id: menuItemId,
+        p_recipe: null,
+        p_ingredients: [],
+      });
+      if (error) throw error;
       return;
     }
 
-    // Look up existing recipe id (so we can keep its row id stable across
-    // edits and let the UNIQUE constraint do its job).
-    const { data: existing, error: existingErr } = await supabase
-      .from("recipes")
-      .select("id")
-      .eq("menu_item_id", menuItemId)
-      .maybeSingle();
-    if (existingErr) console.error("[menuService] recipes lookup for upsert failed:", existingErr);
-
-    const recipePayload: any = {
-      ...(existing ? { id: existing.id } : {}),
-      company_id: companyId,
-      menu_item_id: menuItemId,
-      recipe_name: menuItemName,
-      base_servings: recipe.base_servings,
-      prep_time_minutes: recipe.prep_time_minutes,
-      cook_time_minutes: recipe.cook_time_minutes,
-      instructions: recipe.instructions,
-    };
-
-    const { data: savedRecipe, error: rErr } = await supabase
-      .from("recipes")
-      .upsert(recipePayload, { onConflict: "id" })
-      .select()
-      .single();
-    if (rErr || !savedRecipe) throw rErr || new Error("Could not save recipe");
-
-    // Replace ingredient set - delete then insert.
-    const { error: dErr } = await supabase
-      .from("recipe_ingredients")
-      .delete()
-      .eq("recipe_id", savedRecipe.id);
-    if (dErr) throw dErr;
-
-    if (ingredients.length === 0) return;
+    // One database call: recipe upsert, ingredient replacement and all
+    // validations happen in the same transaction. The former browser-side
+    // delete-then-insert sequence could leave a recipe empty if a request
+    // failed between those two steps.
     const rows = ingredients.map(ing => ({
-      recipe_id: savedRecipe.id,
       ingredient_name: ing.ingredient_name.trim(),
       quantity: Number(ing.quantity) || 0,
       unit: ing.unit.trim() || "unit",
       inventory_item_id: ing.inventory_item_id || null,
       notes: ing.notes ? ing.notes.trim() : null,
     }));
-    const { error: iErr } = await supabase.from("recipe_ingredients").insert(rows);
-    if (iErr) throw iErr;
+    const { error } = await (supabase as any).rpc("replace_menu_recipe", {
+      p_company_id: companyId,
+      p_menu_item_id: menuItemId,
+      p_recipe: {
+        recipe_name: menuItemName,
+        base_servings: recipe.base_servings,
+        prep_time_minutes: recipe.prep_time_minutes,
+        cook_time_minutes: recipe.cook_time_minutes,
+        instructions: recipe.instructions,
+      },
+      p_ingredients: rows,
+    });
+    if (error) throw error;
   },
 
   /**
@@ -462,7 +445,10 @@ export const menuService = {
       .order("item_name", { ascending: true });
     if (error) {
       console.error("listInventoryItemsForPicker failed:", error);
-      return [];
+      // Same distinction as the menu list: a failed picker query must not
+      // masquerade as an empty inventory and tempt someone to save a recipe
+      // with its inventory links missing.
+      throw error;
     }
     return (data || []) as any[];
   },

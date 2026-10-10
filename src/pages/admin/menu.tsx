@@ -1190,7 +1190,7 @@ function MenuPage() {
               ) : undefined
             }
             actions={
-            <>
+            <div className="grid w-full grid-cols-2 gap-2 xl:flex xl:w-auto">
               {/* Phase 28 #2: manual refresh. The catalogue loads
                   once on mount; the kitchen lead who has just
                   added an item from another tab needs to pull
@@ -1199,9 +1199,11 @@ function MenuPage() {
                 variant="outline"
                 onClick={load}
                 disabled={loading}
+                className="w-full justify-center xl:w-auto"
+                aria-label="Refresh menu"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                Refresh
+                <RefreshCw className={`w-4 h-4 xl:mr-2 ${loading ? "animate-spin" : ""}`} />
+                <span className="hidden min-[400px]:inline">Refresh</span>
               </Button>
               {/* Phase 19 #9: menu CSV export. Kitchen leads and
                   costing reviewers regularly want a flat snapshot of
@@ -1270,13 +1272,15 @@ function MenuPage() {
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
                 }}
+                className="w-full justify-center xl:w-auto"
+                aria-label="Export menu CSV"
               >
-                <Download className="w-4 h-4 mr-2" />Export CSV
+                <Download className="w-4 h-4 xl:mr-2" /><span className="hidden min-[400px]:inline">Export CSV</span>
               </Button>
-              <Button onClick={openAdd} className="bg-brand-primary hover:opacity-90">
+              <Button onClick={openAdd} className="col-span-2 w-full justify-center bg-brand-primary hover:opacity-90 xl:col-auto xl:w-auto">
                 <Plus className="w-4 h-4 mr-2" />Add menu item
               </Button>
-            </>
+            </div>
             }
           />
           <PageWorkbench />
@@ -1404,17 +1408,17 @@ function MenuPage() {
                 {selectedIds.size} selected
               </span>
               <button onClick={clearSelection} className="text-xs underline opacity-70 hover:opacity-100">Clear</button>
-              <div className="ml-auto flex flex-wrap gap-2">
-                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("allergens")} className="gap-1.5">
+              <div className="grid w-full grid-cols-1 gap-2 sm:ml-auto sm:w-auto sm:grid-cols-2 lg:flex">
+                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("allergens")} className="w-full justify-start gap-1.5 lg:w-auto">
                   <CheckSquare className="w-3.5 h-3.5" /> Mark allergens reviewed
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("category")} className="gap-1.5">
+                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("category")} className="w-full justify-start gap-1.5 lg:w-auto">
                   Change category
                 </Button>
-                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("price")} className="gap-1.5">
+                <Button size="sm" variant="secondary" onClick={() => setBulkDialog("price")} className="w-full justify-start gap-1.5 lg:w-auto">
                   <TrendingUp className="w-3.5 h-3.5" /> Adjust price %
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => setBulkDialog("archive")} className="gap-1.5">
+                <Button size="sm" variant="destructive" onClick={() => setBulkDialog("archive")} className="w-full justify-start gap-1.5 lg:w-auto">
                   <Archive className="w-3.5 h-3.5" /> Archive
                 </Button>
               </div>
@@ -1510,7 +1514,8 @@ function MenuPage() {
                           const archived = !!it.deleted_at;
                           const isSelected = selectedIds.has(it.id);
                           return (
-                            <li key={it.id} className={`p-3 sm:p-4 flex items-center gap-3 ${archived ? "opacity-60" : ""} ${isSelected ? "bg-brand-primary/5" : ""}`}>
+                            <li key={it.id} className={`p-3 sm:p-4 flex flex-col gap-3 sm:flex-row sm:items-center ${archived ? "opacity-60" : ""} ${isSelected ? "bg-brand-primary/5" : ""}`}>
+                              <div className="flex min-w-0 flex-1 items-start gap-3">
                               {/* MNU-B: selection checkbox for bulk
                                   operations. Stays in the gutter so the
                                   layout doesn't shift when toggled. */}
@@ -1663,46 +1668,48 @@ function MenuPage() {
                                   <p className="text-xs text-slate-500 truncate mt-0.5">{it.description}</p>
                                 )}
                               </div>
+                              </div>
                               {/* Cost + margin column. Owner-only because the
                                   whole page is admin-gated, but explicit here
                                   so we never accidentally render it on a
                                   shared component. */}
-                              <div className="text-right hidden md:block">
-                                <div className="text-[10px] uppercase tracking-wider text-slate-500">
-                                  {(it as any).sold_as_package ? "Cost / pkg" : "Cost / serv"}
+                              <div className="flex w-full min-w-0 items-center justify-between gap-3 sm:w-auto sm:justify-end">
+                                <div className="hidden text-right md:block">
+                                  <div className="text-[10px] uppercase tracking-wider text-slate-500">
+                                    {(it as any).sold_as_package ? "Cost / pkg" : "Cost / serv"}
+                                  </div>
+                                  {it.cost && it.cost.contributing > 0 ? (
+                                    <>
+                                      <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(summaryCostPerSoldUnit(it))}</div>
+                                      {(it.cost.free_text > 0 || it.cost.missing_cost > 0) && (
+                                        <div className="text-[10px] text-amber-700 inline-flex items-center gap-0.5">
+                                          <AlertTriangle className="w-2.5 h-2.5" />
+                                          partial
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <div className="text-xs text-slate-400">-</div>
+                                  )}
                                 </div>
-                                {it.cost && it.cost.contributing > 0 ? (
-                                  <>
-                                    <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(summaryCostPerSoldUnit(it))}</div>
-                                    {(it.cost.free_text > 0 || it.cost.missing_cost > 0) && (
-                                      <div className="text-[10px] text-amber-700 inline-flex items-center gap-0.5">
-                                        <AlertTriangle className="w-2.5 h-2.5" />
-                                        partial
+                                <div className="hidden text-right sm:block">
+                                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Price / margin</div>
+                                  <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(Number(it.base_price || 0))}</div>
+                                  {it.cost && it.cost.contributing > 0 && Number(it.base_price || 0) > 0 ? (() => {
+                                    const price = Number(it.base_price || 0);
+                                    const cost = summaryCostPerSoldUnit(it);
+                                    const margin = price - cost;
+                                    const pct = (margin / price) * 100;
+                                    const tone = pct < 30 ? "text-rose-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
+                                    return (
+                                      <div className={`text-[10px] tabular-nums font-medium ${tone}`}>
+                                        {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(1)}%)
                                       </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <div className="text-xs text-slate-400">-</div>
-                                )}
-                              </div>
-                              <div className="text-right hidden sm:block">
-                                <div className="text-[10px] uppercase tracking-wider text-slate-500">Price / margin</div>
-                                <div className="font-semibold text-slate-900 tabular-nums">{formatZAR(Number(it.base_price || 0))}</div>
-                                {it.cost && it.cost.contributing > 0 && Number(it.base_price || 0) > 0 ? (() => {
-                                  const price = Number(it.base_price || 0);
-                                  const cost = summaryCostPerSoldUnit(it);
-                                  const margin = price - cost;
-                                  const pct = (margin / price) * 100;
-                                  const tone = pct < 30 ? "text-rose-700" : pct < 50 ? "text-amber-700" : "text-brand-primary";
-                                  return (
-                                    <div className={`text-[10px] tabular-nums font-medium ${tone}`}>
-                                      {margin >= 0 ? "+" : ""}{formatZAR(margin)} ({pct.toFixed(1)}%)
-                                    </div>
-                                  );
-                                })() : null}
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Button variant="outline" size="sm" onClick={() => openEdit(it)}>
+                                    );
+                                  })() : null}
+                                </div>
+                                <div className="grid min-w-0 flex-1 grid-cols-1 gap-1.5 min-[360px]:grid-cols-3 sm:flex sm:flex-none sm:items-center">
+                                <Button variant="outline" size="sm" onClick={() => openEdit(it)} className="w-full min-w-0 justify-center sm:w-auto">
                                   <Pencil className="w-3 h-3 mr-1" />Edit
                                 </Button>
                                 {/* MNU-B: duplicate-item shortcut.
@@ -1717,19 +1724,21 @@ function MenuPage() {
                                     size="sm"
                                     onClick={() => handleDuplicateItem(it)}
                                     title="Duplicate this item with all its fields and recipe"
+                                    className="w-full min-w-0 justify-center sm:w-auto"
                                   >
                                     <Copy className="w-3 h-3 mr-1" />Duplicate
                                   </Button>
                                 )}
                                 {archived ? (
-                                  <Button variant="outline" size="sm" onClick={() => handleRestore(it)} disabled={saving}>
+                                  <Button variant="outline" size="sm" onClick={() => handleRestore(it)} disabled={saving} className="w-full min-w-0 justify-center sm:w-auto">
                                     <ArchiveRestore className="w-3 h-3 mr-1" />Restore
                                   </Button>
                                 ) : (
-                                  <Button variant="outline" size="sm" onClick={() => setArchiveTarget(it)} className="text-rose-700 border-rose-200 hover:bg-rose-50">
+                                  <Button variant="outline" size="sm" onClick={() => setArchiveTarget(it)} className="w-full min-w-0 justify-center text-rose-700 border-rose-200 hover:bg-rose-50 sm:w-auto">
                                     <Archive className="w-3 h-3 mr-1" />Archive
                                   </Button>
                                 )}
+                                </div>
                               </div>
                             </li>
                           );

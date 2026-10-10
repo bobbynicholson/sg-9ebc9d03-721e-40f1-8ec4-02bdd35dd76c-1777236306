@@ -271,12 +271,12 @@ export function DamageAnalytics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Equipment Losses & Damages</h2>
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-xl font-bold sm:text-2xl">Equipment Losses & Damages</h2>
+        <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex">
           <Button
             variant="outline"
-            className="gap-2"
+            className="w-full gap-2 sm:w-auto"
             onClick={exportCsv}
             disabled={(damages || []).length === 0}
             title="Export the current register to CSV"
@@ -286,12 +286,12 @@ export function DamageAnalytics() {
           </Button>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="w-full gap-2 sm:w-auto">
                 <CalendarIcon className="h-4 w-4" />
-                {format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d")}
+                <span className="truncate">{format(dateRange.from, "MMM d")} - {format(dateRange.to, "MMM d")}</span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
+            <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] overflow-x-auto p-0" align="end">
               <div className="p-4 space-y-4">
                 <div>
                   <p className="text-sm font-medium mb-2">From Date</p>
@@ -316,16 +316,16 @@ export function DamageAnalytics() {
       </div>
 
       {breakdown && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
+              <div className="flex min-w-0 items-center gap-3">
                 <div className="p-3 bg-rose-100 rounded-lg">
                   <Banknote className="h-6 w-6 bg-rose-100" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm text-muted-foreground">Total Cost</p>
-                  <p className="text-2xl font-bold">{formatCurrency(breakdown.totalCost)}</p>
+                  <p className="break-words text-xl font-bold sm:text-2xl">{formatCurrency(breakdown.totalCost)}</p>
                 </div>
               </div>
             </CardContent>
@@ -334,13 +334,13 @@ export function DamageAnalytics() {
           {Object.entries(breakdown.byType).map(([type, cost]) => (
             <Card key={type}>
               <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className={`p-3 ${damageTypeColours[type as DamageType]} bg-opacity-10 rounded-lg`}>
                     <AlertTriangle className={`h-6 w-6 ${damageTypeColours[type as DamageType].replace("bg-", "text-")}`} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm text-muted-foreground">{damageTypeLabels[type as DamageType]}</p>
-                    <p className="text-2xl font-bold">{formatCurrency(cost as number)}</p>
+                    <p className="break-words text-xl font-bold sm:text-2xl">{formatCurrency(cost as number)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -352,7 +352,7 @@ export function DamageAnalytics() {
       {/* Accountability + recovery KPIs - the numbers an admin needs to act:
           how many incidents, units lost, money still open (recoverable) vs
           already resolved, and the average hit per incident. */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <Card><CardContent className="pt-4 pb-4">
           <p className="text-xs text-muted-foreground">Incidents</p>
           <p className="text-xl font-bold">{analytics.total}</p>
@@ -363,32 +363,32 @@ export function DamageAnalytics() {
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-4">
           <p className="text-xs text-muted-foreground">Open (recoverable)</p>
-          <p className="text-xl font-bold text-rose-600">{formatCurrency(analytics.openCost)}</p>
+          <p className="break-words text-xl font-bold text-rose-600">{formatCurrency(analytics.openCost)}</p>
           <p className="text-[11px] text-muted-foreground">{analytics.openCount} open</p>
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-4">
           <p className="text-xs text-muted-foreground">Resolved</p>
-          <p className="text-xl font-bold text-brand-primary">{formatCurrency(analytics.resolvedCost)}</p>
+          <p className="break-words text-xl font-bold text-brand-primary">{formatCurrency(analytics.resolvedCost)}</p>
           <p className="text-[11px] text-muted-foreground">{analytics.resolvedCount} closed · {analytics.resolvedPct}%</p>
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-4">
           <p className="text-xs text-muted-foreground">Avg / incident</p>
-          <p className="text-xl font-bold">{formatCurrency(analytics.avg)}</p>
+          <p className="break-words text-xl font-bold">{formatCurrency(analytics.avg)}</p>
         </CardContent></Card>
         <Card><CardContent className="pt-4 pb-4">
           <p className="text-xs text-muted-foreground">Total cost</p>
-          <p className="text-xl font-bold">{formatCurrency(analytics.totalCost)}</p>
+          <p className="break-words text-xl font-bold">{formatCurrency(analytics.totalCost)}</p>
         </CardContent></Card>
       </div>
 
       <Tabs defaultValue="items" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
-          <TabsTrigger value="items">By Item</TabsTrigger>
-          <TabsTrigger value="client">By Client</TabsTrigger>
-          <TabsTrigger value="person">By Person</TabsTrigger>
-          <TabsTrigger value="stage">By Stage</TabsTrigger>
-          <TabsTrigger value="trend">Trend</TabsTrigger>
-          <TabsTrigger value="recent">Recent</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 p-1 sm:grid-cols-3 lg:grid-cols-6">
+          <TabsTrigger value="items" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">By Item</TabsTrigger>
+          <TabsTrigger value="client" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">By Client</TabsTrigger>
+          <TabsTrigger value="person" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">By Person</TabsTrigger>
+          <TabsTrigger value="stage" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">By Stage</TabsTrigger>
+          <TabsTrigger value="trend" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Trend</TabsTrigger>
+          <TabsTrigger value="recent" className="min-w-0 whitespace-normal px-2 py-2 text-xs sm:text-sm">Recent</TabsTrigger>
         </TabsList>
 
         <TabsContent value="items" className="space-y-4 mt-4">
@@ -409,19 +409,19 @@ export function DamageAnalytics() {
                     })();
                     const replaceFlag = unitCost > 0 && avgCost / unitCost >= replaceThresholdRatio;
                     return (
-                      <div key={index} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                        <div className="flex items-center gap-3">
+                      <div key={index} className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div className="p-2 bg-background rounded">
                             <Package className="h-5 w-5" />
                           </div>
-                          <div>
-                            <p className="font-medium">{item.name}</p>
+                          <div className="min-w-0">
+                            <p className="break-words font-medium">{item.name}</p>
                             <p className="text-sm text-muted-foreground">
                               {item.count} items - avg {formatCurrency(avgCost)} per loss
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right">
                           <p className="font-bold text-lg">{formatCurrency(item.cost)}</p>
                           {replaceFlag ? (
                             <Badge variant="destructive" className="mt-1">Replace</Badge>
@@ -450,9 +450,9 @@ export function DamageAnalytics() {
               ) : (
                 <div className="space-y-3">
                   {analytics.byClient.map((c) => (
-                    <div key={c.name} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                      <div>
-                        <p className="font-medium">{c.name}</p>
+                    <div key={c.name} className="flex flex-col gap-2 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                      <div className="min-w-0">
+                        <p className="break-words font-medium">{c.name}</p>
                         <p className="text-sm text-muted-foreground">{c.count} incident{c.count === 1 ? "" : "s"} · {c.units} unit{c.units === 1 ? "" : "s"}</p>
                       </div>
                       <p className="font-bold text-lg text-rose-600">{formatCurrency(c.cost)}</p>
@@ -476,9 +476,9 @@ export function DamageAnalytics() {
               ) : (
                 <div className="space-y-3">
                   {analytics.byPerson.map((p) => (
-                    <div key={p.name} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                      <div>
-                        <p className="font-medium">{p.name}</p>
+                    <div key={p.name} className="flex flex-col gap-2 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                      <div className="min-w-0">
+                        <p className="break-words font-medium">{p.name}</p>
                         <p className="text-sm text-muted-foreground">{p.count} incident{p.count === 1 ? "" : "s"} · {p.units} unit{p.units === 1 ? "" : "s"}</p>
                       </div>
                       <p className="font-bold text-lg">{formatCurrency(p.cost)}</p>
@@ -501,7 +501,7 @@ export function DamageAnalytics() {
               ) : (
                 <div className="space-y-3">
                   {breakdown && Object.entries(breakdown.byStage).map(([stage, cost]) => (
-                    <div key={stage} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                    <div key={stage} className="flex items-center justify-between gap-3 rounded-lg bg-muted p-3 sm:p-4">
                       <div className="flex items-center gap-3">
                         <Badge variant="outline" className="capitalize">
                           {stage}
@@ -536,8 +536,8 @@ export function DamageAnalytics() {
                 return (
                   <div className="space-y-2">
                     {rows.map(([day, cost]) => (
-                      <div key={day} className="flex items-center gap-3">
-                        <span className="text-xs font-mono w-24 text-muted-foreground">
+                      <div key={day} className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[6rem_minmax(0,1fr)_6rem] sm:gap-3">
+                        <span className="text-xs font-mono text-muted-foreground">
                           {format(new Date(day), "MMM d")}
                         </span>
                         <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
@@ -546,7 +546,7 @@ export function DamageAnalytics() {
                             style={{ width: `${(cost / max) * 100}%` }}
                           />
                         </div>
-                        <span className="text-sm font-medium w-24 text-right">{formatCurrency(cost)}</span>
+                        <span className="text-right text-xs font-medium sm:text-sm">{formatCurrency(cost)}</span>
                       </div>
                     ))}
                   </div>
@@ -615,10 +615,10 @@ export function DamageAnalytics() {
               {recentRows.map((damage) => (
                 <Card key={damage.id}>
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="font-semibold">{damage.equipment?.name}</h4>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <h4 className="break-words font-semibold">{damage.equipment?.name}</h4>
                           <Badge className={damageTypeColours[damage.damage_type as DamageType]}>
                             {damageTypeLabels[damage.damage_type as DamageType]}
                           </Badge>
@@ -660,8 +660,8 @@ export function DamageAnalytics() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-rose-600">
+                      <div className="sm:text-right">
+                        <p className="break-words text-xl font-bold text-rose-600 sm:text-2xl">
                           {formatCurrency(damage.total_cost)}
                         </p>
                         <p className="text-xs text-muted-foreground">

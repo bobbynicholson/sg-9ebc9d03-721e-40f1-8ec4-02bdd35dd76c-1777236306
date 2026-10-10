@@ -94,6 +94,7 @@ function KitchenSettlementPage() {
   const [summariseFailed, setSummariseFailed] = useState<string[]>([]);
   const [persisting, setPersisting] = useState<string | null>(null);
   const [bulkPersisting, setBulkPersisting] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
   // Active staff on kitchen_staff_members with NO linked profile. They
   // appear on /admin/wages (the report reads kitchen_staff_members) but
   // CANNOT be issued a payslip here - kitchen_payslips.staff_id is a
@@ -102,6 +103,7 @@ function KitchenSettlementPage() {
   const [unlinkedStaff, setUnlinkedStaff] = useState<Array<{ id: string; full_name: string | null }>>([]);
 
   const periodKey = `${periodStart}__${periodEnd}`;
+  const rangeInvalid = !!periodStart && !!periodEnd && periodStart > periodEnd;
 
   const load = async () => {
     if (!companyId) return;
@@ -204,9 +206,36 @@ function KitchenSettlementPage() {
   };
 
   useEffect(() => {
+    if (rangeInvalid) {
+      setLoading(false);
+      setLoadError("Period start must be on or before period end.");
+      return;
+    }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, periodKey]);
+  }, [companyId, periodKey, refreshTick, rangeInvalid]);
+
+  // Match driver settlement: a clock-out, roster correction, rate change or
+  // payslip action in another tab should refresh this pay run automatically.
+  useEffect(() => {
+    if (!companyId) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refreshSoon = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setRefreshTick((value) => value + 1), 500);
+    };
+    const channel = supabase
+      .channel(`kitchen-settlement:${companyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_shifts", filter: `company_id=eq.${companyId}` }, refreshSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_duty_shifts", filter: `company_id=eq.${companyId}` }, refreshSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_staff_members", filter: `company_id=eq.${companyId}` }, refreshSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kitchen_payslips", filter: `company_id=eq.${companyId}` }, refreshSoon)
+      .subscribe();
+    return () => {
+      if (timer) clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [companyId]);
 
   const totals = useMemo(() => {
     // Sum in integer cents so float drift can never make the headline
@@ -449,7 +478,7 @@ function KitchenSettlementPage() {
                   size="sm"
                   className="bg-brand-primary hover:opacity-90 gap-1.5"
                   onClick={issueAll}
-                  disabled={bulkPersisting || totals.total === 0}
+                  disabled={bulkPersisting || totals.total === 0 || rangeInvalid}
                 >
                   {bulkPersisting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileCheck className="w-3.5 h-3.5" />}
                   Issue all payslips
@@ -571,9 +600,9 @@ function KitchenSettlementPage() {
             {/* Per-staffer breakdown */}
             <Card className="mb-6">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">Per-chef breakdown</CardTitle>
+                <CardTitle className="text-base">Staff pay breakdown</CardTitle>
                 <CardDescription className="text-xs">
-                  Clocked hours times each person's hourly rate, plus overtime past your threshold and any Sunday or public-holiday multipliers.
+                  Closed kitchen and cleaning shifts, paid using each person's hourly, monthly or per-shift rate.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -592,7 +621,67 @@ function KitchenSettlementPage() {
                     </Link>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                    {/* A nine-column payroll table is not usable on a phone.
+                        Keep its audit-friendly form for desktop and present
+                        the same figures as a card per staff member on mobile. */}
+                    <div className="space-y-3 p-4 md:hidden">
+                      {staff.map((s) => {
+                        const sum = summaries[s.id];
+                        const ps = existingPayslips[s.id];
+                        const hasHours = !!sum && sum.totalHours > 0;
+                        const payslipStale = !!ps && !!sum && toCents(Number(ps.total_pay)) !== toCents(sum.totalPay);
+                        return (
+                          <div key={s.id} className={`rounded-xl border border-slate-200 bg-white p-3 shadow-sm ${hasHours ? "" : "opacity-60"}`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-slate-900">{s.full_name || s.email}</p>
+                                <p className="truncate text-xs text-slate-500">{s.email}</p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total pay</p>
+                                <p className="text-lg font-bold tabular-nums text-brand-primary">{sum ? fmtCurrency(sum.totalPay, sum.currency) : "-"}</p>
+                              </div>
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2 border-y border-slate-100 py-3 text-xs">
+                              <div><p className="text-slate-500">Rate</p><p className="mt-0.5 font-medium text-slate-800">{sum?.payType === "monthly" ? (sum.monthlySalary ? `${fmtCurrency(sum.monthlySalary, sum.currency)}/mo` : "No salary") : sum?.payType === "shift" ? (sum.shiftRate ? `${fmtCurrency(sum.shiftRate, sum.currency)}/shift` : "No rate") : sum?.hourlyRate ? fmtCurrency(sum.hourlyRate, sum.currency) : "No rate"}</p></div>
+                              <div><p className="text-slate-500">Hours</p><p className="mt-0.5 font-medium tabular-nums text-slate-800">{sum ? `${sum.totalHours.toFixed(1)}h` : "-"}</p></div>
+                              <div><p className="text-slate-500">Base pay</p><p className="mt-0.5 font-medium tabular-nums text-slate-800">{sum ? fmtCurrency(sum.basePay, sum.currency) : "-"}</p></div>
+                              <div><p className="text-slate-500">OT + premium</p><p className="mt-0.5 font-medium tabular-nums text-amber-700">{sum ? fmtCurrency(sum.overtimePay + sum.multiplierPay, sum.currency) : "-"}</p></div>
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex min-w-0 items-center gap-2">
+                                {ps ? (
+                                  <Badge variant="outline" className={
+                                    ps.status === "paid" ? "border-brand-primary/20 bg-brand-primary/15 text-brand-primary" :
+                                    ps.status === "issued" ? "border-blue-200 bg-blue-100 text-blue-800" :
+                                    "border-slate-200 bg-slate-100 text-slate-700"
+                                  }>{ps.status}</Badge>
+                                ) : <span className="text-xs text-slate-400">Not issued</span>}
+                                {payslipStale && <span className="text-[10px] font-medium text-amber-700">Needs re-issue</span>}
+                              </div>
+                              {hasHours && (
+                                <div className="flex flex-wrap gap-2">
+                                  {(!ps || ps.status === "draft" || (payslipStale && ps.status === "issued")) && (
+                                    <Button size="sm" variant="outline" className="min-h-9 gap-1" disabled={persisting === s.id || rangeInvalid} onClick={() => issuePayslip(s.id, "issued")}>
+                                      {persisting === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Receipt className="h-3 w-3" />}
+                                      {ps && payslipStale && ps.status === "issued" ? "Re-issue" : "Issue"}
+                                    </Button>
+                                  )}
+                                  {ps && ps.status !== "paid" && (
+                                    <Button size="sm" className="min-h-9 gap-1 bg-brand-primary hover:bg-brand-primary/90" disabled={persisting === s.id || rangeInvalid} onClick={() => issuePayslip(s.id, "paid")}>
+                                      <CheckCircle2 className="h-3 w-3" /> Mark paid
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                  <div className="hidden overflow-x-auto md:block">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50">
                         <tr>
@@ -683,7 +772,7 @@ function KitchenSettlementPage() {
                                         size="sm"
                                         variant="outline"
                                         className="h-7 text-xs gap-1"
-                                        disabled={persisting === s.id}
+                                        disabled={persisting === s.id || rangeInvalid}
                                         onClick={() => issuePayslip(s.id, "issued")}
                                       >
                                         {persisting === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Receipt className="w-3 h-3" />}
@@ -694,7 +783,7 @@ function KitchenSettlementPage() {
                                       <Button
                                         size="sm"
                                         className="h-7 text-xs gap-1 bg-brand-primary hover:bg-brand-primary/90"
-                                        disabled={persisting === s.id}
+                                        disabled={persisting === s.id || rangeInvalid}
                                         onClick={() => issuePayslip(s.id, "paid")}
                                       >
                                         <CheckCircle2 className="w-3 h-3" />
@@ -710,6 +799,7 @@ function KitchenSettlementPage() {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </CardContent>
             </Card>

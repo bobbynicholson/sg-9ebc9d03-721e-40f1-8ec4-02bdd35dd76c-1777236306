@@ -685,7 +685,7 @@ function RefundsPage() {
     return (
       <div
         id={`refund-row-${r.id}`}
-        className={`flex items-start gap-3 rounded-lg border bg-white p-3 ${
+        className={`flex flex-col gap-3 rounded-xl border bg-white p-4 sm:flex-row sm:items-start ${
           focusedRefundId === r.id
             ? "border-amber-400 ring-2 ring-amber-300 ring-inset bg-amber-50 animate-pulse"
             : "border-slate-200"
@@ -796,29 +796,33 @@ function RefundsPage() {
             ) : null}
           </div>
         </div>
-        {r.kind === "refund" && isProcessing && <Button size="sm" variant="outline"
-          onClick={() => setReconcilingId(r.id)} disabled={busy === r.id}>Reconcile outcome</Button>}
-        {showMarkPaid ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
-            onClick={() => markPaid(r)}
-            disabled={busy === r.id}
-          >
-            {busy === r.id ? "Marking..." : parentIsPayFast ? "Record manual refund" : "Mark refund paid"}
-          </Button>
-        ) : null}
-        {showRetry ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-blue-300 text-blue-800 hover:bg-blue-50"
-            onClick={() => retryAuto(r)}
-            disabled={busy === r.id}
-          >
-            {busy === r.id ? "Retrying..." : "Retry refund"}
-          </Button>
+        {(r.kind === "refund" && isProcessing) || showMarkPaid || showRetry ? (
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
+            {r.kind === "refund" && isProcessing && <Button size="sm" variant="outline"
+              onClick={() => setReconcilingId(r.id)} disabled={busy === r.id}>Reconcile outcome</Button>}
+            {showMarkPaid ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-brand-primary/30 text-brand-primary hover:bg-brand-primary/10"
+                onClick={() => markPaid(r)}
+                disabled={busy === r.id}
+              >
+                {busy === r.id ? "Marking..." : parentIsPayFast ? "Record manual refund" : "Mark refund paid"}
+              </Button>
+            ) : null}
+            {showRetry ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-blue-300 text-blue-800 hover:bg-blue-50"
+                onClick={() => retryAuto(r)}
+                disabled={busy === r.id}
+              >
+                {busy === r.id ? "Retrying..." : "Retry refund"}
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </div>
     );
@@ -940,13 +944,14 @@ function RefundsPage() {
                   URL.revokeObjectURL(url);
                 }}
                 className="gap-2"
+                aria-label="Export refunds and credits CSV"
               >
                 <Download className="w-4 h-4" />
-                Export CSV
+                <span className="hidden sm:inline">Export CSV</span>
               </Button>
-              <Button variant="outline" onClick={load} disabled={loading} className="gap-2">
+              <Button variant="outline" onClick={load} disabled={loading} className="gap-2" aria-label="Refresh refunds and credits">
                 <RefreshCw className="w-4 h-4" />
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
               </>
             }
@@ -1001,7 +1006,7 @@ function RefundsPage() {
               Gate widened from hasRefundActivity to rows.length so a
               credit-only tenant still sees their liability figure. */}
           {rows.length > 0 && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 min-[440px]:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
               <StatTile
                 label="Refunded year to date"
                 value={<span className="text-rose-700 dark:text-rose-400">{fmtAmount(intel.refundedYTDCents / 100)}</span>}
@@ -1029,10 +1034,9 @@ function RefundsPage() {
             </div>
           )}
 
-          {/* Toolbar: filter chips + saved views grouped in ONE card
-              (command-centre standard) instead of two loose strips. */}
-          <Card className="mb-6">
-            <CardContent className="pt-4 pb-4 space-y-3">
+          {/* Compact filter surface: the controls carry their own subtle
+              grouping, so an extra outer card only added visual weight. */}
+          <div className="mb-6 space-y-2">
           <AdminControlGroup label="Refund status" contentClassName="gap-2" role="tablist" aria-label="Refund filters">
             <FilterChip k="all" label="All" count={counts.all} total={totals.all} />
             <FilterChip k="auto" label="Auto-processed (PayFast)" count={counts.auto} total={totals.auto} />
@@ -1055,11 +1059,10 @@ function RefundsPage() {
             onSave={saveCurrentRefundView}
             getTitle={(v) => `Apply: ${v.filter}`}
           />
-            </CardContent>
-          </Card>
+          </div>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="px-4 py-4 sm:px-6">
               <CardTitle className="text-base">
                 {filter === "all"
                   ? "All refunds & credits"
@@ -1072,7 +1075,7 @@ function RefundsPage() {
                         : "Rejected refunds"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 px-3 pb-3 pt-0 sm:px-6 sm:pb-6">
               {loading ? (
                 <div className="text-sm text-slate-500 text-center py-8">Loading...</div>
               ) : filtered.length === 0 ? (

@@ -87,6 +87,19 @@ interface KitchenShiftRow {
   duty_shift_id: string | null;
 }
 
+/** The current kitchen tablet / roster source of truth. Its BCEA minute
+ * buckets are stamped at clock-out, so settlement must use them rather than
+ * trying to recreate weekly and holiday rules from a legacy duty session. */
+interface KitchenStaffShiftRow {
+  id: string;
+  shift_start: string | null;
+  shift_end: string | null;
+  total_break_min: number | null;
+  standard_min: number | null;
+  overtime_min: number | null;
+  sunday_holiday_min: number | null;
+}
+
 interface ProfileRow {
   id: string;
   full_name: string | null;
@@ -116,13 +129,13 @@ export async function summariseStaffPay(
   const { companyId, staffId, periodStart, periodEnd } = args;
 
   // Pull the staff profile (for hourly_rate + display name).
-  const { data: profile } = await (supabase as any)
+  const { data: profile, error: profileError } = await (supabase as any)
     .from("profiles")
     .select("id, full_name, email, hourly_rate")
     .eq("id", staffId)
     .maybeSingle();
+  if (profileError) throw profileError;
   const profileTyped = profile as ProfileRow | null;
-  const hourlyRate = Number(profileTyped?.hourly_rate) || 0;
 
   // Pay model lives on kitchen_staff_members (pay_type / monthly_salary
   // / shift_rate), linked to this profile. profiles has no pay_type, so
@@ -130,12 +143,20 @@ export async function summariseStaffPay(
   // hourly - the safe historic default. This is the fix for salaried /
   // per-shift staff previously getting an R0 payslip because only the
   // hourly branch existed here.
-  const { data: ksm } = await (supabase as any)
+  const { data: ksm, error: ksmError } = await (supabase as any)
     .from("kitchen_staff_members")
-    .select("id, pay_type, monthly_salary, shift_rate")
+    .select("id, hourly_rate, overtime_rate, sunday_holiday_rate, pay_type, monthly_salary, shift_rate")
     .eq("company_id", companyId)
     .eq("linked_profile_id", staffId)
+    .is("deleted_at", null)
+    .limit(1)
     .maybeSingle();
+  if (ksmError) throw ksmError;
+  // Staff & Rates owns the kitchen hourly rate. Older linked profiles may
+  // still carry a rate there, so retain it as a backwards-compatible fallback.
+  const hourlyRate = Number((ksm as any)?.hourly_rate ?? profileTyped?.hourly_rate) || 0;
+  const overtimeRate = Number((ksm as any)?.overtime_rate) || hourlyRate * OT_RATE_MULTIPLIER;
+  const sundayHolidayRate = Number((ksm as any)?.sunday_holiday_rate) || hourlyRate * 2;
   const payType = normalizePayType((ksm as any)?.pay_type);
   const monthlySalary = (ksm as any)?.monthly_salary != null ? Number((ksm as any).monthly_salary) : null;
   const shiftRate = (ksm as any)?.shift_rate != null ? Number((ksm as any).shift_rate) : null;
@@ -149,7 +170,7 @@ export async function summariseStaffPay(
   if (payType === "shift" && (ksm as any)?.id) {
     const endExclusive = new Date(`${periodEnd}T00:00:00.000Z`);
     endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
-    const { count } = await (supabase as any)
+    const { count, error: rosterCountError } = await (supabase as any)
       .from("kitchen_staff_shifts")
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
@@ -157,15 +178,17 @@ export async function summariseStaffPay(
       .gte("shift_start", `${periodStart}T00:00:00.000Z`)
       .lt("shift_start", endExclusive.toISOString())
       .is("deleted_at", null);
+    if (rosterCountError) throw rosterCountError;
     rosterShiftCount = count || 0;
   }
 
   // Tenant currency + overtime threshold.
-  const { data: company } = await (supabase as any)
+  const { data: company, error: companyError } = await (supabase as any)
     .from("companies")
     .select("id, currency, kitchen_settings, timezone")
     .eq("id", companyId)
     .maybeSingle();
+  if (companyError) throw companyError;
   const companyTyped = company as CompanyRow | null;
   const currency = companyTyped?.currency || "ZAR";
   // Tenant wall-clock timezone for the Sunday/holiday multiplier date
@@ -189,7 +212,7 @@ export async function summariseStaffPay(
   // periodEnd 23:59 local. Inclusive both ends.
   const startIso = `${periodStart}T00:00:00.000Z`;
   const endIso = `${periodEnd}T23:59:59.999Z`;
-  const { data: dutyShifts } = await (supabase as any)
+  const { data: dutyShifts, error: dutyShiftsError } = await (supabase as any)
     .from("kitchen_duty_shifts")
     .select("id, staff_id, shift_start, shift_end, total_break_min")
     .eq("company_id", companyId)
@@ -198,6 +221,24 @@ export async function summariseStaffPay(
     .lte("shift_end", endIso)
     .not("shift_end", "is", null)
 ;
+  if (dutyShiftsError) throw dutyShiftsError;
+
+  // kitchen_staff_shifts is the active roster/tablet clock. The legacy duty
+  // source is retained below solely for historical records that predate it.
+  let currentShiftRows: KitchenStaffShiftRow[] = [];
+  if ((ksm as any)?.id) {
+    const { data, error } = await (supabase as any)
+      .from("kitchen_staff_shifts")
+      .select("id, shift_start, shift_end, total_break_min, standard_min, overtime_min, sunday_holiday_min")
+      .eq("company_id", companyId)
+      .eq("staff_member_id", (ksm as any).id)
+      .gte("shift_end", startIso)
+      .lte("shift_end", endIso)
+      .not("shift_end", "is", null)
+      .is("deleted_at", null);
+    if (error) throw error;
+    currentShiftRows = (data || []) as KitchenStaffShiftRow[];
+  }
 
   // Pull every roster row in the same window so we can pick up the
   // rate_multiplier (Sunday / OT premium). Match by duty_shift_id
@@ -209,7 +250,7 @@ export async function summariseStaffPay(
   // hours into the chef's pay run for any staffer who does both.
   // 'kitchen_and_cleaning' counts on the kitchen side because the
   // multiplier was set during kitchen rostering.
-  const { data: rosterRows } = await (supabase as any)
+  const { data: rosterRows, error: rosterRowsError } = await (supabase as any)
     .from("kitchen_shifts")
     .select("staff_id, shift_date, rate_multiplier, duty_shift_id")
     .eq("company_id", companyId)
@@ -219,6 +260,7 @@ export async function summariseStaffPay(
     .lte("shift_date", periodEnd)
     .is("deleted_at", null)
 ;
+  if (rosterRowsError) throw rosterRowsError;
   const multiplierByDuty = new Map<string, number>();
   const multiplierByDate = new Map<string, number>();
   for (const r of (rosterRows || []) as KitchenShiftRow[]) {
@@ -228,13 +270,55 @@ export async function summariseStaffPay(
   }
 
   const shifts: ShiftLine[] = [];
-  for (const ds of (dutyShifts || []) as DutyShiftRow[]) {
+  const useCurrentShiftSource = currentShiftRows.length > 0;
+  const rowsToSettle: DutyShiftRow[] = useCurrentShiftSource
+    ? currentShiftRows.map((shift) => ({
+      id: shift.id,
+      staff_id: staffId,
+      shift_start: shift.shift_start,
+      shift_end: shift.shift_end,
+      total_break_min: shift.total_break_min,
+    }))
+    : (dutyShifts || []) as DutyShiftRow[];
+  const currentShiftById = new Map(currentShiftRows.map((shift) => [shift.id, shift]));
+
+  for (const ds of rowsToSettle) {
     if (!ds.shift_start || !ds.shift_end) continue;
     const startMs = new Date(ds.shift_start).getTime();
     const endMs = new Date(ds.shift_end).getTime();
     const grossMin = Math.max(0, Math.floor((endMs - startMs) / 60000));
     const workedMin = Math.max(0, grossMin - (Number(ds.total_break_min) || 0));
     const hours = Math.round((workedMin / 60) * 100) / 100;
+
+    // Current rows already hold the BCEA split calculated when the person
+    // clocked out (including the weekly cap and public-holiday bucket).
+    // Using those persisted minutes keeps settlement exactly aligned with
+    // Wages and avoids treating a valid scheduled/clocked shift as zero.
+    const currentRow = currentShiftById.get(ds.id);
+    if (currentRow) {
+      const standardHours = Math.max(0, Number(currentRow.standard_min) || 0) / 60;
+      const overtimeHours = Math.max(0, Number(currentRow.overtime_min) || 0) / 60;
+      const sundayHolidayHours = Math.max(0, Number(currentRow.sunday_holiday_min) || 0) / 60;
+      const recordedHours = standardHours + overtimeHours + sundayHolidayHours;
+      if (recordedHours > 0 || workedMin === 0) {
+        const basePay = Math.round((standardHours + sundayHolidayHours) * hourlyRate * 100) / 100;
+        const otPay = Math.round(overtimeHours * overtimeRate * 100) / 100;
+        const multiplierPay = Math.round(sundayHolidayHours * (sundayHolidayRate - hourlyRate) * 100) / 100;
+        shifts.push({
+          shift_id: ds.id,
+          shift_date: toZonedISO(new Date(ds.shift_end), tenantTz),
+          hours: Math.round(recordedHours * 100) / 100,
+          rate_multiplier: sundayHolidayHours > 0 && hourlyRate > 0 ? sundayHolidayRate / hourlyRate : 1,
+          base_hours: standardHours + sundayHolidayHours,
+          ot_hours: overtimeHours,
+          base_pay: basePay,
+          ot_pay: otPay,
+          multiplier_pay: multiplierPay,
+          line_total: Math.round((basePay + otPay + multiplierPay) * 100) / 100,
+        });
+        continue;
+      }
+    }
 
     // Resolve multiplier: prefer the explicit roster -> duty link.
     // Fall back to date match. Default 1x.
@@ -248,7 +332,7 @@ export async function summariseStaffPay(
     const otHours = Math.max(0, hours - overtimeAfter);
 
     const basePay = Math.round(baseHours * hourlyRate * 100) / 100;
-    const otPay = Math.round(otHours * hourlyRate * OT_RATE_MULTIPLIER * 100) / 100;
+    const otPay = Math.round(otHours * overtimeRate * 100) / 100;
     // Premium ON TOP of base pay (e.g. 2x Sunday adds 1x base pay).
     const multiplierPay = multiplier > 1
       ? Math.round(hours * hourlyRate * (multiplier - 1) * 100) / 100
