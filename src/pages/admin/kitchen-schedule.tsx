@@ -114,24 +114,23 @@ async function loadKitchenShifts(
   fromIso: string,
   toIso: string,
 ): Promise<{ data: ShiftRow[] | null; error: any }> {
-  const base = () => (supabase as any)
+  const base = (columns: string) => (supabase as any)
     .from("kitchen_shifts")
+    .select(columns)
     .eq("company_id", companyId)
     .in("shift_type", ["kitchen", "kitchen_and_cleaning"])
     .gte("shift_date", fromIso)
     .lte("shift_date", toIso)
     .is("deleted_at", null);
 
-  const current = await base()
-    .select("id, staff_id, staff_member_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, order_id");
+  const current = await base("id, staff_id, staff_member_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, order_id");
   if (!current.error) return current as { data: ShiftRow[] | null; error: any };
 
   // Deploys can reach the web app before the Supabase migration is applied.
   // Fall back to the legacy query instead of blanking the entire schedule in
   // that short window. The new staff-member capability becomes active as
   // soon as the migration is present.
-  const legacy = await base()
-    .select("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, order_id");
+  const legacy = await base("id, staff_id, shift_date, planned_start, planned_end, actual_start, actual_end, status, rate_multiplier, notes, order_id");
   if (legacy.error) return legacy as { data: ShiftRow[] | null; error: any };
   return {
     data: ((legacy.data || []) as Omit<ShiftRow, "staff_member_id">[]).map((shift) => ({
