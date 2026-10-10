@@ -681,6 +681,31 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     variables: COMMON_CLIENT_VARS,
   },
   {
+    key: "email_lead_outside_service_area",
+    channel: "email",
+    category: "client",
+    group: "Enquiry",
+    label: "Outside service area — polite decline",
+    description: "Reply to a lead whose event is outside the areas your company currently serves.",
+    defaultSubject: "Your enquiry - {{tenant_name}}",
+    defaultBody:
+      `Hi {{first_name}},\n\n` +
+      `Thanks for your enquiry; however, {{service_area_intro}} {{service_area_limit_sentence}}\n\n` +
+      `If you're ever hosting a function in {{service_areas}}, we'd love to quote you!\n\n` +
+      `{{future_service_areas_sentence}}` +
+      `If you have any questions, feel free to contact me at any time.\n\n` +
+      `Thanks again {{first_name}} and have a fantastic day further.\n\n` +
+      `Regards,\n{{from_name}}\n\n{{company_name}}`,
+    variables: [
+      ...COMMON_CLIENT_VARS,
+      { name: "service_area_intro", description: "Company base and areas served", example: "we are a Cape Town based company servicing Western Cape only" },
+      { name: "service_area_limit_sentence", description: "Why the company cannot take this event", example: "as we have not managed to get to Gauteng yet." },
+      { name: "service_areas", description: "Areas the company currently serves", example: "Western Cape" },
+      { name: "unavailable_areas", description: "Areas the company does not serve yet", example: "Gauteng" },
+      { name: "future_service_areas_sentence", description: "Optional notification when the company expands", example: "We will notify you once we are up and running in Gauteng.\n\n" },
+    ],
+  },
+  {
     key: "email_lead_winback",
     channel: "email",
     category: "client",
@@ -1764,6 +1789,7 @@ const DELIVERY_WIRING: Record<string, { delivery: MessageDelivery; trigger?: str
   email_lead_chase_quote:{ delivery: "manual", trigger: "Click Chase quote on a quoted lead in /admin/leads.",      settingsLink: "/admin/leads" },
   email_lead_winback:    { delivery: "manual", trigger: "Click Win-back on a lost lead in /admin/leads.",            settingsLink: "/admin/leads" },
   email_fully_booked:    { delivery: "manual", trigger: "Click Email on a lead, quote or order and pick \"We're fully booked\".", settingsLink: "/admin/leads" },
+  email_lead_outside_service_area: { delivery: "manual", trigger: "Click Email on a lead and pick \"Outside our area\".", settingsLink: "/admin/leads" },
   email_lead_reopen:     { delivery: "manual", trigger: "Click Reopen on a lost lead in /admin/leads.",              settingsLink: "/admin/leads" },
 
   // --- MANUAL: quote outreach (operator clicks Send / Follow up in /admin/quotes) ---

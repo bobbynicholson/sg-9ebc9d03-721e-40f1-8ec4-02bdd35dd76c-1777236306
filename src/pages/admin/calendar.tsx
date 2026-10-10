@@ -892,7 +892,7 @@ function AdminCalendar() {
             }
             actions={
             <>
-              <Button variant="outline" size="sm" onClick={jumpToday} className="gap-1.5">
+              <Button variant="outline" size="sm" onClick={jumpToday} className="hidden">
                 <Sparkles className="w-3.5 h-3.5" /> Today
               </Button>
               {/* Phase 28 #10: manual refresh. A new booking from
@@ -918,7 +918,8 @@ function AdminCalendar() {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5"
+                id="calendar-export-csv"
+                className="hidden"
                 onClick={() => {
                   const monthStart = new Date(year, month, 1);
                   const monthEnd = new Date(year, month + 1, 0);
@@ -992,7 +993,8 @@ function AdminCalendar() {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5"
+                id="calendar-export-ical"
+                className="hidden"
                 onClick={() => {
                   const monthStart = new Date(year, month, 1);
                   const monthEnd = new Date(year, month + 1, 0);
@@ -1097,7 +1099,7 @@ function AdminCalendar() {
                   /admin/orders is the right home: it carries its
                   own "New Order" CTA in the header and shows the
                   operator the surrounding bookings for context. */}
-              <Link href={withSlug("/admin/orders")}>
+              <Link href={withSlug("/admin/orders")} className="hidden">
                 <Button className="bg-brand-primary hover:opacity-90 gap-2">
                   <Plus className="w-4 h-4" /> New Event
                 </Button>
@@ -1106,6 +1108,24 @@ function AdminCalendar() {
             }
           />
           <PageWorkbench />
+
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Calendar tools</span>
+            <Button variant="outline" size="sm" onClick={jumpToday} className="gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" /> Today
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => document.getElementById("calendar-export-csv")?.click()} className="gap-1.5">
+              <Download className="h-3.5 w-3.5" /> Export month
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => document.getElementById("calendar-export-ical")?.click()} className="gap-1.5">
+              <CalendarIcon className="h-3.5 w-3.5" /> Export iCal
+            </Button>
+            <Link href={withSlug("/admin/orders")}>
+              <Button size="sm" className="gap-1.5 bg-brand-primary hover:opacity-90">
+                <Plus className="h-3.5 w-3.5" /> New Event
+              </Button>
+            </Link>
+          </div>
 
           {/* Load-failure panel: without it a failed fetch rendered an
               empty grid that read as "no events this month". */}
@@ -1136,13 +1156,13 @@ function AdminCalendar() {
               the grid, gap-finder and sidebar use, so every surface
               agrees. Skeletons keep the rail during the first load. */}
           {loading && orders.length === 0 ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
               <StatTile
                 label="Upcoming events"
                 value={upcomingAll.length}
@@ -1170,8 +1190,8 @@ function AdminCalendar() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="xl:col-span-2">
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">

@@ -53,6 +53,9 @@ export interface OperationsSettings {
   maxKitchenLoadPerDay: number;
   driverRadius: number;
   deliveryCostPerKm: number;
+  serviceAreaBase: string;
+  serviceAreas: string[];
+  unavailableAreas: string[];
 }
 
 /**
@@ -124,7 +127,7 @@ export type UpdatePricingSetting = (
 
 export type UpdateOperationsSetting = (
   key: keyof OperationsSettings,
-  value: number,
+  value: number | string | string[],
 ) => void;
 
 export type UpdateCompanySetting = (

@@ -55,13 +55,28 @@ const COMPANY_PAGES = [
 const VIEWPORTS = [
   { name: "mobile",  w: 390,  h: 844 },
   { name: "tablet",  w: 768,  h: 1024 },
+  { name: "laptop-s", w: 1024, h: 768 },
+  { name: "laptop",  w: 1280, h: 800 },
   { name: "desktop", w: 1440, h: 900 },
 ];
 
+const EXTRA_PAGES = [
+  "/admin/ai-brain","/admin/ai-brain/access","/admin/clients","/admin/client-search","/admin/daily-operations",
+  "/admin/driver-management","/admin/equipment-damages","/admin/event-profitability","/admin/exceptions",
+  "/admin/inventory-recipes","/admin/inventory-tracking","/admin/kitchen-staff","/admin/messaging-templates",
+  "/admin/package","/admin/platform","/admin/platform/payment-issues","/admin/onboarding/clients",
+  "/admin/onboarding/import","/admin/onboarding/imports","/admin/onboarding/receipts","/admin/leads/new",
+  "/admin/quotes/new","/admin/integrations/embed/new","/admin/orders/delivery-sheet",
+  "/admin/quotes/[id]","/admin/packages/[id]","/admin/suppliers/[id]","/admin/outsource-providers/[id]",
+  "/admin/orders/[id]/ticket","/admin/integrations/embed/[id]",
+];
+const ID_TABLE = { "/admin/quotes/[id]": "quotes", "/admin/packages/[id]": "packages", "/admin/suppliers/[id]": "suppliers", "/admin/outsource-providers/[id]": "outsource_providers", "/admin/orders/[id]/ticket": "orders" };
+
 const cfg = GROUP === "platform"
   ? { email: "bobby@skylight-digital.co.za", prefix: "", pages: PLATFORM_PAGES }
-  : { email: "hello@spitbraaidelivery.co.za", prefix: `/${SLUG}`, pages: COMPANY_PAGES };
-const pages = SUBSET || cfg.pages;
+  : { email: "hello@spitbraaidelivery.co.za", prefix: `/${SLUG}`, pages: GROUP === "extra" ? EXTRA_PAGES : COMPANY_PAGES };
+const [SHARD_I, SHARD_N] = (process.env.SHARD || "0/1").split("/").map(Number);
+const pages = (SUBSET || cfg.pages).filter((_, i) => i % SHARD_N === SHARD_I);
 
 async function mint(email) {
   const c = createClient(url, anon, { auth: { persistSession: false } });
@@ -95,7 +110,18 @@ const MEASURE = () => {
     offenders.push({ tag: el.tagName.toLowerCase(), cls: String(el.className || "").slice(0, 90), w: Math.round(r.width), right: Math.round(r.right), ox: st.overflowX });
   }
   offenders.sort((a, b) => b.right - a.right);
-  return { vw, scrollW, overflow, offenders: offenders.slice(0, 6) };
+  const clipped = [];
+  for (const el of document.querySelectorAll("body *")) {
+    if (el.scrollWidth <= el.clientWidth + 2 || el.clientWidth < 20) continue;
+    const st = getComputedStyle(el);
+    if (st.display === "none" || st.visibility === "hidden" || st.position === "fixed") continue;
+    if (st.overflowX !== "hidden" && st.overflowX !== "clip") continue;
+    if (st.textOverflow === "ellipsis") continue; // deliberate truncation
+    if (!(el.textContent || "").trim() || el.closest(".leaflet-container")) continue;
+    clipped.push({ tag: el.tagName.toLowerCase(), cls: String(el.className || "").slice(0, 90), cw: el.clientWidth, sw: el.scrollWidth, text: (el.textContent || "").trim().slice(0, 40), root: (() => { const er = el.getBoundingClientRect(); let w = null, mx = 0; for (const d of el.querySelectorAll("*")) { const r = d.getBoundingClientRect(); if (r.right - er.left > mx && r.width > 0) { mx = r.right - er.left; w = d; } } return w ? w.tagName.toLowerCase() + "." + String(w.className).slice(0, 120) + " @" + Math.round(mx) : ""; })(), self: el.tagName.toLowerCase() + "." + String(el.className).slice(0, 80) });
+  }
+  clipped.sort((a, b) => (b.sw - b.cw) - (a.sw - a.cw));
+  return { vw, scrollW, overflow, offenders: offenders.slice(0, 6), clippedCount: clipped.length, clipped: clipped.slice(0, 5) };
 };
 
 (async () => {
@@ -106,8 +132,20 @@ const MEASURE = () => {
   const page = await ctx.newPage();
   const report = [];
   for (const rel of pages) {
-    const full = `${BASE}${cfg.prefix}${rel}`;
     const rec = { page: rel, results: {}, worst: 0, status: "pass" };
+    let target = rel;
+    if (rel.includes("[id]")) {
+      let id = null;
+      if (ID_TABLE[rel]) {
+        const { data: prof } = await admin.from("profiles").select("company_id").eq("id", session.user.id).maybeSingle();
+        let q = admin.from(ID_TABLE[rel]).select("id").limit(1);
+        if (prof?.company_id) q = q.eq("company_id", prof.company_id);
+        id = (await q).data?.[0]?.id ?? null;
+      }
+      if (!id) { rec.status = "ERROR"; rec.error = "no record id found"; report.push(rec); console.log(` ERROR  ${rel.padEnd(40)} ${rec.error}`); continue; }
+      target = rel.replace("[id]", id);
+    }
+    const full = `${BASE}${cfg.prefix}${target}`;
     try {
       await page.setViewportSize({ width: 1440, height: 900 });
       const resp = await page.goto(full, { waitUntil: "networkidle", timeout: 30000 }).catch(() => null);
@@ -115,10 +153,11 @@ const MEASURE = () => {
       await page.waitForTimeout(1200);
       for (const vp of VIEWPORTS) {
         await page.setViewportSize({ width: vp.w, height: vp.h });
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(1500);
         const m = await page.evaluate(MEASURE).catch(e => ({ error: String(e).slice(0, 80) }));
         rec.results[vp.name] = m;
         if (m.overflow > 4) { rec.status = "FAIL"; rec.worst = Math.max(rec.worst, m.overflow); }
+        else if (m.clippedCount > 0 && rec.status === "pass") rec.status = "CLIP";
       }
     } catch (e) {
       rec.status = "ERROR"; rec.error = String(e).slice(0, 120);
@@ -127,11 +166,13 @@ const MEASURE = () => {
     const flag = rec.status === "pass" ? "  ok" : ` ${rec.status}`;
     const detail = rec.status === "FAIL"
       ? Object.entries(rec.results).filter(([, v]) => v.overflow > 4).map(([k, v]) => `${k}+${v.overflow}px`).join(" ")
+      : rec.status === "CLIP"
+      ? Object.entries(rec.results).filter(([, v]) => v.clippedCount > 0).map(([k, v]) => `${k}:${v.clippedCount} "${v.clipped[0].text}" ${v.clipped[0].sw}>${v.clipped[0].cw}`).join(" | ")
       : (rec.error || "");
     console.log(`${flag.padEnd(7)} ${rel.padEnd(40)} http=${rec.http} ${detail}`);
   }
   await browser.close();
-  const out = path.join(repoRoot, `responsive-report.${GROUP}.json`);
+  const out = path.join(repoRoot, `responsive-report.${GROUP}${SHARD_N > 1 ? `.shard${SHARD_I}` : ""}.json`);
   writeFileSync(out, JSON.stringify(report, null, 2));
   const fails = report.filter(r => r.status === "FAIL");
   const errs = report.filter(r => r.status === "ERROR");

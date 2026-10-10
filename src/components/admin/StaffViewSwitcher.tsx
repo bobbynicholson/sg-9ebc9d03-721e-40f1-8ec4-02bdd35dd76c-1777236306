@@ -151,7 +151,10 @@ export function StaffViewSwitcher({ companySlug }: ViewSwitcherProps) {
         >
           <Eye className="h-4 w-4" />
           <span
-            className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${getViewBadgeColor()}`}
+            // Keep the status dot inside the compact sidebar control. The
+            // previous negative offset added horizontal spill in the narrow
+            // desktop rail and could be clipped by the nav scroller.
+            className={`absolute right-0 top-0 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-slate-900 ${getViewBadgeColor()}`}
           />
         </Button>
       </DropdownMenuTrigger>

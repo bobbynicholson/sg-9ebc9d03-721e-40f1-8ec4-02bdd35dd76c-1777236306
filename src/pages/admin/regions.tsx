@@ -1320,7 +1320,7 @@ function RegionsPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label htmlFor="region-city">City</Label>
                 <Input id="region-city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="auto-filled" />
@@ -1371,7 +1371,7 @@ function RegionsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label htmlFor="region-tz">Timezone</Label>
                 <Input id="region-tz" value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} />

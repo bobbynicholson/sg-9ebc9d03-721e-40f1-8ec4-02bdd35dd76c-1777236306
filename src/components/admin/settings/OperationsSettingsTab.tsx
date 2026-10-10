@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
+import { COUNTRIES } from "@/lib/regionGeography";
 import { ChefHat } from "lucide-react";
 import type { OperationsSettings, UpdateOperationsSetting } from "./types";
 
@@ -11,7 +13,7 @@ interface Props {
 }
 
 interface Field {
-  key: keyof OperationsSettings;
+  key: Exclude<keyof OperationsSettings, "serviceAreaBase" | "serviceAreas" | "unavailableAreas">;
   label: string;
   tooltip: string;
   step?: string;
@@ -93,6 +95,14 @@ const ROWS: Field[][] = [
  * Phase D settings split).
  */
 export function OperationsSettingsTab({ settings, onUpdate }: Props) {
+  const provinces = COUNTRIES.find((country) => country.code === "ZA")?.divisions || [];
+  const toggleArea = (key: "serviceAreas" | "unavailableAreas", area: string, checked: boolean) => {
+    const otherKey = key === "serviceAreas" ? "unavailableAreas" : "serviceAreas";
+    const current = settings[key];
+    onUpdate(key, checked ? [...current, area] : current.filter((value) => value !== area));
+    if (checked) onUpdate(otherKey, settings[otherKey].filter((value) => value !== area));
+  };
+
   return (
     <Card className="border-0 shadow-lg">
       <CardHeader className="px-4 md:px-6">
@@ -131,6 +141,42 @@ export function OperationsSettingsTab({ settings, onUpdate }: Props) {
             })}
           </div>
         ))}
+        <div className="space-y-4 border-t pt-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Service areas</h3>
+            <p className="mt-1 text-xs text-slate-600">These company details are used in the lead email option “Outside our area”.</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="service-area-base">Where your company is based</Label>
+            <Input
+              id="service-area-base"
+              value={settings.serviceAreaBase}
+              onChange={(event) => onUpdate("serviceAreaBase", event.target.value)}
+              placeholder="Cape Town"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {([
+              ["serviceAreas", "Areas you serve"],
+              ["unavailableAreas", "Areas you do not serve yet"],
+            ] as const).map(([key, title]) => (
+              <fieldset key={key} className="min-w-0 rounded-md border border-slate-200 p-3">
+                <legend className="px-1 text-sm font-medium text-slate-800">{title}</legend>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {provinces.map((area) => (
+                    <label key={`${key}-${area}`} className="flex min-w-0 items-center gap-2 text-sm text-slate-700">
+                      <Checkbox
+                        checked={settings[key].includes(area)}
+                        onCheckedChange={(checked) => toggleArea(key, area, checked === true)}
+                      />
+                      <span className="break-words">{area}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

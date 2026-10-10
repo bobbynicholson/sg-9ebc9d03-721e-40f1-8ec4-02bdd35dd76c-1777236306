@@ -1039,7 +1039,7 @@ function VehiclesPage() {
                   Capacity
                   <InfoTooltip content={"Used to filter vehicles when assigning an order.\n\nRated guests is the most useful field for catering, the rest are nice-to-haves the dispatcher can use to break ties."} />
                 </Label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <Label htmlFor="max_pax">Rated guests</Label>
                     <Input id="max_pax" type="number" min="0" value={form.max_pax_served} onChange={e => setForm({ ...form, max_pax_served: e.target.value })} placeholder="e.g. 80" className="mt-1" />
@@ -1417,7 +1417,7 @@ function UtilisationView({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-x-auto">
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin w-6 h-6 border-2 border-brand-primary border-t-transparent rounded-full mx-auto mb-3" />

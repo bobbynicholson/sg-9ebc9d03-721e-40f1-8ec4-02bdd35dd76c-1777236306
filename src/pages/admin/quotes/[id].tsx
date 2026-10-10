@@ -46,7 +46,6 @@ import { useTenantCurrency } from "@/hooks/useTenantCurrency";
 import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currencyUtils";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { QuoteSendDialog } from "@/components/billing/QuoteSendDialog";
-import { EntityNotesThread } from "@/components/admin/EntityNotesThread";
 import { ChangeRequestPanel, ChangeReq } from "@/components/admin/quotes/ChangeRequestPanel";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -1366,8 +1365,7 @@ function AdminQuoteDetailInner() {
                 </CardContent>
               </Card>
 
-              {/* Client-facing note, editable when draft. Private context
-                  belongs in the audit-logged thread below. */}
+              {/* Client-facing note, editable when draft. */}
               <Card collapsible defaultOpen={false} collapseLabel="Note to the client" className="border-slate-200 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-lg">Note to the client</CardTitle>
@@ -1390,16 +1388,6 @@ function AdminQuoteDetailInner() {
                   )}
                 </CardContent>
               </Card>
-
-              {id && typeof id === "string" && companyId && (
-                <EntityNotesThread
-                  entityType="quote"
-                  entityId={id}
-                  companyId={companyId}
-                  entityLabel={(quote as any)?.quote_number}
-                  placeholder="Add an internal update for the team…"
-                />
-              )}
 
               </div>
 

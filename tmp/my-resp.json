@@ -1,0 +1,253 @@
+[
+  {
+    "page": "/admin/dashboard",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/dispatch",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/live-operations",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/calendar",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/contacts",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full text-sm",
+            "w": 1010,
+            "right": 1035,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200",
+            "w": 1010,
+            "right": 1035,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1010,
+            "right": 1035,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "text-right py-3 pr-4",
+            "w": 358,
+            "right": 1035,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "",
+            "w": 1010,
+            "right": 1035,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-100 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 scroll-mt-24 tra",
+            "w": 1010,
+            "right": 1035,
+            "ox": "visible"
+          }
+        ]
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/leads",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/quotes",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/orders",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  }
+]

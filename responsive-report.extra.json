@@ -1,0 +1,238 @@
+[
+  {
+    "page": "/admin/quotes/[id]",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/packages/[id]",
+    "results": {},
+    "worst": 0,
+    "status": "ERROR",
+    "error": "no record id found"
+  },
+  {
+    "page": "/admin/suppliers/[id]",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 440,
+            "text": "Quick searchCtrl KSBSpit Braai DeliveryA",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @440",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 369,
+            "text": "Quick searchCtrl KSBSpit Braai DeliveryA",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @369",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/orders/[id]/ticket",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "jsx-60eaa5f118c2b9c6 admin-page-shell admin-page-shell--no-sidebar admin-page-shell--docum",
+            "cw": 390,
+            "sw": 568,
+            "text": "BackOpen full order document PrintAdmin/",
+            "root": "div.jsx-60eaa5f118c2b9c6 no-print bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top- @390",
+            "self": "div.jsx-60eaa5f118c2b9c6 admin-page-shell admin-page-shell--no-sidebar admin-page-sh"
+          }
+        ]
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/integrations/embed/[id]",
+    "results": {},
+    "worst": 0,
+    "status": "ERROR",
+    "error": "no record id found"
+  },
+  {
+    "page": "/admin/onboarding/import",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  }
+]

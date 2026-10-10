@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Banknote, Plus, Calendar, Mail, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw, MoreHorizontal } from "lucide-react";
+import { Banknote, Plus, Calendar, Mail, MapPin, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw, MoreHorizontal } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -113,6 +113,7 @@ import { getEventCapacityForDate, type EventCapacityCheck } from "@/lib/eventCap
 import { notifyQuoteUpdated } from "@/services/quote/quoteNotifications";
 import { AmountChangeAction } from "@/components/admin/financial/AmountChangeAction";
 import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
+import { useServiceAreaEmailAvailability } from "@/hooks/useServiceAreaEmailAvailability";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 
 // TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for any
@@ -264,6 +265,8 @@ function PipelineBoard({
   currencyCode = "ZAR",
   amountChangesByQuoteId,
   resolvedByQuoteId,
+  onOutsideAreaEmail,
+  canEmailOutsideArea,
   withSlug,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -275,6 +278,8 @@ function PipelineBoard({
   currencyCode?: string;
   amountChangesByQuoteId: Map<string, any>;
   resolvedByQuoteId: Map<string, { paymentLabel?: string }>;
+  onOutsideAreaEmail: (quote: any) => void;
+  canEmailOutsideArea: boolean;
   withSlug: (href: string) => string;
 }) {
   // Pre-bucket once so each column doesn't re-filter the whole list.
@@ -366,6 +371,20 @@ function PipelineBoard({
                             </p>
                           )}
                         </button>
+                        {canEmailOutsideArea && <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          className="mt-2 h-8 gap-1.5"
+                          aria-label={`Email ${q.client_name || "client"} about service area`}
+                          title={q.client_email
+                            ? "Open an editable outside-area email"
+                            : "Open the editable template; add the client's email before sending"}
+                          onClick={() => onOutsideAreaEmail(q)}
+                        >
+                          <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                          Outside area
+                        </Button>}
                         {change && <div className="mt-2"><AmountChangeAction change={change} href={changeHref} settled={change.direction === "increase" && resolvedByQuoteId.get(q.id)?.paymentLabel === "Paid in Full"} actionLabel={change.direction === "increase" && !change.invoiceId ? "Review quote" : undefined} formatAmount={(amount) => formatQuoteMoney(amount, q.currency, currencyCode)} /></div>}
                       </div>
                     );
@@ -409,6 +428,8 @@ function AdminQuotesInner() {
   // "Email" button: email the client on any quote, drafts included (e.g.
   // "We're fully booked" instead of sending the quote).
   const [emailQuote, setEmailQuote] = useState<Quote | null>(null);
+  const [emailQuoteDefaultOptionId, setEmailQuoteDefaultOptionId] = useState<string | null>(null);
+  const canEmailOutsideArea = useServiceAreaEmailAvailability(profile?.company_id || user?.company_id);
   // Phase 18 #1: record opened quote in the recently-viewed list
   // so the dashboard widget can offer a one-click jump back. Fires
   // when the compose drawer opens (which covers every Send / Edit
@@ -1880,7 +1901,7 @@ function AdminQuotesInner() {
               onto the shared StatTile primitive (financial-dashboard
               exemplar). Same tileRows / tileCounts source as before so
               the range picker still scopes all four. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <StatTile
               label="Total quotes"
               value={tileRows.length}
@@ -1960,7 +1981,7 @@ function AdminQuotesInner() {
               sibling strips - now grouped into ONE toolbar card per
               the page standard. Behaviour unchanged. */}
           <PortalCard id="quote-pipeline" data-chat-section="admin.quotes.pipeline" data-chat-section-label="Quote pipeline" className="mb-6 space-y-3">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,560px)_auto] lg:items-start">
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,560px)_auto] xl:items-start">
             {/* Smart search across client, event, ref + total. */}
             {quotes.length > 0 ? (
               <AdminSearchField
@@ -2115,7 +2136,7 @@ function AdminQuotesInner() {
               });
             };
             return (
-              <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5">
+              <div className="mb-4 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-amber-900">
                   <span className="font-medium">{eligible.length}</span> {bucket === "stale" ? "stale " : bucket === "action_needed" ? "action " : "in-play "}
                   quote{eligible.length === 1 ? "" : "s"} with a client email, send personal nudges?
@@ -2123,7 +2144,7 @@ function AdminQuotesInner() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="bg-white border-amber-300 text-amber-900 hover:bg-amber-100"
+                  className="w-full bg-white border-amber-300 text-amber-900 hover:bg-amber-100 sm:w-auto"
                   onClick={handleBulkNudge}
                 >
                   <Mail className="w-3.5 h-3.5 mr-1.5" />
@@ -2149,6 +2170,11 @@ function AdminQuotesInner() {
               currencyCode={tenantCurrency.code}
               amountChangesByQuoteId={amountChangeByQuoteId}
               resolvedByQuoteId={resolvedByQuoteId}
+              canEmailOutsideArea={canEmailOutsideArea}
+              onOutsideAreaEmail={(quote) => {
+                setEmailQuoteDefaultOptionId("outside_service_area");
+                setEmailQuote(quote);
+              }}
               withSlug={withSlug}
               onOpen={(quoteId) => {
                 setFocusedQuoteId(quoteId);
@@ -2165,7 +2191,7 @@ function AdminQuotesInner() {
               work for those quotes lives on /admin/orders. */}
           {bucket === "won" && bucketFilteredRows.length > 0 && (
             <Card className="mb-4 bg-brand-primary/10">
-              <CardContent className="py-3 px-4 flex items-start gap-3">
+              <CardContent className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-start">
                 <Crown className="w-4 h-4 text-brand-primary mt-0.5 shrink-0" />
                 <div className="text-xs text-brand-primary leading-relaxed flex-1">
                   <p className="font-semibold text-brand-primary mb-0.5">Won quotes have converted to orders</p>
@@ -2173,8 +2199,8 @@ function AdminQuotesInner() {
                     Kitchen prep, dispatch, invoicing and delivery all happen on the orders page. This view is here for sales audit only.
                   </p>
                 </div>
-                <Link href={withSlug("/admin/orders")}>
-                  <Button variant="outline" size="sm" className="gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/15">
+                <Link href={withSlug("/admin/orders")} className="w-full sm:w-auto">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 border-brand-primary/30 text-brand-primary hover:bg-brand-primary/15 sm:w-auto">
                     Open Orders <ArrowRight className="w-3.5 h-3.5" />
                   </Button>
                 </Link>
@@ -2302,7 +2328,7 @@ function AdminQuotesInner() {
                             }`}
                           >
                             <CardContent className="p-4 sm:p-6">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-0">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-0">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3 flex-wrap">
                             <h3 className="text-xl font-semibold text-slate-900">{quote.client_name}</h3>
@@ -2621,7 +2647,7 @@ function AdminQuotesInner() {
                             Lifecycle moves (Mark sent, Mark lost) and
                             CRUD (Edit, Duplicate, Delete) live in the
                             menu since they're not row-level urgent. */}
-                        <div className="flex flex-row flex-wrap gap-2 sm:flex-col sm:ml-4 sm:items-stretch sm:w-44 sm:shrink-0">
+                        <div className="flex flex-row flex-wrap gap-2 xl:ml-4 xl:flex-col xl:items-stretch xl:w-44 xl:shrink-0">
                           {/* Primary CTA - tone-coloured. Draft -> Send,
                               everything else -> Compose. */}
                           {quote.status === "draft" ? (
@@ -2655,12 +2681,32 @@ function AdminQuotesInner() {
                             title={quote.client_email
                               ? "Open an email to tell the client we're fully booked"
                               : "Add the client's email address to this quote to email them"}
-                            onClick={() => setEmailQuote(quote)}
+                            onClick={() => {
+                              setEmailQuoteDefaultOptionId("fully_booked");
+                              setEmailQuote(quote);
+                            }}
                           >
                             <Mail className="w-4 h-4 shrink-0" />
                             <span className="sm:hidden">Fully booked</span>
                             <span className="hidden sm:inline">Tell client we&apos;re fully booked</span>
                           </Button>
+                          {canEmailOutsideArea && <Button
+                            type="button"
+                            size="sm"
+                            variant="default"
+                            className="h-auto min-h-9 w-full justify-center gap-1.5 whitespace-normal break-words px-2 py-2 text-center leading-tight"
+                            aria-label={`Email ${quote.client_name || "client"} about service area`}
+                            title={quote.client_email
+                              ? "Open an editable outside-area email"
+                              : "Open the editable template; add the client's email before sending"}
+                            onClick={() => {
+                              setEmailQuoteDefaultOptionId("outside_service_area");
+                              setEmailQuote(quote);
+                            }}
+                          >
+                            <MapPin className="h-4 w-4 shrink-0" />
+                            Outside area
+                          </Button>}
                           <WhatsAppButton
                             kind="client"
                             phone={(quote as any).client_phone}
@@ -3208,6 +3254,7 @@ function AdminQuotesInner() {
             : "your date";
           return (
             <ClientEmailDrawer
+              key={`${q.id}:${emailQuoteDefaultOptionId || "default"}`}
               title={`Email ${q.client_name || "the client"}`}
               contextLabel="This quote"
               contextRows={[
@@ -3219,7 +3266,7 @@ function AdminQuotesInner() {
               ]}
               recipient={{
                 name: q.client_name || "there",
-                email: q.client_email || null,
+                email: q.client_email || q.client?.email || q.clients?.email || null,
                 phone: q.client_phone || null,
                 clientId: q.client_id || null,
               }}
@@ -3234,6 +3281,8 @@ function AdminQuotesInner() {
                 guest_count: q.guest_count ?? "",
               }}
               quoteId={q.id}
+              defaultOptionId={emailQuoteDefaultOptionId || undefined}
+              showServiceAreaOption={canEmailOutsideArea}
               onClose={() => setEmailQuote(null)}
             />
           );

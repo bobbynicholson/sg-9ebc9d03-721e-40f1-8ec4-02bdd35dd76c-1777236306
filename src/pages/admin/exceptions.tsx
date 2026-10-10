@@ -130,7 +130,11 @@ function ExceptionCenterPageInner() {
 
           <section aria-labelledby="live-signals-heading">
             <h2 id="live-signals-heading" className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Live signals</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {/* The admin rail consumes 18–20rem on desktop, so five cards
+                at the page-level lg breakpoint were being squeezed into a
+                much narrower *remaining* workspace. Step the grid up more
+                gradually so each metric stays readable beside the sidebar. */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {items.map((item) => <Link key={item.title} href={withSlug(item.href)} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-brand-primary/40 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900"><p className="text-xs text-slate-500">{item.title}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900 dark:text-white">{item.count}</p></Link>)}
             </div>
           </section>

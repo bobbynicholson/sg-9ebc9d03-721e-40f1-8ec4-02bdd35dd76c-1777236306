@@ -1,0 +1,6 @@
+ CLIP   /admin/ai-brain                          http=no-response laptop:1 "Quick searchCtrl KDMDEV MODE - Super Adm" 392>295 | desktop:1 "Quick searchCtrl KDMDEV MODE - Super Adm" 443>295
+ CLIP   /admin/daily-operations                  http=no-response laptop-s:1 "Quick searchCtrl KSBSpit Braai DeliveryA" 385>263 | laptop:1 "Quick searchCtrl KSBSpit Braai DeliveryA" 318>295 | desktop:1 "Quick searchCtrl KSBSpit Braai DeliveryA" 436>295
+  ok    /admin/exceptions                        http=200 
+  ok    /admin/messaging-templates               http=no-response 
+  ok    /admin/onboarding/clients                http=no-response 
+ CLIP   /admin/leads/new                         http=no-response desktop:1 "Quick searchCtrl KDTDEV TEST COMPANYAdmi" 435>295

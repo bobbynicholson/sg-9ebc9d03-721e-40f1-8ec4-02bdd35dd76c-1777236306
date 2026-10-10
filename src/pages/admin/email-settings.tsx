@@ -51,6 +51,7 @@ interface ProviderRow {
   provider: Provider;
   from_email: string | null;
   from_name: string | null;
+  archive_copy_email: string | null;
   smtp_host: string | null;
   smtp_port: number | null;
   smtp_user: string | null;
@@ -135,6 +136,7 @@ function EmailSettingsPage() {
     provider: "resend",
     from_email: null,
     from_name: null,
+    archive_copy_email: null,
     smtp_host: null,
     smtp_port: 587,
     smtp_user: null,
@@ -331,6 +333,11 @@ function EmailSettingsPage() {
       toast({ title: "Add a valid from address", description: "Clients and replies need a valid From address before this sender can be saved.", variant: "destructive" });
       return false;
     }
+    const archiveCopyEmail = String(row.archive_copy_email || "").trim();
+    if (archiveCopyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(archiveCopyEmail)) {
+      toast({ title: "Add a valid archive address", description: "Enter a valid mailbox for outgoing email copies, or leave the field blank.", variant: "destructive" });
+      return false;
+    }
     if (row.provider === "smtp") {
       const port = Number(row.smtp_port);
       if (!String(row.smtp_host || "").trim() || !port || port < 1 || port > 65535 || !String(row.smtp_user || "").trim()) {
@@ -374,6 +381,7 @@ function EmailSettingsPage() {
         provider: row.provider,
         from_email: row.from_email,
         from_name: row.from_name,
+        archive_copy_email: archiveCopyEmail || null,
         smtp_host: row.provider === "smtp" ? row.smtp_host : null,
         smtp_port: row.provider === "smtp" ? row.smtp_port : null,
         smtp_user: row.provider === "smtp" ? row.smtp_user : null,
@@ -885,6 +893,20 @@ function EmailSettingsPage() {
                     placeholder="hello@spitbraaidelivery.co.za"
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="archive_copy_email">Copy outgoing emails to (optional)</Label>
+                <Input
+                  id="archive_copy_email"
+                  type="email"
+                  value={row.archive_copy_email || ""}
+                  onChange={(e) => setRow({ ...row, archive_copy_email: e.target.value || null })}
+                  placeholder="archive@buildwithraj.com"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  BCC a copy of every app email to this mailbox. The copy appears in its inbox, not its Sent folder.
+                </p>
               </div>
 
               {row.last_test_error && (

@@ -63,7 +63,7 @@ export function CommandPaletteHint({
   };
 
   return (
-    <div className={cn("relative", block ? "flex w-full" : "inline-flex")}>
+    <div className={cn("relative min-w-0", block ? "flex w-full max-w-full" : "inline-flex")}>
       {/* Attention pulse ring — only renders on first visit */}
       {isNew && (
         <span
@@ -76,7 +76,7 @@ export function CommandPaletteHint({
         onClick={open}
         title="Quick search & jump to anywhere"
         className={cn(
-          "relative group inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-white/20 dark:bg-white/10 dark:text-white/80 dark:hover:border-white/30 dark:hover:bg-white/15 dark:hover:text-white",
+          "relative group inline-flex min-w-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-500 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-white/20 dark:bg-white/10 dark:text-white/80 dark:hover:border-white/30 dark:hover:bg-white/15 dark:hover:text-white",
           isNew && "ring-2 ring-white/50 dark:ring-white/30",
           className,
         )}

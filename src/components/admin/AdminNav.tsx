@@ -109,19 +109,19 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
       .toUpperCase() || "CM";
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 max-w-full space-y-3 overflow-hidden">
       <div className="hidden lg:block">
         <CommandPaletteHint block className="w-full justify-center" />
       </div>
 
       {/* Company identity - white-glass card so it sits on the
           brand-painted rail instead of reading as a generic dark tile. */}
-      <div className="flex items-center gap-2.5 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5">
+      <div className="flex min-w-0 max-w-full items-center gap-2.5 rounded-xl border border-white/15 bg-white/10 px-3 py-2.5">
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-white/30 bg-white/15">
           <span className="text-[11px] font-bold text-white">{initials}</span>
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-semibold text-white">
               {companyName}
             </span>
@@ -143,7 +143,7 @@ function AdminTopSlot({ companySlug }: { companySlug: string }) {
           badge + 2x3 live-state pill grid that used to sit here were
           dropped from the nav (that live intelligence lives on the
           dashboard) so the navigation isn't pushed down the rail. */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
         <RegionFilterDropdown />
         {companySlug && <StaffViewSwitcher companySlug={companySlug} />}
       </div>

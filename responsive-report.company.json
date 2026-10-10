@@ -1,0 +1,70 @@
+[
+  {
+    "page": "/admin/orders",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "min-w-0 max-w-full space-y-3 overflow-hidden",
+            "cw": 263,
+            "sw": 387,
+            "text": "Quick searchCtrl KSBSpit Braai DeliveryA",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @387",
+            "self": "div.min-w-0 max-w-full space-y-3 overflow-hidden"
+          }
+        ]
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "min-w-0 max-w-full space-y-3 overflow-hidden",
+            "cw": 295,
+            "sw": 308,
+            "text": "Quick searchCtrl KSBSpit Braai DeliveryA",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @308",
+            "self": "div.min-w-0 max-w-full space-y-3 overflow-hidden"
+          }
+        ]
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": 200
+  }
+]

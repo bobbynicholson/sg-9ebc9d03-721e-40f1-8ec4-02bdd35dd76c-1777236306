@@ -1,0 +1,10 @@
+file:///D:/sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306/scripts/responsive-audit.mjs:140
+        const { data: prof } = await admin.from("profiles").select("company_id").eq("id", session.user.id).maybeSingle();
+                                                                                                  ^
+
+TypeError: Cannot read properties of null (reading 'user')
+    at file:///D:/sg-9ebc9d03-721e-40f1-8ec4-02bdd35dd76c-1777236306/scripts/responsive-audit.mjs:140:99
+    at runNextTicks (node:internal/process/task_queues:65:5)
+    at process.processImmediate (node:internal/timers:472:9)
+
+Node.js v24.18.0

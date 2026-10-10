@@ -40,7 +40,8 @@ import dynamic from "next/dynamic";
 import driverService from "@/services/driverService";
 import { dispatchService, formatMinutesAsCountdown, minutesUntilSlaBreach } from "@/services/dispatchService";
 import { supabase } from "@/integrations/supabase/client";
-import { Sparkles, Download } from "lucide-react";
+import { Sparkles, Download } from "lucide-react";
+
 import { formatClock } from "@/lib/portalTime";
 
 const RouteMap = dynamic(
@@ -898,7 +899,7 @@ function RoutePlanningInner() {
 
             {/* Map & Details */}
             <div className="lg:col-span-2">
-              <Card className="h-[700px]">
+              <Card className="h-[460px] sm:h-[560px] lg:h-[700px]">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />

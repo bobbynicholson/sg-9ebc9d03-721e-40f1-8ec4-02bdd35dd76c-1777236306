@@ -40,7 +40,7 @@ export function PortalShell({
   return (
     <div
       className={cn(
-        "relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#e9edf3_0%,#f6f8fb_320px,#f6f8fb_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_320px,#0f172a_100%)]",
+        "relative min-h-screen w-full max-w-full min-w-0 overflow-x-hidden bg-[linear-gradient(180deg,#e9edf3_0%,#f6f8fb_320px,#f6f8fb_100%)] dark:bg-[linear-gradient(180deg,#020617_0%,#0f172a_320px,#0f172a_100%)]",
         className,
       )}
     >
@@ -61,7 +61,7 @@ export function PortalShell({
       />
       <div
         className={cn(
-          "relative z-0 w-full px-4 py-6 sm:px-6 sm:py-8 lg:px-9",
+          "relative z-0 w-full min-w-0 px-4 py-6 sm:px-6 sm:py-8 lg:px-9",
           width === "narrow" ? "mx-auto max-w-3xl" : "max-w-none",
         )}
       >
@@ -150,15 +150,18 @@ export function PortalHeader({
         />
         {/* Compact band: title, one-line purpose and status chips on the
             left, page actions on the same row at desktop widths. */}
-        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-start gap-3.5">
+        {/* Portal rails appear at lg, so retain a stacked header until xl.
+            This prevents title/action compression in the reduced workspace
+            beside the admin sidebar. */}
+        <div className="relative flex w-full min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-1 items-start gap-3.5">
             {Icon && (
               <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white shadow-sm backdrop-blur-sm">
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
             )}
             <div className="min-w-0">
-              <h1 className="font-brand-display text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem]">
+              <h1 className="font-brand-display max-w-full break-words text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem]">
                 {title}
               </h1>
               {subtitle && (
@@ -177,7 +180,7 @@ export function PortalHeader({
             </div>
           </div>
           {actions && (
-            <div className="dark flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 lg:max-w-[55%] lg:justify-end [&_button]:h-9 [&_button]:px-3 [&_button]:text-sm">
+            <div className="dark flex max-w-full shrink-0 flex-wrap items-center justify-start gap-2 xl:max-w-[55%] xl:justify-end [&_button]:h-9 [&_button]:px-3 [&_button]:text-sm">
               {actions}
             </div>
           )}
@@ -188,7 +191,7 @@ export function PortalHeader({
   return (
     <header
       className={cn(
-        "relative mb-7 grid gap-4 border-b border-slate-300/70 pb-6 dark:border-slate-800 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end",
+        "relative mb-7 grid gap-4 border-b border-slate-300/70 pb-6 dark:border-slate-800 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end",
         className,
       )}
     >
@@ -210,7 +213,7 @@ export function PortalHeader({
         </div>
       </div>
       {actions && (
-        <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:justify-end">
+        <div className="flex w-full max-w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
           {actions}
         </div>
       )}
@@ -401,11 +404,11 @@ export function PageWorkbench({
       data-chat-ref={getNavigationRefForPath(pathname) || undefined}
       data-chat-target-type="page"
       className={cn(
-        "!mb-5 flex items-center justify-between gap-3 text-xs",
+        "!mb-5 flex w-full min-w-0 items-center justify-between gap-3 text-xs",
         className,
       )}
     >
-      <div className="flex min-w-0 items-center gap-2 rounded-full border border-slate-200/90 bg-white/80 px-3 py-1.5 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden rounded-full border border-slate-200/90 bg-white/80 px-3 py-1.5 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/70">
         <Route className="h-3.5 w-3.5 shrink-0 text-brand-primary/70" aria-hidden="true" />
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
           <span className="truncate">{surface.scope}</span>

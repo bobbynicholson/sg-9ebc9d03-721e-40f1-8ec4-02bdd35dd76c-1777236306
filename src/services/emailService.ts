@@ -19,6 +19,7 @@ export interface EmailSettings {
   provider: string | null;
   from_name: string | null;
   from_email: string | null;
+  archive_copy_email?: string | null;
   smtp_host: string | null;
   smtp_port: number | null;
   smtp_user: string | null;
@@ -247,6 +248,18 @@ function dedupeRepeatedSignoffLines(
   return out.join("\n");
 }
 
+function extractPrimaryEmailAddress(value: string | null | undefined): string {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  const angleMatch = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  if (angleMatch) {
+    return angleMatch[0].toLowerCase();
+  }
+
+  return text.toLowerCase();
+}
+
 export interface EmailSendDetailed {
   success: boolean;
   error?: string;
@@ -282,7 +295,7 @@ export const emailService = {
     const sb = client || supabase;
     const { data, error } = await sb
       .from("email_provider_settings")
-      .select("id, company_id, provider, from_email, from_name, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, smtp_secure, is_verified, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, force_platform_sender, created_at, updated_at")
+      .select("id, company_id, provider, from_email, from_name, archive_copy_email, smtp_host, smtp_port, smtp_user, smtp_pass_encrypted, smtp_secure, is_verified, resend_domain_id, resend_sending_domain, resend_domain_status, resend_domain_verified_at, resend_dns_records, force_platform_sender, created_at, updated_at")
       .eq("company_id", companyId)
       .neq("provider", "mailchimp")
       .order("is_verified", { ascending: false })
@@ -310,6 +323,7 @@ export const emailService = {
       provider: (data as any).provider,
       from_name: (data as any).from_name,
       from_email: (data as any).from_email,
+      archive_copy_email: (data as any).archive_copy_email || null,
       smtp_host: (data as any).smtp_host,
       smtp_port: port && !isNaN(port) ? port : null,
       smtp_user: (data as any).smtp_user,
@@ -384,6 +398,41 @@ export const emailService = {
     };
     if (email) fallback.replyTo = email;
     return fallback;
+  },
+
+  async resolveArchiveCopyEmail(companyId: string | null | undefined, config: EmailSettings | null | undefined, client?: any): Promise<string | undefined> {
+    const explicitArchiveEmail = extractPrimaryEmailAddress(config?.archive_copy_email ?? undefined);
+    if (explicitArchiveEmail) {
+      return explicitArchiveEmail;
+    }
+
+    if (!companyId) {
+      return undefined;
+    }
+
+    const sb = client || supabase;
+
+    const companyResult = await sb
+      .from("companies")
+      .select("email")
+      .eq("id", companyId)
+      .limit(1)
+      .maybeSingle();
+
+    const companyEmail = extractPrimaryEmailAddress((companyResult?.data as any)?.email ?? undefined);
+    if (companyEmail) {
+      return companyEmail;
+    }
+
+    const adminResult = await sb
+      .from("profiles")
+      .select("email")
+      .eq("company_id", companyId)
+      .in("role", ["owner", "company_admin", "admin"])
+      .limit(1)
+      .maybeSingle();
+
+    return extractPrimaryEmailAddress((adminResult?.data as any)?.email ?? undefined) || undefined;
   },
 
   /**
@@ -929,6 +978,13 @@ export const emailService = {
       // resolveFromAddress selects the verified custom domain or shared sender.
       // A mismatched From address uses the shared sender as well.
       let providerResult: { ok: true } | { ok: false; status?: number; body?: any; message: string; code?: string } | null = null;
+      const archiveCopyEmail = await this.resolveArchiveCopyEmail(payload.companyId, config, sb);
+      const normalizedArchiveCopyEmail = extractPrimaryEmailAddress(archiveCopyEmail);
+      const normalizedRecipientEmail = extractPrimaryEmailAddress(payload.to);
+      const archiveCopyBcc = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(archiveCopyEmail)
+        && normalizedArchiveCopyEmail !== normalizedRecipientEmail
+        ? archiveCopyEmail
+        : undefined;
 
       if (config.provider === 'resend' && process.env.RESEND_API_KEY) {
         const { from, replyTo } = this.resolveFromAddress(config);
@@ -956,6 +1012,7 @@ export const emailService = {
           idempotencyKey: payload.idempotencyKey,
           from,
           to: payload.to,
+          ...(archiveCopyBcc ? { bcc: archiveCopyBcc } : {}),
           subject: finalSubject,
           html: finalBody,
           attachments: payload.attachments,
@@ -976,6 +1033,7 @@ export const emailService = {
         providerResult = await this.sendViaSMTP(config, {
           from,
           to: payload.to,
+          ...(archiveCopyBcc ? { bcc: archiveCopyBcc } : {}),
           subject: finalSubject,
           html: finalBody,
           attachments: payload.attachments,
@@ -1194,6 +1252,7 @@ export const emailService = {
     to: string;
     subject: string;
     html: string;
+    bcc?: string;
     attachments?: EmailAttachment[];
     replyTo?: string;
     headers?: Record<string, string>;
@@ -1209,6 +1268,7 @@ export const emailService = {
       const resendBody: any = {
         from: emailData.from,
         to: emailData.to,
+        ...(emailData.bcc ? { bcc: emailData.bcc } : {}),
         subject: emailData.subject,
         html: emailData.html,
       };
@@ -1290,6 +1350,7 @@ export const emailService = {
   async sendViaSMTP(config: EmailSettings, emailData: {
     from: string;
     to: string;
+    bcc?: string;
     subject: string;
     html: string;
     attachments?: EmailAttachment[];
@@ -1339,6 +1400,7 @@ export const emailService = {
       const sendPayload: any = {
         from: emailData.from,
         to: emailData.to,
+        ...(emailData.bcc ? { bcc: emailData.bcc } : {}),
         subject: emailData.subject,
         html: emailData.html,
       };

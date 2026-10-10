@@ -59,7 +59,7 @@ export function MetricCard({
         className="pointer-events-none absolute left-0 top-0 h-[2px] w-10 rounded-br-full bg-gradient-to-r from-brand-primary/70 to-transparent"
       />
       <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
-        <CardTitle className="flex items-start justify-between gap-2 text-xs sm:text-sm font-medium">
+        <CardTitle className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5 text-xs sm:text-sm font-medium">
           <span className="flex items-center gap-1.5 sm:gap-2 min-w-0">
             {Icon && <Icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${iconColor}`} />}
             {/* Wrap instead of truncate - "Outstandin..." next to a wide
@@ -78,12 +78,12 @@ export function MetricCard({
         {loading ? (
           <div className="h-7 sm:h-8 md:h-9 w-24 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
         ) : (
-          <div className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+          <div className="text-xl sm:text-2xl xl:text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums break-words">
             {value}
           </div>
         )}
         {hint && (
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{hint}</p>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 break-words">{hint}</p>
         )}
       </CardContent>
     </Card>

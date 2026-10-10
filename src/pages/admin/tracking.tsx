@@ -95,7 +95,7 @@ const AdminTrackingMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[600px] items-center justify-center rounded-md border border-slate-200 bg-slate-50">
+      <div className="flex h-[420px] sm:h-[520px] lg:h-[600px] items-center justify-center rounded-md border border-slate-200 bg-slate-50">
         <div className="flex flex-col items-center gap-2 text-slate-500">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
           <p className="text-sm">Loading live map...</p>
@@ -669,12 +669,16 @@ function AdminTrackingInner() {
               ) : null
             }
             actions={
-              <Link href={withSlug("/admin/orders")}>
-                <Button variant="outline" className="gap-1.5">
-                  <ExternalLink className="w-4 h-4" />
-                  All orders
-                </Button>
-              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadTrackingData}
+                disabled={loading}
+                className="gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+              >
+                <RefreshCw className={"h-4 w-4 " + (loading ? "animate-spin" : "")} />
+                Refresh
+              </Button>
             }
           />
           <PageWorkbench />
@@ -740,13 +744,13 @@ function AdminTrackingInner() {
               non-zero. Skeletons render inside the shell during the
               first load so the rail never disappears. */}
           {loading && orders.length === 0 ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" aria-hidden="true">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6" aria-hidden="true">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-28 animate-pulse rounded-xl border border-slate-200/90 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
               <StatTile
                 label={operationsScope === "today" ? "Today" : "Shown"}
                 value={scopedOrders.length}
@@ -802,7 +806,7 @@ function AdminTrackingInner() {
                   </div>
                 </div>
 
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[180px_180px_repeat(4,minmax(0,1fr))]">
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[180px_180px_repeat(4,minmax(0,1fr))]">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="h-10 w-full">
                       <SelectValue placeholder="Filter by status" />
@@ -925,12 +929,12 @@ function AdminTrackingInner() {
             </TabsList>
 
             <TabsContent id="tracking-map" data-chat-section="admin.tracking.map" data-chat-section-label="Tracking map" value="map">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* Map */}
-                <PortalCard className="lg:col-span-2">
+                <PortalCard className="xl:col-span-2">
                   <PortalCardHeader title={<>Live tracking map <InfoTooltip content={"Pins for every active venue and the last known position of each driver.\n\nDriver pins update as their devices report new locations."} /></>} />
                   <div>
-                    <div className="h-[600px] relative">
+                    <div className="h-[420px] sm:h-[520px] xl:h-[600px] relative">
                       {/* TIGHTEN I.27: wrap the live map in a
                           WidgetErrorBoundary so a leaflet render
                           crash or a chunk-load failure renders an

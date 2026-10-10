@@ -14,7 +14,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Menu,
   ChevronRight,
@@ -463,9 +462,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
     mobile = false,
     hideSignOut = false,
   }: { mobile?: boolean; hideSignOut?: boolean } = {}) => (
-    <ScrollArea
-      className="h-full px-3 py-4"
-    >
+    // A native vertical scroller deliberately lives here instead of the
+    // Radix ScrollArea. Its viewport reserves scrollbar space but its
+    // generated content wrapper stayed at the pre-scrollbar width, clipping
+    // roughly 25px of the admin drawer at tablet / split-screen widths.
+    <div className="h-full min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4">
       <div className="space-y-4">
         {mobile && (
           <div className="space-y-3">
@@ -532,7 +533,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
           </div>
         )}
       </div>
-    </ScrollArea>
+    </div>
   );
 
   return (
@@ -579,7 +580,11 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               <SheetContent
                 side="left"
                 className={cn(
-                  "w-[300px] sm:w-[350px] max-w-[85vw] p-0 flex flex-col",
+                  // A full admin rail needs enough room for the company
+                  // controls, quick actions and long section names. Use a
+                  // wider sheet in the split-screen/DevTools range while
+                  // keeping a small viewport from exceeding its width.
+                  "w-[min(22rem,88vw)] sm:w-[min(26rem,88vw)] max-w-none min-w-0 overflow-x-hidden p-0 flex flex-col",
                   forceDark && "dark border-slate-800 bg-slate-950 text-slate-100",
                   forceBrand && cn("dark border-black/10 text-white", BRAND_SURFACE),
                 )}
@@ -605,7 +610,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                     </div>
                   </Link>
                 </div>
-                <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
                   <NavBody mobile hideSignOut />
                 </div>
                 {/* Pinned sign-out so the operator can always leave --
@@ -725,7 +730,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
               ref always resolved to undefined and useNavScrollRestore
               attached to nothing - the desktop menu reset to the top on
               every navigation. */}
-          <ScrollArea ref={desktopScrollRef} className="flex-1 px-3 py-4">
+          <div ref={desktopScrollRef} className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4">
             <div className="space-y-4">
               {/* Wave 70.7 - desktop top slot (service mode + live state) */}
               {config.renderTopSlot && !isCollapsed && (
@@ -768,7 +773,7 @@ export function PortalSidebar({ config }: PortalSidebarProps) {
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
 
           <div
             className={cn(

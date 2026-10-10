@@ -1,0 +1,553 @@
+[
+  {
+    "page": "/admin/client-search",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/event-profitability",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full min-w-[1120px] text-left text-sm",
+            "w": 1120,
+            "right": 1137,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "border-b border-brand-primary/20 bg-brand-primary/5 text-xs uppercase tracking-wide text-b",
+            "w": 1120,
+            "right": 1137,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1137,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "px-4 py-3 text-right",
+            "w": 139,
+            "right": 1137,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "divide-y divide-slate-100 dark:divide-slate-800",
+            "w": 1120,
+            "right": 1137,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1137,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full min-w-[1120px] text-left text-sm",
+            "w": 1120,
+            "right": 1165,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "border-b border-brand-primary/20 bg-brand-primary/5 text-xs uppercase tracking-wide text-b",
+            "w": 1120,
+            "right": 1165,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1165,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "px-4 py-3 text-right",
+            "w": 139,
+            "right": 1165,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "divide-y divide-slate-100 dark:divide-slate-800",
+            "w": 1120,
+            "right": 1165,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1165,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full min-w-[1120px] text-left text-sm",
+            "w": 1120,
+            "right": 1465,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "border-b border-brand-primary/20 bg-brand-primary/5 text-xs uppercase tracking-wide text-b",
+            "w": 1120,
+            "right": 1465,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1465,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "px-4 py-3 text-right",
+            "w": 139,
+            "right": 1465,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "divide-y divide-slate-100 dark:divide-slate-800",
+            "w": 1120,
+            "right": 1465,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1465,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full min-w-[1120px] text-left text-sm",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "border-b border-brand-primary/20 bg-brand-primary/5 text-xs uppercase tracking-wide text-b",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "px-4 py-3 text-right",
+            "w": 139,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "divide-y divide-slate-100 dark:divide-slate-800",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full min-w-[1120px] text-left text-sm",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "border-b border-brand-primary/20 bg-brand-primary/5 text-xs uppercase tracking-wide text-b",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "px-4 py-3 text-right",
+            "w": 139,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "divide-y divide-slate-100 dark:divide-slate-800",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 1120,
+            "right": 1497,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/kitchen-staff",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/payment-issues",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/onboarding/receipts",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/orders/delivery-sheet",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/outsource-providers/[id]",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  }
+]

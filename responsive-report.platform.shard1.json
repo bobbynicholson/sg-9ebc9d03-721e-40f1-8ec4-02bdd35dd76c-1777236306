@@ -1,0 +1,553 @@
+[
+  {
+    "page": "/admin/platform/company-database",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full caption-bottom text-sm",
+            "w": 874,
+            "right": 908,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-300 [&_tr]:border-b",
+            "w": 874,
+            "right": 908,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-200 transition-colors hover:bg-slate-50 data-[state=selected]:bg-sla",
+            "w": 874,
+            "right": 908,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "h-10 px-3 align-middle text-xs font-semibold text-slate-600 dark:text-slate-300 [&:has([ro",
+            "w": 160,
+            "right": 908,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "[&_tr:last-child]:border-0",
+            "w": 874,
+            "right": 908,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-200 data-[state=selected]:bg-slate-100 dark:border-slate-800 dark:da",
+            "w": 874,
+            "right": 908,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full caption-bottom text-sm",
+            "w": 874,
+            "right": 920,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-300 [&_tr]:border-b",
+            "w": 874,
+            "right": 920,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-200 transition-colors hover:bg-slate-50 data-[state=selected]:bg-sla",
+            "w": 874,
+            "right": 920,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "h-10 px-3 align-middle text-xs font-semibold text-slate-600 dark:text-slate-300 [&:has([ro",
+            "w": 160,
+            "right": 920,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "[&_tr:last-child]:border-0",
+            "w": 874,
+            "right": 920,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-200 data-[state=selected]:bg-slate-100 dark:border-slate-800 dark:da",
+            "w": 874,
+            "right": 920,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full caption-bottom text-sm",
+            "w": 874,
+            "right": 1220,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-300 [&_tr]:border-b",
+            "w": 874,
+            "right": 1220,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-200 transition-colors hover:bg-slate-50 data-[state=selected]:bg-sla",
+            "w": 874,
+            "right": 1220,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "h-10 px-3 align-middle text-xs font-semibold text-slate-600 dark:text-slate-300 [&:has([ro",
+            "w": 160,
+            "right": 1220,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "[&_tr:last-child]:border-0",
+            "w": 874,
+            "right": 1220,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-200 data-[state=selected]:bg-slate-100 dark:border-slate-800 dark:da",
+            "w": 874,
+            "right": 1220,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/platform/subscription-management",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/platform/trial-management",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/financial-dashboard",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/tech-costs",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/cms-blog",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/tax-rules",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full text-xs",
+            "w": 408,
+            "right": 441,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "",
+            "w": 408,
+            "right": 441,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "text-left text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400 border-b ",
+            "w": 408,
+            "right": 441,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "py-1.5 text-right",
+            "w": 28,
+            "right": 441,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "divide-y divide-slate-100 dark:divide-slate-800",
+            "w": 408,
+            "right": 441,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "",
+            "w": 408,
+            "right": 441,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 440,
+            "text": "Quick searchCtrl KBWBobby WhitcherPlatfo",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @440",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/settings",
+    "results": {
+      "mobile": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  }
+]

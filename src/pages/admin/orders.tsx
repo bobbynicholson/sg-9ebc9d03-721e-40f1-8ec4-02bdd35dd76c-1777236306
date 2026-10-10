@@ -132,7 +132,6 @@ import { UserRole } from "@/types/app";
 import { useToast } from "@/hooks/use-toast";
 import { ClientLinkButton } from "@/components/admin/ClientLinkButton";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { usePromptDialog } from "@/components/ui/confirm-dialog";
 import { AmendmentsTab } from "@/components/admin/AmendmentsTab";
 import { CancellationRequestsTab } from "@/components/admin/CancellationRequestsTab";
 import {
@@ -145,7 +144,6 @@ import {
 } from "@/components/admin/MenuItemTypeahead";
 import { syncOrderArtifacts } from "@/services/order/orderSyncService";
 import { logPiiAccess } from "@/services/piiAccessLogService";
-import { OrderNotesThread } from "@/components/admin/OrderNotesThread";
 import { OutsourcedFulfilmentPanel } from "@/components/admin/orders/OutsourcedFulfilmentPanel";
 import { downloadOrderIcs } from "@/lib/orderToIcs";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
@@ -159,6 +157,7 @@ import { formatDate } from "@/lib/formatters";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
 import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
+import { useServiceAreaEmailAvailability } from "@/hooks/useServiceAreaEmailAvailability";
 
 // OrderStats type + STATUS_CONFIG + WORKFLOW_STAGES + helpers
 // extracted to sibling files in the P2-13 Phase B split. Imported
@@ -168,13 +167,11 @@ function OrderProcessDashboard() {
   const { user } = useAuth();
   // "Email" button on each order row (shared client email drawer).
   const [emailOrder, setEmailOrder] = useState<any | null>(null);
+  const [emailOrderDefaultOptionId, setEmailOrderDefaultOptionId] = useState<string | null>(null);
+  const canEmailOutsideArea = useServiceAreaEmailAvailability(user?.company_id);
   const { regionFilterId } = useRegionFilter();
   const { toast } = useToast();
   const router = useRouter();
-  // In-app prompt for naming a saved view (replaces window.prompt,
-  // which renders as bare OS chrome and is suppressed in some embedded
-  // webviews). promptDialog is rendered once near the page dialogs.
-  const { prompt, promptDialog } = usePromptDialog();
   // Wave 26.1: tenant-slug wrapper for the toolbar Links + the
   // router.push("/admin/order-assignments") in the Cmd+N shortcut.
   // Without this, the operator on /spit-braai-delivery/admin/orders
@@ -350,6 +347,8 @@ function OrderProcessDashboard() {
   // can save the current filter snapshot as a named chip and snap
   // back with one click. Stored in localStorage per browser.
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [savedViewDialogOpen, setSavedViewDialogOpen] = useState(false);
+  const [savedViewName, setSavedViewName] = useState("");
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -372,23 +371,19 @@ function OrderProcessDashboard() {
       /* storage blocked */
     }
   }, [savedViews]);
-  const saveCurrentView = async () => {
-    if (typeof window === "undefined") return;
-    const name = await prompt({
-      title: "Save this view",
-      description:
-        "Snap the current filters into a named chip you can snap back to.",
-      label: "View name",
-      placeholder: "e.g. JHB next 7 days",
-      confirmLabel: "Save view",
-    });
-    if (!name || !name.trim()) return;
+  const saveCurrentView = () => {
+    setSavedViewName("");
+    setSavedViewDialogOpen(true);
+  };
+  const submitSavedView = () => {
+    const name = savedViewName.trim();
+    if (!name) return;
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     setSavedViews((prev) => [
-      ...prev.filter((v) => v.name.toLowerCase() !== name.trim().toLowerCase()),
+      ...prev.filter((v) => v.name.toLowerCase() !== name.toLowerCase()),
       {
         id,
-        name: name.trim(),
+        name,
         searchTerm,
         statusFilter,
         dateFilter,
@@ -396,6 +391,7 @@ function OrderProcessDashboard() {
         dateTo,
       },
     ]);
+    setSavedViewDialogOpen(false);
   };
   const applySavedView = (v: SavedView) => {
     setSearchTerm(v.searchTerm);
@@ -2184,7 +2180,7 @@ function OrderProcessDashboard() {
                     ? `Showing ${pendingAmendmentCount} order${pendingAmendmentCount === 1 ? "" : "s"} with a pending amendment`
                     : `Showing ${pendingCancellationCount} order${pendingCancellationCount === 1 ? "" : "s"} with a pending cancellation`}
                   <button
-                    type="button"
+                      type="button"
                     onClick={() => setStatusFilter("all")}
                     className="ml-1 rounded-full hover:bg-amber-200 p-0.5"
                     aria-label="Clear pending-request filter"
@@ -2301,8 +2297,8 @@ function OrderProcessDashboard() {
                   }}
                 />
               ) : (
-                <div className="overflow-x-auto pb-4">
-                  <div className="flex gap-6 min-w-max px-1">
+                <div className="pb-4 sm:overflow-x-auto">
+                  <div className="flex flex-col gap-6 px-1 sm:flex-row sm:min-w-max">
                     <KanbanColumn
                       status="pending"
                       title="Pending"
@@ -2311,6 +2307,11 @@ function OrderProcessDashboard() {
                       currencySymbol={C}
                       setSelectedOrder={setSelectedOrder}
                       setIsModalOpen={setIsModalOpen}
+                      onOutsideAreaEmail={(o) => {
+                        setEmailOrderDefaultOptionId("outside_service_area");
+                        setEmailOrder(o);
+                      }}
+                      canEmailOutsideArea={canEmailOutsideArea}
                     />
                     <KanbanColumn
                       status="confirmed"
@@ -2320,6 +2321,11 @@ function OrderProcessDashboard() {
                       currencySymbol={C}
                       setSelectedOrder={setSelectedOrder}
                       setIsModalOpen={setIsModalOpen}
+                      onOutsideAreaEmail={(o) => {
+                        setEmailOrderDefaultOptionId("outside_service_area");
+                        setEmailOrder(o);
+                      }}
+                      canEmailOutsideArea={canEmailOutsideArea}
                     />
                     <KanbanColumn
                       status="preparing"
@@ -2329,6 +2335,11 @@ function OrderProcessDashboard() {
                       currencySymbol={C}
                       setSelectedOrder={setSelectedOrder}
                       setIsModalOpen={setIsModalOpen}
+                      onOutsideAreaEmail={(o) => {
+                        setEmailOrderDefaultOptionId("outside_service_area");
+                        setEmailOrder(o);
+                      }}
+                      canEmailOutsideArea={canEmailOutsideArea}
                     />
                     <KanbanColumn
                       status="ready"
@@ -2338,6 +2349,11 @@ function OrderProcessDashboard() {
                       currencySymbol={C}
                       setSelectedOrder={setSelectedOrder}
                       setIsModalOpen={setIsModalOpen}
+                      onOutsideAreaEmail={(o) => {
+                        setEmailOrderDefaultOptionId("outside_service_area");
+                        setEmailOrder(o);
+                      }}
+                      canEmailOutsideArea={canEmailOutsideArea}
                     />
                     <KanbanColumn
                       status="in_transit"
@@ -2347,6 +2363,11 @@ function OrderProcessDashboard() {
                       currencySymbol={C}
                       setSelectedOrder={setSelectedOrder}
                       setIsModalOpen={setIsModalOpen}
+                      onOutsideAreaEmail={(o) => {
+                        setEmailOrderDefaultOptionId("outside_service_area");
+                        setEmailOrder(o);
+                      }}
+                      canEmailOutsideArea={canEmailOutsideArea}
                     />
                     <KanbanColumn
                       status="delivered"
@@ -2356,6 +2377,11 @@ function OrderProcessDashboard() {
                       currencySymbol={C}
                       setSelectedOrder={setSelectedOrder}
                       setIsModalOpen={setIsModalOpen}
+                      onOutsideAreaEmail={(o) => {
+                        setEmailOrderDefaultOptionId("outside_service_area");
+                        setEmailOrder(o);
+                      }}
+                      canEmailOutsideArea={canEmailOutsideArea}
                     />
                     <KanbanColumn
                       status="completed"
@@ -2365,6 +2391,11 @@ function OrderProcessDashboard() {
                       currencySymbol={C}
                       setSelectedOrder={setSelectedOrder}
                       setIsModalOpen={setIsModalOpen}
+                      onOutsideAreaEmail={(o) => {
+                        setEmailOrderDefaultOptionId("outside_service_area");
+                        setEmailOrder(o);
+                      }}
+                      canEmailOutsideArea={canEmailOutsideArea}
                     />
                     {/* Paused isn't part of the linear workflow, so it
                       had no column - a paused order silently dropped
@@ -2380,6 +2411,11 @@ function OrderProcessDashboard() {
                         currencySymbol={C}
                         setSelectedOrder={setSelectedOrder}
                         setIsModalOpen={setIsModalOpen}
+                        onOutsideAreaEmail={(o) => {
+                          setEmailOrderDefaultOptionId("outside_service_area");
+                          setEmailOrder(o);
+                        }}
+                        canEmailOutsideArea={canEmailOutsideArea}
                       />
                     )}
                     {/* Cancelled is hidden by default (the status memo
@@ -2395,6 +2431,11 @@ function OrderProcessDashboard() {
                         currencySymbol={C}
                         setSelectedOrder={setSelectedOrder}
                         setIsModalOpen={setIsModalOpen}
+                        onOutsideAreaEmail={(o) => {
+                          setEmailOrderDefaultOptionId("outside_service_area");
+                          setEmailOrder(o);
+                        }}
+                        canEmailOutsideArea={canEmailOutsideArea}
                       />
                     )}
                   </div>
@@ -2481,7 +2522,15 @@ function OrderProcessDashboard() {
                             setSelectedOrder={setSelectedOrder}
                             setIsModalOpen={setIsModalOpen}
                             withSlug={withSlug}
-                            onEmail={(o) => setEmailOrder(o)}
+                            onEmail={(o) => {
+                              setEmailOrderDefaultOptionId("fully_booked");
+                              setEmailOrder(o);
+                            }}
+                            canEmailOutsideArea={canEmailOutsideArea}
+                            onOutsideAreaEmail={(o) => {
+                              setEmailOrderDefaultOptionId("outside_service_area");
+                              setEmailOrder(o);
+                            }}
                           />
                         ))}
                       </>
@@ -2491,8 +2540,51 @@ function OrderProcessDashboard() {
               </div>
             )}
 
-            {/* In-app prompt for the "Save view" name. */}
-            {promptDialog}
+            {/* Keep saved-view naming in the app frame rather than falling back
+                to a browser prompt (which is suppressed in some webviews). */}
+            <Dialog
+              open={savedViewDialogOpen}
+              onOpenChange={setSavedViewDialogOpen}
+            >
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Save this view</DialogTitle>
+                  <DialogDescription>
+                    Save the current filters as a named view you can return to.
+                  </DialogDescription>
+                </DialogHeader>
+                <form
+                  className="space-y-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    submitSavedView();
+                  }}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="saved-order-view-name">View name</Label>
+                    <Input
+                      id="saved-order-view-name"
+                      autoFocus
+                      value={savedViewName}
+                      onChange={(event) => setSavedViewName(event.target.value)}
+                      placeholder="e.g. JHB next 7 days"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSavedViewDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={!savedViewName.trim()}>
+                      Save view
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
 
             {/* Order Details Modal */}
             {/* Email button drawer: "We're fully booked" / blank. */}
@@ -2505,6 +2597,7 @@ function OrderProcessDashboard() {
                 const senderName = (user as any)?.full_name || "";
                 return (
                   <ClientEmailDrawer
+                    key={`${o.id}:${emailOrderDefaultOptionId || "default"}`}
                     title={`Email ${o.client_name || "the client"}`}
                     contextLabel="This order"
                     contextRows={[
@@ -2516,7 +2609,7 @@ function OrderProcessDashboard() {
                     ]}
                     recipient={{
                       name: o.client_name || "there",
-                      email: o.client_email || null,
+                      email: o.client_email || o.client?.email || o.clients?.email || null,
                       phone: o.client_phone || null,
                       clientId: o.client_id || null,
                     }}
@@ -2530,6 +2623,8 @@ function OrderProcessDashboard() {
                       guest_count: o.guest_count ?? "",
                     }}
                     orderId={o.id}
+                    defaultOptionId={emailOrderDefaultOptionId || undefined}
+                    showServiceAreaOption={canEmailOutsideArea}
                     onClose={() => setEmailOrder(null)}
                   />
                 );

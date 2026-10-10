@@ -90,8 +90,8 @@ export function Layout({
       {showNav && user && <DynamicNav userRole={user.active_role || user.role} />}
 
       {/* Main Content */}
-      <main className="relative z-0 flex-1">
-        <div className={`${innerAlignment} px-4 sm:px-6 lg:px-8 py-8 ${innerMaxWidth}`}>
+      <main className="relative z-0 flex-1 min-w-0">
+        <div className={`${innerAlignment} min-w-0 px-4 sm:px-6 lg:px-8 py-8 ${innerMaxWidth}`}>
           {isPortal && showWorkbench && <PageWorkbench />}
           {children}
         </div>

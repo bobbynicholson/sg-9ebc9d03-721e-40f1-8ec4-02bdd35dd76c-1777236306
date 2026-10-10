@@ -34,8 +34,8 @@ describe("application sender routing", () => {
     });
     function client() {
       const q: any = { then: (resolve: any) => Promise.resolve({ data: null, error: null }).then(resolve) };
-      for (const method of ["select", "eq", "limit"]) q[method] = () => q;
-      q.maybeSingle = async () => ({ data: { company_name: "Team" }, error: null });
+      for (const method of ["select", "eq", "limit", "in"]) q[method] = () => q;
+      q.maybeSingle = async () => ({ data: { company_name: "Team", email: "admin@spitbraaidelivery.co.za" }, error: null });
       return { from: () => q };
     }
     it.each([
@@ -48,6 +48,98 @@ describe("application sender routing", () => {
       const result = await emailService.sendEmailDetailed({ companyId: "company", to: "person@example.net", subject: "Hello", body: "<html>Hello</html>", bypassQuarantine: true, skipUnsubscribeFooter: true, _client: client() });
       expect(result.success).toBe(true);
       expect(transport).toHaveBeenCalledWith(expect.objectContaining({ from: expectedFrom }));
+    });
+    it.each([
+      ["resend", "sendViaResend"],
+      ["smtp", "sendViaSMTP"],
+    ])("blind-copies %s tenant sends to the configured archive mailbox", async (provider, transportName) => {
+      const archiveConfig = {
+        ...config,
+        provider,
+        archive_copy_email: "archive@example.com",
+        ...(provider === "smtp" ? { smtp_host: "smtp.example.com", smtp_port: 587, smtp_user: "user", smtp_password: "pass" } : {}),
+      } as EmailSettings;
+      jest.spyOn(emailService, "getEmailConfig").mockResolvedValue(archiveConfig);
+      jest.spyOn(emailService, "logEmailSent").mockResolvedValue(null);
+      const transport = jest.spyOn(emailService, transportName as "sendViaResend" | "sendViaSMTP").mockResolvedValue({ ok: true } as any);
+
+      const result = await emailService.sendEmailDetailed({
+        companyId: "company",
+        to: "person@example.net",
+        subject: "Hello",
+        body: "<html>Hello</html>",
+        bypassQuarantine: true,
+        skipUnsubscribeFooter: true,
+        _client: client(),
+      });
+
+      expect(result.success).toBe(true);
+      if (provider === "resend") {
+        expect(transport).toHaveBeenCalledWith(expect.objectContaining({ bcc: "archive@example.com" }));
+      } else {
+        expect(transport).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ bcc: "archive@example.com" }));
+      }
+    });
+
+    it("does not send a duplicate BCC when the archive mailbox is the main recipient", async () => {
+      jest.spyOn(emailService, "getEmailConfig").mockResolvedValue({
+        ...config,
+        archive_copy_email: "person@example.net",
+      });
+      jest.spyOn(emailService, "logEmailSent").mockResolvedValue(null);
+      const transport = jest.spyOn(emailService, "sendViaResend").mockResolvedValue({ ok: true });
+
+      const result = await emailService.sendEmailDetailed({
+        companyId: "company",
+        to: "Person <person@example.net>",
+        subject: "Hello",
+        body: "<html>Hello</html>",
+        bypassQuarantine: true,
+        skipUnsubscribeFooter: true,
+        _client: client(),
+      });
+
+      expect(result.success).toBe(true);
+      expect(transport).toHaveBeenCalledTimes(1);
+      expect(transport.mock.calls[0][0]).toEqual(expect.objectContaining({ to: "Person <person@example.net>" }));
+      expect(transport.mock.calls[0][0].bcc).toBeUndefined();
+    });
+    it("falls back to the company admin email when no archive copy is configured", async () => {
+      jest.spyOn(emailService, "getEmailConfig").mockResolvedValue({
+        ...config,
+        archive_copy_email: null,
+      } as EmailSettings);
+      jest.spyOn(emailService, "logEmailSent").mockResolvedValue(null);
+      const transport = jest.spyOn(emailService, "sendViaResend").mockResolvedValue({ ok: true });
+
+      const client = {
+        from: (table: string) => {
+          const query: any = {
+            select: () => query,
+            eq: () => query,
+            in: () => query,
+            limit: () => query,
+            maybeSingle: async () => ({
+              data: table === "companies" ? { email: "admin@spitbraaidelivery.co.za" } : null,
+              error: null,
+            }),
+          };
+          return query;
+        },
+      };
+
+      const result = await emailService.sendEmailDetailed({
+        companyId: "company",
+        to: "person@example.net",
+        subject: "Hello",
+        body: "<html>Hello</html>",
+        bypassQuarantine: true,
+        skipUnsubscribeFooter: true,
+        _client: client as any,
+      });
+
+      expect(result.success).toBe(true);
+      expect(transport).toHaveBeenCalledWith(expect.objectContaining({ bcc: "admin@spitbraaidelivery.co.za" }));
     });
     it("reports a missing local key without attempting delivery", async () => {
       delete process.env.RESEND_API_KEY;

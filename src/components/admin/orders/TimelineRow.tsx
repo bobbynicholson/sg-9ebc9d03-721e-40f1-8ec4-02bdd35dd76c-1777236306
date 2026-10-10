@@ -48,6 +48,8 @@ interface Props {
   /** Optional: show an "Email" button that emails the client (e.g. "We're
    *  fully booked"). Omitted -> no button, row unchanged. */
   onEmail?: (o: AppOrder) => void;
+  onOutsideAreaEmail?: (o: AppOrder) => void;
+  canEmailOutsideArea?: boolean;
 }
 
 /**
@@ -62,11 +64,12 @@ interface Props {
 export function TimelineRow({
   order, amountChange, selectedIds, timelinesById, readinessById, allShiftsByOrder,
   staffProfilesById, currencySymbol, companyId, loadOrders, toggleSelected,
-  setSelectedOrder, setIsModalOpen, withSlug, onEmail,
+  setSelectedOrder, setIsModalOpen, withSlug, onEmail, onOutsideAreaEmail, canEmailOutsideArea,
 }: Props) {
   const { toast } = useToast();
   const router = useRouter();
   const C = currencySymbol;
+  const clientEmail = (order as any).client_email || (order as any).client?.email || (order as any).clients?.email || null;
   const eventDate = new Date(order.event_date);
   const isToday = eventDate.toDateString() === new Date().toDateString();
   const isPast = eventDate < new Date();
@@ -259,21 +262,41 @@ export function TimelineRow({
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
-                  disabled={!(order as any).client_email}
+                  variant="default"
                   onClick={(e) => {
                     e.stopPropagation();
                     onEmail(order);
                   }}
                   className="gap-1.5"
                   aria-label="Tell client we're fully booked"
-                  title={(order as any).client_email
+                  disabled={!clientEmail}
+                  title={clientEmail
                     ? "Open an email to tell the client we're fully booked"
                     : "Add the client's email address to this order to email them"}
                 >
                   <Mail className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Tell client we're fully booked</span>
+                  <span className="hidden sm:inline">Tell client we're full</span>
                   <span className="sm:hidden">Fully booked</span>
+                </Button>
+              )}
+              {onOutsideAreaEmail && canEmailOutsideArea && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOutsideAreaEmail(order);
+                  }}
+                  className="gap-1.5"
+                  aria-label="Email client about service area"
+                  disabled={!clientEmail}
+                  title={clientEmail
+                    ? "Open an editable outside-area email"
+                    : "Open the editable template; add the client's email before sending"}
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  Outside area
                 </Button>
               )}
               <Button

@@ -221,12 +221,23 @@ function DispatchQueuePage() {
   const [interestByOrder, setInterestByOrder] = useState<Record<string, DriverInterestSummary[]>>({});
 
   const searchRef = useRef<HTMLInputElement | null>(null);
+  // Preserve a useful queue during background refreshes. Driver-interest
+  // ratings are supplementary and must not hold up dispatch work.
+  const hasLoadedQueueRef = useRef(false);
+  const loadRequestRef = useRef(0);
 
   // ── Loaders ───────────────────────────────────────────────────────────────
 
   const loadAll = useCallback(async () => {
-    if (!companyId) { setLoading(false); return; }
-    setLoading(true);
+    const requestId = ++loadRequestRef.current;
+    const isInitialLoad = !hasLoadedQueueRef.current;
+    if (!companyId) {
+      if (isInitialLoad) setLoading(false);
+      return;
+    }
+    // Realtime, focus and timezone updates can refresh this often. Avoid
+    // hiding a usable queue for every refresh.
+    if (isInitialLoad) setLoading(true);
     setLoadError(null);
     try {
       const [s, k] = await Promise.all([
@@ -235,9 +246,6 @@ function DispatchQueuePage() {
         // tile so "No driver" doesn't disagree with the table.
         dispatchService.getDispatchKpis(companyId, daysAhead),
       ]);
-      setSettings(s);
-      setKpis(k);
-
       // Window bounds anchored to the tenant wall clock (see the
       // tenantTimezone state above).
       const todayLocal = tenantToday(tenantTimezone);
@@ -292,6 +300,7 @@ function DispatchQueuePage() {
         .range(0, PAGE_CAP - 1);
 
       if (error) {
+        if (requestId !== loadRequestRef.current) return;
         console.error("Order load error:", error);
         setOrders([]);
         setInterestByOrder({});
@@ -305,6 +314,7 @@ function DispatchQueuePage() {
         }));
         return;
       }
+      if (requestId !== loadRequestRef.current) return;
       const mapped: OrderRow[] = (rows || []).map((r: any) => ({
         id: r.id,
         order_number: r.order_number ?? null,
@@ -336,46 +346,48 @@ function DispatchQueuePage() {
         guest_count: r.guest_count ?? null,
         pickup_time: r.pickup_time ?? null,
       }));
+      setSettings(s);
+      setKpis(k);
       setOrders(mapped);
-      setInterestByOrder(
-        await orderDriverInterestService.getInterestedDriversForOrders(
-          companyId,
-          mapped.map((order) => order.id),
-        ),
-      );
       // Wave 70.65: total in the window from PostgREST's
       // Content-Range header (count='exact' on select). Used by
       // the truncation banner so the dispatcher can see when
       // narrowing search or date range is recommended.
       setTotalCount(typeof count === "number" ? count : mapped.length);
+      hasLoadedQueueRef.current = true;
+
+      // Interest/rating history is supplementary. Fetch it after the queue
+      // is usable, so a slow history query cannot trap dispatch on a spinner.
+      void orderDriverInterestService
+        .getInterestedDriversForOrders(companyId, mapped.map((order) => order.id))
+        .then((interest) => {
+          if (requestId === loadRequestRef.current) setInterestByOrder(interest);
+        })
+        .catch((interestError) => {
+          console.warn("[admin/order-assignments] interest enrichment failed:", interestError);
+          if (requestId === loadRequestRef.current) setInterestByOrder({});
+        });
     } catch (e: any) {
-      // Settings / KPI / interest fetch threw. Without this catch the
-      // rejection escaped the callback and the page silently showed a
-      // stale (or empty) queue.
-      console.error("[admin/order-assignments] loadAll failed:", e);
-      setLoadError(e?.message || "The dispatch queue couldn't be loaded.");
+      // A core settings, KPI, or queue request failed. Interest enrichment
+      // is intentionally handled separately so it cannot block the queue.
+      if (requestId === loadRequestRef.current) {
+        console.error("[admin/order-assignments] loadAll failed:", e);
+        setLoadError(e?.message || "The dispatch queue couldn't be loaded.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
   }, [companyId, daysAhead, tenantTimezone]);
 
   useEffect(() => { loadAll(); }, [loadAll, refreshSignal]);
 
-  // Realtime: any order change for THIS tenant refetches KPIs + queue.
-  // Phase 6 audit fix: the channel was previously global with
-  // no postgres_changes filter, so cross-tenant order edits triggered
-  // re-fetches here. Same amplification + row-content-in-transit issue
-  // as /admin/dashboard. Per-tenant channel name + company_id filter
-  // close both. See docs/perf-and-ops.md section 2.
+  // `useOrderRefreshSignal` already tracks order updates, focus, and
+  // visibility. This channel is deliberately limited to assignment-specific
+  // tables so an order edit cannot cause two simultaneous full reloads.
   useEffect(() => {
     if (!companyId) return;
     const sub = supabase
       .channel(`order-assignments:${companyId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` },
-        () => loadAll(),
-      )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "order_assignment_audit", filter: `company_id=eq.${companyId}` },
@@ -824,6 +836,46 @@ function DispatchQueuePage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const exportVisibleQueue = () => {
+    if (filtered.length === 0) {
+      toast({ title: "Nothing to export", description: "Adjust the filter or search until at least one order is visible." });
+      return;
+    }
+    const esc = (v: any) => {
+      if (v == null) return "";
+      const value = String(v).replace(/"/g, '""');
+      return /[",\n]/.test(value) ? '"' + value + '"' : value;
+    };
+    const headers = ["Order", "Client", "Event date", "Event time", "Venue", "Driver", "Chef", "Status", "Total", "Assigned at"];
+    const lines = [headers.join(",")];
+    for (const order of filtered) {
+      lines.push([
+        esc(order.order_number || ""), esc(order.client_name || ""), esc(order.event_date || ""),
+        esc(order.event_time || ""), esc(order.venue || ""), esc(order.assigned_driver_name || ""),
+        esc(order.assigned_chef_name || ""), esc(order.status || ""),
+        esc(Number(order.total_amount || 0).toFixed(2)),
+        esc(order.assigned_at ? new Date(order.assigned_at).toISOString() : ""),
+      ].join(","));
+    }
+    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "order-assignments-" + toLocalISO(new Date()) + ".csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const printVisibleQueue = () => {
+    if (filtered.length === 0) {
+      toast({ title: "Nothing to print", description: "Adjust the filter or search until at least one order is visible." });
+      return;
+    }
+    setTimeout(() => window.print(), 100);
+  };
+
   const assignInterestedDrivers = assignTarget ? interestByOrder[assignTarget.id] || [] : [];
 
   return (
@@ -861,40 +913,15 @@ function DispatchQueuePage() {
             }
             actions={
             <>
-              {/* DI-E: server-side date window selector. Default 30
-                  days covers the dispatcher's planning horizon. 90
-                  is for the "look ahead a quarter" planning view;
-                  14 trims to a tight today + fortnight on busy
-                  tenants. Glass styling for the dark hero band;
-                  options keep dark text for the native popup. */}
-              <select
-                value={daysAhead}
-                onChange={(e) => setDaysAhead(Number(e.target.value) as 14 | 30 | 90)}
-                className="h-9 rounded-md border border-white/15 bg-white/10 px-2 text-sm text-white hover:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 [&>option]:text-slate-900"
-                title="Date window"
-              >
-                <option value={14}>Next 14 days</option>
-                <option value={30}>Next 30 days</option>
-                <option value={90}>Next 90 days</option>
-              </select>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-9 w-9 p-0 text-slate-300 hover:text-white"
-                onClick={loadAll}
-                title="Refresh"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2"
-                onClick={openBulk}
-                disabled={selected.size === 0}
+                className="gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                onClick={loadAll}
+                disabled={loading}
               >
-                <Users className="w-4 h-4" />
-                Bulk assign ({selected.size})
+                <RefreshCw className={"w-4 h-4 " + (loading ? "animate-spin" : "")} />
+                Refresh
               </Button>
               {/* Phase 20 #4: dispatch queue CSV export. Operations
                   lead regularly hands the queue off to a colleague,
@@ -905,7 +932,7 @@ function DispatchQueuePage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2"
+                className="hidden"
                 onClick={() => {
                   if (filtered.length === 0) {
                     toast({ title: "Nothing to export", description: "Adjust the filter / search until at least one order is visible." });
@@ -962,7 +989,7 @@ function DispatchQueuePage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2"
+                className="hidden"
                 onClick={() => {
                   if (filtered.length === 0) {
                     toast({ title: "Nothing to print", description: "Adjust the filter / search until at least one order is visible." });
@@ -982,7 +1009,7 @@ function DispatchQueuePage() {
           {/* KPIs. Kept as custom tiles (not StatTile) because the
               first two are click-to-filter buttons; grid recipe
               matches the command-centre standard. */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <div
               role="button"
               tabIndex={0}
@@ -1090,6 +1117,27 @@ function DispatchQueuePage() {
           {/* Search + filters: one toolbar card. */}
           <PortalCard className="mb-4" padded={false}>
             <div className="p-3">
+            <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
+              <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Queue tools</span>
+              <select
+                value={daysAhead}
+                onChange={(e) => setDaysAhead(Number(e.target.value) as 14 | 30 | 90)}
+                className="h-9 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-primary/30"
+                aria-label="Date window"
+              >
+                <option value={14}>Next 14 days</option>
+                <option value={30}>Next 30 days</option>
+                <option value={90}>Next 90 days</option>
+              </select>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={exportVisibleQueue}>
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={printVisibleQueue}>
+                <Printer className="h-4 w-4" />
+                Print run sheet
+              </Button>
+            </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1158,7 +1206,7 @@ function DispatchQueuePage() {
           {/* Queue table */}
           <PortalCard padded={false} className="overflow-hidden mb-6">
             {/* Header */}
-            <div className="hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider items-center">
+            <div className="hidden xl:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider items-center">
               <div className="flex justify-center">
                 <input
                   type="checkbox"
@@ -1250,7 +1298,6 @@ function DispatchQueuePage() {
                   ? minutesUntilSlaBreach(order.event_date, order.event_time, settings.slaAssignMinutes)
                   : Number.POSITIVE_INFINITY;
                 const isAtRisk = !order.assigned_driver_id && slaSlack <= 0;
-                const isUnassigned = !order.assigned_driver_id;
                 const interestedDrivers = interestByOrder[order.id] || [];
                 const eventDt = order.event_time
                   ? (tenantDateTime(order.event_date, order.event_time) ?? new Date(NaN))
@@ -1261,10 +1308,11 @@ function DispatchQueuePage() {
                   minsToEvent < 1440 ? "text-amber-700 font-semibold" :
                                        "text-slate-700";
 
-                const leftBorder =
-                  isAtRisk     ? "border-l-red-500" :
-                  isUnassigned ? "border-l-amber-500" :
-                                 "border-l-transparent";
+                // Amber is a contained "driver needed" state below; a
+                // full-height amber bar was too easy to mistake for an
+                // unexplained row colour. Reserve the row-edge signal for
+                // genuine SLA breaches only.
+                const leftBorder = isAtRisk ? "border-l-red-500" : "border-l-transparent";
 
                 const isExpanded = expandedRowId === order.id;
 
@@ -1280,7 +1328,7 @@ function DispatchQueuePage() {
                       tabIndex={0}
                       aria-expanded={isExpanded}
                       aria-controls={`dispatch-row-${order.id}-detail`}
-                      className={`hidden md:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/60 focus-visible:ring-offset-1 ${
+                      className={`hidden xl:grid grid-cols-[28px_28px_minmax(0,2fr)_140px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_120px] gap-3 px-4 py-3 items-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/60 focus-visible:ring-offset-1 ${
                         selected.has(order.id) ? "bg-brand-primary/10 hover:bg-brand-primary/15" :
                         isAtRisk ? "hover:bg-rose-50/40" :
                         "hover:bg-slate-50"
@@ -1370,7 +1418,10 @@ function DispatchQueuePage() {
                           </Badge>
                         ) : (
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs text-amber-700 font-medium">Unassigned</span>
+                            <Badge className="border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-800 shadow-none">
+                              <AlertTriangle className="mr-0.5 h-3 w-3" />
+                              Driver needed
+                            </Badge>
                             {interestedDrivers.length > 0 && (
                               <Badge className="text-[10px] font-semibold bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
                                 <Star className="w-3 h-3 mr-0.5" />
@@ -1473,7 +1524,7 @@ function DispatchQueuePage() {
                         for a thumb tap, and stops propagation so the
                         whole card stays a tap-to-expand target. */}
                     <div
-                      className={`md:hidden p-3 cursor-pointer ${
+                      className={`xl:hidden p-3 cursor-pointer ${
                         selected.has(order.id) ? "bg-brand-primary/10" :
                         isAtRisk ? "bg-rose-50/40" :
                         "hover:bg-slate-50"

@@ -1,0 +1,490 @@
+[
+  {
+    "page": "/admin/dashboard",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/quotes",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/regions",
+    "results": {
+      "mobile": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/cashflow-dashboard",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/money-health",
+    "results": {
+      "mobile": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/suppliers",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "error": "Error: page.evaluate: TypeError: Cannot read properties of null (reading 'scroll"
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/teams/kitchen",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 263,
+            "sw": 382,
+            "text": "Quick searchCtrl KSBSpit Braai DeliveryA",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @382",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 442,
+            "text": "Quick searchCtrl KDTDEV TEST COMPANYAdmi",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @442",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/public-holidays",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 263,
+            "sw": 395,
+            "text": "Quick searchCtrl KDTDEV TEST COMPANYAdmi",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @395",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 443,
+            "text": "Quick searchCtrl KDTDEV TEST COMPANYAdmi",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @443",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/kitchen-settlement",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop-s": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "desktop": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/kitchen-settings",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "error": "Error: page.evaluate: TypeError: Cannot read properties of null (reading 'scroll"
+      },
+      "laptop-s": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "desktop": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/audit-logs",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  }
+]

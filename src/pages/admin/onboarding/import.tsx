@@ -454,7 +454,7 @@ function ImportPage() {
 
           {/* Stepper. Each pill has its own info tooltip so a brand-new
               tenant can hover and understand what each step does. */}
-          <div className="mb-6 flex items-center gap-2 text-xs">
+          <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-2 text-xs">
             {(["upload", "mapping", "preview", "commit", "done"] as Step[]).map((s, i) => {
               const active = stepIndex(step) === i;
               const done = stepIndex(step) > i;

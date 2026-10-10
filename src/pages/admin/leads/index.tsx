@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Phone, Mail, Banknote, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download } from "lucide-react";
+import { Plus, Phone, Mail, MapPin, Banknote, TrendingUp, ArrowRight, FileText, ShoppingCart, UserCheck, Clock, Trash2, Send, MailQuestion, RefreshCw, ChevronDown, Download } from "lucide-react";
 import { ConvertLeadDialog } from "@/components/admin/leads/ConvertLeadDialog";
 import {
   DropdownMenu,
@@ -546,6 +546,36 @@ function AdminLeadsInner() {
   // lead can be emailed (e.g. "We're fully booked") without finishing the
   // quote first.
   const [emailLead, setEmailLead] = useState<any | null>(null);
+  const [emailLeadDefaultOptionId, setEmailLeadDefaultOptionId] = useState<string | null>(null);
+  const [serviceAreaEmailConfigured, setServiceAreaEmailConfigured] = useState(false);
+
+  useEffect(() => {
+    const companyId = profile?.company_id || user?.company_id;
+    if (!companyId) {
+      setServiceAreaEmailConfigured(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("companies")
+          .select("dispatch_settings")
+          .eq("id", companyId)
+          .maybeSingle();
+        if (error) throw error;
+        let dispatch = data?.dispatch_settings || {};
+        if (typeof dispatch === "string") dispatch = JSON.parse(dispatch);
+        const hasServedAreas = Array.isArray(dispatch.serviceAreas)
+          && dispatch.serviceAreas.some((area: unknown) => typeof area === "string" && !!area.trim());
+        if (!cancelled) setServiceAreaEmailConfigured(hasServedAreas);
+      } catch (error) {
+        console.warn("[leads] service-area email availability could not be loaded:", error);
+        if (!cancelled) setServiceAreaEmailConfigured(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [profile?.company_id, user?.company_id]);
 
   // Convert-to-order confirmation modal. Replaces the legacy
   // "/admin/quotes/new?fromQuoteId=..." redirect (which only cloned
@@ -1617,9 +1647,28 @@ function AdminLeadsInner() {
                               title={(lead.client_email || lead.email)
                                 ? "Write an email to this lead - for example, to tell them we're fully booked"
                                 : "Add an email address to this lead to email them"}
-                              onClick={() => setEmailLead(lead)}
+                              onClick={() => {
+                                setEmailLeadDefaultOptionId(null);
+                                setEmailLead(lead);
+                              }}
                             >
                               <Mail className="w-3.5 h-3.5 mr-1" /> Email lead
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              aria-label={`Email ${lead.client_name || lead.contact_name || "lead"} about service area`}
+                              title={!(lead.client_email || lead.email)
+                                ? "Add an email address to this lead to email them"
+                                : serviceAreaEmailConfigured
+                                  ? "Open an editable outside-area email"
+                                  : "Open an editable outside-area email; add served areas in Settings > Operations to personalize it"}
+                              onClick={() => {
+                                setEmailLeadDefaultOptionId("outside_service_area");
+                                setEmailLead(lead);
+                              }}
+                            >
+                              <MapPin className="mr-1 h-3.5 w-3.5" /> Outside area
                             </Button>
                             <Button
                               variant="outline"
@@ -1950,6 +1999,7 @@ function AdminLeadsInner() {
           const reply = templateForLeadAction("reply_email", emailLead, fromName, profile?.company_id ?? null);
           return (
             <ClientEmailDrawer
+              key={`${emailLead.id}:${emailLeadDefaultOptionId || "default"}`}
               title={`Email ${emailLead.client_name || emailLead.contact_name || "this lead"}`}
               contextLabel="This lead"
               contextRows={[
@@ -1976,6 +2026,8 @@ function AdminLeadsInner() {
                 guest_count: emailLead.guest_count ?? "",
               }}
               extraOptions={[{ id: "reply", label: "Reply to their enquiry", subject: reply.subject, body: reply.body }]}
+              defaultOptionId={emailLeadDefaultOptionId || undefined}
+              showServiceAreaOption
               onSent={async () => {
                 // Same contact stamp as the suggested-action drawer.
                 try {

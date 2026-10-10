@@ -2751,6 +2751,7 @@ export type Database = {
       }
       email_provider_settings: {
         Row: {
+          archive_copy_email: string | null
           auto_attach_on_order_confirmed: boolean | null
           auto_attach_on_order_status_change: boolean | null
           auto_attach_on_quote_sent: boolean | null
@@ -2785,6 +2786,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archive_copy_email?: string | null
           auto_attach_on_order_confirmed?: boolean | null
           auto_attach_on_order_status_change?: boolean | null
           auto_attach_on_quote_sent?: boolean | null
@@ -2819,6 +2821,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archive_copy_email?: string | null
           auto_attach_on_order_confirmed?: boolean | null
           auto_attach_on_order_status_change?: boolean | null
           auto_attach_on_quote_sent?: boolean | null

@@ -1,0 +1,567 @@
+[
+  {
+    "page": "/admin/platform/dashboard",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [
+          {
+            "tag": "table",
+            "cls": "w-full caption-bottom text-sm",
+            "w": 384,
+            "right": 431,
+            "ox": "visible"
+          },
+          {
+            "tag": "thead",
+            "cls": "bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-300 [&_tr]:border-b",
+            "w": 384,
+            "right": 431,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-200 transition-colors hover:bg-slate-50 data-[state=selected]:bg-sla",
+            "w": 384,
+            "right": 431,
+            "ox": "visible"
+          },
+          {
+            "tag": "th",
+            "cls": "h-10 px-3 text-left align-middle text-xs font-semibold text-slate-600 dark:text-slate-300 ",
+            "w": 61,
+            "right": 431,
+            "ox": "visible"
+          },
+          {
+            "tag": "tbody",
+            "cls": "[&_tr:last-child]:border-0",
+            "w": 384,
+            "right": 431,
+            "ox": "visible"
+          },
+          {
+            "tag": "tr",
+            "cls": "border-b border-slate-200 transition-colors hover:bg-slate-50 data-[state=selected]:bg-sla",
+            "w": 384,
+            "right": 431,
+            "ox": "visible"
+          }
+        ],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 263,
+            "sw": 286,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "div. @286",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": 200
+  },
+  {
+    "page": "/admin/platform/user-management",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": 200
+  },
+  {
+    "page": "/admin/platform/pricing-management",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/currency-monitoring",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/tenant-health",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 263,
+            "sw": 405,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @405",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 443,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @443",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/messaging-templates",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      }
+    },
+    "worst": 0,
+    "status": "pass",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/cms-pages",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 263,
+            "sw": 286,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "div. @286",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 396,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @396",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 443,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @443",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/audit-logs",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "vw": 768,
+        "scrollW": 768,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 263,
+            "sw": 421,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @421",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 336,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @336",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  },
+  {
+    "page": "/admin/platform/running-todo",
+    "results": {
+      "mobile": {
+        "vw": 390,
+        "scrollW": 390,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "tablet": {
+        "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a "
+      },
+      "laptop-s": {
+        "vw": 1024,
+        "scrollW": 1024,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 263,
+            "sw": 430,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @430",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      },
+      "laptop": {
+        "vw": 1280,
+        "scrollW": 1280,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 0,
+        "clipped": []
+      },
+      "desktop": {
+        "vw": 1440,
+        "scrollW": 1440,
+        "overflow": 0,
+        "offenders": [],
+        "clippedCount": 1,
+        "clipped": [
+          {
+            "tag": "div",
+            "cls": "h-full w-full rounded-[inherit]",
+            "cw": 295,
+            "sw": 442,
+            "text": "Quick searchCtrl KDMDEV MODE - Super Adm",
+            "root": "span.absolute inset-0 rounded-md animate-ping opacity-60 bg-white/30 dark:bg-white/20 pointer-events-none @442",
+            "self": "div.h-full w-full rounded-[inherit]"
+          }
+        ]
+      }
+    },
+    "worst": 0,
+    "status": "CLIP",
+    "http": "no-response"
+  }
+]

@@ -1,0 +1,6 @@
+  ok    /admin/clients                           http=no-response 
+ CLIP   /admin/equipment-damages                 http=no-response desktop:1 "Quick searchCtrl KDTDEV TEST COMPANYAdmi" 344>295
+ CLIP   /admin/inventory-tracking                http=no-response desktop:1 "Quick searchCtrl KDTDEV TEST COMPANYAdmi" 442>295
+ CLIP   /admin/platform                          http=no-response laptop-s:1 "Quick searchCtrl KDMDEV MODE - Super Adm" 286>263
+  ok    /admin/onboarding/imports                http=no-response 
+  ok    /admin/integrations/embed/new            http=no-response 

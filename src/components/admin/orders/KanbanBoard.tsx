@@ -22,12 +22,15 @@ interface OrderCardProps {
   currencySymbol: string;
   setSelectedOrder: (o: AppOrder | null) => void;
   setIsModalOpen: (open: boolean) => void;
+  onOutsideAreaEmail?: (order: AppOrder) => void;
+  canEmailOutsideArea?: boolean;
 }
 
-function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setIsModalOpen }: OrderCardProps) {
+function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setIsModalOpen, onOutsideAreaEmail, canEmailOutsideArea }: OrderCardProps) {
   const router = useRouter();
   const { withSlug } = useTenantHref();
   const C = currencySymbol;
+  const clientEmail = (order as any).client_email || (order as any).client?.email || (order as any).clients?.email || null;
   const config = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending;
   const Icon = config.icon;
   const eventDate = new Date(order.event_date);
@@ -167,6 +170,26 @@ function OrderCard({ order, autoEmailMap, currencySymbol, setSelectedOrder, setI
             </span>
             <div className="ml-auto flex items-center gap-1">
               <ClientLinkButton orderId={order.id} companyId={(order as any).company_id} compact />
+              {onOutsideAreaEmail && canEmailOutsideArea && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="h-8 gap-1.5 px-2"
+                  aria-label="Email client about service area"
+                  disabled={!clientEmail}
+                  title={clientEmail
+                    ? "Open an editable outside-area email"
+                    : "Add the client's email address to this order to email them"}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOutsideAreaEmail(order);
+                  }}
+                >
+                  <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Outside area</span>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -224,6 +247,8 @@ interface KanbanColumnProps {
   currencySymbol: string;
   setSelectedOrder: (o: AppOrder | null) => void;
   setIsModalOpen: (open: boolean) => void;
+  onOutsideAreaEmail?: (order: AppOrder) => void;
+  canEmailOutsideArea?: boolean;
 }
 
 /**
@@ -234,7 +259,7 @@ interface KanbanColumnProps {
  */
 export function KanbanColumn({
   status, title, getOrdersByStatus, autoEmailMap, currencySymbol,
-  setSelectedOrder, setIsModalOpen,
+  setSelectedOrder, setIsModalOpen, onOutsideAreaEmail, canEmailOutsideArea,
 }: KanbanColumnProps) {
   const C = currencySymbol;
   const ordersInStatus = getOrdersByStatus(status);
@@ -247,7 +272,7 @@ export function KanbanColumn({
   );
 
   return (
-    <div className="flex flex-col w-[88vw] sm:w-[320px] sm:min-w-[320px] sm:max-w-[320px] flex-shrink-0">
+    <div className="flex w-full min-w-0 flex-col sm:w-[320px] sm:min-w-[320px] sm:max-w-[320px] sm:flex-shrink-0">
       <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-slate-200">
         <div className="flex items-center gap-2 min-w-0">
           <div className={`w-3 h-3 rounded-full shrink-0 ${config.dotColor}`} />
@@ -264,7 +289,7 @@ export function KanbanColumn({
           </Badge>
         </div>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto max-h-[600px] pr-2">
+      <div className="flex-1 space-y-3 pr-2 sm:max-h-[600px] sm:overflow-y-auto">
         {ordersInStatus.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
             <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30" />
@@ -279,6 +304,8 @@ export function KanbanColumn({
               currencySymbol={currencySymbol}
               setSelectedOrder={setSelectedOrder}
               setIsModalOpen={setIsModalOpen}
+              onOutsideAreaEmail={onOutsideAreaEmail}
+              canEmailOutsideArea={canEmailOutsideArea}
             />
           ))
         )}
