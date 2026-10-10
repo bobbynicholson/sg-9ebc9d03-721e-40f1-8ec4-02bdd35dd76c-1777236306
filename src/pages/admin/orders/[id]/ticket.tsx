@@ -10,7 +10,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Printer, ArrowLeft, Loader2, ChefHat, Package, FileText } from "lucide-react";
+import { Printer, ArrowLeft, Loader2, ChefHat, Package, FileText, Truck } from "lucide-react";
 import { BookingHeader } from "@/components/booking/BookingHeader";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
@@ -50,6 +50,12 @@ interface EquipmentBookingRow {
   equipment: { name: string | null; category: string | null } | null;
 }
 
+interface DriverAssignmentRow {
+  assignment_type: string | null;
+  status: string | null;
+  profiles: { full_name: string | null; phone_number: string | null } | null;
+}
+
 function fmtClock(value: Date | null): string {
   if (!value) return "-";
   try {
@@ -78,6 +84,7 @@ function KitchenTicketPage() {
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [items, setItems] = useState<OrderItemRow[]>([]);
   const [equipment, setEquipment] = useState<EquipmentBookingRow[]>([]);
+  const [drivers, setDrivers] = useState<DriverAssignmentRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -93,7 +100,7 @@ function KitchenTicketPage() {
           .is("deleted_at", null);
         if (callerCompanyId) orderQuery = orderQuery.eq("company_id", callerCompanyId);
 
-        const [orderRes, itemsRes, equipmentRes] = await Promise.all([
+        const [orderRes, itemsRes, equipmentRes, driversRes] = await Promise.all([
           orderQuery.maybeSingle(),
           (supabase as any)
             .from("order_items")
@@ -105,16 +112,23 @@ function KitchenTicketPage() {
             .select("id, quantity, equipment:equipment_id (name, category)")
             .eq("order_id", orderId)
             .neq("status", "cancelled"),
+          (supabase as any)
+            .from("driver_assignments")
+            .select("assignment_type, status, profiles:driver_id (full_name, phone_number)")
+            .eq("order_id", orderId)
+            .neq("status", "cancelled"),
         ]);
 
         if (orderRes.error) console.error("[ticket] orders fetch failed:", orderRes.error);
         if (itemsRes.error) console.error("[ticket] order_items fetch failed:", itemsRes.error);
         if (equipmentRes.error) console.error("[ticket] equipment_bookings fetch failed:", equipmentRes.error);
+        if (driversRes.error) console.error("[ticket] driver_assignments fetch failed:", driversRes.error);
 
         if (!cancelled) {
           setOrder((orderRes.data || null) as OrderRow | null);
           setItems((itemsRes.data || []) as OrderItemRow[]);
           setEquipment((equipmentRes.data || []) as EquipmentBookingRow[]);
+          setDrivers((driversRes.data || []) as DriverAssignmentRow[]);
         }
       } catch (error) {
         console.error("[ticket] unexpected error:", error);
@@ -122,6 +136,7 @@ function KitchenTicketPage() {
           setOrder(null);
           setItems([]);
           setEquipment([]);
+          setDrivers([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -149,6 +164,7 @@ function KitchenTicketPage() {
     }
     return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [equipment]);
+  const deliveryDriver = drivers.find((driver) => driver.assignment_type === "delivery" || !driver.assignment_type) || null;
 
   if (loading) {
     return <div className="admin-page-shell admin-page-shell--no-sidebar admin-page-shell--center text-slate-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Preparing ticket...</div>;
@@ -201,6 +217,17 @@ function KitchenTicketPage() {
                 </div>
               ) : undefined}
             />
+
+            {deliveryDriver && (
+              <div className="print-keep flex items-start gap-2 border-b border-slate-200 pb-3 text-sm text-slate-700">
+                <Truck className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">Driver</p>
+                  <p className="font-semibold text-slate-900">{deliveryDriver.profiles?.full_name || "Assigned"}</p>
+                  {deliveryDriver.profiles?.phone_number && <p className="tabular-nums">{deliveryDriver.profiles.phone_number}</p>}
+                </div>
+              </div>
+            )}
 
             <KitchenPrepTasksCard orderId={order.id} companyId={order.company_id} />
             <div className="no-print rounded-xl border border-slate-200 bg-white p-4">
