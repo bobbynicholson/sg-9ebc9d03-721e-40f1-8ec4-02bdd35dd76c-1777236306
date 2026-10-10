@@ -1734,9 +1734,11 @@ function InvoicesPageInner() {
             variant="outline"
             onClick={loadInvoices}
             disabled={loading}
+            className="px-2.5 sm:px-3"
+            title="Refresh invoices"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            <RefreshCw className={`w-4 h-4 sm:mr-2 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
           {/* Phase 10 #6: invoice CSV export. Lets the bookkeeping
               team pull the current filtered invoice set into Sheets
@@ -1746,6 +1748,8 @@ function InvoicesPageInner() {
               the operator sees on screen. */}
           <Button
             variant="outline"
+            className="px-2.5 sm:px-3"
+            title="Export the visible invoices to CSV"
             onClick={() => {
               const rows = filteredInvoices as any[];
               if (!rows || rows.length === 0) {
@@ -1810,27 +1814,28 @@ function InvoicesPageInner() {
               URL.revokeObjectURL(url);
             }}
           >
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
+            <Download className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export CSV</span>
           </Button>
           {/* Wave 68 - recurring invoices entry point. */}
           <Button
             variant="outline"
             onClick={() => router.push(withSlug("/admin/recurring-invoices"))}
             title="Set up weekly / monthly / quarterly invoices that generate themselves"
+            className="px-2.5 sm:px-3"
           >
-            <Clock className="w-4 h-4 mr-2" />
-            Recurring
+            <Clock className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Recurring</span>
           </Button>
           {/* Wave 69 - manual invoice creation (no order required).
               For deposits, retainers, late fees, damage charges, ad-hoc. */}
           <Button
             onClick={() => setManualInvoiceOpen(true)}
-            className="bg-brand-primary hover:opacity-90"
+            className="bg-brand-primary px-2.5 hover:opacity-90 sm:px-3"
             title="Create an invoice not tied to a specific order (deposits, retainers, late fees, etc)"
           >
-            <FileText className="w-4 h-4 mr-2" />
-            New invoice
+            <FileText className="w-4 h-4 sm:mr-2" />
+            <span className="sm:hidden">New</span><span className="hidden sm:inline">New invoice</span>
           </Button>
           {/* Phase 6 #9: bulk reminder button. Sends a per-tenant
               branded reminder for every overdue invoice in one
@@ -1840,8 +1845,9 @@ function InvoicesPageInner() {
           <Button
             variant="outline"
             onClick={() => setRemindDialogOpen(true)}
+            className="px-2.5 text-xs sm:px-3 sm:text-sm"
           >
-            Send overdue reminders
+            <span className="sm:hidden">Remind</span><span className="hidden sm:inline">Send overdue reminders</span>
           </Button>
             </>
           }
@@ -1939,7 +1945,16 @@ function InvoicesPageInner() {
         {/* Phase 10 #9: aging buckets so the bookkeeper can see at
             a glance whether the receivable is mostly current /
             mostly 90+ days. Self-hides when nothing is outstanding. */}
-        <InvoiceAgingCard invoices={invoices as any[]} companyId={(user as any)?.company_id ?? null} />
+        {moneySummary.outstandingCents > 0 && (
+        <details className="mb-4 rounded-lg border border-slate-200 bg-white" data-print-hidden="true">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-700 marker:text-slate-400">
+            Receivables age analysis
+          </summary>
+          <div className="border-t border-slate-100 px-3 pb-3 pt-1 sm:px-4">
+            <InvoiceAgingCard invoices={invoices as any[]} companyId={(user as any)?.company_id ?? null} />
+          </div>
+        </details>
+        )}
 
         {/* Stat tiles. Command-centre restructure (2026-07-02): the
             ad-hoc Cards moved onto the shared StatTile primitive so
@@ -1978,7 +1993,13 @@ function InvoicesPageInner() {
 
         {/* Uninvoiced Orders */}
         {orders.length > 0 && (
-          <Card className="mb-8 border-yellow-200 bg-yellow-50">
+          <details className="mb-5 overflow-hidden rounded-lg border border-yellow-200 bg-yellow-50" data-print-hidden="true">
+            <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-semibold text-yellow-950 marker:text-yellow-700">
+              <AlertCircle className="h-4 w-4 text-yellow-700" />
+              Uninvoiced orders ({orders.length})
+              <span className="ml-auto text-xs font-medium text-yellow-800">Review</span>
+            </summary>
+          <Card className="rounded-none border-0 bg-transparent shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-yellow-700" />
@@ -2023,12 +2044,13 @@ function InvoicesPageInner() {
               </div>
             </CardContent>
           </Card>
+          </details>
         )}
 
         {/* Filters */}
-        <Card id="invoice-filters" data-chat-section="admin.invoices.filters" data-chat-section-label="Invoice filters" className="mb-6">
-          <CardContent className="space-y-3 pt-4 pb-4">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,560px)_240px] lg:items-start">
+        <Card id="invoice-filters" data-chat-section="admin.invoices.filters" data-chat-section-label="Invoice filters" className="mb-4">
+          <CardContent className="space-y-2 p-3 sm:space-y-3 sm:px-4 sm:py-4">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_190px] sm:items-start lg:grid-cols-[minmax(0,560px)_240px]">
               <AdminSearchField
                 inputRef={searchRef}
                 placeholder="Search by invoice number or client email... (press /)"
@@ -2466,7 +2488,7 @@ function InvoicesPageInner() {
                           aria-label={`Select invoice ${invoice.invoice_number}`}
                         />
                       )}
-                    <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                       <div>
                         <div className="font-medium flex items-center gap-1.5">
                           {/* Phase 21 #2: row-level click-to-copy
@@ -2729,7 +2751,7 @@ function InvoicesPageInner() {
                       </div>
                     </div>
                     </div>
-                    <div className="flex items-center justify-end gap-2 md:gap-1 shrink-0 border-t md:border-t-0 pt-2 md:pt-0">
+                    <div className="flex flex-wrap items-center justify-start md:justify-end gap-2 md:gap-1 shrink-0 border-t md:border-t-0 pt-2 md:pt-0">
                       {/* Wave 66.5 - per-row Mark paid. Surfaced as
                           a coloured pill rather than a ghost icon so
                           it reads as the primary affordance on the
