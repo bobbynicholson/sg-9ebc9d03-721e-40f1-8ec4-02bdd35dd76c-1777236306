@@ -1,3 +1,4 @@
+import * as lib from "@/lib/paymentReminderSchedule";
 import {
   hasPaymentDueSetting,
   isPaymentReminderDue,
@@ -74,8 +75,6 @@ describe("isPaymentReminderDue", () => {
 });
 
 describe("client override (Contacts) beats company setting", () => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const lib = require("@/lib/paymentReminderSchedule");
   const company = {
     due: { direction: "before_event" as const, days: 0 },
     reminders: { mode: "before_due" as const, days: 5 },
