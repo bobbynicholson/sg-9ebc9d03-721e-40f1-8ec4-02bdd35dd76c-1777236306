@@ -1,6 +1,15 @@
 import { supabase as defaultSupabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { calculateInvoiceDueDate } from "@/lib/invoiceDateRules";
+import {
+  DEFAULT_PAYMENT_REMINDERS,
+  fetchClientPaymentSchedules,
+  hasClientDueOverride,
+  hasPaymentDueSetting,
+  paymentDueDate,
+  readPaymentDueSettings,
+  resolvePaymentSchedule,
+} from "@/lib/paymentReminderSchedule";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
@@ -584,11 +593,37 @@ export async function generateInvoiceData(
     // event), leaving the +termDays default which landed AFTER the event
     // - a same-day function showed "Due in 14 days" instead of today.
     const eventDateRaw = (orderData as any)?.event_date as string | null | undefined;
-    const finalDue = calculateInvoiceDueDate({
+    let finalDue = calculateInvoiceDueDate({
       invoiceDate: invoiceDateObj,
       termDays,
       eventDate: eventDateRaw,
     });
+    // Payment-due rule (2026-10-14): the client's own setting (Contacts)
+    // wins, then the company's saved "Payment is due X days before/after
+    // the event" (Settings -> Financial). The invoice is due on that date
+    // (never before the invoice day), matching the order and the payment
+    // reminder. Neither set -> the term-based rule above stays.
+    const clientIdForSchedule = (orderData as any)?.client_id as string | null | undefined;
+    const clientSchedule = clientIdForSchedule
+      ? (await fetchClientPaymentSchedules(supabase, [clientIdForSchedule])).get(clientIdForSchedule)
+      : undefined;
+    if (hasClientDueOverride(clientSchedule) || hasPaymentDueSetting((companyData as any)?.dispatch_settings)) {
+      const ruleDue = paymentDueDate(
+        eventDateRaw,
+        resolvePaymentSchedule(
+          {
+            due: readPaymentDueSettings((companyData as any)?.dispatch_settings, (companyData as any)?.balance_due_days),
+            reminders: DEFAULT_PAYMENT_REMINDERS,
+          },
+          clientSchedule,
+        ).due,
+      );
+      if (ruleDue) {
+        const ruleDueDate = new Date(`${ruleDue}T00:00:00`);
+        const invoiceDay = new Date(invoiceDateObj.getFullYear(), invoiceDateObj.getMonth(), invoiceDateObj.getDate());
+        finalDue = ruleDueDate.getTime() < invoiceDay.getTime() ? invoiceDay : ruleDueDate;
+      }
+    }
 
     // Resolve both legacy JSON bank details and the current company EFT
     // fields. The public pay page and the downloadable invoice should

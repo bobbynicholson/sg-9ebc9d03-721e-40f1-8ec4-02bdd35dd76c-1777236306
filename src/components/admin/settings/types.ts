@@ -69,6 +69,8 @@ export interface RoleCompatibilitySettings {
   allowKitchenCleaningOverlap: boolean;
 }
 
+import type { PaymentDueDirection, PaymentReminderMode } from "@/lib/paymentReminderSchedule";
+
 export interface CompanySettings {
   name: string;
   email: string;
@@ -86,6 +88,11 @@ export interface FinancialSettings {
   depositPercent: number;
   balanceDueDays: number;
   paymentTermsText: string;
+  /** Payment is due balanceDueDays before or after the event (one rule for every client). */
+  paymentDueDirection: PaymentDueDirection;
+  /** Automatic payment reminder: "off" or one email paymentReminderDays before payment is due. */
+  paymentReminderMode: PaymentReminderMode;
+  paymentReminderDays: number;
   finalOrderChangeDays: number;
   cancellationFeePercent: number;
   refundProcessDays: number;

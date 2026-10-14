@@ -1,5 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DEFAULT_PAYMENT_REMINDERS,
+  fetchClientPaymentSchedules,
+  paymentDueDate,
+  readPaymentDueSettings,
+  resolvePaymentSchedule,
+} from "@/lib/paymentReminderSchedule";
 import { whatsappIntegrationService } from "./whatsappIntegrationService";
 import { notificationService } from "./notificationService";
 import { AppOrder, Quote, UserRole } from "@/types/app";
@@ -1050,26 +1057,26 @@ export const quoteService = {
     try {
       const { data: companyRow, error: companyRowErr3 } = await db
         .from("companies")
-        .select("balance_due_days")
+        .select("balance_due_days, dispatch_settings")
         .eq("id", q.company_id)
         .maybeSingle();
       if (companyRowErr3) {
         console.error("[quoteService] companies fetch failed:", companyRowErr3);
       }
-      const days = Number((companyRow as any)?.balance_due_days ?? 7);
-      const eventDateStr = (q.event_date as string | null) || null;
-      if (eventDateStr && Number.isFinite(days) && days > 0) {
-        // Build the date in local terms so a midnight rollover in a
-        // distant timezone doesn't swing the due date by a day.
-        const ev = new Date(`${eventDateStr}T00:00:00`);
-        if (!isNaN(ev.getTime())) {
-          ev.setDate(ev.getDate() - Math.floor(days));
-          const yyyy = ev.getFullYear();
-          const mm = String(ev.getMonth() + 1).padStart(2, "0");
-          const dd = String(ev.getDate()).padStart(2, "0");
-          orderData.balance_due_date = `${yyyy}-${mm}-${dd}`;
-        }
-      }
+      // Shared company rule (Settings -> Financial): X days before or
+      // after the event. Date-only maths, so no timezone day swing.
+      const dueRule = readPaymentDueSettings(
+        (companyRow as any)?.dispatch_settings,
+        (companyRow as any)?.balance_due_days ?? 7,
+      );
+      const balanceDue = paymentDueDate(
+        (q.event_date as string | null) || null,
+        resolvePaymentSchedule(
+          { due: dueRule, reminders: DEFAULT_PAYMENT_REMINDERS },
+          resolvedClientId ? (await fetchClientPaymentSchedules(db, [resolvedClientId])).get(resolvedClientId) : undefined,
+        ).due,
+      );
+      if (balanceDue) orderData.balance_due_date = balanceDue;
     } catch (e) {
       console.warn("[convertQuoteToOrder] balance_due_date stamp failed:", e);
     }

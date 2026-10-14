@@ -5,6 +5,18 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
+import {
+  fetchClientPaymentSchedules,
+  fetchCompaniesWithClientReminders,
+  isPaymentReminderDue,
+  paymentReminderTargetDate,
+  readPaymentDueSettings,
+  readPaymentReminderSettings,
+  resolvePaymentSchedule,
+  type ClientPaymentSchedule,
+  type PaymentDueSettings,
+  type PaymentReminderSettings,
+} from "@/lib/paymentReminderSchedule";
 
 
 const CRON_NAME = "balance-reminder";
@@ -17,10 +29,11 @@ const CRON_NAME = "balance-reminder";
  * had to click "Bulk remind" by hand. Customers heard nothing
  * between deposit + delivery, then a sudden balance demand.
  *
- * Strategy: every morning, find delivered orders whose balance
- * isn't paid AND whose balance_due_date is within the next 3 days
- * OR already past. Queue a balance_invoice_issued reminder. 24h
- * dedup so the cron stays daily even if it runs more often.
+ * Strategy (2026-10-14): only for companies that turned payment
+ * reminders on in Settings -> Financial (off by default). Each unpaid
+ * invoice gets ONE reminder, N days before payment is due (payment
+ * due = X days before/after the event, also set there), instead of
+ * the old daily nudge from 3 days before the invoice due date.
  *
  * Auth: Authorization: Bearer ${CRON_SECRET}
  */
@@ -31,18 +44,53 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const sb: any = getServiceSupabase();
   try {
     const now = new Date();
-    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const today = now.toISOString().slice(0, 10);
 
-    // Pull invoices with balance owed where due_date is approaching
-    // or past. Limits to 200 per run to keep the cron tight.
+    // Companies that turned payment reminders on (Settings -> Financial),
+    // plus companies where a client turned them on for itself (Contacts).
+    // Unset = off, so nothing goes out by default.
+    const { data: companiesOn, error: companiesOnError } = await (sb as any)
+      .from("companies")
+      .select("id")
+      .eq("dispatch_settings->paymentReminders->>mode", "before_due");
+    const candidateIds = Array.from(new Set([
+      ...((companiesOn || []) as any[]).map((c) => c.id),
+      ...(await fetchCompaniesWithClientReminders(sb)),
+    ]));
+    const { data: enabledCompanies, error: companiesLoadError } = candidateIds.length
+      ? await (sb as any)
+          .from("companies")
+          .select("id, dispatch_settings, balance_due_days")
+          .in("id", candidateIds)
+      : { data: [], error: null };
+    const companiesError = companiesOnError || companiesLoadError;
+    if (companiesError) {
+      console.error("[balance-reminder] companies fetch failed:", companiesError);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: companiesError.message });
+      return res.status(500).json({ error: companiesError.message });
+    }
+    const reminderSettings = new Map<string, { reminders: PaymentReminderSettings; due: PaymentDueSettings }>();
+    for (const co of (enabledCompanies || []) as any[]) {
+      reminderSettings.set(co.id, {
+        reminders: readPaymentReminderSettings(co.dispatch_settings),
+        due: readPaymentDueSettings(co.dispatch_settings, co.balance_due_days),
+      });
+    }
+    if (reminderSettings.size === 0) {
+      await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, queued: 0 });
+      return res.status(200).json({ ok: true, queued: 0 });
+    }
+
+    // Unpaid invoices for those companies. Whether each one is due a
+    // reminder today is decided per invoice below.
     const { data: invoices, error } = await (sb as any)
       .from("invoices")
       .select("id, company_id, order_id, total_amount, amount_paid, balance_due, due_date, public_token")
+      .in("company_id", Array.from(reminderSettings.keys()))
       .gt("balance_due", 0)
-      .lte("due_date", threeDaysFromNow)
       .is("deleted_at", null)
       .neq("status", "paid")
-      .limit(200);
+      .limit(1000);
     if (error) {
       console.error("[balance-reminder] invoices fetch failed:", error);
       await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: error.message });
@@ -55,6 +103,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
     let queued = 0;
     const errors: string[] = [];
+    const clientSchedules = new Map<string, ClientPaymentSchedule | null>();
 
     // Per-company brand name for {{tenant_name}} in the reminder body.
     // Cached so a tenant with many overdue invoices is looked up once.
@@ -76,14 +125,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // Pull order + client details for the email.
         const { data: order } = await (sb as any)
           .from("orders")
-          .select("id, client_id, client_email, client_name, order_number, event_name, event_date")
+          .select("id, client_id, client_email, client_name, order_number, event_name, event_date, deposit_paid, status")
           .eq("id", inv.order_id)
           .maybeSingle();
         if (!order || !(order as any).client_email) continue;
 
-        // Idempotency: skip if a balance_reminder was queued in the
-        // last 24h for this invoice.
-        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+        // An unpaid deposit on an upcoming order is deposit-reminder's
+        // job; skipping it here stops the client getting both emails.
+        if (
+          (order as any).deposit_paid === false &&
+          ["pending", "confirmed"].includes((order as any).status) &&
+          (order as any).event_date >= today
+        ) continue;
+
+        // Timing: the client's own setting (Contacts) wins over the
+        // company's (Settings -> Financial). One reminder on the chosen
+        // day, with a short catch-up window for missed runs, never daily.
+        const companySettings = reminderSettings.get(inv.company_id);
+        if (!companySettings) continue;
+        const clientId = (order as any).client_id as string | null;
+        if (clientId && !clientSchedules.has(clientId)) {
+          const fetched = await fetchClientPaymentSchedules(sb, [clientId]);
+          clientSchedules.set(clientId, fetched.get(clientId) || null);
+        }
+        const settings = resolvePaymentSchedule(companySettings, clientId ? clientSchedules.get(clientId) : null);
+        const targetDate = paymentReminderTargetDate(settings.reminders, settings.due, (order as any).event_date);
+        if (!isPaymentReminderDue(targetDate, today)) continue;
+
+        // Idempotency: skip if a balance reminder already went out for
+        // this order on or after the reminder day.
+        const yesterday = `${targetDate}T00:00:00Z`;
         const { count: recentCount } = await (sb as any)
           .from("email_automation_log")
           .select("id", { count: "exact", head: true })
@@ -95,7 +166,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .gte("created_at", yesterday);
         if (recentCount && recentCount > 0) continue;
 
-        const { emailService } = await import("@/services/emailService");
+        const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
 
         const invoiceLink = buildPayInvoiceUrlServer(inv.public_token) ||
           `${process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com"}/client-portal/billing?invoiceId=${inv.id}`;
@@ -134,19 +205,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           `Reply to this email if anything's changed on your side.\n\n` +
           `Thanks,\n${brand}`;
 
-        await emailService.sendEmail({
+        const delivery = await deliverAutomatedEmail(sb, {
           companyId: inv.company_id,
           to: (order as any).client_email,
+          recipientName: (order as any).client_name || null,
           template: "balance_reminder_email",
           subject: fallbackSubject,
           body: fallbackBody,
           variables,
           orderId: inv.order_id,
-          // Service-role client: this runs as an unauthenticated cron, so
-          // without it the provider lookup is RLS-blocked and the send
-          // silently no-ops (logged "sent" but never delivered).
-          _client: sb,
+          triggerEvent: "payment.balance_reminder",
+          triggerRefId: inv.order_id,
         } as any);
+        if (!delivery.success) throw new Error(delivery.error || "Balance reminder was not sent");
         queued += 1;
 
         // Also surface the reminder in the client's portal bell (email +

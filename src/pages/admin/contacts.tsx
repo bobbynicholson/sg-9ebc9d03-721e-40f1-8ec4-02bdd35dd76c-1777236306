@@ -16,6 +16,12 @@
  * - Suggested action chip on every row colour-coded to urgency
  */
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  readClientPaymentSchedule,
+  toClientPaymentScheduleJson,
+  type PaymentDueDirection,
+  type PaymentReminderMode,
+} from "@/lib/paymentReminderSchedule";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -2366,6 +2372,12 @@ function ClientFormDialog({
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  // Per-client payment schedule (clients.payment_schedule). "" = same as
+  // the company setting in Settings -> Financial. Only shown and saved
+  // once the column exists (migration 20261014090000), so saving never
+  // fails before it is applied.
+  const [scheduleAvailable, setScheduleAvailable] = useState(false);
+  const [schedule, setSchedule] = useState({ dueDirection: "", dueDays: "", reminderMode: "", reminderDays: "" });
   const [form, setForm] = useState({
     client_name: "",
     email: "",
@@ -2397,6 +2409,24 @@ function ClientFormDialog({
   // pick up billing address, VAT number and notes. On Add we clear it.
   useEffect(() => {
     if (!open) return;
+    setScheduleAvailable(false);
+    setSchedule({ dueDirection: "", dueDays: "", reminderMode: "", reminderDays: "" });
+    (async () => {
+      let query = (supabase as any).from("clients").select("payment_schedule");
+      query = editing?.clientId ? query.eq("id", editing.clientId) : query.limit(1);
+      const { data, error } = await query.maybeSingle();
+      if (error) return;
+      setScheduleAvailable(true);
+      if (!editing?.clientId) return;
+      const saved = readClientPaymentSchedule((data as any)?.payment_schedule);
+      setSchedule({
+        dueDirection: saved.dueDirection || "",
+        dueDays: saved.dueDays !== undefined ? String(saved.dueDays) : "",
+        reminderMode: saved.reminderMode || "",
+        reminderDays: saved.reminderDays !== undefined ? String(saved.reminderDays) : "",
+      });
+      if (saved.dueDirection || saved.reminderMode) setShowMore(true);
+    })();
     if (!editing?.clientId) {
       setForm({
         client_name: "", email: "", phone: "", client_type: "individual",
@@ -2502,6 +2532,28 @@ function ClientFormDialog({
       // not alter documents the client has already accepted.
       preferred_currency: form.preferred_currency || null,
     };
+    if (scheduleAvailable) {
+      const days = (v: string) => {
+        const n = parseInt(v.trim(), 10);
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
+      };
+      if (schedule.dueDirection && days(schedule.dueDays) === undefined) {
+        toast({ title: "Add the number of days", description: "Enter how many days before or after the event this client's payment is due.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      if (schedule.reminderMode === "before_due" && days(schedule.reminderDays) === undefined) {
+        toast({ title: "Add the number of days", description: "Enter how many days before payment is due this client's reminder goes out.", variant: "destructive" });
+        setSaving(false);
+        return;
+      }
+      payload.payment_schedule = toClientPaymentScheduleJson({
+        dueDirection: (schedule.dueDirection || undefined) as PaymentDueDirection | undefined,
+        dueDays: days(schedule.dueDays),
+        reminderMode: (schedule.reminderMode || undefined) as PaymentReminderMode | undefined,
+        reminderDays: days(schedule.reminderDays),
+      });
+    }
     let error: any = null;
     if (editing?.clientId) {
       ({ error } = await supabase.from("clients").update(payload).eq("id", editing.clientId).eq("company_id", companyId));
@@ -2616,6 +2668,72 @@ function ClientFormDialog({
                   Net X days for this client&apos;s invoices. Useful for corporate accounts who need 30 or 60 days. Blank = use the company-wide default (typically 7 for catering).
                 </p>
               </div>
+
+              {scheduleAvailable && (
+                <div className="space-y-3 rounded-md border border-slate-200 p-3">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Payment due date and reminder</p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Overrides Settings &rarr; Financial for this client only. Leave on &quot;Same as company setting&quot; to follow the company.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Payment is due</label>
+                    <div className="mt-1 flex gap-2">
+                      <select
+                        value={schedule.dueDirection}
+                        onChange={(e) => setSchedule((sc) => ({ ...sc, dueDirection: e.target.value }))}
+                        className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="">Same as company setting</option>
+                        <option value="before_event">Days before the event</option>
+                        <option value="after_event">Days after the event</option>
+                      </select>
+                      {schedule.dueDirection && (
+                        <Input
+                          type="number"
+                          min={0}
+                          max={365}
+                          aria-label="Number of days"
+                          value={schedule.dueDays}
+                          onChange={(e) => setSchedule((sc) => ({ ...sc, dueDays: e.target.value }))}
+                          placeholder="Days"
+                          className="w-24"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700">Payment reminder</label>
+                    <div className="mt-1 flex gap-2">
+                      <select
+                        value={schedule.reminderMode}
+                        onChange={(e) => setSchedule((sc) => ({ ...sc, reminderMode: e.target.value }))}
+                        className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="">Same as company setting</option>
+                        <option value="off">Don&apos;t send payment reminders</option>
+                        <option value="before_due">Send one reminder before payment is due</option>
+                      </select>
+                      {schedule.reminderMode === "before_due" && (
+                        <Input
+                          type="number"
+                          min={0}
+                          max={365}
+                          aria-label="Days before payment is due"
+                          value={schedule.reminderDays}
+                          onChange={(e) => setSchedule((sc) => ({ ...sc, reminderDays: e.target.value }))}
+                          placeholder="Days"
+                          className="w-24"
+                        />
+                      )}
+                    </div>
+                    {schedule.reminderMode === "before_due" && (
+                      <p className="text-[11px] text-slate-500 mt-1">Number of days before payment is due.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Preferred currency</label>

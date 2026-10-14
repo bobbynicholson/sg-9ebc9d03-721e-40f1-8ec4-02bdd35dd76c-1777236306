@@ -12,6 +12,21 @@ import {
 } from "@/components/ui/select";
 import { Banknote } from "lucide-react";
 import type { FinancialSettings, UpdateFinancialSetting } from "./types";
+import {
+  describePaymentDue,
+  describePaymentReminders,
+  paymentDueDate,
+  paymentReminderTargetDate,
+  type PaymentDueDirection,
+  type PaymentReminderMode,
+} from "@/lib/paymentReminderSchedule";
+
+/** Fixed sample event date for the worked example under the settings. */
+const EXAMPLE_EVENT = "2026-11-20";
+
+function formatExample(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+}
 
 interface Props {
   settings: FinancialSettings;
@@ -36,6 +51,11 @@ interface Props {
  * Phase G settings split).
  */
 export function FinancialSettingsTab({ settings, onUpdate }: Props) {
+  const due = { direction: settings.paymentDueDirection, days: settings.balanceDueDays };
+  const reminders = { mode: settings.paymentReminderMode, days: settings.paymentReminderDays };
+  const exampleDue = paymentDueDate(EXAMPLE_EVENT, due);
+  const exampleReminder = paymentReminderTargetDate(reminders, due, EXAMPLE_EVENT);
+
   return (
     <Card className="border-0 shadow-lg">
       <CardHeader className="px-4 md:px-6">
@@ -98,7 +118,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
             Deposit & Balance Payment Settings
           </h3>
           <p className="text-xs md:text-sm text-slate-600 mb-4">
-            Configure how clients pay for their events - deposit to confirm booking, balance before the event
+            Configure how clients pay for their events - deposit to confirm booking, then the balance before or after the event
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -122,22 +142,38 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
             </div>
 
             <div>
-              <Label className="text-sm md:text-base flex items-center gap-1">
-                Balance Due Days Before Event
+              <Label htmlFor="payment-due-days" className="text-sm md:text-base flex items-center gap-1">
+                Payment is due
                 <InfoTooltip
                   content={
-                    "How many days before the event the remaining balance invoice goes out.\n\n7 means the balance reminder fires a week before. The system also sends an overdue nudge if it's not paid by event day."
+                    "When every client must pay the remaining balance, counted from the event date.\n\nUse \"before the event\" if clients pay upfront, or \"after the event\" if they pay on terms (for example 30 days after). Invoice due dates and the payment reminder follow this."
                   }
                 />
               </Label>
-              <Input
-                type="number"
-                value={settings.balanceDueDays || 7}
-                onChange={(e) => onUpdate("balanceDueDays", parseInt(e.target.value) || 0)}
-                min="1"
-                max="30"
-              />
-              <p className="text-xs text-slate-600 mt-1">When clients must pay remaining balance.</p>
+              <div className="flex gap-2">
+                <Input
+                  id="payment-due-days"
+                  type="number"
+                  className="w-24"
+                  value={settings.balanceDueDays}
+                  onChange={(e) => onUpdate("balanceDueDays", Math.max(0, parseInt(e.target.value) || 0))}
+                  min="0"
+                  max="365"
+                />
+                <Select
+                  value={settings.paymentDueDirection}
+                  onValueChange={(value) => onUpdate("paymentDueDirection", value as PaymentDueDirection)}
+                >
+                  <SelectTrigger aria-label="Before or after the event">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="before_event">days before the event</SelectItem>
+                    <SelectItem value="after_event">days after the event</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-slate-600 mt-1">{describePaymentDue(due)}. Applies to every client.</p>
             </div>
 
             <div>
@@ -181,11 +217,60 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
             <h4 className="font-semibold text-sm text-blue-900 mb-2">How Deposit & Balance Works:</h4>
             <ul className="space-y-1 text-xs md:text-sm text-blue-800">
               <li>1. Client accepts quote → Pays {settings.depositPercent}% deposit to confirm booking</li>
-              <li>2. {settings.balanceDueDays || 7} days before event → Email reminder to pay balance</li>
+              <li>2. {describePaymentDue(due)}. {describePaymentReminders(reminders)}</li>
               <li>3. Clients can modify order until {settings.finalOrderChangeDays || 7} days before event</li>
               <li>4. After deadline → Order locked, balance must be settled</li>
             </ul>
           </div>
+        </div>
+
+        <div className="space-y-3 border-t pt-4">
+          <div>
+            <h3 className="font-semibold text-base">Payment reminders</h3>
+            <p className="text-xs md:text-sm text-slate-600">
+              Automatic email asking a client to pay an unpaid deposit or balance. Same for every client; each unpaid order gets one reminder.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="payment-reminder-mode" className="text-sm md:text-base">Payment reminder</Label>
+              <Select
+                value={settings.paymentReminderMode}
+                onValueChange={(value) => onUpdate("paymentReminderMode", value as PaymentReminderMode)}
+              >
+                <SelectTrigger id="payment-reminder-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="off">Don&apos;t send payment reminders</SelectItem>
+                  <SelectItem value="before_due">Send one reminder before payment is due</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {settings.paymentReminderMode !== "off" && (
+              <div>
+                <Label htmlFor="payment-reminder-days" className="text-sm md:text-base">Days before payment is due</Label>
+                <Input
+                  id="payment-reminder-days"
+                  type="number"
+                  min="0"
+                  max="365"
+                  value={settings.paymentReminderDays}
+                  onChange={(e) => onUpdate("paymentReminderDays", Math.max(0, parseInt(e.target.value) || 0))}
+                />
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-slate-600">
+            {describePaymentReminders(reminders)}.
+            {exampleDue && (
+              <>
+                {" "}Example: for an event on {formatExample(EXAMPLE_EVENT)}, payment is due {formatExample(exampleDue)}
+                {exampleReminder ? ` and the reminder goes out on ${formatExample(exampleReminder)}` : ""}.
+              </>
+            )}
+            {" "}Reminders you send yourself from Invoices still work.
+          </p>
         </div>
 
         <div className="space-y-2 border-t pt-4">

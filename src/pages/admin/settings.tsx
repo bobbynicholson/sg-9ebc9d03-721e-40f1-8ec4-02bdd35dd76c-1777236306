@@ -44,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantHref } from "@/lib/tenantUrl";
 import { UserRole } from "@/types/app";
 import { DEFAULT_PAYMENT_TERMS } from "@/lib/paymentTerms";
+import { DEFAULT_PAYMENT_REMINDERS, readPaymentDueSettings, readPaymentReminderSettings } from "@/lib/paymentReminderSchedule";
 
 const DEFAULT_SETTINGS: AdminSettings = {
   automation: {
@@ -85,6 +86,9 @@ const DEFAULT_SETTINGS: AdminSettings = {
     depositPercent: 50,
     balanceDueDays: 7,
     paymentTermsText: DEFAULT_PAYMENT_TERMS,
+    paymentDueDirection: "before_event",
+    paymentReminderMode: DEFAULT_PAYMENT_REMINDERS.mode,
+    paymentReminderDays: DEFAULT_PAYMENT_REMINDERS.days,
     finalOrderChangeDays: 7,
     cancellationFeePercent: 25,
     refundProcessDays: 7,
@@ -333,6 +337,11 @@ function SettingsPage() {
           dispatch_settings: {
             ...priorDispatch,
             paymentTermsText: settings.financial.paymentTermsText.trim() || DEFAULT_PAYMENT_TERMS,
+            paymentDue: { direction: settings.financial.paymentDueDirection },
+            paymentReminders: {
+              mode: settings.financial.paymentReminderMode,
+              days: Math.max(0, Math.floor(numberOr(settings.financial.paymentReminderDays, DEFAULT_PAYMENT_REMINDERS.days))),
+            },
             deliveryCostPerKm: numberOr(settings.operations.deliveryCostPerKm, 0),
             deliveryBufferMinutes: numberOr(settings.operations.deliveryBufferMinutes, 30),
             driverRadius: numberOr(settings.operations.driverRadius, 50),
@@ -682,6 +691,9 @@ function companyToSettings(company: Record<string, any>, fallback: AdminSettings
       paymentTermsText: typeof dispatch.paymentTermsText === "string" && dispatch.paymentTermsText.trim()
         ? dispatch.paymentTermsText
         : fallback.financial.paymentTermsText,
+      paymentDueDirection: readPaymentDueSettings(dispatch, company.balance_due_days).direction,
+      paymentReminderMode: readPaymentReminderSettings(dispatch).mode,
+      paymentReminderDays: readPaymentReminderSettings(dispatch).days,
       finalOrderChangeDays: numberOr(company.amendment_cutoff_days, fallback.financial.finalOrderChangeDays),
       cancellationFeePercent: numberOr(company.cancellation_fee_percent, fallback.financial.cancellationFeePercent),
       refundProcessDays: numberOr(company.refund_process_days, fallback.financial.refundProcessDays),

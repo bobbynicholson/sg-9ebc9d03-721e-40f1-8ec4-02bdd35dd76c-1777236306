@@ -4,6 +4,16 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import {
+  fetchClientPaymentSchedules,
+  isPaymentReminderDue,
+  paymentReminderTargetDate,
+  readPaymentDueSettings,
+  readPaymentReminderSettings,
+  resolvePaymentSchedule,
+  type PaymentDueSettings,
+  type PaymentReminderSettings,
+} from "@/lib/paymentReminderSchedule";
 
 const CRON_NAME = "deposit-reminder";
 
@@ -25,6 +35,10 @@ const CRON_NAME = "deposit-reminder";
  * dedup window), capped at 3 reminders total - after that it's an
  * operator conversation, not an automation. Stops the moment the
  * deposit is received (deposit_paid flips) or the event date passes.
+ *
+ * 2026-10-14: only for companies that turned payment reminders on in
+ * Settings -> Financial (off by default), and only on the reminder day
+ * the company chose, so each order gets one deposit reminder.
  *
  * Auth: Vercel cron bearer OR super_admin session.
  */
@@ -49,7 +63,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // keep the cron tight; the daily cadence catches the rest.
     const { data: orders, error } = await sb
       .from("orders")
-      .select("id, company_id, order_number, client_email, client_name, event_name, event_date, deposit_amount, created_at, status")
+      .select("id, company_id, client_id, order_number, client_email, client_name, event_name, event_date, deposit_amount, created_at, status")
       .eq("deposit_paid", false)
       .gte("event_date", today)
       .in("status", ["pending", "confirmed"])
@@ -78,9 +92,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     let skipped = 0;
     const errors: string[] = [];
 
+    // Payment reminder setting per company (Settings -> Financial).
+    // Unset = off: those companies' clients get no deposit reminder.
+    const companyIds = Array.from(new Set((orders as any[]).map((o) => o.company_id).filter(Boolean)));
+    const { data: companyRows, error: companiesError } = await sb
+      .from("companies")
+      .select("id, dispatch_settings, balance_due_days")
+      .in("id", companyIds);
+    if (companiesError) {
+      console.error("[deposit-reminder] companies fetch failed:", companiesError);
+      await recordCronHeartbeat(sb, CRON_NAME, "error", { source: auth.source, error_message: companiesError.message });
+      return res.status(500).json({ error: companiesError.message });
+    }
+    const reminderSettings = new Map<string, { reminders: PaymentReminderSettings; due: PaymentDueSettings }>();
+    for (const co of (companyRows || []) as any[]) {
+      reminderSettings.set(co.id, {
+        reminders: readPaymentReminderSettings(co.dispatch_settings),
+        due: readPaymentDueSettings(co.dispatch_settings, co.balance_due_days),
+      });
+    }
+
+    // Per-client override (Contacts) wins over the company setting.
+    const clientSchedules = await fetchClientPaymentSchedules(sb, (orders as any[]).map((o) => o.client_id));
+
     for (const order of orders as any[]) {
       try {
         if (!order.client_email) { skipped += 1; continue; }
+        const companySettings = reminderSettings.get(order.company_id);
+        if (!companySettings) { skipped += 1; continue; }
+        const settings = resolvePaymentSchedule(companySettings, clientSchedules.get(order.client_id));
+        if (settings.reminders.mode === "off") { skipped += 1; continue; }
 
         // The unpaid deposit invoice carries the public pay token.
         // No invoice yet (generation failed at convert time) -> skip;
@@ -96,6 +137,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           .limit(1)
           .maybeSingle();
         if (!invoice || !(invoice as any).public_token) { skipped += 1; continue; }
+
+        // Company timing: only on the chosen reminder day (plus a short
+        // catch-up window). The 3-day pacing gate below keeps it to one.
+        const targetDate = paymentReminderTargetDate(settings.reminders, settings.due, order.event_date);
+        if (!isPaymentReminderDue(targetDate, today)) { skipped += 1; continue; }
 
         // Pacing gate 1: nothing in the last REMIND_EVERY_DAYS days.
         const { count: recentCount } = await sb
@@ -134,14 +180,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           ? new Date(order.event_date).toLocaleDateString("en-ZA", { day: "numeric", month: "long", year: "numeric" })
           : "";
 
-        const { emailService } = await import("@/services/emailService");
+        const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
         // template + variables: sendEmailDetailed routes through
         // resolveEmailTemplate (tenant override beats global default
         // beats this inline fallback) and logs under TEMPLATE_TYPE,
         // which is what the pacing gates above query.
-        await emailService.sendEmail({
+        const delivery = await deliverAutomatedEmail(sb, {
           companyId: order.company_id,
           to: order.client_email,
+          recipientName: order.client_name || null,
           template: TEMPLATE_TYPE,
           subject: `Friendly reminder - deposit for ${eventName}`,
           body:
@@ -166,11 +213,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             invoice_url: payLink,
           },
           orderId: order.id,
-          // Service-role client: cron runs unauthenticated, so without it
-          // the provider lookup is RLS-blocked and the send silently
-          // no-ops (logged "sent" but never delivered).
-          _client: sb,
+          triggerEvent: "payment.deposit_reminder",
+          triggerRefId: order.id,
         } as any);
+        if (!delivery.success) throw new Error(delivery.error || "Deposit reminder was not sent");
         queued += 1;
       } catch (e: any) {
         errors.push(`order ${order.id}: ${e?.message || e}`);

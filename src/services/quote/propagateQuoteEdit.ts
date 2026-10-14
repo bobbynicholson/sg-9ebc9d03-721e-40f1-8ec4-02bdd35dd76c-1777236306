@@ -22,6 +22,13 @@
  * informational.
  */
 import { tenantDateTime } from "@/lib/portalTime";
+import {
+  DEFAULT_PAYMENT_REMINDERS,
+  fetchClientPaymentSchedules,
+  paymentDueDate,
+  readPaymentDueSettings,
+  resolvePaymentSchedule,
+} from "@/lib/paymentReminderSchedule";
 import { supabase } from "@/integrations/supabase/client";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 
@@ -252,17 +259,24 @@ export async function propagateQuoteEditToOrder(
       try {
         const { data: companyRow } = await (supabase as any)
           .from("companies")
-          .select("balance_due_days")
+          .select("balance_due_days, dispatch_settings")
           .eq("id", companyId)
           .maybeSingle();
-        const days = Number((companyRow as any)?.balance_due_days ?? 7);
-        const eventDt = new Date(`${(quote as any).event_date}T00:00:00`);
-        eventDt.setDate(eventDt.getDate() - days);
-        const yyyy = eventDt.getFullYear();
-        const mm = String(eventDt.getMonth() + 1).padStart(2, "0");
-        const dd = String(eventDt.getDate()).padStart(2, "0");
-        updates.balance_due_date = `${yyyy}-${mm}-${dd}`;
-        receipt.balanceDueDateRecalculated = true;
+        const dueRule = readPaymentDueSettings(
+          (companyRow as any)?.dispatch_settings,
+          (companyRow as any)?.balance_due_days ?? 7,
+        );
+        const balanceDue = paymentDueDate(
+        (quote as any).event_date,
+        resolvePaymentSchedule(
+          { due: dueRule, reminders: DEFAULT_PAYMENT_REMINDERS },
+          (quote as any).client_id ? (await fetchClientPaymentSchedules(supabase, [(quote as any).client_id])).get((quote as any).client_id) : undefined,
+        ).due,
+      );
+        if (balanceDue) {
+          updates.balance_due_date = balanceDue;
+          receipt.balanceDueDateRecalculated = true;
+        }
       } catch (e: any) {
         receipt.errors.push(`balance_due_date_recalc_failed: ${e?.message || e}`);
       }
