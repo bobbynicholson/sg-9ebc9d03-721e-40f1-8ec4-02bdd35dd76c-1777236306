@@ -96,15 +96,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           "Open CateringMS to review the full notification history.",
         ].join("\n");
 
-        const { emailService } = await import("@/services/emailService");
-        const result = await emailService.sendEmailDetailed({
+        const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
+        const result = await deliverAutomatedEmail(sb, {
           companyId: profile.company_id,
           to: profile.email,
+          recipientName: profile.full_name || null,
           subject: `${digest.label} - CateringMS`,
           template: digest.template,
           body,
           notificationPreference: digest.field,
-          _client: sb,
+          triggerEvent: `notification.${digest.template}`,
+          triggerRefId: profile.id,
         } as any);
         if (result.success) sent += 1;
         else if (result.error_code === "notification_disabled") skipped += 1;

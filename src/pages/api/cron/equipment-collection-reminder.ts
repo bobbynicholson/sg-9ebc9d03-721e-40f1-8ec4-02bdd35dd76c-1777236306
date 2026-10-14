@@ -69,7 +69,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
-    const { emailService } = await import("@/services/emailService");
+    const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
     const { notificationService } = await import("@/services/notificationService");
     const yesterdayIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -228,18 +228,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           },
         });
 
-        await emailService.sendEmail({
+        const delivery = await deliverAutomatedEmail(sb, {
           companyId: a.company_id,
           to: (order as any).client_email,
+          recipientName: (order as any).client_name || null,
           subject: resolved.subject,
           body: resolved.bodyHtml,
           orderId: a.order_id,
           templateType: "equipment_collection_reminder",
-          // Service-role client: cron runs unauthenticated, so without it
-          // the provider lookup is RLS-blocked and the send silently
-          // no-ops (logged "sent" but never delivered).
-          _client: sb,
+          triggerEvent: "equipment.collection_reminder",
+          triggerRefId: a.order_id,
         } as any);
+        if (!delivery.success) throw new Error(delivery.error || "Collection reminder was not sent");
         sent += 1;
       } catch (e: any) {
         errors.push(`assignment ${a.id}: ${e?.message || e}`);

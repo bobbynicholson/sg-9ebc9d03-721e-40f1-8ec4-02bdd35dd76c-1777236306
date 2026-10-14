@@ -25,7 +25,7 @@ export interface DrainResult {
 export async function drainEmailQueue(
   supabase: any,
   allowList: string[],
-  opts?: { batchSize?: number; maxAttempts?: number; transactionalOnly?: boolean },
+  opts?: { batchSize?: number; maxAttempts?: number; transactionalOnly?: boolean; queueIds?: string[] },
 ): Promise<DrainResult> {
   const maxAttempts = opts?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const batchSize = opts?.batchSize ?? DEFAULT_BATCH_SIZE;
@@ -35,7 +35,18 @@ export async function drainEmailQueue(
   }
 
   let due: any[];
-  if (opts?.transactionalOnly) {
+  if (opts?.queueIds?.length) {
+    // An authorised admin selected one or more rows for immediate release.
+    // This intentionally ignores scheduled_for: the explicit button is the
+    // approval, so it may release a reminder before its scheduled time.
+    const selected = await supabase.from("outgoing_email_queue").select("*")
+      .in("status", ["queued", "awaiting_approval"]).in("company_id", allowList)
+      .in("id", opts.queueIds)
+      .lt("attempts", maxAttempts)
+      .order("created_at", { ascending: true }).limit(batchSize);
+    if (selected.error) throw new Error(`Selected email queue read failed: ${selected.error.message}`);
+    due = selected.data || [];
+  } else if (opts?.transactionalOnly) {
     // A compare-and-set claim permits transactional mail for every company
     // without changing the existing marketing RPC or needing a DB migration.
     const selected = await supabase.from("outgoing_email_queue").select("*")
@@ -60,11 +71,11 @@ export async function drainEmailQueue(
 
   for (const candidate of due) {
     let row = candidate;
-    if (opts?.transactionalOnly) {
+    if (opts?.transactionalOnly || opts?.queueIds?.length) {
       const claim = await supabase.from("outgoing_email_queue")
         .update({ status: "in_progress", attempts: candidate.attempts + 1 })
         .eq("id", candidate.id).eq("company_id", candidate.company_id)
-        .eq("status", "queued").eq("attempts", candidate.attempts)
+        .in("status", ["queued", "awaiting_approval"]).eq("attempts", candidate.attempts)
         .select("*").maybeSingle();
       if (claim.error) throw new Error(`Transactional email claim failed: ${claim.error.message}`);
       if (!claim.data) continue; // another worker has claimed/completed it
@@ -94,6 +105,9 @@ export async function drainEmailQueue(
           to: row.to_email,
           subject: row.subject,
           body: row.body,
+          // Keep the queue's logical template key so a tenant template
+          // override is applied when an admin releases a held email.
+          template: row.template_type || undefined,
           templateType: row.template_type,
           variables: row.variables || { clientName: row.to_name },
           ...queuedEmailReference(row.trigger_event, row.trigger_ref_id),
@@ -112,10 +126,36 @@ export async function drainEmailQueue(
         .update({ status: "sent", sent_at: sentAt || new Date().toISOString(), error_message: null })
         .eq("id", row.id).eq("company_id", row.company_id);
       if (saved.error) throw new Error(`Email sent, but queue receipt failed: ${saved.error.message}`);
+      // Quote follow-up cadence advances only after the held email is
+      // actually delivered. The values are internal queue metadata and are
+      // ignored by template variable replacement.
+      if (row.trigger_event === "quote.followup" && row.trigger_ref_id) {
+        const position = Number(row.variables?._followup_position);
+        if (Number.isInteger(position) && position > 0) {
+          const { recordFollowupSent } = await import("@/services/quoteFollowupService");
+          const logged = await recordFollowupSent({
+            companyId: row.company_id,
+            quoteId: row.trigger_ref_id,
+            position,
+            templateKey: row.template_type || "email_lead_quoted",
+            channel: "email",
+            sentByUserId: null,
+            notes: "released from admin email approval queue",
+            client: supabase,
+          });
+          if (!logged.ok) console.error("Email sent, but quote follow-up receipt failed:", logged.error);
+        }
+      }
       sent += 1;
     } else {
       const attempts = row.attempts; // already incremented by claim_email_batch
-      const finalStatus = attempts >= maxAttempts ? "failed" : "queued";
+      // A manually approved row must not become worker-eligible after a
+      // transient failure. It stays with the admin until they retry it.
+      const finalStatus = attempts >= maxAttempts
+        ? "failed"
+        : opts?.queueIds?.length
+          ? "awaiting_approval"
+          : "queued";
       const captured = errorMessage || `Dispatch returned false (attempt ${attempts}/${maxAttempts})`;
       const saved = await supabase
         .from("outgoing_email_queue")
@@ -136,6 +176,7 @@ export async function drainEmailQueue(
  */
 export interface QueueHealth {
   queued: number;
+  awaitingApproval: number;
   failed: number;
   sentLast24h: number;
   oldestQueuedMinutes: number | null;
@@ -156,13 +197,16 @@ export async function getEmailQueueHealth(
     if (companyId) q = q.eq("company_id", companyId);
     return q;
   };
-  const [queuedResult, failedResult] = await Promise.all([
+  const [queuedResult, awaitingResult, failedResult] = await Promise.all([
     scoped("queued"),
+    scoped("awaiting_approval"),
     scoped("failed"),
   ]);
   if (queuedResult.error) throw queuedResult.error;
+  if (awaitingResult.error) throw awaitingResult.error;
   if (failedResult.error) throw failedResult.error;
   const queued = queuedResult.count;
+  const awaitingApproval = awaitingResult.count;
   const failed = failedResult.count;
 
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
@@ -183,6 +227,7 @@ export async function getEmailQueueHealth(
 
   return {
     queued: Number(queued || 0),
+    awaitingApproval: Number(awaitingApproval || 0),
     failed: Number(failed || 0),
     sentLast24h: Number(sentLast24h || 0),
     oldestQueuedMinutes,

@@ -58,7 +58,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       byCompany.set(list.company_id, arr);
     }
 
-    const { emailService } = await import("@/services/emailService");
+    const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
     const { notificationService } = await import("@/services/notificationService");
 
     let emails = 0;
@@ -125,16 +125,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             `${rows}\n\n` +
             "Open the admin shopping board and either complete, cancel, or reassign these runs.";
 
-          const ok = await emailService.sendEmail({
+          const delivery = await deliverAutomatedEmail(sb, {
             companyId,
             to: adminProfile.email,
+            recipientName: adminProfile.full_name || null,
             subject: "Stale shopping lists need cleanup",
             body,
             templateType: TEMPLATE_TYPE,
             allowPlatformFallback: true,
-            _client: sb,
+            triggerEvent: "shopping.stale_alert",
+            triggerRefId: oldest?.id || null,
           } as any);
-          if (ok) emails += 1;
+          if (delivery.success) emails += 1;
         }
       } catch (err: any) {
         errors.push(`${companyId}: ${err?.message || err}`);

@@ -92,7 +92,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         const templateKey = templateKeyFor(state.nextPosition, "email");
         try {
           const { resolveEmailTemplate } = await import("@/services/email/templateResolver");
-          const { emailService } = await import("@/services/emailService");
+          const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
 
           const variables: Record<string, string> = {
             client_name: quote.client_name || "there",
@@ -120,18 +120,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             },
           });
 
-          const delivery = await emailService.sendEmailDetailed({
+          const delivery = await deliverAutomatedEmail(sb, {
             companyId: tenant.id,
             to: quote.client_email,
+            recipientName: quote.client_name || null,
             subject: resolved.subject,
             body: resolved.bodyHtml,
+            template: templateKey,
+            templateType: templateKey,
+            variables: { ...variables, _followup_position: String(state.nextPosition) },
+            triggerEvent: "quote.followup",
+            triggerRefId: quote.id,
+            quoteId: quote.id,
             idempotencyKey: `quote-followup/${quote.id}/${state.nextPosition}`,
             // Service-role client: cron runs unauthenticated, so without
             // it the provider lookup is RLS-blocked and the send silently
             // no-ops (logged "sent" but never delivered).
-            _client: sb,
           } as any);
           if (!delivery.success) throw new Error(delivery.error || "Follow-up email was not sent");
+
+          // Held messages are logged only once an admin releases them from
+          // the queue; otherwise the cadence would advance before the
+          // client has received anything.
+          if (delivery.heldForApproval) {
+            totalSent += 1;
+            continue;
+          }
 
           await recordFollowupSent({
             companyId: tenant.id,
@@ -142,6 +156,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             sentByUserId: null,
             notes: "auto-sent by quote-followup-send cron",
             status: "sent",
+            client: sb,
           });
           totalSent += 1;
         } catch (e: any) {

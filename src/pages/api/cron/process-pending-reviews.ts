@@ -24,7 +24,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getServiceSupabase } from "@/lib/supabase/service";
-import { emailService } from "@/services/emailService";
+import { deliverAutomatedEmail } from "@/lib/email/automatedDelivery";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -166,18 +166,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             `Thanks for booking with us.`;
 
         try {
-          await emailService.sendEmail({
+          await deliverAutomatedEmail(supabase, {
             companyId: row.company_id,
             to: row.client_email,
+            recipientName: row.client_name || null,
             subject,
             body,
             orderId: row.order_id,
-            // Wave 24: cron worker - pass service-role client so
-            // getEmailConfig can read email_provider_settings under
-            // RLS. Without this the helper falls back to browser anon
-            // and the SELECT silently returns nothing, so the email
-            // never sends and we mark sent_at anyway.
-            _client: supabase,
+            templateType: "review_request",
+            triggerEvent: "review.request",
+            triggerRefId: row.order_id,
           } as any);
         } catch (e) {
           // A blocked / quarantined recipient is not a failure of the

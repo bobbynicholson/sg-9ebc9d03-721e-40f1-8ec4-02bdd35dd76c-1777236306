@@ -62,7 +62,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           byCo.set(inv.company_id, e);
         }
         const { notificationService } = await import("@/services/notificationService");
-        const { emailService } = await import("@/services/emailService");
+        const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://cateringms.com";
         for (const [companyId, agg] of byCo.entries()) {
           try {
@@ -111,7 +111,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                   `Review the aging list and chase payment here:\n${link}\n\n` +
                   `This is an automated daily summary from CateringMS.`;
                 for (const to of recipients) {
-                  const ok = await emailService.sendEmail({
+                  const delivery = await deliverAutomatedEmail(sb, {
                     companyId,
                     to,
                     subject,
@@ -121,9 +121,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                     html: `<p>${body.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br />")}</p>`,
                     text: body,
                     templateType: "invoices_overdue_admin_digest",
-                    _client: sb,
+                    triggerEvent: "invoice.overdue_digest",
                   } as any);
-                  if (ok) emailed += 1;
+                  if (delivery.success) emailed += 1;
                 }
               } catch (mailErr: any) {
                 console.warn("[update-overdue-invoices] admin email failed for company", companyId, mailErr?.message || mailErr);

@@ -213,8 +213,9 @@ export async function recordFollowupSent(args: {
   sentByUserId: string | null;
   notes?: string | null;
   status?: FollowupStatus;
+  client?: any;
 }): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await (supabase as any).from("quote_followup_log").insert({
+  const { error } = await ((args.client || supabase) as any).from("quote_followup_log").insert({
     company_id: args.companyId,
     quote_id: args.quoteId,
     sequence_position: args.position,

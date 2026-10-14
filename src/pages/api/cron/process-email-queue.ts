@@ -5,7 +5,10 @@
  * pending and due (scheduled_for IS NULL OR scheduled_for <= NOW())
  * and dispatches each one through emailService.sendEmail. The send
  * runs the same negative gates (blocked_contacts + comms_paused) so
- * paused recipients don't slip through automation.
+ * paused recipients don't slip through automation. A company can also
+ * choose "manual review" in Email settings; those queued emails remain
+ * untouched here and can only be sent by an authorised admin using the
+ * on-demand queue action.
  *
  * Auth: Vercel Cron sets the `Authorization: Bearer <CRON_SECRET>`
  * header on every fire. Reject anything that doesn't match.
@@ -52,9 +55,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .from("companies")
     .select("id, auto_followups_enabled");
   if (companiesError) return res.status(500).json({ error: companiesError.message });
-  const allowList = ((companies || []) as any[]).map((c) => c.id);
-  const marketingAllowList = ((companies || []) as any[]).filter((c) => c.auto_followups_enabled).map((c) => c.id);
-  if (allowList.length === 0) {
+  const allCompanies = (companies || []) as any[];
+  if (allCompanies.length === 0) {
     await recordCronHeartbeat(supabase, CRON_NAME, "ok", {
       source: auth.source, sent: 0, failed: 0, skipped: 0,
       note: "no_companies",
@@ -65,6 +67,43 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       note: "No companies found. Nothing to send.",
     });
   }
+
+  // The settings page persists one mode per company in the existing JSONB
+  // preferences object. Read the newest non-Marketing provider row, which
+  // matches the settings screen's provider selection. A missing value keeps
+  // the historical, safe default: automatic delivery.
+  const { data: providerSettings, error: providerSettingsError } = await supabase
+    .from("email_provider_settings")
+    .select("company_id, automation_preferences, updated_at")
+    .neq("provider", "mailchimp")
+    .order("updated_at", { ascending: false });
+  if (providerSettingsError) {
+    return res.status(500).json({ error: providerSettingsError.message });
+  }
+  const deliveryModeByCompany = new Map<string, string>();
+  for (const setting of (providerSettings || []) as any[]) {
+    // The query is newest-first. Keep the first row for a company in case a
+    // legacy provider row still exists beside the active sender.
+    if (!deliveryModeByCompany.has(setting.company_id)) {
+      deliveryModeByCompany.set(
+        setting.company_id,
+        setting.automation_preferences?.queue_delivery_mode === "manual_review"
+          ? "manual_review"
+          : "automatic",
+      );
+    }
+  }
+  const heldCompanyIds = new Set(
+    allCompanies
+      .filter((company) => deliveryModeByCompany.get(company.id) === "manual_review")
+      .map((company) => company.id),
+  );
+  const allowList = allCompanies
+    .filter((company) => !heldCompanyIds.has(company.id))
+    .map((company) => company.id);
+  const marketingAllowList = allCompanies
+    .filter((company) => company.auto_followups_enabled && !heldCompanyIds.has(company.id))
+    .map((company) => company.id);
 
   // Single shared drain path (also used by the on-demand admin "send now"
   // endpoint) so the send + retry + status lifecycle lives in one place.
@@ -96,14 +135,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   await recordCronHeartbeat(supabase, CRON_NAME, result.failed > 0 ? "error" : "ok", {
     source: auth.source,
     processed: result.processed,
-    sent: result.sent, failed: result.failed, skipped: 0,
+    sent: result.sent, failed: result.failed, skipped: heldCompanyIds.size,
   });
   return res.status(200).json({
     ok: true,
     processed: result.processed,
     sent: result.sent,
     failed: result.failed,
-    skipped: 0,
+    skipped: heldCompanyIds.size,
   });
 }
 

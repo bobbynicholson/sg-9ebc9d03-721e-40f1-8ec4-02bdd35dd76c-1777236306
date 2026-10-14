@@ -14,6 +14,10 @@ const args = process.argv.slice(2);
 const baseIdx = args.indexOf("--base");
 const BASE = baseIdx >= 0 ? args[baseIdx + 1] : "http://localhost:3001";
 const CHECK = args.includes("--check");
+const rolesIdx = args.indexOf("--roles");
+const requestedRoles = rolesIdx >= 0
+  ? new Set(String(args[rolesIdx + 1] || "").split(",").map((role) => role.trim()).filter(Boolean))
+  : null;
 const SLUG = "spit-braai-delivery";
 const host = new URL(BASE).hostname;
 
@@ -39,7 +43,7 @@ const devPassword = env.NEXT_PUBLIC_DEV_USER_PASSWORD || "CateringMS123!";
 const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
 
 // role -> { email, landing }  (landing is the first page to open, includes prefix)
-const USERS = [
+const ALL_USERS = [
   { role: "company_admin",    email: "hello@spitbraaidelivery.co.za",                  landing: `/${SLUG}/admin/dashboard` },
   { role: "admin",            email: "admin@spitbraaidelivery.co.za",                 landing: `/${SLUG}/admin/dashboard` },
   { role: "kitchen_staff",    email: "kitchen@spitbraaidelivery.co.za",               landing: `/${SLUG}/team-portal/kitchen/dashboard` },
@@ -52,25 +56,41 @@ const USERS = [
   { role: "client",           email: "universalsportmags23@gmail.com",                landing: `/${SLUG}/client-portal/dashboard` },
   { role: "super_admin",      email: "bobby@skylight-digital.co.za",                  landing: `/admin/platform/dashboard` },
 ];
+const USERS = requestedRoles
+  ? ALL_USERS.filter((user) => requestedRoles.has(user.role))
+  : ALL_USERS;
+if (requestedRoles && USERS.length !== requestedRoles.size) {
+  const knownRoles = new Set(USERS.map((user) => user.role));
+  console.error(`Unknown role(s): ${[...requestedRoles].filter((role) => !knownRoles.has(role)).join(", ")}`);
+  process.exit(1);
+}
 
 const b64url = v => Buffer.from(v, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 async function mint(email) {
   const anonC = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
-  if (!admin) {
-    const { data, error } = await anonC.auth.signInWithPassword({
-      email,
-      password: devPassword,
-    });
-    if (error || !data?.session) throw new Error(error?.message || "no session");
-    return data.session;
+  if (admin) {
+    try {
+      const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email, options: { redirectTo: "https://cateringms.com/auth/callback" } });
+      if (error || !data?.properties?.action_link) throw new Error(error?.message || "no link");
+      const r = await fetch(data.properties.action_link, { redirect: "manual" });
+      const p = new URLSearchParams(new URL(r.headers.get("location") || "").hash.replace(/^#/, ""));
+      const { data: s, error: se } = await anonC.auth.setSession({ access_token: p.get("access_token"), refresh_token: p.get("refresh_token") });
+      if (se || !s?.session) throw new Error(se?.message || "no session");
+      return s.session;
+    } catch (magicLinkError) {
+      // The local role launcher must still work when a provider blocks or
+      // delays a magic-link redirect. The dev users share a local password,
+      // so fall back to a normal authenticated sign-in rather than opening a
+      // misleading unauthenticated browser window.
+      console.warn(`Magic-link session unavailable for ${email}; trying local password sign-in (${magicLinkError?.message || "unknown error"}).`);
+    }
   }
-  const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email, options: { redirectTo: "https://cateringms.com/auth/callback" } });
-  if (error || !data?.properties?.action_link) throw new Error(error?.message || "no link");
-  const r = await fetch(data.properties.action_link, { redirect: "manual" });
-  const p = new URLSearchParams(new URL(r.headers.get("location") || "").hash.replace(/^#/, ""));
-  const { data: s, error: se } = await anonC.auth.setSession({ access_token: p.get("access_token"), refresh_token: p.get("refresh_token") });
-  if (se || !s?.session) throw new Error(se?.message || "no session");
-  return s.session;
+  const { data, error } = await anonC.auth.signInWithPassword({
+    email,
+    password: devPassword,
+  });
+  if (error || !data?.session) throw new Error(error?.message || "no session");
+  return data.session;
 }
 function cookieChunks(session) {
   const enc = `base64-${b64url(JSON.stringify(session))}`, size = 3180, out = [];

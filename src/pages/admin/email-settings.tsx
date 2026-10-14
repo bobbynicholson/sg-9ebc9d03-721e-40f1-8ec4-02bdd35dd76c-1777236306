@@ -42,8 +42,14 @@ import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 import { EmailDeliverabilityPanel } from "@/components/admin/EmailDeliverabilityPanel";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
+import { TEMPLATE_REGISTRY } from "@/lib/messageTemplates/registry";
 
 type Provider = "none" | "resend" | "gmail_oauth" | "ms365_oauth" | "smtp";
+type QueueDeliveryMode = "automatic" | "manual_review";
+type TemplateDeliveryModes = Record<string, QueueDeliveryMode | undefined>;
+type AutomationPreferences = Record<string, boolean | QueueDeliveryMode | TemplateDeliveryModes | undefined>;
+const QUEUE_DELIVERY_MODE_KEY = "queue_delivery_mode";
+const TEMPLATE_DELIVERY_MODES_KEY = "template_delivery_modes";
 
 interface ProviderRow {
   id?: string;
@@ -68,27 +74,55 @@ interface ProviderRow {
   magic_link_repeat_customers: boolean;
   magic_link_repeat_threshold: number;
   revoke_old_links_on_new: boolean;
-  automation_preferences?: Record<string, boolean>;
+  automation_preferences?: AutomationPreferences;
 }
 
-const AUTOMATION_OPTIONS = [
-  ["quotes", "Quotes and quote follow-ups"],
-  ["invoices", "Invoices and payment links"],
-  ["payments", "Payment receipts and reminders"],
-  ["order_confirmations", "Order confirmations"],
-  ["order_status", "Order status updates"],
-  ["event_reminders", "Event and pre-event reminders"],
-  ["reviews", "Review requests and thank-you emails"],
-  ["cancellations", "Cancellation and postponement notices"],
-  ["staff_notifications", "Driver and staff notifications"],
-  ["staff_invites", "Staff invites and welcome emails"],
-  ["lead_acknowledgements", "Lead-form acknowledgements"],
-  ["system", "System and security emails"],
+interface QueueReviewRow {
+  id: string;
+  to_email: string | null;
+  to_name: string | null;
+  subject: string | null;
+  template_type: string | null;
+  trigger_event: string | null;
+  scheduled_for: string | null;
+  created_at: string;
+  status: "queued" | "awaiting_approval";
+}
+
+const DEFAULT_AUTOMATION_PREFERENCES: AutomationPreferences = {};
+const SCHEDULED_EMAIL_TYPES = [
+  ["email_lead_quoted", "Quote follow-up 1", "client", "Quote follow-up"],
+  ["email_lead_quiet", "Quote follow-up 2", "client", "Quote follow-up"],
+  ["email_lead_lost", "Quote follow-up 3", "client", "Quote follow-up"],
+  ["deposit_reminder", "Deposit payment reminder", "client", "Money"],
+  ["balance_reminder_email", "Balance payment reminder", "client", "Money"],
+  ["review_request", "Review request", "client", "Post-event"],
+  ["equipment_collection_reminder", "Equipment collection reminder", "client", "Post-event"],
+  ["quote_expired_client", "Expired quote notice", "client", "Quote"],
+  ["quote_expired_admin", "Expired quote alert", "staff", "Quote"],
+  ["outsource_pre_event_reminder", "Outsource pre-event reminder", "staff", "Staff operations"],
+  ["outsource_post_event_thanks", "Outsource post-event thanks", "staff", "Staff operations"],
+  ["daily_summary", "Daily notification summary", "staff", "Account"],
+  ["weekly_report", "Weekly notification report", "staff", "Account"],
+  ["stale_shopping_list_alert", "Stale shopping list alert", "staff", "Staff operations"],
+  ["invoices_overdue_admin_digest", "Overdue invoice digest", "staff", "Money"],
 ] as const;
 
-const DEFAULT_AUTOMATION_PREFERENCES = Object.fromEntries(
-  AUTOMATION_OPTIONS.map(([key]) => [key, true]),
-);
+const AUTOMATED_EMAIL_TEMPLATES = Array.from(new Map([
+  ...TEMPLATE_REGISTRY
+    .filter((template) => template.channel === "email" && template.delivery !== "manual" && template.scope !== "platform")
+    .map((template) => [template.key, template] as const),
+  ...SCHEDULED_EMAIL_TYPES.map(([key, label, category, group]) => [key, { key, label, category, group }] as const),
+]).values());
+
+function getQueueDeliveryMode(preferences?: AutomationPreferences): QueueDeliveryMode {
+  return preferences?.[QUEUE_DELIVERY_MODE_KEY] === "manual_review" ? "manual_review" : "automatic";
+}
+
+function getTemplateDeliveryMode(preferences: AutomationPreferences | undefined, templateKey: string): QueueDeliveryMode {
+  const modes = preferences?.[TEMPLATE_DELIVERY_MODES_KEY] as TemplateDeliveryModes | undefined;
+  return modes?.[templateKey] === "manual_review" ? "manual_review" : "automatic";
+}
 
 // Daily send caps per subscription plan. Numbers chosen to align with
 // Resend's free-tier ceiling (100/day per verified domain) and scale up
@@ -155,6 +189,10 @@ function EmailSettingsPage() {
     automation_preferences: DEFAULT_AUTOMATION_PREFERENCES,
   });
   const [queuedCount, setQueuedCount] = useState(0);
+  const [runningQueue, setRunningQueue] = useState(false);
+  const [queueReviewRows, setQueueReviewRows] = useState<QueueReviewRow[]>([]);
+  const [queueReviewError, setQueueReviewError] = useState<string | null>(null);
+  const [sendingQueueId, setSendingQueueId] = useState<string | null>(null);
   const [smtpPass, setSmtpPass] = useState("");
   const [mailchimpApiKey, setMailchimpApiKey] = useState("");
   const [mailchimpAudienceId, setMailchimpAudienceId] = useState("");
@@ -190,6 +228,7 @@ function EmailSettingsPage() {
         { data, error: providerErr },
         { count, error: countErr },
         { count: queued, error: queuedErr },
+        { data: queueRows, error: queueRowsErr },
       ] = await Promise.all([
         // TIGHTEN I.47 (2026-06-01): `.maybeSingle()` errors when the
         // company has multiple provider rows (e.g. an old smtp row
@@ -217,7 +256,15 @@ function EmailSettingsPage() {
           .from("outgoing_email_queue")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
-          .eq("status", "queued"),
+          .in("status", ["queued", "awaiting_approval"]),
+        supabase
+          .from("outgoing_email_queue")
+          .select("id, to_email, to_name, subject, template_type, trigger_event, scheduled_for, created_at, status")
+          .eq("company_id", companyId)
+          .in("status", ["queued", "awaiting_approval"])
+          .order("scheduled_for", { ascending: true, nullsFirst: true })
+          .order("created_at", { ascending: true })
+          .limit(100),
       ]);
       if (cancelled) return;
       // A failed provider read must NOT fall through to the seed-
@@ -239,6 +286,13 @@ function EmailSettingsPage() {
       }
       setTodayCount(count ?? 0);
       setQueuedCount(queued ?? 0);
+      if (queueRowsErr) {
+        setQueueReviewRows([]);
+        setQueueReviewError(queueRowsErr.message || "Could not load queued emails.");
+      } else {
+        setQueueReviewRows((queueRows || []) as QueueReviewRow[]);
+        setQueueReviewError(null);
+      }
       if (data) {
         const loaded = {
           ...data,
@@ -604,19 +658,108 @@ function EmailSettingsPage() {
     : row.provider === "smtp" ? "Custom SMTP"
     : "No provider";
 
-  const setAutomationOption = (key: string, value: boolean) => {
+  const setQueueDeliveryMode = (mode: QueueDeliveryMode) => {
     setRow((current) => ({
       ...current,
       automation_preferences: {
         ...DEFAULT_AUTOMATION_PREFERENCES,
         ...(current.automation_preferences || {}),
-        [key]: value,
+        [QUEUE_DELIVERY_MODE_KEY]: mode,
       },
-      ...(key === "quotes" ? { auto_attach_on_quote_sent: value } : {}),
-      ...(key === "order_confirmations" ? { auto_attach_on_order_confirmed: value } : {}),
-      ...(key === "order_status" ? { auto_attach_on_order_status_change: value } : {}),
     }));
   };
+
+  const setTemplateDeliveryMode = (templateKey: string, mode: QueueDeliveryMode) => {
+    setRow((current) => {
+      const preferences = current.automation_preferences || DEFAULT_AUTOMATION_PREFERENCES;
+      const modes = (preferences[TEMPLATE_DELIVERY_MODES_KEY] || {}) as TemplateDeliveryModes;
+      return {
+        ...current,
+        automation_preferences: {
+          ...preferences,
+          [TEMPLATE_DELIVERY_MODES_KEY]: { ...modes, [templateKey]: mode },
+        },
+      };
+    });
+  };
+
+  const refreshQueueReview = async () => {
+    if (!companyId) return;
+    const { data, error } = await supabase
+      .from("outgoing_email_queue")
+      .select("id, to_email, to_name, subject, template_type, trigger_event, scheduled_for, created_at, status")
+      .eq("company_id", companyId)
+      .in("status", ["queued", "awaiting_approval"])
+      .order("scheduled_for", { ascending: true, nullsFirst: true })
+      .order("created_at", { ascending: true })
+      .limit(100);
+    if (error) {
+      setQueueReviewError(error.message || "Could not load queued emails.");
+      return;
+    }
+    setQueueReviewRows((data || []) as QueueReviewRow[]);
+    setQueueReviewError(null);
+  };
+
+  const runDueEmailsNow = async () => {
+    setRunningQueue(true);
+    try {
+      const response = await fetch("/api/admin/email-health", { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body?.ok) {
+        throw new Error(body?.error || `Email queue returned HTTP ${response.status}`);
+      }
+      setQueuedCount(Number(body.health?.queued || 0) + Number(body.health?.awaitingApproval || 0));
+      await refreshQueueReview();
+      toast({
+        title: "Queue run completed",
+        description: `${body.drained?.sent || 0} sent, ${body.drained?.failed || 0} failed. Only emails already due were included.`,
+        variant: body.drained?.failed ? "destructive" : "default",
+      });
+    } catch (error: any) {
+      captureException(error, { tags: { route: "/admin/email-settings", step: "manual-queue-run", companyId } });
+      toast({
+        title: "Could not run the email queue",
+        description: error?.message || "Check your connection and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setRunningQueue(false);
+    }
+  };
+
+  const sendQueuedEmailNow = async (queueId: string) => {
+    setSendingQueueId(queueId);
+    try {
+      const response = await fetch("/api/admin/email-health", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queueId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body?.ok) {
+        throw new Error(body?.error || `Email queue returned HTTP ${response.status}`);
+      }
+      setQueuedCount(Number(body.health?.queued || 0) + Number(body.health?.awaitingApproval || 0));
+      await refreshQueueReview();
+      toast({
+        title: body.drained?.sent ? "Email sent" : "Email was not sent",
+        description: body.drained?.sent
+          ? "The selected queued email was sent now."
+          : body.drained?.failed
+            ? "The selected email failed. Check the email health panel for details."
+            : "That email is no longer waiting in the queue.",
+        variant: body.drained?.failed ? "destructive" : "default",
+      });
+    } catch (error: any) {
+      captureException(error, { tags: { route: "/admin/email-settings", step: "manual-single-queue-send", companyId, queueId } });
+      toast({ title: "Could not send this email", description: error?.message || "Check your connection and try again.", variant: "destructive" });
+    } finally {
+      setSendingQueueId(null);
+    }
+  };
+
+  const queueDeliveryMode = getQueueDeliveryMode(row.automation_preferences);
 
   return (
     <>
@@ -638,7 +781,7 @@ function EmailSettingsPage() {
               </span>
             }
             icon={Mail}
-            subtitle="Set your sender identity, verify your domain and choose automatic client emails."
+            subtitle="Set your sender identity, choose when automated email sends, and run due emails yourself when needed."
             meta={
               !loading && !loadError ? (
                 <>
@@ -1142,15 +1285,15 @@ function EmailSettingsPage() {
               operator's mental model better. The old title described
               the mechanism (attach a link); the new one describes the
               decision (when do these emails fire). */}
-          <Card collapsible defaultOpen={false} collapseLabel="When to email clients automatically" className="mb-6">
+          <Card collapsible defaultOpen={false} collapseLabel="Automation and sending control" className="mb-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-slate-600" />
-                When to email clients automatically
-                <InfoTooltip content={"Toggle which client emails fire automatically. Each one includes the client's secure order link. Repeat clients can also get a 'View all my events' link.\n\nDirect quote and CRM sends use the verified company email sender. Gmail, Outlook, and the default mail app are optional manual-draft alternatives."} />
+                Automation and sending control
+                <InfoTooltip content={"Choose whether due queued emails are delivered by the scheduled worker or held until an admin runs them. Manual sends from a quote or CRM stay separate and are not switched off by this control."} />
               </CardTitle>
               <CardDescription>
-                Pick which moments automatically send a client email with their secure order link.
+                Keep scheduled messages automatic, or hold them for an admin-controlled queue run.
                 {queuedCount > 0 && (
                   <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
                     <BarChart3 className="w-3 h-3" /> {queuedCount} queued
@@ -1159,20 +1302,114 @@ function EmailSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-semibold text-slate-900">All email types use the selected sender</p>
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {AUTOMATION_OPTIONS.map(([key, label]) => (
-                    <ToggleRow
-                      key={key}
-                      label={label}
-                      sub="Uses the selected shared or SMTP sender"
-                      checked={!!(row.automation_preferences || DEFAULT_AUTOMATION_PREFERENCES)[key]}
-                      onChange={(value) => setAutomationOption(key, value)}
-                    />
-                  ))}
+              <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">Delivery mode for queued automations</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">
+                      This applies to emails waiting in the scheduled delivery queue. It does not cancel a one-off email you deliberately send from a quote, order, or CRM record.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className={queueDeliveryMode === "manual_review" ? "w-fit shrink-0 border-amber-200 bg-amber-50 text-amber-800" : "w-fit shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700"}>
+                    {queueDeliveryMode === "manual_review" ? "Admin review" : "Automatic"}
+                  </Badge>
                 </div>
-                <p className="mt-2 text-[11px] text-slate-500">The shared CateringMS sender is the default for every item above. Custom SMTP replaces it for every item above when configured and tested successfully.</p>
+                <div className="mt-3">
+                  <ToggleRow
+                    label="Run queued automations automatically"
+                    sub="On: due emails are sent by the scheduled worker. Off: they stay queued until an authorised admin selects Send due emails now."
+                    checked={queueDeliveryMode === "automatic"}
+                    onChange={(automatic) => setQueueDeliveryMode(automatic ? "automatic" : "manual_review")}
+                  />
+                </div>
+                <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs leading-5 text-slate-600">
+                    {queueDeliveryMode === "manual_review"
+                      ? `${queuedCount} queued email${queuedCount === 1 ? " is" : "s are"} waiting for your decision. Select Send due emails now to send every due item immediately.`
+                      : "The scheduled worker sends due queued emails automatically."}
+                  </p>
+                  {queueDeliveryMode === "manual_review" && (
+                    <Button type="button" onClick={runDueEmailsNow} disabled={runningQueue || queuedCount === 0} className="w-full shrink-0 gap-2 sm:w-auto">
+                      {runningQueue ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {runningQueue ? "Sending due emails..." : "Send due emails now"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {(queueDeliveryMode === "manual_review" || queueReviewRows.length > 0) && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 sm:p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">Queued emails waiting for approval</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">Review every queued email below. Send now releases only that email, even when it is scheduled for a later time.</p>
+                    </div>
+                    <Badge variant="outline" className="w-fit shrink-0 border-amber-200 bg-amber-50 text-amber-800">{queuedCount} waiting</Badge>
+                  </div>
+                  {queueReviewError ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                      <span className="min-w-0 flex-1">{queueReviewError}</span>
+                      <Button type="button" variant="outline" size="sm" onClick={refreshQueueReview}>Retry</Button>
+                    </div>
+                  ) : queueReviewRows.length === 0 ? (
+                    <p className="mt-3 rounded-lg border border-dashed border-amber-200 bg-white/70 px-3 py-5 text-center text-xs text-slate-600">Nothing is waiting for approval right now.</p>
+                  ) : (
+                    <div className="mt-3 divide-y divide-amber-100 overflow-hidden rounded-lg border border-amber-200 bg-white">
+                      {queueReviewRows.map((email) => {
+                        const scheduleLabel = email.scheduled_for
+                          ? `Scheduled ${new Date(email.scheduled_for).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}`
+                          : "Ready to send";
+                        const templateLabel = email.template_type || email.trigger_event || "Email";
+                        return (
+                          <div key={email.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-900" title={email.subject || templateLabel}>{email.subject || templateLabel}</p>
+                              <p className="mt-0.5 truncate text-xs text-slate-600" title={email.to_email || ""}>{email.to_name ? `${email.to_name} · ` : ""}{email.to_email || "No recipient"}</p>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                                <Badge variant="outline" className="max-w-full truncate border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-600">{templateLabel.replace(/[_\.]/g, " ")}</Badge>
+                                <span>{email.status === "awaiting_approval" ? "Held for your approval" : scheduleLabel}</span>
+                              </div>
+                            </div>
+                            <Button type="button" size="sm" onClick={() => sendQueuedEmailNow(email.id)} disabled={sendingQueueId !== null} className="w-full shrink-0 gap-2 sm:w-auto">
+                              {sendingQueueId === email.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                              {sendingQueueId === email.id ? "Sending..." : "Send now"}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {queueReviewRows.length < queuedCount && (
+                    <p className="mt-2 text-[11px] text-slate-500">Showing the first {queueReviewRows.length} of {queuedCount} queued emails.</p>
+                  )}
+                </div>
+              )}
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Automatic email templates</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">Choose a different rule only where you need it. Admin approval holds the actual recipient, order and email content until you select Send now.</p>
+                  </div>
+                  <Badge variant="outline" className="w-fit shrink-0 border-slate-200 bg-white text-slate-600">{AUTOMATED_EMAIL_TEMPLATES.length} automated templates</Badge>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                  {AUTOMATED_EMAIL_TEMPLATES.map((template) => {
+                    const mode = getTemplateDeliveryMode(row.automation_preferences, template.key);
+                    return (
+                      <div key={template.key} className="rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="flex gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-900">{template.label}</p>
+                            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{template.category} · {template.group}</p>
+                          </div>
+                          <Button type="button" size="sm" variant={mode === "manual_review" ? "default" : "outline"} className="h-7 shrink-0 text-[11px]" onClick={() => setTemplateDeliveryMode(template.key, mode === "automatic" ? "manual_review" : "automatic")}>
+                            {mode === "manual_review" ? "Admin approval" : "Automatic"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
                 <p className="font-semibold">What these switches control</p>

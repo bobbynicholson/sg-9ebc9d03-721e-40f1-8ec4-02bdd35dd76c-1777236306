@@ -155,7 +155,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const { notificationService } = await import("@/services/notificationService");
-    const { emailService } = await import("@/services/emailService");
+    const { deliverAutomatedEmail } = await import("@/lib/email/automatedDelivery");
     let adminNotified = 0;
     let adminEmailed = 0;
     let clientNotified = 0;
@@ -234,11 +234,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         "", "CateringMS",
       ].join("\n");
       try {
-        const result = await emailService.sendEmailDetailed({
+        const result = await deliverAutomatedEmail(sb, {
           companyId, to: recipient, subject, body,
           template: "quote_expired_admin",
           variables: { companyName, quoteCount: rows.length },
-          _client: sb,
+          triggerEvent: "quote.expired_admin",
         } as any);
         if (result.success) {
           await markRows(sb, rows.map((row) => row.id), {
@@ -335,9 +335,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           "", `Kind regards,\n${companyName}`,
         ].join("\n");
         try {
-          const result = await emailService.sendEmailDetailed({
+          const result = await deliverAutomatedEmail(sb, {
             companyId: row.company_id,
             to: String(row.client_email).trim(),
+            recipientName: row.client_name || null,
             subject,
             body,
             template: "quote_expired_client",
@@ -349,7 +350,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               quoteUrl,
               validUntil: row.valid_until || "",
             },
-            _client: sb,
+            triggerEvent: "quote.expired_client",
+            triggerRefId: row.id,
           } as any);
           if (result.success) {
             await markRows(sb, [row.id], {

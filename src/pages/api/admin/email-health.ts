@@ -2,8 +2,9 @@
 /**
  * /api/admin/email-health
  *   GET  -> queue health snapshot for the caller's company
- *   POST -> drain the caller's company queue now (on-demand "send pending"),
- *           then return the fresh health. No cron secret needed - this is an
+ *   POST -> drain the caller's due queue now (on-demand "send pending"), or
+ *           release one explicitly selected queued email immediately when
+ *           body.queueId is supplied. No cron secret needed - this is an
  *           authenticated operator action.
  *
  * Admin / owner only. Gives the operator visibility + manual control so a
@@ -41,7 +42,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method === "POST") {
       // Drain THIS company's queue regardless of auto_followups_enabled -
       // a manual operator "send now" is an explicit opt-in.
-      drained = await drainEmailQueue(service as any, [companyId]);
+      const queueId = typeof req.body?.queueId === "string" ? req.body.queueId.trim() : "";
+      if (queueId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(queueId)) {
+        return res.status(400).json({ error: "Invalid queued email ID" });
+      }
+      drained = await drainEmailQueue(service as any, [companyId], queueId ? { queueIds: [queueId], batchSize: 1 } : undefined);
     }
 
     const health = await getEmailQueueHealth(service as any, companyId);

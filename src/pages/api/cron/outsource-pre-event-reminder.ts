@@ -108,9 +108,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true, sent: 0 });
     }
 
-    const { emailService } = dryRun
-      ? { emailService: { sendEmail: async (_args: any) => true } as { sendEmail: (args: any) => Promise<boolean> } }
-      : await import("@/services/emailService");
+    const sendAutomated = dryRun
+      ? async (_client: any, _args: any) => ({ success: true, heldForApproval: false })
+      : (await import("@/lib/email/automatedDelivery")).deliverAutomatedEmail;
     const yesterdayIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
     let sent = 0;
@@ -198,20 +198,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           continue;
         }
 
-        const result = await emailService.sendEmail({
+        const result = await sendAutomated(sb, {
           companyId: a.company_id,
           to: providerEmail,
+          recipientName: a.provider_name || null,
           subject,
           body: `<pre style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; white-space: pre-wrap;">${bodyText
             .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`,
           orderId: a.order_id,
           templateType: "outsource_pre_event_reminder",
-          // Service-role client: cron runs unauthenticated, so without it
-          // the provider lookup is RLS-blocked and the send silently
-          // no-ops (logged "sent" but never delivered).
-          _client: sb,
+          triggerEvent: "outsource.pre_event_reminder",
+          triggerRefId: a.order_id,
         } as any);
-        if (result) sent += 1;
+        if (result.success) sent += 1;
         else skipped += 1;
       } catch (e: any) {
         errors.push(`${a.id}: ${e?.message || e}`);
