@@ -217,6 +217,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           triggerRefId: order.id,
         } as any);
         if (!delivery.success) throw new Error(delivery.error || "Deposit reminder was not sent");
+        // Turned off in Email settings: no email and no client bell reminder.
+        if (delivery.skippedBySettings) continue;
         queued += 1;
       } catch (e: any) {
         errors.push(`order ${order.id}: ${e?.message || e}`);

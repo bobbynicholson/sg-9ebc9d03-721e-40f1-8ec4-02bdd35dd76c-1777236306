@@ -40,16 +40,21 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 import { EmailDeliverabilityPanel } from "@/components/admin/EmailDeliverabilityPanel";
+import { AutomatedEmailInfoChip } from "@/components/admin/AutomatedEmailInfoChip";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
-import { TEMPLATE_REGISTRY } from "@/lib/messageTemplates/registry";
+import {
+  AUTOMATED_EMAIL_TEMPLATES,
+  QUEUE_DELIVERY_MODE_KEY,
+  TEMPLATE_DELIVERY_MODES_KEY,
+  companyDeliveryMode,
+  resolveEmailDeliveryMode,
+} from "@/lib/email/automatedEmailTemplates";
 
 type Provider = "none" | "resend" | "gmail_oauth" | "ms365_oauth" | "smtp";
-type QueueDeliveryMode = "automatic" | "manual_review";
+type QueueDeliveryMode = "automatic" | "off";
 type TemplateDeliveryModes = Record<string, QueueDeliveryMode | undefined>;
 type AutomationPreferences = Record<string, boolean | QueueDeliveryMode | TemplateDeliveryModes | undefined>;
-const QUEUE_DELIVERY_MODE_KEY = "queue_delivery_mode";
-const TEMPLATE_DELIVERY_MODES_KEY = "template_delivery_modes";
 
 interface ProviderRow {
   id?: string;
@@ -90,38 +95,13 @@ interface QueueReviewRow {
 }
 
 const DEFAULT_AUTOMATION_PREFERENCES: AutomationPreferences = {};
-const SCHEDULED_EMAIL_TYPES = [
-  ["email_lead_quoted", "Quote follow-up 1", "client", "Quote follow-up"],
-  ["email_lead_quiet", "Quote follow-up 2", "client", "Quote follow-up"],
-  ["email_lead_lost", "Quote follow-up 3", "client", "Quote follow-up"],
-  ["deposit_reminder", "Deposit payment reminder", "client", "Money"],
-  ["balance_reminder_email", "Balance payment reminder", "client", "Money"],
-  ["review_request", "Review request", "client", "Post-event"],
-  ["equipment_collection_reminder", "Equipment collection reminder", "client", "Post-event"],
-  ["quote_expired_client", "Expired quote notice", "client", "Quote"],
-  ["quote_expired_admin", "Expired quote alert", "staff", "Quote"],
-  ["outsource_pre_event_reminder", "Outsource pre-event reminder", "staff", "Staff operations"],
-  ["outsource_post_event_thanks", "Outsource post-event thanks", "staff", "Staff operations"],
-  ["daily_summary", "Daily notification summary", "staff", "Account"],
-  ["weekly_report", "Weekly notification report", "staff", "Account"],
-  ["stale_shopping_list_alert", "Stale shopping list alert", "staff", "Staff operations"],
-  ["invoices_overdue_admin_digest", "Overdue invoice digest", "staff", "Money"],
-] as const;
-
-const AUTOMATED_EMAIL_TEMPLATES = Array.from(new Map([
-  ...TEMPLATE_REGISTRY
-    .filter((template) => template.channel === "email" && template.delivery !== "manual" && template.scope !== "platform")
-    .map((template) => [template.key, template] as const),
-  ...SCHEDULED_EMAIL_TYPES.map(([key, label, category, group]) => [key, { key, label, category, group }] as const),
-]).values());
-
 function getQueueDeliveryMode(preferences?: AutomationPreferences): QueueDeliveryMode {
-  return preferences?.[QUEUE_DELIVERY_MODE_KEY] === "manual_review" ? "manual_review" : "automatic";
+  return companyDeliveryMode(preferences);
 }
 
+/** What this email actually does: its own setting, else the company switch. */
 function getTemplateDeliveryMode(preferences: AutomationPreferences | undefined, templateKey: string): QueueDeliveryMode {
-  const modes = preferences?.[TEMPLATE_DELIVERY_MODES_KEY] as TemplateDeliveryModes | undefined;
-  return modes?.[templateKey] === "manual_review" ? "manual_review" : "automatic";
+  return resolveEmailDeliveryMode(preferences, templateKey);
 }
 
 // Daily send caps per subscription plan. Numbers chosen to align with
@@ -247,10 +227,14 @@ function EmailSettingsPage() {
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
-        supabase
-          .from("outgoing_email_log")
+        // Every send is recorded in email_automation_log (keyed by
+        // user_id = company id). outgoing_email_log is never written,
+        // so counting it always showed 0.
+        (supabase as any)
+          .from("email_automation_log")
           .select("id", { count: "exact", head: true })
-          .eq("company_id", companyId)
+          .eq("user_id", companyId)
+          .eq("status", "sent")
           .gte("sent_at", startOfToday.toISOString()),
         supabase
           .from("outgoing_email_queue")
@@ -346,10 +330,11 @@ function EmailSettingsPage() {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
       sevenDaysAgo.setHours(0, 0, 0, 0);
-      const { data: logRows, error: logErr } = await supabase
-        .from("outgoing_email_log")
+      const { data: logRows, error: logErr } = await (supabase as any)
+        .from("email_automation_log")
         .select("sent_at")
-        .eq("company_id", companyId)
+        .eq("user_id", companyId)
+        .eq("status", "sent")
         .gte("sent_at", sevenDaysAgo.toISOString())
         .limit(10_000);
       if (logErr) {
@@ -646,11 +631,6 @@ function EmailSettingsPage() {
     }
   };
 
-  // Guard the divide: a 0/blank cap would render a NaN-width bar.
-  const capPct = row.daily_send_cap > 0
-    ? Math.min(100, Math.round((todayCount / row.daily_send_cap) * 100))
-    : 0;
-
   const providerLabel =
     row.provider === "resend" ? "CateringMS default"
     : row.provider === "gmail_oauth" ? "Gmail"
@@ -672,12 +652,16 @@ function EmailSettingsPage() {
   const setTemplateDeliveryMode = (templateKey: string, mode: QueueDeliveryMode) => {
     setRow((current) => {
       const preferences = current.automation_preferences || DEFAULT_AUTOMATION_PREFERENCES;
-      const modes = (preferences[TEMPLATE_DELIVERY_MODES_KEY] || {}) as TemplateDeliveryModes;
+      const modes = { ...((preferences[TEMPLATE_DELIVERY_MODES_KEY] || {}) as TemplateDeliveryModes) };
+      // Same as the company switch = follow the switch (no own setting),
+      // so changing the switch later still moves this email with it.
+      if (mode === companyDeliveryMode(preferences)) delete modes[templateKey];
+      else modes[templateKey] = mode;
       return {
         ...current,
         automation_preferences: {
           ...preferences,
-          [TEMPLATE_DELIVERY_MODES_KEY]: { ...modes, [templateKey]: mode },
+          [TEMPLATE_DELIVERY_MODES_KEY]: modes,
         },
       };
     });
@@ -790,8 +774,8 @@ function EmailSettingsPage() {
                   </span>
                   {!countsUnavailable && (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white">
-                      <span className={`h-1.5 w-1.5 rounded-full ${capPct > 90 ? "bg-rose-400" : capPct > 70 ? "bg-amber-400" : "bg-emerald-400"}`} />
-                      {todayCount} of {row.daily_send_cap} sent today
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      {todayCount} sent today
                     </span>
                   )}
                   {!countsUnavailable && queuedCount > 0 && (
@@ -836,17 +820,18 @@ function EmailSettingsPage() {
             </Card>
           ) : (
           <>
-          {/* Daily quota tile */}
+          {/* Emails sent today + 7-day trend. There is no daily limit:
+              nothing in the sending code enforces one, so none is shown. */}
           <Card className="mb-6 bg-gradient-to-r from-blue-50 to-blue-50">
             <CardContent className="py-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-blue-600" />
-                  <span className="font-semibold text-slate-900">Today's send count</span>
-                  <InfoTooltip content={"Counts emails sent straight from CateringMS through your provider.\n\nCompose-link clicks are tracked separately and don't count against this cap, since those go out through your own inbox."} />
+                  <span className="font-semibold text-slate-900">Emails sent today</span>
+                  <InfoTooltip content={"Emails CateringMS sent for your company today: quotes, invoices, receipts, reminders and order updates.\n\nEmails you send from your own inbox through a compose link aren't counted here."} />
                 </div>
                 <span className="text-2xl font-bold text-slate-900 tabular-nums">
-                  {countsUnavailable ? "?" : todayCount} <span className="text-sm font-normal text-slate-500">/ {row.daily_send_cap}</span>
+                  {countsUnavailable ? "?" : todayCount}
                 </span>
               </div>
               {countsUnavailable && (
@@ -858,23 +843,9 @@ function EmailSettingsPage() {
                   </button>
                 </div>
               )}
-              <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full transition-all ${
-                    capPct > 90 ? "bg-rose-500" : capPct > 70 ? "bg-amber-500" : "bg-brand-primary"
-                  }`}
-                  style={{ width: `${capPct}%` }}
-                />
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-slate-500">
-                <span>Your</span>
-                <Badge variant="outline" className="capitalize">{subscriptionPlan}</Badge>
-                <span>plan caps daily personal sends at <strong>{tierCap}</strong>. Tier rules in <Link href="/pricing" className="text-slate-600">Pricing</Link>.</span>
-              </div>
-
               {/* ES-B (task #221, 2026-05-25): 7-day send sparkline.
-                  Reads from outgoing_email_log so the operator can
-                  spot a trend before they hit the cap. Inline SVG to
+                  Reads sent rows from email_automation_log so the operator can
+                  spot a trend in their sending. Inline SVG to
                   avoid a chart-lib dep for one chart. */}
               {last7Counts.length > 0 && (() => {
                 const max = Math.max(1, ...last7Counts.map((c) => c.count));
@@ -1148,7 +1119,6 @@ function EmailSettingsPage() {
                   blurb="Out of the box. Quotes, invoices and confirmations go from noreply@send.cateringms.com with your Reply-To set to your address. Clients see your name. Replies land in your inbox. No setup."
                   meta={[
                     { label: "Setup", value: "Done. Optional: verify your own domain (above)." },
-                    { label: "Send volume", value: `${tierCap}/day on your plan` },
                     { label: "Deliverability", value: "Good. Lifts to excellent once you verify your own domain." },
                   ]}
                 />
@@ -1254,23 +1224,6 @@ function EmailSettingsPage() {
                 </div>
               )}
 
-              <div className="pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="cap">
-                    Daily send cap
-                    <InfoTooltip content={`Your plan allows up to ${tierCap} a day. You can drop this lower if you want a tighter ceiling.\n\nOnly super-admin can raise it above the plan limit.`} />
-                  </Label>
-                  <Input
-                    id="cap"
-                    type="number"
-                    min={1}
-                    max={tierCap}
-                    value={row.daily_send_cap}
-                    onChange={(e) => setRow({ ...row, daily_send_cap: Math.max(1, Math.min(Number(e.target.value) || 1, tierCap)) })}
-                  />
-                </div>
-              </div>
-
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <Button onClick={save} disabled={saving} className="gap-2">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
@@ -1290,10 +1243,10 @@ function EmailSettingsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Send className="w-5 h-5 text-slate-600" />
                 Automation and sending control
-                <InfoTooltip content={"Choose whether due queued emails are delivered by the scheduled worker or held until an admin runs them. Manual sends from a quote or CRM stay separate and are not switched off by this control."} />
+                <InfoTooltip content={"Turn each automatic email on or off. Off means that automatic email is not sent. Emails you send yourself from a quote, invoice, message or CRM record always go out."} />
               </CardTitle>
               <CardDescription>
-                Keep scheduled messages automatic, or hold them for an admin-controlled queue run.
+                Choose which automatic emails are sent and which are turned off.
                 {queuedCount > 0 && (
                   <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
                     <BarChart3 className="w-3 h-3" /> {queuedCount} queued
@@ -1302,48 +1255,41 @@ function EmailSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+              <div id="automatic-emails" data-chat-section="admin.email-settings.automatic-emails" data-chat-section-label="Automatic emails on or off" className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">Delivery mode for queued automations</p>
+                    <p className="text-sm font-semibold text-slate-900">Automatic emails</p>
                     <p className="mt-1 text-xs leading-5 text-slate-600">
-                      This applies to emails waiting in the scheduled delivery queue. It does not cancel a one-off email you deliberately send from a quote, order, or CRM record.
+                      Turn the automatic emails below on or off all at once, or set each one separately. Off means that email is not sent at all. Emails you send yourself (Send quote, Send invoice, messages, Resend) always go out when you press Send.
                     </p>
                   </div>
-                  <Badge variant="outline" className={queueDeliveryMode === "manual_review" ? "w-fit shrink-0 border-amber-200 bg-amber-50 text-amber-800" : "w-fit shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700"}>
-                    {queueDeliveryMode === "manual_review" ? "Admin review" : "Automatic"}
+                  <Badge variant="outline" className={queueDeliveryMode === "off" ? "w-fit shrink-0 border-slate-300 bg-slate-100 text-slate-700" : "w-fit shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700"}>
+                    {queueDeliveryMode === "off" ? "Off" : "Automatic"}
                   </Badge>
                 </div>
                 <div className="mt-3">
                   <ToggleRow
-                    label="Run queued automations automatically"
-                    sub="On: due emails are sent by the scheduled worker. Off: they stay queued until an authorised admin selects Send due emails now."
+                    label="Send automatic emails"
+                    sub="On: the emails below are sent automatically, except any you turn off. Off: none of them are sent, except any you set to Automatic."
                     checked={queueDeliveryMode === "automatic"}
-                    onChange={(automatic) => setQueueDeliveryMode(automatic ? "automatic" : "manual_review")}
+                    onChange={(automatic) => setQueueDeliveryMode(automatic ? "automatic" : "off")}
                   />
                 </div>
-                <div className="mt-3 flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs leading-5 text-slate-600">
-                    {queueDeliveryMode === "manual_review"
-                      ? `${queuedCount} queued email${queuedCount === 1 ? " is" : "s are"} waiting for your decision. Select Send due emails now to send every due item immediately.`
-                      : "The scheduled worker sends due queued emails automatically."}
-                  </p>
-                  {queueDeliveryMode === "manual_review" && (
-                    <Button type="button" onClick={runDueEmailsNow} disabled={runningQueue || queuedCount === 0} className="w-full shrink-0 gap-2 sm:w-auto">
-                      {runningQueue ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      {runningQueue ? "Sending due emails..." : "Send due emails now"}
-                    </Button>
-                  )}
-                </div>
               </div>
-              {(queueDeliveryMode === "manual_review" || queueReviewRows.length > 0) && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 sm:p-4">
+              {queueReviewRows.length > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900">Queued emails waiting for approval</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-600">Review every queued email below. Send now releases only that email, even when it is scheduled for a later time.</p>
+                      <p className="text-sm font-semibold text-slate-900">Scheduled emails waiting to send</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">These go out automatically at their scheduled time, unless that email is turned off below. Send now sends one straight away.</p>
                     </div>
-                    <Badge variant="outline" className="w-fit shrink-0 border-amber-200 bg-amber-50 text-amber-800">{queuedCount} waiting</Badge>
+                    <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+                      <Badge variant="outline" className="w-fit border-slate-200 bg-slate-50 text-slate-700">{queuedCount} waiting</Badge>
+                      <Button type="button" size="sm" variant="outline" onClick={runDueEmailsNow} disabled={runningQueue || queuedCount === 0} className="gap-2">
+                        {runningQueue ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        {runningQueue ? "Sending due emails..." : "Send due emails now"}
+                      </Button>
+                    </div>
                   </div>
                   {queueReviewError ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
@@ -1351,10 +1297,8 @@ function EmailSettingsPage() {
                       <span className="min-w-0 flex-1">{queueReviewError}</span>
                       <Button type="button" variant="outline" size="sm" onClick={refreshQueueReview}>Retry</Button>
                     </div>
-                  ) : queueReviewRows.length === 0 ? (
-                    <p className="mt-3 rounded-lg border border-dashed border-amber-200 bg-white/70 px-3 py-5 text-center text-xs text-slate-600">Nothing is waiting for approval right now.</p>
                   ) : (
-                    <div className="mt-3 divide-y divide-amber-100 overflow-hidden rounded-lg border border-amber-200 bg-white">
+                    <div className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white">
                       {queueReviewRows.map((email) => {
                         const scheduleLabel = email.scheduled_for
                           ? `Scheduled ${new Date(email.scheduled_for).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}`
@@ -1367,7 +1311,7 @@ function EmailSettingsPage() {
                               <p className="mt-0.5 truncate text-xs text-slate-600" title={email.to_email || ""}>{email.to_name ? `${email.to_name} · ` : ""}{email.to_email || "No recipient"}</p>
                               <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
                                 <Badge variant="outline" className="max-w-full truncate border-slate-200 bg-slate-50 text-[10px] font-medium text-slate-600">{templateLabel.replace(/[_\.]/g, " ")}</Badge>
-                                <span>{email.status === "awaiting_approval" ? "Held for your approval" : scheduleLabel}</span>
+                                <span>{scheduleLabel}</span>
                               </div>
                             </div>
                             <Button type="button" size="sm" onClick={() => sendQueuedEmailNow(email.id)} disabled={sendingQueueId !== null} className="w-full shrink-0 gap-2 sm:w-auto">
@@ -1380,30 +1324,54 @@ function EmailSettingsPage() {
                     </div>
                   )}
                   {queueReviewRows.length < queuedCount && (
-                    <p className="mt-2 text-[11px] text-slate-500">Showing the first {queueReviewRows.length} of {queuedCount} queued emails.</p>
+                    <p className="mt-2 text-[11px] text-slate-500">Showing the first {queueReviewRows.length} of {queuedCount} scheduled emails.</p>
                   )}
                 </div>
               )}
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
+              <div id="each-automatic-email" data-chat-section="admin.email-settings.each-email" data-chat-section-label="Each automatic email" className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Automatic email templates</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">Choose a different rule only where you need it. Admin approval holds the actual recipient, order and email content until you select Send now.</p>
+                    <p className="text-sm font-semibold text-slate-900">Each automatic email</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">Each email follows the switch above unless you change it here. Click an email to switch it between Automatic (sent) and Off (not sent).</p>
                   </div>
-                  <Badge variant="outline" className="w-fit shrink-0 border-slate-200 bg-white text-slate-600">{AUTOMATED_EMAIL_TEMPLATES.length} automated templates</Badge>
+                  <Badge variant="outline" className="w-fit shrink-0 border-slate-200 bg-white text-slate-600">{AUTOMATED_EMAIL_TEMPLATES.length} automatic emails</Badge>
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
                   {AUTOMATED_EMAIL_TEMPLATES.map((template) => {
                     const mode = getTemplateDeliveryMode(row.automation_preferences, template.key);
+                    if (!template.controllable) {
+                      return (
+                        <div key={template.key} className="rounded-lg border border-slate-200 bg-white p-3">
+                          <div className="flex gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-slate-900">{template.label}</p>
+                              <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{template.category} · {template.group}</p>
+                              <AutomatedEmailInfoChip templateKey={template.key} label={template.label} />
+                            </div>
+                            <Badge variant="outline" className="h-7 shrink-0 border-slate-200 bg-slate-50 text-[11px] text-slate-600" title="Sign-in links and invitations can't be turned off, or the person would be locked out.">
+                              Always sent
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                       <div key={template.key} className="rounded-lg border border-slate-200 bg-white p-3">
                         <div className="flex gap-3">
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold text-slate-900">{template.label}</p>
                             <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{template.category} · {template.group}</p>
+                            <AutomatedEmailInfoChip templateKey={template.key} label={template.label} />
                           </div>
-                          <Button type="button" size="sm" variant={mode === "manual_review" ? "default" : "outline"} className="h-7 shrink-0 text-[11px]" onClick={() => setTemplateDeliveryMode(template.key, mode === "automatic" ? "manual_review" : "automatic")}>
-                            {mode === "manual_review" ? "Admin approval" : "Automatic"}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={mode === "off" ? "default" : "outline"}
+                            className="h-7 shrink-0 text-[11px]"
+                            title={mode === "off" ? "Not sent. Click to send it automatically." : "Sent automatically. Click to turn it off."}
+                            onClick={() => setTemplateDeliveryMode(template.key, mode === "automatic" ? "off" : "automatic")}
+                          >
+                            {mode === "off" ? "Off" : "Automatic"}
                           </Button>
                         </div>
                       </div>
@@ -1414,7 +1382,7 @@ function EmailSettingsPage() {
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
                 <p className="font-semibold">What these switches control</p>
                 <p className="mt-1">All CateringMS transactional email uses this sender by default: quotes, invoices, payment receipts and reminders, order confirmations, status updates, event reminders, review requests, staff invites, and system notices.</p>
-                <p className="mt-1">These switches only control optional automatic client events. They do not connect Gmail, Outlook, or Mailchimp. Mailchimp is a separate bulk-marketing connection below. A manually confirmed “Send quote” action still sends that quote.</p>
+                <p className="mt-1">Turning an email off stops only the automatic version of it. Emails you send yourself (Send quote, Send invoice, messages, Resend) always go out when you press Send. Sign-in links and team invitations are always sent. These switches do not connect Gmail, Outlook, or Mailchimp; Mailchimp is a separate bulk-marketing connection below.</p>
                 <p className="mt-1">A switch being on does not replace the sender setup: the shared CateringMS sender is ready immediately; Custom SMTP requires its own credentials and the sender must pass the test.</p>
               </div>
               {row.provider === "none" && (

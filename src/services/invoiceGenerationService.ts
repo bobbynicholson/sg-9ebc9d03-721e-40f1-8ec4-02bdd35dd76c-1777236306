@@ -1341,7 +1341,7 @@ async function notifyClientOfInvoiceIssued(
           ? ensureRequiredOrderLink(bodyWithPaymentSummary, orderLink)
           : bodyWithPaymentSummary;
 
-        const sent = await emailService.sendEmail({
+        const delivery = await emailService.sendEmailDetailed({
           companyId,
           to: recipient,
           subject: resolved.subject,
@@ -1356,7 +1356,9 @@ async function notifyClientOfInvoiceIssued(
           _client: supabase,
         } as any);
 
-        if (sent) {
+        // Only stamp sent_at when an email actually went out - not when the
+        // email is turned off in Email settings (skipped_by_settings).
+        if (delivery.success && !delivery.skipped_by_settings) {
           const { error: sentStampErr } = await supabase
             .from("invoices")
             .update({ sent_at: new Date().toISOString() })
@@ -2079,6 +2081,8 @@ export async function sendInvoiceEmail(
           order_url: orderLink,
         },
         emailType: templateType,
+        // Admin reviewed this in the send dialog and pressed Send.
+        deliveryContext: "manual",
         ...(options.bypassQuarantine ? { bypassQuarantine: true } : {}),
         attachInvoicePdf: options.attachInvoicePdf !== false,
         invoiceId: options.invoiceId,

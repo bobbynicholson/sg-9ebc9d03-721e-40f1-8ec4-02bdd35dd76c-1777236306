@@ -299,6 +299,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         await (emailService as any).sendEmail({
           companyId: order.company_id,
           to: order.client_email,
+          automationKey: "cancellation_request_received",
           subject,
           body,
           bypassQuarantine: true,

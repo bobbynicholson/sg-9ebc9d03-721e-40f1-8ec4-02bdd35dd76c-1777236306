@@ -12,6 +12,7 @@
  */
 import { emailService } from "@/services/emailService";
 import { TRANSACTIONAL_EMAIL_EVENTS, queuedEmailReference } from "./queuePolicy";
+import { resolveEmailDeliveryMode } from "./automatedEmailTemplates";
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 const DEFAULT_BATCH_SIZE = 25;
@@ -20,12 +21,25 @@ export interface DrainResult {
   processed: number;
   sent: number;
   failed: number;
+  /** Due emails not sent because they are turned off in Email settings. */
+  turnedOff?: number;
 }
 
 export async function drainEmailQueue(
   supabase: any,
   allowList: string[],
-  opts?: { batchSize?: number; maxAttempts?: number; transactionalOnly?: boolean; queueIds?: string[] },
+  opts?: {
+    batchSize?: number;
+    maxAttempts?: number;
+    transactionalOnly?: boolean;
+    queueIds?: string[];
+    /**
+     * Scheduled worker only: Email settings per company. A due email that
+     * is turned off ("Off") is cancelled instead of sent. Omitted = an
+     * admin's own "Send now" run, which always sends.
+     */
+    deliveryPreferences?: Map<string, unknown>;
+  },
 ): Promise<DrainResult> {
   const maxAttempts = opts?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const batchSize = opts?.batchSize ?? DEFAULT_BATCH_SIZE;
@@ -68,6 +82,7 @@ export async function drainEmailQueue(
   let sent = 0;
   let failed = 0;
   let processed = 0;
+  let turnedOff = 0;
 
   for (const candidate of due) {
     let row = candidate;
@@ -80,6 +95,19 @@ export async function drainEmailQueue(
       if (claim.error) throw new Error(`Transactional email claim failed: ${claim.error.message}`);
       if (!claim.data) continue; // another worker has claimed/completed it
       row = claim.data;
+    }
+    if (opts?.deliveryPreferences && !opts?.queueIds?.length) {
+      const preferences = opts.deliveryPreferences.get(row.company_id);
+      if (resolveEmailDeliveryMode(preferences, row.template_type) === "off") {
+        // Turned off in Email settings: never sent, kept as a record.
+        const cancelled = await supabase
+          .from("outgoing_email_queue")
+          .update({ status: "cancelled", error_message: "Not sent: turned off in Email settings" })
+          .eq("id", row.id).eq("company_id", row.company_id);
+        if (cancelled.error) throw new Error(`Turned-off email could not be cancelled: ${cancelled.error.message}`);
+        turnedOff += 1;
+        continue;
+      }
     }
     processed += 1;
     let dispatchOk = false;
@@ -111,6 +139,9 @@ export async function drainEmailQueue(
           templateType: row.template_type,
           variables: row.variables || { clientName: row.to_name },
           ...queuedEmailReference(row.trigger_event, row.trigger_ref_id),
+          // Email settings already checked above (scheduled run) or this is
+          // an admin's own "Send now".
+          _deliveryApproved: true,
           _client: supabase,
         } as any);
         dispatchOk = delivery.success;
@@ -166,8 +197,9 @@ export async function drainEmailQueue(
     }
   }
 
-  return { processed, sent, failed };
+  return turnedOff > 0 ? { processed, sent, failed, turnedOff } : { processed, sent, failed };
 }
+
 
 /**
  * Queue health snapshot for an allow-list of companies (or all when omitted).

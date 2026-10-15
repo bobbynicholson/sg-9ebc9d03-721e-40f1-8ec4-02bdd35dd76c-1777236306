@@ -1,14 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * Single delivery gate for scheduled/background email jobs.
+ * Single on/off gate for automatic emails (Email settings ->
+ * "Automatic" / "Off").
  *
- * A deliberate operator action continues to call emailService directly.
- * Cron jobs call this helper, which either sends immediately or records a
- * durable `awaiting_approval` outbox row according to Email settings.
+ * - Cron jobs call deliverAutomatedEmail: sends when the email is on,
+ *   does nothing when it is off.
+ * - emailService.sendEmailDetailed calls skipIfTurnedOff for every other
+ *   send of a listed automatic email (order status, receipts,
+ *   cancellations, ...), unless the send is an admin's own "Send" action
+ *   (deliveryContext: "manual").
+ *
+ * Which emails and which rule: src/lib/email/automatedEmailTemplates.ts.
  */
 import { emailService, type EmailSendDetailed, type SendEmailPayload } from "@/services/emailService";
+import {
+  isApprovalControllable,
+  resolveEmailDeliveryMode,
+  type EmailDeliveryMode,
+} from "@/lib/email/automatedEmailTemplates";
 
-export type QueueDeliveryMode = "automatic" | "manual_review";
+export type QueueDeliveryMode = EmailDeliveryMode;
 
 export interface AutomatedEmailPayload extends SendEmailPayload {
   triggerEvent: string;
@@ -17,15 +28,24 @@ export interface AutomatedEmailPayload extends SendEmailPayload {
 }
 
 export interface AutomatedDeliveryResult extends EmailSendDetailed {
+  /** Kept for existing callers; nothing is held any more. */
   heldForApproval: boolean;
-  queueId?: string;
+  /** True when the email is turned off in Email settings and was not sent. */
+  skippedBySettings?: boolean;
 }
 
-export async function getAutomatedDeliveryMode(
-  supabase: any,
-  companyId: string,
-  templateType?: string,
-): Promise<QueueDeliveryMode> {
+/**
+ * The key Email settings knows this email by. Some senders pass a generic
+ * `template` (e.g. "transactional") plus the real type in `templateType`;
+ * prefer whichever one is on the Email settings list.
+ */
+export function deliveryKey(payload: { template?: string; templateType?: string; automationKey?: string }): string | undefined {
+  if (payload.automationKey) return payload.automationKey;
+  if (payload.templateType && isApprovalControllable(payload.templateType)) return payload.templateType;
+  return payload.template || payload.templateType;
+}
+
+export async function readDeliveryPreferences(supabase: any, companyId: string): Promise<Record<string, any>> {
   const { data, error } = await supabase
     .from("email_provider_settings")
     .select("automation_preferences")
@@ -35,61 +55,51 @@ export async function getAutomatedDeliveryMode(
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(`Could not read email delivery setting: ${error.message}`);
-  const preferences = (data as any)?.automation_preferences || {};
-  const perTemplate = preferences.template_delivery_modes || {};
-  if (templateType && perTemplate[templateType] === "manual_review") return "manual_review";
-  return preferences.queue_delivery_mode === "manual_review"
-    ? "manual_review"
-    : "automatic";
+  return (data as any)?.automation_preferences || {};
 }
 
-/** Send an automatic email now, or retain it as an approval item. */
+export async function getAutomatedDeliveryMode(
+  supabase: any,
+  companyId: string,
+  templateType?: string,
+): Promise<QueueDeliveryMode> {
+  return resolveEmailDeliveryMode(await readDeliveryPreferences(supabase, companyId), templateType);
+}
+
+const TURNED_OFF: AutomatedDeliveryResult = {
+  success: true,
+  heldForApproval: false,
+  skippedBySettings: true,
+};
+
+/** Send an automatic email when it is on in Email settings; otherwise do nothing. */
 export async function deliverAutomatedEmail(
   supabase: any,
   payload: AutomatedEmailPayload,
 ): Promise<AutomatedDeliveryResult> {
-  const templateType = payload.template || payload.templateType || "custom";
-  const mode = await getAutomatedDeliveryMode(supabase, payload.companyId, templateType);
-  if (mode === "automatic") {
-    const result = await emailService.sendEmailDetailed({ ...payload, _client: supabase } as any);
-    return { ...result, heldForApproval: false };
-  }
+  const mode = await getAutomatedDeliveryMode(supabase, payload.companyId, deliveryKey(payload) || "custom");
+  if (mode === "off") return { ...TURNED_OFF };
+  const result = await emailService.sendEmailDetailed({ ...payload, _client: supabase, _deliveryApproved: true } as any);
+  return { ...result, heldForApproval: false };
+}
 
-  const referenceId = payload.triggerRefId || payload.orderId || payload.quoteId || null;
-  let existing = supabase
-    .from("outgoing_email_queue")
-    .select("id")
-    .eq("company_id", payload.companyId)
-    .eq("trigger_event", payload.triggerEvent)
-    .eq("template_type", templateType)
-    .eq("to_email", payload.to)
-    .in("status", ["awaiting_approval", "queued", "in_progress"])
-    .limit(1);
-  if (referenceId) existing = existing.eq("trigger_ref_id", referenceId);
-  const { data: duplicate, error: duplicateError } = await existing.maybeSingle();
-  if (duplicateError) {
-    return { success: false, error: duplicateError.message, error_code: "unknown", heldForApproval: true };
+/**
+ * emailService gate. Returns a "not sent" result when the email is turned
+ * off in Email settings, or null when it should be sent. A settings read
+ * failure sends the email (today's behaviour) rather than silently
+ * dropping it.
+ */
+export async function skipIfTurnedOff(
+  supabase: any,
+  payload: SendEmailPayload,
+): Promise<AutomatedDeliveryResult | null> {
+  const templateKey = deliveryKey(payload);
+  if (!payload.companyId || !isApprovalControllable(templateKey)) return null;
+  try {
+    const mode = await getAutomatedDeliveryMode(supabase, payload.companyId, templateKey);
+    return mode === "off" ? { ...TURNED_OFF } : null;
+  } catch (e: any) {
+    console.error("[automatedDelivery] delivery setting unreadable, sending now:", e?.message || e);
+    return null;
   }
-  if (duplicate?.id) return { success: true, heldForApproval: true, queueId: duplicate.id };
-
-  const { data: queued, error } = await supabase
-    .from("outgoing_email_queue")
-    .insert({
-      company_id: payload.companyId,
-      to_email: payload.to,
-      to_name: payload.recipientName || payload.variables?.client_name || payload.variables?.first_name || null,
-      subject: payload.subject,
-      body: payload.body || "",
-      template_type: templateType,
-      variables: payload.variables || {},
-      trigger_event: payload.triggerEvent,
-      trigger_ref_id: referenceId,
-      scheduled_for: null,
-      attempts: 0,
-      status: "awaiting_approval",
-    })
-    .select("id")
-    .single();
-  if (error) return { success: false, error: error.message, error_code: "unknown", heldForApproval: true };
-  return { success: true, heldForApproval: true, queueId: queued.id };
 }

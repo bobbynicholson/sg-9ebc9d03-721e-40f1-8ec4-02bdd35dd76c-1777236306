@@ -2128,10 +2128,14 @@ async function sendStatusNotifications(order: any) {
         // module-level `supabase` is service-role on the server,
         // browser anon in the browser).
         await emailService.sendEmail({
-          companyId: order.user_id,
+          // company_id, not user_id: /api/send-email refuses a companyId
+          // that isn't the caller's company ("Cannot send email for another
+          // company"), so status emails to clients silently never sent.
+          companyId: order.company_id || order.user_id,
           to: order.client_email,
           subject: resolved.subject,
           body: resolved.bodyHtml,
+          automationKey: tpl.templateType,
           notificationPreference: {
             confirmed: "order_confirmed",
             preparing: "order_status_changed",

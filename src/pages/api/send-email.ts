@@ -31,6 +31,11 @@ async function handler(
       // attachQuotePdf=true a second PDF is rendered and attached.
       quoteId2,
       emailType, bypassQuarantine, notificationPreference,
+      // "manual" = the admin reviewed and pressed Send; always sent, even
+      // when that automatic email is turned off in Email settings.
+      deliveryContext,
+      // Email settings key for an automatic email (on/off check only).
+      automationKey,
       // Optional, server-rendered Quote PDF attachment. When the
       // caller sets attachQuotePdf=true the route hydrates the
       // QuotePdfData from the quotes + companies tables (using the
@@ -607,6 +612,8 @@ async function handler(
         quoteId,
         notificationPreference,
         bypassQuarantine,
+        ...(deliveryContext === "manual" ? { deliveryContext: "manual" } : {}),
+        ...(typeof automationKey === "string" && automationKey ? { automationKey } : {}),
         ...(attachments.length > 0 ? { attachments } : {}),
         _client: getServiceSupabase(),
       } as any);
@@ -615,7 +622,10 @@ async function handler(
     if (result?.success) {
       return res.status(200).json({
         success: true,
-        message: "Email processed successfully",
+        message: (result as any)?.skipped_by_settings
+          ? "Not sent: this automatic email is turned off in Email settings"
+          : "Email processed successfully",
+        ...((result as any)?.skipped_by_settings ? { skipped_by_settings: true } : {}),
       });
     } else {
       // Forward the structured diagnosis to the client. error_code is

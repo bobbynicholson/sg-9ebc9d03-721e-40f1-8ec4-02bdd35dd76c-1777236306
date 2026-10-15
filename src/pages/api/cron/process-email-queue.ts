@@ -5,10 +5,9 @@
  * pending and due (scheduled_for IS NULL OR scheduled_for <= NOW())
  * and dispatches each one through emailService.sendEmail. The send
  * runs the same negative gates (blocked_contacts + comms_paused) so
- * paused recipients don't slip through automation. A company can also
- * choose "manual review" in Email settings; those queued emails remain
- * untouched here and can only be sent by an authorised admin using the
- * on-demand queue action.
+ * paused recipients don't slip through automation. Each due email follows
+ * Email settings ("Automatic" / "Off": the email's own setting, else the
+ * company switch); an email that is turned off is cancelled, not sent.
  *
  * Auth: Vercel Cron sets the `Authorization: Bearer <CRON_SECRET>`
  * header on every fire. Reject anything that doesn't match.
@@ -80,29 +79,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (providerSettingsError) {
     return res.status(500).json({ error: providerSettingsError.message });
   }
-  const deliveryModeByCompany = new Map<string, string>();
+  const deliveryPreferences = new Map<string, unknown>();
   for (const setting of (providerSettings || []) as any[]) {
     // The query is newest-first. Keep the first row for a company in case a
     // legacy provider row still exists beside the active sender.
-    if (!deliveryModeByCompany.has(setting.company_id)) {
-      deliveryModeByCompany.set(
-        setting.company_id,
-        setting.automation_preferences?.queue_delivery_mode === "manual_review"
-          ? "manual_review"
-          : "automatic",
-      );
+    if (!deliveryPreferences.has(setting.company_id)) {
+      deliveryPreferences.set(setting.company_id, setting.automation_preferences || {});
     }
   }
-  const heldCompanyIds = new Set(
-    allCompanies
-      .filter((company) => deliveryModeByCompany.get(company.id) === "manual_review")
-      .map((company) => company.id),
-  );
-  const allowList = allCompanies
-    .filter((company) => !heldCompanyIds.has(company.id))
-    .map((company) => company.id);
+  // Every company is drained; each due email follows its own Email
+  // settings rule (the email's setting, else the company switch). Emails
+  // that are turned off are cancelled instead of sent.
+  const allowList = allCompanies.map((company) => company.id);
   const marketingAllowList = allCompanies
-    .filter((company) => company.auto_followups_enabled && !heldCompanyIds.has(company.id))
+    .filter((company) => company.auto_followups_enabled)
     .map((company) => company.id);
 
   // Single shared drain path (also used by the on-demand admin "send now"
@@ -113,16 +103,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   let result;
   try {
     const transactional = await drainEmailQueue(supabase, allowList, {
-      batchSize: BATCH_SIZE, maxAttempts: MAX_ATTEMPTS, transactionalOnly: true,
+      batchSize: BATCH_SIZE, maxAttempts: MAX_ATTEMPTS, transactionalOnly: true, deliveryPreferences,
     });
     const followups = await drainEmailQueue(supabase, marketingAllowList, {
       batchSize: BATCH_SIZE,
       maxAttempts: MAX_ATTEMPTS,
+      deliveryPreferences,
     });
     result = {
       processed: transactional.processed + followups.processed,
       sent: transactional.sent + followups.sent,
       failed: transactional.failed + followups.failed,
+      turnedOff: (transactional.turnedOff || 0) + (followups.turnedOff || 0),
     };
   } catch (e: any) {
     console.error("[cron/process-email-queue] drain failed:", e);
@@ -135,14 +127,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   await recordCronHeartbeat(supabase, CRON_NAME, result.failed > 0 ? "error" : "ok", {
     source: auth.source,
     processed: result.processed,
-    sent: result.sent, failed: result.failed, skipped: heldCompanyIds.size,
+    sent: result.sent, failed: result.failed, turned_off: result.turnedOff,
   });
   return res.status(200).json({
     ok: true,
     processed: result.processed,
     sent: result.sent,
     failed: result.failed,
-    skipped: heldCompanyIds.size,
+    turned_off: result.turnedOff,
   });
 }
 

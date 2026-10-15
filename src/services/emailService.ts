@@ -132,6 +132,18 @@ export interface SendEmailPayload {
    * client-facing T&Cs would be the wrong legal document.
    */
   legalAudience?: "tenant" | "platform";
+  /**
+   * "manual" = an admin's own Send action (reviewed and sent by hand).
+   * Those always send; every other send of a listed automatic email
+   * follows Email settings ("Automatic" / "Off").
+   */
+  deliveryContext?: "manual";
+  /**
+   * The Email settings key ("Automatic" / "Off") for an automatic email
+   * whose wording is resolved before sending, so `template` is not set.
+   * Used only by the on/off check; does not change wording or logging.
+   */
+  automationKey?: string;
 }
 
 export interface EmailLog {
@@ -260,6 +272,11 @@ function extractPrimaryEmailAddress(value: string | null | undefined): string {
   return text.toLowerCase();
 }
 
+/** Resend tag values may only contain ASCII letters, digits, "_" and "-" (max 256). */
+export function resendTagValue(value: string): string {
+  return String(value || "custom").replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 256) || "custom";
+}
+
 export interface EmailSendDetailed {
   success: boolean;
   error?: string;
@@ -268,6 +285,8 @@ export interface EmailSendDetailed {
   /** Extra context for the toast / inline error block, e.g. the
    *  unverified domain name. */
   context?: Record<string, string | null | undefined>;
+  /** True when this automatic email is turned off in Email settings, so it was not sent. */
+  skipped_by_settings?: boolean;
 }
 
 export const emailService = {
@@ -576,6 +595,8 @@ export const emailService = {
             quoteId: payload.quoteId,
             bypassQuarantine: (payload as any).bypassQuarantine,
             notificationPreference: payload.notificationPreference,
+            ...(payload.deliveryContext === "manual" ? { deliveryContext: "manual" } : {}),
+            ...(payload.automationKey ? { automationKey: payload.automationKey } : {}),
             ...(wireAttachments && wireAttachments.length > 0 ? { attachments: wireAttachments } : {}),
           }),
         });
@@ -591,6 +612,15 @@ export const emailService = {
       } catch (e: any) {
         return { success: false, error: e?.message || "Email API unreachable", error_code: "unknown" };
       }
+    }
+
+    // Email settings -> "Off": a listed automatic email that is turned off
+    // is not sent. Never applies to an admin's own Send action, or to a
+    // send the caller already checked (deliverAutomatedEmail, the queue).
+    if (!(payload as any)._deliveryApproved && payload.deliveryContext !== "manual") {
+      const { skipIfTurnedOff } = await import("@/lib/email/automatedDelivery");
+      const skipped = await skipIfTurnedOff(payload._client || supabase, payload);
+      if (skipped) return { success: true, skipped_by_settings: true };
     }
 
     // Server-side callers (e.g. unauthenticated magic-link sign-in)
@@ -1023,9 +1053,12 @@ export const emailService = {
           // Template type goes too so the bounce dashboard can show
           // "quote_sent bounced for client X" without joining back to
           // email_automation_log.
+          // Resend rejects the whole send (422) when a tag holds anything
+          // but ASCII letters, digits, "_" or "-"; queue keys such as
+          // "order.created" contain a dot.
           tags: [
-            { name: "company_id", value: payload.companyId },
-            { name: "template", value: payload.template || "custom" },
+            { name: "company_id", value: resendTagValue(payload.companyId) },
+            { name: "template", value: resendTagValue(payload.template || "custom") },
           ],
         });
       } else if (config.provider === 'smtp' && config.smtp_host) {

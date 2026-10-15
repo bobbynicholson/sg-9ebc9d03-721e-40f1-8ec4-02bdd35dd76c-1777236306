@@ -24,13 +24,17 @@ import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 // Resolve a service-role client at call time when we're on the
 // server. On the browser we keep the imported anon client (these
 // helpers are also called from a few admin pages).
-function resolveServerClient(): any {
+async function resolveServerClient(): Promise<any> {
   if (typeof window !== "undefined") return browserSupabase;
+  // Dynamic import, not require(): require() threw inside the Next server
+  // bundle, so this silently fell back to the anon browser client, RLS hid
+  // the order, and cancellation / postponement / refund-paid emails never
+  // sent (found 2026-10-15).
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getServiceSupabase } = require("@/lib/supabase/service") as { getServiceSupabase: () => any };
+    const { getServiceSupabase } = await import("@/lib/supabase/service");
     return getServiceSupabase();
-  } catch {
+  } catch (e) {
+    console.error("[email/cancellationEmails] service client unavailable, falling back to anon:", e);
     return browserSupabase;
   }
 }
@@ -123,7 +127,7 @@ interface CompanyForEmailExt extends CompanyForEmail {
 }
 
 async function fetchOrderAndCompany(orderId: string): Promise<{ order: OrderForEmail | null; company: CompanyForEmailExt | null }> {
-  const sb = resolveServerClient();
+  const sb = (await resolveServerClient());
   const { data: order, error: orderErr } = await sb
     .from("orders")
     .select("id, company_id, client_email, client_name, order_number, event_date, event_name")
@@ -224,7 +228,7 @@ export async function sendCancellationEmail(
     // TIGHTEN I.114: mint a /c/order/{id}?t=... link so {{order_url}}
     // resolves to a working URL.
     const orderUrl = await mintOrderCustomerLink({
-      sb: resolveServerClient(),
+      sb: (await resolveServerClient()),
       companyId: order.company_id,
       orderId: order.id,
       label: "email-cancellation-approved",
@@ -256,13 +260,14 @@ export async function sendCancellationEmail(
       to: order.client_email,
       subject: resolved.subject,
       body: resolved.bodyHtml,
+      automationKey: "cancellation_approved",
       notificationPreference: "order_cancelled",
       bypassQuarantine: true,
       // Wave 17 audit: server-side caller; pass the resolved client
       // so getEmailConfig can read email_provider_settings under
       // service-role - otherwise RLS hides the row and sendEmail
       // returns "no_provider" silently.
-      _client: resolveServerClient(),
+      _client: (await resolveServerClient()),
     } as any);
   } catch (e) {
     console.warn("[sendCancellationEmail] failed:", e);
@@ -283,7 +288,7 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
 
     // TIGHTEN I.114: order URL for the refund-confirmation email.
     const orderUrl = await mintOrderCustomerLink({
-      sb: resolveServerClient(),
+      sb: (await resolveServerClient()),
       companyId: order.company_id,
       orderId: order.id,
       label: "email-refund-paid",
@@ -309,12 +314,13 @@ export async function sendRefundPaidEmail(orderId: string, refundAmount: number)
       to: order.client_email,
       subject: resolved.subject,
       body: resolved.bodyHtml,
+      automationKey: "refund_paid",
       bypassQuarantine: true,
       // Wave 17 audit: server-side caller; pass the resolved client
       // so getEmailConfig can read email_provider_settings under
       // service-role - otherwise RLS hides the row and sendEmail
       // returns "no_provider" silently.
-      _client: resolveServerClient(),
+      _client: (await resolveServerClient()),
     } as any);
   } catch (e) {
     console.warn("[sendRefundPaidEmail] failed:", e);
@@ -348,7 +354,7 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
     // important here because the client needs to confirm the new date
     // visually on their booking page.
     const orderUrl = await mintOrderCustomerLink({
-      sb: resolveServerClient(),
+      sb: (await resolveServerClient()),
       companyId: order.company_id,
       orderId: order.id,
       label: "email-postponement-approved",
@@ -374,12 +380,13 @@ export async function sendPostponementApprovedEmail(orderId: string, newEventDat
       to: order.client_email,
       subject: resolved.subject,
       body: resolved.bodyHtml,
+      automationKey: "postponement_approved",
       bypassQuarantine: true,
       // Wave 17 audit: server-side caller; pass the resolved client
       // so getEmailConfig can read email_provider_settings under
       // service-role - otherwise RLS hides the row and sendEmail
       // returns "no_provider" silently.
-      _client: resolveServerClient(),
+      _client: (await resolveServerClient()),
     } as any);
   } catch (e) {
     console.warn("[sendPostponementApprovedEmail] failed:", e);

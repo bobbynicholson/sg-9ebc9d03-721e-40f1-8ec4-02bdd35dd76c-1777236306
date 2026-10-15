@@ -401,6 +401,7 @@ export async function notifyAdminOfEmbedLead(
               companyId,
               to,
               allowPlatformFallback: true,
+              automationKey: "embed_lead_admin_email",
               subject: resolved.subject,
               body: ensureLeadLinkInEmailBody(resolved.bodyHtml, leadLink, leadInsert.requested_items, {
                 clientName: String(clientName),

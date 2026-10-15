@@ -73,6 +73,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       to: log.recipient_email,
       subject: log.subject,
       template: log.template_type === "custom" ? undefined : log.template_type,
+      // Admin clicked Resend on this email: their own action, always sent.
+      deliveryContext: "manual",
       variables: { clientName: log.recipient_name },
       orderId: log.order_id || undefined,
       _client: ssr,

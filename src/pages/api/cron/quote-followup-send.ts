@@ -139,13 +139,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           } as any);
           if (!delivery.success) throw new Error(delivery.error || "Follow-up email was not sent");
 
-          // Held messages are logged only once an admin releases them from
-          // the queue; otherwise the cadence would advance before the
-          // client has received anything.
-          if (delivery.heldForApproval) {
-            totalSent += 1;
-            continue;
-          }
+          // Turned off in Email settings: nothing was sent, so nothing is
+          // recorded and the cadence does not advance.
+          if (delivery.skippedBySettings) continue;
 
           await recordFollowupSent({
             companyId: tenant.id,

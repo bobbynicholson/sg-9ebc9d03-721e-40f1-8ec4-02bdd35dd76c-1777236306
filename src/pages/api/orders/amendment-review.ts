@@ -147,6 +147,7 @@ async function sendAmendmentEmail(opts: {
       to: (orderRow as any).client_email,
       subject: resolved.subject,
       body: resolved.bodyHtml,
+      automationKey: opts.templateType,
       _client: admin,
     });
   } catch (e) {

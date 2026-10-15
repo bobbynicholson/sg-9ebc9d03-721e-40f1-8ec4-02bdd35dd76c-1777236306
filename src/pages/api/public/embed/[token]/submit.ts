@@ -767,6 +767,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         await (emailService as any).sendEmail({
           companyId: company.id,
           to: mapped.client_email || mapped.email,
+          automationKey: "embed_lead_thank_you_client",
           // Let the visitor thank-you go out via the platform shared
           // sender when the tenant hasn't configured their own domain.
           allowPlatformFallback: true,

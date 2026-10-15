@@ -290,6 +290,7 @@ export async function markQuoteAsLost(opts: MarkQuoteAsLostOpts): Promise<MarkQu
         companyId,
         to: clientEmail,
         subject: `Quote ${quoteNumber || ""} - declined`,
+        automationKey: "quote_declined_client",
         body:
           `Hi ${firstName},\n\n` +
           `This confirms that you've declined quote ${quoteNumber || ""}. We've closed it on our side - no follow-ups coming.\n\n` +

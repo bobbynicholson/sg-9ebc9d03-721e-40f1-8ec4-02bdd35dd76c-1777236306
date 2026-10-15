@@ -46,7 +46,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       if (queueId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(queueId)) {
         return res.status(400).json({ error: "Invalid queued email ID" });
       }
-      drained = await drainEmailQueue(service as any, [companyId], queueId ? { queueIds: [queueId], batchSize: 1 } : undefined);
+      if (queueId) {
+        drained = await drainEmailQueue(service as any, [companyId], { queueIds: [queueId], batchSize: 1 });
+      } else {
+        // "Send due emails now" is the admin's approval for everything
+        // waiting: emails held for approval plus queued emails already due.
+        const { data: waiting, error: waitingError } = await (service as any)
+          .from("outgoing_email_queue")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("status", "awaiting_approval")
+          .order("created_at", { ascending: true })
+          .limit(50);
+        if (waitingError) throw new Error(`Approval list read failed: ${waitingError.message}`);
+        const waitingIds = ((waiting || []) as Array<{ id: string }>).map((r) => r.id);
+        const approved = waitingIds.length
+          ? await drainEmailQueue(service as any, [companyId], { queueIds: waitingIds, batchSize: waitingIds.length })
+          : { processed: 0, sent: 0, failed: 0 };
+        const due = await drainEmailQueue(service as any, [companyId]);
+        drained = {
+          processed: approved.processed + due.processed,
+          sent: approved.sent + due.sent,
+          failed: approved.failed + due.failed,
+        };
+      }
     }
 
     const health = await getEmailQueueHealth(service as any, companyId);

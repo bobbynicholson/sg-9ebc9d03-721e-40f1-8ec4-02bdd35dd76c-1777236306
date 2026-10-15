@@ -218,6 +218,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           triggerRefId: inv.order_id,
         } as any);
         if (!delivery.success) throw new Error(delivery.error || "Balance reminder was not sent");
+        // Turned off in Email settings: no email and no client bell reminder.
+        if (delivery.skippedBySettings) continue;
         queued += 1;
 
         // Also surface the reminder in the client's portal bell (email +
