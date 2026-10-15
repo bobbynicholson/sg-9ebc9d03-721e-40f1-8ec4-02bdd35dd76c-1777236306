@@ -115,6 +115,7 @@ import { AmountChangeAction } from "@/components/admin/financial/AmountChangeAct
 import { loadLatestDocumentAmountChanges } from "@/services/documentAmountChanges";
 import { useServiceAreaEmailAvailability } from "@/hooks/useServiceAreaEmailAvailability";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
+import { quoteValueTotal } from "@/lib/quotes/quoteValueTotal";
 
 // TIGHTEN I.84: module-scope ZAR formatter kept as a fallback for any
 // sibling helpers / dialogs that reference it from outside the main
@@ -1922,9 +1923,9 @@ function AdminQuotesInner() {
             />
             <StatTile
               label="Total value"
-              value={`${C}${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(tileRows.reduce((sum, q) => sum + ((q.quote as any).total ?? 0), 0)).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}`}
+              value={`${C}${new Intl.NumberFormat("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).formatToParts(quoteValueTotal(tileRows.map((q) => q.quote as any))).map((p) => (p.type === "group" ? " " : p.type === "decimal" ? "." : p.value)).join("")}`}
               icon={Banknote}
-              hint={`Sum of quote totals, ${tileRange.label.toLowerCase()}`}
+              hint={`Smallest quote per client per event date, ${tileRange.label.toLowerCase()}`}
             />
           </div>
 
