@@ -16,10 +16,17 @@ describe("required customer links", () => {
     expect(ensureRequiredOrderLink(body, orderUrl)).toBe(body);
   });
 
-  it("keeps the deposit template contract explicit in the editor", () => {
-    for (const key of ["deposit_invoice_issued", "deposit_payment_received"]) {
+  it("keeps the quote-acceptance link contract explicit in the editor", () => {
+    // Deposit invoice: invoice link, no order link (order link comes once the deposit is paid).
+    const depositInvoice = TEMPLATE_REGISTRY.find((entry) => entry.key === "deposit_invoice_issued");
+    expect(depositInvoice?.defaultBody).toContain("{{invoice_link}}");
+    expect(depositInvoice?.defaultBody).not.toContain("{{order_url}}");
+    expect(depositInvoice?.variables.some((variable) => variable.name === "order_url")).toBe(false);
+    // Payment receipts: order link, no invoice link.
+    for (const key of ["deposit_payment_received", "balance_payment_received"]) {
       const template = TEMPLATE_REGISTRY.find((entry) => entry.key === key);
       expect(template?.defaultBody).toContain("{{order_url}}");
+      expect(template?.defaultBody).not.toContain("{{invoice_link}}");
       expect(template?.variables.some((variable) => variable.name === "order_url")).toBe(true);
     }
   });

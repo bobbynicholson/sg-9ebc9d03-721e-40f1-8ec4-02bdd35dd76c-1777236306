@@ -1196,28 +1196,29 @@ export default function PublicQuotePage() {
                     </p>
                   </div>
 
-                  {/* Next-steps timeline. Three concrete steps so the
-                      client knows they're not in a black hole. */}
+                  {/* Next steps, shown here instead of in an email: on
+                      acceptance the deposit invoice is the only email, and
+                      the order link is emailed once the deposit is paid. */}
                   <ol className="text-left max-w-md mx-auto space-y-3">
                     <li className="flex items-start gap-3">
                       <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">1</span>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-stone-900">Confirmation email</p>
-                        <p className="text-xs text-stone-600">A copy of this quote and the next steps will arrive in your inbox shortly.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">2</span>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-stone-900">
                           {depositLabel ? `${hasSavedFirstPaymentAmount ? "First payment" : "Deposit"} invoice - ${depositLabel}` : "Deposit invoice"}
                         </p>
                         <p className="text-xs text-stone-600">
-                          {depositLabel
-                            ? hasSavedFirstPaymentAmount
-                              ? `${companyName} will request ${fmtMoney(depositAmount as number)} as the first payment to lock in your event date.`
-                              : `${companyName} will send the ${fmtMoney(depositAmount as number)} deposit invoice to lock in your event date.`
-                            : `${companyName} will send the deposit invoice to lock in your event date.`}
+                          {quote.converted_to_order_id
+                            ? `Your ${hasSavedFirstPaymentAmount ? "first payment" : "deposit"} invoice has been emailed to you. Pay it to lock in your event date.`
+                            : `Your ${hasSavedFirstPaymentAmount ? "first payment" : "deposit"} invoice will be emailed to you as soon as your booking is ready.`}
+                        </p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-primary text-white text-xs font-bold flex items-center justify-center">2</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-stone-900">Booking locked in</p>
+                        <p className="text-xs text-stone-600">
+                          Once your payment is received, we'll email you a link to your order. Your invoices are there in the client portal.
                         </p>
                       </div>
                     </li>

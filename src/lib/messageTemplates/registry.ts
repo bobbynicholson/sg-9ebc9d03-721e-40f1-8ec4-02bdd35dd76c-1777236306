@@ -1324,12 +1324,11 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Deposit invoice {{invoice_number}} - {{event_name}}",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
+      `Thanks for accepting your {{event_name}} quote.\n\n` +
       `Your first payment request on invoice {{invoice_number}} is {{amount}}.\n\n` +
       `Invoice total: {{total_amount}}. Paid to date: {{paid_to_date}}. Remaining balance: {{remaining_balance}}.\n\n` +
       `Pay or download it here: {{invoice_link}}\n\n` +
-      `View your order: {{order_url}}\n\n` +
-      `Once the payment clears, your event date is locked in.\n\n` +
+      `Once the payment clears, your event date is locked in and we'll email you a link to your order.\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: [
       { name: "first_name",     description: "Client's first name",          example: "Bobby" },
@@ -1344,7 +1343,6 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       { name: "paid_to_date",   description: "Amount already paid",            example: "R 0" },
       { name: "remaining_balance", description: "Current unpaid invoice balance", example: "R 9 000" },
       { name: "invoice_link",   description: "Direct link to the invoice",   example: "https://app.example.com/c/invoice/..." },
-      { name: "order_url",      description: "Secure link to the accepted order", example: "https://cateringms.com/spit-braai-delivery/c/order/..." },
     ],
   },
   {
@@ -1385,9 +1383,10 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     defaultSubject: "Deposit received - {{event_name}} booking secure",
     defaultBody:
       `Hi {{first_name}},\n\n` +
-      `We've received your deposit for {{event_name}}. Amount: {{amount_formatted}}. Reference: {{invoice_number}}.\n\n` +
-      `Your booking is secure and your event date is locked in.\n\n` +
-      `View your booking: {{order_url}}\n\n` +
+      `Thanks for your deposit of {{amount_formatted}} for {{event_name}}. Reference: {{invoice_number}}.\n\n` +
+      `Your booking is locked in for your event date.\n\n` +
+      `View your order: {{order_url}}\n\n` +
+      `Your invoice is in the client portal: open your order to view and download it.\n\n` +
       `Thanks,\n{{tenant_name}}`,
     variables: [
       { name: "first_name",       description: "Client's first name",          example: "Bobby" },
@@ -1399,8 +1398,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
       { name: "order_number",     description: "Order reference",              example: "ORD-003829" },
       { name: "amount",           description: "Amount received, numeric",     example: "4 500.00" },
       { name: "amount_formatted", description: "Amount received, formatted",   example: "R4 500.00" },
-      { name: "invoice_link",     description: "Direct link to the invoice",   example: "https://app.example.com/pay/i/..." },
-      { name: "order_url",        description: "Secure link to view the confirmed booking", example: "https://app.example.com/order/..." },
+      { name: "order_url",        description: "Secure link to the order, where the client downloads the invoice", example: "https://app.example.com/c/order/..." },
     ],
   },
   {
@@ -1412,16 +1410,20 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     description: "Receipt sent when a client payment lands (deposit, balance, or full payment).",
     defaultSubject: "Payment received - invoice {{invoice_number}}",
     defaultBody:
-      `Hi {{client_name}},\n\n` +
-      `Thanks for your payment of {{amount}} against invoice {{invoice_number}}.\n\n` +
-      `Reply to this email if anything looks off.\n\n` +
-      `Thanks,\n{{company_name}}`,
+      `Hi {{first_name}},\n\n` +
+      `Thanks for your payment of {{amount_formatted}} against invoice {{invoice_number}}.\n\n` +
+      `View your order: {{order_url}}\n\n` +
+      `You can download your updated invoice from the client portal when you open your order.\n\n` +
+      `Thanks,\n{{tenant_name}}`,
     variables: [
-      { name: "client_name",    description: "Client's first name or 'there'", example: "Bobby" },
-      { name: "invoice_number", description: "Invoice number",                example: "INV-2026-0421" },
-      { name: "order_number",   description: "Order reference (often the same as invoice)", example: "INV-2026-0421" },
-      { name: "amount",         description: "Amount received (formatted)",   example: "R 6 500.00" },
-      { name: "company_name",   description: "Catering company name",         example: "Spit Braai Delivery" },
+      { name: "first_name",       description: "Client's first name",           example: "Bobby" },
+      { name: "client_name",      description: "Full client name",              example: "Bobby Nicholson" },
+      { name: "invoice_number",   description: "Invoice number",                example: "INV-2026-0421" },
+      { name: "order_number",     description: "Order reference (often the same as invoice)", example: "INV-2026-0421" },
+      { name: "amount_formatted", description: "Amount received (formatted)",   example: "R 6 500.00" },
+      { name: "tenant_name",      description: "Catering company name",         example: "Spit Braai Delivery" },
+      { name: "company_name",     description: "Catering company name (alias)", example: "Spit Braai Delivery" },
+      { name: "order_url",        description: "Secure link to the order, where the client downloads the updated invoice", example: "https://app.example.com/c/order/..." },
     ],
   },
 

@@ -14,6 +14,23 @@ import { emailService } from "@/services/emailService";
 import { TRANSACTIONAL_EMAIL_EVENTS, queuedEmailReference } from "./queuePolicy";
 import { resolveEmailDeliveryMode } from "./automatedEmailTemplates";
 
+/**
+ * The "booking confirmed" email (order.created, queued by the database
+ * when an order is created) for an order that came from an accepted
+ * quote. Orders created without a quote keep that email.
+ */
+export async function isQuoteAcceptanceBookingEmail(supabase: any, row: any): Promise<boolean> {
+  if (row?.trigger_event !== "order.created" || !row?.trigger_ref_id) return false;
+  const { data, error } = await supabase
+    .from("orders")
+    .select("quote_id")
+    .eq("id", row.trigger_ref_id)
+    .eq("company_id", row.company_id)
+    .maybeSingle();
+  if (error) throw new Error(`Order lookup for booking email failed: ${error.message}`);
+  return !!data?.quote_id;
+}
+
 const DEFAULT_MAX_ATTEMPTS = 5;
 const DEFAULT_BATCH_SIZE = 25;
 
@@ -108,6 +125,17 @@ export async function drainEmailQueue(
         turnedOff += 1;
         continue;
       }
+    }
+    if (!opts?.queueIds?.length && await isQuoteAcceptanceBookingEmail(supabase, row)) {
+      // Quote-acceptance flow: the deposit invoice email is the only email
+      // when a quote is accepted, and the order link goes out once the
+      // deposit is paid. Kept as a record, never sent.
+      const cancelled = await supabase
+        .from("outgoing_email_queue")
+        .update({ status: "cancelled", error_message: "Not sent: on quote acceptance the deposit invoice email is the only email" })
+        .eq("id", row.id).eq("company_id", row.company_id);
+      if (cancelled.error) throw new Error(`Booking email could not be cancelled: ${cancelled.error.message}`);
+      continue;
     }
     processed += 1;
     let dispatchOk = false;

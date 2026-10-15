@@ -6,7 +6,12 @@ import {
   appendCompanyLegalFooter,
   appendPlatformLegalFooter,
 } from "@/services/email/legalEmailFooter";
-import { ensureRequiredOrderLink } from "@/lib/email/requiredCustomerLinks";
+import {
+  clientFlowLinkRule,
+  ensureRequiredOrderLink,
+  stripLinkLines,
+  withoutLinkVariables,
+} from "@/lib/email/requiredCustomerLinks";
 import {
   resolveEmailNotificationPreference,
   type EmailNotificationPreferenceKey,
@@ -842,7 +847,12 @@ export const emailService = {
     // Normalise the variable bag once so placeholders resolve regardless
     // of camelCase/snake_case and common aliases (see emailVariables).
     // Used for both the template resolve and the raw-body/subject pass.
-    const normVars = normalizeEmailVariables(payload.variables || {});
+    // Quote-acceptance flow: the deposit invoice carries no order link and
+    // the payment receipts carry no invoice link (requiredCustomerLinks).
+    const linkRule = clientFlowLinkRule(payload.template);
+    const normVars = linkRule
+      ? withoutLinkVariables(normalizeEmailVariables(payload.variables || {}), linkRule)
+      : normalizeEmailVariables(payload.variables || {});
 
     // Clock times ({{event_time}}, {{pickup_time}}, {{setupTime}} ...)
     // follow the company's time format (Company profile > Time format)
@@ -906,19 +916,18 @@ export const emailService = {
     finalBody = this.replaceVariables(finalBody, normVars);
     finalBody = dedupeRepeatedSignoffLines(finalBody, normVars);
 
-    // The deposit invoice is the quote-acceptance confirmation, and the
-    // deposit receipt is the booking confirmation. Enforce the resulting
-    // order link at the final transport boundary for both messages so
-    // legacy global templates and tenant overrides cannot omit the
-    // client's route back to the booking.
-    if (
-      payload.template === "deposit_invoice_issued" ||
-      payload.template === "deposit_payment_received"
-    ) {
-      finalBody = ensureRequiredOrderLink(
-        finalBody,
-        (normVars as any).order_url || (normVars as any).orderUrl,
-      );
+    // The deposit invoice must not link to the order (the order link only
+    // goes out once the deposit is paid); the deposit and balance receipts
+    // link to the order, where the client downloads the invoice. Enforced
+    // here so global templates, tenant overrides and resends all comply.
+    if (linkRule) {
+      finalBody = stripLinkLines(finalBody, linkRule);
+      if (linkRule.requireOrderLink) {
+        finalBody = ensureRequiredOrderLink(
+          finalBody,
+          (normVars as any).order_url || (normVars as any).orderUrl,
+        );
+      }
     }
 
     // TIGHTEN I.124 (2026-06-03): auto-wrap plain or fragment HTML

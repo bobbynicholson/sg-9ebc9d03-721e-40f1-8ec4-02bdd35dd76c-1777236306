@@ -66,8 +66,8 @@ export const AUTOMATED_EMAIL_DESCRIPTIONS: Record<string, AutomatedEmailDescript
   },
   "order.created": {
     who: "The client.",
-    when: "Shortly after a new order is booked, confirming the booking with the order number.",
-    ifOff: "The client gets no separate booking confirmation; they still receive the deposit invoice email if that is on.",
+    when: "Shortly after you create an order yourself (not from a quote), confirming the booking with the order number. Never sent when a client accepts a quote: the deposit invoice is the only email then.",
+    ifOff: "The client gets no booking confirmation for orders you create yourself.",
   },
 
   // Pre-event
@@ -174,8 +174,8 @@ export const AUTOMATED_EMAIL_DESCRIPTIONS: Record<string, AutomatedEmailDescript
   // Money
   deposit_invoice_issued: {
     who: "The client.",
-    when: "When their first invoice (the deposit) is created, with a link to view and pay it.",
-    ifOff: "The deposit invoice is not emailed automatically. You can still send it from the invoice.",
+    when: "When they accept a quote: the only email they get then, with a link to view and pay the deposit invoice. It has no order link; that comes once the deposit is paid.",
+    ifOff: "The deposit invoice is not emailed automatically, so the client gets no email when they accept. You can still send it from the invoice.",
   },
   balance_invoice_issued: {
     who: "The client.",
@@ -184,12 +184,12 @@ export const AUTOMATED_EMAIL_DESCRIPTIONS: Record<string, AutomatedEmailDescript
   },
   deposit_payment_received: {
     who: "The client.",
-    when: "When their deposit payment is recorded, as a receipt.",
-    ifOff: "The client gets no deposit receipt by email.",
+    when: "When their deposit is paid: thanks them, says the booking is locked in, and gives the link to their order, where they download the invoice in the client portal.",
+    ifOff: "The client gets no deposit receipt and no link to their order by email.",
   },
   balance_payment_received: {
     who: "The client.",
-    when: "When a payment against an invoice is recorded, as a receipt.",
+    when: "When they pay the balance, a later part-payment, or the full amount at once: thanks them and links to their order, where they download the updated invoice in the client portal.",
     ifOff: "The client gets no payment receipt by email.",
   },
   deposit_reminder: {

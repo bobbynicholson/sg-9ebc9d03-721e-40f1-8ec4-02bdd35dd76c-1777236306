@@ -15,7 +15,6 @@ import { notificationService } from "@/services/notificationService";
 import { emailService } from "@/services/emailService";
 import { resolveEmailTemplate } from "@/services/email/templateResolver";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
-import { ensureRequiredOrderLink } from "@/lib/email/requiredCustomerLinks";
 import {
   isInvoiceFullPaymentDueByDate,
   resolveInvoiceFirstPaymentAmount,
@@ -1294,12 +1293,11 @@ async function notifyClientOfInvoiceIssued(
             `Open the invoice: {{invoice_link}}\n\n` +
             `Thanks,\n{{tenant_name}}`
           : `Hi {{first_name}},\n\n` +
-            `Thanks for accepting your {{event_name}} quote - you're booked in.\n\n` +
+            `Thanks for accepting your {{event_name}} quote.\n\n` +
             `Your first payment request on invoice {{invoice_number}} is {{amount}}.\n\n` +
             `Invoice total: {{total_amount}}. Paid to date: {{paid_to_date}}. Remaining balance: {{remaining_balance}}.\n\n` +
             `Pay or download it here: {{invoice_link}}\n\n` +
-            `View your order: {{order_url}}\n\n` +
-            `Once the payment clears, your event date is locked in.\n\n` +
+            `Once the payment clears, your event date is locked in and we'll email you a link to your order.\n\n` +
             `Thanks,\n{{tenant_name}}`;
 
         const paymentSummary = {
@@ -1337,9 +1335,9 @@ async function notifyClientOfInvoiceIssued(
           client: supabase,
         });
         const bodyWithPaymentSummary = appendInvoicePaymentSummary(resolved.bodyHtml, paymentSummary);
-        const bodyWithRequiredOrderLink = !isBalance
-          ? ensureRequiredOrderLink(bodyWithPaymentSummary, orderLink)
-          : bodyWithPaymentSummary;
+        // No order link on the deposit invoice: it goes out once the
+        // deposit is paid (emailService strips it from any wording).
+        const bodyWithRequiredOrderLink = bodyWithPaymentSummary;
 
         const delivery = await emailService.sendEmailDetailed({
           companyId,

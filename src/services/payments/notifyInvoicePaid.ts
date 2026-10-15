@@ -15,6 +15,7 @@
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { emailService } from "@/services/emailService";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
+import { publicAppOrigin } from "@/lib/publicAppOrigin";
 
 export interface InvoicePaidNotifyInput {
   /** Service-role supabase client (bypasses RLS for the inserts). */
@@ -70,7 +71,6 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
   let orderId = input.orderId || null;
   let invoiceNumber = input.invoiceNumber || null;
   let clientId = input.clientId || null;
-  let invoiceLink = "";
   let invoiceData: any = {};
   if (invoiceId) {
     try {
@@ -93,9 +93,6 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
         }
         const due = Number((invoice as any).balance_due);
         if (Number.isFinite(due)) balanceAfter = Math.max(0, due);
-        const token = (invoice as any).public_token;
-        const origin = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "").replace(/\/$/, "");
-        if (token && origin) invoiceLink = `${origin}/pay/i/${token}`;
       }
     } catch (e) {
       console.warn("[notifyInvoicePaid] invoice lookup failed:", e);
@@ -148,7 +145,15 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
         companyId,
         orderId,
         label: "invoice-payment-confirmation",
-        origin: process.env.NEXT_PUBLIC_APP_URL || null,
+        // Same public origin as the invoice emails. Without it the link
+        // was relative ("/slug/c/order/...") whenever NEXT_PUBLIC_APP_URL
+        // was unset, and could not be opened from the email.
+        origin: publicAppOrigin({
+          environment: process.env.NODE_ENV,
+          configuredUrl: process.env.NEXT_PUBLIC_APP_URL,
+          vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+          vercelUrl: process.env.VERCEL_URL,
+        }),
       });
     } catch (e) {
       console.warn("[notifyInvoicePaid] order link mint failed:", e);
@@ -255,16 +260,20 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
       const subject = isDepositReceipt
         ? `Deposit received - your booking is secure`
         : `Payment received - invoice ${invoiceNumber || orderNumber || ""}`.trim();
+      // Order link only, never the invoice link: the client opens the
+      // order (client portal) to view and download the invoice.
       const body = isDepositReceipt
         ? `Hi {{first_name}},\n\n` +
-          `We received your deposit of {{amount_formatted}} for {{event_name}}.\n\n` +
-          `Your booking is secure and your event date is locked in. ` +
-          (invoiceLink ? `You can view the updated invoice here: {{invoice_link}}\n\n` : `\n\n`) +
+          `Thanks for your deposit of {{amount_formatted}} for {{event_name}}.\n\n` +
+          `Your booking is locked in for your event date.\n\n` +
+          `View your order: {{order_url}}\n\n` +
+          `Your invoice is in the client portal: open your order to view and download it.\n\n` +
           `Thanks,\n{{tenant_name}}`
         : `Hi {{first_name}},\n\n` +
           `Thanks for your payment of {{amount_formatted}} against invoice {{invoice_number}}.\n\n` +
           (fullyPaid ? `This invoice is now fully paid.\n\n` : outstandingText ? `${outstandingText.trim()}\n\n` : ``) +
-          (invoiceLink ? `You can view the updated invoice here: {{invoice_link}}\n\n` : ``) +
+          `View your order: {{order_url}}\n\n` +
+          `You can download your updated invoice from the client portal when you open your order.\n\n` +
           `Thanks,\n{{tenant_name}}`;
       await emailService.sendEmail({
         companyId,
@@ -284,8 +293,6 @@ export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<
           amount_formatted: amountFmt,
           invoice_number: invoiceNumber || orderNumber || "",
           order_number: orderNumber || invoiceNumber || "",
-          invoice_link: invoiceLink,
-          payment_link: invoiceLink,
           order_url: orderUrl,
           clientName,
           companyName,
