@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { emailService, type EmailSettings } from "@/services/emailService";
+import { clearRecentSendMemory, emailService, type EmailSettings } from "@/services/emailService";
 jest.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 describe("application sender routing", () => {
@@ -26,7 +26,9 @@ describe("application sender routing", () => {
   });
   describe("actual delivery selection", () => {
     const key = process.env.RESEND_API_KEY;
-    beforeEach(() => { process.env.RESEND_API_KEY = "test-key"; });
+    // Each test sends the same email again; forget the previous one so the
+    // duplicate guard does not skip it.
+    beforeEach(() => { process.env.RESEND_API_KEY = "test-key"; clearRecentSendMemory(); });
     afterEach(() => {
       jest.restoreAllMocks();
       if (key === undefined) delete process.env.RESEND_API_KEY;

@@ -120,6 +120,37 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             },
           });
 
+          // Never chase a client twice with the same follow-up: earlier runs
+          // sent some without recording them, and a client with two open
+          // quotes for one event would get one per quote. When this exact
+          // follow-up already went to this client since the quote was sent,
+          // record it for this quote and move on.
+          const { data: alreadySent, error: historyErr } = await sb
+            .from("email_automation_log")
+            .select("id")
+            .eq("user_id", tenant.id)
+            .eq("status", "sent")
+            .ilike("recipient_email", String(quote.client_email).trim().replace(/([%_\\])/g, "\\$1"))
+            .eq("subject", resolved.subject)
+            .gte("created_at", quote.sent_at)
+            .limit(1);
+          if (historyErr) throw new Error(`Follow-up history check failed: ${historyErr.message}`);
+          if (alreadySent && alreadySent.length > 0) {
+            const recorded = await recordFollowupSent({
+              companyId: tenant.id,
+              quoteId: quote.id,
+              position: state.nextPosition,
+              templateKey,
+              channel: "email",
+              sentByUserId: null,
+              notes: "already sent to this client - not sent again",
+              status: "sent",
+              client: sb,
+            });
+            if (!recorded.ok) errors.push(`quote ${quote.id}: follow-up not recorded: ${recorded.error}`);
+            continue;
+          }
+
           const delivery = await deliverAutomatedEmail(sb, {
             companyId: tenant.id,
             to: quote.client_email,
@@ -137,24 +168,33 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             // it the provider lookup is RLS-blocked and the send silently
             // no-ops (logged "sent" but never delivered).
           } as any);
-          if (!delivery.success) throw new Error(delivery.error || "Follow-up email was not sent");
+          // Resend refuses a repeat of a follow-up it already sent in the
+          // last 24 hours (same idempotency key): the client has it, so
+          // record it instead of trying again tomorrow.
+          const alreadyDelivered = !delivery.success
+            && /idempotency key has been used/i.test(String(delivery.error || ""));
+          if (!delivery.success && !alreadyDelivered) throw new Error(delivery.error || "Follow-up email was not sent");
 
           // Turned off in Email settings: nothing was sent, so nothing is
           // recorded and the cadence does not advance.
           if (delivery.skippedBySettings) continue;
 
-          await recordFollowupSent({
+          const recorded = await recordFollowupSent({
             companyId: tenant.id,
             quoteId: quote.id,
             position: state.nextPosition,
             templateKey,
             channel: "email",
             sentByUserId: null,
-            notes: "auto-sent by quote-followup-send cron",
+            notes: alreadyDelivered
+              ? "already sent to this client in the last 24 hours - not sent again"
+              : "auto-sent by quote-followup-send cron",
             status: "sent",
             client: sb,
           });
-          totalSent += 1;
+          // An unrecorded follow-up would be sent again on the next run.
+          if (!recorded.ok) errors.push(`quote ${quote.id}: follow-up not recorded: ${recorded.error}`);
+          if (!alreadyDelivered && !(delivery as any).skipped_duplicate) totalSent += 1;
         } catch (e: any) {
           errors.push(`quote ${quote.id}: ${e?.message || e}`);
         }

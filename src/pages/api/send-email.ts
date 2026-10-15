@@ -236,6 +236,7 @@ async function handler(
         body: welcomeBody,
         legalAudience: "platform",
         _client: svc,
+        _userInitiated: true,
       } as any);
 
     } else {
@@ -616,6 +617,9 @@ async function handler(
         ...(typeof automationKey === "string" && automationKey ? { automationKey } : {}),
         ...(attachments.length > 0 ? { attachments } : {}),
         _client: getServiceSupabase(),
+        // A person sent this from a screen: never blocked by the
+        // duplicate guard for automatic emails.
+        _userInitiated: true,
       } as any);
     }
 

@@ -292,6 +292,40 @@ export interface EmailSendDetailed {
   context?: Record<string, string | null | undefined>;
   /** True when this automatic email is turned off in Email settings, so it was not sent. */
   skipped_by_settings?: boolean;
+  /** True when the same automatic email already went to this person within the hour, so it was not sent again. */
+  skipped_duplicate?: boolean;
+}
+
+/**
+ * Automatic emails that may legitimately repeat to the same person within
+ * the hour: sign-in links and invitations (the person asked again),
+ * payment receipts (two part-payments on one invoice share a subject) and
+ * enquiry emails (each form submission is a new enquiry, and two people
+ * with the same first name share a subject).
+ */
+const DUPLICATE_GUARD_EXEMPT_TEMPLATES: ReadonlySet<string> = new Set([
+  "client_magic_link",
+  "staff_invite_login",
+  "staff_invitation",
+  "balance_payment_received",
+  "embed_lead_admin_email",
+  "embed_lead_thank_you_client",
+  "quote_request_received",
+]);
+const DUPLICATE_WINDOW_MS = 60 * 60 * 1000;
+const recentAutomaticSends = new Map<string, number>();
+const automaticSendKey = (companyId: string | null | undefined, to: string, subject: string, orderId?: string | null) =>
+  `${companyId || ""}|${to.trim().toLowerCase()}|${String(subject || "").trim().toLowerCase()}|${orderId || ""}`;
+
+/** Forget recent sends and team archive copies (tests that send the same email repeatedly). */
+export function clearRecentSendMemory(): void {
+  recentAutomaticSends.clear();
+  teamArchiveCopies.clear();
+}
+
+/** A send that claimed the slot failed: let a retry go out. */
+export function releaseAutomaticSend(companyId: string | null | undefined, to: string, subject: string, orderId?: string | null): void {
+  recentAutomaticSends.delete(automaticSendKey(companyId, to, subject, orderId));
 }
 
 /** Team roles that receive admin alerts directly. */
@@ -497,6 +531,61 @@ export const emailService = {
     }
     const claimed = claimTeamArchiveCopy(input.companyId, input.subject);
     return { copy: claimed, claimed };
+  },
+
+  /**
+   * Duplicate guard for emails the app sends by itself. Returns
+   * "duplicate" when the same subject already went to this recipient in the
+   * last hour (this run, or a sent row in email_automation_log), "claimed"
+   * when this send takes the slot, or "exempt". Sends a person makes from a
+   * screen (/api/send-email, admin "Send") are never blocked; a lookup
+   * failure sends as before.
+   */
+  async claimAutomaticSend(
+    payload: {
+      companyId?: string | null;
+      template?: string;
+      templateType?: string;
+      automationKey?: string;
+      orderId?: string | null;
+      deliveryContext?: "manual";
+      _userInitiated?: boolean;
+    },
+    recipientLower: string,
+    subject: string,
+    client?: any,
+    now = Date.now(),
+  ): Promise<"duplicate" | "claimed" | "exempt"> {
+    if (!payload.companyId || !recipientLower || !subject) return "exempt";
+    if (payload.deliveryContext === "manual" || payload._userInitiated) return "exempt";
+    if ([payload.template, payload.templateType, payload.automationKey].some((k) => k && DUPLICATE_GUARD_EXEMPT_TEMPLATES.has(k))) {
+      return "exempt";
+    }
+
+    for (const [k, at] of recentAutomaticSends) {
+      if (now - at > DUPLICATE_WINDOW_MS) recentAutomaticSends.delete(k);
+    }
+    const key = automaticSendKey(payload.companyId, recipientLower, subject, payload.orderId);
+    if (recentAutomaticSends.has(key)) return "duplicate";
+    recentAutomaticSends.set(key, now);
+
+    try {
+      let query = (client || supabase)
+        .from("email_automation_log")
+        .select("id")
+        .eq("user_id", payload.companyId)
+        .eq("status", "sent")
+        .ilike("recipient_email", recipientLower.replace(/([%_\\])/g, "\\$1"))
+        .eq("subject", subject)
+        .gte("created_at", new Date(now - DUPLICATE_WINDOW_MS).toISOString());
+      // Same subject for two different orders (e.g. two "Birthday" bookings) is not a duplicate.
+      if (payload.orderId) query = query.eq("order_id", payload.orderId);
+      const { data, error } = await query.limit(1);
+      if (!error && data && data.length > 0) return "duplicate";
+    } catch {
+      // Lookup failed: send as before rather than drop the email.
+    }
+    return "claimed";
   },
 
   async resolveArchiveCopyEmail(companyId: string | null | undefined, config: EmailSettings | null | undefined, client?: any): Promise<string | undefined> {
@@ -1088,11 +1177,23 @@ export const emailService = {
       }
     }
 
+    // The same automatic email to the same person within an hour is not
+    // sent again (two open quotes for one event, a job that ran twice, two
+    // payment notifications for one deposit).
+    const duplicateClaim = await this.claimAutomaticSend(payload, recipientLower, finalSubject, sb);
+    if (duplicateClaim === "duplicate") {
+      console.info("[emailService] duplicate automatic email not sent", {
+        companyId: payload.companyId, to: recipientLower, subject: finalSubject, template: payload.template,
+      });
+      return { success: true, skipped_duplicate: true };
+    }
+
     // True when this send took the archive mailbox's one copy of a team email.
     let teamCopyClaimed = false;
     // A failed send gives the copy back so the next send of this email carries it.
     const releaseCopyClaim = () => {
       if (teamCopyClaimed) releaseTeamArchiveCopy(payload.companyId, finalSubject);
+      if (duplicateClaim === "claimed") releaseAutomaticSend(payload.companyId, recipientLower, finalSubject, payload.orderId);
     };
     try {
       // resolveFromAddress selects the verified custom domain or shared sender.
