@@ -2154,7 +2154,15 @@ function NewQuotePage() {
             const res = await fetch(`/api/quotes/${quoteId}/resync-order`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ previousTotal: propReceipt?.previousTotal }),
+              body: JSON.stringify({
+                previousTotal: propReceipt?.previousTotal,
+                // Never email the client from here (2026-10-15). "Save" is
+                // promised as silent ("No email goes out"), and "Save &
+                // Notify" sends its own reviewed email from the send
+                // dialog - this automatic one went out on every save and
+                // doubled up on Save & Notify.
+                notifyClient: false,
+              }),
             });
             const json = await res.json();
             if (!res.ok || json?.ok === false) {
@@ -2925,7 +2933,7 @@ function NewQuotePage() {
                     {isConvertedQuote ? (
                       <>
                         <strong className="font-semibold">Editing the booking behind {linkedOrderNumber ? `order ${linkedOrderNumber}` : "the linked order"}.</strong>{" "}
-                        Save mirrors your changes (date, guests, menu, totals) straight to the order, re-plans kitchen prep, re-syncs equipment bookings, and updates the client's order page. No re-acceptance, no new invoice, no fresh email unless you tick Notify client.
+                        Save mirrors your changes (date, guests, menu, totals) straight to the order, re-plans kitchen prep, re-syncs equipment bookings, and updates the client's order page. No re-acceptance, no new invoice, and no email to the client unless you use Save & Notify.
                       </>
                     ) : (
                       <>

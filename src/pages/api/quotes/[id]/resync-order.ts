@@ -61,6 +61,8 @@ interface ResyncReceipt {
   equipmentBookingsResynced: number;
   /** Wave 33: true when the client "order updated" email went out. */
   clientEmailSent?: boolean;
+  /** True when the admin chose not to email the client about this change. */
+  clientEmailSkipped?: boolean;
   errors: string[];
 }
 
@@ -362,7 +364,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Only fires on a real client-relevant change, and is deduped to one
   // mail per order per 10 minutes so a flurry of saves doesn't spam.
   const clientEmail = (linkedOrder as any)?.client_email || (quote as any)?.client_email || null;
-  if (clientChangedFields.length > 0 && clientEmail) {
+  // "Email the client about changes to this order" unticked in the editor:
+  // update the order silently (imported orders default to this).
+  const notifyClient = requestBody.notifyClient !== false;
+  if (!notifyClient && clientChangedFields.length > 0) receipt.clientEmailSkipped = true;
+  if (notifyClient && clientChangedFields.length > 0 && clientEmail) {
     try {
       const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       const { data: recentMail } = await sb
@@ -400,6 +406,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           companyId: (quote as any).company_id,
           to: clientEmail,
           subject: `Your order ${orderLabel} was updated`,
+          automationKey: "order_updated_client",
           body:
             `Hi ${firstName},\n\n` +
             `We've updated your order ${orderLabel} for ${evtLabel}. ` +
