@@ -1019,7 +1019,7 @@ function EmailSettingsPage() {
                   placeholder="archive@buildwithraj.com"
                 />
                 <p className="mt-1 text-xs text-slate-500">
-                  BCC a copy of every app email to this mailbox. The copy appears in its inbox, not its Sent folder.
+                  BCC a copy of every email to this mailbox: each client email, and one copy of each team email (staff alerts, daily tasks), not one per staff member. The copy appears in its inbox, not its Sent folder.
                 </p>
               </div>
 

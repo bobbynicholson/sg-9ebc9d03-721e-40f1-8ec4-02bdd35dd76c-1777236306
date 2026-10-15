@@ -294,6 +294,33 @@ export interface EmailSendDetailed {
   skipped_by_settings?: boolean;
 }
 
+/** Team roles that receive admin alerts directly. */
+const ADMIN_TEAM_ROLES: ReadonlySet<string> = new Set(["owner", "company_admin", "admin", "super_admin", "region_admin"]);
+
+/**
+ * Team emails go to several people one at a time (daily tasks, kitchen
+ * prep, event reminders), usually in the same run. The archive mailbox
+ * should get one copy of each, so the first send of a subject claims the
+ * copy for 30 minutes and later sends of the same subject skip it.
+ */
+const TEAM_ARCHIVE_COPY_WINDOW_MS = 30 * 60 * 1000;
+const teamArchiveCopies = new Map<string, number>();
+
+export function claimTeamArchiveCopy(companyId: string | null | undefined, subject: string, now = Date.now()): boolean {
+  const key = `${companyId || ""}|${String(subject || "").trim().toLowerCase()}`;
+  for (const [k, at] of teamArchiveCopies) {
+    if (now - at > TEAM_ARCHIVE_COPY_WINDOW_MS) teamArchiveCopies.delete(k);
+  }
+  if (teamArchiveCopies.has(key)) return false;
+  teamArchiveCopies.set(key, now);
+  return true;
+}
+
+/** A send that claimed the copy failed: let the next send of that email carry it. */
+export function releaseTeamArchiveCopy(companyId: string | null | undefined, subject: string): void {
+  teamArchiveCopies.delete(`${companyId || ""}|${String(subject || "").trim().toLowerCase()}`);
+}
+
 export const emailService = {
   /**
    * Fetch the active provider config for a company.
@@ -422,6 +449,54 @@ export const emailService = {
     };
     if (email) fallback.replyTo = email;
     return fallback;
+  },
+
+  /**
+   * The recipient's role on the company's own team, or null when they are
+   * a client or not on the team. A lookup failure returns null, so the
+   * archive copy is kept as before rather than silently dropped.
+   */
+  async companyTeamRole(companyId: string | null | undefined, recipientEmail: string | null | undefined, client?: any): Promise<string | null> {
+    const email = String(recipientEmail || "").trim().toLowerCase();
+    if (!companyId || !email) return null;
+    try {
+      const { data, error } = await (client || supabase)
+        .from("profiles")
+        .select("role")
+        .eq("company_id", companyId)
+        .ilike("email", email.replace(/([%_\\])/g, "\\$1"))
+        .limit(5);
+      if (error || !data) return null;
+      const member = (data as Array<{ role?: string | null }>).find((p) => p.role && p.role !== "client");
+      return member?.role || null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Whether this email gets the "Copy outgoing emails to" BCC.
+   *   - Client emails: always copied.
+   *   - Team emails: the archive mailbox gets each one once. The same
+   *     email to several staff is copied only the first time, and admin
+   *     alerts are not copied when the archive mailbox is itself an admin
+   *     (it receives those directly).
+   */
+  async shouldSendArchiveCopy(input: {
+    companyId: string | null | undefined;
+    recipientEmail: string | null | undefined;
+    archiveEmail: string | null | undefined;
+    subject: string;
+    client?: any;
+  }): Promise<{ copy: boolean; claimed: boolean }> {
+    const recipientRole = await this.companyTeamRole(input.companyId, input.recipientEmail, input.client);
+    if (!recipientRole) return { copy: true, claimed: false };
+    if (ADMIN_TEAM_ROLES.has(recipientRole)) {
+      const archiveRole = await this.companyTeamRole(input.companyId, input.archiveEmail, input.client);
+      if (archiveRole && ADMIN_TEAM_ROLES.has(archiveRole)) return { copy: false, claimed: false };
+    }
+    const claimed = claimTeamArchiveCopy(input.companyId, input.subject);
+    return { copy: claimed, claimed };
   },
 
   async resolveArchiveCopyEmail(companyId: string | null | undefined, config: EmailSettings | null | undefined, client?: any): Promise<string | undefined> {
@@ -1013,6 +1088,12 @@ export const emailService = {
       }
     }
 
+    // True when this send took the archive mailbox's one copy of a team email.
+    let teamCopyClaimed = false;
+    // A failed send gives the copy back so the next send of this email carries it.
+    const releaseCopyClaim = () => {
+      if (teamCopyClaimed) releaseTeamArchiveCopy(payload.companyId, finalSubject);
+    };
     try {
       // resolveFromAddress selects the verified custom domain or shared sender.
       // A mismatched From address uses the shared sender as well.
@@ -1020,10 +1101,24 @@ export const emailService = {
       const archiveCopyEmail = await this.resolveArchiveCopyEmail(payload.companyId, config, sb);
       const normalizedArchiveCopyEmail = extractPrimaryEmailAddress(archiveCopyEmail);
       const normalizedRecipientEmail = extractPrimaryEmailAddress(payload.to);
-      const archiveCopyBcc = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(archiveCopyEmail)
-        && normalizedArchiveCopyEmail !== normalizedRecipientEmail
-        ? archiveCopyEmail
-        : undefined;
+      // "Copy outgoing emails to": every client email is copied; each team
+      // email (staff alerts, daily tasks, admin digests) reaches the archive
+      // mailbox once, not once per staff member (that looked like duplicates).
+      let archiveCopyBcc: string | undefined;
+      if (normalizedArchiveCopyEmail && normalizedArchiveCopyEmail === normalizedRecipientEmail) {
+        // The archive mailbox received this email itself: that is its copy.
+        teamCopyClaimed = claimTeamArchiveCopy(payload.companyId, finalSubject);
+      } else if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(archiveCopyEmail || "")) {
+        const decision = await this.shouldSendArchiveCopy({
+          companyId: payload.companyId,
+          recipientEmail: normalizedRecipientEmail,
+          archiveEmail: normalizedArchiveCopyEmail,
+          subject: finalSubject,
+          client: sb,
+        });
+        teamCopyClaimed = decision.claimed;
+        if (decision.copy) archiveCopyBcc = archiveCopyEmail;
+      }
 
       if (config.provider === 'resend' && process.env.RESEND_API_KEY) {
         const { from, replyTo } = this.resolveFromAddress(config);
@@ -1083,6 +1178,7 @@ export const emailService = {
       } else if (config.provider === 'resend' && !process.env.RESEND_API_KEY) {
         // Resend selected but the platform-level API key is missing.
         // This is a Skylight ops issue, not a tenant fix - no fix_link.
+        releaseCopyClaim();
         await this.logEmailSent(
           payload.companyId,
           payload.template || "custom",
@@ -1112,6 +1208,7 @@ export const emailService = {
         // upstream callers can react. EmailProviderBanner surfaces the
         // missing-provider state on the admin dashboard so this isn't
         // discovered the hard way.
+        releaseCopyClaim();
         console.warn("[emailService] refused - no email provider configured");
         console.warn(`  Tenant: ${payload.companyId}`);
         console.warn(`  Would-be recipient: ${payload.to}`);
@@ -1154,6 +1251,7 @@ export const emailService = {
       }
 
       // Provider returned !ok. Log + map to a friendly diagnosis.
+      releaseCopyClaim();
       const failure = providerResult as any;
       const reason = failure?.message || `Provider ${config.provider || "?"} returned not-ok`;
       await this.logEmailSent(
@@ -1258,6 +1356,7 @@ export const emailService = {
         error_code: "unknown",
       };
     } catch (error: any) {
+      releaseCopyClaim();
       console.error("Error sending email:", error);
       // Crash path - still log so ops can find it.
       try {
