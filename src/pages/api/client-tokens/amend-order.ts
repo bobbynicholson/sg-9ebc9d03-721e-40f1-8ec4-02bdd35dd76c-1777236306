@@ -234,6 +234,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[amend-order:token] notify failed:", e);
     }
 
+    // Email the company too (same as the client-portal path). Awaited so a
+    // serverless shutdown after the response can't drop it; never throws.
+    const { emailCompanyAboutOrderChangeRequest } = await import("@/lib/email/orderChangeRequestEmail");
+    await emailCompanyAboutOrderChangeRequest({
+      companyId: order.company_id,
+      orderId: order_id,
+      amendmentId: (inserted as any).id,
+      changes: sanitized,
+      notes: client_notes || null,
+      via: "order link",
+    });
+
     // Acknowledgement email to the client.
     try {
       if (order.client_email) {
@@ -253,6 +265,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         await (emailService as any).sendEmail({
           companyId: order.company_id,
           to: order.client_email,
+          automationKey: "order_change_request_received",
           subject,
           body,
           bypassQuarantine: true,

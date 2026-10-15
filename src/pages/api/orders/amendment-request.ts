@@ -221,6 +221,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[amendment-request] notify failed:", e);
     }
 
+    // Email the company too: the bell alone was easy to miss and companies
+    // reported never getting order change requests by email. Awaited so a
+    // serverless shutdown after the response can't drop it; never throws.
+    const { emailCompanyAboutOrderChangeRequest } = await import("@/lib/email/orderChangeRequestEmail");
+    await emailCompanyAboutOrderChangeRequest({
+      companyId: (order as any).company_id,
+      orderId: order_id,
+      amendmentId: (inserted as any).id,
+      changes: sanitized,
+      notes: client_notes || null,
+      via: "client portal",
+    });
+
     // Phase 5 #9: customer-facing ack email. Mirrors the
     // cancellation-request flow from Phase 4 #5. The client portal
     // toast already says "the team will confirm by email shortly";
@@ -257,6 +270,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           companyId: (order as any).company_id,
           to: clientEmail,
           subject: `Change request received - ${(orderForEmail as any)?.order_number || "your order"}`,
+          automationKey: "order_change_request_received",
           template: "transactional",
           orderId: order_id,
           variables: {
