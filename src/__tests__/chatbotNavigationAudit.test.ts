@@ -31,6 +31,11 @@ function routeSourceFiles(href: string): string[] {
   if (href.split(/[?#]/)[0] === "/admin/orders") {
     files.push(path.join(ROOT, "src", "components", "admin", "orders", "OrderDetailsModal.tsx"));
   }
+  // Settings tabs are rendered by their tab components (payment due and
+  // payment reminders live in the Financial tab).
+  if (href.split(/[?#]/)[0] === "/admin/settings") {
+    files.push(path.join(ROOT, "src", "components", "admin", "settings", "FinancialSettingsTab.tsx"));
+  }
   return files.filter((file) => fs.existsSync(file));
 }
 

@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DASHBOARD_TODO_CHANGED_EVENT, dashboardTodoService } from "@/services/dashboardTodoService";
 import { onboardingProgressService, type OnboardingState } from "@/services/onboardingProgressService";
 import { getTenantSlugFromPathname } from "@/lib/tenantRoute";
-import { SETUP_TASKS, type SetupTaskId } from "@/lib/setupChecklist";
+import { SETUP_TASKS, setupTasksDoneFromSettings, type SetupTaskId } from "@/lib/setupChecklist";
 
 function tenantHref(slug: string, href: string): string {
   return slug ? `/${slug}${href}` : href;
@@ -56,7 +56,10 @@ export function AdminSetupSticky() {
         dashboardTodoService.getForCompany(companyId),
       ]);
       setOnboarding(progress);
-      setChecked(Object.fromEntries(rows.map((row) => [row.task_id, row.completed])));
+      setChecked({
+        ...Object.fromEntries(rows.map((row) => [row.task_id, row.completed])),
+        ...setupTasksDoneFromSettings(progress.steps),
+      });
       // Refresh data without opening an unsolicited panel.
     } catch (error) {
       console.error("[admin-setup-sticky] load failed:", error);

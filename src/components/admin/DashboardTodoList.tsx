@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { DASHBOARD_TODO_CHANGED_EVENT, dashboardTodoService } from "@/services/dashboardTodoService";
 import { onboardingProgressService } from "@/services/onboardingProgressService";
-import { SETUP_TASKS, type SetupTaskId } from "@/lib/setupChecklist";
+import { SETUP_TASKS, setupTasksDoneFromSettings, type SetupTaskId } from "@/lib/setupChecklist";
 
 interface Props {
   companyId: string;
@@ -53,7 +53,10 @@ export function DashboardTodoList({ companyId, slug }: Props) {
     ])
       .then(([rows, onboarding]) => {
         if (cancelled) return;
-        setChecked(Object.fromEntries(rows.map((row) => [row.task_id, row.completed])));
+        setChecked({
+          ...Object.fromEntries(rows.map((row) => [row.task_id, row.completed])),
+          ...setupTasksDoneFromSettings(onboarding.steps),
+        });
         setOnboardingComplete(Boolean(onboarding.completedAt || onboarding.allRequiredComplete));
       })
       .catch((error) => {

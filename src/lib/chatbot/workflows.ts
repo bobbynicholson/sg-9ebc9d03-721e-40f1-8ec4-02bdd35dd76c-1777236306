@@ -147,6 +147,29 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
       { id: "tool-scopes", title: "Restrict individual data tools", description: "Enable or disable specific approved scopes such as orders, leads, invoices, inventory, or deliveries.", ref: "admin.ai-brain.access.live-tools" },
     ],
   },
+  {
+    id: "payment-reminders",
+    label: "Payment reminders",
+    description: "Decide when clients must pay and whether they get one payment reminder. Reminders are off until you turn them on; each unpaid order gets at most one.",
+    keywords: ["payment reminder", "payment reminders", "stop payment reminders", "turn off payment reminders", "turn off reminders", "reminder days", "remind clients to pay", "set up reminders", "payment terms", "pay after event", "too many reminders"],
+    roles: ADMIN,
+    steps: [
+      { id: "payment-due", title: "Set when payment is due", description: "In Settings, Financial, set Payment is due to a number of days before the event (clients who pay upfront) or after it (clients on terms, for example 30 days). Invoice due dates follow this.", ref: "admin.settings.payment-due" },
+      { id: "payment-reminder", title: "Choose the payment reminder", description: "Under Payment reminders pick Don't send payment reminders, or Send one reminder before payment is due and enter the number of days. Then press Save defaults at the top of the page.", ref: "admin.settings.payment-reminders" },
+      { id: "client-override", title: "Optional: a different rule for one client", description: "In Contacts, open the client, choose Edit, then More details. Under Payment due date and reminder set this client's own rule; anything left on Same as company setting follows Settings.", ref: "admin.contacts.page" },
+    ],
+  },
+  {
+    id: "automatic-emails",
+    label: "Automatic emails on or off",
+    description: "Choose which automatic emails are sent. Off means that automatic email is not sent at all; emails you send yourself (Send quote, Send invoice, messages, Resend) always go out, and sign-in links and invitations are always sent.",
+    keywords: ["automatic emails", "turn off automatic emails", "stop automatic emails", "too many emails", "manual or automatic", "automated emails", "disable emails", "stop emailing clients", "email automation", "which emails are sent"],
+    roles: ADMIN,
+    steps: [
+      { id: "all-emails", title: "Turn all automatic emails on or off", description: "In Email settings, open Automation and sending control and use Send automatic emails. Off stops every automatic email except any you set to Automatic below.", ref: "admin.email-settings.automatic-emails" },
+      { id: "each-email", title: "Turn individual emails on or off", description: "Under Each automatic email, click an email (for example Order delivered or Balance payment reminder) to switch it between Automatic and Off. Then press Save settings at the top of the page.", ref: "admin.email-settings.each-email" },
+    ],
+  },
 ];
 
 function isAllowed(definition: WorkflowDefinition, role: string): boolean {

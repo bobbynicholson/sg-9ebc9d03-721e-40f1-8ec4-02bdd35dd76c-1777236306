@@ -35,18 +35,32 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight, ArrowLeft, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle } from "lucide-react";
+import { ArrowRight, ArrowLeft, Bell, Check, Loader2, Building2, MapPin, Palette, Landmark, Receipt, CreditCard, Sparkles, FileSpreadsheet, ShieldCheck, Users, Upload, PlayCircle } from "lucide-react";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { onboardingProgressService } from "@/services/onboardingProgressService";
+import { dashboardTodoService } from "@/services/dashboardTodoService";
 import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 import { AddressAutocomplete } from "@/components/admin/AddressAutocomplete";
 import { captureException } from "@/lib/observability";
 import { PortalShell, PortalHeader, PageWorkbench } from "@/components/portal/ui";
+import {
+  DEFAULT_PAYMENT_REMINDERS,
+  describePaymentDue,
+  describePaymentReminders,
+  paymentDueDate,
+  paymentReminderTargetDate,
+  hasPaymentDueSetting,
+  readPaymentDueSettings,
+  readPaymentReminderSettings,
+  type PaymentDueDirection,
+  type PaymentReminderMode,
+} from "@/lib/paymentReminderSchedule";
+import { QUEUE_DELIVERY_MODE_KEY, companyDeliveryMode } from "@/lib/email/automatedEmailTemplates";
 
 interface CompanyForm {
   // Basics
@@ -85,6 +99,13 @@ interface CompanyForm {
   vat_registered: boolean;
   vat_number: string;
   vat_rate: number;
+
+  /**
+   * Read-only progress flag, NOT a companies column: true once payment
+   * due / payment reminder settings are saved (dispatch_settings). Never
+   * include it in an update patch.
+   */
+  reminders_saved: boolean;
 }
 
 type PaymentProvider = "payfast" | "yoco" | "stripe";
@@ -105,6 +126,7 @@ const EMPTY_FORM: CompanyForm = {
   bank_name: "", bank_account_holder: "", bank_account_number: "",
   bank_branch_code: "", bank_account_type: "", eft_instructions: "",
   vat_registered: false, vat_number: "", vat_rate: 15,
+  reminders_saved: false,
 };
 
 // Step ids in order. Centralised so the progress bar, breadcrumb,
@@ -118,6 +140,7 @@ const STEPS = [
   { id: "payment",  label: "Payments",  icon: CreditCard },
   { id: "vat",      label: "VAT",       icon: Receipt },
   { id: "email",    label: "Email",     icon: ShieldCheck },
+  { id: "reminders", label: "Reminders", icon: Bell },
   { id: "clients",  label: "Clients",   icon: Users },
   { id: "done",     label: "Finish",    icon: Check },
 ] as const;
@@ -127,7 +150,7 @@ type StepId = typeof STEPS[number]["id"];
 // Data-bearing sections (Welcome + Done excluded). Shared by the
 // Welcome checklist and the hero completion chip so both always
 // report the same "X of Y" count.
-const SECTION_IDS: StepId[] = ["company", "address", "branding", "banking", "payment", "vat", "email", "clients"];
+const SECTION_IDS: StepId[] = ["company", "address", "branding", "banking", "payment", "vat", "email", "reminders", "clients"];
 
 // ONB-B (task #217, 2026-05-25): pure helper - is this step's
 // key data already present on the companies row?  Drives the
@@ -143,6 +166,7 @@ function isStepComplete(stepId: StepId, form: CompanyForm): boolean {
     case "payment":  return false; // tracked in payment_gateways, not the company form
     case "vat":      return form.vat_registered ? !!form.vat_number.trim() : true; // not-registered is a real answer
     case "email":    return false; // tracked in email_provider_settings, not on the form
+    case "reminders": return form.reminders_saved; // dispatch_settings.paymentDue / paymentReminders saved
     case "clients":  return false; // tracked via clients table count, not on the form
     case "welcome":
     case "done":
@@ -245,6 +269,7 @@ function OnboardingWizard() {
           vat_registered: !!r.vat_registered,
           vat_number: r.vat_number || "",
           vat_rate: r.vat_rate ?? 15,
+          reminders_saved: remindersSaved(r.dispatch_settings),
         });
       }
       setLoading(false);
@@ -700,6 +725,19 @@ function OnboardingWizard() {
                 />
               )}
 
+              {step === "reminders" && (
+                <RemindersStep
+                  companyId={companyId}
+                  slug={slug}
+                  onBack={goBack}
+                  onSkip={goNext}
+                  onSaved={() => {
+                    setForm((current) => ({ ...current, reminders_saved: true }));
+                    goNext();
+                  }}
+                />
+              )}
+
               {step === "clients" && (
                 <ClientsStep onBack={goBack} onNext={goNext} />
               )}
@@ -750,6 +788,7 @@ function WelcomeStep({
     { id: "banking",  label: "Banking",          helper: "optional - enables EFT as a payment option" },
     { id: "vat",      label: "VAT registration", helper: "changes your invoice document title" },
     { id: "email",    label: "Email sender",     helper: "use your domain or the shared CateringMS sender" },
+    { id: "reminders", label: "Payment reminders + automatic emails", helper: "when payment is due, reminders, automatic emails on or off" },
     { id: "clients",  label: "Import clients",   helper: "optional - bulk upload your contact list" },
   ];
   const completed = checklist.filter((c) => isStepComplete(c.id, form)).length;
@@ -1495,6 +1534,263 @@ function EmailStep({
         </Button>
         <Button variant="ghost" onClick={onNext} className="ml-auto">
           Skip for now <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
+    </StepShell>
+  );
+}
+
+/** Fixed sample event date for the worked example in the Reminders step. */
+const REMINDER_EXAMPLE_EVENT = "2026-11-20";
+
+function formatReminderExample(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+}
+
+/** Whether the company has saved its payment due / reminder choice. */
+function remindersSaved(dispatchSettings: unknown): boolean {
+  const reminders = (dispatchSettings as any)?.paymentReminders;
+  return hasPaymentDueSetting(dispatchSettings) || (!!reminders && typeof reminders === "object");
+}
+
+function RemindersStep({
+  companyId, slug, onBack, onSkip, onSaved,
+}: { companyId: string; slug: string; onBack: () => void; onSkip: () => void; onSaved: () => void }) {
+  const emailSettingsHref = `${slug ? `/${slug}` : ""}/admin/email-settings`;
+  // Same settings, same storage as Settings -> Financial ("Payment is due",
+  // "Payment reminders") and Email settings ("Send automatic emails").
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dueDays, setDueDays] = useState(7);
+  const [dueDirection, setDueDirection] = useState<PaymentDueDirection>("before_event");
+  const [reminderMode, setReminderMode] = useState<PaymentReminderMode>(DEFAULT_PAYMENT_REMINDERS.mode);
+  const [reminderDays, setReminderDays] = useState(DEFAULT_PAYMENT_REMINDERS.days);
+  const [emailRow, setEmailRow] = useState<{ id: string; automation_preferences: Record<string, unknown> | null } | null>(null);
+  const [automaticEmailsOn, setAutomaticEmailsOn] = useState(true);
+
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [{ data: company, error: companyError }, { data: provider, error: providerError }] = await Promise.all([
+          (supabase as any).from("companies").select("balance_due_days, dispatch_settings").eq("id", companyId).maybeSingle(),
+          (supabase as any)
+            .from("email_provider_settings")
+            .select("id, automation_preferences")
+            .eq("company_id", companyId)
+            .neq("provider", "mailchimp")
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
+        if (companyError) throw companyError;
+        if (providerError) throw providerError;
+        if (cancelled) return;
+        const due = readPaymentDueSettings(company?.dispatch_settings, company?.balance_due_days ?? 7);
+        const reminders = readPaymentReminderSettings(company?.dispatch_settings);
+        setDueDays(due.days);
+        setDueDirection(due.direction);
+        setReminderMode(reminders.mode);
+        setReminderDays(reminders.days);
+        setEmailRow(provider || null);
+        setAutomaticEmailsOn(companyDeliveryMode(provider?.automation_preferences) === "automatic");
+      } catch (e: any) {
+        toast({ title: "Couldn't load your reminder settings", description: e?.message || "Try again.", variant: "destructive" });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [companyId, toast]);
+
+  const save = async () => {
+    if (!companyId) return;
+    setSaving(true);
+    try {
+      // Re-read so other dispatch settings saved elsewhere are kept.
+      const { data: existing, error: existingError } = await (supabase as any)
+        .from("companies").select("dispatch_settings").eq("id", companyId).maybeSingle();
+      if (existingError) throw existingError;
+      const prior = ((existing as any)?.dispatch_settings || {}) as Record<string, any>;
+      const { error: companyError } = await (supabase as any)
+        .from("companies")
+        .update({
+          balance_due_days: Math.max(0, Math.floor(dueDays)),
+          dispatch_settings: {
+            ...prior,
+            paymentDue: { direction: dueDirection },
+            paymentReminders: { mode: reminderMode, days: Math.max(0, Math.floor(reminderDays)) },
+          },
+        })
+        .eq("id", companyId);
+      if (companyError) throw companyError;
+
+      if (emailRow) {
+        const { error: emailError } = await (supabase as any)
+          .from("email_provider_settings")
+          .update({
+            automation_preferences: {
+              ...(emailRow.automation_preferences || {}),
+              [QUEUE_DELIVERY_MODE_KEY]: automaticEmailsOn ? "automatic" : "off",
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", emailRow.id)
+          .eq("company_id", companyId);
+        if (emailError) throw emailError;
+      }
+      // Tick "Set payment reminders and automatic emails" in the
+      // day-to-day setup checklist (sticky bar + dashboard to-do list).
+      try {
+        await dashboardTodoService.setCompleted(companyId, "reminders", true);
+      } catch (todoError) {
+        console.warn("[onboarding] reminders checklist tick failed (non-blocking):", todoError);
+      }
+      toast({ title: "Reminder settings saved", description: "You can change these any time under Settings." });
+      onSaved();
+    } catch (e: any) {
+      toast({ title: "Couldn't save", description: e?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const due = { direction: dueDirection, days: dueDays };
+  const reminders = { mode: reminderMode, days: reminderDays };
+  const exampleDue = paymentDueDate(REMINDER_EXAMPLE_EVENT, due);
+  const exampleReminder = paymentReminderTargetDate(reminders, due, REMINDER_EXAMPLE_EVENT);
+
+  return (
+    <StepShell
+      icon={Bell}
+      title="Payment reminders and automatic emails"
+      description="Decide when clients must pay, whether they get a payment reminder, and whether automatic emails go out. You can change all of this later under Settings."
+    >
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading your current settings...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="rounded-md border border-slate-200 p-3 space-y-2">
+            <Label htmlFor="onb-payment-due-days" className="text-sm font-medium text-slate-900">Payment is due</Label>
+            <div className="flex flex-wrap gap-2">
+              <Input
+                id="onb-payment-due-days"
+                type="number"
+                min={0}
+                max={365}
+                className="w-24"
+                value={dueDays}
+                onChange={(e) => setDueDays(Math.max(0, parseInt(e.target.value) || 0))}
+              />
+              <select
+                aria-label="Before or after the event"
+                value={dueDirection}
+                onChange={(e) => setDueDirection(e.target.value as PaymentDueDirection)}
+                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+              >
+                <option value="before_event">days before the event</option>
+                <option value="after_event">days after the event</option>
+              </select>
+            </div>
+            <p className="text-xs text-slate-500">
+              {describePaymentDue(due)}. Use &quot;after the event&quot; if your clients pay on terms (for example 30 days after). Applies to every client; you can set a different rule for one client in Contacts.
+            </p>
+          </div>
+
+          <div className="rounded-md border border-slate-200 p-3 space-y-2">
+            <Label htmlFor="onb-payment-reminder" className="text-sm font-medium text-slate-900">Payment reminder</Label>
+            <div className="flex flex-wrap gap-2">
+              <select
+                id="onb-payment-reminder"
+                value={reminderMode}
+                onChange={(e) => setReminderMode(e.target.value as PaymentReminderMode)}
+                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+              >
+                <option value="off">Don&apos;t send payment reminders</option>
+                <option value="before_due">Send one reminder before payment is due</option>
+              </select>
+              {reminderMode === "before_due" && (
+                <Input
+                  type="number"
+                  min={0}
+                  max={365}
+                  aria-label="Days before payment is due"
+                  className="w-24"
+                  value={reminderDays}
+                  onChange={(e) => setReminderDays(Math.max(0, parseInt(e.target.value) || 0))}
+                />
+              )}
+            </div>
+            <p className="text-xs text-slate-500">
+              {describePaymentReminders(reminders)}.
+              {exampleDue && (
+                <>
+                  {" "}Example: for an event on {formatReminderExample(REMINDER_EXAMPLE_EVENT)}, payment is due {formatReminderExample(exampleDue)}
+                  {exampleReminder ? ` and the reminder goes out on ${formatReminderExample(exampleReminder)}` : ""}.
+                </>
+              )}
+            </p>
+          </div>
+
+          <div className="rounded-md border border-slate-200 p-3 space-y-2">
+            {emailRow ? (
+              <>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={automaticEmailsOn}
+                  onChange={(e) => setAutomaticEmailsOn(e.target.checked)}
+                  className="mt-0.5 w-4 h-4"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-900">Send automatic emails</p>
+                  <p className="text-xs text-slate-500">
+                    On: order updates, receipts, event reminders and follow-ups go out automatically. Off: none of them are sent. Emails you send yourself (Send quote, Send invoice, messages) always go out.
+                  </p>
+                </div>
+              </label>
+              <a
+                href={`${emailSettingsHref}#each-automatic-email`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-7 inline-flex items-center gap-1 text-xs font-semibold text-brand-primary hover:underline"
+              >
+                See every automatic email and turn each one on or off (opens in a new tab) <ArrowRight className="w-3 h-3" />
+              </a>
+              </>
+            ) : (
+              <>
+              <p className="text-xs text-slate-600">
+                <span className="font-medium text-slate-900">Automatic emails: </span>
+                choose your email sender in the previous step first, then you can turn automatic emails on or off here or in Email settings.
+              </p>
+              <a
+                href={`${emailSettingsHref}#each-automatic-email`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary hover:underline"
+              >
+                See every automatic email in Email settings (opens in a new tab) <ArrowRight className="w-3 h-3" />
+              </a>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col sm:flex-row gap-2 pt-4">
+        <Button variant="outline" onClick={onBack} disabled={saving}>
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back
+        </Button>
+        <Button variant="ghost" onClick={onSkip} disabled={saving} className="sm:ml-auto">
+          Skip for now <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+        <Button onClick={save} disabled={saving || loading} className="bg-brand-primary hover:opacity-90">
+          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+          Save reminder settings <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </div>
     </StepShell>

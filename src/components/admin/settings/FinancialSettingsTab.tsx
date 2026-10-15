@@ -141,7 +141,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
               <p className="text-xs text-slate-600 mt-1">Percentage of total to confirm booking (10-100%).</p>
             </div>
 
-            <div>
+            <div id="payment-due" data-chat-section="admin.settings.payment-due" data-chat-section-label="Payment is due">
               <Label htmlFor="payment-due-days" className="text-sm md:text-base flex items-center gap-1">
                 Payment is due
                 <InfoTooltip
@@ -224,7 +224,7 @@ export function FinancialSettingsTab({ settings, onUpdate }: Props) {
           </div>
         </div>
 
-        <div className="space-y-3 border-t pt-4">
+        <div id="payment-reminders" data-chat-section="admin.settings.payment-reminders" data-chat-section-label="Payment reminders" className="space-y-3 border-t pt-4">
           <div>
             <h3 className="font-semibold text-base">Payment reminders</h3>
             <p className="text-xs md:text-sm text-slate-600">

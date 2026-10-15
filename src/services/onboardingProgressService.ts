@@ -108,7 +108,7 @@ export const onboardingProgressService = {
       tableCount("payment_gateways", companyId, { col: "is_active", val: true }),
       supabase
         .from("companies")
-        .select("company_name,phone,email,onboarding_completed_at,onboarding_dismissed_at")
+        .select("company_name,phone,email,onboarding_completed_at,onboarding_dismissed_at,dispatch_settings")
         .eq("id", companyId)
         .maybeSingle(),
     ]);
@@ -124,6 +124,12 @@ export const onboardingProgressService = {
     // Team is "complete" when there's at least one staff record beyond the
     // owner. Either an extra profile or a kitchen_staff_members entry.
     const teamComplete = staffProfileCount > 1 || kitchenStaffCount > 0;
+
+    // Payment reminders step is done once the company saved its payment
+    // due / reminder choice (onboarding Reminders step or Settings ->
+    // Financial both write dispatch_settings).
+    const dispatch = ((company as any)?.dispatch_settings || {}) as Record<string, unknown>;
+    const remindersChoiceSaved = !!(dispatch.paymentDue || dispatch.paymentReminders);
 
     const tenantPath = slug ? `/${slug}` : "";
 
@@ -223,6 +229,18 @@ export const onboardingProgressService = {
         href: `${tenantPath}/admin/integrations`,
         estimatedMinutes: 5,
         icon: "💳",
+      },
+      {
+        // Optional so it never re-opens or blocks onboarding for companies
+        // that already finished it.
+        id: "setup_reminders",
+        label: "Payment reminders + automatic emails",
+        description: "When clients pay, one payment reminder, and which emails go out",
+        required: false,
+        completed: remindersChoiceSaved,
+        href: `${tenantPath}/admin/onboarding?step=reminders`,
+        estimatedMinutes: 3,
+        icon: "🔔",
       },
       {
         id: "final_review",
