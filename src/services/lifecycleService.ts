@@ -97,13 +97,20 @@ export const lifecycleService = {
     // 3. Look for a pre-existing client with the same email in this
     // tenant (admins sometimes create clients manually before / after
     // the lead, so we want to link rather than duplicate).
-    const { data: existingClient, error: existingClientErr } = await sb
-      .from("clients")
-      .select("id")
-      .eq("company_id", (lead as any).company_id)
-      .eq("email", (lead as any).email)
-      .is("deleted_at", null)
-      .maybeSingle();
+    // Case-insensitive: clients are unique on (company_id, lower(email)),
+    // so "Jane@x.com" on the lead must match "jane@x.com" on the client -
+    // an exact .eq() missed it and the insert below then hit the unique
+    // index, leaving the quote accepted with no order.
+    const leadEmail = String((lead as any).email ?? "").trim();
+    const { data: existingClient, error: existingClientErr } = leadEmail
+      ? await sb
+          .from("clients")
+          .select("id")
+          .eq("company_id", (lead as any).company_id)
+          .ilike("email", leadEmail.replace(/([%_\\])/g, "\\$1"))
+          .is("deleted_at", null)
+          .maybeSingle()
+      : { data: null, error: null };
     if (existingClientErr) {
       console.error("[lifecycleService] clients fetch failed:", existingClientErr);
     }
@@ -254,11 +261,14 @@ export const lifecycleService = {
     // 2. Find or create the clients row.
     let clientId: string | null = (order as any).client_id || null;
     if (!clientId && email) {
+      // Case-insensitive, same as promoteLeadToClient: clients are unique
+      // on (company_id, lower(email)), so an exact match would miss
+      // "Jane@x.com" vs "jane@x.com" and the insert below would fail.
       const { data: existingClient, error: existingClientErr2 } = await sb
         .from("clients")
         .select("id")
         .eq("company_id", companyId)
-        .eq("email", email)
+        .ilike("email", email.trim().replace(/([%_\\])/g, "\\$1"))
         .is("deleted_at", null)
         .maybeSingle();
       if (existingClientErr2) {
