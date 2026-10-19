@@ -216,9 +216,13 @@ export async function notifyAdminOfEmbedLead(
     (ownerProfile as any)?.company_name ||
     (ownerProfile as any)?.full_name ||
     "Your catering company";
+  // Email uses one company-controlled inbox, matching the rest of the
+  // automatic notification flows. Every admin still receives the in-app
+  // alert below, but a lead form must not fan out duplicate emails to each
+  // staff profile (some profiles are Outlook mailboxes rather than the
+  // company inbox). Settings > Notifications can override the owner inbox.
   const adminEmailCandidates: unknown[] = [
-    (company as any)?.notification_email,
-    (ownerProfile as any)?.email,
+    (company as any)?.notification_email || (ownerProfile as any)?.email,
   ];
 
   const clientName =
@@ -253,7 +257,6 @@ export async function notifyAdminOfEmbedLead(
     const recipientIds = new Set(
       ((adminProfiles || []) as Array<{ id: string }>).map((p) => p.id),
     );
-    adminEmailCandidates.push(...(adminProfiles || []).map((profile: any) => profile.email));
     if (ownerUserId) recipientIds.add(ownerUserId);
     const message = `${clientName} just enquired ${summary}` +
       (guestCount ? ` (${guestCount} guests` : "") +
@@ -343,18 +346,6 @@ export async function notifyAdminOfEmbedLead(
   // the email for noisy forms (newsletter signups etc.) while keeping
   // the in-portal bell.
   if (formNotifyAdminEmail) {
-    if (uniqueAdminEmails(adminEmailCandidates).length === 0) {
-      try {
-        const { data: adminProfiles } = await supabase
-          .from("profiles")
-          .select("email")
-          .eq("company_id", companyId)
-          .in("role", ["company_admin", "admin", "sales_admin", "region_admin"]);
-        adminEmailCandidates.push(...(adminProfiles || []).map((profile: any) => profile.email));
-      } catch (err) {
-        console.warn("[embed/lead-notify] admin email fallback lookup failed", err);
-      }
-    }
     const adminRecipients = uniqueAdminEmails(adminEmailCandidates);
     if (adminRecipients.length > 0) {
       try {
