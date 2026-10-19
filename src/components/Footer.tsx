@@ -62,9 +62,12 @@ function classifyRoute(pathname: string): "marketing" | "internal" {
 export function SlimInternalFooter({
   displayName,
   isWhiteLabeled,
+  termsHref = "/terms",
 }: {
   displayName: string;
   isWhiteLabeled: boolean;
+  /** Clients read their caterer's terms (/terms/{slug}); staff read the platform's. */
+  termsHref?: string;
 }) {
   const currentYear = new Date().getFullYear();
   return (
@@ -72,8 +75,10 @@ export function SlimInternalFooter({
       className="internal-footer-shell border-t border-slate-200 bg-white/95 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95 lg:ml-72 xl:ml-80"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="px-4 py-2">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+      {/* Right padding keeps the links clear of the floating assistant
+          button, which docks in the bottom-right corner. */}
+      <div className="py-3 pl-4 pr-24 sm:px-6 sm:pr-28">
+        <div className="flex flex-col gap-1.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:text-slate-400">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
             <span>© {currentYear} {displayName}.</span>
             {isWhiteLabeled && (
@@ -88,12 +93,13 @@ export function SlimInternalFooter({
               </Link>
             )}
           </div>
-          <div className="flex gap-4">
-            <Link href="/privacy" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
-              Privacy
+          {/* New tab, so reading the legal text never loses unsaved work. */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors hover:text-slate-700 hover:underline dark:hover:text-slate-300">
+              Privacy policy
             </Link>
-            <Link href="/terms" className="hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
-              Terms
+            <Link href={termsHref} target="_blank" rel="noopener noreferrer" className="underline-offset-2 transition-colors hover:text-slate-700 hover:underline dark:hover:text-slate-300">
+              Terms and conditions
             </Link>
           </div>
         </div>

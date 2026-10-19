@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw } from "lucide-react";
+import { MapPin, Clock, Package, User, Phone, Navigation, RefreshCw, MessageCircle } from "lucide-react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -25,6 +25,10 @@ const ClientTrackingMap = dynamic(
   () => import("@/components/tracking/ClientTrackingMap").then((mod) => mod.ClientTrackingMap),
   { ssr: false }
 ) as React.ComponentType<any>;
+
+// One subtitle for every state (loading, empty, error, live) so the header
+// doesn't change wording while the page loads.
+const TRACKING_SUBTITLE = "Follow your delivery or equipment collection while the driver is on the road.";
 
 interface OrderDetails {
   id: string;
@@ -393,35 +397,26 @@ function ClientTrackingInner() {
           <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
             <PortalHeader
               title="Live tracking"
-              subtitle="Watch your driver as they roll out."
+              subtitle={TRACKING_SUBTITLE}
               icon={MapPin}
               variant="hero"
             />
             <PageWorkbench />
-            <PortalOverview
-              eyebrow="Live tracking"
-              title="Checking for active driver trips"
-              description="Tracking appears only while a delivery or equipment collection is actively on the road."
-              items={[
-                { label: "Trips", value: "-", helper: "Loading", icon: Navigation, tone: "neutral" },
-                { label: "Driver pin", value: "-", helper: "Loading GPS", icon: MapPin, tone: "neutral" },
-                { label: "ETA", value: "-", helper: "Calculating", icon: Clock, tone: "neutral" },
-                { label: "Refresh", value: "30s", helper: "Auto polling", icon: RefreshCw, tone: "neutral" },
-              ]}
-            />
-            {/* Skeleton matches the loaded shape (booking strip + map +
-                sidebar list) so the layout doesn't jump on arrival. */}
-            <div className="space-y-6" aria-busy="true" aria-label="Loading your deliveries">
-              <div className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 h-[500px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
-                <div className="space-y-3">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-28 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
-                  ))}
+            {/* Most visits end on "no driver on the road", so the skeleton is
+                one quiet card rather than a 500px map placeholder. */}
+            <PortalCard aria-busy="true" aria-label="Checking for a driver on the road">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-slate-200 motion-reduce:animate-none dark:bg-slate-800" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-4 w-56 max-w-[70%] animate-pulse rounded bg-slate-200 motion-reduce:animate-none dark:bg-slate-800" />
+                  <div className="h-3 w-80 max-w-[90%] animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800/60" />
                 </div>
               </div>
-            </div>
+              <p className="mt-4 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <RefreshCw className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+                Checking for a driver on the road...
+              </p>
+            </PortalCard>
           </PortalShell>
         </div>
       </>
@@ -442,7 +437,7 @@ function ClientTrackingInner() {
           <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
             <PortalHeader
               title="Live tracking"
-              subtitle="Watch your driver as they roll out."
+              subtitle={TRACKING_SUBTITLE}
               icon={MapPin}
               variant="hero"
             />
@@ -489,35 +484,43 @@ function ClientTrackingInner() {
           <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
             <PortalHeader
               title="Live tracking"
-              subtitle="Track deliveries and equipment collections while a driver is on the road."
+              subtitle={TRACKING_SUBTITLE}
               icon={MapPin}
               variant="hero"
             />
             <PageWorkbench />
-            <PortalOverview
-              eyebrow="Live tracking"
-              title={requestedOrderMissing ? "That booking is not live right now" : "No driver is on the road right now"}
-              description="Tracking shows a booking only while a driver is on the road. Everything else is under Bookings."
-              items={[
-                { label: "Live trips", value: 0, helper: "No active driver", icon: Navigation, tone: "success" },
-              ]}
-            />
+            {/* One card says it once: nothing is on the road, what this page
+                will show when something is, and where to go meanwhile. */}
             <PortalCard padded={false}>
-              <div className="py-16 px-6 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
-                  <Package className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+              <div className="px-5 py-10 text-center sm:px-8 sm:py-14">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800">
+                  <Navigation className="h-7 w-7 text-slate-400 dark:text-slate-500" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                  {requestedOrderMissing ? "That booking is not live right now" : "No live trips right now"}
-                </h3>
-                <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-5">
+                <h2 className="mb-2 text-lg font-semibold text-slate-900 sm:text-xl dark:text-white">
+                  {requestedOrderMissing ? "That booking is not on the road right now" : "No driver is on the road right now"}
+                </h2>
+                <p className="mx-auto max-w-md text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-400">
                   {requestedOrderMissing
-                    ? "Live tracking appears only while the driver is in transit or an equipment collection is underway. Open Bookings for the full status."
-                    : "Live tracking appears once a delivery is in transit or an equipment collection is underway. Use Bookings for upcoming, completed, and full order history."}
+                    ? "This page shows a booking only while its driver is on the way or collecting equipment. Your booking has the full status."
+                    : "This page comes alive when your delivery leaves the kitchen or a driver sets off to collect equipment. Upcoming and past bookings are under Bookings."}
                 </p>
-                <div className="inline-flex gap-2">
-                  <Button asChild className="bg-brand-primary hover:opacity-90 text-white">
-                    <Link href={withSlug(requestedOrderId ? `/client-portal/my-orders?orderId=${requestedOrderId}` : "/client-portal/my-orders")}>View bookings</Link>
+                <ul className="mx-auto mt-6 grid max-w-2xl grid-cols-1 gap-2 text-left sm:grid-cols-3">
+                  {[
+                    { icon: MapPin, label: "Driver on a live map" },
+                    { icon: Clock, label: "Estimated arrival time" },
+                    { icon: Phone, label: "Call or message the driver" },
+                  ].map(({ icon: Icon, label }) => (
+                    <li key={label} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+                      <Icon className="h-4 w-4 shrink-0 text-brand-primary" />
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mx-auto mt-6 flex max-w-sm flex-col gap-2 sm:max-w-none sm:flex-row sm:justify-center">
+                  <Button asChild className="bg-brand-primary text-white hover:opacity-90">
+                    <Link href={withSlug(requestedOrderId ? `/client-portal/my-orders?orderId=${requestedOrderId}` : "/client-portal/my-orders")}>
+                      {requestedOrderId ? "Open this booking" : "See my bookings"}
+                    </Link>
                   </Button>
                   <Button asChild variant="outline">
                     <Link href={withSlug("/client-portal/dashboard")}>Back to dashboard</Link>
@@ -545,7 +548,7 @@ function ClientTrackingInner() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Live tracking"
-            subtitle="Real-time delivery and collection tracking with driver pin and ETA."
+            subtitle={TRACKING_SUBTITLE}
             icon={MapPin}
             variant="hero"
             actions={
@@ -555,7 +558,7 @@ function ClientTrackingInner() {
                 className="border border-white/20 bg-white/10 text-white hover:bg-white/15"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
-                Refresh
+                Refresh driver location
               </Button>
             }
           />
@@ -567,7 +570,7 @@ function ClientTrackingInner() {
             description="Use this page only while a driver is moving. For upcoming and completed bookings, open Bookings for the full status and documents."
             items={[
               { label: "Live trips", value: orders.length, helper: "Driver on road", icon: Navigation, tone: "brand" },
-              { label: "Selected", value: selectedOrder?.collecting ? "Collection" : selectedOrder?.status || "-", helper: selectedOrder?.venue_address || "No order selected", icon: Package, tone: "neutral" },
+              { label: "Selected", value: selectedOrder ? getStatusLabel(selectedOrder.collecting ? "collecting" : selectedOrder.status) : "-", helper: selectedOrder?.venue_address || "No order selected", icon: Package, tone: "neutral" },
               { label: "Driver pin", value: driverLocation ? "Live" : "Waiting", helper: driverLocation ? "GPS received" : "Driver GPS not received", icon: MapPin, tone: driverLocation ? "success" : "warning" },
               { label: "ETA", value: selectedOrder ? calculateETA(selectedOrder) : "-", helper: "Auto refreshed", icon: Clock, tone: "neutral" },
             ]}
@@ -623,7 +626,7 @@ function ClientTrackingInner() {
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
                     <MapPin className="w-5 h-5 text-brand-primary" />
-                    Live Tracking
+                    Live map
                   </h2>
                   {selectedOrder && (
                     <Badge variant="outline" className={getStatusColor(selectedOrder.collecting ? "collecting" : selectedOrder.status)}>
@@ -635,7 +638,7 @@ function ClientTrackingInner() {
                   (selectedOrder.venue_lat && selectedOrder.venue_lng) ||
                   (isLiveTrip(selectedOrder) && driverLocation)
                 ) ? (
-                  <div className="h-[500px] relative">
+                  <div className="relative h-[340px] overflow-hidden rounded-lg sm:h-[420px] lg:h-[500px]">
                     <ClientTrackingMap
                       orderId={selectedOrder.id}
                       driverLocation={isLiveTrip(selectedOrder) ? (driverLocation || undefined) : undefined}
@@ -657,19 +660,20 @@ function ClientTrackingInner() {
                         for the delivery leg (in_transit) and for a live
                         equipment-collection trip. */}
                     {(selectedOrder.status === "in_transit" || selectedOrder.collecting) && driverLocation && (
-                      <div className="absolute top-4 right-4 bg-white dark:bg-slate-900 rounded-lg shadow-lg px-4 py-2 border-2 border-brand-primary dark:border-brand-primary/80">
+                      <div className="absolute right-3 top-3 rounded-lg border-2 border-brand-primary bg-white px-3 py-1.5 shadow-lg sm:right-4 sm:top-4 sm:px-4 sm:py-2 dark:border-brand-primary/80 dark:bg-slate-900">
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 bg-brand-primary rounded-full animate-pulse"></div>
-                          <span className="text-sm font-medium text-slate-900 dark:text-white">{selectedOrder.collecting ? "Collecting - Live" : "Live Tracking"}</span>
+                          <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-brand-primary motion-reduce:animate-none sm:h-3 sm:w-3"></div>
+                          <span className="text-xs font-medium text-slate-900 sm:text-sm dark:text-white">{selectedOrder.collecting ? "Collecting - live" : "Live"}</span>
                         </div>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="h-[500px] flex items-center justify-center bg-slate-100 dark:bg-slate-800 rounded-lg">
+                  <div className="flex h-56 items-center justify-center rounded-lg bg-slate-100 px-6 sm:h-72 dark:bg-slate-800">
                     <div className="text-center">
-                      <MapPin className="w-12 h-12 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
-                      <p className="text-slate-600 dark:text-slate-400">Location data not available</p>
+                      <MapPin className="w-10 h-10 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+                      <p className="font-medium text-slate-700 dark:text-slate-300">Waiting for the driver&apos;s location</p>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">The map appears as soon as their phone shares GPS.</p>
                     </div>
                   </div>
                 )}
@@ -678,60 +682,57 @@ function ClientTrackingInner() {
               {/* Driver Info Card */}
               {selectedOrder?.driver_name && (
                 <PortalCard className="mt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                        <User className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                        <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                       </div>
-                      <div>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">Your Driver</p>
-                        <p className="font-semibold text-slate-900 dark:text-white">{selectedOrder.driver_name}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Your driver</p>
+                        <p className="truncate font-semibold text-slate-900 dark:text-white">{selectedOrder.driver_name}</p>
+                        {selectedOrder.driver_phone && (
+                          <p className="truncate text-sm tabular-nums text-slate-600 dark:text-slate-400">{selectedOrder.driver_phone}</p>
+                        )}
                       </div>
                     </div>
 
-                    {selectedOrder.driver_phone && (
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                          <Phone className="w-6 h-6 text-slate-500 dark:text-slate-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-600 dark:text-slate-400">Contact</p>
-                          <p className="font-semibold truncate text-slate-900 dark:text-white tabular-nums">{selectedOrder.driver_phone}</p>
-                            {/* Tap-to-call + WhatsApp - closes the audit gap
-                                "client sees driver phone but cannot message".
-                                Mirrors the driver-side bridge on /team-portal/driver/deliveries. */}
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <a
-                              href={`tel:${String(selectedOrder.driver_phone).replace(/[^+\d]/g, "")}`}
-                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                            >
-                              📞 Call
-                            </a>
-                            <a
-                              href={`https://wa.me/${String(selectedOrder.driver_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
-                                `Hi, I'm the client for ${selectedOrder.order_number || "this delivery"}. Quick question --`,
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-brand-primary/20 bg-brand-primary/10 hover:bg-brand-primary/15 text-brand-primary transition-colors dark:border-brand-primary/30 dark:bg-brand-primary/15 dark:text-brand-primary dark:hover:bg-brand-primary/20"
-                            >
-                              💬 WhatsApp
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                        <Clock className="w-6 h-6 text-slate-500 dark:text-slate-400" />
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                        <Clock className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                       </div>
-                      <div>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">Estimated Arrival</p>
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Estimated arrival</p>
                         <p className="font-semibold text-slate-900 dark:text-white tabular-nums">{calculateETA(selectedOrder)}</p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Tap-to-call + WhatsApp - closes the audit gap
+                      "client sees driver phone but cannot message".
+                      Mirrors the driver-side bridge on /team-portal/driver/deliveries.
+                      Full-width on phones so they are easy to tap. */}
+                  {selectedOrder.driver_phone && (
+                    <div className="mt-4 grid grid-cols-1 gap-2 border-t border-slate-200 pt-4 sm:grid-cols-2 dark:border-slate-800">
+                      <Button asChild variant="outline">
+                        <a href={`tel:${String(selectedOrder.driver_phone).replace(/[^+\d]/g, "")}`}>
+                          <Phone className="mr-2 h-4 w-4" />
+                          Call driver
+                        </a>
+                      </Button>
+                      <Button asChild className="bg-brand-primary text-white hover:opacity-90">
+                        <a
+                          href={`https://wa.me/${String(selectedOrder.driver_phone).replace(/[^\d]/g, "")}?text=${encodeURIComponent(
+                            `Hi, I'm the client for ${selectedOrder.order_number || "this delivery"}. Quick question --`,
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <MessageCircle className="mr-2 h-4 w-4" />
+                          Message driver on WhatsApp
+                        </a>
+                      </Button>
+                    </div>
+                  )}
                 </PortalCard>
               )}
             </div>
@@ -739,15 +740,19 @@ function ClientTrackingInner() {
             {/* Live trip selector. Full booking history and ratings live
                 under Bookings; this page only lists trips with a driver
                 actively on the road. */}
-            <div>
+            {/* With more than one trip, phones show the picker above the map
+                so the client chooses before scrolling. */}
+            <div className={orders.length > 1 ? "order-first lg:order-none" : undefined}>
               <PortalCard id="live-trips" data-chat-section="client.tracking.live" data-chat-section-label="Live trips">
                 <h2 className="mb-4 text-base font-semibold text-slate-900 dark:text-white">Live trips</h2>
                 <div className="space-y-3">
                   {orders.map((order) => (
-                    <div
+                    <button
+                      type="button"
                       key={order.id}
                       onClick={() => handleOrderSelect(order)}
-                      className={`p-4 rounded-xl border-2 cursor-pointer transition-colors ${
+                      aria-pressed={selectedOrder?.id === order.id}
+                      className={`block w-full p-4 text-left rounded-xl border-2 cursor-pointer transition-colors ${
                         selectedOrder?.id === order.id
                           ? "border-brand-primary bg-brand-primary/5 dark:bg-brand-primary/10 dark:border-brand-primary"
                           : "border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600"
@@ -778,7 +783,7 @@ function ClientTrackingInner() {
                         )}
                       </div>
 
-                    </div>
+                    </button>
                   ))}
 
                   <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">

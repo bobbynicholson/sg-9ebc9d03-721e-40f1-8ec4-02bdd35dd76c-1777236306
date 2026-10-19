@@ -1,0 +1,54 @@
+[
+  {
+    "label": "Queued job: completion changes zero rows",
+    "result": {
+      "ok": true
+    },
+    "inventoryWrites": [
+      {
+        "table": "equipment",
+        "patch": {
+          "available_quantity": 4,
+          "updated_at": "2026-10-19T07:19:54.398Z"
+        }
+      }
+    ]
+  },
+  {
+    "label": "Concurrent loser: stale in_progress snapshot, zero rows changed",
+    "result": {
+      "ok": true
+    },
+    "inventoryWrites": [
+      {
+        "table": "equipment",
+        "patch": {
+          "available_quantity": 4,
+          "updated_at": "2026-10-19T07:19:54.398Z"
+        }
+      }
+    ]
+  },
+  {
+    "label": "Inventory write fails after completion",
+    "result": {
+      "ok": true
+    },
+    "inventoryWrites": [
+      {
+        "table": "equipment",
+        "patch": {
+          "available_quantity": 4,
+          "updated_at": "2026-10-19T07:19:54.398Z"
+        }
+      }
+    ]
+  },
+  {
+    "label": "Already complete: existing retry guard",
+    "result": {
+      "ok": true
+    },
+    "inventoryWrites": []
+  }
+]

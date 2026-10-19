@@ -177,6 +177,44 @@ export function normaliseTagList(raw: any): NormaliseResult<string[]> {
   return { value: unique, warnings: [] };
 }
 
+// ── Quote status ───────────────────────────────────────────────────────
+
+/** Values the quotes.status enum accepts. */
+export const QUOTE_STATUSES = ["draft", "sent", "accepted", "rejected", "expired"] as const;
+export type QuoteStatus = typeof QUOTE_STATUSES[number];
+
+// Words other systems use for the same states, so "Declined" or "Won"
+// from an old spreadsheet lands as a valid status instead of failing the
+// insert on the enum.
+const QUOTE_STATUS_SYNONYMS: Record<string, QuoteStatus> = {
+  draft: "draft", new: "draft", "not sent": "draft",
+  sent: "sent", pending: "sent", open: "sent", issued: "sent", quoted: "sent",
+  awaiting: "sent", "awaiting response": "sent", outstanding: "sent",
+  accepted: "accepted", won: "accepted", approved: "accepted", confirmed: "accepted",
+  booked: "accepted", signed: "accepted",
+  rejected: "rejected", declined: "rejected", lost: "rejected", refused: "rejected",
+  cancelled: "rejected", canceled: "rejected",
+  expired: "expired", lapsed: "expired",
+};
+
+/**
+ * Quote status from a spreadsheet cell. Case and spacing don't matter;
+ * common synonyms map to the five statuses. An unknown word is dropped
+ * with a warning, and the quote is saved with the default status (sent).
+ * Only for quote rows: orders and invoices use different status lists.
+ */
+export function normaliseQuoteStatus(raw: any): NormaliseResult<QuoteStatus> {
+  const text = String(raw ?? "").trim();
+  if (!text) return { value: null, warnings: [] };
+  const key = text.toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+  const value = QUOTE_STATUS_SYNONYMS[key];
+  if (value) return { value, warnings: [] };
+  return {
+    value: null,
+    warnings: [`"${text.slice(0, 40)}" is not a quote status (use draft, sent, accepted, rejected or expired); it will be saved as sent`],
+  };
+}
+
 // ── Field-key dispatch ─────────────────────────────────────────────────
 
 /** What kind of normaliser to apply for a given target field key. */

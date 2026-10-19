@@ -6,6 +6,7 @@ import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { toZonedISO, DEFAULT_TENANT_TIMEZONE } from "@/lib/localDate";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
+import { isClientEligibleForExpiry } from "@/lib/quoteExpiryEligibility";
 
 const CRON_NAME = "expire-stale-quotes";
 
@@ -15,7 +16,7 @@ const QUOTE_SELECT = [
   "id", "status", "valid_until", "company_id", "client_id", "client_email",
   "client_name", "quote_number", "quote_name", "event_date", "public_token",
   "expired_at", "expiry_admin_notified_at", "expiry_admin_emailed_at",
-  "expiry_client_eligible",
+  "expiry_client_eligible", "imported_at", "sent_at",
   "expiry_client_notified_at", "expiry_client_emailed_at",
   "expiry_admin_notification_error", "expiry_admin_email_error",
   "expiry_client_notification_error", "expiry_client_email_error",
@@ -101,11 +102,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // The status predicate makes overlapping cron invocations race-safe.
       // Only the invocation that wins the transition receives these rows.
       // Drafts are internal records and must not cause a client email or
-      // portal notification. Sent quotes are eligible for client comms.
+      // portal notification. Sent quotes are eligible for client comms,
+      // except imported ones never sent from the app (see
+      // isClientEligibleForExpiry).
       const updatedRows: QuoteExpiryRow[] = [];
+      const clientEligible = (row: QuoteExpiryRow) =>
+        isClientEligibleForExpiry({ status: row.status, imported_at: row.imported_at, sent_at: row.sent_at });
       for (const group of [
-        { ids: staleRows.filter((row) => row.status === "sent").map((row) => row.id), clientEligible: true },
-        { ids: staleRows.filter((row) => row.status === "draft").map((row) => row.id), clientEligible: false },
+        { ids: staleRows.filter((row) => clientEligible(row)).map((row) => row.id), clientEligible: true },
+        { ids: staleRows.filter((row) => !clientEligible(row)).map((row) => row.id), clientEligible: false },
       ]) {
         if (group.ids.length === 0) continue;
         const { data: updated, error: updateError } = await sb

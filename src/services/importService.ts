@@ -17,6 +17,7 @@
  *   rolled_back - previously completed, now reversed
  */
 import { getServiceSupabase } from "@/lib/supabase/service";
+import { importLog } from "@/lib/importLog";
 
 // Cast helper: the auto-generated Database types don't yet include
 // import_jobs / import_rows / import_events (just landed in
@@ -251,12 +252,42 @@ export interface RollbackResult {
   clientsDeleted: number;
   ordersDeleted: number;
   leadsDeleted: number;
+  quotesDeleted: number;
+  /** Imported quotes kept because the team has worked on them since. */
+  quotesKept: number;
+}
+
+export interface ImportedQuoteCandidate {
+  id: string;
+  sent_at: string | null;
+  accepted_at: string | null;
+  converted_to_order_id: string | null;
 }
 
 /**
- * Reverse a completed import: delete every clients + orders + leads
- * row that was stamped with this import_job_id, then mark the job as
- * rolled_back. Equipment reservations and past orders linked to those
+ * Which imported quotes a rollback may delete. A quote the team has
+ * worked on since the import - sent from the app, accepted, or turned
+ * into an order - is real business work now and is kept, the same way
+ * converted leads are kept.
+ */
+export function splitImportedQuotesForRollback(
+  candidates: ImportedQuoteCandidate[],
+  quoteIdsWithOrders: Set<string>,
+): { remove: string[]; keep: string[] } {
+  const remove: string[] = [];
+  const keep: string[] = [];
+  for (const q of candidates) {
+    const workedOn = !!q.sent_at || !!q.accepted_at || !!q.converted_to_order_id || quoteIdsWithOrders.has(q.id);
+    (workedOn ? keep : remove).push(q.id);
+  }
+  return { remove, keep };
+}
+
+/**
+ * Reverse a completed import: delete every clients + orders + leads +
+ * quotes row that was stamped with this import_job_id, then mark the
+ * job as rolled_back. Quotes worked on since the import are kept (see
+ * splitImportedQuotesForRollback). Equipment reservations and past orders linked to those
  * clients survive only if the FK is ON DELETE SET NULL.
  *
  * Leads that have already been converted to a client
@@ -275,17 +306,68 @@ export async function rollbackImportJob(
   // Verify ownership before mutating anything.
   const job = await getImportJob(jobId, companyId);
   if (!job) throw new Error("Import job not found");
-  if (job.status === "rolled_back") return { clientsDeleted: 0, ordersDeleted: 0, leadsDeleted: 0 };
+  if (job.status === "rolled_back") {
+    return { clientsDeleted: 0, ordersDeleted: 0, leadsDeleted: 0, quotesDeleted: 0, quotesKept: 0 };
+  }
   if (job.status !== "completed") {
     throw new Error(`Cannot roll back a job in status '${job.status}', only 'completed'`);
   }
+  importLog.info(jobId, "rollback.start", "Rollback started", { companyId });
 
-  // Orders first (they FK clients); clients second.
+  // Orders first (they FK clients); quotes next (they FK clients too);
+  // clients last.
   const { count: ordersDeleted } = await supabase
     .from("orders")
     .delete({ count: "exact" })
     .eq("import_job_id", jobId)
     .eq("company_id", companyId);
+  importLog.info(jobId, "rollback.orders", "Imported orders removed", { removed: ordersDeleted ?? 0 });
+
+  // Quotes: keep the ones worked on since the import.
+  let quotesDeleted = 0;
+  let quotesKept = 0;
+  const { data: quoteCandidates, error: quoteCandidatesErr } = await supabase
+    .from("quotes")
+    .select("id, sent_at, accepted_at, converted_to_order_id")
+    .eq("import_job_id", jobId)
+    .eq("company_id", companyId);
+  if (quoteCandidatesErr) {
+    console.error("[importService] quotes lookup failed:", quoteCandidatesErr);
+    importLog.error(jobId, "rollback.quotes", "Could not list imported quotes; none removed", { error: quoteCandidatesErr.message });
+  }
+  const candidates = (quoteCandidates || []) as ImportedQuoteCandidate[];
+  if (candidates.length > 0) {
+    const { data: linkedOrders, error: linkedOrdersErr } = await supabase
+      .from("orders")
+      .select("quote_id")
+      .in("quote_id", candidates.map((q) => q.id));
+    if (linkedOrdersErr) {
+      // Can't tell which quotes became orders - keep them all.
+      importLog.error(jobId, "rollback.quotes", "Could not check for orders made from these quotes; none removed", { error: linkedOrdersErr.message });
+      quotesKept = candidates.length;
+    } else {
+      const withOrders = new Set(((linkedOrders || []) as any[]).map((o) => String(o.quote_id)));
+      const { remove, keep } = splitImportedQuotesForRollback(candidates, withOrders);
+      quotesKept = keep.length;
+      if (keep.length > 0) {
+        importLog.info(jobId, "rollback.quotes", "Kept quotes worked on since the import", { kept: keep });
+      }
+      if (remove.length > 0) {
+        const { count, error } = await supabase
+          .from("quotes")
+          .delete({ count: "exact" })
+          .in("id", remove)
+          .eq("company_id", companyId);
+        if (error) {
+          importLog.error(jobId, "rollback.quotes", "Could not remove imported quotes", { tried: remove.length, error: error.message });
+        } else {
+          quotesDeleted = count ?? 0;
+        }
+      }
+      importLog.info(jobId, "rollback.quotes", "Imported quotes removed", { removed: quotesDeleted, kept: quotesKept });
+    }
+  }
+
   const { count: clientsDeleted } = await supabase
     .from("clients")
     .delete({ count: "exact" })
@@ -319,12 +401,20 @@ export async function rollbackImportJob(
       rolled_back_orders: ordersDeleted ?? 0,
       rolled_back_leads: leadsDeleted,
       rolled_back_leads_skipped_converted: leadsSkipped,
+      rolled_back_quotes: quotesDeleted,
+      rolled_back_quotes_kept: quotesKept,
     },
+  });
+  importLog.info(jobId, "rollback.done", "Rollback finished", {
+    clients: clientsDeleted ?? 0, orders: ordersDeleted ?? 0, leads: leadsDeleted, leadsKept: leadsSkipped,
+    quotes: quotesDeleted, quotesKept,
   });
 
   return {
     clientsDeleted: clientsDeleted ?? 0,
     ordersDeleted: ordersDeleted ?? 0,
     leadsDeleted,
+    quotesDeleted,
+    quotesKept,
   };
 }

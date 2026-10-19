@@ -1,0 +1,12 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l.includes("=")&&!l.trim().startsWith("#")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(), l.slice(i+1).trim().replace(/^["']|["']$/g,"")]}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const { count, error } = await sb.from("quote_followup_log").select("id",{count:"exact",head:true});
+console.log("quote_followup_log rows:", count, error?.message || "");
+const { data: last } = await sb.from("quote_followup_log").select("*").order("created_at",{ascending:false}).limit(3);
+console.log("latest:", JSON.stringify(last));
+const { data: hb } = await sb.from("cron_heartbeats").select("*").eq("cron_name","quote-followup-send").order("created_at",{ascending:false}).limit(6);
+console.log("heartbeats:", JSON.stringify(hb, null, 1)?.slice(0, 2500));
+const { data: fu } = await sb.from("email_automation_log").select("created_at,template_type,recipient_email,subject").or("subject.ilike.Just checking in%,subject.ilike.Anything we can tweak%,subject.ilike.Last nudge%").gte("created_at","2026-10-08").order("created_at");
+console.log("follow-up emails since 8 Oct:"); for (const e of fu||[]) console.log("  ", e.created_at.slice(0,19), String(e.template_type).padEnd(18), e.recipient_email.padEnd(30), e.subject);

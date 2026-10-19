@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef, type ReactNode } from "react";
+import { Fragment, useState, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { MessageSquare, X, Send, Sparkles, User, Bot, ArrowUpRight, ShieldCheck, Loader2, Mic, Square } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -322,7 +322,31 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
   const [workingStep, setWorkingStep] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [launcherDock, setLauncherDock] = useState<LauncherDock | null>(null);
+  const [visibleViewport, setVisibleViewport] = useState<{ height: number; top: number } | null>(null);
   const launcherRef = useRef<HTMLDivElement>(null);
+
+  // On phones the open chat is a full-screen sheet. Size it to the visible
+  // viewport so the on-screen keyboard and browser bars never hide the
+  // message box, and stop the page behind it from scrolling.
+  useEffect(() => {
+    if (!isOpen || typeof window === "undefined") return;
+    const viewport = window.visualViewport;
+    const updateViewport = () => setVisibleViewport(viewport ? { height: viewport.height, top: viewport.offsetTop } : null);
+    updateViewport();
+    viewport?.addEventListener("resize", updateViewport);
+    viewport?.addEventListener("scroll", updateViewport);
+    const phone = window.matchMedia("(max-width: 639px)");
+    const previousOverflow = document.body.style.overflow;
+    const lockPage = () => { document.body.style.overflow = phone.matches ? "hidden" : previousOverflow; };
+    lockPage();
+    phone.addEventListener("change", lockPage);
+    return () => {
+      viewport?.removeEventListener("resize", updateViewport);
+      viewport?.removeEventListener("scroll", updateViewport);
+      phone.removeEventListener("change", lockPage);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
   // Voice input: speech is written into the box live and added after
   // anything already typed. It is NOT sent automatically - the person
   // reviews or corrects the words, then presses Send, so a misheard
@@ -723,9 +747,12 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
 
         {/* Chat Window */}
         {isOpen && (
-          <Card className="flex h-[min(740px,calc(100vh-28px))] w-[min(456px,calc(100vw-24px))] flex-col overflow-hidden rounded-[28px] border-slate-200/90 bg-white shadow-[0_30px_90px_-30px_rgba(15,23,42,0.55)] ring-1 ring-black/[0.03] animate-in slide-in-from-bottom-4 duration-300">
+          <Card
+            style={visibleViewport ? { "--chatbot-vh": `${visibleViewport.height}px`, "--chatbot-top": `${visibleViewport.top}px` } as CSSProperties : undefined}
+            className="flex flex-col overflow-hidden border-slate-200/90 bg-white shadow-[0_30px_90px_-30px_rgba(15,23,42,0.55)] ring-1 ring-black/[0.03] animate-in slide-in-from-bottom-4 duration-300 max-sm:fixed max-sm:inset-x-0 max-sm:top-[var(--chatbot-top,0px)] max-sm:h-[var(--chatbot-vh,100dvh)] max-sm:w-full max-sm:rounded-none max-sm:border-0 max-sm:ring-0 sm:h-[min(740px,calc(100dvh-40px))] sm:w-[min(456px,calc(100vw-40px))] sm:rounded-[28px]"
+          >
             {/* Header */}
-            <CardHeader data-chatbot-header className="relative shrink-0 overflow-hidden rounded-none bg-[radial-gradient(circle_at_86%_4%,rgba(96,165,250,0.22),transparent_34%),linear-gradient(145deg,#0f172a_0%,#111827_58%,#172033_100%)] px-5 pb-4 pt-5 text-white">
+            <CardHeader data-chatbot-header className="relative shrink-0 overflow-hidden rounded-none bg-[radial-gradient(circle_at_86%_4%,rgba(96,165,250,0.22),transparent_34%),linear-gradient(145deg,#0f172a_0%,#111827_58%,#172033_100%)] px-5 pb-4 pt-5 text-white max-sm:pt-[max(1rem,env(safe-area-inset-top))] [@media(max-height:560px)]:py-3">
               <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full border border-white/[0.06]" />
               <div className="pointer-events-none absolute -right-5 -top-9 h-28 w-28 rounded-full border border-white/[0.06]" />
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/80 to-transparent" />
@@ -736,7 +763,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-slate-900 bg-emerald-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-sky-200/80">CateringMS / Assistant</p>
+                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-sky-200/80 [@media(max-height:560px)]:hidden">CateringMS / Assistant</p>
                     <CardTitle className="truncate text-[16px] font-semibold tracking-[-0.02em] text-white">{config.title}</CardTitle>
                     <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.12)]" />Ready for {workspaceLabel.toLowerCase()}</p>
                   </div>
@@ -744,7 +771,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
                 <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)} aria-label="Close AI assistant" className="relative h-8 w-8 shrink-0 rounded-xl border border-white/10 bg-white/[0.04] p-0 text-slate-300 transition hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></Button>
               </div>
               <div className="mt-4 flex items-center gap-2 text-[10px] font-medium text-slate-400"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />Role-scoped assistant <span className="text-slate-600">•</span> Live data protected</div>
-              <div className="relative mt-5 flex items-center gap-2.5 text-[10px] font-medium text-slate-200">
+              <div className="relative mt-5 flex items-center gap-2.5 text-[10px] font-medium text-slate-200 max-sm:mt-3 [@media(max-height:560px)]:hidden">
                 <span className="inline-flex items-center gap-1.5 text-white"><ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />Private to your role</span>
                 <span className="h-1 w-1 rounded-full bg-slate-500/70" aria-hidden="true" />
                 <span className="text-slate-200">Live data protected</span>
@@ -926,7 +953,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
                 )}
 
                 {/* Example Questions (show only at start) */}
-                {messages.length === 1 && (
+                {messages.length === 1 && config.examples.length > 0 && (
                   <div className="mt-5 space-y-2">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Suggested questions</p>
                     {config.examples.map((example, index) => (
@@ -948,7 +975,7 @@ export function ChatBot({ userRole = "admin", companyId, global = false }: ChatB
             </ScrollArea>
 
             {/* Input */}
-            <CardContent className="border-t border-slate-200/90 bg-white p-4">
+            <CardContent className="border-t border-slate-200/90 bg-white p-4 max-sm:px-3 max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:pt-3">
               {speech.listening && (
                 <div role="status" aria-live="polite" className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[12px] text-rose-800">
                   <span className="flex items-center gap-2">

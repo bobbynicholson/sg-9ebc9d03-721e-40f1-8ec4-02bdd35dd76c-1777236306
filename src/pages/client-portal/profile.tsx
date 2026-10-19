@@ -359,7 +359,7 @@ function ClientProfilePageInner() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Your profile"
-            subtitle="Update how the catering team gets in touch with you. Email is locked to the address you signed in with."
+            subtitle="Your name, photo and the numbers the catering team uses to reach you."
             icon={UserIcon}
             variant="hero"
           />
@@ -367,15 +367,31 @@ function ClientProfilePageInner() {
 
           <PortalOverview
             eyebrow="Profile"
-            title="Keep contact details usable for event-day updates"
-            description={`These details tell ${companyName} how to reach you for quotes, delivery ETAs, WhatsApp updates, and client records.`}
-            items={[
-              { label: "Name", value: form.full_name ? "Set" : "Missing", helper: form.full_name || "Add your full name", icon: UserIcon, tone: form.full_name ? "success" : "warning" },
-              { label: "Mobile", value: form.mobile_number ? "Set" : "Missing", helper: mobileLooksValid ? "WhatsApp-ready" : "Check format", icon: Smartphone, tone: form.mobile_number && mobileLooksValid ? "success" : "warning" },
-              { label: "WhatsApp", value: form.whatsapp_opt_in ? "On" : "Off", helper: form.mobile_number ? "Operational updates" : "Needs mobile", icon: MessageCircle, tone: form.whatsapp_opt_in ? "success" : "neutral" },
-              { label: "Client record", value: tenantClientId ? "Linked" : "Not linked", helper: form.client_name || companyName, icon: Building2, tone: tenantClientId ? "brand" : "warning" },
-            ]}
+            title="Keep your contact details up to date"
+            description={`${companyName} uses these for quotes, delivery times and updates on the day.`}
           />
+
+          {/* Compact checklist (two per row on phones). The overview's
+              built-in tiles stacked one per row and filled a whole phone
+              screen before the form started. */}
+          <ul className="mb-6 grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4" aria-label="Profile checklist">
+            {[
+              { label: "Name", ok: !!form.full_name, value: form.full_name ? "Added" : "Missing", icon: UserIcon },
+              { label: "Mobile", ok: !!form.mobile_number && mobileLooksValid, value: !form.mobile_number ? "Missing" : mobileLooksValid ? "Ready" : "Check the number", icon: Smartphone },
+              { label: "WhatsApp updates", ok: form.whatsapp_opt_in, value: form.whatsapp_opt_in ? "On" : form.mobile_number ? "Off" : "Needs a mobile", icon: MessageCircle },
+              { label: "Caterer's records", ok: !!tenantClientId, value: tenantClientId ? "Linked" : "Not linked yet", icon: Building2 },
+            ].map(({ label, ok, value, icon: Icon }) => (
+              <li key={label} className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${ok ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400" : "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs leading-4 text-slate-500 dark:text-slate-400">{label}</span>
+                  <span className="block break-words text-sm font-semibold text-slate-900 dark:text-white">{value}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
 
           {loading ? (
             // Skeleton in the shape of the form: an identity card block
@@ -426,17 +442,20 @@ function ClientProfilePageInner() {
               {/* Identity card - avatar preview + global name */}
               <PortalCard padded={false}>
                 <div className="p-5 sm:p-6 space-y-5">
-                  <div className="flex items-center gap-4">
+                  {/* Phones: photo + name on one row, photo buttons on a
+                      full-width row under them. Wider screens: buttons sit
+                      under the name. */}
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3">
                     {/* Avatar with upload affordance. Click the photo
                         (or the Change button) to pick a new image; it
                         uploads + persists immediately so a refresh
                         doesn't lose it. */}
-                    <div className="relative flex-shrink-0">
+                    <div className="relative flex-shrink-0 sm:row-span-2">
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploadingAvatar}
-                        className="w-20 h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-slate-300 dark:hover:border-slate-600 transition group relative"
+                        className="h-16 w-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-slate-300 dark:hover:border-slate-600 transition group relative"
                         aria-label="Upload profile photo"
                       >
                         {form.avatar_url ? (
@@ -467,8 +486,8 @@ function ClientProfilePageInner() {
                         onChange={(e) => onAvatarPicked(e.target.files?.[0] || null)}
                       />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
+                    <div className="min-w-0">
+                      <h2 className="break-words text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
                         {form.full_name.trim() || (
                           <span className="text-slate-400 font-normal italic">Name not set yet</span>
                         )}
@@ -481,7 +500,9 @@ function ClientProfilePageInner() {
                           Add your full name below so the team knows who you are.
                         </p>
                       )}
-                      <div className="flex flex-wrap gap-2 mt-2">
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 sm:col-start-2">
+                      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                         <Button
                           type="button"
                           variant="outline"
@@ -503,7 +524,7 @@ function ClientProfilePageInner() {
                             className="gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            Remove
+                            Remove photo
                           </Button>
                         )}
                       </div>
@@ -634,13 +655,15 @@ function ClientProfilePageInner() {
                 </PortalCard>
               )}
 
-              <div className="flex justify-end gap-2">
+              {/* Phones: full-width buttons, Save on top. Extra bottom room
+                  keeps them clear of the floating assistant button. */}
+              <div className="flex flex-col-reverse gap-2 pb-16 sm:flex-row sm:justify-end sm:pb-0">
                 <Button
                   variant="outline"
                   onClick={() => router.push(resolvedSlug ? `/${resolvedSlug}/client-portal/dashboard` : "/client-portal/dashboard")}
                   disabled={saving}
                 >
-                  Cancel
+                  Leave without saving
                 </Button>
                 <Button onClick={save} disabled={saving} className="gap-2 bg-brand-primary hover:opacity-90 text-white">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

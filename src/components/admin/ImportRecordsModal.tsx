@@ -48,7 +48,8 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { TemplateType } from "@/lib/importTemplates";
+import { getTemplateDefinition, type TemplateType } from "@/lib/importTemplates";
+import { QUOTE_ON_FILE_WARNING } from "@/lib/importQuoteDuplicates";
 
 // Editable fields per target table - the small set of common fields
 // the operator can fix from the preview screen without re-uploading.
@@ -189,7 +190,29 @@ interface CommitSummary {
   clients?: RowCounts;
   leads?: RowCounts;
   orders?: RowCounts;
+  quotes?: RowCounts;
+  invoices?: RowCounts;
+  payments?: RowCounts;
   dry_run?: boolean;
+}
+
+/**
+ * Browser-side import trace. Same "[import job=... step=...]" shape as
+ * the server's importLog, so a step can be matched between the browser
+ * console and logs/run-N/imports.log by job id. Field names and counts
+ * only; never client details.
+ */
+function importTrace(
+  template: TemplateType,
+  jobId: string | null,
+  step: string,
+  message: string,
+  ctx?: Record<string, unknown>,
+  level: "info" | "warn" | "error" = "info",
+) {
+  const line = `[import:${template} job=${jobId || "-"} step=${step}] ${message}`;
+  if (ctx) console[level](line, ctx);
+  else console[level](line);
 }
 
 interface Props {
@@ -212,6 +235,9 @@ export function ImportRecordsModal({
   recordLabelPlural,
   onComplete,
 }: Props) {
+  // Filled-in example rows for this record type (quotes today); drives
+  // the "Example file" download button.
+  const sampleRowCount = getTemplateDefinition(template)?.sampleRows?.length ?? 0;
   const [step, setStep] = useState<Step>("pick");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -321,7 +347,8 @@ export function ImportRecordsModal({
     onOpenChange(false);
   };
 
-  const downloadTemplate = (format: "xlsx" | "csv" | "txt") => {
+  const downloadTemplate = (format: "xlsx" | "csv" | "txt" | "example") => {
+    importTrace(template, null, "template", `Downloaded the ${format === "example" ? "example file" : `${format} template`}`);
     // Direct GET - the endpoint streams a schema-generated preview file.
     window.location.href = `/api/imports/templates/${template}${format === "xlsx" ? "" : `?format=${format}`}`;
   };
@@ -331,6 +358,8 @@ export function ImportRecordsModal({
     if (!file) return;
     setError(null);
     setBusy(true);
+    let tracedJob: string | null = null;
+    importTrace(template, null, "upload", "File picked", { name: file.name, bytes: file.size, type: file.type || null });
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -343,6 +372,10 @@ export function ImportRecordsModal({
       const { json: j } = await readResponse(r);
       if (!j) throw new Error(`The upload took too long or the server returned an unexpected response (${r.status}). Try again; for very large files split them into parts of a few thousand rows.`);
       if (!r.ok) throw new Error(j?.error || `Upload failed (${r.status})`);
+      tracedJob = j.jobId;
+      importTrace(template, tracedJob, "upload", "Upload saved", {
+        status: r.status, rowCap: j.rowCap, summary: j.summary,
+      });
       setJobId(j.jobId);
       if (typeof j.rowCap === "number") setRowCap(j.rowCap);
       // Feature E: surface the upload's quick-validation tally before
@@ -355,10 +388,23 @@ export function ImportRecordsModal({
       // AI reads every header plus sample values and proposes a field
       // for each column, against this record type's import schema.
       setStep("mapping");
+      importTrace(template, tracedJob, "map", "Asking AI to match the columns");
+      const mapStarted = Date.now();
       const m = await fetch(`/api/imports/${j.jobId}/map?template=${template}&refresh=1`, { method: "POST" });
       const { json: mj } = await readResponse(m);
       if (!mj) throw new Error(`Matching your columns took too long (${m.status}). Your upload is saved - try again.`);
       if (!m.ok) throw new Error(mj?.error || "Column matching failed");
+      importTrace(template, tracedJob, "map", "Column matches received", {
+        status: m.status,
+        ms: Date.now() - mapStarted,
+        ai: mj.ai || null,
+        matches: Object.fromEntries(Object.entries((mj.mapping || {}) as Record<string, SheetMapping>).map(([sheet, sm]) => [
+          sheet,
+          Object.fromEntries(Object.entries(sm)
+            .filter(([h]) => h !== "__schema__")
+            .map(([h, d]) => [h, `${d.target} (${Math.round((d.confidence || 0) * 100)}%)`])),
+        ])),
+      });
       const clean: Record<string, SheetMapping> = {};
       for (const [sheet, sm] of Object.entries((mj.mapping || {}) as Record<string, SheetMapping>)) {
         clean[sheet] = { ...sm };
@@ -368,6 +414,7 @@ export function ImportRecordsModal({
       setMappableFields(mj.fields || {});
       setMappingNote(mj.ai?.failed || null);
     } catch (e: any) {
+      importTrace(template, tracedJob, tracedJob ? "map" : "upload", "Failed", { error: e?.message || String(e) }, "error");
       setError(e?.message || "Upload failed");
       setStep("pick");
     } finally {
@@ -379,6 +426,7 @@ export function ImportRecordsModal({
 
   /** Operator picks a field for one column; a field can only hold one column. */
   const setColumnTarget = (sheet: string, header: string, target: string) => {
+    importTrace(template, jobId, "review", `Operator changed "${header}" -> ${target}`, { sheet });
     setMapping((prev) => {
       if (!prev) return prev;
       const sm: SheetMapping = { ...prev[sheet] };
@@ -411,11 +459,14 @@ export function ImportRecordsModal({
         const sj = await save.json().catch(() => ({}));
         throw new Error(sj?.error || "Could not save the column matches");
       }
+      importTrace(template, jobId, "review", "Column matches saved");
       setStep("previewing");
+      const previewStarted = Date.now();
       const p = await fetch(`/api/imports/${jobId}/preview`, { method: "POST" });
       const { json: pj } = await readResponse(p);
       if (!pj) throw new Error(`Checking the rows took too long (${p.status}). Your upload is saved - try again.`);
       if (!p.ok) throw new Error(pj?.error || "Preview failed");
+      importTrace(template, jobId, "preview", "Row check finished", { status: p.status, ms: Date.now() - previewStarted, summary: pj.summary });
       // Pull the row list from the job-detail endpoint (which
       // honours ?rows=1).
       const rowsRes = await fetch(`/api/imports/${jobId}?rows=1`);
@@ -429,6 +480,7 @@ export function ImportRecordsModal({
       setPreviewPage(0);
       setStep("preview");
     } catch (e: any) {
+      importTrace(template, jobId, "preview", "Failed", { error: e?.message || String(e) }, "error");
       setError(e?.message || "Preview failed");
       setStep("mapping");
     } finally {
@@ -495,6 +547,9 @@ export function ImportRecordsModal({
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error || "Edit failed");
+      importTrace(template, jobId, "row-fix", "Row fixed", {
+        rowId: editingRowId, fieldsSent: Object.keys(overrides), status: j.status, error: j.error_message || null,
+      });
 
       // Apply the server's updated row state to the in-memory preview
       // list so the row's badge + summary refresh without a re-fetch.
@@ -535,6 +590,7 @@ export function ImportRecordsModal({
       setEditingRowId(null);
       setEditForm({});
     } catch (e: any) {
+      importTrace(template, jobId, "row-fix", "Failed", { rowId: editingRowId, error: e?.message || String(e) }, "error");
       setError(e?.message || "Edit failed");
     } finally {
       setEditSaving(false);
@@ -596,9 +652,12 @@ export function ImportRecordsModal({
       };
     };
     return {
-      clients: sum(a?.clients, b.clients),
-      orders:  sum(a?.orders,  b.orders),
-      leads:   sum(a?.leads,   b.leads),
+      clients:  sum(a?.clients,  b.clients),
+      orders:   sum(a?.orders,   b.orders),
+      leads:    sum(a?.leads,    b.leads),
+      quotes:   sum(a?.quotes,   b.quotes),
+      invoices: sum(a?.invoices, b.invoices),
+      payments: sum(a?.payments, b.payments),
       dry_run: b.dry_run,
     };
   };
@@ -628,7 +687,9 @@ export function ImportRecordsModal({
       // Errored rows come back on the final batch's commit response - the
       // authoritative "which rows failed + why" source.
       let commitErroredRows: any[] = [];
+      importTrace(template, jobId, dryRun ? "test-run" : "commit", dryRun ? "Test run started" : "Saving started", { rowsToImport: willImportCount });
       for (let i = 0; i < MAX_LOOPS; i += 1) {
+        const batchStarted = Date.now();
         const r = await fetch(`/api/imports/${jobId}/commit`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -646,6 +707,10 @@ export function ImportRecordsModal({
         const summary = (j.summary || null) as CommitSummary;
         aggregate = aggregate ? mergeSummaries(aggregate, summary) : summary;
         processedSoFar += Number(j.processed ?? 0);
+        importTrace(template, jobId, dryRun ? "test-run" : "commit", `Batch ${i + 1} done`, {
+          status: r.status, ms: Date.now() - batchStarted, processed: j.processed, remaining: j.remaining, more: j.more,
+          batch: summary?.[template] ?? null, erroredRows: Array.isArray(j.erroredRows) ? j.erroredRows.length : 0,
+        });
         if (!dryRun) {
           const total = processedSoFar + Number(j.remaining ?? 0);
           setCommitProgress({ done: processedSoFar, total });
@@ -656,6 +721,9 @@ export function ImportRecordsModal({
         if (dryRun || !j.more) break;
       }
 
+      importTrace(template, jobId, dryRun ? "test-run" : "commit", dryRun ? "Test run finished" : "Import complete", {
+        totals: aggregate?.[template] ?? null, erroredRows: commitErroredRows.length,
+      });
       if (dryRun) {
         setDryRunSummary(aggregate);
       } else {
@@ -738,6 +806,7 @@ export function ImportRecordsModal({
         if (onComplete) onComplete();
       }
     } catch (e: any) {
+      importTrace(template, jobId, dryRun ? "test-run" : "commit", "Failed", { error: e?.message || String(e) }, "error");
       setError(e?.message || "Commit failed");
       if (!dryRun) {
         // The server keeps row state in import_rows, so even a hard
@@ -763,7 +832,16 @@ export function ImportRecordsModal({
   const skipDecisionCount = previewRows.filter(
     (r) => r.dedup_match_id && (r.dedup_decision || "skip") === "skip",
   ).length;
-  const willImportCount = okCount - skipDecisionCount;
+  // Quotes whose number is already on file: preview warns, commit skips
+  // them, so they don't count towards "Will import".
+  const quotesOnFileCount = template === "quotes"
+    ? previewRows.filter((r) => r.status !== "error"
+        && (r.preview_warnings || []).includes(QUOTE_ON_FILE_WARNING)).length
+    : 0;
+  const willImportCount = okCount - skipDecisionCount - quotesOnFileCount;
+  const quotesWithoutNumberCount = template === "quotes"
+    ? previewRows.filter((r) => r.status !== "error" && !String(r.mapped_data?.quote_number ?? "").trim()).length
+    : 0;
   const updateDecisionCount = previewRows.filter((r) => r.dedup_match_id && r.dedup_decision === "update").length;
   const canImportCount = willImportCount + updateDecisionCount;
 
@@ -783,7 +861,18 @@ export function ImportRecordsModal({
           </DialogDescription>
         </DialogHeader>
 
-        <ImportWhatHappensNote />
+        {template === "quotes" ? (
+          // The shared note is about imported orders; quotes have their own rules.
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs leading-relaxed text-blue-900">
+            <p className="font-semibold text-sm">Imported quotes don&apos;t email your clients</p>
+            <p className="mt-1">
+              They are saved as records only: no quote email, no follow-up reminders and no expiry email.
+              If a quote is still open, send it from the quote page and the usual emails start from there.
+            </p>
+          </div>
+        ) : (
+          <ImportWhatHappensNote />
+        )}
 
         {error && (
           <Alert className="border-rose-200 bg-rose-50">
@@ -805,12 +894,24 @@ export function ImportRecordsModal({
               </p>
               <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-left text-[11px] leading-relaxed text-blue-900">
                 <p className="font-semibold mb-1">What to enter</p>
+                {template === "quotes" ? (
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li><strong>Required:</strong> total amount, and the client&apos;s name or email. Rows missing either cannot be imported.</li>
+                  <li><strong>Quote number:</strong> put your old system&apos;s number if you have one; it is kept exactly as written. Leave it blank and the quote gets your next quote number, the same as a quote made in the app (set under Settings &gt; Company &gt; Document numbering).</li>
+                  <li><strong>Optional:</strong> client phone, quote name, event date and time, guest count, venue, subtotal, VAT, delivery fee, valid-until date, status and notes. Leave anything you do not know blank.</li>
+                  <li><strong>Totals only:</strong> each quote comes in with its amounts, not its menu lines. Add menu items on the quote afterwards if you need them.</li>
+                  <li><strong>Clients:</strong> a quote is linked to an existing client with the same email (or name). If none matches, it is saved without a client link.</li>
+                  <li><strong>Status:</strong> rows without a status are saved as <em>sent</em>. A sent quote whose valid-until date has already passed is marked expired at the next nightly check. The client is not emailed about an imported quote unless you send it again from the app.</li>
+                  <li><strong>Safe review:</strong> every row is previewed before saving. A quote whose number is already on file is skipped. A test run never uses up quote numbers.</li>
+                </ul>
+                ) : (
                 <ul className="list-disc pl-4 space-y-0.5">
                   <li><strong>Required:</strong> Client name and email. Rows missing either one cannot be imported.</li>
                   <li><strong>Optional:</strong> Phone, mobile, landline, address, VAT number, payment terms, credit limit, tags, notes, and historical client details. Leave anything you do not know blank.</li>
                   <li><strong>No internal IDs needed:</strong> the company and default active region are assigned automatically; do not add a <code>region_id</code> column.</li>
                   <li><strong>Safe review:</strong> every row is previewed before saving. Existing clients with the same email are shown as duplicates, which you can skip or choose to update.</li>
                 </ul>
+                )}
               </div>
               <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
                 <Button variant="outline" onClick={() => downloadTemplate("xlsx")} className="gap-2">
@@ -825,6 +926,12 @@ export function ImportRecordsModal({
                   <Download className="w-4 h-4" />
                   Column guide
                 </Button>
+                {sampleRowCount > 0 && (
+                  <Button variant="outline" onClick={() => downloadTemplate("example")} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Example file ({sampleRowCount} {sampleRowCount === 1 ? recordLabel : recordLabelPlural})
+                  </Button>
+                )}
                 <Button
                   onClick={() => fileInput.current?.click()}
                   disabled={busy}
@@ -844,7 +951,9 @@ export function ImportRecordsModal({
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
               We'll preview every row before anything saves.
-              Existing {recordLabelPlural} (matched by email) are skipped automatically so re-running an import is safe.
+              {template === "quotes"
+                ? "Quotes whose number is already on file are skipped automatically, so re-running a file that has quote numbers is safe. Rows without a quote number become new quotes each time you import them, so import those once."
+                : `Existing ${recordLabelPlural} (matched by email) are skipped automatically so re-running an import is safe.`}
             </p>
           </div>
         )}
@@ -1012,6 +1121,20 @@ export function ImportRecordsModal({
               <SummaryStat label="Errors" value={errorCount} tone={errorCount > 0 ? "danger" : "muted"} />
               <SummaryStat label="Total rows" value={previewSummary.total} tone="muted" />
             </div>
+
+            {quotesWithoutNumberCount > 0 && (
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {quotesWithoutNumberCount.toLocaleString("en-ZA")} {quotesWithoutNumberCount === 1 ? "quote has" : "quotes have"} no
+                quote number and will get your next {quotesWithoutNumberCount === 1 ? "number" : "numbers"} when you import.
+                Importing this file again would add {quotesWithoutNumberCount === 1 ? "it" : "them"} a second time.
+              </p>
+            )}
+            {quotesOnFileCount > 0 && (
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {quotesOnFileCount.toLocaleString("en-ZA")} {quotesOnFileCount === 1 ? "quote has a number" : "quotes have numbers"} you
+                already have on file, so {quotesOnFileCount === 1 ? "it" : "they"} will be skipped. Those rows are marked below.
+              </p>
+            )}
 
             {errorCount > 0 ? (
               <Alert className="border-rose-200 bg-rose-50">

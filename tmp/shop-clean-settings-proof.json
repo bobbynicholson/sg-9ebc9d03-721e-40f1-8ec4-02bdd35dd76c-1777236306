@@ -1,0 +1,23 @@
+[
+  {
+    "case": "Saved zero-percent threshold with ten-percent variance",
+    "savedThreshold": 0,
+    "flagged": false,
+    "expectedIfZeroHonored": true
+  },
+  {
+    "case": "Permission-denied settings read",
+    "returnedDefaults": true,
+    "tableMissing": false,
+    "errorExposed": false
+  },
+  {
+    "case": "Explicit denied save correctly reports failure",
+    "ok": false
+  },
+  {
+    "case": "Malformed money accepted",
+    "abc": 0,
+    "embeddedLetters": 1234
+  }
+]

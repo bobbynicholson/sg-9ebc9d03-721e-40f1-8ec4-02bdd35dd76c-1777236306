@@ -20,6 +20,7 @@
  *   cron.log      - background jobs
  *   email.log     - outbound email sends
  *   accounting.log- Xero / QuickBooks / Sage syncs
+ *   imports.log   - spreadsheet imports, step by step (see importLog.ts)
  *   api.log       - general API calls not in above areas
  *   _run-info.json- run metadata (start time, env)
  *
@@ -47,6 +48,7 @@ export type LogArea =
   | "cron"
   | "email"
   | "accounting"
+  | "imports"
   | "api"
   | "errors";
 

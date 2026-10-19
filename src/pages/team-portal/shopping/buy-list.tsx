@@ -78,6 +78,10 @@ const STATUS_META: Record<string, { label: string; tone: string; icon: typeof Al
 
 type FilterKey = "all" | "shortfall" | "below_par" | "low";
 
+// Shared by the desktop column headings and every item row so they line up:
+// checkbox, item, in stock, minimum, suggested buy, button.
+const BUY_ROW_GRID = "grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 lg:grid-cols-[auto_minmax(0,1fr)_6rem_5rem_8.5rem_8rem] lg:gap-x-4";
+
 function ShoppingBuyListPageInner() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
@@ -415,7 +419,7 @@ function ShoppingBuyListPageInner() {
               pushed the list ~600px down. */}
           <div className="grid grid-cols-2 gap-3 mb-6 sm:gap-4 xl:grid-cols-4">
             <StatTile tone="warn" label="To buy" value={statusCounts.toBuy} hint="Need buying now" icon={ListChecks} />
-            <StatTile tone="warn" label="Shortfall" value={statusCounts.shortfall} hint="Orders need more in 7 days" icon={AlertTriangle} />
+            <StatTile tone="bad" label="Shortfall" value={statusCounts.shortfall} hint="Orders need more in 7 days" icon={AlertTriangle} />
             <StatTile tone="warn" label="At minimum" value={statusCounts.belowPar} hint="At or below their minimum" icon={AlertCircle} />
             <StatTile tone="warn" label="Low" value={statusCounts.low} hint="Running out within 14 days" icon={AlertCircle} />
           </div>
@@ -456,21 +460,25 @@ function ShoppingBuyListPageInner() {
                 className="pl-9"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap">
               {([
-                ["all",        "All to buy"],
-                ["shortfall",  "Shortfall"],
-                ["below_par",  "At minimum"],
-                ["low",        "Low"],
-              ] as Array<[FilterKey, string]>).map(([k, label]) => (
+                ["all",        "All to buy", statusCounts.toBuy],
+                ["shortfall",  "Shortfall",  statusCounts.shortfall],
+                ["below_par",  "At minimum", statusCounts.belowPar],
+                ["low",        "Low",        statusCounts.low],
+              ] as Array<[FilterKey, string, number]>).map(([k, label, count]) => (
                 <Button
                   key={k}
                   size="sm"
                   variant={filter === k ? "default" : "outline"}
                   onClick={() => setFilter(k)}
-                  className={filter === k ? "bg-brand-primary text-white hover:bg-brand-primary/90" : ""}
+                  aria-pressed={filter === k}
+                  className={`justify-between gap-2 ${filter === k ? "bg-brand-primary text-white hover:bg-brand-primary/90" : ""}`}
                 >
                   {label}
+                  <span className={`rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${filter === k ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
+                    {count}
+                  </span>
                 </Button>
               ))}
             </div>
@@ -488,6 +496,18 @@ function ShoppingBuyListPageInner() {
               }
             />
             <div className="border-t border-slate-200 dark:border-slate-800">
+              {/* Column headings for the desktop grid; phones show each row
+                  as a small card with its own labels instead. */}
+              {!loading && visible.length > 0 && (
+                <div className={`hidden ${BUY_ROW_GRID} border-b border-slate-200 bg-white px-5 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 lg:grid dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400`}>
+                  <span className="w-4" aria-hidden="true" />
+                  <span>Item</span>
+                  <span className="text-right">In stock</span>
+                  <span className="text-right">Minimum</span>
+                  <span className="text-right">Suggested buy</span>
+                  <span className="sr-only">Action</span>
+                </div>
+              )}
               {loading ? (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800" aria-hidden="true">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -530,7 +550,8 @@ function ShoppingBuyListPageInner() {
               ) : (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {/* Grouped by category so a run can be planned aisle by aisle.
-                      Groups start open (it's a shopping list) and fold on click. */}
+                      Groups start folded so the page opens on a short list of categories
+                      (count + cost shown); a search opens them all to show matches. */}
                   {(() => {
                     const groups = new Map<string, OutlookRow[]>();
                     for (const r of visible) {
@@ -544,7 +565,7 @@ function ShoppingBuyListPageInner() {
                     const selectable = groupRows.filter((r) => !activeList.items.some((i) => i.item_id === r.inventory_item_id && !i.purchased));
                     const allSelected = selectable.length > 0 && selectable.every((r) => selected.has(r.inventory_item_id));
                     return (
-                      <details key={category} open className="group/cat">
+                      <details key={category} open={search.trim().length > 0} className="group/cat">
                         <summary className="flex cursor-pointer list-none items-center gap-3 bg-slate-50/80 px-4 py-2.5 hover:bg-slate-100 sm:px-5 dark:bg-slate-800/40 dark:hover:bg-slate-800 [&::-webkit-details-marker]:hidden">
                           {selectable.length > 0 && (
                             <span onClick={(e) => e.stopPropagation()} className="flex">
@@ -581,7 +602,7 @@ function ShoppingBuyListPageInner() {
                     return (
                       <li
                         key={r.inventory_item_id}
-                        className={`flex items-center gap-3 px-4 py-3 transition-colors duration-150 sm:px-5 ${
+                        className={`${BUY_ROW_GRID} items-start gap-y-2.5 px-4 py-3.5 transition-colors duration-150 sm:px-5 lg:items-center lg:py-3 ${
                           isSelected
                             ? "bg-amber-50 dark:bg-amber-950/30"
                             : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
@@ -590,11 +611,11 @@ function ShoppingBuyListPageInner() {
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelect(r.inventory_item_id)}
-                          className="flex-shrink-0"
+                          className="mt-1 flex-shrink-0 lg:mt-0"
                           aria-label={`Select ${r.item_name}`}
                         />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span className="min-w-0 break-words font-semibold text-slate-900 dark:text-white">{r.item_name}</span>
                             <Badge variant="outline" className={`${meta.tone} gap-1 text-[10px]`}>
                               <Icon className="h-3 w-3" />
@@ -607,50 +628,68 @@ function ShoppingBuyListPageInner() {
                               </Badge>
                             )}
                           </div>
-                          <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-slate-600 dark:text-slate-400">
-                            <span className="tabular-nums">have {Number(r.current_stock).toLocaleString()} {r.unit_of_measure}</span>
-                            <span className="tabular-nums">min {Number(r.minimum_stock).toLocaleString()}</span>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-600 dark:text-slate-400">
+                            <span className="tabular-nums lg:hidden">In stock {Number(r.current_stock).toLocaleString()} {r.unit_of_measure}</span>
+                            <span className="tabular-nums lg:hidden">Minimum {Number(r.minimum_stock).toLocaleString()}</span>
                             {r.upcoming_order_count > 0 && (
-                              <span>{r.upcoming_order_count} order{r.upcoming_order_count === 1 ? "" : "s"} pulling</span>
+                              <span>Needed for {r.upcoming_order_count} upcoming order{r.upcoming_order_count === 1 ? "" : "s"}</span>
                             )}
                           </div>
                         </div>
-                        <div className="shrink-0 text-right">
-                          <div className="whitespace-nowrap text-sm tabular-nums text-slate-900 dark:text-white">
-                            <span className="text-xs text-slate-500 dark:text-slate-400">Buy </span>
-                            <span className="font-semibold">{qty.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400"> {r.unit_of_measure}</span>
+                        <div className="hidden text-right text-sm tabular-nums text-slate-700 lg:block dark:text-slate-300">
+                          {Number(r.current_stock).toLocaleString()} <span className="text-xs text-slate-500 dark:text-slate-400">{r.unit_of_measure}</span>
+                        </div>
+                        <div className="hidden text-right text-sm tabular-nums text-slate-700 lg:block dark:text-slate-300">
+                          {Number(r.minimum_stock).toLocaleString()}
+                        </div>
+                        {/* Phones: buy amount and button share a line under the
+                            name. Desktop: both become their own grid columns. */}
+                        <div className="col-start-2 flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 lg:contents dark:bg-slate-800/50">
+                          <div className="min-w-0 lg:text-right">
+                            {qty > 0 ? (
+                              <>
+                                <div className="whitespace-nowrap text-sm tabular-nums text-slate-900 dark:text-white">
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">Buy </span>
+                                  <span className="font-semibold">{qty.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                                  <span className="text-xs text-slate-500 dark:text-slate-400"> {r.unit_of_measure}</span>
+                                </div>
+                                {cost > 0 && (
+                                  <div className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
+                                    about {tenantCurrency.format(cost, 0)}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-xs text-slate-500 dark:text-slate-400">Nothing to buy yet</span>
+                            )}
                           </div>
-                          {cost > 0 && (
-                            <div className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
-                              ~{tenantCurrency.format(cost, 0)}
-                            </div>
+                          {alreadyOnList ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled
+                              className="min-w-[7.5rem] flex-shrink-0 gap-1 border-brand-primary/20 bg-white text-brand-primary lg:w-full dark:border-brand-primary/30 dark:bg-slate-900 dark:text-brand-primary"
+                              title="Already on your active list"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              On your list
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAddOne(r)}
+                              disabled={adding || qty <= 0}
+                              className="min-w-[7.5rem] flex-shrink-0 gap-1 bg-white lg:w-full dark:bg-slate-900"
+                              title={qty > 0
+                                ? `Add ${qty} ${r.unit_of_measure || ""} to your list`
+                                : "Stock already covers upcoming orders, so there is nothing to add"}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add to list
+                            </Button>
                           )}
                         </div>
-                        {alreadyOnList ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled
-                            className="flex-shrink-0 gap-1 border-brand-primary/20 text-brand-primary dark:border-brand-primary/30 dark:text-brand-primary"
-                            title="Already on your active list"
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            On list
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddOne(r)}
-                            disabled={adding || qty <= 0}
-                            className="flex-shrink-0 gap-1"
-                            title={`Add ${qty} ${r.unit_of_measure || ""} to your list`}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            Add
-                          </Button>
-                        )}
                       </li>
                     );
                   })}
@@ -694,7 +733,7 @@ function ShoppingBuyListPageInner() {
                 onClick={() => setSelected(new Set())}
                 disabled={adding}
               >
-                Clear
+                Clear selection
               </Button>
               <Button
                 onClick={handleAddSelected}

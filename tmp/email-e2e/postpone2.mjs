@@ -1,0 +1,10 @@
+import { asAdmin, asClient, newOrder, emailsSince, close, wait } from "./lib.mjs";
+const since = new Date().toISOString();
+const d = await newOrder("D5", { eventInDays: 30 });
+const day = new Date(Date.now() + 50 * 864e5).toISOString().slice(0, 10);
+const r = await asClient(d.order.id, "POST", "/api/client-tokens/cancel-order", { order_id: d.order.id, request_type: "postpone", requested_postpone_date: day, reason: "Email test" });
+const id = JSON.parse(r.body).request_id;
+console.log("postpone request", r.status, "approve:", JSON.stringify(await asAdmin("POST", "/api/orders/cancellation-review", { request_id: id, action: "approve" })));
+await wait(15000);
+for (const e of await emailsSince(since)) console.log(e.created_at.slice(11, 19), e.status, e.recipient_email, e.subject);
+await close();

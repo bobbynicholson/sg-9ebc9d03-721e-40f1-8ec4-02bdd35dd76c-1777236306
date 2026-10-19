@@ -1,0 +1,24 @@
+AUTHENTICATED [company_admin] hello@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/admin/dashboard
+CHECK PASS [company_admin] pages=4 gateway=200
+AUTHENTICATED [admin] admin@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/admin/dashboard
+CHECK PASS [admin] pages=4 gateway=200
+AUTHENTICATED [kitchen_staff] kitchen@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/kitchen/dashboard
+CHECK PASS [kitchen_staff] pages=1 gateway=403
+AUTHENTICATED [kitchen_manager] kitchen.manager.demo@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/kitchen/management
+CHECK PASS [kitchen_manager] pages=1 gateway=403
+AUTHENTICATED [waiter] waiter.demo@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/waiter/dashboard
+CHECK PASS [waiter] pages=1 gateway=403
+AUTHENTICATED [driver] driver@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/driver/dashboard
+CHECK PASS [driver] pages=1 gateway=403
+AUTHENTICATED [shopping_staff] shopping@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/shopping/dashboard
+CHECK PASS [shopping_staff] pages=1 gateway=403
+AUTHENTICATED [cleaning_staff] cleaning@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/cleaning/dashboard
+CHECK PASS [cleaning_staff] pages=1 gateway=403
+AUTHENTICATED [cleaning_manager] cleaning.manager.demo@spitbraaidelivery.co.za -> http://localhost:3001/spit-braai-delivery/team-portal/cleaning/management
+CHECK PASS [cleaning_manager] pages=1 gateway=403
+AUTHENTICATED [client] universalsportmags23@gmail.com -> http://localhost:3001/spit-braai-delivery/client-portal/dashboard
+CHECK PASS [client] pages=1 gateway=403
+AUTHENTICATED [super_admin] bobby@skylight-digital.co.za -> http://localhost:3001/admin/platform/dashboard
+CHECK PASS [super_admin] pages=1 gateway=400
+
+11/11 windows open. Leave this process running; Ctrl+C to close all.

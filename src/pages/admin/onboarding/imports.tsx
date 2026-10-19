@@ -134,7 +134,9 @@ function ImportsHistoryPage() {
         title: "Rolled back",
         description: `Removed ${json.clientsDeleted} clients + ${json.ordersDeleted} orders`
           + (json.leadsDeleted ? ` + ${json.leadsDeleted} leads` : "")
-          + ".",
+          + (json.quotesDeleted ? ` + ${json.quotesDeleted} quotes` : "")
+          + "."
+          + (json.quotesKept ? ` Kept ${json.quotesKept} quote${json.quotesKept === 1 ? "" : "s"} your team has sent, accepted or turned into an order since.` : ""),
       });
       load();
     } catch (e: any) {

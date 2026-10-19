@@ -38,6 +38,9 @@ import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { importLog, errText } from "@/lib/importLog";
+import { normaliseQuoteStatus } from "@/lib/importNormalise";
+import { resolveImportQuoteNumber } from "@/lib/importQuoteNumber";
 import { loadClientIndex, loadLeadIndex } from "@/lib/importExistingIndex";
 
 
@@ -310,7 +313,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const job = await getImportJob(jobId, companyId);
-    if (!job) return res.status(404).json({ error: "Import job not found" });
+    if (!job) {
+      importLog.warn(jobId, "commit.start", "Rejected: import job not found for this company", { companyId });
+      return res.status(404).json({ error: "Import job not found" });
+    }
     // Source filename for the per-contact provenance chip
     // (Feature C). May be null for very old jobs; we'll just skip the
     // chip in that case rather than error.
@@ -323,6 +329,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       job.status !== "mapped" &&
       job.status !== "committing"
     ) {
+      importLog.warn(jobId, "commit.start", "Rejected: job is not ready to save", { status: job.status });
       return res.status(409).json({
         error: `Job is in status '${job.status}'. Run the preview step first.`,
       });
@@ -357,6 +364,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const rows = dryRun
       ? await listImportRows(jobId, { status: "pending", limit: 1000 })
       : await listImportRows(jobId, { status: "pending", limit: batchSize });
+    const batchStarted = Date.now();
+    importLog.info(jobId, dryRun ? "commit.test-run" : "commit.batch", dryRun ? "Test run started (nothing is saved)" : "Saving a batch of rows", {
+      userId: user.id, companyId, jobStatus: job.status, regionId: targetRegionId,
+      regionFrom: typeof requestedRegionId === "string" && targetRegionId === requestedRegionId ? "import screen" : "oldest active region",
+      pendingRowsInBatch: rows.length, batchSize,
+    });
 
     const summary: CommitSummary = {
       clients:  { inserted: 0, updated: 0, skipped: 0, errored: 0 },
@@ -1024,20 +1037,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // - the DB enforces uniqueness via a partial index, but we
     // skip-with-message before the insert so the operator sees a
     // clean "duplicate quote number" rather than a SQL error.
+    if (quoteRows.length > 0) {
+      importLog.info(jobId, "commit.quotes", "Quotes pass started", { rows: quoteRows.length, dryRun });
+    }
     await runChunked(quoteRows, ROW_CONCURRENCY, async (r) => {
+      const qLog = { row: r.source_row_index ?? null, quote_number: r.mapped_data?.quote_number ?? null };
       try {
         const mapped = r.mapped_data || {};
 
         // Resolve client_id, same priority as orders.
         let clientId: string | null = null;
+        let clientMatchedBy: "email" | "name" | "none" = "none";
         if (mapped.client_email) {
           const k = String(mapped.client_email).toLowerCase().trim();
           clientId = newClientByEmail.get(k) ?? dedup.clientByEmail.get(k) ?? null;
+          if (clientId) clientMatchedBy = "email";
         }
         if (!clientId && mapped.client_name) {
           const k = String(mapped.client_name).toLowerCase().trim();
           clientId = newClientByName.get(k) ?? dedup.clientByName.get(k) ?? null;
+          if (clientId) clientMatchedBy = "name";
         }
+        importLog.info(jobId, "commit.quotes", clientId ? `Client found by ${clientMatchedBy}` : "No existing client matched; quote saved without a client link", {
+          ...qLog, clientId,
+        });
         // No stub-creation for quotes - quotes.client_id is nullable
         // on the schema, so a quote without a matched client just
         // lands with client_id=null and the dashboard handles it.
@@ -1054,8 +1077,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             .maybeSingle();
           if (existingErr2) {
             console.error("[imports/[id]/commit] quotes fetch failed:", existingErr2);
+            importLog.warn(jobId, "commit.quotes", "Duplicate quote-number check failed; carrying on", { ...qLog, error: errText(existingErr2) });
           }
           if (existing) {
+            importLog.info(jobId, "commit.quotes", "Skipped: a quote with this number is already on file", { ...qLog, existingQuoteId: (existing as any).id });
             summary.quotes.skipped += 1;
             if (!dryRun) {
               await supabase.from("import_rows").update({
@@ -1068,6 +1093,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           }
         }
 
+        // No number in the file: give the quote the company's next quote
+        // number, the same as a quote made in the app. Not in a test run,
+        // which would use up numbers for quotes that are never saved.
+        const { quoteNumber, allocated } = await resolveImportQuoteNumber(supabase, companyId, mapped.quote_number, dryRun);
+        if (allocated) {
+          importLog.info(jobId, "commit.quotes", "No quote number in the file; given the next quote number", { ...qLog, quote_number: quoteNumber });
+        }
+
         const total = Number(mapped.total_amount ?? 0);
         const subtotal = mapped.subtotal != null ? Number(mapped.subtotal) : total;
         // quotes.client_email is NOT NULL on the schema. If the
@@ -1075,7 +1108,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // placeholder so the row still lands; operator can fix it
         // post-import on the quote detail page.
         const clientEmailForQuote: string =
-          mapped.client_email || `imported-${mapped.quote_number}@unknown.local`;
+          mapped.client_email || `imported-${quoteNumber ?? "quote"}@unknown.local`;
+        if (!mapped.client_email) {
+          importLog.warn(jobId, "commit.quotes", "No client email in the file; placeholder email used", qLog);
+        }
         const quotePayload: any = {
           company_id: companyId,
           region_id: targetRegionId,
@@ -1083,7 +1119,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           client_name: mapped.client_name || null,
           client_email: clientEmailForQuote,
           client_phone: mapped.client_phone || null,
-          quote_number: mapped.quote_number,
+          quote_number: quoteNumber,
           quote_name: mapped.quote_name || "Imported quote",
           event_date: mapped.event_date || null,
           event_time: mapped.event_time || null,
@@ -1095,7 +1131,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           total_amount: total,
           total: total,
           valid_until: mapped.valid_until || null,
-          status: mapped.status || "sent",
+          // Normalised again here: rows previewed before the status
+          // mapping existed can still hold "Sent" / "Declined".
+          status: normaliseQuoteStatus(mapped.status).value || "sent",
           notes: mapped.notes || null,
           import_job_id: jobId,
           imported_filename: importedFilename,
@@ -1107,6 +1145,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         };
 
         if (dryRun) {
+          importLog.info(jobId, "commit.quotes", "Test run: would save this quote", {
+            ...qLog, status: quotePayload.status, total, hasEventDate: !!quotePayload.event_date,
+            getsNextQuoteNumber: !quoteNumber,
+          });
           summary.quotes.inserted += 1;
           return;
         }
@@ -1119,11 +1161,16 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         if (error) throw new Error(error.message);
 
         summary.quotes.inserted += 1;
+        importLog.info(jobId, "commit.quotes", "Quote saved", {
+          ...qLog, quote_number: quoteNumber, quoteId: (inserted as any).id, status: quotePayload.status, total,
+          eventDate: quotePayload.event_date, validUntil: quotePayload.valid_until,
+        });
         await supabase.from("import_rows").update({
           status: "inserted",
           target_id: (inserted as any).id,
         } as any).eq("id", r.id);
       } catch (e: any) {
+        importLog.error(jobId, "commit.quotes", "Quote not saved", { ...qLog, dryRun, error: errText(e) });
         summary.quotes.errored += 1;
         if (!dryRun) {
           await supabase.from("import_rows").update({
@@ -1248,6 +1295,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       remainingPending = Number(count ?? 0);
     }
     const isLastBatch = dryRun || remainingPending === 0;
+    importLog.info(jobId, dryRun ? "commit.test-run" : "commit.batch", dryRun ? "Test run finished" : "Batch finished", {
+      ms: Date.now() - batchStarted, processed: rows.length, remaining: remainingPending, lastBatch: isLastBatch,
+      clients: summary.clients, orders: summary.orders, leads: summary.leads,
+      quotes: summary.quotes, invoices: summary.invoices, payments: summary.payments,
+    });
 
     if (!dryRun && isLastBatch) {
       // Merge this batch's summary into any prior commit summary so
@@ -1271,6 +1323,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         },
       });
       await logEvent(jobId, "committed", merged);
+      importLog.info(jobId, "commit.done", "Import complete", { totals: merged });
     } else if (!dryRun) {
       // Mid-stream: stash the running totals on the job so an aborted
       // import (browser closed) can still be inspected.
@@ -1355,6 +1408,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (outer: any) {
     console.error("imports/[id]/commit handler crashed:", outer);
+    importLog.error(String(req.query.id || "") || null, "commit.crash", "Save handler crashed", { error: errText(outer) });
     return res.status(500).json({ error: dbErrorMessage(outer) || "Commit failed" });
   }
 }

@@ -1,0 +1,10 @@
+import { readFileSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
+const env = Object.fromEntries(readFileSync(".env.local","utf8").split(/\r?\n/).filter(l=>l.includes("=")&&!l.trim().startsWith("#")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(), l.slice(i+1).trim().replace(/^["']|["']$/g,"")]}));
+const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const { data } = await sb.from("email_automation_log").select("created_at,template_type,status,recipient_email,subject").ilike("recipient_email","vanderberghjanine@gmail.com").gte("created_at","2026-10-13").lte("created_at","2026-10-15").order("created_at");
+console.log(JSON.stringify(data, null, 1));
+const { data: q } = await sb.from("outgoing_email_queue").select("created_at,status,trigger_event,template_type,sent_at,attempts").ilike("to_email","vanderberghjanine@gmail.com").gte("created_at","2026-10-12").order("created_at");
+console.log("queue:", JSON.stringify(q, null, 1));
+const { data: fl } = await sb.from("quote_followup_log").select("created_at,sequence_position,channel,status,sent_at,template_key").gte("created_at","2026-10-13T08:55:00Z").lte("created_at","2026-10-13T09:05:00Z").order("created_at");
+console.log("followup log 13 Oct:", JSON.stringify(fl, null, 1));

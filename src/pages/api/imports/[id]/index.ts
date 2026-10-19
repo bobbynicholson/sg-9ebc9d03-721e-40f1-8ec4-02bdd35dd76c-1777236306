@@ -10,6 +10,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getImportJob, listImportRows } from "@/services/importService";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { importLog } from "@/lib/importLog";
 
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -98,7 +99,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .update(patch)
         .eq("id", jobId)
         .eq("company_id", companyId);
-      if (error) return res.status(500).json({ error: dbErrorMessage(error) });
+      if (error) {
+        importLog.error(jobId, "review.save", "Could not save the reviewed column matches", { error: dbErrorMessage(error) });
+        return res.status(500).json({ error: dbErrorMessage(error) });
+      }
+      // The operator's final column choices, one line per sheet, so a
+      // wrong import can be traced back to the match that caused it.
+      for (const [sheet, sm] of Object.entries((patch.mapping || {}) as Record<string, Record<string, any>>)) {
+        const cols = Object.entries(sm || {}).filter(([h]) => h !== "__schema__");
+        importLog.info(jobId, "review.save", "Operator confirmed the column matches", {
+          sheet,
+          schema: sm?.__schema__?.target ?? null,
+          imported: cols.filter(([, d]) => d?.target && d.target !== "skip").map(([h, d]) => `${h} -> ${d.target}`),
+          leftOut: cols.filter(([, d]) => !d?.target || d.target === "skip").map(([h]) => h),
+          changedByOperator: cols.filter(([, d]) => d?.source === "manual").map(([h]) => h),
+        });
+      }
       return res.status(200).json({ ok: true });
     }
 

@@ -1,0 +1,152 @@
+[
+  {
+    "role": "shopping_staff",
+    "actualRole": "shopping_staff",
+    "checks": [
+      {
+        "name": "shopping settings",
+        "status": 200,
+        "rows": 1,
+        "error": null,
+        "settings": [
+          {
+            "receipt_required_on_complete": true,
+            "auto_create_list_from_upcoming": false,
+            "upcoming_horizon_days": 7,
+            "default_lead_time_days": 2,
+            "variance_alert_pct": 15,
+            "notify_admin_on_variance": true,
+            "prefer_rated_suppliers": true,
+            "auto_notify_on_low_stock": true,
+            "updated_at": "2026-07-04T23:48:11.39519+00:00"
+          }
+        ]
+      },
+      {
+        "name": "cleaning settings",
+        "status": 200,
+        "rows": 1,
+        "error": null,
+        "settings": [
+          {
+            "cleaning_settings": {}
+          }
+        ]
+      },
+      {
+        "name": "draft reorder item columns",
+        "status": 400,
+        "error": {
+          "code": "42703",
+          "message": "column shopping_list_items.inventory_item_id does not exist"
+        }
+      },
+      {
+        "name": "canonical shopper item columns",
+        "status": 200,
+        "rows": 0,
+        "error": null
+      }
+    ]
+  },
+  {
+    "role": "cleaning_staff",
+    "actualRole": "cleaning_staff",
+    "checks": [
+      {
+        "name": "shopping settings",
+        "status": 200,
+        "rows": 1,
+        "error": null,
+        "settings": [
+          {
+            "receipt_required_on_complete": true,
+            "auto_create_list_from_upcoming": false,
+            "upcoming_horizon_days": 7,
+            "default_lead_time_days": 2,
+            "variance_alert_pct": 15,
+            "notify_admin_on_variance": true,
+            "prefer_rated_suppliers": true,
+            "auto_notify_on_low_stock": true,
+            "updated_at": "2026-07-04T23:48:11.39519+00:00"
+          }
+        ]
+      },
+      {
+        "name": "cleaning settings",
+        "status": 200,
+        "rows": 1,
+        "error": null,
+        "settings": [
+          {
+            "cleaning_settings": {}
+          }
+        ]
+      },
+      {
+        "name": "draft reorder item columns",
+        "status": 400,
+        "error": {
+          "code": "42703",
+          "message": "column shopping_list_items.inventory_item_id does not exist"
+        }
+      },
+      {
+        "name": "canonical shopper item columns",
+        "status": 200,
+        "rows": 0,
+        "error": null
+      }
+    ]
+  },
+  {
+    "role": "company_admin",
+    "actualRole": "company_admin",
+    "checks": [
+      {
+        "name": "shopping settings",
+        "status": 200,
+        "rows": 1,
+        "error": null,
+        "settings": [
+          {
+            "receipt_required_on_complete": true,
+            "auto_create_list_from_upcoming": false,
+            "upcoming_horizon_days": 7,
+            "default_lead_time_days": 2,
+            "variance_alert_pct": 15,
+            "notify_admin_on_variance": true,
+            "prefer_rated_suppliers": true,
+            "auto_notify_on_low_stock": true,
+            "updated_at": "2026-07-04T23:48:11.39519+00:00"
+          }
+        ]
+      },
+      {
+        "name": "cleaning settings",
+        "status": 200,
+        "rows": 1,
+        "error": null,
+        "settings": [
+          {
+            "cleaning_settings": {}
+          }
+        ]
+      },
+      {
+        "name": "draft reorder item columns",
+        "status": 400,
+        "error": {
+          "code": "42703",
+          "message": "column shopping_list_items.inventory_item_id does not exist"
+        }
+      },
+      {
+        "name": "canonical shopper item columns",
+        "status": 200,
+        "rows": 0,
+        "error": null
+      }
+    ]
+  }
+]

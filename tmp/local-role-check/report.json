@@ -82,7 +82,6 @@
         "headings": [
           "Admin",
           "Dashboard",
-          "Congratulations — you’re ready to go!",
           "Business intelligence"
         ],
         "pageErrors": [],
@@ -154,10 +153,12 @@
         "headings": [
           "Kitchen Portal",
           "Kitchen today",
+          "Daily operations",
           "Event calendarToday first · plan the rest when you need it",
           "Low stock alerts",
           "Today's orders0",
           "Kitchen run sheet",
+          "Active prep",
           "Low stock"
         ],
         "pageErrors": [],
@@ -212,8 +213,7 @@
         "loaded": true,
         "headings": [
           "Waiter Portal",
-          "Service today",
-          "Open each assigned event before you arrive"
+          "Service today"
         ],
         "pageErrors": [],
         "failedRequests": [],
@@ -269,8 +269,8 @@
         "loaded": true,
         "headings": [
           "Shopping Portal",
-          "Shopping today",
-          "No active shopping list",
+          "Today",
+          "Low stock alerts",
           "Shopping list"
         ],
         "pageErrors": [],
@@ -298,9 +298,8 @@
         "loaded": true,
         "headings": [
           "Cleaning Portal",
-          "Cleaning desk",
+          "Today",
           "Today's priority inspections",
-          "Equipment verification",
           "Cleaning roster",
           "Equipment status",
           "Floor-walk checklist"
@@ -330,7 +329,7 @@
         "loaded": true,
         "headings": [
           "Cleaning Portal",
-          "Manage the cleaning team"
+          "Manage team"
         ],
         "pageErrors": [],
         "failedRequests": [],
@@ -385,10 +384,7 @@
         "status": 200,
         "loaded": true,
         "headings": [
-          "Platform Admin",
-          "Platform analytics",
-          "Customer Growth",
-          "Subscription Status"
+          "Platform Admin"
         ],
         "pageErrors": [],
         "failedRequests": [],

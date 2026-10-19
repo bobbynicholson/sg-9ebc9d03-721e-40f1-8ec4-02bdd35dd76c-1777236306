@@ -1,0 +1,26 @@
+import { chromium } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+import fs from "fs";
+const env = Object.fromEntries(fs.readFileSync(".env.local", "utf8").split(/\r?\n/).filter((l) => l.includes("=") && !l.startsWith("#")).map((l) => { const i = l.indexOf("="); return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^"|"$/g, "")]; }));
+const url = env.NEXT_PUBLIC_SUPABASE_URL;
+const admin = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
+const { data } = await admin.auth.admin.generateLink({ type: "magiclink", email: "raj267748@gmail.com" });
+const anon = createClient(url, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+const { data: v } = await anon.auth.verifyOtp({ token_hash: data.properties.hashed_token, type: "magiclink" });
+const enc = `base64-${Buffer.from(JSON.stringify(v.session)).toString("base64url")}`;
+const cookies = []; for (let i = 0; i < enc.length; i += 3180) cookies.push({ name: enc.length <= 3180 ? storageKey : `${storageKey}.${cookies.length}`, value: enc.slice(i, i + 3180), domain: "localhost", path: "/" });
+fs.writeFileSync("tmp/email-e2e/.cookies.json", JSON.stringify(cookies));
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+await ctx.addCookies(cookies);
+// Read-only exploration: block writes.
+await ctx.route("**/*", (r) => (["GET", "HEAD", "OPTIONS"].includes(r.request().method()) || r.request().url().includes("/auth/v1/") ? r.continue() : r.abort()));
+const page = await ctx.newPage();
+const st = JSON.parse(fs.readFileSync("tmp/email-e2e/A.json", "utf8"));
+await page.goto(`http://localhost:3001/raj267748-payfast-test/admin/orders?orderId=${st.order_id}`, { waitUntil: "domcontentloaded", timeout: 180000 });
+await page.waitForTimeout(18000);
+const buttons = await page.locator("[role=dialog] button, [role=dialog] [role=tab], [role=dialog] select").evaluateAll((els) => els.map((e) => (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ")).filter(Boolean));
+console.log("dialog controls:", JSON.stringify([...new Set(buttons)].slice(0, 80)));
+await page.screenshot({ path: "tmp/email-e2e/order-modal.png" });
+await browser.close();

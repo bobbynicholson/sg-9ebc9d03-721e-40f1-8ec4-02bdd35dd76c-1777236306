@@ -23,6 +23,8 @@ jest.mock("@/components/client-portal/ReceiptDialog", () => ({ ReceiptDialog: ()
 jest.mock("@/components/billing/PaymentModal", () => ({ PaymentModal: () => null }));
 jest.mock("@/components/billing/InvoiceDetailModal", () => ({ InvoiceDetailModal: ({ invoice, open }: any) => open
   ? <div data-testid="invoice-detail">Paid {invoice.paid_amount}; Balance {invoice.balance_due}</div> : null }));
+// Pay button reads "Pay invoice", or "Pay the balance" once part is paid.
+const PAY_BUTTON = /^Pay (invoice|the balance)$/;
 jest.mock("@/components/portal/ui", () => ({
   PortalShell: ({ children }: any) => <div>{children}</div>,
   PortalCard: ({ children }: any) => <div>{children}</div>,
@@ -49,13 +51,13 @@ test("portal blocks a pending checkout and refreshes the open invoice after veri
   let confirm: (value: Response) => void = () => {};
   global.fetch = jest.fn(() => new Promise<Response>((resolve) => { confirm = resolve; }));
   render(<StrictMode><ClientBillingPage /></StrictMode>);
-  const pay = await screen.findByRole("button", { name: "Pay Now" });
+  const pay = await screen.findByRole("button", { name: PAY_BUTTON });
   expect(pay).toBeDisabled();
   await waitFor(() => expect(screen.getByTestId("invoice-detail")).toHaveTextContent("Paid 0; Balance 1000"));
   mockRows = [{ ...mockInvoice, amount_paid: 5, balance_due: 995, status: "partially_paid" }];
   await act(async () => { confirm({ ok: true, json: async () => ({ ok: true, status: "succeeded" }) } as Response); });
   await waitFor(() => expect(screen.getByTestId("invoice-detail")).toHaveTextContent("Paid 5; Balance 995"));
-  expect(screen.getByRole("button", { name: "Pay Now" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: PAY_BUTTON })).toBeEnabled();
   expect(screen.getByText("Payment received. Your paid amount and remaining balance have been refreshed.")).toBeVisible();
   expect(screen.getByText("Partially paid", { exact: true })).toBeVisible();
 });
@@ -63,7 +65,7 @@ test("portal blocks a pending checkout and refreshes the open invoice after veri
 test.each(["failed", "expired"])("portal %s return permits retry and keeps the unpaid balance", async (status) => {
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ ok: true, status }) } as Response));
   render(<ClientBillingPage />);
-  await waitFor(() => expect(screen.getByRole("button", { name: "Pay Now" })).toBeEnabled());
+  await waitFor(() => expect(screen.getByRole("button", { name: PAY_BUTTON })).toBeEnabled());
   expect(screen.getByTestId("invoice-detail")).toHaveTextContent("Paid 0; Balance 1000");
   expect(screen.getByText(status === "failed"
     ? "This checkout did not complete. You can retry from the invoice."
@@ -75,8 +77,8 @@ test("fully settled portal invoice has a receipt and no payment action", async (
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ ok: true, status: "succeeded" }) } as Response));
   render(<ClientBillingPage />);
   await waitFor(() => expect(screen.getByTestId("invoice-detail")).toHaveTextContent("Paid 1000; Balance 0"));
-  expect(screen.queryByRole("button", { name: "Pay Now" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Receipt" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: PAY_BUTTON })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Download receipt" })).toBeEnabled();
 });
 
 test("client billing preserves invoice currency over the company default", async () => {
@@ -96,6 +98,6 @@ test("portal retains the checkout block if the provider confirms but balance ref
     mockInvoiceError = true;
     await act(async () => { confirm({ ok: true, json: async () => ({ ok: true, status: "succeeded" }) } as Response); });
     await waitFor(() => expect(screen.getByText(/Payment was confirmed. Refresh this page/)).toBeVisible());
-    expect(screen.getByRole("button", { name: "Pay Now" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: PAY_BUTTON })).toBeDisabled();
   } finally { errorLog.mockRestore(); }
 });

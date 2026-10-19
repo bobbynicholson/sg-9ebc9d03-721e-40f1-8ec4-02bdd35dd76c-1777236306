@@ -22,8 +22,9 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import { dbErrorMessage } from "@/lib/errors/dbErrorMessage";
 import { getServiceSupabase } from "@/lib/supabase/service";
 import { getImportJob, listImportRows, logEvent } from "@/services/importService";
-import { normaliseFieldValue } from "@/lib/importNormalise";
+import { normaliseFieldValue, normaliseQuoteStatus } from "@/lib/importNormalise";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { importLog, errText } from "@/lib/importLog";
 
 
 const ALLOWED_CALLER_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
@@ -85,7 +86,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         delete nextMapped[key];
         continue;
       }
-      const norm = normaliseFieldValue(key, raw);
+      const norm = targetTable === "quotes" && key === "status"
+        ? normaliseQuoteStatus(raw)
+        : normaliseFieldValue(key, raw);
       // Field-qualify to match preview.ts so the inline editor keeps
       // surfacing the right field after an edit.
       if (norm.warnings.length > 0) fieldWarnings.push(...norm.warnings.map((w) => `${key}: ${w}`));
@@ -159,6 +162,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       row_id: rowId,
       applied: Object.keys(overrides),
     });
+    importLog.info(jobId, "preview.row-fix", "Operator fixed a row", {
+      row: (row as any).source_row_index ?? null,
+      target: (row as any).target_table ?? null,
+      fieldsChanged: Object.keys(overrides),
+      status: nextStatus,
+      error: nextErrorMessage || undefined,
+      warningFields: fieldWarnings.length ? [...new Set(fieldWarnings.map((w: string) => w.split(":")[0]))] : undefined,
+    });
 
     return res.status(200).json({
       ok: true,
@@ -169,6 +180,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (e: any) {
     console.error("/api/imports/[id]/rows/[rowId]/edit crashed:", e);
+    importLog.error(String(req.query.id || "") || null, "preview.row-fix", "Row fix handler crashed", { error: errText(e) });
     return res.status(500).json({ error: dbErrorMessage(e) || "Row edit failed" });
   }
 }

@@ -16,9 +16,11 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import {
   getImportJob, listImportRows, setJobStatus, logEvent,
 } from "@/services/importService";
-import { normaliseFieldValue } from "@/lib/importNormalise";
+import { normaliseFieldValue, normaliseQuoteStatus } from "@/lib/importNormalise";
+import { flagRepeatedQuoteNumbers, flagQuoteNumbersOnFile } from "@/lib/importQuoteDuplicates";
 import { composeImportedClient } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { importLog, errText } from "@/lib/importLog";
 import { loadClientIndex, loadLeadIndex } from "@/lib/importExistingIndex";
 
 
@@ -83,6 +85,42 @@ async function buildExistingEmailIndex(
   return { clientByEmail: clients?.clientByEmail ?? new Map<string, string>(), leadByEmail };
 }
 
+/**
+ * Quote numbers from this file that this company already has (not
+ * deleted). Same match the commit pass uses before inserting a quote,
+ * so a row flagged here is exactly a row commit will skip.
+ */
+async function findQuoteNumbersOnFile(
+  supabase: any,
+  companyId: string,
+  quoteNumbers: string[],
+  jobId: string,
+): Promise<Set<string>> {
+  const found = new Set<string>();
+  const CHUNK = 200;
+  for (let i = 0; i < quoteNumbers.length; i += CHUNK) {
+    const chunk = quoteNumbers.slice(i, i + CHUNK);
+    const { data, error } = await supabase
+      .from("quotes")
+      .select("quote_number")
+      .eq("company_id", companyId)
+      .in("quote_number", chunk)
+      .is("deleted_at", null);
+    if (error) {
+      // Not fatal: commit still checks each number before inserting.
+      importLog.warn(jobId, "preview.quotes", "Could not check quote numbers already on file", { error: errText(error) });
+      continue;
+    }
+    for (const r of (data || []) as any[]) found.add(String(r.quote_number));
+  }
+  if (quoteNumbers.length > 0) {
+    importLog.info(jobId, "preview.quotes", "Quote numbers checked against existing quotes", {
+      checked: quoteNumbers.length, alreadyOnFile: found.size,
+    });
+  }
+  return found;
+}
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -100,18 +138,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.error("[imports/[id]/preview] profiles fetch failed:", profileErr);
     }
     const role = (profile?.active_role || profile?.role || "") as string;
+    const jobId = String(req.query.id || "");
     if (!ALLOWED_CALLER_ROLES.has(role)) {
+      importLog.warn(jobId || null, "preview.auth", "Rejected: role cannot run imports", { userId: user.id, role });
       return res.status(403).json({ error: "Only owners / admins can run imports" });
     }
     const companyId = profile?.company_id as string | null;
-    if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
+    if (!companyId) {
+      importLog.warn(jobId || null, "preview.auth", "Rejected: account has no company", { userId: user.id, role });
+      return res.status(403).json({ error: "Account is not linked to a company" });
+    }
 
-    const jobId = String(req.query.id || "");
     if (!jobId) return res.status(400).json({ error: "Missing job id" });
+    importLog.info(jobId, "preview.start", "Row check started", { userId: user.id, companyId });
 
     const job = await getImportJob(jobId, companyId);
-    if (!job) return res.status(404).json({ error: "Import job not found" });
+    if (!job) {
+      importLog.warn(jobId, "preview.start", "Rejected: import job not found for this company", { companyId });
+      return res.status(404).json({ error: "Import job not found" });
+    }
     if (!job.mapping) {
+      importLog.warn(jobId, "preview.start", "Rejected: no column matches saved yet", { status: job.status });
       return res.status(409).json({ error: "Mapping has not been generated yet, run the map step first" });
     }
 
@@ -119,8 +166,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
      // above the 10k operator-facing limit set in app_config.import_row_cap.
     const rows = await listImportRows(jobId, { limit: 11000 });
     if (rows.length === 0) {
+      importLog.warn(jobId, "preview.rows", "Rejected: import has no rows");
       return res.status(400).json({ error: "Import has no rows to preview" });
     }
+    importLog.info(jobId, "preview.rows", "Checking rows", { rows: rows.length });
 
     // Cast: import_rows isn't in the auto-generated Database types yet.
     const supabase = getServiceSupabase() as any;
@@ -262,8 +311,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       //            The commit pass auto-creates a stub client when
       //            no match exists, so we just need a name/email
       //            handle to label the stub with.
-      //   quotes : must have quote_number AND total_amount AND
-      //            (client_name OR client_email).
+      //   quotes : must have total_amount AND (client_name OR
+      //            client_email). quote_number is optional.
       //   leads  : must have contact_name AND email
       let status: "pending" | "skipped" | "error" = "pending";
       let errorMessage: string | null = null;
@@ -286,12 +335,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           errorMessage = "Order is missing an event date";
         }
       } else if (targetTable === "quotes") {
+        // "Declined" / "Sent" / "Won" -> the quote_status enum. An
+        // unknown word is dropped with a warning (saved as sent) rather
+        // than failing the insert at commit.
+        if (mapped.status != null) {
+          const st = normaliseQuoteStatus(mapped.status);
+          if (st.value) mapped.status = st.value;
+          else delete mapped.status;
+          warnings.push(...st.warnings.map((w) => `status: ${w}`));
+        }
         const hasClientHandle =
           (mapped.client_name as string)?.trim() || mapped.client_email;
-        if (!mapped.quote_number) {
-          status = "error";
-          errorMessage = "Quote is missing a quote number";
-        } else if (!hasClientHandle) {
+        // No quote number is fine: commit gives the quote the company's
+        // next number (consume_next_document_number).
+        if (!hasClientHandle) {
           status = "error";
           errorMessage = "Quote is missing a client name or email";
         } else if (mapped.total_amount == null) {
@@ -356,6 +413,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         // carry on so the rest still preview + commit, and the operator sees
         // exactly which row failed in the errored-rows panel.
         console.error(`[imports/preview] row ${r.id} threw:`, rowErr?.message);
+        importLog.error(jobId, "preview.row", "Row threw while being checked; marked as an error", {
+          row: r.source_row_index ?? null, sheet: r.sheet, error: errText(rowErr),
+        });
         computed.push({
           id: r.id,
           mapped: {},
@@ -387,6 +447,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       c.status = "error";
       c.errorMessage = `Same email as row ${first ?? "?"} in this file. Change the email, or skip this row`;
     }
+
+    // ── Phase 1c: quote numbers. A number used twice in this file would
+    // insert once and fail on the unique index the second time, and a
+    // number already on file is skipped at commit - say both up front. ──
+    const quoteNumbers = flagRepeatedQuoteNumbers(computed, (id) => lineById.get(id) ?? null);
+    const quoteNumbersOnFile = await findQuoteNumbersOnFile(supabase, companyId, quoteNumbers, jobId);
+    flagQuoteNumbersOnFile(computed, quoteNumbersOnFile);
 
     // ── Phase 2: bulk dedup lookup. Two queries total. ──
     const { clientByEmail, leadByEmail } = await buildExistingEmailIndex(
@@ -433,12 +500,41 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       };
     });
 
+    // One line per row: what it became and why. Field names only, no
+    // values, so client details stay out of the log files.
+    for (const u of updates) {
+      const p = u.patch;
+      const line = {
+        row: lineById.get(u.id) ?? null,
+        target: p.target_table,
+        status: p.status,
+        quote_number: p.target_table === "quotes" ? (p.mapped_data as any)?.quote_number ?? null : undefined,
+        fields: Object.keys(p.mapped_data || {}),
+        error: p.error_message || undefined,
+        warningFields: p.preview_warnings.length
+          ? [...new Set(p.preview_warnings.map((w) => w.split(":")[0]))]
+          : undefined,
+        duplicateOf: p.dedup_match_id ? `${p.dedup_match_table}:${p.dedup_match_id}` : undefined,
+      };
+      if (p.status === "error") importLog.warn(jobId, "preview.row", "Row cannot be imported", line);
+      else importLog.info(jobId, "preview.row", p.preview_warnings.length ? "Row ok with warnings" : "Row ok", line);
+    }
+
     const BATCH_SIZE = 50;
+    let rowSaveFailures = 0;
     for (let i = 0; i < updates.length; i += BATCH_SIZE) {
       const batch = updates.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map((u) =>
+      const results: any[] = await Promise.all(batch.map((u) =>
         supabase.from("import_rows").update(u.patch as any).eq("id", u.id),
       ));
+      results.forEach((r, k) => {
+        if (r?.error) {
+          rowSaveFailures += 1;
+          importLog.error(jobId, "preview.save", "Could not save the checked row", {
+            row: lineById.get(batch[k].id) ?? null, error: errText(r.error),
+          });
+        }
+      });
     }
 
     await setJobStatus(jobId, "previewed", {
@@ -448,10 +544,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       },
     });
     await logEvent(jobId, "previewed", summary);
+    importLog.info(jobId, "preview.done", "Row check finished", { ...summary, rowSaveFailures });
 
     return res.status(200).json({ ok: true, summary });
   } catch (outer: any) {
     console.error("imports/[id]/preview handler crashed:", outer);
+    importLog.error(String(req.query.id || "") || null, "preview.crash", "Row check handler crashed", { error: errText(outer) });
     return res.status(500).json({ error: dbErrorMessage(outer) || "Preview failed" });
   }
 }

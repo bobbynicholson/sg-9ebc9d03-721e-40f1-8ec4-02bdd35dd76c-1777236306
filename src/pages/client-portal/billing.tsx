@@ -13,7 +13,7 @@ import { FileText, Download, Clock, CheckCircle, AlertCircle, Search, Filter, Cr
 import { NoIndexMeta } from "@/components/NoIndexMeta";
 import { ClientNav } from "@/components/navigation/ClientNav";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { PortalShell, PortalHeader, PortalCard, PortalCardHeader, PortalOverview,
+import { PortalShell, PortalHeader, PortalCard, PortalOverview, StatTile,
   PageWorkbench,
 } from "@/components/portal/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -477,7 +477,7 @@ function ClientBillingPageInner() {
     return (
       <Badge className={`${variants[status]} border`}>
         <Icon className="w-3 h-3 mr-1" />
-        {status === "partial" ? "Partially paid" : status === "pending" ? "Awaiting Payment" : status.charAt(0).toUpperCase() + status.slice(1)}
+        {status === "partial" ? "Partially paid" : status === "pending" ? "Awaiting payment" : status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
   };
@@ -515,7 +515,7 @@ function ClientBillingPageInner() {
         <PortalShell className="min-h-0 bg-transparent dark:bg-transparent">
           <PortalHeader
             title="Billing & invoices"
-            subtitle="Pay balances, check due dates, open invoice details, and download receipts for completed payments."
+            subtitle="Pay what's due, check due dates and download receipts."
             icon={Receipt}
             variant="hero"
           />
@@ -558,24 +558,23 @@ function ClientBillingPageInner() {
           <PortalOverview
             eyebrow="Billing"
             title={totalOutstanding > 0 ? "There is a balance to settle" : "Invoices and receipts are in one place"}
-            description="Open an invoice for the full breakdown, pay any pending balance, or download receipts once a payment has completed."
-            items={[
-              { label: "Invoices", value: invoices.length, helper: `${filteredInvoices.length} after filters`, icon: Receipt, tone: invoices.length > 0 ? "brand" : "neutral" },
-              { label: "Outstanding", value: `${currencySymbolFor((company as any)?.currency || "ZAR")}${totalOutstanding.toLocaleString()}`, helper: "Pending + overdue", icon: Wallet, tone: overdueCount > 0 ? "danger" : totalOutstanding > 0 ? "warning" : "success" },
-              { label: "Paid", value: `${currencySymbolFor((company as any)?.currency || "ZAR")}${totalPaid.toLocaleString()}`, helper: "Completed invoices", icon: CheckCircle, tone: "success" },
-              { label: "Overdue", value: overdueCount, helper: "Needs attention", icon: AlertCircle, tone: overdueCount > 0 ? "danger" : "success" },
-            ]}
+            description="Open an invoice for the full breakdown, pay what's due, or download a receipt."
           />
+
+          {/* Own tile grid (two per row on phones) instead of the overview's
+              built-in items, which stack one per row and pushed the
+              invoice list off the first screen. */}
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+            <StatTile label="Invoices" value={invoices.length} hint={invoices.length === filteredInvoices.length ? "All shown below" : `${filteredInvoices.length} match your filters`} icon={Receipt} tone={invoices.length > 0 ? "brand" : undefined} />
+            <StatTile label="Still to pay" value={`${currencySymbolFor((company as any)?.currency || "ZAR")}${totalOutstanding.toLocaleString()}`} hint="Awaiting payment + overdue" icon={Wallet} tone={overdueCount > 0 ? "bad" : totalOutstanding > 0 ? "warn" : "good"} />
+            <StatTile label="Paid" value={`${currencySymbolFor((company as any)?.currency || "ZAR")}${totalPaid.toLocaleString()}`} hint="Paid so far" icon={CheckCircle} tone="good" />
+            <StatTile label="Overdue" value={overdueCount} hint={overdueCount > 0 ? "Past the due date" : "Nothing overdue"} icon={AlertCircle} tone={overdueCount > 0 ? "bad" : "good"} />
+          </div>
 
           {loading ? (
             // Skeleton over the page shape: a stat-tile row + a few
             // invoice rows so the layout doesn't jump when data lands.
             <div className="space-y-6 md:space-y-8" aria-busy="true" aria-label="Loading invoices">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-24 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
-                ))}
-              </div>
               <div className="space-y-3">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="h-28 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm animate-pulse" />
@@ -586,21 +585,27 @@ function ClientBillingPageInner() {
             <>
               {/* Filters and Search */}
               <PortalCard id="invoice-list" data-chat-section="client.billing.invoices" data-chat-section-label="Client invoice list" className="mb-6 scroll-mt-20">
-                <PortalCardHeader
-                  title={`Invoices (${filteredInvoices.length})`}
-                  action={
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <div className="relative flex-1 sm:flex-none">
+                {/* Title on its own line, filters in one full-width bar under
+                    it: squeezed beside the title on phones the search box
+                    clipped its own placeholder. No filters until there is
+                    something to filter. */}
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                  Invoices <span className="font-normal text-slate-500 dark:text-slate-400">({filteredInvoices.length})</span>
+                </h2>
+                {invoices.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-2 border-b border-slate-200 pb-4 md:flex md:items-center dark:border-slate-800">
+                      <div className="relative col-span-2 md:flex-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                         <Input
-                          placeholder="Search invoice, order, or venue..."
+                          placeholder="Search invoice, order or venue..."
+                          aria-label="Search invoices"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-9 w-full sm:w-64"
+                          className="pl-9 w-full"
                         />
                       </div>
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-full sm:w-40">
+                        <SelectTrigger className="w-full md:w-44" aria-label="Show invoices by status">
                           <Filter className="w-4 h-4 mr-2" />
                           <SelectValue />
                         </SelectTrigger>
@@ -613,33 +618,34 @@ function ClientBillingPageInner() {
                         </SelectContent>
                       </Select>
                       <Select value={sortBy} onValueChange={(val) => setSortBy(val as any)}>
-                        <SelectTrigger className="w-full sm:w-40">
+                        <SelectTrigger className="w-full md:w-44" aria-label="Sort invoices">
                           <ArrowUpDown className="w-4 h-4 mr-2" />
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="date">Due date</SelectItem>
-                          <SelectItem value="amount">Amount</SelectItem>
-                          <SelectItem value="status">Status</SelectItem>
+                          <SelectItem value="date">Sort by due date</SelectItem>
+                          <SelectItem value="amount">Sort by amount</SelectItem>
+                          <SelectItem value="status">Sort by status</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                  }
-                />
+                )}
                 {filteredInvoices.length === 0 ? (
-                  <div className="text-center py-12">
+                  <div className="text-center py-10 sm:py-12">
                     <div className="w-12 h-12 mx-auto mb-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
                       <FileText className="w-6 h-6 text-slate-400 dark:text-slate-500" />
                     </div>
-                    <p className="text-slate-900 dark:text-white font-semibold mb-1.5">No invoices found</p>
+                    <p className="text-slate-900 dark:text-white font-semibold mb-1.5">
+                      {invoices.length > 0 ? "No invoices match" : "No invoices yet"}
+                    </p>
                     <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                       {searchQuery || statusFilter !== "all"
-                        ? "Try adjusting your filters."
-                        : "Invoices will appear here once the team issues them."}
+                        ? "Try a different search or status."
+                        : `Invoices from ${company?.company_name || "your caterer"} appear here as soon as they are sent to you.`}
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="mt-4 space-y-3">
                     {filteredInvoices.map((invoice) => {
                       const isDeepLinked = deepLinkedInvoiceId === invoice.id;
                       return (
@@ -654,8 +660,8 @@ function ClientBillingPageInner() {
                       >
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-semibold text-lg text-slate-900 dark:text-white">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <h3 className="break-all font-semibold text-base sm:text-lg text-slate-900 dark:text-white">
                                 {invoice.invoice_number}
                               </h3>
                               {getStatusBadge(invoice.status)}
@@ -692,9 +698,11 @@ function ClientBillingPageInner() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <div className="text-right">
-                              <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
+                          {/* Phones: amount on the left, buttons full width
+                              underneath. Desktop: right-aligned column. */}
+                          <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 md:items-end md:gap-2 md:border-0 md:pt-0 dark:border-slate-800">
+                            <div className="md:text-right">
+                              <p className="text-xl font-semibold tabular-nums text-slate-900 sm:text-2xl dark:text-white">
                                 {invoice.currency}{invoice.amount.toLocaleString()}
                               </p>
                               {invoice.paid_at && (
@@ -703,14 +711,28 @@ function ClientBillingPageInner() {
                                 </p>
                               )}
                             </div>
-                            <div className="flex flex-wrap gap-2 justify-end">
+                            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap md:justify-end">
+                              {invoice.eft_claim?.status === "pending" ? (
+                                <span className="self-center text-xs font-semibold text-amber-700 sm:order-last dark:text-amber-300">EFT under review</span>
+                              ) : (invoice.status === "pending" || invoice.status === "partial" || invoice.status === "overdue") && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handlePayInvoice(invoice)}
+                                  disabled={returnBlocksPayment(invoice.id)}
+                                  title={returnBlocksPayment(invoice.id) ? "A payment for this invoice is still being confirmed. Refresh the page in a moment." : undefined}
+                                  className="bg-brand-primary hover:opacity-90 text-white sm:order-last"
+                                >
+                                  <CreditCard className="w-4 h-4 mr-2" />
+                                  {invoice.status === "partial" ? "Pay the balance" : "Pay invoice"}
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleViewInvoice(invoice)}
                               >
                                 <FileText className="w-4 h-4 mr-2" />
-                                View
+                                View invoice
                               </Button>
                               {invoice.has_completed_payment && (
                                 <Button
@@ -719,20 +741,7 @@ function ClientBillingPageInner() {
                                   onClick={() => setReceiptInvoiceId(invoice.id)}
                                 >
                                   <Download className="w-4 h-4 mr-2" />
-                                  Receipt
-                                </Button>
-                              )}
-                              {invoice.eft_claim?.status === "pending" ? (
-                                <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">EFT under review</span>
-                              ) : (invoice.status === "pending" || invoice.status === "partial" || invoice.status === "overdue") && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handlePayInvoice(invoice)}
-                                  disabled={returnBlocksPayment(invoice.id)}
-                                  className="bg-brand-primary hover:opacity-90 text-white"
-                                >
-                                  <CreditCard className="w-4 h-4 mr-2" />
-                                  Pay Now
+                                  Download receipt
                                 </Button>
                               )}
                             </div>

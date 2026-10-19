@@ -1,0 +1,12 @@
+{
+ "quote": {
+  "id": "b303ca8c-7f25-410b-b486-c3251f3b449c",
+  "quote_number": "QUO-TEST-C-53722",
+  "public_token": "033781ad-259c-4a9f-9d99-f17b567816f7",
+  "total_amount": 5595,
+  "event_date": "2026-11-05"
+ },
+ "client_id": "a355180b-1beb-47ec-b044-7ea617e698fe",
+ "acceptedAt": "2026-10-15T12:40:54.528Z",
+ "order_id": "39591113-2218-4941-a9d0-bd6e020daed2"
+}

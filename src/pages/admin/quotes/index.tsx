@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Banknote, Plus, Calendar, Mail, MapPin, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw, MoreHorizontal } from "lucide-react";
+import { Banknote, Plus, Calendar, Mail, MapPin, Users, FileText, Edit, Send, Copy, ExternalLink, Search, Flame, Sparkles, Crown, Snowflake, AlertTriangle, Clock, Inbox, ArrowRight, Trash2, CalendarDays, Gift, CheckCircle, List, LayoutGrid, Download, X, RefreshCw, MoreHorizontal, Upload } from "lucide-react";
 import { useFuzzyItems } from "@/hooks/useFuzzySearch";
 import { Quote } from "@/types";
 import { Footer } from "@/components/Footer";
@@ -62,6 +62,7 @@ import {
 } from "@/services/quoteFollowupService";
 import Head from "next/head";
 import { useAuth } from "@/contexts/AuthContext";
+import { ImportRecordsModal } from "@/components/admin/ImportRecordsModal";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { RegionBadge } from "@/components/admin/RegionBadge";
 import { ChatBot } from "@/components/ChatBot";
@@ -400,8 +401,14 @@ function PipelineBoard({
   );
 }
 
+// Roles the /api/imports/* routes accept. Sales and region admins can
+// open this page but not run imports, so they don't get the button.
+const QUOTE_IMPORT_ROLES = new Set(["super_admin", "company_admin", "admin", "owner"]);
+
 function AdminQuotesInner() {
   const { user, profile } = useAuth() as any;
+  const [importOpen, setImportOpen] = useState(false);
+  const canImportQuotes = QUOTE_IMPORT_ROLES.has(String(profile?.active_role || profile?.role || ""));
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
   // Phase 9 #1: tenant currency. Replaces the hardcoded R prefix
@@ -1817,6 +1824,12 @@ function AdminQuotesInner() {
                   <Download className="w-4 h-4 mr-2" />
                   Export CSV
                 </Button>
+                {canImportQuotes && (
+                  <Button variant="outline" onClick={() => setImportOpen(true)}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import quotes
+                  </Button>
+                )}
                 <Link href={withSlug("/admin/quotes/new")}>
                   <Button size="lg" className="bg-brand-primary hover:bg-brand-primary/90">
                     <Plus className="w-5 h-5 mr-2" />
@@ -1826,6 +1839,20 @@ function AdminQuotesInner() {
               </>
             }
           />
+
+          {/* Bulk quote import from a CSV / Excel file. Same
+              /api/imports/* engine as Contacts; reloads the list once
+              the import commits. */}
+          {canImportQuotes && (
+            <ImportRecordsModal
+              open={importOpen}
+              onOpenChange={setImportOpen}
+              template="quotes"
+              recordLabel="quote"
+              recordLabelPlural="quotes"
+              onComplete={() => setRefreshTick((n) => n + 1)}
+            />
+          )}
 
           <PageWorkbench />
 

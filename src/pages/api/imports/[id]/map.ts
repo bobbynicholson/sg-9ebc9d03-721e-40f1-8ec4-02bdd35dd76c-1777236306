@@ -26,6 +26,7 @@ import {
   TEMPLATE_TYPES, type TemplateType,
 } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { importLog, errText } from "@/lib/importLog";
 
 // Large imports (thousands of rows) need more than the default timeout.
 export const maxDuration = 300;
@@ -63,21 +64,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.error("[imports/[id]/map] profiles fetch failed:", profileErr);
     }
     const role = (profile?.active_role || profile?.role || "") as string;
+    const jobId = String(req.query.id || "");
     if (!ALLOWED_CALLER_ROLES.has(role)) {
+      importLog.warn(jobId || null, "map.auth", "Rejected: role cannot run imports", { userId: user.id, role });
       return res.status(403).json({ error: "Only owners / admins can run imports" });
     }
     const companyId = profile?.company_id as string | null;
-    if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });
+    if (!companyId) {
+      importLog.warn(jobId || null, "map.auth", "Rejected: account has no company", { userId: user.id, role });
+      return res.status(403).json({ error: "Account is not linked to a company" });
+    }
 
-    const jobId = String(req.query.id || "");
     if (!jobId) return res.status(400).json({ error: "Missing job id" });
     const refresh = req.query.refresh === "1";
     const forcedRaw = String(req.query.template || "").toLowerCase();
     const forced = (TEMPLATE_TYPES as readonly string[]).includes(forcedRaw) ? (forcedRaw as TemplateType) : null;
+    importLog.info(jobId, "map.start", "Column matching started", { userId: user.id, companyId, template: forced, refresh });
 
     const job = await getImportJob(jobId, companyId);
-    if (!job) return res.status(404).json({ error: "Import job not found" });
+    if (!job) {
+      importLog.warn(jobId, "map.start", "Rejected: import job not found for this company", { companyId });
+      return res.status(404).json({ error: "Import job not found" });
+    }
     if (!refresh && job.mapping && job.status !== "uploaded") {
+      importLog.info(jobId, "map.start", "Returning the saved column matches", { status: job.status });
       return res.status(200).json({ ok: true, mapping: job.mapping, cached: true });
     }
 
@@ -85,6 +95,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // to the model.
     const rows = await listImportRows(jobId, { limit: 11000 });
     if (rows.length === 0) {
+      importLog.warn(jobId, "map.rows", "Rejected: import has no rows");
       return res.status(400).json({ error: "Import has no rows to map" });
     }
 
@@ -111,6 +122,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     let totalIn = 0, totalOut = 0;
     let aiCalls = 0;
 
+    importLog.info(jobId, "map.rows", "Rows loaded", {
+      rows: rows.length,
+      sheets: [...bySheet.entries()].map(([name, b]) => ({ name, columns: b.headers.length })),
+    });
+
     for (const [sheet, { headers, candidates }] of bySheet.entries()) {
       const schema: TemplateType = forced || inferSchema(sheet, headers);
       const sampleRows = [...candidates].sort((a, b) => filled(b) - filled(a)).slice(0, 5);
@@ -123,6 +139,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // Columns we can match deterministically (our own template
       // headers, Wave/Xero/QuickBooks exports) don't depend on the model.
       const known = buildMappingFromTemplate(getTemplateDefinition(schema), sheet, headers)[sheet] || {};
+      const knownCount = Object.values(known).filter((k: any) => k && k.target !== "skip").length;
+      importLog.info(jobId, "map.sheet", "Matching sheet", {
+        sheet, schema, schemaFrom: forced ? "import screen" : "sheet name + headings",
+        columns: headers.length, matchedByName: knownCount, headers,
+      });
+      const aiStarted = Date.now();
       try {
         // Offer the AI exactly the fields preview + commit consume.
         const targetFields = aiTargetFieldsFor(schema);
@@ -156,6 +178,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
         // One column per field (company vs person name settled first).
         settleFieldClashes(sheetMap, headers, schema);
+        const decisions = Object.entries(sheetMap);
+        importLog.info(jobId, "map.ai", "AI column matching finished", {
+          sheet,
+          ms: Date.now() - aiStarted,
+          tokensIn: result.tokens_in,
+          tokensOut: result.tokens_out,
+          matched: decisions.filter(([, d]) => d.target !== "skip").length,
+          skipped: decisions.filter(([, d]) => d.target === "skip").length,
+          lowConfidence: decisions.filter(([, d]) => d.target !== "skip" && d.confidence < 0.6).map(([h]) => h),
+        });
+        for (const [header, d] of decisions) {
+          importLog.info(jobId, "map.column", `"${header}" -> ${d.target}`, {
+            sheet, confidence: Number(d.confidence.toFixed(2)), why: d.rationale.slice(0, 160),
+          });
+        }
         // Stash the schema so the preview/commit step doesn't have to
         // re-derive it.
         sheetMap.__schema__ = {
@@ -167,6 +204,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       } catch (e: any) {
         // AI down or rate-limited: keep the name matches and let the
         // operator finish by hand on the review screen.
+        importLog.error(jobId, "map.ai", "AI column matching failed; only name matches kept", {
+          sheet, ms: Date.now() - aiStarted, matchedByName: knownCount, error: errText(e),
+        });
         await logEvent(jobId, "ai_map_failed", { sheet, error: e?.message });
         aiFailures.push(`${sheet}: ${e?.message || "unknown error"}`);
         const sheetMap: Record<string, { target: string; confidence: number; rationale: string }> = {};
@@ -195,6 +235,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       },
     });
 
+    importLog.info(jobId, "map.done", "Column matches saved; waiting for the operator to review them", {
+      sheets: Object.keys(mapping).length, aiCalls, tokensIn: totalIn, tokensOut: totalOut, aiFailures: aiFailures.length,
+    });
+
     return res.status(200).json({
       ok: true,
       mapping,
@@ -211,6 +255,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (outer: any) {
     console.error("imports/[id]/map handler crashed:", outer);
+    importLog.error(String(req.query.id || "") || null, "map.crash", "Column matching handler crashed", { error: errText(outer) });
     return res.status(500).json({ error: dbErrorMessage(outer) || "Mapping failed" });
   }
 }

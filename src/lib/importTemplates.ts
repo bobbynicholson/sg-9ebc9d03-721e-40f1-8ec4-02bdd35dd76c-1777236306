@@ -39,6 +39,12 @@ export interface TemplateDefinition {
   /** Sheet name in the generated workbook + label shown in the UI. */
   sheetName: string;
   columns: TemplateColumn[];
+  /**
+   * Filled-in example rows for the "Example file" download, keyed by
+   * column key. Each one shows a different case (all fields, required
+   * only, no email...). A file of these rows must import cleanly.
+   */
+  sampleRows?: Array<Record<string, string>>;
 }
 
 /**
@@ -238,9 +244,9 @@ const QUOTES_TEMPLATE: TemplateDefinition = {
   targetTable: "quotes",
   sheetName: "Quotes",
   columns: [
-    { key: "quote_number", header: "Quote number *", required: true,
+    { key: "quote_number", header: "Quote number", required: false,
       example: "Q-2026-001",
-      hint: "Use whatever numbering scheme you already had. We preserve it verbatim.",
+      hint: "Your old system's quote number, kept exactly as written. Leave it blank and the quote gets your next quote number (set under Settings > Company > Document numbering), the same as a quote made in the app.",
       aliases: ["quote ref", "ref", "quote no", "number"] },
     { key: "client_name", header: "Client name *", required: true,
       example: "Jane Smith",
@@ -257,7 +263,7 @@ const QUOTES_TEMPLATE: TemplateDefinition = {
       hint: "Defaults to 'Imported quote' if blank.",
       aliases: ["title", "description"] },
     { key: "event_date", header: "Event date", required: false,
-      example: "2026-04-15",
+      example: "2027-02-13",
       aliases: ["date", "function date"] },
     { key: "guest_count", header: "Guest count", required: false,
       example: "80", aliases: ["pax", "guests"] },
@@ -265,29 +271,74 @@ const QUOTES_TEMPLATE: TemplateDefinition = {
       example: "12 Long Street, Cape Town",
       aliases: ["venue"] },
     { key: "total_amount", header: "Total (R) *", required: true,
-      example: "12500",
+      example: "12000",
       hint: "Inclusive of VAT.",
       aliases: ["total", "amount"] },
     { key: "subtotal", header: "Subtotal (R)", required: false,
-      example: "10870",
+      example: "10000",
       hint: "Pre-VAT. Defaults to total if blank.",
       aliases: ["sub total"] },
     { key: "tax_amount", header: "VAT (R)", required: false,
-      example: "1630",
+      example: "1500",
       aliases: ["vat", "tax"] },
     { key: "delivery_fee", header: "Delivery fee (R)", required: false,
       example: "500",
       aliases: ["delivery"] },
     { key: "valid_until", header: "Valid until", required: false,
-      example: "2026-03-31",
+      example: "2027-01-31",
       aliases: ["expires", "expiry"] },
     { key: "status", header: "Status", required: false,
       example: "sent",
-      hint: "draft, sent, accepted, declined, expired. Defaults to 'sent'.",
+      hint: "draft, sent, accepted, rejected or expired (\"declined\", \"won\" and similar words are understood). Defaults to 'sent'.",
       aliases: ["quote status"] },
     { key: "notes", header: "Notes", required: false,
       example: "Client requested follow-up after Easter",
       aliases: ["comments"] },
+  ],
+  // Example people and addresses only. Totals add up
+  // (subtotal + VAT + delivery = total).
+  sampleRows: [
+    {
+      // Every column filled in.
+      quote_number: "Q-2027-001", client_name: "Jane Smith", client_email: "jane.smith@example.co.za",
+      client_phone: "082 555 1234", quote_name: "Wedding catering for 80", event_date: "2027-02-13",
+      guest_count: "80", venue_address: "12 Long Street, Cape Town", total_amount: "12000",
+      subtotal: "10000", tax_amount: "1500", delivery_fee: "500", valid_until: "2027-01-31",
+      status: "sent", notes: "Client asked for a vegetarian option",
+    },
+    {
+      // Already accepted in the old system.
+      quote_number: "Q-2027-002", client_name: "Sipho Dlamini", client_email: "sipho.dlamini@example.co.za",
+      client_phone: "083 555 2222", quote_name: "Year-end function", event_date: "2027-03-05",
+      guest_count: "150", venue_address: "45 Main Road, Sandton", total_amount: "34500",
+      subtotal: "30000", tax_amount: "4500", delivery_fee: "0", valid_until: "2027-02-15",
+      status: "accepted", notes: "Deposit paid in the old system",
+    },
+    {
+      // "declined" is understood and saved as rejected.
+      quote_number: "Q-2027-003", client_name: "Acme Holdings", client_email: "accounts@example.co.za",
+      client_phone: "", quote_name: "Staff lunch", event_date: "2027-01-20",
+      guest_count: "40", venue_address: "", total_amount: "4600",
+      subtotal: "4000", tax_amount: "600", delivery_fee: "0", valid_until: "2027-01-10",
+      status: "declined", notes: "Went with another caterer",
+    },
+    {
+      // No email: the client name alone is enough.
+      quote_number: "Q-2027-004", client_name: "Lerato Mokoena", client_email: "",
+      client_phone: "071 555 3333", quote_name: "Birthday braai", event_date: "2027-04-10",
+      guest_count: "30", venue_address: "8 Oak Avenue, Durban", total_amount: "5750",
+      subtotal: "5000", tax_amount: "750", delivery_fee: "0", valid_until: "2027-03-31",
+      status: "draft", notes: "Still finalising the menu",
+    },
+    {
+      // Only the required columns; no quote number, so it gets the
+      // company's next one.
+      quote_number: "", client_name: "Thabo Nkosi", client_email: "",
+      client_phone: "", quote_name: "", event_date: "",
+      guest_count: "", venue_address: "", total_amount: "9200",
+      subtotal: "", tax_amount: "", delivery_fee: "", valid_until: "",
+      status: "", notes: "",
+    },
   ],
 };
 
@@ -420,6 +471,29 @@ export function getTemplateDefinition(type: TemplateType): TemplateDefinition {
 export const TEMPLATE_TYPES: ReadonlyArray<TemplateType> = Object.freeze(
   Object.keys(TEMPLATES) as TemplateType[],
 );
+
+function csvCell(value: string): string {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * CSV text for a template download: the header row, then either the
+ * single example row ("template") or every sample row ("example").
+ * Returns null for "example" when the template has no sample rows.
+ * No byte-order mark; the route adds one so Excel reads it as UTF-8.
+ */
+export function templateCsv(def: TemplateDefinition, kind: "template" | "example"): string | null {
+  const rows = kind === "example"
+    ? (def.sampleRows?.length ? def.sampleRows.map((r) => def.columns.map((c) => r[c.key] ?? "")) : null)
+    : [def.columns.map((c) => c.example)];
+  if (!rows) return null;
+  return [
+    def.columns.map((c) => c.header).map(csvCell).join(","),
+    ...rows.map((r) => r.map(csvCell).join(",")),
+    "",
+  ].join("\r\n");
+}
 
 /**
  * Try to recognise a sheet's headers as a known template. Returns the

@@ -28,6 +28,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { createImportJob, setJobStatus } from "@/services/importService";
 import { recogniseHeaders, buildMappingFromTemplate } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { importLog, errText } from "@/lib/importLog";
 import { parseWorkbook, type ParsedSheet } from "@/lib/importParse";
 
 
@@ -246,11 +247,14 @@ async function uploadToStorage(args: {
       });
     if (error) {
       console.warn("imports/upload storage upload failed", error.message);
+      importLog.warn(null, "upload.storage", "Copy of the file not stored; import continues without it", { error: errText(error) });
       return null;
     }
+    importLog.info(null, "upload.storage", "Copy of the file stored", { path });
     return path;
   } catch (e: any) {
     console.warn("imports/upload storage upload threw", e?.message);
+    importLog.warn(null, "upload.storage", "Storing the file threw; import continues without it", { error: errText(e) });
     return null;
   }
 }
@@ -264,7 +268,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // ── Auth ────────────────────────────────────────────────────────
     const ssr = createPagesServerClient({ req, res });
     const { data: { user } } = await ssr.auth.getUser();
-    if (!user) return res.status(401).json({ error: "Not signed in" });
+    if (!user) {
+      importLog.warn(null, "upload.auth", "Rejected: not signed in");
+      return res.status(401).json({ error: "Not signed in" });
+    }
 
     const { data: profile, error: profileErr } = await ssr
       .from("profiles")
@@ -274,15 +281,24 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (profileErr) {
       console.error("[imports/upload] profiles fetch failed:", profileErr);
     }
-    if (!profile) return res.status(403).json({ error: "Profile not found" });
+    if (!profile) {
+      importLog.warn(null, "upload.auth", "Rejected: profile not found", { userId: user.id });
+      return res.status(403).json({ error: "Profile not found" });
+    }
     const role = (profile.active_role || profile.role || "") as string;
     if (!ALLOWED_CALLER_ROLES.has(role)) {
+      importLog.warn(null, "upload.auth", "Rejected: role cannot run imports", { userId: user.id, role });
       return res.status(403).json({ error: "Only owners / admins can run imports" });
     }
     const companyId = profile.company_id as string | null;
     if (!companyId) {
+      importLog.warn(null, "upload.auth", "Rejected: account has no company", { userId: user.id, role });
       return res.status(403).json({ error: "Account is not linked to a company" });
     }
+    const requestedTemplate = String(req.query.template || "").toLowerCase() || null;
+    importLog.info(null, "upload.start", "Upload received", {
+      userId: user.id, role, companyId, template: requestedTemplate, automap: req.query.automap !== "0",
+    });
 
     // ── Parse multipart ────────────────────────────────────────────
     // Cast to any: formidable's v3 generic Files<string> typing
@@ -296,15 +312,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const files: any = Array.isArray(parsed) ? parsed[1] : parsed?.files;
     const fileEntry: any = files?.file?.[0] ?? files?.file;
     if (!fileEntry) {
+      importLog.warn(null, "upload.file", "Rejected: no file in the request", { companyId });
       return res.status(400).json({ error: "No file provided, expected field 'file'" });
     }
     const mime = (fileEntry.mimetype || "").toLowerCase();
+    importLog.info(null, "upload.file", "File received", {
+      companyId, filename: fileEntry.originalFilename || null, mime: mime || null, bytes: fileEntry.size,
+    });
     if (mime && !ALLOWED_MIMES.has(mime)) {
+      importLog.warn(null, "upload.file", "Rejected: unsupported file type", { companyId, mime });
       return res.status(415).json({
         error: `Unsupported file type ${mime}. Send a .csv, .xls or .xlsx file.`,
       });
     }
     if (fileEntry.size > MAX_BYTES) {
+      importLog.warn(null, "upload.file", "Rejected: file over the size cap", { companyId, bytes: fileEntry.size, capBytes: MAX_BYTES });
       return res.status(413).json({
         error: `File too large, ${(fileEntry.size / 1024 / 1024).toFixed(1)} MB. Cap is 5 MB.`,
       });
@@ -316,16 +338,28 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     try {
       sheets = parseWorkbook(buffer, fileEntry.originalFilename || "upload");
     } catch (e: any) {
+      importLog.warn(null, "upload.parse", "Rejected: file could not be read as a spreadsheet", { companyId, error: errText(e) });
       return res.status(400).json({
         error: `Could not parse file, ${e?.message || "unknown error"}. Make sure the first row contains column headers.`,
       });
     }
     const totalRows = sheets.reduce((s, sh) => s + sh.rows.length, 0);
+    importLog.info(null, "upload.parse", "Spreadsheet read", {
+      companyId,
+      totalRows,
+      sheets: sheets.map((sh) => ({
+        name: sh.name,
+        rows: sh.rows.length,
+        columns: sh.rows[0] ? Object.keys(sh.rows[0].data).length : 0,
+      })),
+    });
     if (totalRows === 0) {
+      importLog.warn(null, "upload.parse", "Rejected: no data rows", { companyId });
       return res.status(400).json({ error: "No data rows found in the file." });
     }
     const rowCap = await getImportRowCap();
     if (totalRows > rowCap) {
+      importLog.warn(null, "upload.parse", "Rejected: more rows than the import cap", { companyId, totalRows, rowCap });
       return res.status(413).json({
         error: `Too many rows, ${totalRows.toLocaleString("en-ZA")}. Current cap is ${rowCap.toLocaleString("en-ZA")} per import. Split the file and run multiple imports, or ask the platform team to lift the cap in SaaS settings.`,
       });
@@ -362,6 +396,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         rowCount: totalRows,
         rows: flatRows,
       });
+      importLog.info(jobId, "upload.save", "Import job created and rows saved", { companyId, filename, totalRows, storedCopy: !!filePath });
     } catch (e: any) {
       // Best-effort cleanup of the storage object we just uploaded
       // so a failed insert doesn't leak files.
@@ -370,6 +405,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           await getServiceSupabase().storage.from("imports").remove([filePath]);
         } catch { /* swallow */ }
       }
+      importLog.error(null, "upload.save", "Could not save the import job and its rows", { companyId, totalRows, error: errText(e) });
       return res.status(500).json({ error: dbErrorMessage(e) || "Could not save the import" });
     }
 
@@ -409,13 +445,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             .update({ mapping: fullMapping, status: "mapped" })
             .eq("id", jobId);
           await setJobStatus(jobId, "mapped", { mapping: fullMapping });
+          importLog.info(jobId, "upload.automap", "Every heading matched a template; column matching step skipped", { target: autoMappedTo });
         } else {
           autoMappedTo = null;
+          importLog.info(jobId, "upload.automap", "Headings need the column matching step");
         }
       } catch (e) {
         console.warn("auto-mapping shortcut failed, falling back to AI map step:", e);
+        importLog.warn(jobId, "upload.automap", "Template matching failed; falling back to the column matching step", { error: errText(e) });
         autoMappedTo = null;
       }
+    } else {
+      importLog.info(jobId, "upload.automap", "Skipped by the caller (automap=0); every column goes to the matching step");
     }
 
     // ── Feature E: early validation summary ───────────────────────
@@ -428,6 +469,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const validationTarget = autoMappedTo
       || (overrideTemplate === "clients" || overrideTemplate === "leads" ? overrideTemplate : null);
     const earlyValidation = quickValidateAllSheets(sheets, validationTarget as any);
+    importLog.info(jobId, "upload.done", "Upload finished", {
+      validatedAs: validationTarget,
+      ok: earlyValidation.ok,
+      warnings: earlyValidation.warnings,
+      errors: earlyValidation.errors,
+      topIssues: earlyValidation.topIssues,
+    });
 
     return res.status(200).json({
       ok: true,
@@ -443,6 +491,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (outer: any) {
     console.error("imports/upload handler crashed:", outer);
+    importLog.error(null, "upload.crash", "Upload handler crashed", { error: errText(outer) });
     return res.status(500).json({ error: dbErrorMessage(outer) || "Upload failed" });
   }
 }

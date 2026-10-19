@@ -1,0 +1,819 @@
+[
+  {
+    "backend": [
+      {
+        "method": "POST",
+        "path": "/rest/v1/rpc/get_company_branding",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/profiles",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/rpc/get_company_branding",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/profiles",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/email_templates",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/user_departments",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/email_templates",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/whatsapp_templates",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/user_departments",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/rpc/get_company_branding",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/whatsapp_templates",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/regions",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/rpc/get_company_branding",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/company_shopping_settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/inventory_demand_outlook",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/company_shopping_settings",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/inventory_demand_outlook",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/shopping_lists",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/inventory_demand_outlook",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/inventory_demand_outlook",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/inventory_demand_outlook",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/inventory_demand_outlook",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/inventory_demand_outlook",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/inventory_demand_outlook",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      }
+    ],
+    "controls": [
+      {
+        "id": "rrc",
+        "disabled": false,
+        "value": "on",
+        "checked": "true"
+      },
+      {
+        "id": "lt",
+        "disabled": false,
+        "value": "2",
+        "checked": null
+      },
+      {
+        "id": "acu",
+        "disabled": true,
+        "value": "on",
+        "checked": "false"
+      },
+      {
+        "id": "uh",
+        "disabled": true,
+        "value": "7",
+        "checked": null
+      },
+      {
+        "id": "va",
+        "disabled": false,
+        "value": "15",
+        "checked": null
+      },
+      {
+        "id": "nav",
+        "disabled": false,
+        "value": "on",
+        "checked": "true"
+      },
+      {
+        "id": "prs",
+        "disabled": true,
+        "value": "on",
+        "checked": "true"
+      },
+      {
+        "id": "anls",
+        "disabled": true,
+        "value": "on",
+        "checked": "true"
+      }
+    ],
+    "role": "company_admin",
+    "route": "/team-portal/shopping/settings",
+    "status": 200,
+    "ok": true,
+    "bouncedToLogin": false,
+    "wrongPortal": false,
+    "finalUrl": "/spit-braai-delivery/team-portal/shopping/settings",
+    "bodyProbe": "",
+    "crashed": false,
+    "pageErrors": [],
+    "failedApi": [],
+    "consoleErrors": []
+  },
+  {
+    "backend": [
+      {
+        "method": "POST",
+        "path": "/rest/v1/rpc/get_company_branding",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/rpc/get_company_branding",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/profiles",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/profiles",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/user_departments",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/email_templates",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/whatsapp_templates",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/rpc/get_company_branding",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/email_templates",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/regions",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/user_departments",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_duty_logs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/equipment_damages",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/equipment_damages",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/orders",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_duty_logs",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/whatsapp_templates",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/rest/v1/rpc/get_company_branding",
+        "status": 200
+      },
+      {
+        "method": "HEAD",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/cleaning_event_handovers",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/companies",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/rest/v1/notifications",
+        "status": 200
+      }
+    ],
+    "controls": [
+      {
+        "id": "prv",
+        "disabled": false,
+        "value": "on",
+        "checked": "false"
+      },
+      {
+        "id": "prd",
+        "disabled": false,
+        "value": "on",
+        "checked": "true"
+      },
+      {
+        "id": "abm",
+        "disabled": false,
+        "value": "on",
+        "checked": "true"
+      },
+      {
+        "id": "cost-mult",
+        "disabled": false,
+        "value": "1",
+        "checked": null
+      },
+      {
+        "id": "dmg-thr",
+        "disabled": false,
+        "value": "500",
+        "checked": null
+      },
+      {
+        "id": "adn",
+        "disabled": false,
+        "value": "on",
+        "checked": "true"
+      },
+      {
+        "id": "ddt",
+        "disabled": false,
+        "value": "09:00",
+        "checked": null
+      },
+      {
+        "id": "nso",
+        "disabled": false,
+        "value": "on",
+        "checked": "true"
+      }
+    ],
+    "role": "company_admin",
+    "route": "/team-portal/cleaning/settings",
+    "status": 200,
+    "ok": true,
+    "bouncedToLogin": false,
+    "wrongPortal": false,
+    "finalUrl": "/spit-braai-delivery/team-portal/cleaning/settings",
+    "bodyProbe": "",
+    "crashed": false,
+    "pageErrors": [],
+    "failedApi": [],
+    "consoleErrors": []
+  }
+]

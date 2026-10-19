@@ -1,0 +1,21 @@
+// Round C: admin edits the order's quote (guest count) and presses Save.
+import { chromium } from "@playwright/test";
+import fs from "fs";
+const label = process.argv[2];
+const cookies = JSON.parse(fs.readFileSync("tmp/email-e2e/.cookies.json", "utf8"));
+const st = JSON.parse(fs.readFileSync(`tmp/email-e2e/${label}.json`, "utf8"));
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+await ctx.addCookies(cookies);
+const page = await ctx.newPage();
+const errs = []; page.on("pageerror", (e) => errs.push(e.message.slice(0, 150)));
+const calls = []; page.on("response", (r) => { if (r.url().includes("resync-order")) r.json().then((j) => calls.push(j)).catch(() => {}); });
+await page.goto(`http://localhost:3001/raj267748-payfast-test/admin/quotes/new?fromQuoteId=${st.quote.id}`, { waitUntil: "domcontentloaded", timeout: 180000 });
+await page.waitForTimeout(22000);
+const guests = page.getByText("Guest count", { exact: true }).first().locator("xpath=following::input[1]");
+await guests.fill("40");
+await page.waitForTimeout(800);
+await page.getByRole("button", { name: "Save", exact: true }).first().click({ force: true });
+await page.waitForTimeout(20000);
+console.log("resync-order replies:", JSON.stringify(calls.map((c) => ({ ok: c.ok, clientEmailSent: c.clientEmailSent, clientEmailSkipped: c.clientEmailSkipped }))), "errors:", errs.length, errs.join(" | "));
+await browser.close();

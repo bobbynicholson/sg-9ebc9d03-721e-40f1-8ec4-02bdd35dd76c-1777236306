@@ -25,10 +25,12 @@ import { useRouter } from "next/router";
 import { SlimInternalFooter, classifyFooterRoute } from "@/components/Footer";
 import { useBrandingRow } from "@/lib/branding/useBranding";
 import { isWhiteLabelRow } from "@/lib/branding/applyBranding";
+import { useResolvedTenantSlug } from "@/lib/tenantUrl";
 
 export function GlobalInternalFooter() {
   const router = useRouter();
   const branding = useBrandingRow();
+  const slug = useResolvedTenantSlug();
   const variant = classifyFooterRoute(router?.pathname || "/");
 
   if (variant !== "internal") return null;
@@ -36,13 +38,13 @@ export function GlobalInternalFooter() {
   const displayName = branding?.companyName || "CateringMS";
   const isWhiteLabeled = isWhiteLabelRow(branding);
 
-  // Desktop footer is fixed, so the spacer gives long pages room to scroll the
-  // final line above it. Mobile footer is normal flow and does not need a
-  // spacer.
-  return (
-    <>
-      <div aria-hidden className="hidden h-10 lg:block" />
-      <SlimInternalFooter displayName={displayName} isWhiteLabeled={isWhiteLabeled} />
-    </>
-  );
+  // Client pages link to the caterer's own terms, the same /terms/{slug} page
+  // their quotes, invoices and emails use. Staff pages keep the platform terms.
+  const stripped = (router?.pathname || "/").replace(/^\/\[company_slug\]/, "");
+  const isClientRoute = /^\/(?:client-portal|client|c)(?:\/|$)/.test(stripped);
+  const termsHref = isClientRoute && slug ? `/terms/${encodeURIComponent(slug)}` : "/terms";
+
+  // The footer sits in normal page flow on every screen size, so it needs no
+  // spacer above it (an old one left an empty grey band on desktop).
+  return <SlimInternalFooter displayName={displayName} isWhiteLabeled={isWhiteLabeled} termsHref={termsHref} />;
 }

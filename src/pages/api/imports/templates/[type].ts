@@ -2,7 +2,8 @@
 /**
  * GET /api/imports/templates/[type]
  *
- * Generates an .xlsx, .csv, or .txt guide download from the schema definition in
+ * Generates an .xlsx, .csv, example .csv (?format=example, filled-in
+ * sample rows) or .txt guide download from the schema definition in
  * src/lib/importTemplates.ts. Operators click "Download template"
  * on the Contacts / Leads pages or in the onboarding wizard, fill
  * in their data, and upload it back through /api/imports/upload.
@@ -22,6 +23,7 @@ import { createPagesServerClient } from "@/lib/supabase/server";
 import {
   TEMPLATE_TYPES,
   getTemplateDefinition,
+  templateCsv,
   type TemplateType,
 } from "@/lib/importTemplates";
 import { withApiLogging } from "@/lib/withApiLogging";
@@ -60,22 +62,18 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const def = getTemplateDefinition(type);
     const format = String(req.query.format || "xlsx").toLowerCase();
 
-    if (format === "csv" || format === "txt") {
-      const csvEscape = (value: string) => {
-        const text = String(value ?? "");
-        return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-      };
-
-      if (format === "csv") {
-        const csv = [
-          def.columns.map((c) => c.header).map(csvEscape).join(","),
-          def.columns.map((c) => c.example).map(csvEscape).join(","),
-          "",
-        ].join("\r\n");
+    if (format === "csv" || format === "example" || format === "txt") {
+      // csv: header + one example row. example: header + several
+      // filled-in rows showing the different cases (quotes only today).
+      if (format === "csv" || format === "example") {
+        const csv = templateCsv(def, format === "example" ? "example" : "template");
+        if (csv == null) {
+          return res.status(404).json({ error: `No example file for ${def.sheetName.toLowerCase()} yet. Download the CSV template instead.` });
+        }
         res.setHeader("Content-Type", "text/csv; charset=utf-8");
         res.setHeader(
           "Content-Disposition",
-          `attachment; filename="cateringms-${def.type}-import-template.csv"`,
+          `attachment; filename="cateringms-${def.type}-import-${format === "example" ? "example" : "template"}.csv"`,
         );
         res.setHeader("Cache-Control", "private, max-age=300");
         return res.status(200).send(`\uFEFF${csv}`);
