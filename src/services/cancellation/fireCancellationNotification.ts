@@ -134,4 +134,42 @@ export async function fireRichCancellationNotification(
   } catch (e) {
     console.warn("[fireRichCancellationNotification] failed:", e);
   }
+
+  await fireStaffStandDown(input);
+}
+
+/**
+ * Tell the working teams to stand down. Office cancels and auto-cancels
+ * only alerted admins, so kitchen, shopping, drivers, waiters and cleaning
+ * kept prepping, buying, driving and planning for a cancelled event. The
+ * client-request path (api/orders/cancellation-review) already sends this
+ * same "cancellation_approved" alert; same type + order means the 60-min
+ * dedup collapses a double fire. No money details: staff don't need them.
+ */
+async function fireStaffStandDown(input: CancellationNotificationInput): Promise<void> {
+  try {
+    const { notificationService } = await import("@/services/notificationService");
+    const orderRef = input.orderNumber || `#${input.orderId.slice(0, 8)}`;
+    await (notificationService as any).broadcastNotification(
+      {
+        companyId: input.companyId,
+        type: "cancellation_approved",
+        title: "Order cancelled - stand down",
+        message: `Order ${orderRef} for ${fmtEvent(input.eventDate)} has been cancelled. Any prep, shopping, delivery, service or cleaning for it is off.`,
+        priority: "high",
+        // No ?role: the order page opens the viewer's own section.
+        link: `/order/${input.orderId}`,
+        relatedEntityType: "order",
+        relatedEntityId: input.orderId,
+        targetRoles: ["kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "waiter", "cleaning_manager", "cleaning_staff"],
+        // A cancellation is a manager's cue too, even when managing-only.
+        managerDispatch: true,
+        dedup: true,
+        dedupWindowMinutes: 60,
+      },
+      input.supabase,
+    );
+  } catch (e) {
+    console.warn("[fireRichCancellationNotification] staff stand-down failed:", e);
+  }
 }

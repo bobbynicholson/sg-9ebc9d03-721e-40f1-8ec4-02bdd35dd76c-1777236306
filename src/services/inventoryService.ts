@@ -244,7 +244,10 @@ export const inventoryService = {
           message: `${itemName} dropped to ${newStock} ${unit} (par ${minStock}). Restock soon.`,
           type: "stock_low" as any,
           priority: newStock <= 0 ? "high" : "normal",
-          link: "/admin/inventory",
+          // Shopping staff can't open /admin pages; the shopping stock page
+          // is open to them and to every admin role (same link as the
+          // inventoryDeductionService low-stock alert).
+          link: `/team-portal/shopping/inventory?itemId=${itemId}`,
           relatedEntityType: "inventory_item",
           relatedEntityId: itemId,
           dedup: true,
@@ -486,7 +489,9 @@ export const inventoryService = {
         }]);
 
         // Phase 4: also create a batch row so FIFO + expiry tracking work.
-        await supabase.from("inventory_batches").insert([{
+        // Best-effort (the stock is already received), but log a refusal:
+        // a missing RLS policy here went unnoticed because it was silent.
+        const { error: batchErr } = await supabase.from("inventory_batches").insert([{
           company_id: payload.companyId,
           inventory_item_id: line.itemId,
           batch_number: line.batchNumber || null,
@@ -500,6 +505,7 @@ export const inventoryService = {
           notes: payload.notes || null,
           status: "active",
         }]);
+        if (batchErr) console.warn(`[inventoryService.receiveStock] batch not recorded for item ${line.itemId}:`, batchErr);
 
         received += 1;
       } catch (e: any) {

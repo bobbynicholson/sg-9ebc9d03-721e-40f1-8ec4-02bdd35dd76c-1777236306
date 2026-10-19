@@ -80,7 +80,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     }
     const role = (profile?.active_role || profile?.role || "") as string;
     if (!ALLOWED_CALLER_ROLES.has(role)) {
-      return res.status(403).json({ error: "Only owners / admins can rescan receipts" });
+      return res.status(403).json({ error: "Only owners, admins and the shopping team can rescan receipts" });
     }
     const companyId = profile?.company_id as string | null;
     if (!companyId) return res.status(403).json({ error: "Account is not linked to a company" });

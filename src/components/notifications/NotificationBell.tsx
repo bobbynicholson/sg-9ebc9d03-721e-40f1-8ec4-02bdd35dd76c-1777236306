@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { effectivePriority } from "@/lib/notificationDisplay";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { shoppingNotificationLink } from "@/lib/shoppingNotificationLink";
 
 type SoundTier = "urgent" | "high" | "default";
 
@@ -374,7 +375,9 @@ export function NotificationBell() {
       // 404s / bounces, so the click appeared to "do nothing". Route
       // through withSlug (no-op for absolute http links / already-slugged
       // paths) so every notification opens its target page.
-      const href = notification.link;
+      // Shopping staff can't open /admin links; map those to the
+      // shopping-side page (no change for any other role).
+      const href = shoppingNotificationLink(notification.link, activeRole);
       router.push(/^https?:\/\//i.test(href) ? href : withSlug(href));
     }
   };

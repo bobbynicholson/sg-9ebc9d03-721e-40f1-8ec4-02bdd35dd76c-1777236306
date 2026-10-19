@@ -478,8 +478,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         companyId: (request as any).company_id,
         type: "cancellation_approved",
         title: "Order cancelled - stand down",
-        message: `Order ${orderLabel} has been cancelled. Any prep, delivery or cleaning for it is off.`,
-        targetRoles: ["kitchen_manager", "kitchen_staff", "driver", "cleaning_manager", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
+        message: `Order ${orderLabel} has been cancelled. Any prep, shopping, delivery or cleaning for it is off.`,
+        // shopping_staff too: otherwise the buyers keep buying stock for
+        // an event that is no longer happening.
+        targetRoles: ["kitchen_manager", "kitchen_staff", "shopping_staff", "driver", "cleaning_manager", "cleaning_staff", "company_admin", "admin", "owner", "super_admin"] as any,
         priority: "high",
         link: `/admin/orders?orderId=${(request as any).order_id}`,
         relatedEntityType: "order",

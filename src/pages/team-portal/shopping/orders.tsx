@@ -340,10 +340,13 @@ function ShoppingOrdersPageInner() {
       let receipt_url: string | null = null;
       if (receiptFile) {
         // Reuse the imports bucket - it's the only one with a
-        // receipt-style policy already in place. Path-prefix the
-        // file so the shopping artefacts are easy to find later.
-        const ext = (receiptFile.name.split(".").pop() || "jpg").toLowerCase();
-        const path = `shopping-list-receipts/${completingId}/receipt-${Date.now()}.${ext}`;
+        // receipt-style policy already in place. Its write policy only
+        // accepts paths whose first folder is the caller's company_id
+        // (migration 20260705250000), so the company folder must come
+        // first or the upload is refused and the shop can't be closed.
+        if (!user?.company_id) throw new Error("Your account isn't linked to a company, so the receipt can't be saved.");
+        const ext = (receiptFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+        const path = `${user.company_id}/shopping-list-receipts/${completingId}/receipt-${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("imports")
           .upload(path, receiptFile, {

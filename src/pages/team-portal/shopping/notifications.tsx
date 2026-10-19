@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { effectivePriority, isStaleNotification, STALE_NOTIFICATION_DAYS } from "@/lib/notificationDisplay";
 import { useTenantHref } from "@/lib/tenantUrl";
+import { shoppingNotificationLink } from "@/lib/shoppingNotificationLink";
 import { cn } from "@/lib/utils";
 import { UserRole } from "@/types/app";
 
@@ -34,11 +35,17 @@ const priorityTone = (p?: string | null) => {
 };
 
 function ShoppingNotificationsPageInner() {
-  const { user } = useAuth();
+  const { user, activeRole } = useAuth();
   const { toast } = useToast();
   const { withSlug } = useTenantHref();
 
-  const [notifs, setNotifs] = useState<Notification[]>([]);
+  // Two windows, one load (same as the kitchen inbox): the latest 100 rows
+  // plus the latest 100 unread rows, so an unread alert older than the
+  // newest 100 still shows and the unread count matches the nav badge
+  // (useShoppingLiveCounts counts ALL unread). Tabs filter the merge
+  // client-side, so every number on the page agrees with the list.
+  const [rows, setRows] = useState<Notification[]>([]);
+  const [unreadRows, setUnreadRows] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -55,8 +62,11 @@ function ShoppingNotificationsPageInner() {
   // href 404s. Marks the row read on the way out and waits for the write
   // so navigation can't cancel it mid-flight.
   const openLink = async (n: Notification) => {
-    const raw = n.link ?? n.action_url;
-    if (!raw) return;
+    const stored = n.link ?? n.action_url;
+    if (!stored) return;
+    // Office-only links (/admin/...) bounce shopping staff; send them to
+    // the shopping-side page for the same order or stock instead.
+    const raw = shoppingNotificationLink(stored, activeRole);
     if (!n.is_read) await markRead(n.id);
     window.location.href = /^https?:\/\//i.test(raw) ? raw : withSlug(raw);
   };
@@ -64,8 +74,9 @@ function ShoppingNotificationsPageInner() {
   useEffect(() => {
     if (!user?.id || !user?.company_id) return;
     void load();
+    // Tab switches filter the loaded rows, so `tab` is not a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, user?.company_id, tab, refreshKey]);
+  }, [user?.id, user?.company_id, refreshKey]);
 
   useEffect(() => {
     if (!user?.id || !user?.company_id) return;
@@ -94,17 +105,25 @@ function ShoppingNotificationsPageInner() {
     // realtime refreshes swap the data in place without blanking the list.
     if (!loaded) setLoading(true);
     try {
-      let q = supabase
-        .from("notifications")
-        .select("*")
-        .eq("company_id", user.company_id)
-        .or(`recipient_id.eq.${user.id},user_id.eq.${user.id},target_role.eq.shopping_staff`)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (tab === "unread") q = q.eq("is_read", false);
-      const { data, error } = await q.returns<Notification[]>();
-      if (error) throw error;
-      setNotifs(data || []);
+      const uid = user.id;
+      const companyId = user.company_id;
+      // Same audience as useShoppingLiveCounts (the nav badge).
+      const base = () =>
+        supabase
+          .from("notifications")
+          .select("*")
+          .eq("company_id", companyId)
+          .or(`recipient_id.eq.${uid},user_id.eq.${uid},target_role.eq.shopping_staff`)
+          .order("created_at", { ascending: false })
+          .limit(100);
+      const [allRes, unreadRes] = await Promise.all([
+        base().returns<Notification[]>(),
+        base().eq("is_read", false).returns<Notification[]>(),
+      ]);
+      if (allRes.error) throw allRes.error;
+      if (unreadRes.error) throw unreadRes.error;
+      setRows(allRes.data || []);
+      setUnreadRows(unreadRes.data || []);
       setLoadError(null);
       setLoaded(true);
     } catch (e: any) {
@@ -114,6 +133,14 @@ function ShoppingNotificationsPageInner() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Flip rows to read in both windows so the merge stays consistent.
+  const applyReadState = (ids: string[]) => {
+    const idSet = new Set(ids);
+    const flip = (list: Notification[]) => list.map((n) => (idSet.has(n.id) ? { ...n, is_read: true } : n));
+    setRows(flip);
+    setUnreadRows(flip);
   };
 
   const markRead = async (id: string) => {
@@ -126,7 +153,7 @@ function ShoppingNotificationsPageInner() {
         .eq("id", id)
         .eq("company_id", user.company_id);
       if (error) throw error;
-      setNotifs((p) => p.map((n) => n.id === id ? { ...n, is_read: true } : n));
+      applyReadState([id]);
     } catch {
       toast({ title: "Could not mark read", variant: "destructive" });
     } finally {
@@ -150,7 +177,7 @@ function ShoppingNotificationsPageInner() {
         .eq("company_id", user.company_id)
         .in("id", ids);
       if (error) throw error;
-      setNotifs((p) => p.map((n) => ({ ...n, is_read: true })));
+      applyReadState(ids);
       toast({ title: "All marked as read" });
     } catch {
       toast({ title: "Could not mark all read", variant: "destructive" });
@@ -159,12 +186,18 @@ function ShoppingNotificationsPageInner() {
     }
   };
 
-  // Render-level dedupe by id (matches the admin bell + page guarantee).
+  // Merge the two windows, dedupe by id (matches the admin bell + page
+  // guarantee), newest first.
+  const notifs = useMemo(() => {
+    const map = new Map<string, Notification>();
+    for (const n of [...rows, ...unreadRows]) if (!map.has(n.id)) map.set(n.id, n);
+    return Array.from(map.values()).sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  }, [rows, unreadRows]);
+  const unread = useMemo(() => notifs.filter((n) => !n.is_read).length, [notifs]);
   const visible = useMemo(
-    () => Array.from(new Map(notifs.map((n) => [n.id, n])).values()),
-    [notifs],
+    () => (tab === "unread" ? notifs.filter((n) => !n.is_read) : notifs),
+    [notifs, tab],
   );
-  const unread = useMemo(() => visible.filter((n) => !n.is_read).length, [visible]);
   // Wave 24: stale notification cleanup - mirrors the driver,
   // kitchen and cleaning portals.
   const staleCount = useMemo(
@@ -187,7 +220,8 @@ function ShoppingNotificationsPageInner() {
         .in("id", ids);
       if (error) throw error;
       const idSet = new Set(ids);
-      setNotifs((p) => p.filter((n) => !idSet.has(n.id)));
+      setRows((p) => p.filter((n) => !idSet.has(n.id)));
+      setUnreadRows((p) => p.filter((n) => !idSet.has(n.id)));
       toast({ title: `${ids.length} stale notification${ids.length === 1 ? "" : "s"} cleared` });
     } catch {
       toast({ title: "Could not clear stale notifications", variant: "destructive" });
