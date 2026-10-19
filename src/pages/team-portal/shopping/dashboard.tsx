@@ -1187,6 +1187,12 @@ function ShoppingDashboardInner() {
               title: "Already ticked: " + (r.itemName ?? "item"),
               description: "Barcode " + barcode + " matched but already bought.",
             });
+          } else if (!r.updated) {
+            toast({
+              title: "Could not update",
+              description: activeList.error || "The purchase and stock update did not save. Try again.",
+              variant: "destructive",
+            });
           }
         }}
       />

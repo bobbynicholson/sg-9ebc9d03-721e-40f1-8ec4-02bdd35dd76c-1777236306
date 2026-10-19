@@ -782,6 +782,30 @@ function durationHours(start: unknown, end: unknown): number | null {
   return Math.round(((endMs - startMs) / 3_600_000) * 100) / 100;
 }
 
+// Statuses the buy-list page treats as an active (still shopping) list.
+const ACTIVE_SHOPPING_LIST_STATUSES = new Set(["draft", "pending", "in_progress", "shopping", "open"]);
+
+// Adds what is still left to buy to each active list, so "what do I still
+// need to buy?" is answered from the real lines, not just list totals.
+// Items carry no company_id; they are scoped through the company's lists.
+async function withItemsLeftToBuy(db: any, lists: any[]): Promise<any[]> {
+  const activeIds = lists.filter((list) => ACTIVE_SHOPPING_LIST_STATUSES.has(String(list.status || ""))).map((list) => list.id).filter(Boolean);
+  if (!activeIds.length) return lists;
+  const items = await rows(db, "shopping_list_items", (q) =>
+    q.select("shopping_list_id, name, quantity, unit, category, estimated_cost, notes, assigned_shopper_id")
+      .in("shopping_list_id", activeIds).not("purchased", "is", true).is("removed_at", null)
+      .order("category", { ascending: true }).order("name", { ascending: true }).limit(200),
+  );
+  const byList = new Map<string, any[]>();
+  for (const item of items) {
+    const { shopping_list_id: listId, ...line } = item;
+    byList.set(listId, [...(byList.get(listId) || []), line]);
+  }
+  return lists.map((list) => (ACTIVE_SHOPPING_LIST_STATUSES.has(String(list.status || ""))
+    ? { ...list, items_left_to_buy: byList.get(list.id) || [] }
+    : list));
+}
+
 async function loadAssignedWork(db: any, identity: ChatIdentity, message: string, resolvedIntent?: ChatIntentMatch | null): Promise<any> {
   const role = normalizeChatRole(identity.role);
   const companyId = identity.companyId;
@@ -822,9 +846,12 @@ async function loadAssignedWork(db: any, identity: ChatIdentity, message: string
   if (role === "shopping" || role === "shopping_staff") {
     result.tasks = await rows(db, "shopping_lists", (q) => {
       let scoped = q.select("id, title, list_date, status, estimated_total, actual_total, shopper_id, notes").eq("company_id", companyId);
-      if (!adminScope) scoped = scoped.eq("shopper_id", identity.userId);
+      // A shopper's work is their own lists plus the shared team list
+      // (shopper_id null) - the same lists the buy-list page shows them.
+      if (!adminScope) scoped = scoped.or(`shopper_id.eq.${identity.userId},shopper_id.is.null`);
       return applyDateRange(scoped, "list_date", message, resolvedIntent).order("list_date", { ascending: false }).limit(50);
     });
+    result.tasks = await withItemsLeftToBuy(db, result.tasks);
   }
 
   if (role === "cleaning_manager" || role === "cleaning_staff" || role === "kitchen_manager" || role === "kitchen_staff" || adminScope) {
@@ -1644,7 +1671,7 @@ export async function runLiveTool(db: any, identity: ChatIdentity, tool: LiveToo
     case "operations_inventory":
       return rows(db, "inventory_items", (q) => q.select("item_name, category, unit_of_measure, current_stock, minimum_stock, reorder_quantity, preferred_supplier_id").eq("company_id", companyId).is("deleted_at", null).limit(150));
     case "shopping_lists":
-      return rows(db, "shopping_lists", (q) => applyDateRange(q.select("id, title, list_date, status, estimated_total, actual_total, shopper_id, notes").eq("company_id", companyId), "list_date", message, resolvedIntent).order("list_date", { ascending: false }).limit(30));
+      return withItemsLeftToBuy(db, await rows(db, "shopping_lists", (q) => applyDateRange(q.select("id, title, list_date, status, estimated_total, actual_total, shopper_id, notes").eq("company_id", companyId), "list_date", message, resolvedIntent).order("list_date", { ascending: false }).limit(30)));
     case "cleaning_equipment":
       return rows(db, "equipment", (q) => q.select("id, name, category, condition, quantity, available_quantity, is_available, requires_cleaning, dishwasher_safe, cleaning_time_manual_minutes, cleaning_time_dishwasher_minutes, cleaning_time_hours, next_service_due, last_serviced_at").eq("company_id", companyId).is("deleted_at", null).limit(100));
     case "cleaning_supplies": {

@@ -15,18 +15,16 @@
  *     for bank-statement reconciliation. Pre-Wave-66.5 every manual
  *     mark-paid landed as "manual" / "manual-{id}" which gave the
  *     bookkeeper no anchor when matching to the EFT statement.
- *   - The "Send confirmation" toggle bridges the gap between recording
- *     the payment and telling the client it's been seen. Same mailto: /
- *     wa.me pattern as Wave 58 contact strip - no template registry
- *     plumbing needed because the operator can review and tweak the
- *     message before sending.
+ *   - The server sends the standard payment receipt after the ledger
+ *     transaction succeeds. The dialog never opens the operator's local
+ *     mail application, avoiding duplicate confirmations.
  *
  * Cross-system context block at the top shows Quote / Order / Invoice
  * IDs so the bookkeeper can sanity-check they have the right invoice
  * (e.g. when the client sent the EFT reference as the order number,
  * not the invoice number).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Dialog,
@@ -41,7 +39,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -53,8 +50,6 @@ import {
   CheckCircle2,
   Copy,
   ExternalLink,
-  Mail,
-  MessageCircle,
   Receipt,
   FileText,
   ShoppingCart,
@@ -115,8 +110,6 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
   const [reference, setReference] = useState<string>(defaultReference);
   const [dateReceived, setDateReceived] = useState<string>(todayIso());
   const [note, setNote] = useState<string>("");
-  const [sendConfirmation, setSendConfirmation] = useState<boolean>(true);
-  const [confirmChannel, setConfirmChannel] = useState<"email" | "whatsapp">("email");
   const [saving, setSaving] = useState<boolean>(false);
   // One duplicate-protection key per opening of the dialog. A double
   // click or retry of the same submission reuses it (recorded once);
@@ -137,19 +130,10 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
     setAttemptKey(typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    // Bias default channel based on what we have. If only phone exists,
-    // start on WhatsApp; otherwise email is the default because most
-    // bookkeeping audit trails want it written.
-    const hasEmail = !!invoice.orders?.clients?.email;
-    const hasPhone = !!invoice.orders?.clients?.phone;
-    setConfirmChannel(hasEmail ? "email" : hasPhone ? "whatsapp" : "email");
-    setSendConfirmation(hasEmail || hasPhone);
     setSaving(false);
-  }, [open, invoice?.id, invoice?.balance_due, invoice?.invoice_number, invoice?.orders?.clients?.email, invoice?.orders?.clients?.phone]);
+  }, [open, invoice?.id, invoice?.balance_due, invoice?.invoice_number]);
 
   const clientName = invoice?.orders?.clients?.client_name || "Client";
-  const clientEmail = invoice?.orders?.clients?.email || "";
-  const clientPhone = invoice?.orders?.clients?.phone || "";
   const invoiceNumber = invoice?.invoice_number || "";
   const orderNumber = invoice?.orders?.order_number || "";
   const orderId = invoice?.order_id || "";
@@ -159,27 +143,6 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
   const amountValid = Number.isFinite(amountNum) && amountNum > 0 && amountNum <= defaultAmount + 0.01;
   const overpayment = amountNum > defaultAmount + 0.01;
   const partialPayment = amountValid && amountNum < defaultAmount - 0.01;
-
-  const composedMessage = useMemo(() => {
-    const firstName = clientName.split(" ")[0] || "there";
-    const amt = Number.isFinite(amountNum) ? formatMoney(amountNum) : formatMoney(defaultAmount);
-    const balance = formatMoney(Math.max(0, defaultAmount - (Number.isFinite(amountNum) ? amountNum : 0)));
-    const partial = partialPayment
-      ? `\n\nOutstanding balance: ${balance}.`
-      : "";
-    return `Hi ${firstName},\n\nThank you, ${amt} received against ${invoiceNumber || "your invoice"}${orderNumber ? ` (${orderNumber})` : ""}. Payment confirmed.${partial}\n\nKind regards.`;
-  }, [clientName, amountNum, defaultAmount, partialPayment, invoiceNumber, orderNumber, formatMoney]);
-
-  const composedSubject = `Payment confirmed: ${invoiceNumber || "your invoice"}`;
-
-  const handleCopyMessage = async () => {
-    try {
-      await navigator.clipboard.writeText(composedMessage);
-      toast({ title: "Message copied", description: "Paste into your reply." });
-    } catch {
-      toast({ title: "Copy failed", description: "Browser blocked clipboard access.", variant: "destructive" });
-    }
-  };
 
   const handleSubmit = async () => {
     if (!invoice) return;
@@ -231,19 +194,6 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
           : `${formatMoney(amountNum)} received. ${formatMoney((json as any)?.balanceDue || 0)} still outstanding.`,
       });
 
-      // Optional confirmation send. Open in a new tab so the operator
-      // can review + tweak before sending; same UX as the contact strip.
-      if (sendConfirmation) {
-        if (confirmChannel === "email" && clientEmail) {
-          const href = `mailto:${clientEmail}?subject=${encodeURIComponent(composedSubject)}&body=${encodeURIComponent(composedMessage)}`;
-          window.location.href = href;
-        } else if (confirmChannel === "whatsapp" && clientPhone) {
-          const cleanPhone = clientPhone.replace(/[^\d]/g, "");
-          const href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(composedMessage)}`;
-          window.open(href, "_blank", "noopener,noreferrer");
-        }
-      }
-
       onPaid();
       onOpenChange(false);
     } finally {
@@ -252,9 +202,6 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
   };
 
   if (!invoice) return null;
-
-  const canSendEmail = !!clientEmail;
-  const canSendWa = !!clientPhone;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -401,74 +348,9 @@ export function MarkPaidDialog({ open, invoice, onOpenChange, onPaid, formatMone
             />
           </div>
 
-          {/* Confirmation send block. mailto: / wa.me opens the
-              operator's mail or WhatsApp with the body pre-filled --
-              they review and send. No server-side template plumbing,
-              same pattern as Wave 58 contact strip. */}
-          <div className="rounded-md border border-slate-200 p-3 space-y-2 sm:p-4">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="mp-confirm"
-                checked={sendConfirmation}
-                onCheckedChange={(v) => setSendConfirmation(!!v)}
-                disabled={!canSendEmail && !canSendWa}
-              />
-              <Label htmlFor="mp-confirm" className="text-sm cursor-pointer">
-                Send confirmation to {clientName}
-              </Label>
-            </div>
-            {!canSendEmail && !canSendWa && (
-              <p className="text-[11px] text-slate-500">
-                No email or phone on file - add one to the contact before sending a confirmation.
-              </p>
-            )}
-            {(canSendEmail || canSendWa) && sendConfirmation && (
-              <>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                  <label className={`inline-flex min-w-0 items-center gap-1.5 text-xs cursor-pointer ${!canSendEmail ? "opacity-50" : ""}`}>
-                    <input
-                      type="radio"
-                      name="mp-channel"
-                      checked={confirmChannel === "email"}
-                      onChange={() => setConfirmChannel("email")}
-                      disabled={!canSendEmail}
-                      className="accent-blue-600"
-                    />
-                    <Mail className="w-3.5 h-3.5" />
-                    Email
-                    {clientEmail && <span className="max-w-[180px] truncate text-slate-500">{clientEmail}</span>}
-                  </label>
-                  <label className={`inline-flex min-w-0 items-center gap-1.5 text-xs cursor-pointer ${!canSendWa ? "opacity-50" : ""}`}>
-                    <input
-                      type="radio"
-                      name="mp-channel"
-                      checked={confirmChannel === "whatsapp"}
-                      onChange={() => setConfirmChannel("whatsapp")}
-                      disabled={!canSendWa}
-                      className="accent-brand-primary"
-                    />
-                    <MessageCircle className="w-3.5 h-3.5 text-brand-primary" />
-                    WhatsApp
-                    {clientPhone && <span className="text-slate-500">{clientPhone}</span>}
-                  </label>
-                </div>
-                <div className="hidden rounded border border-slate-200 bg-slate-50 p-2 sm:block">
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Preview</p>
-                  <p className="text-[11px] text-slate-700 whitespace-pre-wrap">{composedMessage}</p>
-                  <button
-                    type="button"
-                    onClick={handleCopyMessage}
-                    className="text-[10px] text-slate-500 hover:text-slate-900 inline-flex items-center gap-1 mt-1"
-                  >
-                    <Copy className="w-2.5 h-2.5" /> Copy text
-                  </button>
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  Confirmation opens in your {confirmChannel === "email" ? "email client" : "WhatsApp"} after the payment is recorded so you can review before sending.
-                </p>
-              </>
-            )}
-          </div>
+          <p className="rounded-md border border-brand-primary/20 bg-brand-primary/5 px-3 py-2 text-xs text-slate-600">
+            A standard payment receipt is sent through the portal after the payment is recorded. Your email application will not open.
+          </p>
         </div>
 
         <DialogFooter className="gap-2 border-t pt-3 sm:gap-2">

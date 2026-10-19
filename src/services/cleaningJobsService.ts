@@ -385,88 +385,40 @@ export async function completeJob(
   jobId: string,
   userId?: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  // CLN2-A (cleaning deep audit, CLN2-26, P0):
-  //
-  // Before this fix the function flipped status='complete' and wrote
-  // actual_end, then stopped. Equipment.available_quantity was NOT
-  // incremented back. The cleaning ledger and the equipment table
-  // disagreed - same class of "vibes only" bug as SHP2-22 on shopping.
-  //
-  // The fix: read the job (need equipment_id + quantity), update the
-  // status, then bump equipment.available_quantity by the job's
-  // quantity. Failure on the inventory bump is logged but does NOT
-  // roll back the status change - the tick is the source of truth
-  // and inventory can be reconciled via the admin adjustment flow,
-  // matching the SHP2-B pattern.
-  //
-  // Also emits cateringms:order-updated via a window event so the
-  // dashboard's overview tile / admin /admin/equipment / dispatch
-  // readiness all refresh in their own tabs without a manual reload.
-
   const sb = supabase as any;
+  // The RPC locks the job, marks it complete and restores equipment in one
+  // database transaction. No client-side fallback is safe here: it would
+  // reintroduce the read/modify/write race this path prevents.
+  const { data, error: completeErr } = await sb.rpc("complete_cleaning_job", {
+    p_job_id: jobId,
+  });
+  if (completeErr) return { ok: false, error: completeErr.message };
+  const jobRow = (Array.isArray(data) ? data[0] : data) as {
+    completed?: boolean;
+    already_complete?: boolean;
+    status?: string | null;
+    company_id?: string | null;
+    equipment_id?: string | null;
+    quantity?: number | null;
+    triggered_by_event_id?: string | null;
+  } | null;
+  if (!jobRow) return { ok: false, error: "Cleaning job not found" };
+  if (jobRow.already_complete) return { ok: true };
+  if (!jobRow.completed) {
+    return { ok: false, error: jobRow.status === "cancelled"
+      ? "This cleaning job was cancelled."
+      : jobRow.status === "queued"
+        ? "Start this cleaning job before completing it."
+        : "This cleaning job could not be completed." };
+  }
 
-  // 1. Pull equipment_id + quantity for the bump.
-  const { data: jobRow, error: readErr } = await sb
-    .from("cleaning_jobs")
-    .select("company_id, equipment_id, quantity, triggered_by_event_id, method, status")
-    .eq("id", jobId)
-    .maybeSingle();
-  if (readErr) return { ok: false, error: readErr.message };
-
-  // Track WHO cleaned, credited to the order(s) this equipment served.
-  // Best-effort - the RPC no-ops if not deployed yet.
+  // Credit and notify only the caller that won the atomic completion.
   if (userId) {
     try { await sb.rpc("record_cleaning_contributor", { p_job_id: jobId, p_user_id: userId }); }
     catch { /* best-effort contributor tracking */ }
   }
 
-  // 2. Mark complete.
-  const endedAt = new Date().toISOString();
-  const { data: completed, error: completeErr } = await sb
-    .from("cleaning_jobs")
-    .update({ status: "complete", actual_end: endedAt })
-    .eq("id", jobId)
-    .eq("status", "in_progress")
-    .select("id")
-    .maybeSingle();
-  if (completeErr) return { ok: false, error: completeErr.message };
-  if (!completed && jobRow?.status === "complete") return { ok: true };
-
-  // 3. Bump inventory back. Non-blocking on the user-visible tick.
-  if (jobRow?.equipment_id && Number.isFinite(Number(jobRow.quantity))) {
-    const qty = Number(jobRow.quantity);
-    try {
-      const { data: invRow, error: invReadErr } = await sb
-        .from("equipment")
-        .select("available_quantity, quantity")
-        .eq("id", jobRow.equipment_id)
-        .maybeSingle();
-      if (invReadErr || !invRow) {
-        // eslint-disable-next-line no-console
-        console.warn("[cleaningJobsService.completeJob] inventory read failed:", invReadErr);
-      } else {
-        // Booking/dispatch does NOT decrement available_quantity (it relies on
-        // the live calculator), so adding the cleaned qty back must be clamped
-        // at the owned total - otherwise available creeps above quantity and
-        // the in-use stat (quantity - available) goes negative.
-        const owned = Number(invRow.quantity || 0);
-        const newAvail = Math.min(owned, Number(invRow.available_quantity || 0) + qty);
-        const { error: bumpErr } = await sb
-          .from("equipment")
-          .update({ available_quantity: newAvail, updated_at: new Date().toISOString() })
-          .eq("id", jobRow.equipment_id);
-        if (bumpErr) {
-          // eslint-disable-next-line no-console
-          console.warn("[cleaningJobsService.completeJob] inventory bump failed:", bumpErr);
-        }
-      }
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn("[cleaningJobsService.completeJob] inventory bump threw:", e);
-    }
-  }
-
-  // 4. Notify admins that cleaning is complete. Kitchen task
+  // Notify admins after the atomic completion. Kitchen task
   // completion already pings admins; cleaning completion needs the
   // same best-effort milestone so ops don't have to poll the board.
   if (jobRow?.company_id) {
@@ -506,7 +458,7 @@ export async function completeJob(
     }
   }
 
-  // 5. Cross-tab signal. Listeners on admin /admin/equipment,
+  // Cross-tab signal. Listeners on admin /admin/equipment,
   // /admin/order-assignments, and the kitchen dashboard refetch.
   if (typeof window !== "undefined") {
     try {

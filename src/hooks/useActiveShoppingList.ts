@@ -117,7 +117,7 @@ export interface UseActiveShoppingList {
   /** SHP2-H: tick a list row by inventory_item_id resolved from a barcode scan. */
   tickByInventoryItemId: (
     inventoryItemId: string,
-  ) => Promise<{ found: boolean; alreadyPurchased: boolean; itemName: string | null }>;
+  ) => Promise<{ found: boolean; alreadyPurchased: boolean; updated: boolean; itemName: string | null }>;
   /** Shopping 5.4: claim a line for the current user. Pass `null` to
    *  release the claim. Optimistic update, rolls back on failure. */
   claimItem: (itemId: string, claim: boolean) => Promise<void>;
@@ -323,87 +323,51 @@ export function useActiveShoppingList(): UseActiveShoppingList {
   }, [activeListId, load]);
 
   const togglePurchased = useCallback(async (itemId: string, nextValue: boolean) => {
-    // SHP2-B (shopping deep audit, SHP2-22): tick must bump inventory.
-    // The admin /admin/shopping page already does this; the staff side
-    // used to flip a boolean and stop. Net effect was a "vibes-only"
-    // dashboard - shopper ticks, nothing downstream knows.
-    //
-    // We use the in-memory row to find item_id + quantity (no extra
-    // SELECT needed). When item_id is null (free-text additions like
-    // "extra serviettes" that aren't linked to inventory_items), we
-    // skip the stock bump.
     const target = items.find(i => i.id === itemId);
+    if (!target) {
+      setError("This shopping item is no longer available. Refresh the list and try again.");
+      return false;
+    }
 
     // Optimistic update for instant feedback.
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: nextValue } : i));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = supabase as any;
-    // CONCURRENCY: compare-and-set. Only flip the row if it isn't already
-    // at nextValue, so when two shoppers tick the SAME item at once exactly
-    // ONE call "wins" the flip - and only the winner applies the inventory
-    // delta below. Without this both callers saw it unticked, both flipped
-    // it true, and both bumped stock (+qty twice). The .eq(id) is unique so
-    // the UPDATE row-locks; the winner is whoever the DB serialises first.
-    let q = sb.from("shopping_list_items").update({ purchased: nextValue }).eq("id", itemId);
-    q = nextValue ? q.not("purchased", "is", true) : q.eq("purchased", true);
-    const { data: flipped, error: updErr } = await q.select("id");
-    if (updErr) {
-      // Rollback on failure.
-      setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: !nextValue } : i));
-      setError(updErr.message || "Could not save");
+    const { data, error: rpcErr } = await sb.rpc("toggle_shopping_list_item_purchase", {
+      p_list_item_id: itemId,
+      p_purchased: nextValue,
+    });
+    if (rpcErr) {
+      // The database rolls both the purchase flag and stock back together.
+      // Restore the exact local state and surface the actionable failure.
+      setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: target.purchased } : i));
+      setError(rpcErr.message || "Could not update the shopping item and stock.");
       return false;
     }
-    // We own the flip only if this call actually changed the row. If it
-    // was already at nextValue (someone else just ticked it, realtime not
-    // yet in), the end state is still correct - skip the stock bump so we
-    // don't double-count.
-    const iOwnTheFlip = Array.isArray(flipped) && flipped.length > 0;
-
-    // Inventory bump - only the flip winner, and done atomically so
-    // concurrent ticks on different items (or the same inventory line)
-    // compose instead of clobbering. Non-blocking on the visible tick.
-    if (iOwnTheFlip && target && target.item_id && Number.isFinite(Number(target.quantity))) {
-      const qty = Number(target.quantity);
-      const delta = nextValue ? qty : -qty;
-      try {
-        // Atomic increment via RPC (current_stock = current_stock + delta
-        // in one statement - no lost updates). Falls back to the legacy
-        // read-modify-write if the RPC isn't deployed yet, so shopping
-        // keeps working before the migration is applied.
-        const { error: rpcErr } = await sb.rpc("adjust_inventory_stock", {
-          p_item_id: target.item_id,
-          p_delta: delta,
-        });
-        if (rpcErr) {
-          const missing = /function .*adjust_inventory_stock.* does not exist|PGRST202|404/i.test(
-            `${rpcErr.message || ""} ${rpcErr.code || ""}`,
-          );
-          if (!missing) console.warn("[useActiveShoppingList] atomic stock adjust failed:", rpcErr);
-          // Legacy fallback (pre-migration): read-modify-write.
-          const { data: invRow } = await sb
-            .from("inventory_items")
-            .select("current_stock")
-            .eq("id", target.item_id)
-            .maybeSingle();
-          if (invRow) {
-            await sb
-              .from("inventory_items")
-              .update({ current_stock: Number(invRow.current_stock || 0) + delta, updated_at: new Date().toISOString() })
-              .eq("id", target.item_id);
-          }
-        }
-      } catch (e) {
-        console.warn("[useActiveShoppingList] inventory bump threw:", e);
-      }
+    const result = (Array.isArray(data) ? data[0] : data) as {
+      found?: boolean;
+      changed?: boolean;
+      purchased?: boolean;
+      inventory_item_id?: string | null;
+      source_order_id?: string | null;
+    } | null;
+    if (!result?.found) {
+      setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: target.purchased } : i));
+      setError("This shopping item is no longer available. Refresh the list and try again.");
+      return false;
     }
+    // A concurrent same-state request is a safe no-op. Use the database's
+    // value rather than assuming our optimistic state is still current.
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, purchased: !!result.purchased } : i));
+    setError(null);
 
     // Credit the shopper on the SOURCE ORDER's "who helped" list, so an
     // order-driven shortfall item shows "Shopped by ...". Only the flip
     // winner, only on a purchase (not an un-tick), and only when the line
     // is tied to an order (free-text ad-hoc buys have no source_order_id).
     // Best-effort - never block the tick.
-    const sourceOrderId = (target as any)?.source_order_id as string | null | undefined;
-    if (iOwnTheFlip && nextValue && sourceOrderId && userId) {
+    const sourceOrderId = result.source_order_id;
+    if (result.changed && result.purchased && sourceOrderId && userId) {
       void recordOrderContributor(sourceOrderId, userId, "shopping");
     }
 
@@ -413,7 +377,7 @@ export function useActiveShoppingList(): UseActiveShoppingList {
     if (typeof window !== "undefined") {
       try {
         window.dispatchEvent(new CustomEvent("cateringms:shopping-updated", {
-          detail: { itemId, purchased: nextValue, inventoryItemId: target?.item_id ?? null },
+          detail: { itemId, purchased: !!result.purchased, inventoryItemId: result.inventory_item_id ?? target.item_id },
         }));
       } catch { /* old browsers without CustomEvent polyfill */ }
     }
@@ -775,12 +739,12 @@ export function useActiveShoppingList(): UseActiveShoppingList {
   // chain reaction fires identically to a manual row tap.
   const tickByInventoryItemId = useCallback(async (
     inventoryItemId: string,
-  ): Promise<{ found: boolean; alreadyPurchased: boolean; itemName: string | null }> => {
+  ): Promise<{ found: boolean; alreadyPurchased: boolean; updated: boolean; itemName: string | null }> => {
     const target = items.find((i) => i.item_id === inventoryItemId);
-    if (!target) return { found: false, alreadyPurchased: false, itemName: null };
-    if (target.purchased) return { found: true, alreadyPurchased: true, itemName: target.name };
-    await togglePurchased(target.id, true);
-    return { found: true, alreadyPurchased: false, itemName: target.name };
+    if (!target) return { found: false, alreadyPurchased: false, updated: false, itemName: null };
+    if (target.purchased) return { found: true, alreadyPurchased: true, updated: true, itemName: target.name };
+    const updated = await togglePurchased(target.id, true);
+    return { found: true, alreadyPurchased: false, updated, itemName: target.name };
   }, [items, togglePurchased]);
 
   // Shopping persona 5.4: claim a line for the current user (or

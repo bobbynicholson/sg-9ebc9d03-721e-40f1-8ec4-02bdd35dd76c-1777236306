@@ -19,6 +19,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { CheckCircle2, AlertCircle, Send, CreditCard, CloudUpload, FileText, Clock, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ReverseManualPaymentDialog, type ReversiblePayment } from "@/components/billing/ReverseManualPaymentDialog";
 
 interface ActivityEntry {
   ts: string;
@@ -26,6 +28,7 @@ interface ActivityEntry {
   label: string;
   detail?: string;
   tone: "blue" | "green" | "rose" | "slate" | "amber";
+  reversiblePayment?: ReversiblePayment;
 }
 
 const TONE_CLASS: Record<ActivityEntry["tone"], string> = {
@@ -52,9 +55,10 @@ interface Props {
   invoice: any | null;
 }
 
-export function InvoiceActivityDrawer({ open, onOpenChange, invoice }: Props) {
+export function InvoiceActivityDrawer({ open, onOpenChange, invoice, onPaymentReversed }: Props & { onPaymentReversed?: () => void }) {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [paymentToReverse, setPaymentToReverse] = useState<ReversiblePayment | null>(null);
 
   useEffect(() => {
     if (!open || !invoice?.id) return;
@@ -152,6 +156,9 @@ export function InvoiceActivityDrawer({ open, onOpenChange, invoice }: Props) {
               : ["failed", "rejected"].includes(status)
                 ? "rose"
                 : "amber",
+            reversiblePayment: status === "completed" && p.gateway_provider === "manual" && !p.payment_type
+              ? { id: p.id, amount: Number(p.amount) || 0, currency: p.currency, payment_reference: p.payment_reference }
+              : undefined,
           });
         }
       } catch (e) {
@@ -219,6 +226,7 @@ export function InvoiceActivityDrawer({ open, onOpenChange, invoice }: Props) {
           )}
           {entries.map((e, i) => {
             const Icon = e.icon;
+            const reversiblePayment = e.reversiblePayment;
             return (
               <div key={i} className={`rounded-md border ${TONE_CLASS[e.tone]} px-3 py-2 flex items-start gap-3`}>
                 <Icon className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -234,12 +242,14 @@ export function InvoiceActivityDrawer({ open, onOpenChange, invoice }: Props) {
                       } catch { return e.ts; }
                     })()}
                   </p>
+                  {reversiblePayment && <Button type="button" variant="ghost" size="sm" className="mt-1 h-7 px-2 text-xs text-rose-700 hover:bg-rose-100 hover:text-rose-800" onClick={() => setPaymentToReverse(reversiblePayment)}>Reverse manual payment</Button>}
                 </div>
               </div>
             );
           })}
         </div>
       </SheetContent>
+      <ReverseManualPaymentDialog open={!!paymentToReverse} payment={paymentToReverse} onOpenChange={(isOpen) => { if (!isOpen) setPaymentToReverse(null); }} onReversed={() => onPaymentReversed?.()} />
     </Sheet>
   );
 }

@@ -1832,6 +1832,58 @@ function directKitchenTodayAnswer(args: {
   return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
 }
 
+function directShoppingBuyListAnswer(args: {
+  identity: ChatIdentity;
+  message: string;
+  liveContext: string;
+  knowledge: RetrievedKnowledge[];
+}): { text: string; provider: string; retrievalCount: number; rendered: ChatResponsePayload } | null {
+  if (!["shopping", "shopping_staff"].includes(args.identity.role)) return null;
+  if (!/\b(?:buy|buying|bought|buy\s*list|shopping\s+list|left\s+to\s+get|still\s+need)\b/i.test(args.message)) return null;
+  // "How do I mark it bought?" / "where do I…" are how-to questions for the
+  // guided answer, not a request for the live list.
+  if (/\b(?:how\s+(?:do|can|to|should)|where\b|why\b|what\s+happens)\b/i.test(args.message)) return null;
+
+  // Active lists come from the shopping lists tool or the shopper's own work;
+  // only lists the server marked with items_left_to_buy are active.
+  const fromLists = liveToolRows(args.liveContext, "shopping_lists") || [];
+  const work = liveToolResult(args.liveContext, "staff_orders");
+  const fromWork = Array.isArray(work?.tasks) ? work.tasks : [];
+  const seen = new Set<string>();
+  const active = [...fromLists, ...fromWork].filter((list: any) => {
+    if (!Array.isArray(list?.items_left_to_buy) || seen.has(String(list.id))) return false;
+    seen.add(String(list.id));
+    return true;
+  });
+  if (!active.length && !fromLists.length && !work) return null;
+
+  const details: string[] = [];
+  let total = 0;
+  for (const list of active) {
+    const lines = list.items_left_to_buy as any[];
+    total += lines.length;
+    const owner = list.shopper_id ? (list.shopper_id === args.identity.userId ? "your list" : "another shopper's list") : "team list";
+    details.push(`${String(list.title || "Shopping list").trim()} (${String(list.list_date || "").slice(0, 10) || "no date"}, ${owner}): ${lines.length} item${lines.length === 1 ? "" : "s"} left.`);
+    details.push(...lines.slice(0, 25).map((line: any) => {
+      const qty = line.quantity != null ? ` - ${line.quantity}${line.unit ? ` ${line.unit}` : ""}` : "";
+      const claimed = line.assigned_shopper_id
+        ? (line.assigned_shopper_id === args.identity.userId ? " (you claimed this)" : " (claimed by another shopper)")
+        : "";
+      return `${String(line.name || "Unnamed item").trim()}${qty}${claimed}.`;
+    }));
+    if (lines.length > 25) details.push(`Showing 25 of ${lines.length} items on this list. Open the buy list for the rest.`);
+  }
+
+  const rendered = renderChatResponse(JSON.stringify({
+    title: "Still to buy",
+    message: active.length
+      ? `${total} item${total === 1 ? "" : "s"} still to buy across ${active.length} open shopping list${active.length === 1 ? "" : "s"}.`
+      : "There is no open shopping list for you right now, so nothing is waiting to be bought.",
+    details: details.length ? details : ["When the office or kitchen starts a list, it will show on your buy list."],
+  }));
+  return { text: rendered.text, provider: "live-data", retrievalCount: args.knowledge.length, rendered };
+}
+
 function directKitchenInventoryAnswer(args: {
   identity: ChatIdentity;
   message: string;
@@ -2733,6 +2785,8 @@ export async function generateChatReply(args: {
   if (directKitchenCatalogue) return directKitchenCatalogue;
   const directKitchenInventory = directKitchenInventoryAnswer(args);
   if (directKitchenInventory) return directKitchenInventory;
+  const directShoppingBuyList = directShoppingBuyListAnswer(args);
+  if (directShoppingBuyList) return directShoppingBuyList;
   const directKitchenToday = directKitchenTodayAnswer({ ...args, route: args.route });
   if (directKitchenToday) return directKitchenToday;
   const system = systemPrompt(args.identity, args.liveContext, args.knowledge, args.navigation || [], args.route, args.workflow, args.frontend);

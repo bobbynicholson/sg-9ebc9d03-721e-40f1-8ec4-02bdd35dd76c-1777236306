@@ -3016,6 +3016,11 @@ function InvoicesPageInner() {
         open={!!activityInvoice}
         onOpenChange={(o) => { if (!o) setActivityInvoice(null); }}
         invoice={activityInvoice}
+        onPaymentReversed={() => {
+          const orderId = activityInvoice?.order_id;
+          if (orderId) emitOrderUpdated(orderId, "admin/invoices:manual-payment-reversed", ["payments"]);
+          loadInvoices();
+        }}
       />
 
       {/* Wave 69 - manual invoice creation dialog. Order-less

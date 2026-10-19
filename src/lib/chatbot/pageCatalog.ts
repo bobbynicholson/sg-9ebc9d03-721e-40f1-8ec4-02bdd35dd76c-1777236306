@@ -156,7 +156,7 @@ export const PAGE_NAVIGATION_REFS: ChatNavigationRef[] = [
   page("shopping.alerts", "Shopping alerts", "/team-portal/shopping/alerts", "Procurement alerts and stock shortages", ["shopping alerts", "purchase alerts", "shortage alerts"], SHOPPING),
   page("shopping.invoices", "Shopping invoices", "/team-portal/shopping/invoices", "Supplier invoices and purchasing spend history", ["shopping invoices", "supplier invoices", "purchasing spend"], SHOPPING),
   page("shopping.kitchen-demand", "Kitchen demand", "/team-portal/shopping/kitchen-demand", "Upcoming kitchen demand used to plan purchases", ["kitchen demand", "purchase demand", "ingredient demand"], SHOPPING),
-  page("shopping.orders", "Shopping orders", "/team-portal/shopping/orders", "Purchase orders and supplier order status", ["shopping orders", "purchase orders", "supplier orders"], SHOPPING),
+  page("shopping.orders", "Shopping orders", "/team-portal/shopping/orders", "Active shop: open team shopping lists, what is still left to buy, and events that need buying for", ["shopping orders", "purchase orders", "supplier orders", "active shop", "finish shopping list"], SHOPPING),
   page("shopping.receipts", "Shopping receipts", "/team-portal/shopping/receipts", "Record and review purchasing receipts", ["shopping receipts", "purchase receipts"], SHOPPING),
   page("shopping.restock", "Restock", "/team-portal/shopping/restock", "Restock items that are below their par level", ["restock", "restock list", "par level"], SHOPPING),
   page("shopping.settings", "Shopping settings", "/team-portal/shopping/settings", "Personal shopping workspace settings", ["shopping settings"], SHOPPING),
