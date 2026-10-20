@@ -12,7 +12,9 @@ on:
 
 jobs:
   fire:
-    runs-on: ubuntu-latest
+    # Pin the runner so GitHub's ubuntu-latest migration cannot change this
+    # scheduler's environment without review.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Trigger cron endpoints
@@ -21,7 +23,10 @@ jobs:
           SECRET: ${{ secrets.CRON_SECRET }}
           EVENT_SCHEDULE: ${{ github.event.schedule }}
         run: |
-          if [ -z "$SECRET" ]; then echo "Repository CRON_SECRET is not configured"; exit 1; fi
+          if [ -z "$SECRET" ]; then
+            echo "::error title=Missing CRON_SECRET::Add Actions secret CRON_SECRET with the exact value used by the production deployment."
+            exit 1
+          fi
           hit() {
             for ep in "$@"; do
               code=$(curl -s -o /tmp/out -w "%{http_code}" -m 120 -H "Authorization: Bearer $SECRET" "$BASE/$ep" || echo "000")
