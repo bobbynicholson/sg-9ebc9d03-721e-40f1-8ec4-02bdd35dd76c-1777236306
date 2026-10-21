@@ -1020,6 +1020,9 @@ export const quoteService = {
       // Drives whether a collection trip is booked on delivery and who
       // sees the return step. NULL on older quotes = inferred.
       equipment_return_method: (q as any).equipment_return_method ?? null,
+      // jsonb_populate_record bypasses column defaults for missing keys.
+      // Legacy and single-sitting quotes use one final equipment collection.
+      equipment_return_plan: q.equipment_return_plan ?? "final_collection",
       // Quote-stage waiter service becomes an operational requirement on the
       // order. The admin still assigns the actual staff member separately.
       requires_waiter: !!q.waiter_service_required,
