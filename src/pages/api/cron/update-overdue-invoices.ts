@@ -4,6 +4,7 @@ import { getServiceSupabase } from "@/lib/supabase/service";
 import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
+import { reconcileOpenInvoiceDueDates } from "@/services/invoiceDueDateService";
 
 
 const CRON_NAME = "update-overdue-invoices";
@@ -32,6 +33,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const sb: any = getServiceSupabase();
   try {
+    // Repair stale event balance dates before deciding what is overdue.
+    // Failure stops this run before any digest/email can use stale data.
+    const datesCorrected = await reconcileOpenInvoiceDueDates(sb);
     const { data, error } = await sb.rpc("update_overdue_invoices");
     if (error) {
       console.error("[update-overdue-invoices] RPC failed:", error);
@@ -50,6 +54,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         .from("invoices")
         .select("company_id, balance_due")
         .eq("status", "overdue")
+        .lt("due_date", new Date().toISOString().slice(0, 10))
         .gt("balance_due", 0)
         .is("deleted_at", null)
         .limit(5000);
@@ -138,7 +143,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       console.warn("[update-overdue-invoices] digest pass failed (non-blocking):", notifyErr?.message || notifyErr);
     }
 
-    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, flipped, notified, emailed });
+    await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, flipped, datesCorrected, notified, emailed });
     return res.status(200).json({ ok: true, flipped, notified, emailed });
   } catch (e: any) {
     console.error("[update-overdue-invoices] crashed:", e);

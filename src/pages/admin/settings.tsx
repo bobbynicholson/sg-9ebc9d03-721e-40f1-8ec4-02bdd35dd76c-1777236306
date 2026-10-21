@@ -385,12 +385,24 @@ function SettingsPage() {
         .eq("id", companyId);
 
       if (updateError) throw updateError;
+      // Existing unpaid event invoices must follow the saved schedule too.
+      let invoiceDateRefreshError: string | null = null;
+      try {
+        const { reconcileCompanyInvoiceDueDates } = await import("@/services/invoiceDueDateService");
+        await reconcileCompanyInvoiceDueDates(supabase, companyId);
+      } catch (error: any) {
+        invoiceDateRefreshError = error?.message || "Invoice due dates could not be refreshed.";
+      }
 
       mirrorSettingsCache(companyId, settings);
       setSavedSnapshot(JSON.stringify(settings));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-      toast({ title: "Settings saved", description: "Operational defaults are now saved for this company." });
+      toast({
+        title: invoiceDateRefreshError ? "Settings saved; invoice dates need a retry" : "Settings saved",
+        description: invoiceDateRefreshError || "Operational defaults and open invoice due dates are now saved for this company.",
+        variant: invoiceDateRefreshError ? "destructive" : "default",
+      });
     } catch (error: any) {
       toast({
         title: "Settings not saved",

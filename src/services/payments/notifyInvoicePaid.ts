@@ -16,6 +16,7 @@ import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { emailService } from "@/services/emailService";
 import { mintOrderCustomerLink } from "@/lib/customerLinksServer";
 import { publicAppOrigin } from "@/lib/publicAppOrigin";
+import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 
 export interface InvoicePaidNotifyInput {
   /** Service-role supabase client (bypasses RLS for the inserts). */
@@ -43,6 +44,13 @@ function formatMoney(amount: number, currency: string | null | undefined): strin
 }
 
 export async function notifyInvoicePaid(input: InvoicePaidNotifyInput): Promise<void> {
+  if (input.orderId) {
+    try {
+      await reconcileCompanyInvoiceDueDates(input.admin, input.companyId, { orderId: input.orderId });
+    } catch (error) {
+      console.error("[notifyInvoicePaid] balance due-date refresh failed:", error);
+    }
+  }
   const {
     admin,
     companyId,

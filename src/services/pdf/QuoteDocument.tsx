@@ -36,6 +36,9 @@ import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
 import { groupByCourse } from "@/lib/menuCourses";
 import { formatClockBoth } from "@/lib/portalTime";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
+import { PaymentSection } from "./PaymentSection";
+import { canKeepPdfTextTogether } from "./layout";
+import { FlowingCard } from "./FlowingCard";
 
 // --- Types -----------------------------------------------------------------
 
@@ -272,7 +275,7 @@ const buildStyles = (primary: string) =>
     },
     title: {
       fontSize: 22,
-      fontFamily: "Times-Bold",
+      fontFamily: "Helvetica-Bold",
       color: "#1c1917",
     },
     quoteNumberUnderTitle: {
@@ -335,8 +338,8 @@ const buildStyles = (primary: string) =>
       borderWidth: 1,
       borderColor: "#e7e5e4",
       borderRadius: 6,
-      padding: 13,
-      marginBottom: 10,
+      padding: 10,
+      marginTop: 8,
     },
     sectionLabel: {
       fontSize: 9,
@@ -350,7 +353,7 @@ const buildStyles = (primary: string) =>
     columns: {
       flexDirection: "row",
       gap: 12,
-      marginBottom: 10,
+      marginBottom: 2,
     },
     column: {
       flex: 1,
@@ -364,7 +367,7 @@ const buildStyles = (primary: string) =>
       borderColor: "#e7e5e4",
       borderRadius: 6,
       padding: 12,
-      marginBottom: 10,
+      marginTop: 8,
     },
     cellLabel: {
       fontSize: 8,
@@ -402,7 +405,7 @@ const buildStyles = (primary: string) =>
     lineRow: {
       flexDirection: "row",
       justifyContent: "space-between",
-      paddingVertical: 5,
+      paddingVertical: 4,
       borderBottomWidth: 1,
       borderBottomColor: "#f5f5f4",
     },
@@ -462,7 +465,7 @@ const buildStyles = (primary: string) =>
     },
     grandTotalLabel: {
       fontSize: 13,
-      fontFamily: "Times-Bold",
+      fontFamily: "Helvetica-Bold",
       color: "#1c1917",
     },
     grandTotalValue: {
@@ -601,9 +604,6 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         <View style={styles.headerBand} wrap={false}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              {company.logo_url ? (
-                <Image src={company.logo_url} style={styles.logo} />
-              ) : null}
               <Text style={styles.companyTag}>
                 {company.company_name || "Your caterer"}
               </Text>
@@ -633,7 +633,10 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 ) : null}
               </View>
             </View>
-            <View>
+            <View style={{ alignItems: "flex-end", marginLeft: 12 }}>
+              {company.logo_url ? (
+                <Image src={company.logo_url} style={styles.logo} />
+              ) : null}
               <Text
                 style={[
                   styles.badge,
@@ -648,7 +651,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
 
         {/* Match the invoice layout exactly: two equal, self-contained
             identity columns that leave room for real addresses to wrap. */}
-        <View style={styles.columns} wrap={false}>
+        <View style={styles.columns}>
             <View style={styles.column}>
               <Text style={styles.cellLabel}>From</Text>
               <Text style={styles.bodyText}>{company.legal_name || company.company_name || ""}</Text>
@@ -673,8 +676,8 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         {/* Event facts occupy a full-width panel, matching the invoice and
             keeping address-length independent of dates and guest counts. */}
         {(eventDate || data.guest_count != null || data.venue_address) && (
-          <View style={styles.fullWidthCard} wrap={false}>
-            <Text style={styles.sectionLabel}>Event details</Text>
+          <View style={styles.fullWidthCard}>
+            <Text style={styles.sectionLabel} minPresenceAhead={28}>Event details</Text>
             <View style={styles.eventGrid}>
               {eventDate ? (
                 <View style={styles.eventCard}>
@@ -706,13 +709,10 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
 
         {/* MENU ITEMS */}
         {menuItems.length > 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel} minPresenceAhead={44}>
-              From the kitchen
-            </Text>
+          <FlowingCard style={styles.card} headingStyle={styles.sectionLabel} title="From the kitchen">
             {menuGroups.map((group) => (
-              <View key={group.course} wrap={false}>
-                <Text style={[styles.sectionLabel, { marginTop: 5, marginBottom: 2 }]} minPresenceAhead={180}>
+              <View key={group.course}>
+                <Text style={[styles.sectionLabel, { marginTop: 5, marginBottom: 2 }]} minPresenceAhead={28}>
                   {group.heading.toUpperCase()}
                 </Text>
                 {group.items.map((item: any, i) => {
@@ -722,7 +722,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                   const lineTotal = Number(item?.total ?? item?.line_total ?? item?.lineTotal ?? unitPrice * qty);
                   const isLast = i === group.items.length - 1;
                   return (
-                    <View key={`menu-${group.course}-${i}`} style={[styles.lineRow, isLast ? styles.lineRowLast : {}]} minPresenceAhead={32}>
+                    <View key={`menu-${group.course}-${i}`} style={[styles.lineRow, isLast ? styles.lineRowLast : {}]} wrap={!canKeepPdfTextTogether(`${name}\n${item?.description || ""}`, 28)}>
                       <View style={styles.lineLeft}>
                         <Text style={styles.lineName}>{name}</Text>
                         {item?.description ? <Text style={styles.lineDescription}>{item.description}</Text> : null}
@@ -734,15 +734,12 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 })}
               </View>
             ))}
-          </View>
+          </FlowingCard>
         ) : null}
 
         {/* EQUIPMENT */}
         {equipmentItems.length > 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel} minPresenceAhead={44}>
-              Equipment
-            </Text>
+          <FlowingCard style={styles.card} headingStyle={styles.sectionLabel} title="Equipment">
             {equipmentItems.map((item: any, i) => {
               const name = item?.name || item?.item_name || item?.equipment_name || `Equipment ${i + 1}`;
               const qty = Number(item?.quantity ?? item?.qty ?? 1);
@@ -755,7 +752,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 <View
                   key={`eq-${i}`}
                   style={[styles.lineRow, isLast ? styles.lineRowLast : {}]}
-                  minPresenceAhead={32}
+                  wrap={!canKeepPdfTextTogether(name, 28)}
                 >
                   <View style={styles.lineLeft}>
                     <Text style={styles.lineName}>{name}</Text>
@@ -767,7 +764,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
                 </View>
               );
             })}
-          </View>
+          </FlowingCard>
         ) : null}
 
         {/* TOTALS.
@@ -778,7 +775,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             too so it reconciles with the line items above. ex-VAT
             tenants keep the legacy "items net + delivery + VAT on top"
             layout. */}
-        <View style={styles.card} wrap={false} minPresenceAhead={96}>
+        <View style={styles.card} wrap={false}>
           {(() => {
             const incVat = company.pricing_includes_vat === true;
             const itemsLine = incVat
@@ -888,67 +885,37 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
           })()}
         </View>
 
-        {/* PAYMENT OPTIONS. A quote is not itself a payment receipt; this
-            block gives the customer both the online route and the complete
-            configured EFT beneficiary details when those are available. */}
+        {/* Share the same compact, flowing payment layout as the invoice. */}
         {paymentProvider || eftDetails ? (
-          <View style={styles.card} minPresenceAhead={120}>
-            <Text style={styles.sectionLabel}>Payment options</Text>
-            {paymentProvider ? (
-              <>
-                <Text style={styles.cellValue}>Online payment with {paymentProvider}</Text>
-                <Text style={[styles.terms, { marginTop: 3 }]}>After accepting this quote, use the secure payment page to choose the requested amount and pay online.</Text>
-                {paymentInstructions?.payment_url ? (
-                  <Text style={[styles.terms, { marginTop: 3 }]}>
-                    Review and accept: <Link src={paymentInstructions.payment_url}>{paymentInstructions.payment_url}</Link>
-                  </Text>
-                ) : null}
-              </>
-            ) : null}
-            {eftDetails ? (
-              <>
-                <Text style={[styles.cellValue, paymentProvider ? { marginTop: 10 } : {}]}>{paymentProvider ? "Or pay by EFT" : "Pay by EFT"} to {eftDetails.company_name || company.legal_name || company.company_name || "the company"}</Text>
-                {eftDetails.bank_name ? <Text style={[styles.terms, { marginTop: 3 }]}>Bank: {eftDetails.bank_name}</Text> : null}
-                {eftDetails.account_holder ? <Text style={styles.terms}>Account holder: {eftDetails.account_holder}</Text> : null}
-                {eftDetails.account_number ? <Text style={styles.terms}>Account number: {eftDetails.account_number}</Text> : null}
-                {eftDetails.branch_code ? <Text style={styles.terms}>Branch code: {eftDetails.branch_code}</Text> : null}
-                {eftDetails.account_type ? <Text style={styles.terms}>Account type: {eftDetails.account_type}</Text> : null}
-                {eftDetails.reference ? <Text style={[styles.terms, { marginTop: 3 }]}>EFT reference: {eftDetails.reference}</Text> : null}
-                {eftDetails.reference_hint ? <Text style={styles.terms}>{eftDetails.reference_hint}</Text> : null}
-                {eftDetails.instructions ? <Text style={[styles.terms, { marginTop: 3 }]}>{eftDetails.instructions}</Text> : null}
-              </>
-            ) : null}
-          </View>
+          <PaymentSection
+            instructions={paymentInstructions}
+            primary={primary}
+            beneficiary={company.legal_name || company.company_name || "the company"}
+            quote
+          />
         ) : null}
 
         {data.payment_terms ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel} minPresenceAhead={36}>
-              Payment terms
-            </Text>
+          <FlowingCard style={styles.card} headingStyle={styles.sectionLabel} title="Payment terms" wrap={!canKeepPdfTextTogether(data.payment_terms)}>
             {renderPdfTerms(data.payment_terms, styles)}
-          </View>
+          </FlowingCard>
         ) : null}
 
         {/* TERMS + valid until */}
         {data.terms_and_conditions ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel} minPresenceAhead={36}>
-              Terms
-            </Text>
+          <FlowingCard style={styles.card} headingStyle={styles.sectionLabel} title="Terms" wrap={!canKeepPdfTextTogether(data.terms_and_conditions)}>
             {renderPdfTerms(data.terms_and_conditions, styles)}
             {validUntil ? <Text style={styles.validUntil}>Valid until {validUntil}.</Text> : null}
-          </View>
+          </FlowingCard>
         ) : null}
 
         {/* Notes were historically saved on the quote but silently dropped
             from its PDF. Keep them distinct from contractual terms so a
             customer can tell operational context from legal conditions. */}
         {visibleDocumentNote(data.notes) ? (
-          <View style={styles.card} minPresenceAhead={52}>
-            <Text style={styles.sectionLabel}>A note from us</Text>
+          <FlowingCard style={styles.card} headingStyle={styles.sectionLabel} title="A note from us" wrap={!canKeepPdfTextTogether(visibleDocumentNote(data.notes))}>
             <Text style={styles.notes}>{visibleDocumentNote(data.notes)}</Text>
-          </View>
+          </FlowingCard>
         ) : null}
 
         <View style={styles.fixedFooter} fixed>

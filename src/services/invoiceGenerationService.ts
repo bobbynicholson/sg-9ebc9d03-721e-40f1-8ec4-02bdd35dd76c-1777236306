@@ -1,12 +1,10 @@
 import { supabase as defaultSupabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { calculateInvoiceDueDate } from "@/lib/invoiceDateRules";
+import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import {
   DEFAULT_PAYMENT_REMINDERS,
   fetchClientPaymentSchedules,
-  hasClientDueOverride,
-  hasPaymentDueSetting,
-  paymentDueDate,
   readPaymentDueSettings,
   resolvePaymentSchedule,
 } from "@/lib/paymentReminderSchedule";
@@ -552,77 +550,25 @@ export async function generateInvoiceData(
       client.billing_postal_code,
     ].filter(Boolean).join(", ");
 
-    // Wave 66.8 - smart due-date hierarchy. Pre-Wave-66.8 the dueDate
-    // was hardcoded to invoice_date + 30 regardless of the tenant's
-    // configured default or the client's per-account terms. Now:
-    //
-    //   per-client payment_terms (integer days)
-    //     -> overrides every other default. Lets a corporate client be
-    //        set to Net 30 while everyone else stays on the company
-    //        default.
-    //   company balance_due_days (integer days, configurable in
-    //     /admin/settings)
-    //     -> fallback when the client has no override.
-    //   30 days
-    //     -> ultimate fallback when neither is configured.
-    //
-    // For catering specifically, the balance is conceptually due BEFORE
-    // the event (you cater the airport tomorrow, you want the money by
-    // close of business today). So we cap the computed dueDate at
-    // event_date - 1 day. The operator can still set a longer
-    // post-event term per-invoice manually if they want.
-    const clientPaymentTerms = Number((client as any)?.payment_terms);
-    const companyBalanceDueDays = Number((companyData as any)?.balance_due_days);
-    const termDays =
-      Number.isFinite(clientPaymentTerms) && clientPaymentTerms > 0
-        ? clientPaymentTerms
-        : Number.isFinite(companyBalanceDueDays) && companyBalanceDueDays > 0
-          ? companyBalanceDueDays
-          : 30;
+    // Balance due dates follow the event schedule, even when the invoice
+    // was issued months earlier. Legacy Net-X client terms cannot shorten
+    // the company schedule; only an explicit client payment_schedule wins.
+    const clientTermDays = Number(client.payment_terms);
     const invoiceDateObj = new Date();
-    // The balance must NEVER be due after the event - you cater the
-    // event, you want the money by then at the latest. Prefer 1 day
-    // before the event for breathing room, but clamp:
-    //   - never later than the term-based computed due date,
-    //   - never after the event day itself,
-    //   - never before today (a same-day or past event => due today, not
-    //     a date in the past).
-    // Bug fix (owner Callum 2026-07-08): the previous branch bailed out
-    // entirely when event_date - 1 was before today (same-day / imminent
-    // event), leaving the +termDays default which landed AFTER the event
-    // - a same-day function showed "Due in 14 days" instead of today.
-    const eventDateRaw = (orderData as any)?.event_date as string | null | undefined;
-    let finalDue = calculateInvoiceDueDate({
-      invoiceDate: invoiceDateObj,
-      termDays,
-      eventDate: eventDateRaw,
-    });
-    // Payment-due rule (2026-10-14): the client's own setting (Contacts)
-    // wins, then the company's saved "Payment is due X days before/after
-    // the event" (Settings -> Financial). The invoice is due on that date
-    // (never before the invoice day), matching the order and the payment
-    // reminder. Neither set -> the term-based rule above stays.
-    const clientIdForSchedule = (orderData as any)?.client_id as string | null | undefined;
+    const clientIdForSchedule = orderData.client_id as string | null | undefined;
     const clientSchedule = clientIdForSchedule
       ? (await fetchClientPaymentSchedules(supabase, [clientIdForSchedule])).get(clientIdForSchedule)
       : undefined;
-    if (hasClientDueOverride(clientSchedule) || hasPaymentDueSetting((companyData as any)?.dispatch_settings)) {
-      const ruleDue = paymentDueDate(
-        eventDateRaw,
-        resolvePaymentSchedule(
-          {
-            due: readPaymentDueSettings((companyData as any)?.dispatch_settings, (companyData as any)?.balance_due_days),
-            reminders: DEFAULT_PAYMENT_REMINDERS,
-          },
-          clientSchedule,
-        ).due,
-      );
-      if (ruleDue) {
-        const ruleDueDate = new Date(`${ruleDue}T00:00:00`);
-        const invoiceDay = new Date(invoiceDateObj.getFullYear(), invoiceDateObj.getMonth(), invoiceDateObj.getDate());
-        finalDue = ruleDueDate.getTime() < invoiceDay.getTime() ? invoiceDay : ruleDueDate;
-      }
-    }
+    const duePolicy = resolvePaymentSchedule({
+      due: readPaymentDueSettings(companyData.dispatch_settings, companyData.balance_due_days),
+      reminders: DEFAULT_PAYMENT_REMINDERS,
+    }, clientSchedule).due;
+    const finalDue = calculateInvoiceDueDate({
+      invoiceDate: invoiceDateObj,
+      termDays: Number.isFinite(clientTermDays) && clientTermDays >= 0 ? clientTermDays : 30,
+      eventDate: orderData.event_date,
+      paymentDue: duePolicy,
+    });
 
     // Resolve both legacy JSON bank details and the current company EFT
     // fields. The public pay page and the downloadable invoice should
@@ -1085,6 +1031,9 @@ export async function recalcInvoiceForOrder(
     if (updErr) {
       return { success: false, error: updErr.message };
     }
+    // Amendments/confirmation must refresh the saved date as well as the
+    // snapshot, and clear an overdue state when the balance is not due.
+    await reconcileCompanyInvoiceDueDates(supabase, companyId, { orderId });
     return { success: true, updated: true, invoiceId: (existing as any).id };
   } catch (e: any) {
     return { success: false, error: e?.message || "recalcInvoiceForOrder crashed" };

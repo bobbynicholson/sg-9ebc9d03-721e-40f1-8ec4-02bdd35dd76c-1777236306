@@ -57,20 +57,23 @@ function addCalendarDays(date: Date, days: number): Date {
 }
 
 /**
- * Catering balance rule used when an invoice is created:
+ * Due date used when an invoice is created or its event schedule changes.
+ * An explicit paymentDue policy uses the event date plus/minus its offset,
+ * regardless of earlier Net-X terms. Without it, legacy callers retain:
  *
  * - start with invoice day + configured term days;
  * - prefer the day before the event;
  * - never place the due date after the event; and
  * - never backdate it before the invoice day.
  *
- * Consequently, a same-day or already-past event is due on the invoice
- * day, not termDays later and not on a historical date.
+ * Neither path backdates a new invoice before its issue day. Without an
+ * event date, termDays supplies the ordinary invoice-date fallback.
  */
 export function calculateInvoiceDueDate(args: {
   invoiceDate: Date;
   termDays: number;
   eventDate?: unknown;
+  paymentDue?: { direction: "before_event" | "after_event"; days: number };
 }): Date {
   const invoiceDay = parseInvoiceCalendarDate(args.invoiceDate);
   if (!invoiceDay) throw new Error("A valid invoice date is required");
@@ -82,6 +85,15 @@ export function calculateInvoiceDueDate(args: {
   const computedDue = addCalendarDays(invoiceDay, termDays);
   const eventDay = parseInvoiceCalendarDate(args.eventDate);
   if (!eventDay) return computedDue;
+
+  // An event-based balance schedule is a due date, not a cap on Net-X
+  // terms. A deposit paid months ahead must not make the balance due now.
+  if (args.paymentDue) {
+    const days = Number(args.paymentDue.days);
+    if (!Number.isFinite(days) || days < 0) throw new Error("Invalid payment due days");
+    const scheduled = addCalendarDays(eventDay, Math.trunc(days) * (args.paymentDue.direction === "after_event" ? 1 : -1));
+    return scheduled.getTime() < invoiceDay.getTime() ? invoiceDay : scheduled;
+  }
 
   const dayBeforeEvent = addCalendarDays(eventDay, -1);
   let finalDue = dayBeforeEvent.getTime() < computedDue.getTime()

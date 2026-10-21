@@ -13,6 +13,7 @@ import { buildCompleteChatIntentRegistry } from "./intents/registry";
 import { getIntentNavigationRefs } from "./intents/policy";
 import type { ChatIntentMatch } from "./intents/types";
 import { normalizeChatRole } from "./roles";
+import { matchingAutomatedEmailControls, automatedEmailNavigationRef } from "@/lib/email/automatedEmailSections";
 
 export interface ChatNavigationRef {
   ref: string;
@@ -553,6 +554,12 @@ export function getRelevantNavigation(query: string, role: string, limit = 3, cu
   const platformScoped = role === "super_admin"
     && Boolean(currentPage)
     && !/^\/[^/]+\/(?:admin|team-portal|client-portal|account)(?:\/|$)/.test(currentPage?.pathname || "");
+  if (!platformScoped) {
+    const emailControls = matchingAutomatedEmailControls(query)
+      .map((key) => NAVIGATION_REFS.find((item) => item.ref === automatedEmailNavigationRef(key)))
+      .filter((item): item is ChatNavigationRef => Boolean(item) && isAllowed(item, role));
+    if (emailControls.length) return emailControls.slice(0, limit);
+  }
   const directNavigation = getDirectNavigation(query, role, platformScoped);
   if (directNavigation) return directNavigation.slice(0, 1);
   if (isPendingInvitationQuestion(query)) return getPendingInvitationNavigation(role, limit);

@@ -59,6 +59,14 @@ describe("invoice generation due-date rule", () => {
     expect(ymd(due)).toBe("2026-07-21");
   });
 
+  it("uses two days before a distant event rather than earlier invoice Net-X terms", () => {
+    expect(ymd(calculateInvoiceDueDate({ invoiceDate, termDays: 5, eventDate: "2026-11-27", paymentDue: { direction: "before_event", days: 2 } }))).toBe("2026-11-25");
+  });
+
+  it("allows an explicitly agreed after-event balance date", () => {
+    expect(ymd(calculateInvoiceDueDate({ invoiceDate, termDays: 5, eventDate: "2026-07-20", paymentDue: { direction: "after_event", days: 30 } }))).toBe("2026-08-19");
+  });
+
   it("parses date-only values as the written local calendar date", () => {
     const parsed = parseInvoiceCalendarDate("2026-07-07");
     expect(parsed && ymd(parsed)).toBe("2026-07-07");

@@ -42,6 +42,8 @@ import {
   createInvoiceRecord,
 } from "@/services/invoiceGenerationService";
 import { InvoicePreview } from "@/components/InvoicePreview";
+import { PdfDocumentPreview } from "@/components/documents/PdfDocumentPreview";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
 import { InvoiceSendDialog } from "@/components/billing/InvoiceSendDialog";
 import { logPiiAccess } from "@/services/piiAccessLogService";
@@ -2879,7 +2881,25 @@ function InvoicesPageInner() {
               {/* TIGHTEN I.82: pass tenant currency so the customer-
                   facing document shows the right symbol on non-ZAR
                   tenants. */}
-              <InvoicePreview {...selectedInvoice} currencyCode={(selectedInvoice as any).currency || tenantMoney.code} />
+              <Tabs defaultValue="details" key={selectedInvoiceId}>
+                <TabsList aria-label="Invoice preview format" className="mb-3">
+                  <TabsTrigger value="details">Invoice details</TabsTrigger>
+                  <TabsTrigger value="pdf">PDF pages</TabsTrigger>
+                </TabsList>
+                <TabsContent value="details">
+                  <InvoicePreview {...selectedInvoice} currencyCode={(selectedInvoice as any).currency || tenantMoney.code} />
+                </TabsContent>
+                <TabsContent value="pdf">
+                  {(() => {
+                    const invoice = invoices.find((row: any) => row.id === selectedInvoiceId);
+                    return <PdfDocumentPreview
+                      src={invoice?.public_token ? `/api/public/invoices/${invoice.public_token}/pdf` : null}
+                      label={selectedInvoice.invoiceNumber || "Invoice"}
+                      revision={`${invoice?.updated_at || ""}:${invoice?.amount_paid || 0}:${invoice?.balance_due || 0}`}
+                    />;
+                  })()}
+                </TabsContent>
+              </Tabs>
               <div className="mt-4 flex flex-col-reverse gap-2 border-t pt-4 sm:mt-6 sm:flex-row sm:flex-wrap sm:justify-end sm:pt-6">
                 {invoices.find((row: any) => row.id === selectedInvoiceId)?.order_id && (
                   <Button

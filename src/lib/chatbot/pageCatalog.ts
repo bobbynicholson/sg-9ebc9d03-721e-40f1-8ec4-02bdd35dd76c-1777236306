@@ -1,10 +1,12 @@
 import type { ChatNavigationRef } from "./navigation";
+import { AUTOMATED_EMAIL_SECTIONS, automatedEmailControlId, automatedEmailCategoryId, automatedEmailNavigationRef, automatedEmailKeywords } from "@/lib/email/automatedEmailSections";
 
 // The page catalog is deliberately hand-written. A route tells the assistant
 // where a user can go; its description tells the assistant why that page is
 // the right destination. Dynamic record links are still produced from live
 // context and are not hard-coded here.
 const ADMIN = ["super_admin", "owner", "company_admin", "region_admin", "sales_admin", "admin"];
+const EMAIL_ADMINS = ["super_admin", "owner", "company_admin", "admin"];
 const FINANCE = ["super_admin", "owner", "company_admin"];
 const PLATFORM = ["super_admin"];
 const KITCHEN = ["kitchen_manager", "kitchen_staff"];
@@ -328,7 +330,20 @@ export const SECTION_NAVIGATION_REFS: ChatNavigationRef[] = [
   section("admin.settings.payment-reminders", "Payment reminders", "/admin/settings#payment-reminders", "Turn automatic payment reminder emails off, or send one reminder a chosen number of days before payment is due. Off by default; applies to every client unless a client has its own setting in Contacts", ["payment reminder", "payment reminders", "stop payment reminders", "turn off payment reminders", "turn off reminders", "disable reminders", "reminder days", "remind clients to pay", "balance reminder", "deposit reminder", "too many reminders"], ADMIN),
   section("admin.settings.payment-due", "Payment is due", "/admin/settings#payment-due", "Set when every client must pay: a number of days before or after the event. Invoice due dates and payment reminders follow it", ["payment due", "when is payment due", "balance due", "due date", "payment terms", "pay after event", "pay before event", "30 day terms", "net 30"], ADMIN),
   section("admin.email-settings.automatic-emails", "Automatic emails on or off", "/admin/email-settings#automatic-emails", "Turn all automatic emails on or off at once. Off means they are not sent; emails you send yourself always go out", ["automatic emails", "turn off automatic emails", "stop automatic emails", "too many emails", "disable emails", "automated emails", "manual or automatic", "stop emailing clients"], ADMIN),
-  section("admin.email-settings.each-email", "Each automatic email", "/admin/email-settings#each-automatic-email", "Turn one automatic email on or off, such as order confirmed, delivery on the way, invoices, receipts, event reminders, quote follow-ups or payment reminders", ["turn off one email", "order confirmation email", "delivery email", "invoice email", "receipt email", "event reminder email", "quote follow up email", "which emails are sent", "email automation"], ADMIN),
+  section("admin.email-settings.each-email", "Automatic emails by category", "/admin/email-settings#each-automatic-email", "Find automatic emails grouped by client, payments, quotes, staff and account. Search for an email and choose Automatic or Off, then Save settings", ["turn off one email", "invoice email", "receipt email", "quote follow up email", "which emails are sent", "email automation", "email categories"], EMAIL_ADMINS),
+  ...AUTOMATED_EMAIL_SECTIONS.map((category) => section(
+    `admin.email-settings.category.${category.id}`, category.title,
+    `/admin/email-settings#${automatedEmailCategoryId(category.id)}`,
+    category.description, [category.title.toLowerCase()], EMAIL_ADMINS,
+  )),
+  ...AUTOMATED_EMAIL_SECTIONS.flatMap((category) => category.templates.map((template) => section(
+    automatedEmailNavigationRef(template.key), `${template.label} settings`,
+    `/admin/email-settings#${automatedEmailControlId(template.key)}`,
+    template.controllable
+      ? `Open the ${template.label} automatic email in ${category.title}, choose Automatic or Off, then Save settings.`
+      : `Open ${template.label} in ${category.title}. This account access email is always sent.`,
+    automatedEmailKeywords(template), EMAIL_ADMINS,
+  ))),
   section("driver.earnings.shifts", "Driver shifts tab", "/team-portal/driver/earnings#driver-shifts", "Review driver shift hours and pay", ["driver shifts", "shift earnings"], DRIVER),
   section("driver.earnings.deliveries", "Driver delivery pay tab", "/team-portal/driver/earnings#driver-deliveries", "Review delivery distance and callout pay", ["driver delivery pay", "delivery earnings"], DRIVER),
   section("driver.deliveries.all", "All driver deliveries tab", "/team-portal/driver/deliveries?tab=all#delivery-history", "Review all assigned deliveries", ["all deliveries", "every delivery"], DRIVER),

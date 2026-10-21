@@ -491,6 +491,32 @@ export function ReceiptDialog({
 
             <Separator />
 
+            {/* Totals */}
+            <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600">Invoice total</span>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  {fmtMoney.format(Number(invoice.total_amount || 0))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600">Total paid</span>
+                <span className="font-semibold text-brand-primary tabular-nums">
+                  {fmtMoney.format(totalPaid)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-base pt-1 border-t border-slate-200">
+                <span className="font-semibold text-slate-900">Balance remaining</span>
+                <span
+                  className={`font-bold tabular-nums ${
+                    balance > 0 ? "text-amber-700" : "text-brand-primary"
+                  }`}
+                >
+                  {fmtMoney.format(balance)}
+                </span>
+              </div>
+            </div>
+
             {/* Payments list */}
             <div>
               <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-2">
@@ -537,30 +563,12 @@ export function ReceiptDialog({
               </div>
             </div>
 
-            {/* Totals */}
-            <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 space-y-1.5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Invoice total</span>
-                <span className="font-semibold text-slate-900 tabular-nums">
-                  {fmtMoney.format(Number(invoice.total_amount || 0))}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Total paid</span>
-                <span className="font-semibold text-brand-primary tabular-nums">
-                  {fmtMoney.format(totalPaid)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-base pt-1 border-t border-slate-200">
-                <span className="font-semibold text-slate-900">Balance remaining</span>
-                <span
-                  className={`font-bold tabular-nums ${
-                    balance > 0 ? "text-amber-700" : "text-brand-primary"
-                  }`}
-                >
-                  {fmtMoney.format(balance)}
-                </span>
-              </div>
+            <div className="rounded-lg border border-brand-primary bg-brand-primary/5 px-4 py-3 text-center break-inside-avoid">
+              <p className="text-lg font-bold text-brand-primary">Thank you</p>
+              <p className="mt-1 text-sm text-slate-600">
+                We appreciate your business
+                {company?.company_name ? ` with ${company.company_name}` : ""}.
+              </p>
             </div>
 
             <p className="text-[11px] text-slate-500 text-center pt-2 border-t border-slate-100">

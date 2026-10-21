@@ -31,6 +31,16 @@ export async function applyVerifiedPayment(admin: any, payment: VerifiedPayment,
       error.code === "22023" ? 400 : error.code === "23505" ? 409 : 503);
   }
   if (!data?.payment_id) throw new TenantGatewaySettlementError("Settlement did not commit", 503);
+  // The deposit changes what remains payable, not when the event balance
+  // falls due. Refresh legacy invoice dates after successful settlement.
+  try {
+    const { reconcileCompanyInvoiceDueDates } = await import("@/services/invoiceDueDateService");
+    if (data.order_id) await reconcileCompanyInvoiceDueDates(admin, payment.companyId, { orderId: data.order_id });
+  } catch (error) {
+    // Settlement already committed; never turn a date-refresh failure into
+    // a failed payment. The guarded reminder/overdue jobs retry the repair.
+    console.error("[gateway-settlement] balance due-date refresh failed:", error);
+  }
   return data as { order: any | null; duplicate: boolean; payment_id: string; invoice_id: string | null;
     order_id: string | null; amount_paid: number; balance_due: number; overpayment_amount: number };
 }

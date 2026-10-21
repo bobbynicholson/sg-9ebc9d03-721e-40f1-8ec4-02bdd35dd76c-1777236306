@@ -4,6 +4,8 @@ import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toLocalISO } from "@/lib/localDate";
+import { calculateInvoiceDueDate, parseInvoiceCalendarDate } from "@/lib/invoiceDateRules";
+import { readPaymentDueSettings } from "@/lib/paymentReminderSchedule";
 
 export interface InvoiceCompanyDetails {
   name: string;
@@ -352,7 +354,7 @@ export const invoiceService = {
     // VAT line; other regions may not be 15%).
     const { data: savedInv, error: savedInvErr } = await supabase
       .from("invoices")
-      .select("invoice_number, subtotal, tax_amount, total_amount")
+      .select("invoice_number, invoice_date, due_date, subtotal, tax_amount, total_amount")
       .eq("order_id", order.id)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -363,7 +365,7 @@ export const invoiceService = {
     }
     const { data: companyTermsRow, error: companyTermsErr } = await (supabase as any)
       .from("companies")
-      .select("dispatch_settings")
+      .select("dispatch_settings, balance_due_days")
       .eq("id", (order as any).company_id)
       .maybeSingle();
     if (companyTermsErr) {
@@ -413,8 +415,13 @@ export const invoiceService = {
     if (!invoiceNumber) {
       invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
     }
-    const invoiceDate = edits?.invoiceDate || toLocalISO(new Date());
-    const dueDate = edits?.dueDate || order.event_date || toLocalISO(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+    const invoiceDate = edits?.invoiceDate || (savedInv as any)?.invoice_date || toLocalISO(new Date());
+    const dueDate = edits?.dueDate || (savedInv as any)?.due_date || toLocalISO(calculateInvoiceDueDate({
+      invoiceDate: parseInvoiceCalendarDate(invoiceDate) || new Date(),
+      termDays: 30,
+      eventDate: order.event_date,
+      paymentDue: readPaymentDueSettings(companyTermsRow?.dispatch_settings, companyTermsRow?.balance_due_days),
+    }));
 
     const invoiceData: InvoiceData = {
       invoiceNumber,

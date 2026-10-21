@@ -5,6 +5,7 @@ import { requireCronAuth } from "@/lib/cronAuth";
 import { recordCronHeartbeat } from "@/lib/cronHeartbeat";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { buildPayInvoiceUrlServer } from "@/lib/customerLinksServer";
+import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import {
   fetchClientPaymentSchedules,
   fetchCompaniesWithClientReminders,
@@ -79,6 +80,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (reminderSettings.size === 0) {
       await recordCronHeartbeat(sb, CRON_NAME, "ok", { source: auth.source, considered: 0, queued: 0 });
       return res.status(200).json({ ok: true, queued: 0 });
+    }
+    // Reminder copy and invoice links must show the same current due date.
+    // Do not proceed to delivery when date reconciliation fails.
+    for (const companyId of reminderSettings.keys()) {
+      await reconcileCompanyInvoiceDueDates(sb, companyId);
     }
 
     // Unpaid invoices for those companies. Whether each one is due a

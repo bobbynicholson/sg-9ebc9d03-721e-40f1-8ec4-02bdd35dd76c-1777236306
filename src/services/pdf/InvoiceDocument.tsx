@@ -34,6 +34,9 @@ import { groupByCourse } from "@/lib/menuCourses";
 import { formatClockBoth } from "@/lib/portalTime";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
 import { parseClientTermsBlocks } from "@/lib/clientTermsFormatting";
+import { PaymentSection } from "./PaymentSection";
+import { canKeepPdfTextTogether } from "./layout";
+import { FlowingCard } from "./FlowingCard";
 
 // --- Types -----------------------------------------------------------------
 
@@ -86,7 +89,7 @@ export interface InvoicePdfData {
 
   notes?: string | null;
   payment_terms?: string | null;
-  /** Mutually-exclusive online or EFT instructions for an unpaid invoice. */
+  /** Available online and EFT instructions for an unpaid invoice. */
   payment_instructions?: PdfPaymentInstructions | null;
 
   company: {
@@ -233,7 +236,7 @@ const buildStyles = (primary: string) =>
     },
     title: {
       fontSize: 22,
-      fontFamily: "Times-Bold",
+      fontFamily: "Helvetica-Bold",
       color: "#1c1917",
     },
     invoiceNumberUnderTitle: {
@@ -284,7 +287,7 @@ const buildStyles = (primary: string) =>
     columns: {
       flexDirection: "row",
       gap: 12,
-      marginBottom: 10,
+      marginBottom: 2,
     },
     // Match QuoteDocument's shared section card, paired party columns,
     // and inset event tiles so both PDFs use the same visual grid.
@@ -292,8 +295,8 @@ const buildStyles = (primary: string) =>
       borderWidth: 1,
       borderColor: "#e7e5e4",
       borderRadius: 6,
-      padding: 13,
-      marginBottom: 10,
+      padding: 10,
+      marginTop: 8,
     },
     column: {
       flex: 1,
@@ -362,7 +365,7 @@ const buildStyles = (primary: string) =>
     lineRow: {
       flexDirection: "row",
       justifyContent: "space-between",
-      paddingVertical: 5,
+      paddingVertical: 4,
       borderBottomWidth: 1,
       borderBottomColor: "#f5f5f4",
     },
@@ -419,7 +422,7 @@ const buildStyles = (primary: string) =>
     },
     grandTotalLabel: {
       fontSize: 13,
-      fontFamily: "Times-Bold",
+      fontFamily: "Helvetica-Bold",
       color: "#1c1917",
     },
     grandTotalValue: {
@@ -595,9 +598,6 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         <View style={styles.headerBand} wrap={false}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              {company.logo_url ? (
-                <Image src={company.logo_url} style={styles.logo} />
-              ) : null}
               <Text style={styles.companyTag}>
                 {company.company_name || "Your caterer"}
               </Text>
@@ -629,7 +629,10 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 ) : null}
               </View>
             </View>
-            <View>
+            <View style={{ alignItems: "flex-end", marginLeft: 12 }}>
+              {company.logo_url ? (
+                <Image src={company.logo_url} style={styles.logo} />
+              ) : null}
               <Text
                 style={[
                   styles.statusPill,
@@ -646,7 +649,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         {/* Party details and event facts are deliberately separate. This
             keeps a client's contact information readable and prevents
             order/date text from being squeezed into the Bill to column. */}
-        <View style={styles.columns} wrap={false}>
+        <View style={styles.columns}>
           <View style={styles.column}>
             <Text style={styles.cellLabel}>From</Text>
             <Text style={styles.bodyText}>
@@ -687,8 +690,8 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         </View>
 
         {(data.order_number || data.event_name || eventDate || eventTime || data.guest_count != null || data.venue_address) ? (
-          <View style={styles.card} wrap={false}>
-            <Text style={styles.sectionLabel}>Event details</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel} minPresenceAhead={28}>Event details</Text>
             <View style={styles.eventGrid}>
               {data.order_number ? (
                 <View style={styles.eventCard}>
@@ -727,17 +730,14 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
 
         {/* LINE ITEMS - mirrors QuoteDocument's "From the kitchen" block */}
         {lineItems.length > 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel} minPresenceAhead={44}>
-              From the kitchen
-            </Text>
+          <FlowingCard style={styles.card} headingStyle={styles.sectionLabel} title="From the kitchen">
             {(lineItemGroups.length > 0 ? lineItemGroups.flatMap((group) => [
               { kind: "heading" as const, group },
               ...group.items.map((row, i) => ({ kind: "row" as const, row, key: `${group.course}-${i}`, isLast: i === group.items.length - 1 })),
-            ]) : lineItems.map((row, i) => ({ kind: "row" as const, row, key: `row-${i}`, isLast: i === lineItems.length - 1 }))).map((entry) => {
+            ]) : lineItems.map((row, i) => ({ kind: "row" as const, row, key: `row-${i}`, isLast: i === lineItems.length - 1 }))).map((entry, index) => {
               if (entry.kind === "heading") {
                 return (
-                  <Text key={`heading-${entry.group.course}`} style={[styles.sectionLabel, { marginTop: 5, marginBottom: 2 }]} minPresenceAhead={80}>
+                  <Text key={`heading-${entry.group.course}`} style={[styles.sectionLabel, { marginTop: 5, marginBottom: 2 }]} minPresenceAhead={28}>
                     {entry.group.heading.toUpperCase()}
                   </Text>
                 );
@@ -752,11 +752,11 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 <View
                   key={entry.key}
                   style={[styles.lineRow, entry.isLast ? styles.lineRowLast : {}]}
-                  minPresenceAhead={32}
+                  wrap={!canKeepPdfTextTogether(`${row?.name || ""}\n${row?.description || ""}`, 28)}
                 >
                   <View style={styles.lineLeft}>
                     <Text style={styles.lineName}>
-                      {row?.name || `Item ${i + 1}`}
+                      {row?.name || `Item ${index + 1}`}
                     </Text>
                     {row?.description ? (
                       <Text style={styles.lineDescription}>{row.description}</Text>
@@ -771,11 +771,11 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 </View>
               );
             })}
-          </View>
+          </FlowingCard>
         ) : null}
 
         {/* TOTALS */}
-        <View style={styles.card} wrap={false} minPresenceAhead={96}>
+        <View style={styles.card} wrap={false}>
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>Subtotal</Text>
             <Text style={styles.totalsValue}>{fmt(subtotal)}</Text>
@@ -833,7 +833,7 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         </View>
 
         {showPaymentPlan ? (
-          <View style={styles.card} wrap={false} minPresenceAhead={88}>
+          <View style={styles.card} wrap={false}>
               <Text style={styles.sectionLabel}>Payment plan</Text>
               <View style={styles.totalsRow}>
                 <Text style={styles.totalsLabel}>Pay now to confirm booking</Text>
@@ -847,12 +847,21 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
           </View>
         ) : null}
 
+        {/* Payment instructions precede potentially lengthy contractual text. */}
+        {paymentProvider || eftDetails ? (
+          <PaymentSection
+            instructions={paymentInstructions}
+            primary={primary}
+            beneficiary={company.legal_name || company.company_name || "the company"}
+            settled={!hasOutstandingBalance}
+          />
+        ) : null}
+
         {/* Payment terms use the same neutral card as the quote. This keeps
             legal wording readable without making it look like a separate
             document design. */}
         {data.payment_terms ? (
-          <View style={styles.card} minPresenceAhead={64}>
-            <Text style={styles.sectionLabel}>Payment terms</Text>
+          <FlowingCard style={styles.card} headingStyle={styles.sectionLabel} title="Payment terms" wrap={!canKeepPdfTextTogether(data.payment_terms)}>
             {parseClientTermsBlocks(data.payment_terms).map((block, blockIndex) => (
               <Text
                 key={`payment-term-${blockIndex}`}
@@ -868,59 +877,14 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
                 ))}
               </Text>
             ))}
-          </View>
-        ) : null}
-
-        {/* PAYMENT INSTRUCTIONS. Keep this immediately beneath the amount
-            due so a client can act without hunting through an email. A
-            complete EFT bundle remains visible even when online checkout is
-            available, because this PDF is often forwarded for payment. */}
-        {hasOutstandingBalance && (paymentProvider || eftDetails) ? (
-          <View style={styles.card} minPresenceAhead={120}>
-            <Text style={styles.sectionLabel}>How to pay</Text>
-            {paymentProvider ? (
-              <>
-                <Text style={styles.bodyText}>
-                  Pay online securely with {paymentProvider}.
-                </Text>
-                {paymentInstructions?.reference ? (
-                  <Text style={[styles.smallText, { marginTop: 4 }]}>
-                    Payment reference: {paymentInstructions.reference}
-                  </Text>
-                ) : null}
-                {paymentInstructions?.payment_url ? (
-                  <Text style={[styles.smallText, { marginTop: 3 }]}>
-                    Payment page: <Link src={paymentInstructions.payment_url}>{paymentInstructions.payment_url}</Link>
-                  </Text>
-                ) : null}
-              </>
-            ) : null}
-            {eftDetails ? (
-              <>
-                <Text style={[styles.bodyText, paymentProvider ? { marginTop: 10 } : {}]}>
-                  {paymentProvider ? "Or pay by EFT" : "Pay by EFT"} to {eftDetails.company_name || company.legal_name || company.company_name || "the company"}.
-                </Text>
-                {eftDetails.bank_name ? <Text style={[styles.smallText, { marginTop: 4 }]}>Bank: {eftDetails.bank_name}</Text> : null}
-                {eftDetails.account_holder ? <Text style={styles.smallText}>Account holder: {eftDetails.account_holder}</Text> : null}
-                {eftDetails.account_number ? <Text style={styles.smallText}>Account number: {eftDetails.account_number}</Text> : null}
-                {eftDetails.branch_code ? <Text style={styles.smallText}>Branch code: {eftDetails.branch_code}</Text> : null}
-                {eftDetails.account_type ? <Text style={styles.smallText}>Account type: {eftDetails.account_type}</Text> : null}
-                {eftDetails.reference ? <Text style={[styles.smallText, { marginTop: 4 }]}>EFT reference: {eftDetails.reference}</Text> : null}
-                {eftDetails.reference_hint ? <Text style={styles.smallText}>{eftDetails.reference_hint}</Text> : null}
-                {eftDetails.instructions ? <Text style={[styles.smallText, { marginTop: 4 }]}>{eftDetails.instructions}</Text> : null}
-              </>
-            ) : null}
-          </View>
+          </FlowingCard>
         ) : null}
 
         {/* NOTES */}
         {visibleDocumentNote(data.notes) ? (
-          <View style={styles.card} minPresenceAhead={52}>
-            <Text style={styles.sectionLabel} minPresenceAhead={36}>
-              A note from us
-            </Text>
+          <FlowingCard style={styles.card} headingStyle={styles.sectionLabel} title="A note from us" wrap={!canKeepPdfTextTogether(visibleDocumentNote(data.notes))}>
             <Text style={styles.notes}>{visibleDocumentNote(data.notes)}</Text>
-          </View>
+          </FlowingCard>
         ) : null}
 
         <View style={styles.fixedFooter} fixed>

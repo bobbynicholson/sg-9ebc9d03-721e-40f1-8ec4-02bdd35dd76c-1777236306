@@ -22,6 +22,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { UserRole } from "@/types/app";
 import Link from "next/link";
 import { QuoteProgress } from "@/components/quotes/QuoteProgress";
+import { PdfDocumentPreviewDisclosure } from "@/components/documents/PdfDocumentPreview";
 import Head from "next/head";
 import { Card, CardContent, CardHeader, CardTitle , CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1618,6 +1619,11 @@ function AdminQuoteDetailInner() {
                     )}
                   </CardContent>
                 </Card>
+                <PdfDocumentPreviewDisclosure
+                  src={`/api/admin/quote-pdf?id=${quote.id}`}
+                  label={quote.quote_number || "Quote"}
+                  revision={(quote as any).updated_at || ""}
+                />
                 {/* Fetch-failure strip for the change-request panel;
                     without it a query error looked identical to "no
                     requests" and client asks went unseen. */}

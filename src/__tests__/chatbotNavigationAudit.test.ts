@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { NAVIGATION_REFS, filterRelevantNavigation, getRelevantNavigation } from "@/lib/chatbot/navigation";
 import { routeChatQuestion } from "@/server/chatbot/router";
+import { AUTOMATED_EMAIL_SECTIONS, automatedEmailControlId, automatedEmailCategoryId } from "@/lib/email/automatedEmailSections";
 
 const ROOT = process.cwd();
 const roles = [
@@ -36,6 +37,9 @@ function routeSourceFiles(href: string): string[] {
   if (href.split(/[?#]/)[0] === "/admin/settings") {
     files.push(path.join(ROOT, "src", "components", "admin", "settings", "FinancialSettingsTab.tsx"));
   }
+  if (href.split(/[?#]/)[0] === "/admin/email-settings") {
+    files.push(path.join(ROOT, "src", "components", "admin", "AutomatedEmailControls.tsx"));
+  }
   return files.filter((file) => fs.existsSync(file));
 }
 
@@ -43,6 +47,15 @@ function sectionAnchorExists(href: string): boolean {
   const hash = href.match(/#([^#]+)$/)?.[1];
   if (!hash) return true;
   const files = routeSourceFiles(href);
+  // Email rows and categories use shared ID helpers because their contents
+  // come from the sending registry. Verify both the known ID and its renderer.
+  if (href.split(/[?#]/)[0] === "/admin/email-settings") {
+    const source = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
+    if (source.includes("id={automatedEmailControlId(template.key)}") &&
+      AUTOMATED_EMAIL_SECTIONS.some((category) => category.templates.some((template) => automatedEmailControlId(template.key) === hash))) return true;
+    if (source.includes("id={automatedEmailCategoryId(section.id)}") &&
+      AUTOMATED_EMAIL_SECTIONS.some((category) => automatedEmailCategoryId(category.id) === hash)) return true;
+  }
   return files.some((file) => fs.readFileSync(file, "utf8").includes(hash));
 }
 

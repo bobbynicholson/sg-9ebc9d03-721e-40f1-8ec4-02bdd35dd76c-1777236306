@@ -17,6 +17,7 @@
 import { supabase as defaultSb } from "@/integrations/supabase/client";
 import { breakdownFromLineSum } from "@/lib/vatMath";
 import { fetchMenuCategories, sortByCourse } from "@/lib/menuCourses";
+import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import { recordDocumentAmountChange } from "@/services/documentAmountChanges";
 
 const FALLBACK_TAX_RATE = 0.15; // SA VAT default
@@ -41,7 +42,7 @@ export async function syncInvoiceValuesFromOrder(
   try {
     const [{ data: order, error: orderErr }, { data: invoice, error: invoiceErr }] = await Promise.all([
       sb.from("orders")
-        .select("subtotal, tax_amount, total_amount, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count")
+        .select("company_id, subtotal, tax_amount, total_amount, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count")
         .eq("id", orderId)
         .maybeSingle(),
       sb.from("invoices")
@@ -95,6 +96,7 @@ export async function syncInvoiceValuesFromOrder(
       updated_at: new Date().toISOString(),
     } as any).eq("id", (invoice as any).id);
     if (updateErr) throw updateErr;
+    if (order.company_id) await reconcileCompanyInvoiceDueDates(sb, order.company_id, { orderId });
 
     return { invoice_id: (invoice as any).id };
   } catch (err: any) {

@@ -1,5 +1,7 @@
-import { getRelevantNavigation } from "@/lib/chatbot/navigation";
+import { getRelevantNavigation, NAVIGATION_REFS } from "@/lib/chatbot/navigation";
 import { getRelevantWorkflows } from "@/lib/chatbot/workflows";
+import { AUTOMATED_EMAIL_TEMPLATES } from "@/lib/email/automatedEmailTemplates";
+import { AUTOMATED_EMAIL_SECTIONS, automatedEmailControlId, automatedEmailNavigationRef } from "@/lib/email/automatedEmailSections";
 
 describe("chatbot: payment reminders and automatic emails", () => {
   const refs = (query: string, role = "company_admin") => getRelevantNavigation(query, role, 5).map((r) => r.ref);
@@ -46,5 +48,40 @@ describe("chatbot: payment reminders and automatic emails", () => {
     expect(refs("turn off payment reminders", "kitchen_staff")).not.toContain("admin.settings.payment-reminders");
     expect(refs("turn off automatic emails", "client")).not.toContain("admin.email-settings.automatic-emails");
     expect(getRelevantWorkflows("turn off payment reminders", "client")).toEqual([]);
+  });
+
+  it.each([
+    ["stop balance payment reminder emails", "balance_reminder_email"],
+    ["turn off deposit reminder emails", "deposit_reminder"],
+    ["I don't want clients receiving delivery emails", "order_in_transit"],
+    ["turn off order confirmation emails", "order_confirmed"],
+    ["clients are not getting payment receipt emails", "balance_payment_received"],
+    ["where do I change quote follow up 2", "email_lead_quiet"],
+    ["stop sending review request emails", "review_request"],
+    ["turn off event tomorrow kitchen email", "event_tomorrow_kitchen_email"],
+  ])("opens the specific control for '%s'", (query, key) => {
+    const [first] = getRelevantNavigation(query, "company_admin", 3);
+    expect(first?.ref).toBe(automatedEmailNavigationRef(key));
+    expect(first?.href).toBe(`/admin/email-settings#${automatedEmailControlId(key)}`);
+  });
+
+  it("keeps every automatic email in exactly one category with a direct chatbot link", () => {
+    const grouped = AUTOMATED_EMAIL_SECTIONS.flatMap((section) => section.templates);
+    expect(grouped).toHaveLength(AUTOMATED_EMAIL_TEMPLATES.length);
+    expect(new Set(grouped.map((template) => template.key)).size).toBe(grouped.length);
+    for (const template of AUTOMATED_EMAIL_TEMPLATES) {
+      const target = NAVIGATION_REFS.find((item) => item.ref === automatedEmailNavigationRef(template.key));
+      expect(target?.href).toBe(`/admin/email-settings#${automatedEmailControlId(template.key)}`);
+      if (!template.controllable) expect(target?.description).toContain("always sent");
+    }
+    const payments = AUTOMATED_EMAIL_SECTIONS.find((section) => section.id === "payments")!;
+    for (const key of ["refund_paid", "equipment_damage_charge", "invoices_overdue_admin_digest"]) {
+      expect(payments.templates.some((template) => template.key === key)).toBe(true);
+    }
+  });
+
+  it.each(["client", "driver", "kitchen_staff", "sales_admin", "region_admin"])("does not expose email control links to %s", (role) => {
+    expect(getRelevantNavigation("stop balance payment reminder emails", role, 10)
+      .some((item) => item.ref.startsWith("admin.email-settings.template."))).toBe(false);
   });
 });

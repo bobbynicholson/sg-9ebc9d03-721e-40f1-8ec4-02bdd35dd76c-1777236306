@@ -30,7 +30,8 @@ const MAX_ENTRIES = 50;
 // Bump when the invoice renderer changes in a way that affects visible
 // content. This prevents a warm server instance from returning a prior PDF
 // layout for up to the cache TTL after a deployment.
-const INVOICE_LAYOUT_CACHE_REVISION = "v2-payment-plan-event-time";
+const PDF_LAYOUT_CACHE_REVISION = "v4-complete-frames-payment-details";
+const RECEIPT_LAYOUT_CACHE_REVISION = "v6-receipt-thank-you";
 
 // Map preserves insertion order, which gives us trivially correct
 // "drop the oldest" semantics on writes.
@@ -98,7 +99,7 @@ export function buildQuoteCacheKey(
   companyUpdatedAt: string | null | undefined,
   paymentInstructionsFingerprint?: string | null,
 ): string {
-  return `quote:${quoteId}:${quoteUpdatedAt || "0"}:${companyUpdatedAt || "0"}:${paymentInstructionsFingerprint || "0"}`;
+  return `quote:${PDF_LAYOUT_CACHE_REVISION}:${quoteId}:${quoteUpdatedAt || "0"}:${companyUpdatedAt || "0"}:${paymentInstructionsFingerprint || "0"}`;
 }
 
 /**
@@ -113,7 +114,7 @@ export function buildInvoiceCacheKey(
   companyUpdatedAt: string | null | undefined,
   paymentInstructionsFingerprint?: string | null,
 ): string {
-  return `invoice:${INVOICE_LAYOUT_CACHE_REVISION}:${invoiceId}:${invoiceUpdatedAt || "0"}:${orderUpdatedAt || "0"}:${companyUpdatedAt || "0"}:${paymentInstructionsFingerprint || "0"}`;
+  return `invoice:${PDF_LAYOUT_CACHE_REVISION}:${invoiceId}:${invoiceUpdatedAt || "0"}:${orderUpdatedAt || "0"}:${companyUpdatedAt || "0"}:${paymentInstructionsFingerprint || "0"}`;
 }
 
 /**
@@ -127,7 +128,7 @@ export function buildReceiptCacheKey(
   invoiceUpdatedAt: string | null | undefined,
   companyUpdatedAt: string | null | undefined,
 ): string {
-  return `receipt:${invoiceId}:${paidAt || "0"}:${invoiceUpdatedAt || "0"}:${companyUpdatedAt || "0"}`;
+  return `receipt:${RECEIPT_LAYOUT_CACHE_REVISION}:${invoiceId}:${paidAt || "0"}:${invoiceUpdatedAt || "0"}:${companyUpdatedAt || "0"}`;
 }
 
 /**

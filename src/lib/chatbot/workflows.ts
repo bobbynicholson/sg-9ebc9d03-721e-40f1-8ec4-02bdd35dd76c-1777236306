@@ -167,7 +167,7 @@ export const WORKFLOW_DEFINITIONS: WorkflowDefinition[] = [
     roles: ADMIN,
     steps: [
       { id: "all-emails", title: "Turn all automatic emails on or off", description: "In Email settings, open Automation and sending control and use Send automatic emails. Off stops every automatic email except any you set to Automatic below.", ref: "admin.email-settings.automatic-emails" },
-      { id: "each-email", title: "Turn individual emails on or off", description: "Under Each automatic email, click an email (for example Order delivered or Balance payment reminder) to switch it between Automatic and Off. Then press Save settings at the top of the page.", ref: "admin.email-settings.each-email" },
+      { id: "each-email", title: "Turn individual emails on or off", description: "Under Automatic emails by category, search for an email or open its category. Choose Automatic or Off, then press Save settings at the top of the page.", ref: "admin.email-settings.each-email" },
     ],
   },
 ];

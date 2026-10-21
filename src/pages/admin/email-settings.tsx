@@ -40,15 +40,13 @@ import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { ResendDomainCard } from "@/components/admin/ResendDomainCard";
 import { EmailDeliverabilityPanel } from "@/components/admin/EmailDeliverabilityPanel";
-import { AutomatedEmailInfoChip } from "@/components/admin/AutomatedEmailInfoChip";
+import { AutomatedEmailControls } from "@/components/admin/AutomatedEmailControls";
 import { toLocalISO } from "@/lib/localDate";
 import { captureException } from "@/lib/observability";
 import {
-  AUTOMATED_EMAIL_TEMPLATES,
   QUEUE_DELIVERY_MODE_KEY,
   TEMPLATE_DELIVERY_MODES_KEY,
   companyDeliveryMode,
-  resolveEmailDeliveryMode,
 } from "@/lib/email/automatedEmailTemplates";
 
 type Provider = "none" | "resend" | "gmail_oauth" | "ms365_oauth" | "smtp";
@@ -97,11 +95,6 @@ interface QueueReviewRow {
 const DEFAULT_AUTOMATION_PREFERENCES: AutomationPreferences = {};
 function getQueueDeliveryMode(preferences?: AutomationPreferences): QueueDeliveryMode {
   return companyDeliveryMode(preferences);
-}
-
-/** What this email actually does: its own setting, else the company switch. */
-function getTemplateDeliveryMode(preferences: AutomationPreferences | undefined, templateKey: string): QueueDeliveryMode {
-  return resolveEmailDeliveryMode(preferences, templateKey);
 }
 
 // Daily send caps per subscription plan. Numbers chosen to align with
@@ -1328,57 +1321,7 @@ function EmailSettingsPage() {
                   )}
                 </div>
               )}
-              <div id="each-automatic-email" data-chat-section="admin.email-settings.each-email" data-chat-section-label="Each automatic email" className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Each automatic email</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">Each email follows the switch above unless you change it here. Click an email to switch it between Automatic (sent) and Off (not sent).</p>
-                  </div>
-                  <Badge variant="outline" className="w-fit shrink-0 border-slate-200 bg-white text-slate-600">{AUTOMATED_EMAIL_TEMPLATES.length} automatic emails</Badge>
-                </div>
-                <div className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
-                  {AUTOMATED_EMAIL_TEMPLATES.map((template) => {
-                    const mode = getTemplateDeliveryMode(row.automation_preferences, template.key);
-                    if (!template.controllable) {
-                      return (
-                        <div key={template.key} className="rounded-lg border border-slate-200 bg-white p-3">
-                          <div className="flex gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-slate-900">{template.label}</p>
-                              <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{template.category} · {template.group}</p>
-                              <AutomatedEmailInfoChip templateKey={template.key} label={template.label} />
-                            </div>
-                            <Badge variant="outline" className="h-7 shrink-0 border-slate-200 bg-slate-50 text-[11px] text-slate-600" title="Sign-in links and invitations can't be turned off, or the person would be locked out.">
-                              Always sent
-                            </Badge>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return (
-                      <div key={template.key} className="rounded-lg border border-slate-200 bg-white p-3">
-                        <div className="flex gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-slate-900">{template.label}</p>
-                            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{template.category} · {template.group}</p>
-                            <AutomatedEmailInfoChip templateKey={template.key} label={template.label} />
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={mode === "off" ? "default" : "outline"}
-                            className="h-7 shrink-0 text-[11px]"
-                            title={mode === "off" ? "Not sent. Click to send it automatically." : "Sent automatically. Click to turn it off."}
-                            onClick={() => setTemplateDeliveryMode(template.key, mode === "automatic" ? "off" : "automatic")}
-                          >
-                            {mode === "off" ? "Off" : "Automatic"}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <AutomatedEmailControls preferences={row.automation_preferences} onModeChange={setTemplateDeliveryMode} />
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
                 <p className="font-semibold">What these switches control</p>
                 <p className="mt-1">All CateringMS transactional email uses this sender by default: quotes, invoices, payment receipts and reminders, order confirmations, status updates, event reminders, review requests, staff invites, and system notices.</p>

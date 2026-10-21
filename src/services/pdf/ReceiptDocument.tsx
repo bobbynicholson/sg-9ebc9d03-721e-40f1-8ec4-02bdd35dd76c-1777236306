@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment, @typescript-eslint/no-explicit-any */
 // @ts-nocheck
 /**
- * ReceiptDocument - single-page A4 PDF the client downloads from the
+ * ReceiptDocument - paginated A4 PDF the client downloads from the
  * portal to acknowledge a paid invoice (CLI-I / CLI-30).
  *
  * Visually a sibling of InvoiceDocument but trimmed: no balance-due
  * frame, no payment-terms block, no "sent at" pill. The receipt is a
- * record of payment so it has to surface paid_at + payment_method
- * front-and-centre, and end with a "Thank you" footer.
+ * record of payment: items and totals come first, followed by the
+ * payment history, beneficiary details, and a thank-you message.
  *
  * VAT handling mirrors InvoiceDocument because SARS requires the VAT
  * line + VAT registration number on a tax receipt the same way it
@@ -15,6 +15,9 @@
  */
 
 import React from "react";
+import { FlowingCard } from "./FlowingCard";
+import { canKeepPdfTextTogether } from "./layout";
+import { EftBankDetails } from "./EftBankDetails";
 import {
   Document,
   Page,
@@ -255,7 +258,7 @@ const buildStyles = (primary: string) =>
     },
     title: {
       fontSize: 22,
-      fontFamily: "Times-Bold",
+      fontFamily: "Helvetica-Bold",
       color: "#1c1917",
     },
     paidPill: {
@@ -399,7 +402,7 @@ const buildStyles = (primary: string) =>
     },
     grandTotalLabel: {
       fontSize: 13,
-      fontFamily: "Times-Bold",
+      fontFamily: "Helvetica-Bold",
       color: "#1c1917",
     },
     grandTotalValue: {
@@ -415,7 +418,7 @@ const buildStyles = (primary: string) =>
 
     thanksBlock: {
       marginTop: 8,
-      paddingVertical: 16,
+      paddingVertical: 12,
       paddingHorizontal: 18,
       borderWidth: 1,
       borderColor: primary,
@@ -425,7 +428,7 @@ const buildStyles = (primary: string) =>
     },
     thanksHeadline: {
       fontSize: 14,
-      fontFamily: "Times-Bold",
+      fontFamily: "Helvetica-Bold",
       color: primary,
       marginBottom: 4,
     },
@@ -538,9 +541,6 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
         <View style={styles.headerBand} wrap={false}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              {company.logo_url ? (
-                <Image src={company.logo_url} style={styles.logo} />
-              ) : null}
               <Text style={styles.companyTag}>
                 {company.company_name || "Your caterer"}
               </Text>
@@ -578,14 +578,17 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
                 </View>
               </View>
             </View>
-            <View>
+            <View style={{ alignItems: "flex-end", marginLeft: 12 }}>
+              {company.logo_url ? (
+                <Image src={company.logo_url} style={styles.logo} />
+              ) : null}
               <Text style={styles.paidPill}>PAID</Text>
             </View>
           </View>
         </View>
 
         {/* BILL FROM / BILL TO */}
-        <View style={styles.columns} wrap={false}>
+        <View style={styles.columns}>
           <View style={styles.column}>
             <Text style={styles.sectionLabel}>From</Text>
             <Text style={styles.bodyText}>
@@ -627,64 +630,9 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {/* PAYMENT RECORD. Receipt PDFs must carry the actual payment facts
-            rather than merely the invoice's paid state. For EFT, pair the
-            payment and beneficiary facts side-by-side to keep a standard
-            one-payment receipt compact without dropping audit detail. */}
-        {paymentRecords.length > 0 ? (
-          <View style={hasEftPayment && data.eft_details ? styles.columns : {}} wrap={false}>
-            <View
-              style={hasEftPayment && data.eft_details ? styles.column : styles.fullWidthCard}
-              minPresenceAhead={100}
-            >
-              <Text style={styles.sectionLabel}>Payment record</Text>
-              {paymentRecords.map((payment, index) => {
-                const provider = paymentProviderLabel(payment?.payment_provider);
-                const paidAt = fmtDateTime(payment?.paid_at);
-                const eft = isEftPaymentMethod(payment?.payment_method);
-                const recordAmount = payment?.amount != null
-                  ? fmtMoney(payment.amount, payment.currency || data.currency)
-                  : null;
-                return (
-                  <View
-                    key={`payment-${index}`}
-                    style={index < paymentRecords.length - 1 ? { paddingBottom: 6, marginBottom: 6, borderBottomWidth: 1, borderBottomColor: "#f5f5f4" } : {}}
-                    minPresenceAhead={54}
-                  >
-                    <Text style={styles.bodyText}>
-                      {recordAmount ? `${recordAmount} - ` : ""}{methodLabel(payment?.payment_method)}
-                    </Text>
-                    {paidAt ? <Text style={styles.smallText}>Paid at (UTC): {paidAt}</Text> : null}
-                    {provider ? <Text style={styles.smallText}>Payment provider: {provider}</Text> : null}
-                    {payment?.transaction_id ? <Text style={styles.smallText}>{eft ? "Bank transaction ID" : "Transaction ID"}: {payment.transaction_id}</Text> : null}
-                    {payment?.payment_reference ? <Text style={styles.smallText}>{eft ? "EFT reference" : "Payment reference"}: {payment.payment_reference}</Text> : null}
-                  </View>
-                );
-              })}
-            </View>
-            {hasEftPayment && data.eft_details ? (
-              <View style={styles.column} minPresenceAhead={112}>
-                <Text style={styles.sectionLabel}>EFT beneficiary details</Text>
-                <Text style={styles.bodyText}>{data.eft_details.company_name || company.legal_name || company.company_name || "Company"}</Text>
-                {data.eft_details.bank_name ? <Text style={[styles.smallText, { marginTop: 4 }]}>Bank: {data.eft_details.bank_name}</Text> : null}
-                {data.eft_details.account_holder ? <Text style={styles.smallText}>Account holder: {data.eft_details.account_holder}</Text> : null}
-                {data.eft_details.account_number ? <Text style={styles.smallText}>Account number: {data.eft_details.account_number}</Text> : null}
-                {data.eft_details.branch_code ? <Text style={styles.smallText}>Branch code: {data.eft_details.branch_code}</Text> : null}
-                {data.eft_details.account_type ? <Text style={styles.smallText}>Account type: {data.eft_details.account_type}</Text> : null}
-                {data.eft_details.reference ? <Text style={[styles.smallText, { marginTop: 4 }]}>EFT reference: {data.eft_details.reference}</Text> : null}
-                {data.eft_details.reference_hint ? <Text style={styles.smallText}>{data.eft_details.reference_hint}</Text> : null}
-                {data.eft_details.instructions ? <Text style={[styles.smallText, { marginTop: 4 }]}>{data.eft_details.instructions}</Text> : null}
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
         {/* LINE ITEMS */}
         {lineItems.length > 0 ? (
-          <View style={styles.fullWidthCard}>
-            <Text style={styles.sectionLabel} minPresenceAhead={44}>
-              What was paid for
-            </Text>
+          <FlowingCard style={styles.fullWidthCard} headingStyle={styles.sectionLabel} title="What was paid for" inset={12}>
             {lineItems.map((row, i) => {
               const qty = Number(row?.quantity || 1);
               const unit = Number(row?.unit_price || 0);
@@ -696,7 +644,7 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
                 <View
                   key={`row-${i}`}
                   style={[styles.lineRow, isLast ? styles.lineRowLast : {}]}
-                  minPresenceAhead={32}
+                  wrap={!canKeepPdfTextTogether(`${row?.name || ""}\n${row?.description || ""}`, 28)}
                 >
                   <View style={styles.lineLeft}>
                     <Text style={styles.lineName}>
@@ -715,11 +663,11 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
                 </View>
               );
             })}
-          </View>
+          </FlowingCard>
         ) : null}
 
         {/* TOTALS */}
-        <View style={styles.totalsBlock} wrap={false} minPresenceAhead={40}>
+        <View style={styles.totalsBlock} wrap={false}>
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>Subtotal</Text>
             <Text style={styles.totalsValue}>{fmt(subtotal)}</Text>
@@ -753,7 +701,60 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {/* THANK YOU */}
+        {/* PAYMENT RECORD. Receipt PDFs must carry the actual payment facts
+            rather than merely the invoice's paid state. For EFT, pair the
+            payment and beneficiary facts side-by-side to keep a standard
+            one-payment receipt compact without dropping audit detail. */}
+        {paymentRecords.length > 0 ? (
+          <View
+            style={hasEftPayment && data.eft_details && paymentRecords.length === 1 ? styles.columns : {}}
+            minPresenceAhead={64}
+          >
+            <FlowingCard
+              style={hasEftPayment && data.eft_details && paymentRecords.length === 1 ? styles.column : styles.fullWidthCard}
+              headingStyle={styles.sectionLabel}
+              title="Payment record"
+              inset={12}
+              wrap={paymentRecords.length !== 1 || !canKeepPdfTextTogether(
+                [onlyPayment?.transaction_id, onlyPayment?.payment_reference, onlyPayment?.payment_method, onlyPayment?.payment_provider, onlyPayment?.paid_at].filter(Boolean).join("\n"),
+                20,
+              )}
+            >
+              {paymentRecords.map((payment, index) => {
+                const provider = paymentProviderLabel(payment?.payment_provider);
+                const paidAt = fmtDateTime(payment?.paid_at);
+                const eft = isEftPaymentMethod(payment?.payment_method);
+                const recordAmount = payment?.amount != null
+                  ? fmtMoney(payment.amount, payment.currency || data.currency)
+                  : null;
+                return (
+                  <View
+                    key={`payment-${index}`}
+                    style={index < paymentRecords.length - 1 ? { paddingBottom: 6, marginBottom: 6, borderBottomWidth: 1, borderBottomColor: "#f5f5f4" } : {}}
+                    wrap={!canKeepPdfTextTogether([payment?.transaction_id, payment?.payment_reference, payment?.payment_method, payment?.paid_at].filter(Boolean).join("\n"), 20)}
+                  >
+                    <Text style={[styles.bodyText, { fontFamily: "Helvetica-Bold" }]} minPresenceAhead={28}>
+                      {recordAmount ? `${recordAmount} - ` : ""}{methodLabel(payment?.payment_method)}
+                    </Text>
+                    {paidAt ? <Text style={styles.smallText}>Paid at (UTC): {paidAt}</Text> : null}
+                    {provider ? <Text style={styles.smallText}>Payment provider: {provider}</Text> : null}
+                    {payment?.transaction_id ? <Text style={styles.smallText}>{eft ? "Bank transaction ID" : "Transaction ID"}: {payment.transaction_id}</Text> : null}
+                    {payment?.payment_reference ? <Text style={styles.smallText}>{eft ? "EFT reference" : "Payment reference"}: {payment.payment_reference}</Text> : null}
+                  </View>
+                );
+              })}
+            </FlowingCard>
+            {hasEftPayment && data.eft_details ? (
+              <FlowingCard style={paymentRecords.length === 1 ? styles.column : styles.fullWidthCard} headingStyle={styles.sectionLabel} title="EFT beneficiary details" inset={12} wrap={!canKeepPdfTextTogether(Object.values(data.eft_details).filter(Boolean).join("\n"), 20)}>
+                <Text style={[styles.bodyText, { fontFamily: "Helvetica-Bold" }]}>{data.eft_details.company_name || company.legal_name || company.company_name || "Company"}</Text>
+                <EftBankDetails details={data.eft_details} style={[styles.smallText, { marginTop: 4 }]} />
+                {data.eft_details.reference_hint ? <Text style={styles.smallText}>{data.eft_details.reference_hint}</Text> : null}
+                {data.eft_details.instructions ? <Text style={[styles.smallText, { marginTop: 4 }]}>{data.eft_details.instructions}</Text> : null}
+              </FlowingCard>
+            ) : null}
+          </View>
+        ) : null}
+
         <View style={styles.thanksBlock} wrap={false}>
           <Text style={styles.thanksHeadline}>Thank you</Text>
           <Text style={styles.thanksSub}>
