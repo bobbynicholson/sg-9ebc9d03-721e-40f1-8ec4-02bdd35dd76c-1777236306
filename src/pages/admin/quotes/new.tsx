@@ -379,7 +379,7 @@ function NewQuotePage() {
   const { toast } = useToast();
   // Wave 27: tenant-slug wrapper for internal navigations.
   const { withSlug } = useTenantHref();
-  const { leadId, fromQuoteId } = router.query;
+  const { leadId, fromQuoteId, change_request_id: changeRequestId } = router.query;
   const companyId =
     (user?.company_id as string | undefined) ||
     (user?.user_metadata?.company_id as string | undefined) ||
@@ -916,14 +916,18 @@ function NewQuotePage() {
       // quote, not the client's asks.
       let cr: any = null;
       try {
-        const { data: crData } = await supabase
+        let requestQuery = supabase
           .from("quote_change_requests")
           .select("id, message, requested_changes, created_at, status")
-          .eq("quote_id", fromQuoteId)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .eq("quote_id", fromQuoteId);
+        if (typeof changeRequestId === "string" && changeRequestId) {
+          // The notification link names the exact request the operator is
+          // responding to. Never substitute a different pending request.
+          requestQuery = requestQuery.eq("id", changeRequestId);
+        } else {
+          requestQuery = requestQuery.eq("status", "pending").order("created_at", { ascending: false }).limit(1);
+        }
+        const { data: crData } = await requestQuery.maybeSingle();
         cr = crData;
       } catch (e) {
         console.warn("[quotes/new] change-request lookup failed:", e);
@@ -978,7 +982,7 @@ function NewQuotePage() {
               menu_item_id: m.menu_item_id ?? null,
               name: m.item_name ?? m.name ?? "",
               description: undefined,
-              category: "main",
+              category: m.category || "main",
               dietary_tags: null,
               pricingMode: "per_portion" as PricingMode,
               unitPrice: safeNum(m.unit_price ?? m.unitPrice),
@@ -1031,7 +1035,7 @@ function NewQuotePage() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromQuoteId, hydrateRetryTick]);
+  }, [fromQuoteId, changeRequestId, hydrateRetryTick]);
 
   function hydrateFromQuote(q: any) {
     setClientId(q.client_id || null);

@@ -27,6 +27,7 @@ export type MenuLine = {
   item_name: string;
   unit_price: number;
   quantity: number;
+  category?: string | null;
 };
 export type EquipLine = {
   key: string;
@@ -48,6 +49,7 @@ function normaliseMenu(items: any[] | null | undefined): MenuLine[] {
     item_name: it.item_name || it.name || "Item",
     unit_price: Number(it.unit_price ?? it.pricePerPerson ?? it.base_price) || 0,
     quantity: Number(it.quantity) || 0,
+    category: it.category || null,
   }));
 }
 function normaliseEquip(items: any[] | null | undefined): EquipLine[] {

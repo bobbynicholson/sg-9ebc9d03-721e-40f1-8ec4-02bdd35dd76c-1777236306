@@ -459,7 +459,7 @@ export default function PublicQuotePage() {
     const itemsTouched = changesMenuItems !== null || changesEquipItems !== null;
     const menuPayload = (changesMenuItems || [])
       .filter((l) => l.quantity > 0)
-      .map((l) => ({ menu_item_id: l.menu_item_id, item_name: l.item_name, unit_price: l.unit_price, quantity: l.quantity }));
+      .map((l) => ({ menu_item_id: l.menu_item_id, item_name: l.item_name, unit_price: l.unit_price, quantity: l.quantity, category: l.category || null }));
     const equipPayload = (changesEquipItems || [])
       .filter((l) => l.quantity > 0)
       .map((l) => ({ equipment_id: l.equipment_id, name: l.name, unit_price: l.unit_price, quantity: l.quantity }));

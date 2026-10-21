@@ -114,6 +114,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       item_name: typeof it?.item_name === "string" ? it.item_name.trim().slice(0, 200) : "",
       unit_price: Math.max(0, Math.min(1e7, Number(it?.unit_price) || 0)),
       quantity: Math.max(0, Math.min(99999, Math.round(Number(it?.quantity) || 0))),
+      category: typeof it?.category === "string" ? it.category.trim().slice(0, 100) || null : null,
     })).filter((l) => l.item_name);
   const sanitiseEquip = (arr: any[]) =>
     arr.slice(0, MAX_LINES).map((it) => ({
