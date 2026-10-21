@@ -34,6 +34,8 @@ export interface PublicQuoteView {
   client_email?: string | null;
   client_phone?: string | null;
   event_date: string | null;
+  /** Scheduled eating / event start time, returned by the public quote API. */
+  event_time?: string | null;
   guest_count: number | null;
   venue_address: string | null;
   menu_items: any[] | null;
