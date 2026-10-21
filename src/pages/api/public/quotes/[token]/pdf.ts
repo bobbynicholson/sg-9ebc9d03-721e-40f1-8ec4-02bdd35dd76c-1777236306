@@ -51,6 +51,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
     limit: 30,
     bucket: "minute",
+    scope: "quote.pdf",
   });
   if (!rl.allowed) {
     return res.status(429).json({ error: "Too many requests, slow down" });

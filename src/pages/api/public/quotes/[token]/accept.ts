@@ -235,6 +235,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
     limit: 30,
     bucket: "hour",
+    scope: "quote.accept",
   });
   if (!rl.allowed) {
     return res.status(429).json({ ok: false, error: "Too many attempts, try again later." });

@@ -51,14 +51,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const supabase = await getRequestSupabase() as any;
 
-  // Liberal rate limit - polished /q page may reload a few times for
-  // a single client session. 120/hr/ip is plenty for legit use, blocks
-  // scraping of leaked tokens.
+  // The page polls every 15 seconds (240 reads/hour). Use a read-only
+  // minute allowance so normal viewing cannot exhaust a write budget.
   const ip = getClientIp(req as any);
   const ipHash = hashIp(ip);
   const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
-    limit: 120,
-    bucket: "hour",
+    limit: 60,
+    bucket: "minute",
+    scope: "quote.get",
   });
   if (!rl.allowed) return res.status(429).json({ ok: false, error: "Too many requests" });
 

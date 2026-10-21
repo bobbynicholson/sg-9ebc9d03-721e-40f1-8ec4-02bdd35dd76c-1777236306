@@ -58,6 +58,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const rl = await checkAndIncrementRateLimit(token, ipHash, sb, {
     limit: 20,
     bucket: "hour",
+    scope: "quote.order-link",
   });
   if (!rl.allowed) {
     return res.status(429).json({ ok: false, error: "Too many attempts" });

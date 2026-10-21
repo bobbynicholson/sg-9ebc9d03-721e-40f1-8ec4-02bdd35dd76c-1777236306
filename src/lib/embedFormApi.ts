@@ -593,10 +593,18 @@ export async function checkAndIncrementRateLimit(
   embedToken: string,
   ipHash: string,
   supabase: any,
-  options: { limit?: number; bucket?: "hour" | "minute" } = {}
+  options: { limit?: number; bucket?: "hour" | "minute"; scope?: string } = {}
 ): Promise<RateLimitResult> {
   const limit = options.limit ?? 30;
   const bucket = options.bucket ?? "hour";
+  // The database key is (token, IP hash, window). Public quote reads and
+  // writes need separate counters; otherwise background polling exhausts
+  // the much smaller change-request/acceptance allowance. Include the
+  // window type so minute/hour counters cannot collide on the hour.
+  // Unscoped callers retain their existing keys.
+  const counterIpHash = options.scope
+    ? createHash("sha256").update(JSON.stringify([options.scope, bucket, ipHash])).digest("hex")
+    : ipHash;
 
   const now = new Date();
   const windowStart = new Date(now);
@@ -610,7 +618,7 @@ export async function checkAndIncrementRateLimit(
   try {
     const { data, error } = await supabase.rpc("increment_embed_rate_limit", {
       p_token: embedToken,
-      p_ip_hash: ipHash,
+      p_ip_hash: counterIpHash,
       p_window_start: windowStartIso,
       p_limit: limit,
     });

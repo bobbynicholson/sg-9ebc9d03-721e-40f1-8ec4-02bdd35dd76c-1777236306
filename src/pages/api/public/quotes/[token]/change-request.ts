@@ -28,7 +28,7 @@ import {
  *   - 16KB body cap (the form has one freeform message + a few short
  *     structured fields)
  *   - Honeypot: silent 200 if filled
- *   - Token-scoped rate limit (5/hour/ip per quote, 20/hour/ip total)
+ *   - Separate change-request allowance (10/hour/IP per quote)
  *   - Per-quote lifetime cap of 10 requests so a malicious forwarder
  *     can't weaponise the form into a notification flood
  *   - company_id derived server-side from quote, never trusted from body
@@ -162,11 +162,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
     limit: 10,
     bucket: "hour",
+    scope: "quote.change-request",
   });
   if (!rl.allowed) {
+    const retrySeconds = Math.max(1, Math.ceil((Date.parse(rl.resetAt || "") - Date.now()) / 1000) || 60);
+    const minutes = Math.ceil(retrySeconds / 60);
+    res.setHeader("Retry-After", String(retrySeconds));
     return res.status(429).json({
       ok: false,
-      error: "Too many requests, please wait a bit before sending another.",
+      error: `Too many change-request attempts. Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+      error_code: "rate_limited",
+      retry_after_seconds: retrySeconds,
     });
   }
 

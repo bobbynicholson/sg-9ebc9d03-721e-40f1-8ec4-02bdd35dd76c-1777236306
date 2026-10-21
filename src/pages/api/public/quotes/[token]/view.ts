@@ -48,6 +48,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const rl = await checkAndIncrementRateLimit(token, ipHash, supabase, {
     limit: 60,
     bucket: "hour",
+    scope: "quote.view",
   });
   if (!rl.allowed) return res.status(429).json({ ok: false });
 
