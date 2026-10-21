@@ -26,6 +26,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PublicQuoteView {
+  service_sittings?: Array<{ sequence_number: number; guest_count: number; service_time: string }>;
   id: string;
   updated_at: string | null;
   quote_number: string;
@@ -224,6 +225,16 @@ export async function recordAccept(args: {
 }): Promise<{ ok: boolean; error?: string; orderId?: string; conversionPending?: boolean }> {
   if (!args.token) return { ok: false, error: "Missing token." };
   if (!args.acceptedByName?.trim()) return { ok: false, error: "Please enter your name." };
+  const verifySavedAcceptance = async () => {
+    const saved = await fetchByToken(args.token);
+    if (!saved || (saved.status !== "accepted" && !saved.converted_to_order_id)) return null;
+    if (args.serviceSittings) {
+      const sittings = [...(saved.service_sittings || [])].sort((left, right) => left.sequence_number - right.sequence_number);
+      if (sittings.length !== args.serviceSittings.length || sittings.some((sitting, index) =>
+        sitting.guest_count !== args.serviceSittings![index].guestCount || sitting.service_time.slice(0, 5) !== args.serviceSittings![index].serviceTime)) return null;
+    }
+    return { ok: true, orderId: saved.converted_to_order_id || undefined, conversionPending: !saved.converted_to_order_id };
+  };
   try {
     const res = await fetch(`/api/public/quotes/${encodeURIComponent(args.token)}/accept`, {
       method: "POST",
@@ -232,10 +243,18 @@ export async function recordAccept(args: {
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.ok === false) {
+      if (res.status >= 500) {
+        const saved = await verifySavedAcceptance();
+        if (saved) return saved;
+      }
       return { ok: false, error: json.error || "Could not accept the quote, please try again." };
     }
     return { ok: true, orderId: json.orderId || undefined, conversionPending: json.conversionPending === true };
   } catch (err: any) {
+    // A gateway can lose the response after the database commits. Only
+    // confirm success when both acceptance and this exact plan are saved.
+    const saved = await verifySavedAcceptance();
+    if (saved) return saved;
     return { ok: false, error: err?.message || "Network error" };
   }
 }

@@ -4,13 +4,13 @@ const token = '00000000-0000-0000-0000-000000000001';
 const orderId = '00000000-0000-0000-0000-000000000003';
 const bookingUrl = `/fixture/c/order/${orderId}?t=offline-order-token`;
 async function setup(page, status = 'pending') {
-  const state = { status, invoiceReads: 0, failRefresh: false, rejectAcceptance: false,
+  const state = { status, invoiceReads: 0, failRefresh: false, rejectAcceptance: false, lostAcceptanceResponse: false, acceptanceRequests: [],
     invoice: { id: token, public_token: token, invoice_number: 'INV-RETURN', invoice_date: '2026-10-01',
       due_date: '2099-12-31', total_amount: 1000, amount_paid: 0, balance_due: 1000, status: 'sent',
       invoice_data: { eventDate: '2099-12-31', initialPaymentAmount: 300, clientName: 'Fixture client', items: [] },
       payment_currency: 'ZAR', payments: [], payment_options: { provider: 'yoco', online_available: true, eft_available: false },
       companies: { id: 'fixture-company', company_name: 'Fixture Caterer', deposit_percent: 50 } },
-    quote: { id: token, quote_number: 'QUO-RETURN', client_name: 'Fixture client', event_date: '2099-12-31',
+    quote: { id: token, quote_number: 'QUO-RETURN', client_name: 'Fixture client', event_date: '2099-12-31', event_time: '13:00',
       guest_count: 60, menu_items: [], equipment_items: [], subtotal: 1000, tax_amount: 0, total_amount: 1000,
       total: 1000, initial_payment_amount: 5, deposit_percentage: 50, status: 'sent', valid_until: '2099-12-31',
       converted_to_order_id: null, accepted_at: null, pending_change_request: false,
@@ -29,8 +29,11 @@ async function setup(page, status = 'pending') {
     }
     if (url.pathname.endsWith('/get') && url.pathname.startsWith('/api/public/quotes/')) return route.fulfill({ json: { ok: true, quote: state.quote } });
     if (url.pathname.endsWith('/accept') && url.pathname.startsWith('/api/public/quotes/')) {
+      const request = route.request().postDataJSON(); state.acceptanceRequests.push(request);
       if (state.rejectAcceptance) return route.fulfill({ status: 409, json: { ok: false, error: 'The event date is no longer available.' } });
-      state.quote = { ...state.quote, status: 'accepted', accepted_at: '2026-10-04T00:00:00Z', converted_to_order_id: orderId };
+      state.quote = { ...state.quote, status: 'accepted', accepted_at: '2026-10-04T00:00:00Z', converted_to_order_id: orderId,
+        service_sittings: (request.serviceSittings || []).map((s, index) => ({ sequence_number: index + 1, guest_count: s.guestCount, service_time: s.serviceTime })) };
+      if (state.lostAcceptanceResponse) return route.fulfill({ status: 504, json: { ok: false, error: 'Response interrupted' } });
       return route.fulfill({ json: { ok: true, orderId } });
     }
     if (url.pathname.endsWith('/order-link')) return route.fulfill({ json: { ok: true, converted: true, url: bookingUrl } });
@@ -65,6 +68,37 @@ test('failed acceptance keeps the quote actionable and never presents a booking 
   await expect(page.getByText('The event date is no longer available.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'View your booking and payment' })).toHaveCount(0);
+});
+
+test('two sittings validate before acceptance and save the exact guest split and times', async ({ page }) => {
+  const state = await setup(page);
+  await page.goto(`/q/${token}?stay=1`);
+  await page.getByRole('button', { name: 'Accept this quote', exact: true }).click();
+  await page.getByPlaceholder('Your full name').fill('Fixture client');
+  await page.getByLabel('Two sittings', { exact: true }).check();
+  await page.getByLabel('First guests', { exact: true }).fill('20');
+  await page.getByLabel('First time', { exact: true }).fill('12:00');
+  await page.getByRole('button', { name: 'Accept quote', exact: true }).click();
+  await expect(page.getByText('Every sitting needs a valid service time.', { exact: true })).toBeVisible();
+  expect(state.acceptanceRequests).toHaveLength(0);
+  await page.getByLabel('Second time', { exact: true }).fill('18:00');
+  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'View your booking and payment' })).toBeVisible();
+  expect(state.acceptanceRequests[0].serviceSittings).toEqual([{ guestCount: 20, serviceTime: '12:00' }, { guestCount: 40, serviceTime: '18:00' }]);
+});
+
+test('a lost response after saving both sittings shows verified success instead of a false save error', async ({ page }) => {
+  const state = await setup(page); state.lostAcceptanceResponse = true;
+  await page.goto(`/q/${token}?stay=1`);
+  await page.getByRole('button', { name: 'Accept this quote', exact: true }).click();
+  await page.getByPlaceholder('Your full name').fill('Fixture client');
+  await page.getByLabel('Two sittings', { exact: true }).check();
+  await page.getByLabel('First time', { exact: true }).fill('12:00');
+  await page.getByLabel('Second time', { exact: true }).fill('18:00');
+  await page.getByRole('button', { name: 'Accept quote', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'View your booking and payment' })).toBeVisible();
+  await expect(page.getByText('Response interrupted', { exact: true })).toHaveCount(0);
+  expect(state.quote.service_sittings).toHaveLength(2);
 });
 
 test('a verified partial payment returns automatically and shows the unpaid remainder', async ({ page }) => {

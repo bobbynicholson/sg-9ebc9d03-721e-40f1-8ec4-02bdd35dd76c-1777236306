@@ -58,6 +58,7 @@ import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesA
 import { formatClockBoth } from "@/lib/portalTime";
 import { groupByCourse } from "@/lib/menuCourses";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
+import { normaliseServiceSittings } from "@/lib/serviceSittings";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -328,6 +329,7 @@ export default function PublicQuotePage() {
         }
       }
       setQuote(data);
+      setFirstSittingTime(String(data.event_time || "").slice(0, 5));
       lastSeenUpdatedAtRef.current = data.updated_at || null;
       setLoading(false);
       // Fire-and-forget viewed_at stamp.
@@ -383,14 +385,16 @@ export default function PublicQuotePage() {
 
   const handleAccept = async () => {
     if (!token) return;
-    setAccepting(true);
     setAcceptError(null);
     const totalGuests = Number(quote?.guest_count || 0);
     const firstGuests = sittingCount === 2 ? firstSittingGuests : totalGuests;
-    const res = await recordAccept({ token, acceptedByName: acceptName.trim(), serviceSittings: [
+    const plan = normaliseServiceSittings([
       { guestCount: firstGuests, serviceTime: firstSittingTime || String(quote?.event_time || "").slice(0, 5) },
       ...(sittingCount === 2 ? [{ guestCount: totalGuests - firstGuests, serviceTime: secondSittingTime }] : []),
-    ] });
+    ], totalGuests);
+    if (plan.error) { setAcceptError(plan.error); return; }
+    setAccepting(true);
+    const res = await recordAccept({ token, acceptedByName: acceptName.trim(), serviceSittings: plan.value?.map(({ guestCount, serviceTime }) => ({ guestCount, serviceTime })) });
     setAccepting(false);
     if (!res.ok) {
       setAcceptError(res.error || "Could not accept the quote, please try again.");
@@ -1332,6 +1336,7 @@ export default function PublicQuotePage() {
                           <label className="flex items-center gap-2"><input type="radio" checked={sittingCount === 1} onChange={() => setSittingCount(1)} /> One service time</label>
                           <label className="flex items-center gap-2"><input type="radio" checked={sittingCount === 2} onChange={() => { setSittingCount(2); setFirstSittingGuests(Math.ceil(Number(quote?.guest_count || 0) / 2)); }} /> Two sittings</label>
                         </div>
+                        {sittingCount === 1 && !quote?.event_time && <label className="block text-xs">Service time<Input type="time" value={firstSittingTime} onChange={(e) => setFirstSittingTime(e.target.value)} /></label>}
                         {sittingCount === 2 && <div className="grid grid-cols-2 gap-2 text-xs">
                           <label>First guests<Input type="number" min="1" max={Math.max(1, Number(quote?.guest_count || 1) - 1)} value={firstSittingGuests || ""} onChange={(e) => setFirstSittingGuests(Number(e.target.value))} /></label>
                           <label>First time<Input type="time" value={firstSittingTime} onChange={(e) => setFirstSittingTime(e.target.value)} /></label>

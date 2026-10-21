@@ -13,6 +13,7 @@
     "test": "jest --watch",
     "test:payments": "jest --runInBand --testPathPatterns=\"(payment|Payment|refund|Refund|invoice|Invoice|payfast|PayFast|Eft|eft|yoco|Yoco)\"",
     "test:pdf-layout": "node --loader ./scripts/tests/pdf-source-loader.mjs --test scripts/tests/pdf-layout.test.mjs",
+    "test:service-sittings": "node --test scripts/tests/service-sittings.test.mjs",
     "test:payment-ledger": "node --test scripts/tests/payment-settlement.test.mjs",
     "test:ci": "jest --ci --coverage --passWithNoTests",
     "test:payment-postgres": "node scripts/tests/run-payment-postgres.mjs",

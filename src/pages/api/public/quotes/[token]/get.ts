@@ -83,6 +83,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       waiter_service_required, waiter_count, waiter_duration_hours, waiter_hourly_rate, waiter_total_fee,
       valid_until, sent_at, viewed_at, accepted_at, updated_at,
       converted_to_order_id,
+      service_sittings(sequence_number, guest_count, service_time),
       company:company_id (
         id, slug, company_name, legal_name, time_format, logo_url, email, phone, website,
         address_line1, address_line2, city,

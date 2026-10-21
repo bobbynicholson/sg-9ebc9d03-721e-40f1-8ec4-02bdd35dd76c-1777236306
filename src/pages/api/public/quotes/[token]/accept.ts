@@ -50,6 +50,35 @@ export const config = {
   api: { bodyParser: { sizeLimit: "8kb" } },
 };
 
+async function respondToAcceptedQuote(supabase: any, quote: any, origin: string, res: NextApiResponse) {
+  if (quote.converted_to_order_id) {
+    try {
+      const { postOrderCreationCascade } = await import("@/services/order/postCreationCascade");
+      await postOrderCreationCascade(supabase, quote.converted_to_order_id, quote.company_id, quote.user_id || null, { origin });
+    } catch (error) {
+      console.warn("[public/quotes/accept] converted quote recovery failed:", error);
+    }
+    return res.status(200).json({ ok: true, alreadyAccepted: true, quoteId: quote.id, orderId: quote.converted_to_order_id });
+  }
+  try {
+    const { quoteService } = await import("@/services/quoteService");
+    const conversion = await quoteService.convertQuoteToOrder(quote.id, { _client: supabase, origin });
+    if (conversion.order?.id) return res.status(200).json({
+      ok: true, alreadyAccepted: true, quoteId: quote.id, orderId: conversion.order.id, recoveredConversion: true,
+    });
+    console.warn("[public/quotes/accept] accepted quote recovery refused:", conversion.error_code || conversion.error);
+  } catch (error) {
+    console.warn("[public/quotes/accept] accepted quote recovery failed:", error);
+  }
+  return res.status(202).json({ ok: true, alreadyAccepted: true, conversionPending: true, quoteId: quote.id });
+}
+
+async function saveAcceptance(supabase: any, quote: any, serviceSittings: unknown) {
+  return supabase.rpc("accept_quote_service_plan", {
+    p_quote_id: quote.id, p_company_id: quote.company_id, p_service_sittings: serviceSittings || null,
+  });
+}
+
 async function handler(req: NextApiRequest, res: NextApiResponse) {
   applyCorsHeaders(res);
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -96,64 +125,17 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!existing) return res.status(404).json({ ok: false, error: "Quote not found." });
   const parsedSittings = normaliseServiceSittings(body.serviceSittings, Number(existing.guest_count));
   if (parsedSittings.error) return res.status(400).json({ ok: false, error: parsedSittings.error });
-  if (existing.converted_to_order_id) {
-    // Idempotent recovery: the order/quote transaction may have
-    // committed just before a server timeout interrupted invoice,
-    // email or kitchen side effects. Re-run the idempotent cascade;
-    // existing artifacts are reused, while a failed invoice email
-    // (status=sent, sent_at=NULL) is retried.
-    try {
-      const { postOrderCreationCascade } = await import("@/services/order/postCreationCascade");
-      await postOrderCreationCascade(
-        supabase,
-        existing.converted_to_order_id,
-        existing.company_id,
-        existing.user_id || null,
-        { origin: requestOrigin(req) },
-      );
-    } catch (healErr) {
-      console.warn("[public/quotes/accept] converted quote recovery failed:", healErr);
-    }
-    return res.status(200).json({
-      ok: true,
-      alreadyAccepted: true,
-      quoteId: existing.id,
-      orderId: existing.converted_to_order_id,
-    });
-  }
-  if (existing.status === "accepted") {
-    // Heal the legacy/partial state instead of returning a false
-    // success. This is the exact state Callum reported: quote moved to
-    // Won but no order existed. The canonical conversion is atomic and
-    // idempotent, so a retry cannot create a duplicate order.
-    try {
-      const { quoteService } = await import("@/services/quoteService");
-      const conversion = await quoteService.convertQuoteToOrder(existing.id, {
-        _client: supabase,
-        origin: requestOrigin(req),
-      });
-      if (conversion.order?.id) {
-        return res.status(200).json({
-          ok: true,
-          alreadyAccepted: true,
-          quoteId: existing.id,
-          orderId: conversion.order.id,
-          recoveredConversion: true,
-        });
+  if (existing.converted_to_order_id || existing.status === "accepted") {
+    // Repair a missing legacy plan before retrying conversion. Never replace
+    // a plan that has already been accepted or operationally scheduled.
+    if (parsedSittings.value) {
+      const { error: planError } = await saveAcceptance(supabase, existing, parsedSittings.value);
+      if (planError) {
+        console.error("[public/quotes/accept] service plan recovery failed:", planError);
+        return res.status(500).json({ ok: false, error: "Your acceptance is recorded, but the serving times still need saving. Please retry with the same times." });
       }
-      console.warn(
-        "[public/quotes/accept] accepted quote recovery refused:",
-        conversion.error_code || conversion.error,
-      );
-    } catch (conversionErr) {
-      console.warn("[public/quotes/accept] accepted quote recovery failed:", conversionErr);
     }
-    return res.status(202).json({
-      ok: true,
-      alreadyAccepted: true,
-      conversionPending: true,
-      quoteId: existing.id,
-    });
+    return respondToAcceptedQuote(supabase, existing, requestOrigin(req), res);
   }
   if (existing.status === "rejected") {
     return res.status(409).json({ ok: false, error: "This quote was previously declined. Please request a new one." });
@@ -258,85 +240,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(429).json({ ok: false, error: "Too many attempts, try again later." });
   }
 
-  // Resolve quote + stamp acceptance.
-  // Wave 17 audit: previously the existence check + the UPDATE were
-  // two separate round-trips. Two simultaneous client clicks (or a
-  // double-tap on a slow connection) both passed the existence
-  // check, both ran the UPDATE, both fired convertQuoteToOrder --
-  // duplicate orders + duplicate deposit invoices + duplicate
-  // kitchen prep tasks landed for the same quote. Make the UPDATE
-  // atomic by gating on status (only matches a non-accepted row);
-  // the second call lands an empty .single() which we treat as
-  // "someone else already accepted, return 409".
-  const nowIso = new Date().toISOString();
-  const { data: updated, error } = await (supabase as any)
-    .from("quotes")
-    .update({
-      accepted_at: nowIso,
-      status: "accepted",
-      // TIGHTEN I.110: clear any stale lost_reason / rejected_at
-      // markers left by a previous (now-reversed) cancellation cycle.
-      // Belt-and-braces - the .in() filter blocks rejected→accepted
-      // re-transitions via this route, but if a future code path
-      // enables that flow the markers won't drift.
-      lost_reason: null,
-      rejected_at: null,
-    })
-    .eq("public_token", token)
-    .is("deleted_at", null)
-    // Block re-accepts of already-accepted / rejected / expired
-    // quotes. Only draft + sent are still in-play.
-    .in("status", ["draft", "sent"])
-    // Wave 12 follow-up: `currency` lives on companies, not quotes --
-    // selecting it from quotes returns "column quotes.currency does not
-    // exist" and 500s the accept flow. Pull currency from companies
-    // below where we already fetch tenant context for the email.
-    .select("id, company_id, user_id, client_id, client_name, client_email, total, currency, event_date, guest_count, quote_name, quote_number, public_token")
-    .maybeSingle();
-
-  // Wave 17 audit: don't leak raw Postgres errors to the public client.
-  // Log the real cause server-side, surface a friendly message.
+  // One database transaction locks this quote, saves its serving plan and
+  // stamps acceptance. A plan error rolls the whole operation back.
+  const { data: acceptance, error } = await saveAcceptance(supabase, existing, parsedSittings.value);
   if (error) {
-    console.error("[public/quotes/accept] update failed", { token, error });
-    return res.status(500).json({ ok: false, error: "Couldn't accept this quote right now. Please try again or contact the caterer." });
+    console.error("[public/quotes/accept] atomic acceptance failed:", error);
+    return res.status(error.code === "22023" ? 409 : 500).json({
+      ok: false,
+      error: error.code === "22023"
+        ? "The quote or serving plan changed. Refresh the quote and check the guest counts and times before accepting."
+        : "Couldn't save your acceptance and serving times. Please try again or contact the caterer.",
+    });
   }
-  if (!updated) {
-    // No row matched - either the token is wrong (404) OR another
-    // request just accepted this one (race - treat as 409 idempotent).
-    const { data: existsCheck, error: existsCheckErr } = await (supabase as any)
-      .from("quotes")
-      .select("id, status")
-      .eq("public_token", token)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (existsCheckErr) {
-      console.error("[public/quotes/[token]/accept] quotes fetch failed:", existsCheckErr);
-    }
-    if (existsCheck?.status === "accepted") {
-      return res.status(200).json({ ok: true, alreadyAccepted: true, quoteId: existsCheck.id });
-    }
-    return res.status(404).json({ ok: false, error: "Quote not found." });
-  }
-
-  // The client chooses the service plan; operations schedules people after
-  // acceptance. Replace only this quote's still-unconverted draft plan.
-  if (parsedSittings.value) {
-    const { error: deleteSittingsError } = await (supabase as any)
-      .from("service_sittings").delete().eq("quote_id", updated.id).is("order_id", null);
-    if (deleteSittingsError) console.error("[public/quotes/accept] sitting cleanup failed", deleteSittingsError);
-    const { error: insertSittingsError } = await (supabase as any).from("service_sittings").insert(
-      parsedSittings.value.map((s, index) => ({
-        company_id: updated.company_id, quote_id: updated.id, sequence_number: index + 1,
-        guest_count: s.guestCount, service_time: s.serviceTime, kitchen_ready_time: s.kitchenReadyTime,
-        dispatch_time: s.dispatchTime, cleaning_reset_required: s.cleaningResetRequired,
-        return_required: s.returnRequired, return_time: s.returnTime,
-      })),
-    );
-    if (insertSittingsError) {
-      console.error("[public/quotes/accept] sitting insert failed", insertSittingsError);
-      return res.status(500).json({ ok: false, error: "Your quote was accepted, but we could not save the service plan. Please contact the caterer." });
-    }
-  }
+  const updated = acceptance?.quote;
+  if (!updated) return res.status(404).json({ ok: false, error: "Quote not found." });
+  if (acceptance.alreadyAccepted) return respondToAcceptedQuote(supabase, updated, requestOrigin(req), res);
+  const nowIso = updated.accepted_at;
 
   // Audit (May 2026, Wave 3): public acceptance now fires the same
   // convert-to-order cascade the admin "Mark accepted" path uses --
