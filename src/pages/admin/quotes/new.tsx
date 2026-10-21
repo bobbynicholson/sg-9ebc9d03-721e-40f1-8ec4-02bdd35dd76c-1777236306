@@ -3089,7 +3089,19 @@ function NewQuotePage() {
                         Start time (optional)
                         <InfoTooltip content={"Time the event begins for guests, e.g. 17:00 for an evening function.\n\nThis is the moment the food + service has to be ready. The team's setup / arrival time is worked out automatically from this (start time minus your delivery buffer)."} />
                       </Label>
-                      <Input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)} />
+                      <Input
+                        type="time"
+                        value={eventTime}
+                        onChange={(e) => {
+                          // Setup time is now derived, not editable. A legacy
+                          // quote can still carry a manually saved setup time;
+                          // retaining it after a start-time change can make it
+                          // invalid while leaving the field hidden, trapping
+                          // the operator behind a disabled Save button.
+                          setEventTime(e.target.value);
+                          setSetupTime("");
+                        }}
+                      />
                     </div>
                     {/* Setup / delivery time field hidden (Raj,
                         2026-06-25): no manual selection, no error. The
