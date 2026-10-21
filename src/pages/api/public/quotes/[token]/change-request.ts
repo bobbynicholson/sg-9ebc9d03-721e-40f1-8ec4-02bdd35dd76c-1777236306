@@ -2,6 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getRequestSupabase } from "@/lib/supabase/service";
 import { emailService } from "@/services/emailService";
+import { normaliseServiceSittings, describeServiceSittings } from "@/lib/serviceSittings";
 import {
   applyCorsHeaders,
   checkAndIncrementRateLimit,
@@ -172,7 +173,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Resolve quote.
   const { data: quote, error: quoteErr } = await (supabase as any)
     .from("quotes")
-    .select("id, company_id, user_id, lead_id, client_name, quote_number, total, currency, event_date, deleted_at")
+    .select("id, company_id, user_id, lead_id, client_name, quote_number, total, currency, event_date, guest_count, status, converted_to_order_id, deleted_at")
     .eq("public_token", token)
     .maybeSingle();
   if (quoteErr) {
@@ -180,6 +181,13 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   if (!quote || quote.deleted_at) return res.status(404).json({ ok: false, error: "Quote not found" });
+
+  if (rawChanges.service_sittings != null) {
+    if (quote.converted_to_order_id || quote.status === "accepted") return res.status(400).json({ ok: false, error: "Please request serving-time changes from your booking page." });
+    const plan = normaliseServiceSittings(rawChanges.service_sittings, requestedChanges.guest_count ?? Number(quote.guest_count));
+    if (plan.error) return res.status(400).json({ ok: false, error: plan.error });
+    requestedChanges.service_sittings = plan.value!.map(({ guestCount, serviceTime }) => ({ guestCount, serviceTime }));
+  }
 
   if (
     requestedChanges.event_date
@@ -528,6 +536,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           <blockquote style="border-left:3px solid #e2e8f0;margin:16px 0;padding:8px 16px;color:#475569;font-style:italic">
             ${message.replace(/\n/g, "<br/>")}
           </blockquote>
+          ${requestedChanges.service_sittings ? `<p><strong>Requested serving times:</strong> ${describeServiceSittings(requestedChanges.service_sittings)}</p>` : ""}
           <p><a href="${quoteLink}" style="color:#4f46e5">View change request &rarr;</a></p>
           <p style="font-size:12px;color:#94a3b8">${companyName || "CateringMS"} &mdash; automated notification</p>
         `;

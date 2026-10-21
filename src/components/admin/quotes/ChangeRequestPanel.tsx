@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { describeServiceSittings } from "@/lib/serviceSittings";
 import {
   MessageSquare, CheckCircle2, X as XIcon, Reply,
   Loader2, ChevronDown, ChevronUp, History,
@@ -250,7 +251,7 @@ function RequestCard({
         {req.message}
       </blockquote>
 
-      {(rc.event_date || rc.guest_count != null || rc.menu_changes || rc.venue_address || rc.logistics_changes || rc.waiter_service === true) && (
+      {(rc.event_date || rc.guest_count != null || rc.menu_changes || rc.venue_address || rc.logistics_changes || rc.waiter_service === true || rc.service_sittings) && (
         <div className="bg-slate-50 border border-slate-200 rounded-md p-2 mb-3 text-[11px] text-slate-700 space-y-0.5">
           {rc.event_date && (
             <div><span className="font-medium text-slate-500">New event date:</span> {rc.event_date}</div>
@@ -270,6 +271,7 @@ function RequestCard({
           {rc.waiter_service === true && (
             <div><span className="font-medium text-slate-500">On-site service:</span> Waiter service requested - price and confirm before sending.</div>
           )}
+          {Array.isArray(rc.service_sittings) && <div><span className="font-medium text-slate-500">Serving times:</span> {describeServiceSittings(rc.service_sittings)}</div>}
         </div>
       )}
 

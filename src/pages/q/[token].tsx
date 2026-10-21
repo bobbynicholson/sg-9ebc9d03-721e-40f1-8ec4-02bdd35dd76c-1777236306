@@ -58,7 +58,8 @@ import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesA
 import { formatClockBoth } from "@/lib/portalTime";
 import { groupByCourse } from "@/lib/menuCourses";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
-import { normaliseServiceSittings } from "@/lib/serviceSittings";
+import { serviceSittingsFromForm, serviceSittingsFormFromSaved, type ServiceSittingsForm } from "@/lib/serviceSittings";
+import { ServiceSittingsEditor } from "@/components/quote/ServiceSittingsEditor";
 
 // Phase 5 #10: per-tenant currency formatter. The Intl 'currency'
 // style honours each currency's standard symbol + grouping (so GBP
@@ -258,6 +259,7 @@ export default function PublicQuotePage() {
   const [changesVenue, setChangesVenue] = useState("");
   const [changesLogistics, setChangesLogistics] = useState("");
   const [changesWaiterService, setChangesWaiterService] = useState(false);
+  const [changesServicePlan, setChangesServicePlan] = useState<ServiceSittingsForm | null>(null);
   // Structured item edits (prefilled from the quote in the editor). Null
   // until the client touches the editor, so an untouched request doesn't
   // overwrite the quote's lines with a stale snapshot.
@@ -329,7 +331,7 @@ export default function PublicQuotePage() {
         }
       }
       setQuote(data);
-      setFirstSittingTime(String(data.event_time || "").slice(0, 5));
+      hydrateAcceptancePlan(data);
       lastSeenUpdatedAtRef.current = data.updated_at || null;
       setLoading(false);
       // Fire-and-forget viewed_at stamp.
@@ -387,11 +389,7 @@ export default function PublicQuotePage() {
     if (!token) return;
     setAcceptError(null);
     const totalGuests = Number(quote?.guest_count || 0);
-    const firstGuests = sittingCount === 2 ? firstSittingGuests : totalGuests;
-    const plan = normaliseServiceSittings([
-      { guestCount: firstGuests, serviceTime: firstSittingTime || String(quote?.event_time || "").slice(0, 5) },
-      ...(sittingCount === 2 ? [{ guestCount: totalGuests - firstGuests, serviceTime: secondSittingTime }] : []),
-    ], totalGuests);
+    const plan = serviceSittingsFromForm({ count: sittingCount, firstGuests: firstSittingGuests, firstTime: firstSittingTime, secondTime: secondSittingTime }, totalGuests);
     if (plan.error) { setAcceptError(plan.error); return; }
     setAccepting(true);
     const res = await recordAccept({ token, acceptedByName: acceptName.trim(), serviceSittings: plan.value?.map(({ guestCount, serviceTime }) => ({ guestCount, serviceTime })) });
@@ -449,12 +447,21 @@ export default function PublicQuotePage() {
     return () => window.clearTimeout(timer);
   }, [acceptedOrderUrl, router, router.query.stay]);
 
+  function hydrateAcceptancePlan(data: PublicQuoteView) {
+    const form = serviceSittingsFormFromSaved(data.service_sittings, data.event_time, Number(data.guest_count));
+    setSittingCount(form.count); setFirstSittingGuests(form.firstGuests);
+    setFirstSittingTime(form.firstTime); setSecondSittingTime(form.secondTime);
+  }
+
   const handleSubmitChanges = async () => {
     if (!token) return;
     if (changesEventDate && isPastCalendarDate(changesEventDate, toLocalISO(new Date()))) {
       setChangesError("The new event date cannot be in the past.");
       return;
     }
+    const changedTotal = changesGuestCount.trim() ? Number(changesGuestCount) : Number(quote?.guest_count || 0);
+    const plan = changesServicePlan ? serviceSittingsFromForm(changesServicePlan, changedTotal) : {};
+    if (plan.error) { setChangesError(plan.error); return; }
     // The client may express their change two ways: a freeform message, or
     // by editing the item list (add/remove/qty). Either is enough - when
     // they only edited items we synthesise a message so the caterer's
@@ -471,6 +478,8 @@ export default function PublicQuotePage() {
     if (message.length < 10) {
       if (itemsTouched) {
         message = "Please update my quote to the menu and equipment selections I've set below.";
+      } else if (plan.value) {
+        message = "Please update my quote to the serving times and guest split selected below.";
       } else {
         setChangesError("Please give us at least 10 characters so we know what to change.");
         return;
@@ -491,6 +500,7 @@ export default function PublicQuotePage() {
         venue_address: changesVenue.trim() || null,
         logistics_changes: changesLogistics.trim() || null,
         waiter_service: changesWaiterService,
+        service_sittings: plan.value?.map(({ guestCount, serviceTime }) => ({ guestCount, serviceTime })) || null,
         menu_items: changesMenuItems !== null ? menuPayload : null,
         equipment_items: changesEquipItems !== null ? equipPayload : null,
       },
@@ -906,6 +916,12 @@ export default function PublicQuotePage() {
                   guests: displayGuestCount,
                 }}
               />
+              {(quote.service_sittings?.length || 0) > 1 && <div className="mt-3 border-t border-stone-100 pt-3 text-sm text-stone-700">
+                <p className="font-semibold text-stone-900">Serving times</p>
+                <ul className="mt-1 space-y-1">{[...quote.service_sittings!].sort((a, b) => a.sequence_number - b.sequence_number).map(sitting =>
+                  <li key={sitting.sequence_number}>Sitting {sitting.sequence_number}: <strong>{sitting.guest_count} guests</strong> at <strong>{formatClockBoth(sitting.service_time, quoteTimeFormat)}</strong></li>,
+                )}</ul>
+              </div>}
               {setupTime && setupTime !== eventTime && (
                 <p className="mt-2.5 border-t border-stone-100 pt-2.5 text-xs text-stone-600">
                   Setup / arrival: <span className="font-semibold text-stone-900">{setupTime}</span>
@@ -1330,21 +1346,11 @@ export default function PublicQuotePage() {
                         placeholder="Your full name"
                         autoFocus
                       />
-                      <div className="rounded-md border border-stone-200 bg-stone-50 p-3 space-y-3 text-left">
-                        <p className="text-sm font-semibold text-stone-900">How will guests be served?</p>
-                        <div className="flex gap-4 text-sm text-stone-700">
-                          <label className="flex items-center gap-2"><input type="radio" checked={sittingCount === 1} onChange={() => setSittingCount(1)} /> One service time</label>
-                          <label className="flex items-center gap-2"><input type="radio" checked={sittingCount === 2} onChange={() => { setSittingCount(2); setFirstSittingGuests(Math.ceil(Number(quote?.guest_count || 0) / 2)); }} /> Two sittings</label>
-                        </div>
-                        {sittingCount === 1 && !quote?.event_time && <label className="block text-xs">Service time<Input type="time" value={firstSittingTime} onChange={(e) => setFirstSittingTime(e.target.value)} /></label>}
-                        {sittingCount === 2 && <div className="grid grid-cols-2 gap-2 text-xs">
-                          <label>First guests<Input type="number" min="1" max={Math.max(1, Number(quote?.guest_count || 1) - 1)} value={firstSittingGuests || ""} onChange={(e) => setFirstSittingGuests(Number(e.target.value))} /></label>
-                          <label>First time<Input type="time" value={firstSittingTime} onChange={(e) => setFirstSittingTime(e.target.value)} /></label>
-                          <p className="col-span-1 pt-2">Second guests: {Math.max(0, Number(quote?.guest_count || 0) - firstSittingGuests)}</p>
-                          <label>Second time<Input type="time" value={secondSittingTime} onChange={(e) => setSecondSittingTime(e.target.value)} /></label>
-                        </div>}
-                        <p className="text-xs text-stone-600">Your caterer will confirm kitchen batches, drivers, cleaning and equipment-return timing.</p>
-                      </div>
+                      <ServiceSittingsEditor
+                        value={{ count: sittingCount, firstGuests: firstSittingGuests, firstTime: firstSittingTime, secondTime: secondSittingTime }}
+                        totalGuests={Number(quote.guest_count)} disabled={accepting}
+                        onChange={form => { setSittingCount(form.count); setFirstSittingGuests(form.firstGuests); setFirstSittingTime(form.firstTime); setSecondSittingTime(form.secondTime); }}
+                      />
                       {acceptError && (
                         <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
                           <p className="text-xs text-rose-700 font-medium">{acceptError}</p>
@@ -1407,6 +1413,7 @@ export default function PublicQuotePage() {
                         <Button
                           onClick={() => {
                             if (acceptanceBlocked) return;
+                            hydrateAcceptancePlan(quote);
                             setAcceptOpen(true);
                             setChangesOpen(false);
                             setChangesError(null);
@@ -1516,7 +1523,7 @@ export default function PublicQuotePage() {
                     <div className="space-y-3">
                       <div>
                         <label htmlFor="changes-message" className="text-xs font-medium text-stone-700">
-                          What would you like changed? *
+                          What would you like changed?
                         </label>
                         <Textarea
                           id="changes-message"
@@ -1557,6 +1564,13 @@ export default function PublicQuotePage() {
                           />
                         </div>
                       </div>
+
+                      {!accepted && <ServiceSittingsEditor
+                        optional disabled={changesSubmitting}
+                        totalGuests={changesGuestCount.trim() ? Number(changesGuestCount) : Number(quote.guest_count)}
+                        value={changesServicePlan || serviceSittingsFormFromSaved(quote.service_sittings, quote.event_time, Number(quote.guest_count))}
+                        onChange={form => { setChangesServicePlan(form); setChangesError(null); }}
+                      />}
 
                       <div>
                         <p className="text-xs font-medium text-stone-700 mb-1.5">
@@ -1630,7 +1644,7 @@ export default function PublicQuotePage() {
                     </div>
 
                     {changesError && (
-                      <p className="text-xs text-rose-600">{changesError}</p>
+                      <p role="alert" className="text-xs text-rose-600">{changesError}</p>
                     )}
 
                     <div className="flex gap-2 justify-end pt-1">

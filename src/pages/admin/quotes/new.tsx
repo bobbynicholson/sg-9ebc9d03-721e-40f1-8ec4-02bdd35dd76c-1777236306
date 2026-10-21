@@ -85,6 +85,7 @@ import {
   isDriverCollection, resolveEquipmentReturn, type EquipmentReturnMethod,
 } from "@/lib/equipmentReturn";
 import { revealSection } from "@/lib/ui/revealSection";
+import { describeServiceSittings } from "@/lib/serviceSittings";
 import { resolveBranchSettings } from "@/services/branchSettingsService";
 import { suggestKitchenForDate, type CapacitySuggestion } from "@/services/kitchenCapacityService";
 import { ClientTypeahead } from "@/components/admin/ClientTypeahead";
@@ -633,6 +634,7 @@ function NewQuotePage() {
     id: string;
     created_at: string;
     message?: string | null;
+    servicePlanSummary?: string | null;
   } | null>(null);
   const [status, setStatus] = useState<"draft" | "sent" | "viewed" | "accepted" | "rejected" | "expired" | "revised" | "pending">("draft");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -974,6 +976,7 @@ function NewQuotePage() {
         if (!quoteUserEditedRef.current && rc.event_date) setEventDate(String(rc.event_date));
         if (typeof rc.guest_count === "number") setGuestCount(rc.guest_count);
         if (rc.waiter_service === true) setWaiterServiceRequired(true);
+        if (Array.isArray(rc.service_sittings) && rc.service_sittings[0]?.serviceTime) setEventTime(rc.service_sittings[0].serviceTime);
         if (rc.venue_address) setVenueAddress(String(rc.venue_address));
         if (Array.isArray(rc.menu_items)) {
           setMenuItems(
@@ -1015,6 +1018,7 @@ function NewQuotePage() {
           id: cr.id,
           created_at: cr.created_at,
           message: cr.message || null,
+          servicePlanSummary: Array.isArray(rc.service_sittings) ? describeServiceSittings(rc.service_sittings) : null,
         });
       }
 
@@ -2936,6 +2940,7 @@ function NewQuotePage() {
                         <strong>Client note:</strong> {appliedChangeRequest.message}
                       </p>
                     )}
+                    {appliedChangeRequest.servicePlanSummary && <p className="text-slate-700"><strong>Requested serving times:</strong> {appliedChangeRequest.servicePlanSummary}. These times are saved when you address the request or send the updated quote.</p>}
                   </div>
                 )}
                 {isRevisingNonDraft && (

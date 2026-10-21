@@ -276,6 +276,8 @@ export async function submitChangeRequest(args: {
     logistics_changes?: string | null;
     /** The client is asking the caterer to price on-site waiter service. */
     waiter_service?: boolean;
+    /** Proposed serving times, applied after the caterer addresses this request. */
+    service_sittings?: Array<{ guestCount: number; serviceTime: string }> | null;
     /** Structured item picks from the in-form editor. null = the client
      *  didn't touch the item editor (leave the quote's lines as-is). */
     menu_items?: Array<{ menu_item_id: string | null; item_name: string; unit_price: number; quantity: number; category?: string | null }> | null;
