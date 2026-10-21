@@ -12,6 +12,7 @@ import { resolveClientUserId } from "@/services/lifecycle/resolveClientUserId";
 import { withApiLogging } from "@/lib/withApiLogging";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { getEventCapacityForDate, publicCapacityMessage } from "@/lib/eventCapacity";
+import { normaliseServiceSittings } from "@/lib/serviceSittings";
 
 
 /**
@@ -93,6 +94,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   if (!existing) return res.status(404).json({ ok: false, error: "Quote not found." });
+  const parsedSittings = normaliseServiceSittings(body.serviceSittings, Number(existing.guest_count));
+  if (parsedSittings.error) return res.status(400).json({ ok: false, error: parsedSittings.error });
   if (existing.converted_to_order_id) {
     // Idempotent recovery: the order/quote transaction may have
     // committed just before a server timeout interrupted invoice,
@@ -313,6 +316,26 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       return res.status(200).json({ ok: true, alreadyAccepted: true, quoteId: existsCheck.id });
     }
     return res.status(404).json({ ok: false, error: "Quote not found." });
+  }
+
+  // The client chooses the service plan; operations schedules people after
+  // acceptance. Replace only this quote's still-unconverted draft plan.
+  if (parsedSittings.value) {
+    const { error: deleteSittingsError } = await (supabase as any)
+      .from("service_sittings").delete().eq("quote_id", updated.id).is("order_id", null);
+    if (deleteSittingsError) console.error("[public/quotes/accept] sitting cleanup failed", deleteSittingsError);
+    const { error: insertSittingsError } = await (supabase as any).from("service_sittings").insert(
+      parsedSittings.value.map((s, index) => ({
+        company_id: updated.company_id, quote_id: updated.id, sequence_number: index + 1,
+        guest_count: s.guestCount, service_time: s.serviceTime, kitchen_ready_time: s.kitchenReadyTime,
+        dispatch_time: s.dispatchTime, cleaning_reset_required: s.cleaningResetRequired,
+        return_required: s.returnRequired, return_time: s.returnTime,
+      })),
+    );
+    if (insertSittingsError) {
+      console.error("[public/quotes/accept] sitting insert failed", insertSittingsError);
+      return res.status(500).json({ ok: false, error: "Your quote was accepted, but we could not save the service plan. Please contact the caterer." });
+    }
   }
 
   // Audit (May 2026, Wave 3): public acceptance now fires the same

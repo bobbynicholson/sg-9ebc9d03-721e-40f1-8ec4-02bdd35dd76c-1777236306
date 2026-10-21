@@ -211,6 +211,7 @@ export async function recordView(token: string, currentViewedAt: string | null):
 export async function recordAccept(args: {
   token: string;
   acceptedByName: string;
+  serviceSittings?: Array<{ guestCount: number; serviceTime: string }>;
 }): Promise<{ ok: boolean; error?: string; orderId?: string; conversionPending?: boolean }> {
   if (!args.token) return { ok: false, error: "Missing token." };
   if (!args.acceptedByName?.trim()) return { ok: false, error: "Please enter your name." };
@@ -218,7 +219,7 @@ export async function recordAccept(args: {
     const res = await fetch(`/api/public/quotes/${encodeURIComponent(args.token)}/accept`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acceptedByName: args.acceptedByName.trim() }),
+      body: JSON.stringify({ acceptedByName: args.acceptedByName.trim(), serviceSittings: args.serviceSittings }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.ok === false) {

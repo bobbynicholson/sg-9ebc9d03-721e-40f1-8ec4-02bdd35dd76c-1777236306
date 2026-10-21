@@ -1192,6 +1192,22 @@ export const quoteService = {
     // array depending on the PostgREST version - normalise here.
     const newOrder: any = Array.isArray(rpcOrder) ? rpcOrder[0] : rpcOrder;
 
+    // Promote the client-confirmed service plan onto the operational order.
+    // A legacy quote has no rows, which deliberately retains the existing
+    // one-service-time behaviour.
+    try {
+      const { error: sittingPromoteErr } = await db
+        .from("service_sittings")
+        .update({ order_id: newOrder.id })
+        .eq("quote_id", quoteId)
+        .is("order_id", null);
+      if (sittingPromoteErr) {
+        console.warn("[convertQuoteToOrder] service sitting promotion failed", sittingPromoteErr);
+      }
+    } catch (sittingPromoteErr) {
+      console.warn("[convertQuoteToOrder] service sitting promotion crashed", sittingPromoteErr);
+    }
+
     // Wave 50 C10 - carry quotes.source onto orders.lead_source so
     // attribution survives into order analytics. The convert RPC
     // doesn't know about this column yet (signature is fixed); a

@@ -178,6 +178,10 @@ export default function PublicQuotePage() {
   const [acceptName, setAcceptName] = useState("");
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [sittingCount, setSittingCount] = useState<1 | 2>(1);
+  const [firstSittingGuests, setFirstSittingGuests] = useState(0);
+  const [firstSittingTime, setFirstSittingTime] = useState("");
+  const [secondSittingTime, setSecondSittingTime] = useState("");
   const [justAccepted, setJustAccepted] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
@@ -382,7 +386,12 @@ export default function PublicQuotePage() {
     if (!token) return;
     setAccepting(true);
     setAcceptError(null);
-    const res = await recordAccept({ token, acceptedByName: acceptName.trim() });
+    const totalGuests = Number(quote?.guest_count || 0);
+    const firstGuests = sittingCount === 2 ? firstSittingGuests : totalGuests;
+    const res = await recordAccept({ token, acceptedByName: acceptName.trim(), serviceSittings: [
+      { guestCount: firstGuests, serviceTime: firstSittingTime || String(quote?.event_time || "").slice(0, 5) },
+      ...(sittingCount === 2 ? [{ guestCount: totalGuests - firstGuests, serviceTime: secondSittingTime }] : []),
+    ] });
     setAccepting(false);
     if (!res.ok) {
       setAcceptError(res.error || "Could not accept the quote, please try again.");
@@ -1310,6 +1319,20 @@ export default function PublicQuotePage() {
                         placeholder="Your full name"
                         autoFocus
                       />
+                      <div className="rounded-md border border-stone-200 bg-stone-50 p-3 space-y-3 text-left">
+                        <p className="text-sm font-semibold text-stone-900">How will guests be served?</p>
+                        <div className="flex gap-4 text-sm text-stone-700">
+                          <label className="flex items-center gap-2"><input type="radio" checked={sittingCount === 1} onChange={() => setSittingCount(1)} /> One service time</label>
+                          <label className="flex items-center gap-2"><input type="radio" checked={sittingCount === 2} onChange={() => { setSittingCount(2); setFirstSittingGuests(Math.ceil(Number(quote?.guest_count || 0) / 2)); }} /> Two sittings</label>
+                        </div>
+                        {sittingCount === 2 && <div className="grid grid-cols-2 gap-2 text-xs">
+                          <label>First guests<Input type="number" min="1" max={Math.max(1, Number(quote?.guest_count || 1) - 1)} value={firstSittingGuests || ""} onChange={(e) => setFirstSittingGuests(Number(e.target.value))} /></label>
+                          <label>First time<Input type="time" value={firstSittingTime} onChange={(e) => setFirstSittingTime(e.target.value)} /></label>
+                          <p className="col-span-1 pt-2">Second guests: {Math.max(0, Number(quote?.guest_count || 0) - firstSittingGuests)}</p>
+                          <label>Second time<Input type="time" value={secondSittingTime} onChange={(e) => setSecondSittingTime(e.target.value)} /></label>
+                        </div>}
+                        <p className="text-xs text-stone-600">Your caterer will confirm kitchen batches, drivers, cleaning and equipment-return timing.</p>
+                      </div>
                       {acceptError && (
                         <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2">
                           <p className="text-xs text-rose-700 font-medium">{acceptError}</p>
