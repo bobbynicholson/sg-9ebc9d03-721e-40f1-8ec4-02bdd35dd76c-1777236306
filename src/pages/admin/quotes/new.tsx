@@ -1061,7 +1061,13 @@ function NewQuotePage() {
     // event_time on the quote is HH:MM (or HH:MM:SS); the <input
     // type="time"> only accepts HH:MM so trim seconds if present.
     if (q.event_time) setEventTime(String(q.event_time).slice(0, 5));
-    if (q.setup_time) setSetupTime(String(q.setup_time).slice(0, 5));
+    // Setup time is calculated from the eating time and delivery buffer;
+    // it is not editable in this form. Older quotes have a persisted
+    // setup_time from when it was editable. Restoring that old value makes
+    // the hidden validation compare it to a newly changed eating time and
+    // can trap the operator behind a time error / disabled Save button.
+    // Leave this empty so buildPayload always derives the current value.
+    setSetupTime("");
     // "Untitled" is the placeholder we persist when the operator left
     // the event name blank (see buildPayload). Never load that literal
     // back into the input - it would show as a value the operator has
