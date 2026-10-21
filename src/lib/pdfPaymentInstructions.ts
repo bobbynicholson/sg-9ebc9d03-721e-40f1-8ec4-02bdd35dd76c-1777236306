@@ -1,14 +1,13 @@
 import { getPublicPaymentAvailability } from "@/lib/paymentService";
-import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import {
   buildPdfEftPaymentDetails,
   type PdfPaymentInstructions,
 } from "@/lib/pdfPaymentDetails";
 
 /**
- * Build the mutually-exclusive payment block shown on a quote/invoice PDF.
- * This deliberately mirrors the public payment pages: a configured online
- * gateway wins; EFT is disclosed only when online checkout is unavailable.
+ * Build the payment block shown on a quote/invoice PDF. PDFs are payment
+ * instructions clients keep and forward, so a complete configured EFT bundle
+ * is shown alongside online checkout rather than being hidden by it.
  */
 export async function buildPdfPaymentInstructions(input: {
   company: Record<string, unknown> | null | undefined;
@@ -27,21 +26,22 @@ export async function buildPdfPaymentInstructions(input: {
     input.currency || "ZAR",
   );
 
+  const eft = buildPdfEftPaymentDetails(company, input.bankSnapshot, {
+    reference: input.reference,
+    referenceHint: input.referenceHint,
+  });
+
   if (availability.online_available && availability.provider) {
     return {
       online_provider: availability.provider,
       payment_url: input.paymentUrl || null,
       reference: input.reference || null,
       reference_hint: input.referenceHint || null,
-      eft: null,
+      eft,
     };
   }
 
-  const eft = buildPdfEftPaymentDetails(company, input.bankSnapshot, {
-    reference: input.reference,
-    referenceHint: input.referenceHint,
-  });
-  if (!isManualEftAvailable(availability.online_available, Boolean(eft))) return null;
+  if (!eft) return null;
 
   return {
     online_provider: null,

@@ -793,6 +793,10 @@ export default function InvoicePaymentPage() {
     invoice.payment_options?.online_available === true,
     invoice.payment_options?.eft_available === true && bankDetails.available,
   );
+  // Online checkout can remain the primary action while the invoice still
+  // displays a complete EFT beneficiary alternative. Keep this distinct
+  // from `hasBankDetails`, which governs the proof-upload flow.
+  const hasBankDetailsToDisplay = bankDetails.available;
   const paymentSummary = getOrderPaymentSummary({
     totalAmount: invoice.total_amount,
     amountPaid: invoice.amount_paid,
@@ -1496,9 +1500,9 @@ export default function InvoicePaymentPage() {
                   )}
 
                   {/* Bank transfer alternative */}
-                  {hasBankDetails && !paymentNotConfigured && (
+                  {hasBankDetailsToDisplay && !paymentNotConfigured && (
                     <div className="mt-2 p-4 rounded-lg border border-stone-200 bg-stone-50">
-                      <p className="text-sm font-semibold text-stone-900 mb-2">Pay by EFT</p>
+                      <p className="text-sm font-semibold text-stone-900 mb-2">Or pay by EFT</p>
                       <div className="space-y-1 text-sm">
                         <div className="grid grid-cols-2 gap-2">
                           <span className="text-stone-500">Bank:</span>
@@ -1526,14 +1530,15 @@ export default function InvoicePaymentPage() {
                       </p>
                       {bankDetails.instructions && <p className="text-xs text-stone-600 mt-2">{bankDetails.instructions}</p>}
                       <div className="mt-4 rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-3">
-                        <p className="text-sm text-stone-700">After transferring, send your confirmation so the team can match and verify the payment.</p>
-                        <label className="mt-3 block text-xs font-medium text-stone-600">
-                          Payment confirmation (PDF, JPG, PNG or WEBP; max 8 MB) - required
-                          <input type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setProofFile(event.target.files?.[0] || null)} className="mt-1 block w-full text-xs" />
-                        </label>
-                        <Button type="button" size="sm" className="mt-3 bg-brand-primary hover:opacity-90" onClick={claimPublicEft} disabled={processing || eftClaimedPublic || !proofFile}>
-                          {eftClaimedPublic ? "Confirmation sent for review" : "Send payment proof for review"}
-                        </Button>
+                        <p className="text-sm text-stone-700">After transferring, email your proof of payment so the team can match it to this invoice.</p>
+                        {company.email ? (
+                          <a
+                            className="mt-2 inline-flex text-sm font-semibold text-brand-primary underline underline-offset-4"
+                            href={`mailto:${company.email}?subject=${encodeURIComponent(`EFT proof - ${invoice.invoice_number}`)}`}
+                          >
+                            Email proof to {companyName}
+                          </a>
+                        ) : null}
                       </div>
                     </div>
                   )}

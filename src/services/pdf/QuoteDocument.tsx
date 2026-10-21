@@ -889,8 +889,8 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
         </View>
 
         {/* PAYMENT OPTIONS. A quote is not itself a payment receipt; this
-            block gives the customer the correct next step and, when EFT is
-            the only route, the complete beneficiary details. */}
+            block gives the customer both the online route and the complete
+            configured EFT beneficiary details when those are available. */}
         {paymentProvider || eftDetails ? (
           <View style={styles.card} minPresenceAhead={120}>
             <Text style={styles.sectionLabel}>Payment options</Text>
@@ -907,7 +907,7 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             ) : null}
             {eftDetails ? (
               <>
-                <Text style={styles.cellValue}>Pay by EFT to {eftDetails.company_name || company.legal_name || company.company_name || "the company"}</Text>
+                <Text style={[styles.cellValue, paymentProvider ? { marginTop: 10 } : {}]}>{paymentProvider ? "Or pay by EFT" : "Pay by EFT"} to {eftDetails.company_name || company.legal_name || company.company_name || "the company"}</Text>
                 {eftDetails.bank_name ? <Text style={[styles.terms, { marginTop: 3 }]}>Bank: {eftDetails.bank_name}</Text> : null}
                 {eftDetails.account_holder ? <Text style={styles.terms}>Account holder: {eftDetails.account_holder}</Text> : null}
                 {eftDetails.account_number ? <Text style={styles.terms}>Account number: {eftDetails.account_number}</Text> : null}

@@ -185,17 +185,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     paymentAvailability.online_available,
     Boolean(company?.bank_name && company?.bank_account_number),
   );
-  if (!eftAvailable && company) {
-    (data as any).company = {
-      ...company,
-      bank_name: null,
-      bank_account_holder: null,
-      bank_account_number: null,
-      bank_branch_code: null,
-      bank_account_type: null,
-      eft_instructions: null,
-    };
-  }
+  // Keep configured beneficiary details visible to the holder of this
+  // unguessable quote link even when online payment is available. The
+  // boolean below still represents whether EFT is an interactive payment
+  // flow; the details are a documented alternative on the quote itself.
   (data as any).payment_options = {
     ...paymentAvailability,
     eft_available: eftAvailable,

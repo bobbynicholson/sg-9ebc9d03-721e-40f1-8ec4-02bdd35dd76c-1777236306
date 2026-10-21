@@ -308,22 +308,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     paymentAvailability.online_available,
     resolveCompanyEftDetails(company, snapshotBank).available,
   );
-  if (!eftAvailable) {
-    delete invoiceData.bankDetails;
-    invoiceForResponse = {
-      ...invoiceForResponse,
-      invoice_data: invoiceData,
-      companies: {
-        ...company,
-        bank_name: null,
-        bank_account_holder: null,
-        bank_account_number: null,
-        bank_branch_code: null,
-        bank_account_type: null,
-        eft_instructions: null,
-      },
-    };
-  }
+  // The payment page can still prefer online checkout, but the invoice
+  // recipient needs the configured beneficiary details as a documented EFT
+  // alternative. Keep them in this token-protected response. `eft_available`
+  // remains the stricter flag that controls the in-app proof-upload flow.
   invoiceForResponse = {
     ...invoiceForResponse,
     payment_currency: paymentCurrency,

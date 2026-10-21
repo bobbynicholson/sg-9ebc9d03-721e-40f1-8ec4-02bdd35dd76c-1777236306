@@ -872,8 +872,9 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
         ) : null}
 
         {/* PAYMENT INSTRUCTIONS. Keep this immediately beneath the amount
-            due so a client can act without hunting through an email. EFT
-            details are only supplied when no online gateway is available. */}
+            due so a client can act without hunting through an email. A
+            complete EFT bundle remains visible even when online checkout is
+            available, because this PDF is often forwarded for payment. */}
         {hasOutstandingBalance && (paymentProvider || eftDetails) ? (
           <View style={styles.card} minPresenceAhead={120}>
             <Text style={styles.sectionLabel}>How to pay</Text>
@@ -896,8 +897,8 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             ) : null}
             {eftDetails ? (
               <>
-                <Text style={styles.bodyText}>
-                  Pay by EFT to {eftDetails.company_name || company.legal_name || company.company_name || "the company"}.
+                <Text style={[styles.bodyText, paymentProvider ? { marginTop: 10 } : {}]}>
+                  {paymentProvider ? "Or pay by EFT" : "Pay by EFT"} to {eftDetails.company_name || company.legal_name || company.company_name || "the company"}.
                 </Text>
                 {eftDetails.bank_name ? <Text style={[styles.smallText, { marginTop: 4 }]}>Bank: {eftDetails.bank_name}</Text> : null}
                 {eftDetails.account_holder ? <Text style={styles.smallText}>Account holder: {eftDetails.account_holder}</Text> : null}
