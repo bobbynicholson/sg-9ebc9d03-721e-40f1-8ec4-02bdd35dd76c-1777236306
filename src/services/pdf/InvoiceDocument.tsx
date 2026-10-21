@@ -352,6 +352,9 @@ const buildStyles = (primary: string) =>
       color: "#57534e",
       lineHeight: 1.4,
     },
+    contactDetails: {
+      marginTop: 7,
+    },
 
     // Line rows mirror QuoteDocument so a quote and the matching
     // invoice read like the same family of documents. Wrapped in the
@@ -665,16 +668,20 @@ export const InvoiceDocument: React.FC<Props> = ({ data }) => {
             {data.client?.address ? (
               <Text style={styles.smallText}>{data.client.address}</Text>
             ) : null}
-            {data.client?.email ? (
-              <Text style={styles.smallText}>{data.client.email}</Text>
-            ) : null}
-            {data.client?.phone ? (
-              <Text style={styles.smallText}>{data.client.phone}</Text>
-            ) : null}
             {data.client?.tax_number ? (
               <Text style={styles.smallText}>
                 Customer VAT No: {data.client.tax_number}
               </Text>
+            ) : null}
+            {(data.client?.email || data.client?.phone) ? (
+              <View style={styles.contactDetails}>
+                {data.client?.email ? (
+                  <Text style={styles.smallText}>{data.client.email}</Text>
+                ) : null}
+                {data.client?.phone ? (
+                  <Text style={styles.smallText}>{data.client.phone}</Text>
+                ) : null}
+              </View>
             ) : null}
           </View>
         </View>

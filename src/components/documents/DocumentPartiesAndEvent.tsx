@@ -92,12 +92,16 @@ function PartyDetails({ label, party }: { label: string; party: Party }) {
       </p>
       {party.name && <p className="break-words text-[15px] font-semibold text-stone-900">{party.name}</p>}
       {party.address && <p className="mt-0.5 break-words text-[13px] leading-relaxed text-stone-600">{party.address}</p>}
-      {party.email && <p className="break-all text-[13px] leading-relaxed text-stone-600">{party.email}</p>}
-      {party.phone && <p className="text-[13px] leading-relaxed text-stone-600">{party.phone}</p>}
       {party.taxNumber && (
         <p className="text-[13px] leading-relaxed text-stone-600">
           Customer VAT No: <span className="font-mono">{party.taxNumber}</span>
         </p>
+      )}
+      {(party.email || party.phone) && (
+        <div className="mt-3">
+          {party.email && <p className="break-all text-[13px] leading-relaxed text-stone-600">{party.email}</p>}
+          {party.phone && <p className="text-[13px] leading-relaxed text-stone-600">{party.phone}</p>}
+        </div>
       )}
     </section>
   );

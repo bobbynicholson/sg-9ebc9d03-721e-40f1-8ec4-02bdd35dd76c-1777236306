@@ -885,7 +885,18 @@ export default function PublicQuotePage() {
             <CardContent className="px-5 py-5">
               <DocumentPartiesAndEvent
                 from={{ name: company?.legal_name || company?.company_name, address: companyAddress, email: company?.email, phone: company?.phone }}
-                billTo={{ name: quote.client_name, email: quote.client_email, phone: quote.client_phone }}
+                billTo={{
+                  name: quote.client_name,
+                  address: [
+                    quote.client?.billing_address_line1,
+                    quote.client?.billing_address_line2,
+                    quote.client?.billing_city,
+                    quote.client?.billing_postal_code,
+                  ].filter(Boolean).join(", ") || null,
+                  taxNumber: quote.client?.tax_number,
+                  email: quote.client_email,
+                  phone: quote.client_phone,
+                }}
                 event={{
                   reference: quote.quote_number,
                   referenceLabel: "Quote",

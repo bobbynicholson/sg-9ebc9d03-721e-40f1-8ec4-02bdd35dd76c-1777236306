@@ -33,6 +33,13 @@ export interface PublicQuoteView {
   client_name: string | null;
   client_email?: string | null;
   client_phone?: string | null;
+  client?: {
+    billing_address_line1?: string | null;
+    billing_address_line2?: string | null;
+    billing_city?: string | null;
+    billing_postal_code?: string | null;
+    tax_number?: string | null;
+  } | null;
   event_date: string | null;
   /** Scheduled eating / event start time, returned by the public quote API. */
   event_time?: string | null;

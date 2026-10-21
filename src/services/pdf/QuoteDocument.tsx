@@ -428,6 +428,9 @@ const buildStyles = (primary: string) =>
       color: "#78716c",
       marginTop: 1,
     },
+    contactDetails: {
+      marginTop: 7,
+    },
     lineTotal: {
       fontSize: 11,
       fontFamily: "Helvetica-Bold",
@@ -657,9 +660,13 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
               <Text style={styles.cellLabel}>Bill to</Text>
               <Text style={styles.bodyText}>{data.client_name || ""}</Text>
               {data.client_address ? <Text style={styles.lineSub}>{data.client_address}</Text> : null}
-              {data.client_email ? <Text style={styles.lineSub}>{data.client_email}</Text> : null}
-              {data.client_phone ? <Text style={styles.lineSub}>{data.client_phone}</Text> : null}
               {data.client_tax_number ? <Text style={styles.lineSub}>Customer VAT No: {data.client_tax_number}</Text> : null}
+              {(data.client_email || data.client_phone) ? (
+                <View style={styles.contactDetails}>
+                  {data.client_email ? <Text style={styles.lineSub}>{data.client_email}</Text> : null}
+                  {data.client_phone ? <Text style={styles.lineSub}>{data.client_phone}</Text> : null}
+                </View>
+              ) : null}
             </View>
         </View>
 
