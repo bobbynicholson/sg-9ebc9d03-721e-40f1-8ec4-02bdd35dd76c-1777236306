@@ -2575,7 +2575,7 @@ function AdminQuotesInner() {
                                 <CalendarDays className="w-4 h-4" />
                                 {diary.headline}
                               </span>
-                              <span className="text-xs opacity-80 flex-1 min-w-0 truncate">
+                              <span className="text-xs opacity-80 basis-full sm:basis-auto sm:flex-1 min-w-0 break-words">
                                 {diary.detail}
                               </span>
                               {sweetenerEligible && (
