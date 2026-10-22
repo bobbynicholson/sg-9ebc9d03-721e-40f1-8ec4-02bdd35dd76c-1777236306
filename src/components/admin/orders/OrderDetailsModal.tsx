@@ -1321,7 +1321,7 @@ return (
       <Tabs
         value={(() => {
           const t = typeof router.query.tab === "string" ? router.query.tab : "";
-          return ["details","menu","equipment","amendments","cancellations","history"].includes(t)
+          return ["details","sittings","menu","equipment","messages","amendments","cancellations","history"].includes(t)
             ? t
             : "details";
         })()}
