@@ -132,7 +132,7 @@ export async function renderQuotePdf(
   options?: QuotePdfRenderOptions,
 ): Promise<Buffer> {
   const cacheKey = options?.cacheKey
-    ? buildQuoteCacheKey(
+    ? JSON.stringify([data.client_name, data.client_company_name]) + buildQuoteCacheKey(
         options.cacheKey.quoteId,
         options.cacheKey.quoteUpdatedAt,
         options.cacheKey.companyUpdatedAt,
@@ -178,7 +178,7 @@ export async function renderInvoicePdf(
   options?: InvoicePdfRenderOptions,
 ): Promise<Buffer> {
   const cacheKey = options?.cacheKey
-    ? buildInvoiceCacheKey(
+    ? JSON.stringify(data.client) + buildInvoiceCacheKey(
         options.cacheKey.invoiceId,
         options.cacheKey.invoiceUpdatedAt,
         options.cacheKey.orderUpdatedAt,
@@ -229,7 +229,7 @@ export async function renderReceiptPdf(
   options?: ReceiptPdfRenderOptions,
 ): Promise<Buffer> {
   const cacheKey = options?.cacheKey
-    ? buildReceiptCacheKey(
+    ? JSON.stringify(data.client) + buildReceiptCacheKey(
         options.cacheKey.invoiceId,
         options.cacheKey.paidAt,
         options.cacheKey.invoiceUpdatedAt,

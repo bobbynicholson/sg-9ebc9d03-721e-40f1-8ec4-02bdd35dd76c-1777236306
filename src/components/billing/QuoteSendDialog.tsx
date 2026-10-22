@@ -25,6 +25,7 @@ export interface QuoteSendDialogQuote {
   id: string;
   quote_number?: string | null;
   client_name?: string | null;
+  client_company_name?: string | null;
   client_email?: string | null;
   total?: number | null;
   total_amount?: number | null;

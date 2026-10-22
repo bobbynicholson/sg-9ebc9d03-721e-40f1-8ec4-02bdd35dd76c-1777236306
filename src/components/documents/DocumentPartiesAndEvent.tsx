@@ -2,6 +2,7 @@ import { Calendar, FileText, MapPin, Users } from "lucide-react";
 
 type Party = {
   name?: string | null;
+  contactName?: string | null;
   address?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -91,6 +92,7 @@ function PartyDetails({ label, party }: { label: string; party: Party }) {
         {label}
       </p>
       {party.name && <p className="break-words text-[15px] font-semibold text-stone-900">{party.name}</p>}
+      {party.contactName && <p className="mt-0.5 break-words text-[13px] text-stone-600">Attention: {party.contactName}</p>}
       {party.address && <p className="mt-0.5 break-words text-[13px] leading-relaxed text-stone-600">{party.address}</p>}
       {party.taxNumber && (
         <p className="text-[13px] leading-relaxed text-stone-600">

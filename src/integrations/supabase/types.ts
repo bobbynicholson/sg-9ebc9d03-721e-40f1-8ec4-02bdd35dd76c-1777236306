@@ -1270,6 +1270,7 @@ export type Database = {
           billing_address_line2: string | null
           billing_city: string | null
           billing_postal_code: string | null
+          company_name: string | null
           client_name: string
           client_type: string | null
           comms_paused_until: string | null
@@ -1307,6 +1308,7 @@ export type Database = {
           billing_address_line2?: string | null
           billing_city?: string | null
           billing_postal_code?: string | null
+          company_name?: string | null
           client_name: string
           client_type?: string | null
           comms_paused_until?: string | null
@@ -1344,6 +1346,7 @@ export type Database = {
           billing_address_line2?: string | null
           billing_city?: string | null
           billing_postal_code?: string | null
+          company_name?: string | null
           client_name?: string
           client_type?: string | null
           comms_paused_until?: string | null
@@ -6601,6 +6604,7 @@ export type Database = {
           cascade_receipt_at: string | null
           client_email: string | null
           client_id: string
+          client_company_name: string | null
           client_name: string | null
           client_phone: string | null
           collection_time: string | null
@@ -6721,6 +6725,7 @@ export type Database = {
           cascade_receipt_at?: string | null
           client_email?: string | null
           client_id: string
+          client_company_name?: string | null
           client_name?: string | null
           client_phone?: string | null
           collection_time?: string | null
@@ -6843,6 +6848,7 @@ export type Database = {
           cascade_receipt_at?: string | null
           client_email?: string | null
           client_id?: string
+          client_company_name?: string | null
           client_name?: string | null
           client_phone?: string | null
           collection_time?: string | null
@@ -8537,6 +8543,7 @@ export type Database = {
           accepted_at: string | null
           client_email: string
           client_id: string | null
+          client_company_name: string | null
           client_name: string | null
           client_phone: string | null
           comms_paused_until: string | null
@@ -8597,6 +8604,7 @@ export type Database = {
           accepted_at?: string | null
           client_email: string
           client_id?: string | null
+          client_company_name?: string | null
           client_name?: string | null
           client_phone?: string | null
           comms_paused_until?: string | null
@@ -8657,6 +8665,7 @@ export type Database = {
           accepted_at?: string | null
           client_email?: string
           client_id?: string | null
+          client_company_name?: string | null
           client_name?: string | null
           client_phone?: string | null
           comms_paused_until?: string | null

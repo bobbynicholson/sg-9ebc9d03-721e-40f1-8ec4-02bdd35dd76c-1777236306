@@ -54,8 +54,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         id, company_id, order_id, currency, invoice_number, invoice_date, due_date, status,
         subtotal, tax_amount, total_amount, amount_paid, balance_due,
         notes, invoice_data, updated_at,
-        client:client_id ( client_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms ),
-        order:order_id ( id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at ),
+        client:client_id ( client_name, company_name, email, phone, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, tax_number, payment_terms ),
+        order:order_id ( id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at ),
         company:company_id ( id, slug, company_name, legal_name, time_format, logo_url, email, phone, address_line1, address_line2, city, state_province, postal_code, country, primary_color, vat_registered, vat_number, vat_rate, deposit_percent, dispatch_settings, registration_number, tax_number, currency, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, eft_instructions, updated_at )
       `)
       .eq("public_token", token)
@@ -182,6 +182,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         status: (inv as any).status,
         client: {
           name: order.client_name || client.client_name || "",
+          company_name: order.client_company_name || client.company_name || inv.invoice_data?.clientCompanyName || null,
           email: order.client_email || client.email || null,
           phone: order.client_phone || client.phone || null,
           address: clientAddress,

@@ -15,6 +15,7 @@
  */
 
 import React from "react";
+import { customerBillingIdentity } from "@/lib/customerIdentity";
 import { FlowingCard } from "./FlowingCard";
 import { canKeepPdfTextTogether } from "./layout";
 import { EftBankDetails } from "./EftBankDetails";
@@ -60,6 +61,7 @@ export interface ReceiptPdfData {
 
   client: {
     name: string;
+    company_name?: string | null;
     email?: string | null;
     phone?: string | null;
     address?: string | null;
@@ -606,7 +608,8 @@ export const ReceiptDocument: React.FC<Props> = ({ data }) => {
           </View>
           <View style={styles.column}>
             <Text style={styles.sectionLabel}>Receipt for</Text>
-            <Text style={styles.bodyText}>{data.client?.name || ""}</Text>
+            <Text style={styles.bodyText}>{customerBillingIdentity(data.client?.name, data.client?.company_name).name}</Text>
+            {customerBillingIdentity(data.client?.name, data.client?.company_name).contactName ? <Text style={styles.smallText}>Attention: {data.client.name}</Text> : null}
             {data.client?.address ? (
               <Text style={styles.smallText}>{data.client.address}</Text>
             ) : null}

@@ -30,8 +30,8 @@ const MAX_ENTRIES = 50;
 // Bump when the invoice renderer changes in a way that affects visible
 // content. This prevents a warm server instance from returning a prior PDF
 // layout for up to the cache TTL after a deployment.
-const PDF_LAYOUT_CACHE_REVISION = "v5-service-sitting-details";
-const RECEIPT_LAYOUT_CACHE_REVISION = "v6-receipt-thank-you";
+const PDF_LAYOUT_CACHE_REVISION = "v6-customer-billing-identity";
+const RECEIPT_LAYOUT_CACHE_REVISION = "v7-customer-billing-identity";
 
 // Map preserves insertion order, which gives us trivially correct
 // "drop the oldest" semantics on writes.

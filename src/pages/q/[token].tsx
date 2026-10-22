@@ -54,6 +54,7 @@ import { toLocalISO } from "@/lib/localDate";
 import { isPastCalendarDate } from "@/lib/quotes/revisionLifecycle";
 import { QuoteProgress } from "@/components/quotes/QuoteProgress";
 import { EQUIPMENT_RETURN_OPTIONS, resolveEquipmentReturn } from "@/lib/equipmentReturn";
+import { customerBillingIdentity } from "@/lib/customerIdentity";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import { formatClockBoth } from "@/lib/portalTime";
 import { groupByCourse } from "@/lib/menuCourses";
@@ -896,7 +897,7 @@ export default function PublicQuotePage() {
               <DocumentPartiesAndEvent
                 from={{ name: company?.legal_name || company?.company_name, address: companyAddress, email: company?.email, phone: company?.phone }}
                 billTo={{
-                  name: quote.client_name,
+                  ...customerBillingIdentity(quote.client_name, quote.client_company_name),
                   address: [
                     quote.client?.billing_address_line1,
                     quote.client?.billing_address_line2,

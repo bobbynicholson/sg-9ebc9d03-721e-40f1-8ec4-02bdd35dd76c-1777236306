@@ -17,6 +17,7 @@
  */
 
 import React from "react";
+import { customerBillingIdentity } from "@/lib/customerIdentity";
 import {
   Document,
   Page,
@@ -62,6 +63,7 @@ export interface QuotePdfData {
   quote_number: string;
   quote_name?: string | null;
   client_name?: string | null;
+  client_company_name?: string | null;
   client_email?: string | null;
   client_phone?: string | null;
   /** Billing identity comes from the linked client record when available. */
@@ -662,7 +664,8 @@ export const QuoteDocument: React.FC<Props> = ({ data }) => {
             </View>
             <View style={styles.column}>
               <Text style={styles.cellLabel}>Bill to</Text>
-              <Text style={styles.bodyText}>{data.client_name || ""}</Text>
+              <Text style={styles.bodyText}>{customerBillingIdentity(data.client_name, data.client_company_name).name}</Text>
+              {customerBillingIdentity(data.client_name, data.client_company_name).contactName ? <Text style={styles.lineSub}>Attention: {data.client_name}</Text> : null}
               {data.client_address ? <Text style={styles.lineSub}>{data.client_address}</Text> : null}
               {data.client_tax_number ? <Text style={styles.lineSub}>Customer VAT No: {data.client_tax_number}</Text> : null}
               {(data.client_email || data.client_phone) ? (

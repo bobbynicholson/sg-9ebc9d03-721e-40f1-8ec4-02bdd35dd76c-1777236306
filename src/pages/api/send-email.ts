@@ -272,7 +272,7 @@ async function handler(
           const { data: q } = await ssr
             .from("quotes")
             .select(`
-              id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
+              id, public_token, quote_number, quote_name, client_name, client_company_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
               client:clients!quotes_client_id_fkey(payment_terms),
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
               subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
@@ -349,7 +349,7 @@ async function handler(
           const { data: q2 } = await ssr
             .from("quotes")
             .select(`
-              id, public_token, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
+              id, public_token, quote_number, quote_name, client_name, client_company_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
               client:clients!quotes_client_id_fkey(payment_terms),
               venue_address, menu_items, equipment_items, notes, terms_and_conditions,
               subtotal, tax_amount, discount_amount, total, total_amount, initial_payment_amount, currency, status,
@@ -429,12 +429,12 @@ async function handler(
               subtotal, tax_amount, total_amount, amount_paid, balance_due,
               notes, invoice_data, updated_at,
               client:client_id (
-                client_name, email, phone,
+                client_name, company_name, email, phone,
                 billing_address_line1, billing_address_line2,
                 billing_city, billing_postal_code, tax_number, payment_terms
               ),
               order:order_id (
-                id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, discount_amount, deposit_amount, deposit_percentage, currency, updated_at
+                id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, discount_amount, deposit_amount, deposit_percentage, currency, updated_at
               ),
               company:company_id (
                 id, slug, company_name, legal_name, time_format, logo_url, email, phone,
@@ -508,6 +508,7 @@ async function handler(
                 status: invAny.status,
                 client: {
                   name: order.client_name || client.client_name || stashed.clientName || "",
+                  company_name: order.client_company_name || client.company_name || stashed.clientCompanyName || null,
                   email: order.client_email || client.email || null,
                   phone: order.client_phone || client.phone || null,
                   address: clientAddress,

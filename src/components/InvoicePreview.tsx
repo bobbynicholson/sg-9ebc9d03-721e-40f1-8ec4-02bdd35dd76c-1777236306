@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { customerBillingIdentity } from "@/lib/customerIdentity";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import { formatClock } from "@/lib/portalTime";
 import { visibleDocumentNote } from "@/lib/visibleDocumentNote";
@@ -38,6 +39,7 @@ interface InvoicePreviewProps {
   companyRegistration?: string;
   companyLogo?: string;
   clientName: string;
+  clientCompanyName?: string | null;
   clientEmail: string;
   clientPhone?: string;
   clientAddress?: string;
@@ -180,7 +182,7 @@ export function InvoicePreview(props: InvoicePreviewProps) {
         <CardContent className="px-3 py-4 sm:px-5 sm:py-5">
           <DocumentPartiesAndEvent
             from={{ name: props.companyName, address: props.companyAddress, email: props.companyEmail, phone: props.companyPhone }}
-            billTo={{ name: props.clientName, address: props.clientAddress, email: props.clientEmail, phone: props.clientPhone, taxNumber: props.clientTaxNumber }}
+            billTo={{ ...customerBillingIdentity(props.clientName, props.clientCompanyName), address: props.clientAddress, email: props.clientEmail, phone: props.clientPhone, taxNumber: props.clientTaxNumber }}
             event={{
               reference: props.orderNumber,
               date: safeDate(props.eventDate),

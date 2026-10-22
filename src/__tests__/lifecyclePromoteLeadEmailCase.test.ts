@@ -8,8 +8,8 @@ jest.mock("@/lib/defaultRegion", () => ({ resolveDefaultRegionId: jest.fn() }));
 
 import { lifecycleService } from "@/services/lifecycleService";
 
-function makeDb(opts: { lead: any; clients: Array<{ id: string; email: string }> }) {
-  const calls = { ilike: [] as string[], eq: [] as Array<[string, any]>, inserted: [] as any[] };
+function makeDb(opts: { lead: any; clients: Array<{ id: string; email: string; company_name?: string | null }> }) {
+  const calls = { ilike: [] as string[], eq: [] as Array<[string, any]>, inserted: [] as any[], updated: [] as any[] };
   const db: any = {
     from(table: string) {
       const filters: Record<string, any> = {};
@@ -18,7 +18,7 @@ function makeDb(opts: { lead: any; clients: Array<{ id: string; email: string }>
         eq: (col: string, val: any) => { calls.eq.push([col, val]); filters[col] = val; return q; },
         ilike: (col: string, val: string) => { calls.ilike.push(val); filters[`ilike:${col}`] = val; return q; },
         is: () => q,
-        update: () => q,
+        update: (row: any) => { calls.updated.push({ table, row }); return q; },
         insert: (row: any) => { calls.inserted.push({ table, row }); return q; },
         single: async () => {
           if (table === "leads") return { data: opts.lead, error: null };
@@ -29,7 +29,7 @@ function makeDb(opts: { lead: any; clients: Array<{ id: string; email: string }>
           if (table !== "clients") return { data: null, error: null };
           const pattern = String(filters["ilike:email"] ?? "").replace(/\\([%_\\])/g, "$1").toLowerCase();
           const hit = opts.clients.find((c) => c.email.toLowerCase() === pattern);
-          return { data: hit ? { id: hit.id } : null, error: null };
+          return { data: hit || null, error: null };
         },
         then: (resolve: any) => resolve({ data: null, error: null }),
       };
@@ -73,5 +73,23 @@ describe("promoteLeadToClient email matching", () => {
     const res = await lifecycleService.promoteLeadToClient("lead-1", { client: db });
     expect(res).toEqual({ clientId: "new-client", isNew: true, alreadyConverted: false });
     expect(calls.inserted.filter((c) => c.table === "clients")).toHaveLength(1);
+  });
+
+  it("carries a lead's company while retaining the person's contact name", async () => {
+    const { db, calls } = makeDb({ lead: { ...baseLead, company_name: "Example Ltd" }, clients: [] });
+    await lifecycleService.promoteLeadToClient("lead-1", { client: db });
+    expect(calls.inserted.find((c) => c.table === "clients").row).toMatchObject({ client_name: "Aislinn Louis", company_name: "Example Ltd", client_type: "company" });
+  });
+
+  it("fills a missing organisation on an existing client", async () => {
+    const { db, calls } = makeDb({ lead: { ...baseLead, company_name: "Example Ltd" }, clients: [{ id: "existing", email: baseLead.email, company_name: null }] });
+    await lifecycleService.promoteLeadToClient("lead-1", { client: db });
+    expect(calls.updated.find((c) => c.table === "clients").row).toMatchObject({ company_name: "Example Ltd" });
+  });
+
+  it("keeps an existing client's deliberately different organisation", async () => {
+    const { db, calls } = makeDb({ lead: { ...baseLead, company_name: "Event subsidiary" }, clients: [{ id: "existing", email: baseLead.email, company_name: "Parent company" }] });
+    await lifecycleService.promoteLeadToClient("lead-1", { client: db });
+    expect(calls.updated.filter((c) => c.table === "clients")).toHaveLength(0);
   });
 });

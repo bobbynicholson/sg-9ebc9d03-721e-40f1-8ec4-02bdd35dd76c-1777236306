@@ -65,6 +65,7 @@ import { CURRENCY_CONFIG } from "@/lib/currencyUtils";
 import { useRegionFilter } from "@/contexts/RegionFilterContext";
 import { UserRole } from "@/types/app";
 import { supabase } from "@/integrations/supabase/client";
+import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
 import { composeEmail, templateFor, type ClientStatus } from "@/lib/composeEmail";
 import { WhatsAppButton } from "@/components/messaging/WhatsAppButton";
 import { trackRecentlyViewed } from "@/components/admin/RecentlyViewedWidget";
@@ -140,6 +141,7 @@ interface Contact {
    *  as a small Individual / Company badge on the contact row so
    *  the sales rep doesn't have to open the dialog to check. */
   clientType: string | null;
+  companyName?: string | null;
 }
 
 const STATUS_META: Record<ClientStatus, {
@@ -443,7 +445,7 @@ function ClientsCRM() {
     // single response at 1000 rows, so a customer who imports 5,000
     // contacts would otherwise only ever see the first 1000 here.
     const CLIENT_COLS =
-      "id, client_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date, imported_filename, tags";
+      "id, client_name, company_name, email, phone, mobile_number, landline_number, client_type, is_active, outstanding_balance, created_at, historical_total_events, historical_lifetime_spend, historical_last_event_date, imported_filename, tags";
     // Page through clients in 1000-row chunks, but fire the chunks in
     // PARALLEL. Pre-fix this looped sequentially (await page, then next),
     // so a 7,500-contact book paid 8 round-trips back to back before the
@@ -535,7 +537,7 @@ function ClientsCRM() {
       fetchAllClients(),
       fetchAllPaged(
         "leads",
-        "id, contact_name, email, phone, mobile_number, landline_number, status, source, event_date, created_at, imported_filename",
+        "id, contact_name, company_name, email, phone, mobile_number, landline_number, status, source, event_date, created_at, imported_filename",
       ),
       // Wave 70.81: server-side aggregation. Pre-fix the contacts
       // page pulled every order row (paginated 1000 at a time, up
@@ -660,6 +662,7 @@ function ClientsCRM() {
           quoteIds: [],
           invoiceIds: [],
           name: c.client_name || "Unnamed",
+          companyName: c.company_name || null,
           email: c.email,
           phone: c.phone,
           mobile_number: c.mobile_number ?? null,
@@ -700,6 +703,7 @@ function ClientsCRM() {
           existing.leadIds.push(l.id);
           if (!existing.phone && l.phone) existing.phone = l.phone;
           if (!existing.email && l.email) existing.email = l.email;
+          existing.companyName ||= l.company_name || null;
         } else {
           map.set(k, {
             key: k,
@@ -710,6 +714,7 @@ function ClientsCRM() {
             quoteIds: [],
             invoiceIds: [],
             name: l.contact_name || "Unnamed lead",
+            companyName: l.company_name || null,
             email: l.email,
             phone: l.phone,
             mobile_number: l.mobile_number ?? null,
@@ -1154,6 +1159,7 @@ function ClientsCRM() {
     search,
     [
       { key: "name" as any, weight: 3 },
+      { key: "companyName" as any, weight: 2 },
       { key: "email" as any, weight: 2 },
       { key: "phone" as any, weight: 1 },
     ],
@@ -1621,6 +1627,7 @@ function ClientsCRM() {
                           <div className="flex items-start justify-between gap-2 mb-1.5">
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold text-slate-900 truncate">{c.name}</p>
+                              {c.companyName && <p className="break-words text-xs text-slate-600">{c.companyName}</p>}
                               <p className="text-xs text-slate-500 truncate">{c.email || c.phone || c.mobile_number || "-"}</p>
                             </div>
                             <Badge className={`${meta.tone} text-[10px] gap-1 shrink-0`}>
@@ -1743,6 +1750,7 @@ function ClientsCRM() {
                               >
                                 <div className="font-semibold text-slate-900 flex items-center gap-2">
                                   {c.name}
+                                  {c.companyName && <span className="block break-words text-xs font-normal text-slate-600">{c.companyName}</span>}
                                   {/* Phase 16 #4: client_type badge.
                                       Only renders for actual clients
                                       (source='client') so a lead /
@@ -2380,6 +2388,7 @@ function ClientFormDialog({
   const [schedule, setSchedule] = useState({ dueDirection: "", dueDays: "", reminderMode: "", reminderDays: "" });
   const [form, setForm] = useState({
     client_name: "",
+    company_name: "",
     email: "",
     phone: "",
     client_type: "individual",
@@ -2429,7 +2438,7 @@ function ClientFormDialog({
     })();
     if (!editing?.clientId) {
       setForm({
-        client_name: "", email: "", phone: "", client_type: "individual",
+        client_name: "", company_name: "", email: "", phone: "", client_type: "individual",
         tax_number: "", billing_address_line1: "", billing_address_line2: "",
         billing_city: "", billing_postal_code: "", notes: "", tags: "",
         payment_terms: "", preferred_currency: "",
@@ -2441,6 +2450,7 @@ function ClientFormDialog({
     // data we already know about even before the network round-trip.
     setForm({
       client_name: editing.name || "",
+      company_name: editing.companyName || "",
       email:       editing.email || "",
       phone:       editing.phone || "",
       client_type: "individual",
@@ -2453,7 +2463,7 @@ function ClientFormDialog({
     (async () => {
       const { data } = await supabase
         .from("clients")
-        .select("client_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags, payment_terms, preferred_currency")
+        .select("client_name, company_name, email, phone, client_type, tax_number, billing_address_line1, billing_address_line2, billing_city, billing_postal_code, notes, tags, payment_terms, preferred_currency")
         .eq("id", editing.clientId)
         .maybeSingle();
       // Wave 67.6 - POPIA access log. Fire-and-forget; the read
@@ -2472,6 +2482,7 @@ function ClientFormDialog({
       const dataTags = ((data as any).tags as string[] | null) || [];
       setForm({
         client_name: data.client_name || editing.name || "",
+        company_name: data.company_name || "",
         email:       data.email || editing.email || "",
         phone:       data.phone || editing.phone || "",
         client_type: data.client_type || "individual",
@@ -2496,6 +2507,10 @@ function ClientFormDialog({
       toast({ title: "Missing required fields", description: "Name, email and phone are required.", variant: "destructive" });
       return;
     }
+    if (form.client_type !== "individual" && !form.company_name.trim()) {
+      toast({ title: "Add the company name", description: "Keep the person in Contact name and enter the organisation to bill below it.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     // Phase 8 #10: normalise the comma-separated tag string into
     // a clean string[]. Trim each entry, drop blanks, dedupe and
@@ -2510,6 +2525,7 @@ function ClientFormDialog({
     const payload: any = {
       company_id: companyId,
       client_name: form.client_name.trim(),
+      company_name: form.company_name.trim() || null,
       email:       form.email.trim(),
       phone:       form.phone.trim(),
       client_type: form.client_type || null,
@@ -2609,10 +2625,7 @@ function ClientFormDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Name</label>
-            <Input value={form.client_name} onChange={set("client_name")} placeholder="Sarah Naidoo" className="mt-1" />
-          </div>
+          <CustomerIdentityFields contactName={form.client_name} companyName={form.company_name} onContactNameChange={(client_name) => setForm((f) => ({ ...f, client_name }))} onCompanyNameChange={(company_name) => setForm((f) => ({ ...f, company_name }))} companyRequired={form.client_type !== "individual"} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Email</label>
@@ -2834,7 +2847,7 @@ function ClientFormDialog({
                   lines.push("# Contact details");
                   lines.push("field,value");
                   for (const [k, v] of Object.entries({
-                    name: form.client_name, email: form.email, phone: form.phone,
+                    name: form.client_name, company_name: form.company_name, email: form.email, phone: form.phone,
                     type: form.client_type, tax_number: form.tax_number,
                     billing_address_line1: form.billing_address_line1,
                     billing_address_line2: form.billing_address_line2,

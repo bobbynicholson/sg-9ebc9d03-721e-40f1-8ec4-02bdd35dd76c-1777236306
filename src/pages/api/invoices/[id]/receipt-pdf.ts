@@ -64,12 +64,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         subtotal, tax_amount, total_amount, amount_paid, balance_due,
         invoice_data, updated_at, company_id, client_id,
         client:client_id (
-          id, user_id, client_name, email, phone,
+          id, user_id, client_name, company_name, email, phone,
           billing_address_line1, billing_address_line2,
           billing_city, billing_postal_code
         ),
         order:order_id (
-          id, order_number, event_name, event_date, updated_at
+          id, order_number, client_company_name, event_name, event_date, updated_at
         ),
         company:company_id (
           id, slug, company_name, legal_name, logo_url, email, phone,
@@ -256,7 +256,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         payment_records: paymentRecords,
         eft_details: eftDetails,
         client: {
-          name: inv.client?.client_name || "",
+          name: inv.client?.client_name || invoiceData.clientName || "",
+          company_name: inv.order?.client_company_name || inv.client?.company_name || invoiceData.clientCompanyName || null,
           email: inv.client?.email || null,
           phone: inv.client?.phone || null,
           address: clientAddress,
@@ -294,7 +295,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // the TTL because the receipt is keyed on paid_at - if the admin
     // corrects the payment, the cache key shifts and the next request
     // re-renders.
-    res.setHeader("Cache-Control", "private, max-age=3600, immutable");
+    res.setHeader("Cache-Control", "private, no-cache");
     return res.status(200).send(pdfBuffer);
   } catch (err: any) {
     console.error("[invoices/receipt-pdf] crashed:", err);

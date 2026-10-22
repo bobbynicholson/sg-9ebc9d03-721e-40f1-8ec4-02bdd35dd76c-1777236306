@@ -31,6 +31,7 @@ export interface KnownClientResult {
   key: string;
   client_id: string | null;
   display_name: string;
+  company_name?: string | null;
   email: string | null;
   phone: string | null;
   sources: Array<"client" | "lead" | "quote" | "order">;
@@ -51,6 +52,7 @@ export interface KnownClientResult {
 export interface ClientSnapshot {
   client_id: string | null;
   full_name: string;
+  company_name?: string | null;
   email: string | null;
   phone: string | null;
   /** Null inherits the company's default currency. */
@@ -131,16 +133,16 @@ export const quoteIntelligenceService = {
     const browse = t.length < 2;
     const like = browse ? null : `%${t}%`;
 
-    const orClient = browse ? null : `client_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`;
+    const orClient = browse ? null : `client_name.ilike.${like},company_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`;
     const orLead   = browse ? null : `contact_name.ilike.${like},company_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`;
-    const orQuote  = browse ? null : `client_name.ilike.${like},client_email.ilike.${like}`;
-    const orOrder  = browse ? null : `client_name.ilike.${like},client_email.ilike.${like},client_phone.ilike.${like}`;
+    const orQuote  = browse ? null : `client_name.ilike.${like},client_company_name.ilike.${like},client_email.ilike.${like}`;
+    const orOrder  = browse ? null : `client_name.ilike.${like},client_company_name.ilike.${like},client_email.ilike.${like},client_phone.ilike.${like}`;
 
     // Run the four queries in parallel - each capped low so we don't
     // pull a giant slug of data through the dropdown.
     const clientsQ = supabase
       .from("clients")
-      .select("id, client_name, email, phone, billing_address_line1, tags, notes, updated_at")
+      .select("id, client_name, company_name, email, phone, billing_address_line1, tags, notes, updated_at")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -154,14 +156,14 @@ export const quoteIntelligenceService = {
       .limit(limit);
     const quotesQ = supabase
       .from("quotes")
-      .select("id, client_id, client_name, client_email, event_date, guest_count, venue_address, total_amount, created_at")
+      .select("id, client_id, client_name, client_company_name, client_email, event_date, guest_count, venue_address, total_amount, created_at")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
     const ordersQ = supabase
       .from("orders")
-      .select("id, client_id, client_name, client_email, client_phone, event_date, guest_count, venue_address, created_at")
+      .select("id, client_id, client_name, client_company_name, client_email, client_phone, event_date, guest_count, venue_address, created_at")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
@@ -180,6 +182,7 @@ export const quoteIntelligenceService = {
       partial: Partial<KnownClientResult> & {
         key: string;
         display_name: string;
+  company_name?: string | null;
         source: "client" | "lead" | "quote" | "order";
       },
       sortKey: string | null,
@@ -191,6 +194,7 @@ export const quoteIntelligenceService = {
         if (!existing.client_id && partial.client_id) existing.client_id = partial.client_id;
         // Fill missing fields from later sources
         existing.email ||= partial.email ?? null;
+        existing.company_name ||= partial.company_name ?? null;
         existing.phone ||= partial.phone ?? null;
         existing.last_event_date ||= partial.last_event_date ?? null;
         existing.last_guest_count ||= partial.last_guest_count ?? null;
@@ -205,6 +209,7 @@ export const quoteIntelligenceService = {
         key: partial.key,
         client_id: partial.client_id ?? null,
         display_name: partial.display_name,
+        company_name: partial.company_name ?? null,
         email: partial.email ?? null,
         phone: partial.phone ?? null,
         sources: [partial.source],
@@ -221,6 +226,7 @@ export const quoteIntelligenceService = {
         key: keyFor({ email: c.email, name: c.client_name, phone: c.phone }),
         client_id: c.id,
         display_name: c.client_name || c.email || "Client",
+        company_name: c.company_name,
         email: c.email,
         phone: c.phone,
         last_venue_address: c.billing_address_line1,
@@ -233,6 +239,7 @@ export const quoteIntelligenceService = {
         key: keyFor({ email: l.email, name: display, phone: l.phone }),
         client_id: l.converted_to_client_id ?? null,
         display_name: display,
+        company_name: l.company_name,
         email: l.email,
         phone: l.phone,
         last_event_date: l.event_date,
@@ -246,6 +253,7 @@ export const quoteIntelligenceService = {
         key: keyFor({ email: q.client_email, name: q.client_name, phone: null }),
         client_id: q.client_id ?? null,
         display_name: q.client_name || q.client_email || "Quote client",
+        company_name: q.client_company_name,
         email: q.client_email,
         last_event_date: q.event_date,
         last_guest_count: q.guest_count,
@@ -258,6 +266,7 @@ export const quoteIntelligenceService = {
         key: keyFor({ email: o.client_email, name: o.client_name, phone: o.client_phone }),
         client_id: o.client_id ?? null,
         display_name: o.client_name || o.client_email || "Order client",
+        company_name: o.client_company_name,
         email: o.client_email,
         phone: o.client_phone,
         last_event_date: o.event_date,
@@ -391,10 +400,10 @@ export const quoteIntelligenceService = {
       client_id: client?.id ?? null,
       full_name: client?.client_name
         ?? lead?.contact_name
-        ?? lead?.company_name
         ?? lastQuote?.client_name
         ?? args.name
         ?? "",
+      company_name: client?.company_name ?? lead?.company_name ?? lastQuote?.client_company_name ?? null,
       email: client?.email ?? lead?.email ?? lastQuote?.client_email ?? email,
       phone: client?.phone ?? lead?.phone ?? lastOrder?.client_phone ?? null,
       preferred_currency: client?.preferred_currency ?? null,

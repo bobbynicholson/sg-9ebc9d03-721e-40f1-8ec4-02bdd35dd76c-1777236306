@@ -16,6 +16,7 @@
  * NOT NULL. We resolve / create a clients row before the insert.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
 import { useEffect, useState } from "react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -48,6 +49,7 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
   const { toast } = useToast();
 
   const [clientName, setClientName] = useState("");
+  const [clientCompanyName, setClientCompanyName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [reason, setReason] = useState("");
@@ -62,7 +64,7 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
   // Defaults on open: due in 14 days, fetch tenant VAT rate
   useEffect(() => {
     if (!open) return;
-    setClientName(""); setClientEmail(""); setClientPhone("");
+    setClientName(""); setClientCompanyName(""); setClientEmail(""); setClientPhone("");
     setReason(""); setNotes("");
     setItems([{ item_name: "", quantity: 1, unit_price: 0 }]);
     const due = new Date();
@@ -104,7 +106,7 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
       let clientId: string;
       const { data: existing } = await (supabase as any)
         .from("clients")
-        .select("id")
+        .select("id, company_name")
         .eq("company_id", user.company_id)
         .ilike("client_name", clientName.trim())
         .maybeSingle();
@@ -116,6 +118,8 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
           .insert([{
             company_id: user.company_id,
             client_name: clientName.trim(),
+            company_name: clientCompanyName.trim() || null,
+            client_type: clientCompanyName.trim() ? "company" : "individual",
             email: clientEmail.trim() || null,
             phone: clientPhone.trim() || null,
           }])
@@ -163,6 +167,7 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
           notes: notes.trim() || null,
           invoice_data: {
             clientName: clientName.trim(),
+            clientCompanyName: clientCompanyName.trim() || existing?.company_name || null,
             clientEmail: clientEmail.trim() || null,
             clientPhone: clientPhone.trim() || null,
             items: lineItemsForData,
@@ -206,10 +211,7 @@ export function ManualInvoiceDialog({ open, onOpenChange, onCreated }: Props) {
 
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <Label>Client name</Label>
-              <Input value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="e.g. Acme Corporate" />
-            </div>
+            <div className="md:col-span-2"><CustomerIdentityFields contactName={clientName} companyName={clientCompanyName} onContactNameChange={setClientName} onCompanyNameChange={setClientCompanyName} idPrefix="manual-invoice" /></div>
             <div>
               <Label>Client email</Label>
               <Input value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} type="email" placeholder="finance@acme.com" />

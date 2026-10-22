@@ -143,7 +143,7 @@ export interface GetQuotesOpts {
 // LightQuote type below.
 const LIGHT_QUOTE_SELECT = [
   "id", "company_id", "region_id", "quote_number", "quote_name",
-  "client_name", "client_email", "client_phone", "contact_name",
+  "client_name", "client_company_name", "client_email", "client_phone", "contact_name",
   "event_date", "event_time", "event_type", "guest_count",
   "venue_address",
   "status", "source", "tags", "lost_reason",
@@ -963,6 +963,7 @@ export const quoteService = {
       region_id: q.region_id,
       // Customer snapshot
       client_name: q.client_name,
+      client_company_name: q.client_company_name || null,
       client_email: q.client_email,
       client_phone: q.client_phone,
       // Event details

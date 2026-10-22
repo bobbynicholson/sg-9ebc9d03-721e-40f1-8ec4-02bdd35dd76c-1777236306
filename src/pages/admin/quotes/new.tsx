@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { CustomerIdentityFields } from "@/components/admin/CustomerIdentityFields";
 /**
  * Quote Builder - /admin/quotes/new and /admin/quotes/new?leadId=...
  *
@@ -303,6 +304,7 @@ function quoteContentSignatureFromPayload(payload: any): string {
   return JSON.stringify({
     service_sittings: asArray(payload.service_sittings).map((s: any) => ({guestCount:Number(s.guest_count ?? s.guestCount),serviceTime:String(s.service_time ?? s.serviceTime).slice(0,5)})),
     currency: text(payload.currency).toUpperCase(),
+    client_company_name: text(payload.client_company_name),
     quote_name: text(payload.quote_name),
     event_date: text(payload.event_date).slice(0, 10),
     event_time: text(payload.event_time).slice(0, 5),
@@ -406,6 +408,7 @@ function NewQuotePage() {
   const [clientSnapshot, setClientSnapshot] = useState<ClientSnapshot | null>(null);
 
   const [clientName, setClientName] = useState("");
+  const [clientCompanyName, setClientCompanyName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -836,6 +839,7 @@ function NewQuotePage() {
 
       const l = lead as any;
       setClientName(l.contact_name || l.client_name || "");
+      setClientCompanyName(l.company_name || "");
       setEmail(l.email || l.client_email || "");
       setPhone(l.phone || l.client_phone || "");
       if (l.event_date) setEventDate(l.event_date);
@@ -1052,6 +1056,7 @@ function NewQuotePage() {
     // without it continue to inherit the company default.
     setQuoteCurrencyOverride(asCurrencyCode(q.currency));
     setClientName(q.client_name || "");
+    setClientCompanyName(q.client_company_name || "");
     setEmail(q.client_email || "");
     if (q.client_phone) setPhone(q.client_phone);
     // Restore the saved kitchen/region so the picker and buildPayload
@@ -1430,9 +1435,10 @@ function NewQuotePage() {
       setClientSnapshot(snap);
       setClientId(snap.client_id);
       setQuoteCurrencyOverride(asCurrencyCode(snap.preferred_currency));
-      setClientName((v) => v || snap.full_name || "");
-      setEmail((v) => v || snap.email || "");
-      setPhone((v) => v || snap.phone || "");
+      setClientName(snap.full_name || pick.display_name || "");
+      setClientCompanyName(snap.company_name || "");
+      setEmail(snap.email || "");
+      setPhone(snap.phone || "");
       if (!quoteUserEditedRef.current && !eventDate && snap.last_event_date) setEventDate(snap.last_event_date);
       if (!eventName && snap.last_event_type) setEventName(snap.last_event_type);
       if (!guestCount && snap.last_guest_count) setGuestCount(snap.last_guest_count);
@@ -1465,6 +1471,7 @@ function NewQuotePage() {
       if (linked && v.trim().toLowerCase() !== linked) {
         setClientId(null);
         setClientSnapshot(null);
+        setClientCompanyName("");
         setQuoteCurrencyOverride(null);
       }
     }
@@ -1748,6 +1755,8 @@ function NewQuotePage() {
       lead_id: typeof leadId === "string" ? leadId : null,
       client_id: clientId,
       client_name: clientName || "Client",
+      contact_name: clientName || null,
+      client_company_name: clientCompanyName.trim() || null,
       client_email: email || null,
       client_phone: phone || null,
       // TIGHTEN I.112 (2026-06-02): persist null instead of the literal
@@ -1799,7 +1808,7 @@ function NewQuotePage() {
       external_source: null,
     } as any;
   }, [
-    menuItems, equipment, guestCount, companyId, leadId, clientId, clientName, email, phone,
+    menuItems, equipment, guestCount, companyId, leadId, clientId, clientName, clientCompanyName, email, phone,
     selectedKitchen, eventName, eventDate, eventTime, setupTime, suggestedSetupTime,
     venueAddress, venueLat, venueLng,
     deliveryDistance, deliveryCostPerKm, deliveryFee, depositPercent,
@@ -1916,6 +1925,7 @@ function NewQuotePage() {
                 company_id: companyId,
                 region_id: payload.region_id,
                 contact_name: clientName,
+                company_name: clientCompanyName.trim() || null,
                 email: email || null,
                 phone: phone || null,
                 status: "new",
@@ -2358,7 +2368,7 @@ function NewQuotePage() {
   // quotes.notes) was missing from the dirty deps, so a note-only edit
   // never marked the form dirty and never autosaved - the note was
   // silently lost unless the operator clicked Save explicitly.
-  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, equipmentReturn, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientName, email, internalNotes]);
+  useEffect(() => { dirtyRef.current = true; }, [menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, equipmentReturn, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientName, clientCompanyName, email, internalNotes]);
   useEffect(() => {
     if (status !== "draft") return;
     // Existing quotes are loaded asynchronously from ?fromQuoteId. A
@@ -2387,7 +2397,7 @@ function NewQuotePage() {
       clearTimeout(handle);
       if (autoSaveTimerRef.current === handle) autoSaveTimerRef.current = null;
     };
-  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, equipmentReturn, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, email, internalNotes, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId, distanceStatus]);
+  }, [status, clientName, menuItems, equipment, guestCount, surgePct, discountPct, discountFlat, deliveryFee, collectionFee, equipmentReturn, waiterServiceRequired, waiterCount, waiterDurationHours, waiterHourlyRate, validUntil, eventName, eventDate, venueAddress, clientCompanyName, email, internalNotes, persistQuote, setupTimeError, cancelPendingAutoSave, fromQuoteId, distanceStatus]);
 
   const handleSaveDraft = async () => {
     // No deal without email - the follow-up engine, invoice flow,
@@ -2512,6 +2522,7 @@ function NewQuotePage() {
           id,
           quote_number: quoteNumber || id,
           client_name: clientName || null,
+          client_company_name: clientCompanyName.trim() || null,
           client_email: email,
           total: computed.total,
           total_amount: computed.total,
@@ -3022,17 +3033,14 @@ function NewQuotePage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="quote-client-name" className="text-xs">Client name</Label>
-                    <ClientTypeahead
-                      id="quote-client-name"
+                  <CustomerIdentityFields contactName={clientName} companyName={clientCompanyName} onContactNameChange={handleClientNameChange} onCompanyNameChange={setClientCompanyName} idPrefix="quote-client" contactInput={<ClientTypeahead
+                      id="quote-client-contact-name"
                       companyId={companyId}
                       value={clientName}
                       onChange={handleClientNameChange}
                       onPick={handleClientPick}
-                      placeholder="Search clients, or type a new name"
-                    />
-                  </div>
+                      placeholder="Search contacts or companies, or type a name"
+                    />} />
                   <div className="max-w-sm">
                     <Label className="text-xs">Currency for this quote</Label>
                     <select

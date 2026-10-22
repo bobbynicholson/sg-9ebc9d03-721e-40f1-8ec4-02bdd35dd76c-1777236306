@@ -119,6 +119,29 @@ function assertItems(pages, expected) {
 }
 
 for (const [kind, Component, dataFor] of [["invoice", InvoiceDocument, invoiceData], ["quote", QuoteDocument, quoteData], ["receipt", ReceiptDocument, receiptData]]) {
+  test(`${kind}: company billing name and attention contact both fit in the document`, async () => {
+    const data = dataFor(2);
+    if (kind === "quote") { data.client_name = "Sheri Lee Pan"; data.client_company_name = "Example Events (Pty) Ltd"; }
+    else data.client = { ...data.client, name: "Sheri Lee Pan", company_name: "Example Events (Pty) Ltd" };
+    const pages = await render(`${kind}-company`, Component, data);
+    assertPageSafety(pages);
+    const text = pages.map((page) => page.text).join(" ");
+    assert.match(text, /Example Events \(Pty\) Ltd/);
+    assert.match(text, /Attention: Sheri Lee Pan/);
+    assert.ok(text.indexOf("Example Events (Pty) Ltd") < text.indexOf("Attention: Sheri Lee Pan"));
+  });
+  test(`${kind}: long company names wrap within the party column`, async () => {
+    const data = dataFor(2);
+    const organisation = "Example International Conferences and Catering Events Management Company (Pty) Ltd";
+    if (kind === "quote") data.client_company_name = organisation;
+    else data.client = { ...data.client, company_name: organisation };
+    const pages = await render(`${kind}-long-company`, Component, data);
+    assertPageSafety(pages);
+    assert.ok(pages.map((page) => page.text).join(" ").includes(organisation));
+  });
+}
+
+for (const [kind, Component, dataFor] of [["invoice", InvoiceDocument, invoiceData], ["quote", QuoteDocument, quoteData], ["receipt", ReceiptDocument, receiptData]]) {
   for (const count of [...Array.from({ length: 17 }, (_, i) => i), 30, 80]) {
     test(`${kind}: ${count} items fit within pages and retain every line`, async () => {
       const data = dataFor(count);

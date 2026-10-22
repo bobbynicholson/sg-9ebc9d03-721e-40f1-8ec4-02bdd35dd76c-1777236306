@@ -68,7 +68,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { data, error } = await supabase
     .from("quotes")
     .select(`
-      id, quote_number, quote_name, client_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
+      id, quote_number, quote_name, client_name, client_company_name, client_email, client_phone, event_date, event_time, setup_time, guest_count,
       client:client_id (
         payment_terms, billing_address_line1, billing_address_line2,
         billing_city, billing_postal_code, tax_number

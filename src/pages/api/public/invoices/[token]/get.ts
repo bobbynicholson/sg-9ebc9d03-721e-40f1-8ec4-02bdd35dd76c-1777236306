@@ -122,7 +122,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     .select(`
       id, public_token, invoice_number, invoice_date, due_date, order_id, currency,
       total_amount, amount_paid, balance_due, status, invoice_data,
-      client:client_id ( tax_number, payment_terms ),
+      client:client_id ( company_name, tax_number, payment_terms ),
       companies:company_id (
         id, slug, company_name, legal_name, time_format, logo_url, email, phone_number:phone, currency,
         vat_registered, vat_number, vat_rate, deposit_percent, dispatch_settings, registration_number,
@@ -150,6 +150,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     ? { ...invoiceForResponse.invoice_data }
     : {};
   const client = invoiceForResponse.client || {};
+  invoiceData.clientCompanyName = client.company_name || invoiceData.clientCompanyName || null;
   // Keep customer tax data and terms in the same document snapshot the
   // public page already consumes. The token is the capability for this
   // invoice, and no extra client data is returned beyond these document
@@ -172,7 +173,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (invoiceForResponse.order_id) {
     const { data: orderMeta } = await supabase
       .from("orders")
-      .select("id, quote_id, package_id, event_date, event_time, event_name, venue_address, guest_count, client_name, client_email, client_phone, subtotal, tax_amount, total_amount, deposit_amount, deposit_percentage, currency")
+      .select("id, quote_id, package_id, event_date, event_time, event_name, venue_address, guest_count, client_name, client_company_name, client_email, client_phone, subtotal, tax_amount, total_amount, deposit_amount, deposit_percentage, currency")
       .eq("id", invoiceForResponse.order_id)
       .maybeSingle();
 
@@ -189,6 +190,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       invoiceData.venue = (orderMeta as any).venue_address ?? null;
       invoiceData.venueAddress = (orderMeta as any).venue_address ?? null;
       invoiceData.guestCount = (orderMeta as any).guest_count ?? null;
+      invoiceData.clientCompanyName = (orderMeta as any).client_company_name || invoiceData.clientCompanyName || null;
       invoiceData.clientName = (orderMeta as any).client_name ?? invoiceData.clientName ?? null;
       invoiceData.clientEmail = (orderMeta as any).client_email ?? invoiceData.clientEmail ?? null;
       invoiceData.clientPhone = (orderMeta as any).client_phone ?? invoiceData.clientPhone ?? null;

@@ -188,6 +188,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       venue_lat:       (quote as any).venue_lat ?? null,
       venue_lng:       (quote as any).venue_lng ?? null,
       client_name:     (quote as any).client_name ?? null,
+      client_company_name: (quote as any).client_company_name ?? null,
       client_email:    (quote as any).client_email ?? null,
       client_phone:    (quote as any).client_phone ?? null,
       event_name:      (quote as any).quote_name ?? null,

@@ -35,6 +35,7 @@ import { isManualEftAvailable } from "@/lib/publicPaymentOptions";
 import { applyBrandingToDOM, loadBrandFonts } from "@/lib/branding/applyBranding";
 import { buildCompanyTermsPath } from "@/lib/companyLegal";
 import { getOrderPaymentSummary } from "@/lib/paymentStatus";
+import { customerBillingIdentity } from "@/lib/customerIdentity";
 import { DocumentPartiesAndEvent } from "@/components/documents/DocumentPartiesAndEvent";
 import { formatClockBoth } from "@/lib/portalTime";
 import { groupByCourse } from "@/lib/menuCourses";
@@ -1028,7 +1029,7 @@ export default function InvoicePaymentPage() {
                 <CardContent className="px-5 py-5">
                   <DocumentPartiesAndEvent
                     from={{ name: co?.legal_name || co?.company_name || idata.companyName, address: idata.companyAddress, email: co?.email || idata.companyEmail, phone: co?.phone_number || idata.companyPhone }}
-                    billTo={{ name: idata.clientName, address: idata.clientAddress, email: idata.clientEmail, phone: idata.clientPhone, taxNumber: idata.clientTaxNumber }}
+                    billTo={{ ...customerBillingIdentity(idata.clientName, idata.clientCompanyName), address: idata.clientAddress, email: idata.clientEmail, phone: idata.clientPhone, taxNumber: idata.clientTaxNumber }}
                     event={{
                       reference: idata.orderNumber,
                       date: resolvedEventDateText,

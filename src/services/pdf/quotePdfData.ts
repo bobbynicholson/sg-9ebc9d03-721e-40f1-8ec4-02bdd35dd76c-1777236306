@@ -130,6 +130,7 @@ export function buildQuotePdfDataFromRow(row: any): QuotePdfData {
     quote_number: row?.quote_number || row?.id || "Quote",
     quote_name: row?.quote_name ?? null,
     client_name: row?.client_name ?? null,
+    client_company_name: row?.client_company_name ?? null,
     client_email: row?.client_email ?? null,
     client_phone: row?.client_phone ?? null,
     client_address: [

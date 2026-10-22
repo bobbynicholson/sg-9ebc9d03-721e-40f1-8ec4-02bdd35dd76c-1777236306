@@ -207,7 +207,7 @@ export function ClientTypeahead({
                         ))}
                       </div>
                       <div className="mt-0.5 text-xs text-slate-500 truncate">
-                        {r.email || r.phone || "No contact details on file"}
+                        {[r.company_name, r.email || r.phone || "No contact details on file"].filter(Boolean).join(" · ")}
                       </div>
                       {(r.last_seen_label || r.last_venue_address) && (
                         <div className="mt-0.5 text-[11px] text-slate-400 truncate">

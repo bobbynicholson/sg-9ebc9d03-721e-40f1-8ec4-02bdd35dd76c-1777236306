@@ -1,5 +1,6 @@
 import { supabase as defaultSupabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
+import { customerBillingIdentity } from "@/lib/customerIdentity";
 import { calculateInvoiceDueDate } from "@/lib/invoiceDateRules";
 import { reconcileCompanyInvoiceDueDates } from "@/services/invoiceDueDateService";
 import {
@@ -20,6 +21,8 @@ import {
 import { invoicePaymentTerms } from "@/lib/invoicePaymentTerms";
 import { configuredPaymentTerms } from "@/lib/paymentTerms";
 import { fetchMenuCategories } from "@/lib/menuCourses";
+
+const escapeEmailHtml = (value: string) => String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!));
 
 // Server-safe client injection. Browser callers pass nothing and get
 // the global anon-key client (RLS-gated). Server callers (the
@@ -62,6 +65,7 @@ interface InvoiceData {
   
   // Client Details
   clientName: string;
+  clientCompanyName?: string | null;
   clientEmail: string;
   clientPhone?: string;
   clientAddress?: string;
@@ -256,7 +260,7 @@ export async function generateInvoiceData(
       .select(`
         *,
         clients (
-          client_name,
+          client_name, company_name,
           email,
           phone,
           billing_address_line1,
@@ -613,6 +617,7 @@ export async function generateInvoiceData(
       companyRegistration: companyData.registration_number || "",
       
       clientName,
+      clientCompanyName: orderData.client_company_name || client.company_name || null,
       clientEmail: orderData.client_email || client.email,
       clientPhone: orderData.client_phone || client.phone,
       clientAddress,
@@ -1352,12 +1357,12 @@ async function renderInvoicePdfAttachment(
       subtotal, tax_amount, total_amount, amount_paid, balance_due,
       notes, invoice_data, updated_at,
       client:client_id (
-        client_name, email, phone,
+        client_name, company_name, email, phone,
         billing_address_line1, billing_address_line2,
         billing_city, billing_postal_code, tax_number, payment_terms
       ),
       order:order_id (
-        id, order_number, client_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at
+        id, order_number, client_name, client_company_name, client_email, client_phone, event_name, event_date, event_time, venue_address, guest_count, deposit_amount, deposit_percentage, currency, updated_at
       ),
       company:company_id (
         id, slug, company_name, legal_name, time_format, logo_url, email, phone,
@@ -1450,6 +1455,7 @@ async function renderInvoicePdfAttachment(
       status: invAny.status,
       client: {
         name: order.client_name || client.client_name || fallbackData.clientName || "",
+        company_name: order.client_company_name || client.company_name || fallbackData.clientCompanyName || null,
         email: order.client_email || client.email || fallbackData.clientEmail || null,
         phone: order.client_phone || client.phone || fallbackData.clientPhone || null,
         address: clientAddress,
@@ -1737,7 +1743,8 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   <div class="invoice-meta">
     <div>
       <div class="section-title">BILL TO</div>
-      <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">${data.clientName}</div>
+      <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">${escapeEmailHtml(customerBillingIdentity(data.clientName, data.clientCompanyName).name)}</div>
+      ${data.clientCompanyName ? `<div style="font-size:12px; margin-bottom:5px;">Attention: ${escapeEmailHtml(data.clientName)}</div>` : ""}
       ${data.clientAddress ? `<div>${data.clientAddress}</div>` : ""}
       <div>Email: ${data.clientEmail}</div>
       ${data.clientPhone ? `<div>Phone: ${data.clientPhone}</div>` : ""}

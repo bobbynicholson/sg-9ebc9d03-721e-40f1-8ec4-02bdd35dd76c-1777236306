@@ -74,7 +74,7 @@ export const lifecycleService = {
     const { data: lead, error: leadErr } = await sb
       .from("leads")
       .select(
-        "id, company_id, region_id, contact_name, email, phone, tags, notes, converted_to_client_id, deleted_at",
+        "id, company_id, region_id, contact_name, company_name, email, phone, tags, notes, converted_to_client_id, deleted_at",
       )
       .eq("id", leadId)
       .single();
@@ -105,7 +105,7 @@ export const lifecycleService = {
     const { data: existingClient, error: existingClientErr } = leadEmail
       ? await sb
           .from("clients")
-          .select("id")
+          .select("id, company_name")
           .eq("company_id", (lead as any).company_id)
           .ilike("email", leadEmail.replace(/([%_\\])/g, "\\$1"))
           .is("deleted_at", null)
@@ -120,6 +120,11 @@ export const lifecycleService = {
 
     if (existingClient?.id) {
       clientId = existingClient.id as string;
+      if ((lead as any).company_name && !(existingClient as any).company_name) {
+        const { error: identityError } = await sb.from("clients").update({ company_name: (lead as any).company_name, client_type: "company" } as any)
+          .eq("id", clientId).eq("company_id", (lead as any).company_id).is("company_name", null);
+        if (identityError) throw new Error(`Could not save the client company name: ${identityError.message}`);
+      }
     } else {
       // 4. Create a fresh client row from the lead's data.
       // clients.phone is NOT NULL on the schema, so fall back to an
@@ -132,6 +137,8 @@ export const lifecycleService = {
           company_id: (lead as any).company_id,
           region_id: (lead as any).region_id ?? null,
           client_name: (lead as any).contact_name,
+          company_name: (lead as any).company_name || null,
+          client_type: (lead as any).company_name ? "company" : "individual",
           email: (lead as any).email,
           phone: (lead as any).phone || "",
           tags: (lead as any).tags ?? null,
@@ -238,7 +245,7 @@ export const lifecycleService = {
     //    if needed.
     const { data: order, error: orderErr } = await sb
       .from("orders")
-      .select("id, company_id, region_id, client_id, quote_id, order_number, client_name, client_email, client_phone, event_date, guest_count, venue_address, subtotal, tax_amount, total_amount, status, deleted_at")
+      .select("id, company_id, region_id, client_id, quote_id, order_number, client_name, client_company_name, client_email, client_phone, event_date, guest_count, venue_address, subtotal, tax_amount, total_amount, status, deleted_at")
       .eq("id", orderId)
       .maybeSingle();
     if (orderErr) {
@@ -283,6 +290,8 @@ export const lifecycleService = {
             company_id: companyId,
             region_id: regionId,
             client_name: name || "Client",
+            company_name: (order as any).client_company_name || null,
+            client_type: (order as any).client_company_name ? "company" : "individual",
             email,
             phone: phone || "",
             is_active: true,
@@ -386,6 +395,7 @@ export const lifecycleService = {
           client_id: clientId,
           lead_id: leadId,
           client_name: name,
+          client_company_name: (order as any).client_company_name || null,
           client_email: email,
           event_date: (order as any).event_date,
           guest_count: (order as any).guest_count,
@@ -453,7 +463,7 @@ export const lifecycleService = {
 
     const { data: client, error: clientErr } = await sb
       .from("clients")
-      .select("id, company_id, region_id, client_name, email, phone, deleted_at")
+      .select("id, company_id, region_id, client_name, company_name, email, phone, deleted_at")
       .eq("id", clientId)
       .maybeSingle();
     if (clientErr) {
@@ -494,6 +504,7 @@ export const lifecycleService = {
         // leads.region_id is NOT NULL - fall back to the default region.
         region_id: (client as any).region_id
           ?? (await resolveDefaultRegionId((client as any).company_id)),
+        company_name: (client as any).company_name || null,
         contact_name: (client as any).client_name || "Customer",
         client_name: (client as any).client_name || "Customer",
         email: (client as any).email,

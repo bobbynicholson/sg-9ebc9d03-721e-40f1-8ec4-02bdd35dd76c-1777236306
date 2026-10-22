@@ -376,11 +376,11 @@ function NewLeadInner() {
                       )}
                     </div>
                     <div>
-                      <Label htmlFor="company">Company / organisation</Label>
+                      <Label htmlFor="company">Company / organisation name (optional)</Label>
                       <Input
                         id="company"
                         placeholder="Optional. Leave blank for individuals"
-                        {...register("company")}
+                        {...register("company")} maxLength={200}
                       />
                     </div>
                   </div>

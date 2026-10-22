@@ -32,6 +32,7 @@ export interface PublicQuoteView {
   quote_number: string;
   quote_name: string;
   client_name: string | null;
+  client_company_name?: string | null;
   client_email?: string | null;
   client_phone?: string | null;
   client?: {

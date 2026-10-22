@@ -283,6 +283,7 @@ export async function syncOrderArtifacts(
 
       await sb.from("quotes").update({
         client_name: (order as any).client_name,
+        client_company_name: (order as any).client_company_name || null,
         venue_address: (order as any).venue_address,
         event_date: (order as any).event_date,
         guest_count: (order as any).guest_count,
